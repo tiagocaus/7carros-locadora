@@ -740,13 +740,13 @@ class TemplateVariables
             ],
             'condutores_adicionais' => [
                 'key' => 'locacao.condutores_adicionais',
-                'type' => 'text',
+                'type' => 'computed',
                 'label_key' => 'variables.locacao.condutores_adicionais',
                 'example' => 'José Silva, Ana Costa'
             ],
             'fiadores' => [
                 'key' => 'locacao.fiadores',
-                'type' => 'text',
+                'type' => 'computed',
                 'label_key' => 'variables.locacao.fiadores',
                 'example' => 'Pedro Almeida (CPF: 987.654.321-00)'
             ],
@@ -1568,6 +1568,14 @@ class TemplateVariables
                 $html .= '</div>';
                 return $html;
 
+            // ===== LOCACAO - Variáveis Computed =====
+
+            case 'locacao.condutores_adicionais':
+                return self::buildContratoCondutoresTexto($context['locacao']['condutores'] ?? [], $locale);
+
+            case 'locacao.fiadores':
+                return self::buildPessoasTexto($context['locacao']['fiadores'] ?? []);
+
             default:
                 return null;
         }
@@ -1878,16 +1886,9 @@ class TemplateVariables
     /**
      * Gera texto formatado da lista de condutores adicionais
      */
-    private static function buildContratoCondutoresTexto(array $condutores, string $locale): ?string
+    private static function buildContratoCondutoresTexto(mixed $condutores, string $locale): ?string
     {
-        if (empty($condutores)) {
-            return null;
-        }
-
-        // Condutores podem vir como JSON string
-        if (is_string($condutores)) {
-            $condutores = json_decode($condutores, true) ?? [];
-        }
+        $condutores = self::normalizeList($condutores);
 
         if (empty($condutores)) {
             return null;
@@ -1950,16 +1951,9 @@ class TemplateVariables
     /**
      * Gera texto formatado para lista de pessoas (fiadores, avalistas, testemunhas)
      */
-    private static function buildPessoasTexto(array $pessoas): ?string
+    private static function buildPessoasTexto(mixed $pessoas): ?string
     {
-        if (empty($pessoas)) {
-            return null;
-        }
-
-        // Pessoas podem vir como JSON string
-        if (is_string($pessoas)) {
-            $pessoas = json_decode($pessoas, true) ?? [];
-        }
+        $pessoas = self::normalizeList($pessoas);
 
         if (empty($pessoas)) {
             return null;
@@ -1981,6 +1975,23 @@ class TemplateVariables
         }
 
         return implode("\n\n", $linhas);
+    }
+
+    /**
+     * Normaliza listas vindas como array, JSON ou valor vazio.
+     */
+    private static function normalizeList(mixed $value): array
+    {
+        if (empty($value)) {
+            return [];
+        }
+
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($value) ? $value : [];
     }
 
     /**
