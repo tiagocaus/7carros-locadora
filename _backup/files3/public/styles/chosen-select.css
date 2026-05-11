@@ -1,0 +1,195 @@
+/* ============================================
+   CHOSEN SELECT - Estilos para selects com busca
+   ============================================ */
+
+.chosen-select-container {
+    position: relative;
+    width: 100%;
+}
+
+.chosen-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.chosen-select {
+    width: 100%;
+    padding: 0.5rem;
+    padding-right: 2.5rem;
+    border: 1px solid #CBD5E1;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    background-color: white;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.chosen-select:focus {
+    outline: none;
+    border-color: #0EA5E9;
+    box-shadow: 0 0 0 1px #0EA5E9;
+}
+
+.chosen-select-wrapper::after {
+    content: '\f078';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #64748B;
+    font-size: 0.75rem;
+}
+
+.chosen-select-wrapper.chosen-select-open::after {
+    content: '\f077';
+}
+
+.chosen-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #CBD5E1;
+    border-top: none;
+    border-radius: 0 0 0.375rem 0.375rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    margin-top: -1px;
+}
+
+.chosen-select-dropdown.chosen-select-open {
+    display: block;
+}
+
+.chosen-select-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid #E2E8F0;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+}
+
+.chosen-select-search input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #CBD5E1;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    outline: none;
+}
+
+.chosen-select-search input:focus {
+    border-color: #0EA5E9;
+    box-shadow: 0 0 0 1px #0EA5E9;
+}
+
+.chosen-select-search input::placeholder {
+    color: #94A3B8;
+}
+
+.chosen-select-options {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.chosen-select-option {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: #475569;
+    transition: background-color 0.15s ease;
+}
+
+.chosen-select-option:hover {
+    background-color: #F1F5F9;
+}
+
+.chosen-select-option.chosen-select-highlighted {
+    background-color: #E0F2FE;
+    color: #0C4A6E;
+}
+
+.chosen-select-option.chosen-select-selected {
+    background-color: #0EA5E9;
+    color: white;
+}
+
+.chosen-select-option.chosen-select-selected:hover {
+    background-color: #0284C7;
+}
+
+.chosen-select-no-results {
+    padding: 0.75rem;
+    text-align: center;
+    color: #94A3B8;
+    font-size: 0.875rem;
+}
+
+.chosen-select-loading {
+    padding: 0.75rem;
+    text-align: center;
+    color: #64748B;
+    font-size: 0.875rem;
+}
+
+.chosen-select-loading::after {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #CBD5E1;
+    border-top-color: #0EA5E9;
+    border-radius: 50%;
+    animation: chosen-select-spin 0.6s linear infinite;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+@keyframes chosen-select-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.chosen-select-min-chars {
+    padding: 0.75rem;
+    text-align: center;
+    color: #94A3B8;
+    font-size: 0.875rem;
+    font-style: italic;
+}
+
+/* Server-side específico - placeholder será definido via JavaScript */
+
+/* Scrollbar personalizada */
+.chosen-select-dropdown::-webkit-scrollbar,
+.chosen-select-options::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chosen-select-dropdown::-webkit-scrollbar-track,
+.chosen-select-options::-webkit-scrollbar-track {
+    background: #F1F5F9;
+}
+
+.chosen-select-dropdown::-webkit-scrollbar-thumb,
+.chosen-select-options::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+}
+
+.chosen-select-dropdown::-webkit-scrollbar-thumb:hover,
+.chosen-select-options::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+

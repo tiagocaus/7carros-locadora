@@ -1,0 +1,587 @@
+<?php
+
+namespace App\Services\Gateways;
+
+/**
+ * Gateway de pagamento Banco Inter
+ *
+ * Integração com a API do Banco Inter para PIX e Boleto.
+ * Implementação própria via REST API.
+ *
+ * @see https://developers.inter.co/
+ */
+class InterGateway extends AbstractPaymentGateway
+{
+    private string $grantedScopes = '';
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getCode(): string
+    {
+        return 'inter';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getName(): string
+    {
+        return 'Banco Inter';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getCountry(): string
+    {
+        return 'BR';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getSupportedMethods(): array
+    {
+        return ['pix', 'boleto'];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getConfigSchema(): array
+    {
+        return [
+            'client_id' => [
+                'type' => 'string',
+                'required' => true,
+                'label' => 'Client ID',
+                'placeholder' => 'Seu Client ID',
+                'help' => 'ID do cliente disponível no Internet Banking',
+            ],
+            'client_secret' => [
+                'type' => 'password',
+                'required' => true,
+                'label' => 'Client Secret',
+                'placeholder' => 'Seu Client Secret',
+                'help' => 'Chave secreta do cliente',
+            ],
+            'certificate_path' => [
+                'type' => 'string',
+                'required' => true,
+                'label' => 'Caminho do Certificado',
+                'placeholder' => '/path/to/certificate.crt',
+                'help' => 'Caminho para o certificado .crt',
+            ],
+            'private_key_path' => [
+                'type' => 'string',
+                'required' => true,
+                'label' => 'Caminho da Chave Privada',
+                'placeholder' => '/path/to/private_key.key',
+                'help' => 'Caminho para a chave privada .key',
+            ],
+            'conta_corrente' => [
+                'type' => 'string',
+                'required' => true,
+                'label' => 'Conta Corrente',
+                'placeholder' => '12345678',
+                'help' => 'Número da conta corrente Inter',
+            ],
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function validateCredentials(array $credentials): array
+    {
+        if (empty($credentials['client_id']) || empty($credentials['client_secret'])) {
+            return [
+                'valid' => false,
+                'message' => 'Client ID e Client Secret são obrigatórios',
+            ];
+        }
+
+        try {
+            $token = $this->getAccessToken();
+
+            if ($token) {
+                return [
+                    'valid' => true,
+                    'message' => 'Credenciais válidas',
+                ];
+            }
+
+            return [
+                'valid' => false,
+                'message' => 'Não foi possível obter token de acesso',
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'valid' => false,
+                'message' => 'Erro ao validar: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function createCharge(array $data): array
+    {
+        try {
+            $this->validateRequiredFields($data, ['value', 'billing_type']);
+
+            $token = $this->getAccessToken();
+            if (!$token) {
+                return [
+                    'success' => false,
+                    'message' => 'Não foi possível autenticar com o Banco Inter',
+                ];
+            }
+
+            $billingType = strtoupper($data['billing_type']);
+
+            if ($billingType === 'PIX') {
+                return $this->createPixCharge($data, $token);
+            }
+
+            return $this->createBoletoCharge($data, $token);
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erro ao criar cobrança: ' . $e->getMessage(),
+                'raw' => [],
+            ];
+        }
+    }
+
+    /**
+     * Cria cobrança PIX
+     */
+    private function createPixCharge(array $data, string $token): array
+    {
+        $vencimento = date('Y-m-d', strtotime('+3 days'));
+
+        $payload = [
+            'seuNumero' => substr(preg_replace('/[^a-zA-Z0-9]/', '', uniqid('pix', true)), 0, 15),
+            'valorNominal' => (float) $data['value'],
+            'dataVencimento' => $vencimento,
+            'numDiasAgenda' => 3,
+        ];
+
+        // Pagador é obrigatório na API Cobrança v3 (incluindo endereço)
+        $doc = !empty($data['customer_document']) ? $this->sanitizeDocument($data['customer_document']) : '';
+        $payload['pagador'] = [
+            'cpfCnpj' => $doc ?: '00000000000',
+            'nome' => $data['customer_name'] ?? 'Cliente',
+            'tipoPessoa' => strlen($doc) === 14 ? 'JURIDICA' : 'FISICA',
+            'endereco' => !empty($data['customer_address']) ? $data['customer_address'] : 'Nao informado',
+            'cidade' => !empty($data['customer_city']) ? $data['customer_city'] : 'Nao informado',
+            'uf' => !empty($data['customer_state']) ? $data['customer_state'] : 'SP',
+            'cep' => !empty($data['customer_zip']) ? $data['customer_zip'] : '00000000',
+        ];
+        if (!empty($data['customer_email'])) {
+            $payload['pagador']['email'] = $data['customer_email'];
+        }
+
+        $response = $this->makeApiRequest('POST', '/cobranca/v3/cobrancas', $payload, $token);
+
+        if (empty($response['codigoSolicitacao'])) {
+            $httpCode = $response['_http_code'] ?? 0;
+            $rawBody = $response['_raw_body'] ?? '';
+            $errorMsg = $response['detail']
+                ?? $response['message']
+                ?? $response['title']
+                ?? null;
+
+            if (!$errorMsg) {
+                $errorMsg = "Erro ao criar PIX (HTTP {$httpCode})";
+                if ($rawBody && $rawBody !== '{}') {
+                    $errorMsg .= ': ' . substr($rawBody, 0, 300);
+                }
+            }
+
+            if (!empty($response['violacoes'])) {
+                $violations = array_map(function($v) {
+                    $prop = $v['propriedade'] ?? '';
+                    $razao = $v['razao'] ?? $v['motivo'] ?? '';
+                    return $prop ? "[{$prop}] {$razao}" : $razao;
+                }, $response['violacoes']);
+                $errorMsg .= ' - ' . implode('; ', array_filter($violations));
+            }
+
+            return [
+                'success' => false,
+                'message' => $errorMsg,
+                'http_code' => $httpCode,
+                'raw' => $response,
+            ];
+        }
+
+        $status = 'pending';
+
+        $transactionId = $this->logTransaction(
+            $data['chave'] ?? '',
+            $data['id_financeiro'] ?? null,
+            'charge',
+            $response['codigoSolicitacao'],
+            $status,
+            (float) $data['value'],
+            'pix',
+            $response,
+            null,
+            $response['pixCopiaECola'] ?? null,
+            null,
+            $vencimento
+        );
+
+        return [
+            'success' => true,
+            'external_id' => $response['codigoSolicitacao'],
+            'status' => $status,
+            'pix_code' => $response['pixCopiaECola'] ?? null,
+            'pix_qrcode' => null,
+            'barcode' => $response['linhaDigitavel'] ?? null,
+            'boleto_url' => $response['urlBoleto'] ?? null,
+            'transaction_id' => $transactionId,
+            'raw' => $response,
+        ];
+    }
+
+    /**
+     * Cria cobrança Boleto
+     */
+    private function createBoletoCharge(array $data, string $token): array
+    {
+        $vencimento = $data['due_date'] ?? date('Y-m-d', strtotime('+3 days'));
+
+        $payload = [
+            'seuNumero' => $data['external_reference'] ?? uniqid(),
+            'valorNominal' => (float) $data['value'],
+            'dataVencimento' => $vencimento,
+            'numDiasAgenda' => 30,
+        ];
+
+        if (!empty($data['customer_document'])) {
+            $doc = $this->sanitizeDocument($data['customer_document']);
+            $payload['pagador'] = [
+                'cpfCnpj' => $doc,
+                'nome' => $data['customer_name'] ?? 'Cliente',
+                'tipoPessoa' => strlen($doc) === 11 ? 'FISICA' : 'JURIDICA',
+            ];
+
+            if (!empty($data['customer_email'])) {
+                $payload['pagador']['email'] = $data['customer_email'];
+            }
+        }
+
+        if (!empty($data['description'])) {
+            $payload['desconto'] = ['codigoDesconto' => 'NAOTEMDESCONTO'];
+            $payload['multa'] = ['codigoMulta' => 'NAOTEMMULTA'];
+            $payload['mora'] = ['codigoMora' => 'ISENTO'];
+        }
+
+        $response = $this->makeApiRequest('POST', '/cobranca/v3/cobrancas', $payload, $token);
+
+        if (empty($response['codigoSolicitacao'])) {
+            return [
+                'success' => false,
+                'message' => $response['message'] ?? 'Erro ao criar boleto',
+            ];
+        }
+
+        $transactionId = $this->logTransaction(
+            $data['chave'] ?? '',
+            $data['id_financeiro'] ?? null,
+            'charge',
+            $response['codigoSolicitacao'],
+            'pending',
+            (float) $data['value'],
+            'boleto',
+            $response,
+            null,
+            null,
+            $response['linhaDigitavel'] ?? null,
+            $vencimento
+        );
+
+        return [
+            'success' => true,
+            'external_id' => $response['codigoSolicitacao'],
+            'status' => 'pending',
+            'barcode' => $response['linhaDigitavel'] ?? null,
+            'boleto_url' => $response['urlBoleto'] ?? null,
+            'transaction_id' => $transactionId,
+            'raw' => $response,
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getChargeStatus(string $externalId): array
+    {
+        try {
+            $token = $this->getAccessToken();
+            if (!$token) {
+                return ['success' => false, 'message' => 'Não foi possível autenticar'];
+            }
+
+            // Verificar se é PIX ou Boleto pelo formato do ID
+            if (strlen($externalId) <= 35 && !str_contains($externalId, '-')) {
+                $response = $this->makeApiRequest('GET', "/pix/v2/cob/{$externalId}", [], $token);
+            } else {
+                $response = $this->makeApiRequest('GET', "/cobranca/v3/cobrancas/{$externalId}", [], $token);
+            }
+
+            return [
+                'success' => true,
+                'status' => $this->mapStatus($response['status'] ?? $response['situacao'] ?? ''),
+                'paid_at' => $response['dataPagamento'] ?? null,
+                'raw' => $response,
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erro ao consultar: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function refund(string $externalId, ?float $amount = null): array
+    {
+        try {
+            $token = $this->getAccessToken();
+            if (!$token) {
+                return ['success' => false, 'message' => 'Não foi possível autenticar'];
+            }
+
+            $e2eid = $this->credentials['e2eid'] ?? '';
+            $payload = [
+                'valor' => $amount ? $this->formatAmount($amount) : null,
+            ];
+
+            $response = $this->makeApiRequest('PUT', "/pix/v2/pix/{$e2eid}/devolucao/{$externalId}", $payload, $token);
+
+            return [
+                'success' => true,
+                'refund_id' => $response['id'] ?? $externalId,
+                'raw' => $response,
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erro ao estornar: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function cancel(string $externalId): array
+    {
+        try {
+            $token = $this->getAccessToken();
+            if (!$token) {
+                return ['success' => false, 'message' => 'Não foi possível autenticar'];
+            }
+
+            $response = $this->makeApiRequest('POST', "/cobranca/v3/cobrancas/{$externalId}/cancelar", ['motivoCancelamento' => 'APEDIDODOCLIENTE'], $token);
+
+            return [
+                'success' => true,
+                'raw' => $response,
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erro ao cancelar: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function validateWebhookSignature(array $payload, array $headers): bool
+    {
+        return true; // mTLS valida
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function parseWebhookPayload(array $payload): array
+    {
+        $pix = $payload['pix'][0] ?? $payload;
+        return [
+            'event' => 'payment',
+            'external_id' => $pix['txid'] ?? $payload['codigoSolicitacao'] ?? '',
+            'status' => $this->mapStatus($pix['status'] ?? $payload['situacao'] ?? ''),
+            'paid_at' => $pix['horario'] ?? $payload['dataPagamento'] ?? null,
+            'raw' => $payload,
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getDocumentationUrl(): string
+    {
+        return 'https://developers.inter.co/';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function mapStatus(string $gatewayStatus): string
+    {
+        return match (strtoupper($gatewayStatus)) {
+            'CONCLUIDA', 'PAGO', 'RECEBIDO', 'LIQUIDADO' => 'paid',
+            'ATIVA', 'EMABERTO', 'PENDENTE', 'AGUARDANDO' => 'pending',
+            'REMOVIDA_PELO_USUARIO_RECEBEDOR', 'CANCELADO', 'BAIXADO', 'EXPIRADO' => 'cancelled',
+            default => 'pending',
+        };
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function getBaseUrl(): string
+    {
+        if ($this->sandbox) {
+            return 'https://cdpj-sandbox.partners.bancointer.com.br';
+        }
+        return env('INTER_BASE_URL', '') ?: 'https://cdpj.partners.bancointer.com.br';
+    }
+
+    /**
+     * Faz requisição HTTP com certificado mTLS para Banco Inter
+     *
+     * @param string $method Método HTTP
+     * @param string $endpoint Endpoint da API
+     * @param array $data Dados para enviar
+     * @param string|null $token Token de autenticação
+     * @param bool $isAuthRequest Se é requisição de autenticação
+     * @return array
+     */
+    private function makeApiRequest(
+        string $method,
+        string $endpoint,
+        array $data = [],
+        ?string $token = null,
+        bool $isAuthRequest = false
+    ): array {
+        $url = str_starts_with($endpoint, 'http') ? $endpoint : $this->getBaseUrl() . $endpoint;
+
+        $headers = ['Accept: application/json'];
+
+        if ($isAuthRequest) {
+            $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+            $postData = http_build_query($data);
+        } else {
+            $headers[] = 'Content-Type: application/json';
+            $postData = !empty($data) ? json_encode($data, JSON_PRESERVE_ZERO_FRACTION) : '';
+        }
+
+        if ($token) {
+            $headers[] = "Authorization: Bearer {$token}";
+        }
+
+        // Adicionar header da conta corrente para requisições autenticadas
+        if (!$isAuthRequest && !empty($this->credentials['conta_corrente'])) {
+            $headers[] = "x-conta-corrente: {$this->credentials['conta_corrente']}";
+        }
+
+        $ch = curl_init();
+
+        $curlOptions = [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ];
+
+        // Configurar certificados mTLS
+        $certPath = $this->credentials['certificate_path'] ?? '';
+        $keyPath = $this->credentials['private_key_path'] ?? '';
+
+        if (!empty($certPath) && file_exists($certPath)) {
+            $curlOptions[CURLOPT_SSLCERT] = $certPath;
+        }
+
+        if (!empty($keyPath) && file_exists($keyPath)) {
+            $curlOptions[CURLOPT_SSLKEY] = $keyPath;
+        }
+
+        switch (strtoupper($method)) {
+            case 'POST':
+                $curlOptions[CURLOPT_POST] = true;
+                $curlOptions[CURLOPT_POSTFIELDS] = $postData;
+                break;
+            case 'PUT':
+            case 'PATCH':
+            case 'DELETE':
+                $curlOptions[CURLOPT_CUSTOMREQUEST] = strtoupper($method);
+                if (!empty($postData)) {
+                    $curlOptions[CURLOPT_POSTFIELDS] = $postData;
+                }
+                break;
+        }
+
+        curl_setopt_array($ch, $curlOptions);
+
+        $response = curl_exec($ch);
+        $error = curl_error($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($error) {
+            throw new \RuntimeException("Erro cURL: {$error}");
+        }
+
+        $decoded = json_decode($response, true) ?: [];
+        $decoded['_http_code'] = $httpCode;
+        $decoded['_raw_body'] = $response;
+
+        return $decoded;
+    }
+
+    /**
+     * Obtém token de acesso OAuth
+     */
+    private function getAccessToken(): ?string
+    {
+        $clientId = $this->credentials['client_id'] ?? '';
+        $clientSecret = $this->credentials['client_secret'] ?? '';
+
+        $authUrl = $this->getBaseUrl() . '/oauth/v2/token';
+
+        $response = $this->makeApiRequest('POST', $authUrl, [
+            'grant_type' => 'client_credentials',
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+            'scope' => 'boleto-cobranca.write boleto-cobranca.read',
+        ], null, true);
+
+        $token = $response['access_token'] ?? null;
+
+        if ($token) {
+            $this->grantedScopes = $response['scope'] ?? '';
+        }
+
+        return $token;
+    }
+}

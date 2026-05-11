@@ -1,0 +1,491 @@
+# Padrões de Banco de Dados
+
+## Configuração Geral
+
+### Charset e Collation
+
+**Sempre use utf8mb4 e utf8mb4_unicode_ci:**
+
+```sql
+CREATE DATABASE 7carros_locadora
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+```
+
+**Por quê utf8mb4?**
+- Suporta emojis e caracteres especiais
+- Compatível com UTF-8 completo (4 bytes)
+- Padrão moderno do MySQL
+
+### Credenciais de Acesso
+
+```bash
+# MySQL CLI
+mysql -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora
+
+# Backup
+mysqldump -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora > backup.sql
+
+# Restore
+mysql -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora < backup.sql
+```
+
+## Convenções de Nomenclatura
+
+### Tabelas
+
+- **snake_case** em minúsculas
+- **Plural** para tabelas de entidades
+- Nomes descritivos em português
+
+```sql
+-- ✅ BOM
+clientes
+veiculos
+reservas
+contratos_reserva
+
+-- ❌ EVITAR
+Cliente
+tbl_cliente
+client
+```
+
+### Colunas
+
+- **snake_case** em minúsculas
+- Nomes descritivos em português
+- Sufixos para tipos específicos:
+  - `_id` para foreign keys
+  - `_at` para timestamps
+  - `_data` para datas
+  - `_valor` para valores monetários
+
+```sql
+-- ✅ BOM
+nome_rsocial
+cpf_cnpj
+data_nascimento
+created_at
+cliente_id
+valor_diaria
+
+-- ❌ EVITAR
+NomeRSocial
+cpfCnpj
+dt_nasc
+```
+
+### Índices
+
+- Prefixo `idx_` para índices normais
+- Prefixo `uniq_` para índices únicos
+- Nome descritivo das colunas
+
+```sql
+INDEX idx_cpf_cnpj (cpf_cnpj)
+INDEX idx_chave_situacao (chave, situacao)
+UNIQUE INDEX uniq_email (email)
+```
+
+## Schema Multi-tenant
+
+### Coluna `chave` (Obrigatória)
+
+**TODAS as tabelas de dados de tenant DEVEM ter a coluna `chave`:**
+
+```sql
+CREATE TABLE clientes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    chave VARCHAR(45) NOT NULL,
+    nome_rsocial VARCHAR(255) NOT NULL,
+    cpf_cnpj VARCHAR(18),
+
+    -- Sempre indexar chave
+    INDEX idx_chave (chave),
+    INDEX idx_chave_cpf (chave, cpf_cnpj)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Exceções (tabelas sem `chave`):**
+- Tabelas compartilhadas: `cidades`, `estados`, `paises`
+- Tabelas de configuração global
+- Tabelas de logs centralizados (opcional)
+
+### Padrões de Indexação Multi-tenant
+
+```sql
+-- SEMPRE criar índices compostos começando com chave
+INDEX idx_chave_situacao (chave, situacao)
+INDEX idx_chave_data (chave, data_criacao)
+INDEX idx_chave_cliente (chave, cliente_id)
+
+-- Para buscas por texto
+INDEX idx_chave_nome (chave, nome_rsocial)
+```
+
+## Estrutura de Tabela Padrão
+
+### Template Base
+
+```sql
+CREATE TABLE nome_tabela (
+    -- Primary Key
+    id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+
+    -- Multi-tenancy (obrigatório)
+    chave VARCHAR(45) NOT NULL,
+
+    -- Campos específicos da entidade
+    campo1 VARCHAR(255),
+    campo2 TEXT,
+    campo3 DECIMAL(10,2),
+
+    -- Foreign keys
+    entidade_relacionada_id INT UNSIGNED,
+
+    -- Campos de controle
+    situacao CHAR(1) DEFAULT 'A' COMMENT 'A=Ativo, I=Inativo, E=Excluído',
+
+    -- Timestamps
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- Índices
+    INDEX idx_chave (chave),
+    INDEX idx_chave_situacao (chave, situacao),
+    INDEX idx_chave_created (chave, created_at),
+
+    -- Foreign key constraints
+    FOREIGN KEY (entidade_relacionada_id)
+        REFERENCES outra_tabela(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+## Tipos de Dados Recomendados
+
+### Identificadores
+
+```sql
+-- Primary keys
+id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT
+
+-- Foreign keys
+cliente_id INT UNSIGNED
+```
+
+### Strings
+
+```sql
+-- Textos curtos (nomes, emails)
+nome VARCHAR(255)
+email VARCHAR(255)
+
+-- Textos médios (descrições)
+descricao TEXT
+
+-- Textos longos (observações, notas)
+observacoes LONGTEXT
+
+-- Códigos fixos (CPF, placa)
+cpf_cnpj VARCHAR(18)
+placa_veiculo VARCHAR(10)
+
+-- Enums simples (use CHAR para performance)
+situacao CHAR(1) DEFAULT 'A'
+tipo CHAR(1)
+```
+
+### Números
+
+```sql
+-- Inteiros
+quantidade INT
+idade TINYINT UNSIGNED
+
+-- Decimais (valores monetários)
+valor_total DECIMAL(10,2)
+valor_diaria DECIMAL(8,2)
+
+-- Percentuais
+desconto_percentual DECIMAL(5,2)
+```
+
+### Datas e Timestamps
+
+```sql
+-- Datas
+data_nascimento DATE
+data_inicio DATE
+data_fim DATE
+
+-- Timestamps automáticos
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+```
+
+### Booleanos
+
+```sql
+-- Usar TINYINT(1) ou BOOLEAN
+ativo BOOLEAN DEFAULT TRUE
+enviado TINYINT(1) DEFAULT 0
+
+-- Ou CHAR(1) para compatibilidade
+ativo CHAR(1) DEFAULT 'S' COMMENT 'S=Sim, N=Não'
+```
+
+## Exclusão de Registros
+
+> **Importante:** o projeto **não usa soft-delete**. Para excluir um registro, use `DELETE` direto (ex: `$qb->delete()`). Não criar coluna `deleted_at` em novas tabelas.
+
+```php
+// Exclusão direta — sem coluna deleted_at
+$qb->table('clientes')->where('id', '=', $id)->delete();
+```
+
+## Foreign Keys
+
+### Estratégias de Integridade
+
+```sql
+-- RESTRICT: Impede exclusão se houver registros relacionados (padrão recomendado)
+FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE
+
+-- CASCADE: Exclui registros relacionados em cascata (use com cuidado!)
+FOREIGN KEY (reserva_id) REFERENCES reservas(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+
+-- SET NULL: Define NULL ao excluir o registro pai
+FOREIGN KEY (veiculo_id) REFERENCES veiculos(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+```
+
+**Recomendação:** Use `RESTRICT` por padrão e implemente lógica de exclusão no código.
+
+## Exemplos de Tabelas Comuns
+
+### Tabela de Clientes
+
+```sql
+CREATE TABLE clientes (
+    id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    chave VARCHAR(45) NOT NULL,
+
+    -- Identificação
+    nome_rsocial VARCHAR(255) NOT NULL,
+    nome_fantasia VARCHAR(255),
+    tipo_pessoa CHAR(1) NOT NULL COMMENT 'F=Física, J=Jurídica',
+    cpf_cnpj VARCHAR(18) NOT NULL,
+    rg_ie VARCHAR(20),
+
+    -- Contato
+    email VARCHAR(255),
+    telefone VARCHAR(20),
+    celular VARCHAR(20),
+
+    -- Endereço
+    cep VARCHAR(10),
+    logradouro VARCHAR(255),
+    numero VARCHAR(10),
+    complemento VARCHAR(100),
+    bairro VARCHAR(100),
+    cidade VARCHAR(100),
+    estado CHAR(2),
+
+    -- Controle
+    situacao CHAR(1) DEFAULT 'A' COMMENT 'A=Ativo, I=Inativo, B=Bloqueado',
+    observacoes TEXT,
+
+    -- Timestamps
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- Índices
+    INDEX idx_chave (chave),
+    INDEX idx_chave_situacao (chave, situacao),
+    INDEX idx_chave_cpf (chave, cpf_cnpj),
+    INDEX idx_chave_nome (chave, nome_rsocial),
+    INDEX idx_email (email),
+
+    UNIQUE INDEX uniq_chave_cpf (chave, cpf_cnpj)
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+### Tabela de Veículos
+
+```sql
+CREATE TABLE veiculos (
+    id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    chave VARCHAR(45) NOT NULL,
+
+    -- Identificação
+    placa VARCHAR(10) NOT NULL,
+    renavam VARCHAR(20),
+    chassi VARCHAR(20),
+
+    -- Especificações
+    marca VARCHAR(100),
+    modelo VARCHAR(100),
+    ano_fabricacao YEAR,
+    ano_modelo YEAR,
+    cor VARCHAR(50),
+    combustivel VARCHAR(20),
+    cambio VARCHAR(20),
+
+    -- Valores
+    valor_diaria DECIMAL(8,2),
+    valor_fipe DECIMAL(10,2),
+    km_atual INT,
+
+    -- Controle
+    situacao CHAR(1) DEFAULT 'D' COMMENT 'D=Disponível, R=Reservado, L=Locado, M=Manutenção, I=Inativo',
+    observacoes TEXT,
+
+    -- Timestamps
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- Índices
+    INDEX idx_chave (chave),
+    INDEX idx_chave_situacao (chave, situacao),
+    INDEX idx_chave_placa (chave, placa),
+
+    UNIQUE INDEX uniq_placa (placa)
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+### Tabela de Reservas
+
+```sql
+CREATE TABLE reservas (
+    id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    chave VARCHAR(45) NOT NULL,
+
+    -- Relacionamentos
+    cliente_id INT UNSIGNED NOT NULL,
+    veiculo_id INT UNSIGNED NOT NULL,
+    filial_id INT UNSIGNED,
+
+    -- Período
+    data_inicio DATE NOT NULL,
+    data_fim DATE NOT NULL,
+    hora_inicio TIME,
+    hora_fim TIME,
+
+    -- Valores
+    valor_diaria DECIMAL(8,2) NOT NULL,
+    quantidade_dias INT NOT NULL,
+    valor_total DECIMAL(10,2) NOT NULL,
+    valor_desconto DECIMAL(10,2) DEFAULT 0,
+    valor_final DECIMAL(10,2) NOT NULL,
+
+    -- Status
+    situacao CHAR(1) DEFAULT 'P' COMMENT 'P=Pendente, C=Confirmada, A=Ativa, F=Finalizada, X=Cancelada',
+
+    -- Observações
+    observacoes TEXT,
+
+    -- Timestamps
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- Índices
+    INDEX idx_chave (chave),
+    INDEX idx_chave_situacao (chave, situacao),
+    INDEX idx_chave_cliente (chave, cliente_id),
+    INDEX idx_chave_veiculo (chave, veiculo_id),
+    INDEX idx_chave_data_inicio (chave, data_inicio),
+    INDEX idx_chave_data_fim (chave, data_fim),
+
+    -- Foreign keys
+    FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (veiculo_id) REFERENCES veiculos(id) ON DELETE RESTRICT ON UPDATE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+## Otimização de Queries
+
+### Índices Compostos
+
+**Ordem importa! Coloque colunas mais seletivas primeiro após `chave`:**
+
+```sql
+-- ✅ BOM: chave + campo mais seletivo
+INDEX idx_chave_cpf (chave, cpf_cnpj)
+INDEX idx_chave_email (chave, email)
+
+-- ✅ Para ordenação
+INDEX idx_chave_nome (chave, nome_rsocial)
+
+-- ✅ Para range queries
+INDEX idx_chave_data (chave, created_at)
+```
+
+### EXPLAIN para Análise
+
+```sql
+EXPLAIN SELECT * FROM clientes
+WHERE chave = 'ABC123'
+AND situacao = 'A'
+ORDER BY nome_rsocial;
+
+-- Verificar:
+-- - type = ref (ideal) ou index
+-- - key = nome do índice sendo usado
+-- - rows = quantidade de linhas examinadas
+```
+
+## Backup e Restore
+
+### Backup Completo
+
+```bash
+# Dump completo do banco
+mysqldump -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Com compressão
+mysqldump -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+```
+
+### Backup de Tabela Específica
+
+```bash
+mysqldump -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora clientes veiculos > backup_core.sql
+```
+
+### Restore
+
+```bash
+# Restore completo
+mysql -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora < backup.sql
+
+# Restore de gzip
+gunzip < backup.sql.gz | mysql -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora
+```
+
+## Migrations
+
+Para criar e gerenciar migrations, veja a documentação completa em **[migrations.md](./migrations.md)**.
+
+**Executar migrations:**
+```bash
+php migrate.php
+```
+
+## Documentação Relacionada
+
+- **[QueryBuilder](./querybuilder.md)** - Camada de abstração de queries
+- **[Multi-tenancy](./multi-tenancy.md)** - Isolamento de dados por tenant
+- **[Migrations](./migrations.md)** - Gerenciamento de schema
+- **[Best Practices](./best-practices.md)** - Guidelines de segurança

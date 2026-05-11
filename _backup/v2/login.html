@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Locadora 7Carros</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="styles/base.css" rel="stylesheet">
+    <link href="styles/components.css" rel="stylesheet">
+    <link href="styles/login.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="login-container">
+        <!-- Seção de Atualizações (2/3) -->
+        <div class="updates-section">
+            <h2 class="updates-title">Últimas Atualizações</h2>
+            <p class="updates-subtitle">Fique por dentro das novidades do sistema</p>
+            
+            <div class="updates-list" id="updatesList">
+                <!-- As atualizações serão carregadas aqui via JavaScript -->
+            </div>
+        </div>
+
+        <!-- Seção de Login (1/3) -->
+        <div class="login-section">
+            <div class="login-logo">
+                <h1>7Carros</h1>
+                <p>Sistema de Locadora</p>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username" class="form-label">Usuário ou E-mail</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" id="username" name="username" class="form-input" placeholder="Digite seu usuário ou e-mail" required autocomplete="username">
+                    </div>
+                    <div class="error-message" id="usernameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Senha</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" id="password" name="password" class="form-input" placeholder="Digite sua senha" required autocomplete="current-password">
+                    </div>
+                    <div class="error-message" id="passwordError"></div>
+                </div>
+
+                <div class="form-checkbox-wrapper">
+                    <input type="checkbox" id="rememberLogin" name="rememberLogin" class="form-checkbox">
+                    <label for="rememberLogin" class="form-checkbox-label">Salvar login</label>
+                </div>
+
+                <button type="submit" class="btn-login" id="loginButton">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+                </button>
+
+                <div class="forgot-password-link">
+                    <a href="#" id="forgotPasswordLink">Lembrar senha</a>
+                </div>
+            </form>
+
+            <div class="login-footer">
+                <p>7Carros - Sistema de Gestão de Locadora</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de recuperação de senha -->
+    <div id="forgotPasswordModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 class="modal-title">Lembrar Senha</h3>
+            <p class="modal-message">Digite seu e-mail ou usuário para receber instruções de recuperação de senha.</p>
+            
+            <div class="form-group">
+                <label for="recoveryEmail" class="form-label">E-mail ou Usuário</label>
+                <div class="input-icon-wrapper">
+                    <i class="fas fa-envelope input-icon"></i>
+                    <input type="text" id="recoveryEmail" class="form-input" placeholder="Digite seu e-mail ou usuário" autocomplete="username">
+                </div>
+                <div class="error-message" id="recoveryError"></div>
+                <div class="success-message" id="recoverySuccess"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-modal btn-modal-secondary" id="cancelRecoveryButton">Cancelar</button>
+                <button type="button" class="btn-modal btn-modal-primary" id="sendRecoveryButton">
+                    <i class="fas fa-paper-plane mr-2"></i>Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const loginForm = document.getElementById('loginForm');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const rememberLoginCheckbox = document.getElementById('rememberLogin');
+            const loginButton = document.getElementById('loginButton');
+            const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+            const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+            const cancelRecoveryButton = document.getElementById('cancelRecoveryButton');
+            const sendRecoveryButton = document.getElementById('sendRecoveryButton');
+            const recoveryEmailInput = document.getElementById('recoveryEmail');
+            const recoveryError = document.getElementById('recoveryError');
+            const recoverySuccess = document.getElementById('recoverySuccess');
+
+            // Carregar dados salvos ao carregar a página
+            function loadSavedCredentials() {
+                const savedUsername = localStorage.getItem('savedUsername');
+                const rememberLogin = localStorage.getItem('rememberLogin') === 'true';
+
+                if (savedUsername && rememberLogin) {
+                    usernameInput.value = savedUsername;
+                    rememberLoginCheckbox.checked = true;
+                }
+            }
+
+            // Carregar credenciais salvas
+            loadSavedCredentials();
+
+            // Carregar atualizações do sistema
+            function loadSystemUpdates() {
+                const updatesList = document.getElementById('updatesList');
+                
+                // Exemplo de atualizações (aqui você pode buscar de uma API)
+                const updates = [
+                    {
+                        type: 'feature',
+                        icon: 'fas fa-star',
+                        title: 'Nova funcionalidade de relatórios',
+                        description: 'Agora você pode gerar relatórios personalizados com filtros avançados e exportação em múltiplos formatos.',
+                        date: '15/01/2024'
+                    },
+                    {
+                        type: 'improvement',
+                        icon: 'fas fa-rocket',
+                        title: 'Melhorias na performance',
+                        description: 'Otimizações realizadas no sistema resultaram em uma navegação até 40% mais rápida.',
+                        date: '10/01/2024'
+                    },
+                    {
+                        type: 'fix',
+                        icon: 'fas fa-bug',
+                        title: 'Correção de bugs',
+                        description: 'Corrigido problema na exportação de dados e melhorias na estabilidade do sistema.',
+                        date: '05/01/2024'
+                    },
+                    {
+                        type: 'feature',
+                        icon: 'fas fa-mobile-alt',
+                        title: 'Interface responsiva aprimorada',
+                        description: 'Melhorias na experiência mobile com novos recursos de navegação e visualização otimizada.',
+                        date: '28/12/2023'
+                    },
+                    {
+                        type: 'improvement',
+                        icon: 'fas fa-shield-alt',
+                        title: 'Segurança reforçada',
+                        description: 'Implementação de autenticação em duas etapas e melhorias nos protocolos de segurança.',
+                        date: '20/12/2023'
+                    }
+                ];
+
+                updatesList.innerHTML = updates.map(update => `
+                    <div class="update-item">
+                        <div class="update-header">
+                            <div class="update-icon ${update.type}">
+                                <i class="${update.icon}"></i>
+                            </div>
+                            <div class="update-content">
+                                <h4>${update.title}</h4>
+                            </div>
+                        </div>
+                        <div class="update-content">
+                            <p>${update.description}</p>
+                            <div class="update-date">
+                                <i class="fas fa-calendar"></i>
+                                <span>${update.date}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Carregar atualizações ao iniciar
+            loadSystemUpdates();
+
+            // Abrir modal de recuperação de senha
+            forgotPasswordLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                forgotPasswordModal.classList.add('open');
+                recoveryEmailInput.value = '';
+                recoveryError.classList.remove('show');
+                recoverySuccess.classList.remove('show');
+            });
+
+            // Fechar modal de recuperação de senha
+            function closeRecoveryModal() {
+                forgotPasswordModal.classList.remove('open');
+                recoveryEmailInput.value = '';
+                recoveryError.classList.remove('show');
+                recoverySuccess.classList.remove('show');
+            }
+
+            cancelRecoveryButton.addEventListener('click', closeRecoveryModal);
+
+            // Fechar modal ao clicar fora
+            forgotPasswordModal.addEventListener('click', function (e) {
+                if (e.target === forgotPasswordModal) {
+                    closeRecoveryModal();
+                }
+            });
+
+            // Enviar recuperação de senha
+            sendRecoveryButton.addEventListener('click', function () {
+                const emailOrUsername = recoveryEmailInput.value.trim();
+                
+                recoveryError.classList.remove('show');
+                recoverySuccess.classList.remove('show');
+
+                if (!emailOrUsername) {
+                    recoveryError.textContent = 'Por favor, digite seu e-mail ou usuário.';
+                    recoveryError.classList.add('show');
+                    return;
+                }
+
+                // Desabilitar botão durante o envio
+                sendRecoveryButton.disabled = true;
+                sendRecoveryButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...';
+
+                // Simular envio (aqui você faria a chamada real à API)
+                setTimeout(function () {
+                    recoverySuccess.textContent = 'Instruções de recuperação de senha foram enviadas para o e-mail cadastrado.';
+                    recoverySuccess.classList.add('show');
+                    sendRecoveryButton.disabled = false;
+                    sendRecoveryButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Enviar';
+                    
+                    // Fechar modal após 3 segundos
+                    setTimeout(function () {
+                        closeRecoveryModal();
+                    }, 3000);
+                }, 1500);
+            });
+
+            // Permitir envio com Enter
+            recoveryEmailInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    sendRecoveryButton.click();
+                }
+            });
+
+            // Função para validar formulário
+            function validateForm() {
+                let isValid = true;
+                const usernameError = document.getElementById('usernameError');
+                const passwordError = document.getElementById('passwordError');
+
+                // Limpar mensagens de erro
+                usernameError.classList.remove('show');
+                passwordError.classList.remove('show');
+
+                // Validar usuário
+                if (!usernameInput.value.trim()) {
+                    usernameError.textContent = 'Por favor, digite seu usuário ou e-mail.';
+                    usernameError.classList.add('show');
+                    isValid = false;
+                }
+
+                // Validar senha
+                if (!passwordInput.value) {
+                    passwordError.textContent = 'Por favor, digite sua senha.';
+                    passwordError.classList.add('show');
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            // Manipular envio do formulário
+            loginForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                if (!validateForm()) {
+                    return;
+                }
+
+                // Desabilitar botão durante o processamento
+                loginButton.disabled = true;
+                loginButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Entrando...';
+
+                // Salvar preferências
+                if (rememberLoginCheckbox.checked) {
+                    localStorage.setItem('savedUsername', usernameInput.value);
+                    localStorage.setItem('rememberLogin', 'true');
+                } else {
+                    localStorage.removeItem('savedUsername');
+                    localStorage.setItem('rememberLogin', 'false');
+                }
+
+                // Simular autenticação (aqui você faria a chamada real à API)
+                setTimeout(function () {
+                    // Redirecionar para o dashboard
+                    window.location.href = 'dasboard.html';
+                }, 1000);
+            });
+
+            // Atualizar preferências quando o checkbox mudar
+            rememberLoginCheckbox.addEventListener('change', function () {
+                if (!this.checked) {
+                    localStorage.removeItem('savedUsername');
+                    localStorage.setItem('rememberLogin', 'false');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
+

@@ -1,0 +1,1244 @@
+{
+  "info": {
+    "_postman_id": "bdf294da-2605-46d6-8d77-30ffcccf04d1",
+    "name": "SERPRO eFrotas API",
+    "description": "Coleção completa da API eFrotas do SERPRO para gestão de frotas de veículos.\n\n**Ambiente de Homologação:**\n\n- URL Base: [https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api](https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api)\n    \n- URL Transacional: [https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional](https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional)\n    \n- CNPJ de Teste: 33683111000107\n    \n- Placas de Teste: SAV0741, SAV0742, SAV0743, SAV0744, SAV0745,  \n    SAV0746, SAV0747, SAV0748, SAV0749, SAV0750\n    \n\n**Ambiente de Produção:**\n\n- URL Base: [https://efrotas.estaleiro.serpro.gov.br/efrotas/api](https://efrotas.estaleiro.serpro.gov.br/efrotas/api)\n    \n- Requer certificado digital\n    \n\n**Rate Limit:**  \nCada IP pode efetuar até 15 conexões por segundo. Caso exceda, retorna HTTP 429.\n\nLink original: [https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/swagger-ui/index.html?configUrl=/efrotas/v3/api-docs/swagger-config&amp;urls.primaryName=Consultas](https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/swagger-ui/index.html?configUrl=%2Fefrotas%2Fv3%2Fapi-docs%2Fswagger-config&urls.primaryName=Consultas)\n\nRoteiro: [https://centraldeajuda.serpro.gov.br/efrotas/manuais/roteiro-hom-efrotas%20-%20v%202.0.pdf](https://centraldeajuda.serpro.gov.br/efrotas/manuais/roteiro-hom-efrotas%20-%20v%202.0.pdf)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "12452463"
+  },
+  "item": [
+    {
+      "name": "Veículos",
+      "item": [
+        {
+          "name": "Listar todos os veículos da frota",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/v1/veiculos?cnpjFilial={{cnpj_teste}}&pagina=1&quantidade=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "v1",
+                "veiculos"
+              ],
+              "query": [
+                {
+                  "key": "cnpjFilial",
+                  "value": "{{cnpj_teste}}",
+                  "description": "CNPJ da empresa ou filial"
+                },
+                {
+                  "key": "pagina",
+                  "value": "1",
+                  "description": "Número da página"
+                },
+                {
+                  "key": "quantidade",
+                  "value": "20",
+                  "description": "Quantidade de registros por página"
+                }
+              ]
+            },
+            "description": "Retorna todos os veículos associados ao CNPJ da empresa ou filial"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar veículo por placa",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/v1/veiculos/placa/{{placa_teste}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "v1",
+                "veiculos",
+                "placa",
+                "{{placa_teste}}"
+              ]
+            },
+            "description": "Retorna dados principais do veículo como placa, renavam, chassi, cor, modelo, categoria e indicadores (roubo/furto, recall, comunicação de venda, restrição judicial, infrações)"
+          },
+          "response": []
+        },
+        {
+          "name": "Verificar se veículo pertence à frota",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/v1/veiculos/placa/{{placa_teste}}/pertence",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "v1",
+                "veiculos",
+                "placa",
+                "{{placa_teste}}",
+                "pertence"
+              ]
+            },
+            "description": "Verifica se um veículo faz parte da frota da empresa. Útil para verificar transferência de veículos vendidos"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar roubo/furto do veículo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/v1/veiculos/placa/{{placa_teste}}/roubo-furto",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "v1",
+                "veiculos",
+                "placa",
+                "{{placa_teste}}",
+                "roubo-furto"
+              ]
+            },
+            "description": "Retorna dados de ocorrências de roubo/furto registradas para o veículo"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar recall pendente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/v1/veiculos/placa/{{placa_teste}}/recall",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "v1",
+                "veiculos",
+                "placa",
+                "{{placa_teste}}",
+                "recall"
+              ]
+            },
+            "description": "Retorna dados de recall pendente para o veículo"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar restrições judiciais",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/v1/veiculos/placa/{{placa_teste}}/restricoes-judiciais",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "v1",
+                "veiculos",
+                "placa",
+                "{{placa_teste}}",
+                "restricoes-judiciais"
+              ]
+            },
+            "description": "Retorna restrições judiciais ativas para o veículo"
+          },
+          "response": []
+        }
+      ],
+      "description": "Consultas relacionadas a veículos da frota"
+    },
+    {
+      "name": "Documentos",
+      "item": [
+        {
+          "name": "Consultar CRLV do veículo por placa",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_crlv}}/v1/documento/placa/{{placa_teste}}",
+              "host": [
+                "{{base_url_crlv}}"
+              ],
+              "path": [
+                "v1",
+                "documento",
+                "placa",
+                "{{placa_teste}}"
+              ]
+            },
+            "description": "Retorna os dados do documento do veículo (CRLV), incluindo PDF e QRCode em base64"
+          },
+          "response": []
+        }
+      ],
+      "description": "Consultas de documentos do veículo (CRLV)"
+    },
+    {
+      "name": "Infrações",
+      "item": [
+        {
+          "name": "Listar infrações do veículo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/v1/infracoes/placa/{{placa_teste}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "v1",
+                "infracoes",
+                "placa",
+                "{{placa_teste}}"
+              ]
+            },
+            "description": "Retorna informações básicas das infrações não pagas do veículo"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar infração detalhada por chave",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/v1/infracoes/codigoOrgao/:codigoOrgao/numeroAit/:numeroAit/codigoInfracao/:codigoInfracao",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "v1",
+                "infracoes",
+                "codigoOrgao",
+                ":codigoOrgao",
+                "numeroAit",
+                ":numeroAit",
+                "codigoInfracao",
+                ":codigoInfracao"
+              ],
+              "variable": [
+                {
+                  "key": "codigoOrgao",
+                  "value": "267890",
+                  "description": "Código do órgão autuador"
+                },
+                {
+                  "key": "numeroAit",
+                  "value": "SRPO-87612",
+                  "description": "Número do auto de infração"
+                },
+                {
+                  "key": "codigoInfracao",
+                  "value": "7455",
+                  "description": "Código da infração"
+                }
+              ]
+            },
+            "description": "Retorna dados detalhados de uma infração específica"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar PDF da Notificação de Autuação (NA)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/sne/pdf/placa/:placa/codigoOrgao/:codigoOrgao/numeroAit/:numeroAit/codigoInfracao/:codigoInfracao/NA",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "sne",
+                "pdf",
+                "placa",
+                ":placa",
+                "codigoOrgao",
+                ":codigoOrgao",
+                "numeroAit",
+                ":numeroAit",
+                "codigoInfracao",
+                ":codigoInfracao",
+                "NA"
+              ],
+              "variable": [
+                {
+                  "key": "placa",
+                  "value": "{{placa_teste}}",
+                  "description": "Placa do veículo"
+                },
+                {
+                  "key": "codigoOrgao",
+                  "value": "267890",
+                  "description": "Código do órgão autuador"
+                },
+                {
+                  "key": "numeroAit",
+                  "value": "SRPO-87612",
+                  "description": "Número do auto de infração"
+                },
+                {
+                  "key": "codigoInfracao",
+                  "value": "7455",
+                  "description": "Código da infração"
+                }
+              ]
+            },
+            "description": "Retorna o PDF da Notificação de Autuação em base64"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar PDF da Notificação de Penalidade (NP)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/consultas/sne/pdf/placa/:placa/codigoOrgao/:codigoOrgao/numeroAit/:numeroAit/codigoInfracao/:codigoInfracao/NP",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "consultas",
+                "sne",
+                "pdf",
+                "placa",
+                ":placa",
+                "codigoOrgao",
+                ":codigoOrgao",
+                "numeroAit",
+                ":numeroAit",
+                "codigoInfracao",
+                ":codigoInfracao",
+                "NP"
+              ],
+              "variable": [
+                {
+                  "key": "placa",
+                  "value": "{{placa_teste}}",
+                  "description": "Placa do veículo"
+                },
+                {
+                  "key": "codigoOrgao",
+                  "value": "267890",
+                  "description": "Código do órgão autuador"
+                },
+                {
+                  "key": "numeroAit",
+                  "value": "SRPO-87612",
+                  "description": "Número do auto de infração"
+                },
+                {
+                  "key": "codigoInfracao",
+                  "value": "7455",
+                  "description": "Código da infração"
+                }
+              ]
+            },
+            "description": "Retorna o PDF da Notificação de Penalidade em base64"
+          },
+          "response": []
+        }
+      ],
+      "description": "Consultas de infrações de trânsito"
+    },
+    {
+      "name": "Notificações e Eventos",
+      "item": [
+        {
+          "name": "Consultar notificações por período",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notificacoes/v1/dataInicio/2024-01-01/dataFim/2024-12-31",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notificacoes",
+                "v1",
+                "dataInicio",
+                "2024-01-01",
+                "dataFim",
+                "2024-12-31"
+              ]
+            },
+            "description": "Retorna as notificações de eventos relacionadas à frota em um período"
+          },
+          "response": []
+        },
+        {
+          "name": "Listar eventos ativos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/gerenciamento/v1/eventos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "gerenciamento",
+                "v1",
+                "eventos"
+              ]
+            },
+            "description": "Lista os eventos configurados e seu status (ativo/inativo)"
+          },
+          "response": []
+        },
+        {
+          "name": "Ativar/Desativar evento",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tipoEvento\": 1,\n    \"ativo\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gerenciamento/v1/eventos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "gerenciamento",
+                "v1",
+                "eventos"
+              ]
+            },
+            "description": "Ativa ou desativa o recebimento de um tipo de evento"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar URL de webhook",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/gerenciamento/v1/url-eventos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "gerenciamento",
+                "v1",
+                "url-eventos"
+              ]
+            },
+            "description": "Consulta a URL configurada para recebimento de eventos"
+          },
+          "response": []
+        },
+        {
+          "name": "Cadastrar URL de webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"url\": \"https://seu-dominio.com/webhook/efrotas\",\n    \"headers\": {\n        \"Authorization\": \"Bearer seu-token-aqui\"\n    }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gerenciamento/v1/url-eventos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "gerenciamento",
+                "v1",
+                "url-eventos"
+              ]
+            },
+            "description": "Cadastra a URL do webhook para recebimento de eventos"
+          },
+          "response": []
+        },
+        {
+          "name": "Deletar URL de webhook",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/gerenciamento/v1/url-eventos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "gerenciamento",
+                "v1",
+                "url-eventos"
+              ]
+            },
+            "description": "Remove a URL do webhook configurada"
+          },
+          "response": []
+        }
+      ],
+      "description": "Consultas e gerenciamento de eventos/webhooks"
+    },
+    {
+      "name": "Boleto SNE",
+      "item": [
+        {
+          "name": "Solicitar Boleto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/hal+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/boleto/solicitarBoleto?cnpjFilial={{cnpj_teste}}&placa={{placa_teste}}&chaveInfracao=267890SRPO-876127455&desconto40=false",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "boleto",
+                "solicitarBoleto"
+              ],
+              "query": [
+                {
+                  "key": "cnpjFilial",
+                  "value": "{{cnpj_teste}}",
+                  "description": "CNPJ da filial (opcional - se não informado será usado o do token)"
+                },
+                {
+                  "key": "placa",
+                  "value": "{{placa_teste}}",
+                  "description": "Placa do veículo (obrigatório)"
+                },
+                {
+                  "key": "chaveInfracao",
+                  "value": "267890SRPO-876127455",
+                  "description": "Chave única da infração (obrigatório)"
+                },
+                {
+                  "key": "desconto40",
+                  "value": "false",
+                  "description": "Aplicar desconto de 40% (obrigatório)"
+                }
+              ]
+            },
+            "description": "Solicita a emissão de boleto para pagamento de infração. ESTE GRUPO ESTÁ EM HOMOLOGAÇÃO INTERNA."
+          },
+          "response": []
+        },
+        {
+          "name": "Reconhecer Infração",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/hal+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"termos\": \"Declaro que reconheço a infração e concordo com os termos de pagamento\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/boleto/reconhecerInfracao?cnpjFilial={{cnpj_teste}}&placa={{placa_teste}}&chaveInfracao=267890SRPO-876127455",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "boleto",
+                "reconhecerInfracao"
+              ],
+              "query": [
+                {
+                  "key": "cnpjFilial",
+                  "value": "{{cnpj_teste}}",
+                  "description": "CNPJ da filial (obrigatório)"
+                },
+                {
+                  "key": "placa",
+                  "value": "{{placa_teste}}",
+                  "description": "Placa do veículo (obrigatório)"
+                },
+                {
+                  "key": "chaveInfracao",
+                  "value": "267890SRPO-876127455",
+                  "description": "Chave única da infração (obrigatório)"
+                }
+              ]
+            },
+            "description": "Reconhece uma infração de trânsito com base nos dados fornecidos. Requer declaração de concordância com os termos no body."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar PDF do Boleto",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json;charset=UTF-8"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/boleto/consultarPdfBoleto?placa={{placa_teste}}&chaveInfracao=112100CM013339376211&cnpjFilial={{cnpj_teste}}",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "boleto",
+                "consultarPdfBoleto"
+              ],
+              "query": [
+                {
+                  "key": "placa",
+                  "value": "{{placa_teste}}",
+                  "description": "Placa do veículo (obrigatório)"
+                },
+                {
+                  "key": "chaveInfracao",
+                  "value": "112100CM013339376211",
+                  "description": "Chave única da infração (obrigatório)"
+                },
+                {
+                  "key": "cnpjFilial",
+                  "value": "{{cnpj_teste}}",
+                  "description": "CNPJ da filial (opcional)"
+                }
+              ]
+            },
+            "description": "Consulta e retorna o PDF do boleto para download. Resposta contém: filename, subject, contentType, content (base64)"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Dados para Pagamento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/hal+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/boleto/consultarDadosPagamento?placa={{placa_teste}}&chaveInfracao=000000TES00000000000&cnpjFilial={{cnpj_teste}}",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "boleto",
+                "consultarDadosPagamento"
+              ],
+              "query": [
+                {
+                  "key": "placa",
+                  "value": "{{placa_teste}}",
+                  "description": "Placa do veículo (obrigatório)"
+                },
+                {
+                  "key": "chaveInfracao",
+                  "value": "000000TES00000000000",
+                  "description": "Chave única da infração (obrigatório)"
+                },
+                {
+                  "key": "cnpjFilial",
+                  "value": "{{cnpj_teste}}",
+                  "description": "CNPJ da filial (opcional)"
+                }
+              ]
+            },
+            "description": "Consulta dados necessários para pagamento de infração incluindo código de barras e bancos conveniados"
+          },
+          "response": []
+        }
+      ],
+      "description": "API para operações relacionadas a boletos do SNE. ESTE GRUPO ESTÁ EM HOMOLOGAÇÃO INTERNA, AINDA NÃO DISPONÍVEL PARA CLIENTES EXTERNOS."
+    },
+    {
+      "name": "Principal Condutor",
+      "item": [
+        {
+          "name": "Inserir Indicação de Principal Condutor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json;charset=UTF-8"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"identificacaoPossuidor\": \"{{cnpj_teste}}\",\n    \"placaVeiculo\": \"{{placa_teste}}\",\n    \"cpfPrincipalCondutor\": \"12345678901\",\n    \"numeroRegistroCnhPrincipalCondutor\": \"12345678901\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/principalcondutor/indicacoes/inserir",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "principalcondutor",
+                "indicacoes",
+                "inserir"
+              ]
+            },
+            "description": "Realiza indicação de principal condutor. Caso o CNPJ indicante não seja informado, será utilizado o CNPJ do token. Retorna Location header com a chave da indicação (ex: /indicacoes/000AHR)"
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Indicação de Principal Condutor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cnpjIndicante\": \"{{cnpj_teste}}\",\n    \"chaveIndicacao\": \"000AHR\",\n    \"cpfIndicado\": \"12345678901\",\n    \"placa\": \"{{placa_teste}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/principalcondutor/indicacoes/excluir",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "principalcondutor",
+                "indicacoes",
+                "excluir"
+              ]
+            },
+            "description": "Exclui uma indicação de principal condutor existente. Caso o CNPJ indicante não seja informado, será utilizado o CNPJ do token."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Status da Indicação",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json;charset=UTF-8"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/principalcondutor/indicacoes/status?chaveIndicacao=0009Y4",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "principalcondutor",
+                "indicacoes",
+                "status"
+              ],
+              "query": [
+                {
+                  "key": "chaveIndicacao",
+                  "value": "0009Y4",
+                  "description": "Chave de indicação do principal condutor (obrigatório)"
+                }
+              ]
+            },
+            "description": "Consulta os dados de uma indicação de principal condutor pela chave, considerando registros com mesma raiz de CNPJ (matriz ou filial). Retorna: codigoAutorizacao, niSolicitante, niAutorizador, ocorreuEm, situacao, expirado, etc."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Histórico de Indicações",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/hal+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/principalcondutor/indicacoes/historico?placa={{placa_teste}}&identificacaoPossuidor={{cnpj_teste}}&dataInicio=2024-01-01&dataFim=2024-12-31&omitirExcluidas=true&cpfPrincipalCondutor=",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "principalcondutor",
+                "indicacoes",
+                "historico"
+              ],
+              "query": [
+                {
+                  "key": "placa",
+                  "value": "{{placa_teste}}",
+                  "description": "Placa do veículo (obrigatório)"
+                },
+                {
+                  "key": "identificacaoPossuidor",
+                  "value": "{{cnpj_teste}}",
+                  "description": "CNPJ do possuidor do veículo (obrigatório)"
+                },
+                {
+                  "key": "dataInicio",
+                  "value": "2024-01-01",
+                  "description": "Data início do período (obrigatório, formato: YYYY-MM-DD)"
+                },
+                {
+                  "key": "dataFim",
+                  "value": "2024-12-31",
+                  "description": "Data fim do período (obrigatório, formato: YYYY-MM-DD)"
+                },
+                {
+                  "key": "omitirExcluidas",
+                  "value": "true",
+                  "description": "Omitir indicações que foram excluídas (obrigatório)"
+                },
+                {
+                  "key": "cpfPrincipalCondutor",
+                  "value": "",
+                  "description": "CPF do principal condutor (opcional - filtrar por condutor específico)"
+                }
+              ]
+            },
+            "description": "Consulta as indicações de principal condutor de um veículo efetivadas no Renavam no período. Retorna array com: placa, numeroDocumentoPossuidor, cpfIndicado, estado, dataHoraAtivacao, dataHoraExclusao, chaveIndicacao"
+          },
+          "response": []
+        }
+      ],
+      "description": "Operações relacionadas à indicação de principal condutor"
+    },
+    {
+      "name": "Real Infrator",
+      "item": [
+        {
+          "name": "Inserir Indicação de Real Infrator",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"codigoOrgao\": \"267890\",\n    \"numeroAit\": \"BUILDER049\",\n    \"codigoInfracao\": \"7455\",\n    \"cnpjIndicante\": \"{{cnpj_teste}}\",\n    \"cpfIndicado\": \"12345678901\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/realinfrator/indicacoes/inserir",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "realinfrator",
+                "indicacoes",
+                "inserir"
+              ]
+            },
+            "description": "Realiza indicação de real infrator para transferência de pontuação. Caso o CNPJ indicante não seja informado, será utilizado o CNPJ do token. Retorna HTTP 201 com Location header contendo a chave da indicação (ex: /indicacoes/000AHR)"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancelar Indicação de Real Infrator",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"codigoOrgao\": \"267890\",\n    \"numeroAit\": \"BUILDER049\",\n    \"codigoInfracao\": \"7455\",\n    \"cnpjIndicante\": \"{{cnpj_teste}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/realinfrator/indicacoes/:chaveIndicacao/cancelar",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "realinfrator",
+                "indicacoes",
+                ":chaveIndicacao",
+                "cancelar"
+              ],
+              "variable": [
+                {
+                  "key": "chaveIndicacao",
+                  "value": "0009Y4",
+                  "description": "Chave de indicação do real infrator"
+                }
+              ]
+            },
+            "description": "Cancela uma indicação pendente de real infrator. Caso o CNPJ indicante não seja informado no corpo da requisição, será utilizado o CNPJ do token."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Status da Indicação",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json;charset=UTF-8"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/realinfrator/indicacoes/:chaveIndicacao/status?cnpjFilial={{cnpj_teste}}",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "realinfrator",
+                "indicacoes",
+                ":chaveIndicacao",
+                "status"
+              ],
+              "query": [
+                {
+                  "key": "cnpjFilial",
+                  "value": "{{cnpj_teste}}",
+                  "description": "CNPJ indicante (opcional - se não informado será usado o do token)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "chaveIndicacao",
+                  "value": "0009Y4",
+                  "description": "Chave de indicação do real infrator"
+                }
+              ]
+            },
+            "description": "Consulta dados de uma indicação de real infrator pela chave. Retorna: origem, chaveInfracao, chaveIndicacao, cnpjIndicante, cpfIndicado, nomeIndicado, dataIndicacao, dataAlteracaoStatus, dataLimiteIndicacao, status, expirado"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Documento Assinado",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json;charset=UTF-8"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/realinfrator/indicacoes/:chaveIndicacao/:codigoOrgao/:numeroAit/:codigoInfracao/documentoAssinado?cnpjFilial={{cnpj_teste}}",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "realinfrator",
+                "indicacoes",
+                ":chaveIndicacao",
+                ":codigoOrgao",
+                ":numeroAit",
+                ":codigoInfracao",
+                "documentoAssinado"
+              ],
+              "query": [
+                {
+                  "key": "cnpjFilial",
+                  "value": "{{cnpj_teste}}",
+                  "description": "CNPJ da filial (opcional - se não informado será usado o do token)"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "chaveIndicacao",
+                  "value": "0009Y4",
+                  "description": "Chave de indicação do real infrator"
+                },
+                {
+                  "key": "codigoOrgao",
+                  "value": "267890",
+                  "description": "Código do órgão autuador da infração"
+                },
+                {
+                  "key": "numeroAit",
+                  "value": "BUILDER049",
+                  "description": "Número do auto de infração"
+                },
+                {
+                  "key": "codigoInfracao",
+                  "value": "7455",
+                  "description": "Código da infração"
+                }
+              ]
+            },
+            "description": "Consulta documento assinado de aceite pelo real infrator. Retorna: filename, subject, contentType, content (base64)"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Histórico de Indicações por Infração",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json;charset=UTF-8"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url_transacional}}/v1/realinfrator/indicacoes/historico/:codigoOrgao/:numeroAit/:codigoInfracao",
+              "host": [
+                "{{base_url_transacional}}"
+              ],
+              "path": [
+                "v1",
+                "realinfrator",
+                "indicacoes",
+                "historico",
+                ":codigoOrgao",
+                ":numeroAit",
+                ":codigoInfracao"
+              ],
+              "variable": [
+                {
+                  "key": "codigoOrgao",
+                  "value": "267890",
+                  "description": "Código do órgão autuador da infração"
+                },
+                {
+                  "key": "numeroAit",
+                  "value": "BUILDER049",
+                  "description": "Número do auto de infração"
+                },
+                {
+                  "key": "codigoInfracao",
+                  "value": "7455",
+                  "description": "Código da infração"
+                }
+              ]
+            },
+            "description": "Consulta histórico de indicações de real infrator para uma infração específica. Retorna: indicacoesRI (array), placa, origemConfirmacao"
+          },
+          "response": []
+        }
+      ],
+      "description": "Operações relacionadas à indicação de real infrator para transferência de pontuação"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{bearer_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          "pm.test(\"Status code is 200 or 201\", function () {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api",
+      "description": "URL base para APIs de consulta"
+    },
+    {
+      "key": "base_url_transacional",
+      "value": "https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional",
+      "description": "URL base para APIs transacionais (Boleto, Principal Condutor, Real Infrator)"
+    },
+    {
+      "key": "bearer_token",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3NDAxMDY4MDAsImlzcyI6Imh0dHBzOi8vZWZyb3Rhcy5zZXJwcm8uZ292LmJyL2lzc3VlciIsImNucGoiOiIzMzY4MzExMTAwMDEwNyJ9.GnYpQDIZQtprkqp3pv1BEUvf3mHAzpIATlgeCoJbuw4",
+      "description": "Token JWT para autenticação"
+    },
+    {
+      "key": "cnpj_teste",
+      "value": "33683111000107",
+      "description": "CNPJ de teste para homologação"
+    },
+    {
+      "key": "placa_teste",
+      "value": "SAV0741",
+      "description": "Placa de teste (SAV0741 a SAV0750 disponíveis)"
+    },
+    {
+      "key": "base_url_crlv",
+      "value": "",
+      "description": "URL base para API de CRLV (configurar conforme ambiente)"
+    }
+  ]
+}

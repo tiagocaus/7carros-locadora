@@ -1,0 +1,141 @@
+<?php
+
+/**
+ * Traduzioni del modulo Fornecedores - Italiano (Italia)
+ */
+
+return [
+    'title' => 'Fornitori',
+    'title_singular' => 'Fornitore',
+    'new_title' => 'Nuovo Fornitore',
+    'edit_title' => 'Modifica Fornitore',
+
+    // Sezioni
+    'sections' => [
+        'basic_data' => 'Dati di Base',
+        'address' => 'Indirizzo',
+        'investor' => 'Investitore',
+        'observations' => 'Osservazioni',
+    ],
+
+    // Campi
+    'fields' => [
+        'type' => 'Tipo',
+        'cpf_cnpj' => 'CPF/CNPJ',
+        'cpf' => 'CPF',
+        'cnpj' => 'CNPJ',
+        'name' => 'Nome',
+        'company_name' => 'Ragione Sociale',
+        'trade_name' => 'Nome Commerciale',
+        'rg' => 'RG',
+        'state_registration' => 'Iscrizione Statale',
+        'municipal_registration' => 'Iscrizione Municipale',
+        'email' => 'Email',
+        'phone1' => 'Telefono 1',
+        'phone2' => 'Telefono 2',
+        'zip_code' => 'CAP',
+        'street' => 'Via',
+        'number' => 'Numero',
+        'complement' => 'Complemento',
+        'neighborhood' => 'Quartiere',
+        'city' => 'Città',
+        'state' => 'Regione',
+        'country' => 'Paese',
+        'supplies_vehicles' => 'Fornisce Veicoli',
+        'is_investor' => 'E Investitore?',
+        'split_gateway' => 'Gateway per Split',
+        'split_account_id' => 'ID Conto/Wallet',
+        'pix_key' => 'Chiave PIX',
+        'pix_key_type' => 'Tipo di Chiave PIX',
+        'bank_code' => 'Codice Banca',
+        'bank_branch' => 'Filiale',
+        'bank_account' => 'Conto',
+        'bank_account_type' => 'Tipo di Conto',
+    ],
+
+    // Opzioni di tipo
+    'type_options' => [
+        'PJ' => 'Persona Giuridica',
+        'PF' => 'Persona Fisica',
+    ],
+
+    // Opzioni gateway
+    'gateway_options' => [
+        'none' => 'Nessuno (manuale)',
+        'asaas' => 'Asaas',
+        'gerencianet' => 'Gerencianet',
+        'stripe' => 'Stripe',
+        'inter' => 'Banco Inter',
+    ],
+
+    // Opzioni tipo chiave PIX
+    'pix_type_options' => [
+        'cpf' => 'CPF',
+        'cnpj' => 'CNPJ',
+        'email' => 'Email',
+        'telefone' => 'Telefono',
+        'aleatoria' => 'Chiave Casuale',
+    ],
+
+    // Opzioni tipo di conto
+    'account_type_options' => [
+        'corrente' => 'Corrente',
+        'poupanca' => 'Risparmio',
+    ],
+
+    // Segnaposto
+    'placeholders' => [
+        'search' => 'Cerca...',
+        'split_account' => 'Es: wal_xxxx',
+        'bank_code' => 'Es: 001',
+        'select' => 'Seleziona...',
+    ],
+
+    // Filtri
+    'filters' => [
+        'all' => 'Tutti',
+        'suppliers' => 'Fornitori',
+        'investors' => 'Investitori',
+    ],
+
+    // Tabella
+    'table' => [
+        'name' => 'Nome',
+        'cpf_cnpj' => 'CPF/CNPJ',
+        'phone' => 'Telefono',
+        'investor' => 'Investitore',
+        'actions' => 'Azioni',
+    ],
+
+    // Etichette
+    'badges' => [
+        'investor_yes' => 'Si',
+        'investor_no' => 'No',
+    ],
+
+    // Messaggi
+    'messages' => [
+        'no_records' => 'Nessun record trovato',
+        'no_name' => 'Senza nome',
+        'load_error' => 'Errore durante il caricamento',
+        'server_error' => 'Errore di connessione al server',
+        'delete_error' => 'Errore durante l\'eliminazione',
+        'this_record' => 'questo record',
+        'load_data_error' => 'Errore durante il caricamento dei dati',
+        'load_supplier_error' => 'Errore durante il caricamento dei dati del fornitore',
+        'saving' => 'Salvataggio...',
+        'save_error' => 'Errore durante il salvataggio',
+        'save_supplier_error' => 'Errore durante il salvataggio del fornitore',
+        'created' => 'Fornitore creato con successo!',
+        'updated' => 'Fornitore aggiornato con successo!',
+    ],
+
+    // Paginazione
+    'pagination' => [
+        'rows_per_page' => 'Righe per pagina:',
+        'showing' => 'Visualizzazione :start-:end di :total record',
+    ],
+
+    // Tipo di record
+    'record_type' => 'fornitore',
+];

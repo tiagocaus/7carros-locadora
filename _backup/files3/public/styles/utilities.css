@@ -1,0 +1,127 @@
+/* ============================================
+   UTILITIES - Classes Utilitárias e Helpers
+   ============================================ */
+
+/* Flag Icons */
+.flag-icon {
+    width: 20px;
+    height: 14px;
+    border: 1px solid #CBD5E1;
+    object-fit: cover;
+}
+
+.flag-icon-sm {
+    width: 18px;
+    height: 12px;
+    border: 1px solid #E2E8F0;
+}
+
+.flag-icon-active {
+    font-size: 1.25rem;
+    display: inline-block;
+    line-height: 1;
+    margin-top: 4px;
+}
+
+/* Classes específicas para cada bandeira */
+.flag-icon-br {
+    width: 20px;
+    height: 14px;
+    background: linear-gradient(to bottom, #009B3A 0% 50%, #FFCC29 50% 100%);
+    position: relative;
+    display: inline-block;
+    border: 1px solid #64748B;
+}
+
+.flag-icon-br::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    background-color: #FFCC29;
+    transform: translate(-50%, -50%) rotate(45deg);
+    z-index: 1;
+}
+
+.flag-icon-br::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    background-color: #002776;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+}
+
+/* Notification Badge */
+.notification-badge {
+    background-color: #EF4444;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.35rem 0.35rem;
+    border-radius: 9999px;
+    line-height: 1;
+    margin-left: 0.25rem;
+}
+
+/* Subtab Content */
+.subtab-content {
+    display: none;
+}
+
+.subtab-content.active {
+    display: block;
+}
+
+/* Form Grid - Responsive */
+.form-grid {
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+    .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .form-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .form-grid-halved {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Clientes Header - Responsive */
+@media (max-width: 768px) {
+    .clientes-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .clientes-header>div:first-child {
+        margin-bottom: 0.75rem;
+    }
+
+    .clientes-header>div:last-child {
+        width: 100%;
+    }
+
+    .clientes-header>div:last-child>div:first-child {
+        flex-grow: 1;
+        margin-right: 0.5rem;
+    }
+
+    .clientes-header>div:last-child>button {
+        flex-shrink: 0;
+    }
+}
+

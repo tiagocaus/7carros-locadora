@@ -1,0 +1,139 @@
+### Variáveis de ambiente
+@baseUrl = https://locadora.7carros.com.local
+@csrfToken = seu-token-csrf-aqui
+@clienteId = 50
+
+###############################################################################
+# AUTENTICAÇÃO
+###############################################################################
+
+### Login
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+X-CSRF-TOKEN: {{csrfToken}}
+
+email=admin@7carros.com&senha=suasenha&_token={{csrfToken}}
+
+###############################################################################
+# CONSULTAS (GET) - Não requerem CSRF
+###############################################################################
+
+### Listar todos os clientes (paginado)
+GET {{baseUrl}}/api/clientes?page=1&perPage=10
+Accept: application/json
+
+###
+
+### Buscar cliente específico por ID
+GET {{baseUrl}}/api/clientes/{{clienteId}}
+Accept: application/json
+
+###
+
+### Buscar clientes por termo
+GET {{baseUrl}}/api/clientes/buscar?termo=João
+Accept: application/json
+
+###############################################################################
+# CRIAR CLIENTE (POST)
+###############################################################################
+
+### Criar novo cliente
+POST {{baseUrl}}/clientes/salvar
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+X-Requested-With: XMLHttpRequest
+
+{
+  "tipo": "pf",
+  "documento": "12345678900",
+  "nome": "João da Silva",
+  "email": "joao.silva@exemplo.com",
+  "telefone": "(11) 98765-4321",
+  "celular": "(11) 99999-9999",
+  "cep": "01310-100",
+  "rua": "Avenida Paulista",
+  "numero": "1000",
+  "bairro": "Bela Vista",
+  "cidade": "São Paulo",
+  "uf": "SP",
+  "rg": "12.345.678-9",
+  "nascimento": "1990-05-15",
+  "sexo": "M",
+  "estado_civil": "solteiro",
+  "profissao": "Engenheiro",
+  "observacoes": "Cliente teste criado via REST Client"
+}
+
+###############################################################################
+# ATUALIZAR CLIENTE (POST)
+###############################################################################
+
+### Atualizar cliente existente
+POST {{baseUrl}}/clientes/{{clienteId}}/atualizar
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+X-Requested-With: XMLHttpRequest
+
+{
+  "tipo": "pf",
+  "documento": "12345678900",
+  "nome": "João da Silva Atualizado",
+  "email": "joao.silva.novo@exemplo.com",
+  "telefone": "(11) 98765-4321",
+  "celular": "(11) 99999-8888",
+  "cep": "01310-100",
+  "rua": "Avenida Paulista",
+  "numero": "1500",
+  "bairro": "Bela Vista",
+  "cidade": "São Paulo",
+  "uf": "SP",
+  "rg": "12.345.678-9",
+  "nascimento": "1990-05-15",
+  "sexo": "M",
+  "estado_civil": "casado",
+  "profissao": "Engenheiro Senior",
+  "observacoes": "Cliente atualizado via REST Client"
+}
+
+###############################################################################
+# EXCLUIR CLIENTE (POST) P
+###############################################################################
+
+### Excluir cliente por ID
+# IMPORTANTE: Esta requisição usa os headers corretos para CSRF e AJAX
+# - X-CSRF-TOKEN: Token de proteção contra CSRF (MAIÚSCULO)
+# - X-Requested-With: Identifica como requisição AJAX
+# - Método: POST (não DELETE, pois usa CSRF middleware)
+POST {{baseUrl}}/clientes/{{clienteId}}/excluir
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+X-Requested-With: XMLHttpRequest
+
+###############################################################################
+# INSTRUÇÕES DE USO
+###############################################################################
+
+# 1. Obter o token CSRF:
+#    - Acesse a aplicação no navegador
+#    - Inspecione o elemento: <meta name="csrf-token" content="...">
+#    - Copie o valor do atributo 'content'
+#    - Cole na variável @csrfToken no início deste arquivo
+#
+# 2. Fazer login (opcional se já estiver logado):
+#    - Execute a requisição "Login"
+#    - O cookie de sessão será armazenado automaticamente
+#
+# 3. Testar exclusão:
+#    - Ajuste o @clienteId com um ID válido
+#    - Execute a requisição "Excluir cliente por ID"
+#
+# 4. Verificar permissões:
+#    - Se retornar 403: usuário não tem permissão 'clientes.excluir'
+#    - Se retornar 419: token CSRF inválido ou expirado
+#    - Se retornar 404: cliente não encontrado
+#    - Se retornar 200: exclusão bem-sucedida!
+#
+# 5. Como executar:
+#    - Clique em "Send Request" acima de cada requisição
+#    - Ou use o atalho: Ctrl+Alt+R (Windows/Linux) ou Cmd+Alt+R (Mac)

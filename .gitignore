@@ -1,0 +1,50 @@
+# Arquivos de ambiente
+.env
+.env*
+.env.local
+.env.development
+.env.production
+
+# Apenas o exemplo deve ser versionado
+!.env.example
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+storage/logs/*
+!storage/logs/.gitkeep
+
+# Cache
+storage/cache/*
+!storage/cache/.gitkeep
+
+# Estados gerados
+storage/cron/*.json
+temp/
+
+# Uploads (se necessário)
+storage/uploads/*
+!storage/uploads/.gitkeep
+
+# Certificados (mTLS, SSL) - NUNCA commitar
+storage/certificates/*
+!storage/certificates/.gitkeep
+
+# IDE
+.codex/
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Composer
+vendor/
+composer.lock
+
+# PHP
+*.log
+php_errors.log

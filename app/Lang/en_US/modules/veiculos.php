@@ -1,0 +1,230 @@
+<?php
+
+/**
+ * Vehicle module translations - English (USA)
+ */
+
+return [
+    // Titles
+    'title' => 'Vehicles',
+    'title_singular' => 'Vehicle',
+    'new_title' => 'New Vehicle',
+    'edit_title' => 'Edit Vehicle',
+
+    // Form fields
+    'fields' => [
+        'branch' => 'Branch',
+        'supplier' => 'Supplier',
+        'group' => 'Group',
+        'plate' => 'Plate',
+        'renavam' => 'Registration (Renavam)',
+        'chassis' => 'Chassis',
+        'odometer' => 'Odometer (km)',
+        'availability' => 'Availability',
+        'brand' => 'Brand',
+        'model' => 'Model',
+        'year' => 'Year',
+        'color' => 'Color',
+        'transmission' => 'Transmission',
+        'engine' => 'Engine',
+        'max_weight' => 'Max Weight (kg)',
+        'current_location' => 'Current Location',
+        'fuel_type' => 'Fuel Type',
+        'tank_liters' => 'Tank (L)',
+        'tank_fraction' => 'Tank Fraction',
+        'fraction_value' => 'Value per Fraction',
+        'battery_kwh' => 'Battery (kWh)',
+        'battery_charge' => 'Battery Charge',
+        'purchase_date' => 'Purchase Date',
+        'purchase_value' => 'Purchase Value',
+        'for_sale' => 'For Sale',
+        'sale_date' => 'Sale Date',
+        'sale_value' => 'Sale Value',
+        'charge_name' => 'Name',
+        'charge_description' => 'Description',
+        'charge_value' => 'Value',
+        'charge_due_date' => 'Due Date',
+        'charge_recurrence' => 'Recurrence',
+        'charge_days_advance' => 'Advance Days',
+        'add_charge' => 'Add Charge',
+        'no_charges' => 'No charges registered',
+        'recurrence_none' => 'None',
+        'recurrence_monthly' => 'Monthly',
+        'recurrence_quarterly' => 'Quarterly',
+        'recurrence_semiannual' => 'Semiannual',
+        'recurrence_annual' => 'Annual',
+        'save_vehicle_first' => 'Save the vehicle before adding charges',
+        'charge_name_required' => 'The charge name is required',
+        'description' => 'Description',
+        'accessories' => 'Vehicle Accessories',
+        'photo' => 'Vehicle Photo',
+        'change_photo' => 'Change Photo',
+        'brand_model' => 'Brand/Model',
+        'branch_short' => 'Branch',
+    ],
+
+    // Form sections
+    'sections' => [
+        'basic_data' => 'Basic Data',
+        'characteristics' => 'Characteristics',
+        'fuel' => 'Fuel',
+        'purchase_sale' => 'Purchase & Sale',
+        'vehicle_charges' => 'Vehicle Charges',
+        'description' => 'Description',
+        'accessories' => 'Accessories',
+        'select_plan' => 'Select Plan',
+    ],
+
+    // Tabs
+    'tabs' => [
+        'vehicle_data' => 'Vehicle Data',
+        'maintenance_plan' => 'Maintenance Plan',
+        'maintenances' => 'Maintenances',
+    ],
+
+    // Maintenances Tab
+    'maintenances' => [
+        'no_records' => 'No maintenance records found for this vehicle.',
+        'load_error' => 'Error loading maintenances',
+        'table_os' => 'OS',
+        'table_workshop' => 'Workshop',
+        'table_send_date' => 'Send Date',
+        'table_return_date' => 'Return Date',
+        'table_total' => 'Total',
+        'table_status' => 'Status',
+        'status_created' => 'Created',
+        'status_open' => 'Open',
+        'status_closed' => 'Closed',
+        'action_print' => 'Print WO',
+    ],
+
+    // Availability
+    'availability' => [
+        'available' => 'Available',
+        'rented' => 'Rented',
+        'reserved' => 'Reserved',
+        'in_shop' => 'In Shop',
+        'sold' => 'Sold',
+        'for_sale' => 'For Sale',
+        'internal_use' => 'Internal Use',
+        'stolen' => 'Stolen',
+        'excluded' => 'Excluded',
+        'maintenance' => 'Maintenance',
+        'unavailable' => 'Unavailable',
+    ],
+
+    // Transmission
+    'transmission' => [
+        'automatic' => 'Automatic',
+        'manual' => 'Manual',
+    ],
+
+    // Fuel
+    'fuel' => [
+        'gasoline_ethanol' => 'Gasoline/Ethanol',
+        'gasoline' => 'Gasoline',
+        'ethanol' => 'Ethanol',
+        'diesel' => 'Diesel',
+        'gas' => 'Gas',
+        'electric' => 'Electric',
+        'hybrid' => 'Hybrid',
+    ],
+
+    // Tank fraction
+    'tank_fraction' => [
+        'full' => 'Full',
+        'reserve' => 'Reserve',
+    ],
+
+    // Maintenance
+    'maintenance' => [
+        'plan' => 'Maintenance Plan',
+        'recalculate' => 'Recalculate with Current Odometer',
+        'recalculate_hint' => 'Recalculates: odometer + plan interval',
+        'engine_section' => 'Engine',
+        'engine_hint' => 'Next km for each engine maintenance item',
+        'wheels_section' => 'Wheels & Tires',
+        'wheels_hint' => 'Next km for each wheel maintenance item',
+        'accessories_section' => 'Accessories',
+        'accessories_hint' => 'Next km for each accessory maintenance item',
+        // Engine items
+        'engine_oil' => 'Engine Oil',
+        'oil_filter' => 'Oil Filter',
+        'timing_belt' => 'Timing Belt',
+        'alternator_belt' => 'Alternator Belt',
+        'ac_belt' => 'A/C Belt',
+        'water_pump_belt' => 'Water Pump Belt',
+        'air_filter' => 'Air Filter',
+        'cabin_filter' => 'Cabin Filter',
+        'fuel_filter' => 'Fuel Filter',
+        'brake_fluid' => 'Brake Fluid',
+        'clutch_fluid' => 'Clutch Fluid',
+        'clutch_disc' => 'Clutch Disc',
+        'gearbox_fluid' => 'Gearbox Fluid',
+        'cooling_flush' => 'Cooling Flush',
+        'spark_plugs' => 'Spark Plugs',
+        'battery' => 'Battery',
+        // Wheel items
+        'tires' => 'Tires',
+        'alignment' => 'Alignment',
+        'brake_pads' => 'Brake Pads',
+        'brake_discs' => 'Brake Discs',
+        'tire_rotation' => 'Tire Rotation',
+        // Accessory items
+        'wiper_blades' => 'Wiper Blades',
+    ],
+
+    // Placeholders
+    'placeholders' => [
+        'search' => 'Search by plate, brand or model...',
+        'search_select' => 'Type to search...',
+        'select' => 'Select...',
+        'select_option' => 'Select',
+        'select_plan' => 'Select a plan...',
+        'plate' => 'ABC-1234',
+        'year' => '2024/2025',
+        'engine' => '1.0',
+        'description' => 'Additional vehicle information...',
+        'select_accessories' => 'Select accessories...',
+        'same_as_branch' => 'Same as branch',
+    ],
+
+    // Messages
+    'messages' => [
+        'created' => 'Vehicle created successfully!',
+        'updated' => 'Vehicle updated successfully!',
+        'deleted' => 'Vehicle deleted successfully!',
+        'delete_confirm' => 'Do you want to delete the vehicle ":name"?',
+        'delete_error' => 'Error deleting vehicle',
+        'load_error' => 'Error loading vehicles: ',
+        'load_data_error' => 'Error loading vehicle data',
+        'save_error' => 'Error saving vehicle',
+        'save_generic_error' => 'Error saving',
+        'connection_error' => 'Error connecting to server',
+        'no_vehicles' => 'No vehicles found',
+        'no_plate' => 'No plate',
+        'this_vehicle' => 'this vehicle',
+        'select_plan_first' => 'Select a maintenance plan first',
+        'invalid_image' => 'Select a valid image (JPG, PNG or WebP)',
+        'image_too_large' => 'Image must be 5MB or less',
+        'accessories_load_error' => 'Error loading accessories',
+        'accessories_load_error_short' => 'Error loading',
+        'no_accessories' => 'No accessories registered',
+        'no_accessories_short' => 'No accessories',
+        'plan_load_error' => 'Error loading maintenance plans:',
+        'plan_fetch_error' => 'Error fetching plan:',
+        'recalculate_title' => 'Recalculate Plan',
+        'recalculate_confirm' => 'Do you want to recalculate plan values based on the current odometer?',
+        'recalculate_btn' => 'Recalculate',
+        'for_sale_tooltip' => 'When enabled for sale, the vehicle will appear on the website as available for sale and will no longer be available for rental or contract.',
+        'loading_accessories' => 'Loading accessories...',
+        'plan_limit_reached' => 'Vehicle limit reached. Your plan (:plano) allows a maximum of :limite active vehicles. To reactivate this vehicle, remove another or upgrade your plan.',
+    ],
+
+    // Pagination
+    'pagination' => [
+        'rows_per_page' => 'Rows per page:',
+        'showing' => 'Showing :start-:end of :total records',
+        'showing_empty' => 'Showing 0-0 of 0 records',
+    ],
+];

@@ -1,0 +1,101 @@
+<?php
+
+/**
+ * Migration: Exemplo de uso de Foreign Keys e novos tipos
+ *
+ * Este arquivo serve como exemplo de referência para demonstrar
+ * todas as capacidades do sistema de migrations aprimorado.
+ *
+ * NÃO EXECUTE ESTA MIGRATION - É APENAS PARA REFERÊNCIA
+ */
+
+use App\Database\Migration;
+
+return new class extends Migration
+{
+    /**
+     * Executa a migration
+     */
+    public function up(): void
+    {
+        // Exemplo 1: Criar tabela com Foreign Key usando fluent API
+        $this->create('contratos', function ($table) {
+            $table->id();
+            $table->string('numero_contrato', 50)->unique();
+            $table->integer('cliente_id')->unsigned();
+            $table->integer('veiculo_id')->unsigned();
+            $table->decimal('valor_total', 10, 2);
+            $table->enum('status', ['ativo', 'encerrado', 'cancelado'])->default('ativo');
+            $table->json('configuracoes')->nullable();
+            $table->date('data_inicio');
+            $table->date('data_fim')->nullable();
+            $table->time('hora_inicio')->default('08:00:00');
+            $table->float('desconto_percentual', 5, 2)->default(0);
+            $table->timestamps();
+            $table->softDeletes();
+
+            // Foreign Keys com fluent API
+            $table->foreign('cliente_id')
+                ->on('clientes')
+                ->references('id')
+                ->cascadeOnDelete();
+
+            $table->foreign('veiculo_id')
+                ->on('veiculos')
+                ->references('id')
+                ->restrictOnDelete();
+
+            // Índices
+            $table->index('numero_contrato');
+            $table->index(['status', 'data_inicio']);
+        });
+
+        // Exemplo 2: Adicionar Foreign Key em tabela existente
+        $this->addForeignKeyIfNotExists(
+            'pagamentos',
+            'contrato_id',
+            'contratos',
+            'id',
+            'CASCADE',
+            'CASCADE',
+            'fk_pagamentos_contrato'
+        );
+
+        // Exemplo 3: Adicionar coluna ENUM
+        $this->addColumnIfNotExists('clientes', 'tipo', 'ENUM("pessoa_fisica","pessoa_juridica")', [
+            'null' => false,
+            'default' => 'pessoa_fisica',
+            'after' => 'nome'
+        ]);
+
+        // Exemplo 4: Adicionar coluna JSON
+        $this->addColumnIfNotExists('veiculos', 'extras', 'JSON', [
+            'null' => true,
+            'after' => 'modelo'
+        ]);
+
+        // Exemplo 5: Renomear coluna (se necessário)
+        // $this->renameColumn('clientes', 'old_name', 'new_name', 'VARCHAR(255)', ['null' => false]);
+
+        // Exemplo 6: Renomear tabela
+        // $this->renameTable('old_table_name', 'new_table_name');
+    }
+
+    /**
+     * Reverte a migration
+     */
+    public function down(): void
+    {
+        // Remove Foreign Keys primeiro
+        $this->dropForeignKeyIfExists('contratos', 'fk_contratos_cliente_id');
+        $this->dropForeignKeyIfExists('contratos', 'fk_contratos_veiculo_id');
+        $this->dropForeignKeyIfExists('pagamentos', 'fk_pagamentos_contrato');
+
+        // Remove colunas adicionadas
+        $this->dropColumnIfExists('clientes', 'tipo');
+        $this->dropColumnIfExists('veiculos', 'extras');
+
+        // Remove tabela
+        $this->drop('contratos');
+    }
+};

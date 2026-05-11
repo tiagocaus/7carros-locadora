@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Locadora</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="styles/base.css" rel="stylesheet">
+    <link href="styles/layout.css" rel="stylesheet">
+    <link href="styles/components.css" rel="stylesheet">
+    <link href="styles/utilities.css" rel="stylesheet">
+    <link href="styles/custom-classes.css" rel="stylesheet">
+    <link href="styles/chosen-select.css" rel="stylesheet">
+</head>
+
+<body class="flex flex-col h-screen bg-slate-100">
+    <!-- Estrutura do header (barras superiores) -->
+    <header class="flex-shrink-0">
+        <div class="top-bar text-white text-xs flex shadow-sm relative">
+            <span class="top-bar-item top-bar-item-locadora active-system">Locadora de veículo</span>
+            <span class="top-bar-item top-bar-item-oficina">Oficina mecânica</span>
+            <span class="top-bar-item top-bar-item-autopecas">Auto peças</span>
+            <span class="top-bar-item top-bar-item-vistoria">Vistoria veicular</span>
+            <span class="top-bar-item top-bar-item-revenda">Revenda de veículos</span>
+        </div>
+        <nav class="main-nav text-white p-2 flex items-center justify-between shadow-md relative">
+            <div class="flex items-center flex-shrink-0">
+                <span class="text-3xl font-bold ml-2">7Carros</span>
+            </div>
+            <div class="w-full flex justify-between items-center ml-0 md:ml-6">
+                <div id="mainNavLinks" class="main-nav-links hidden md:flex items-center space-x-1 text-sm">
+                    <div class="main-nav-item">
+                        <a href="#" class="px-3 py-2 hover:bg-[#3578a0] flex items-center w-full"> Sistema <i class="fas fa-chevron-down fa-xs ml-1.5"></i></a>
+                        <div class="submenu">
+                            <a href="#">Programa de indicação</a>
+                            <a href="#">Pedir novo recurso</a>
+                            <a href="#">Logs de atividade</a>
+                            <a href="#">Conceder acesso</a>
+                            <a href="#">Configurações</a>
+                            <a href="#">Changelog</a>
+                            <a href="#">Gravar tela</a>
+                            <a href="#">Sair</a>
+                        </div>
+                    </div>
+                    <div class="main-nav-item">
+                        <a href="#" class="px-3 py-2 hover:bg-[#3578a0] flex items-center w-full"> Contrato/Locações <i class="fas fa-chevron-down fa-xs ml-1.5"></i></a>
+                        <div class="submenu">
+                            <a href="#">Nova Locação</a>
+                            <a href="#">Locações/Reservas</a>
+                            <div class="submenu-divider"></div>
+                            <a href="#">Novo contrato</a>
+                            <a href="#">Contratos</a>
+                        </div>
+                    </div>
+                    <div class="main-nav-item">
+                        <a href="#" class="px-3 py-2 hover:bg-[#3578a0] flex items-center w-full"> Empresa <i class="fas fa-chevron-down fa-xs ml-1.5"></i></a>
+                        <div class="submenu">
+                            <a href="#">Matriz e filiais</a>
+                            <a href="#">Clientes</a>
+                            <a href="#">Whatsapp</a>
+                            <a href="#">Funcionários</a>
+                            <a href="#">Documentos</a>
+                            <div class="submenu-divider"></div>
+                            <a href="#">Taxas e serviços</a>
+                            <a href="#">Oficinas</a>
+                            <a href="#">Promoções</a>
+                            <a href="#">Multas</a>
+                            <a href="#">Contas bancárias/caixa</a>
+                            <a href="#">Formas de pagamento</a>
+                            <div class="submenu-divider"></div>
+                            <a href="#">Fornecedores</a>
+                            <div class="submenu-divider"></div>
+                            <a href="#">Estoque</a>
+                        </div>
+                    </div>
+                    <div class="main-nav-item">
+                        <a href="#" class="px-3 py-2 hover:bg-[#3578a0] flex items-center w-full"> Veículos <i class="fas fa-chevron-down fa-xs ml-1.5"></i></a>
+                        <div class="submenu">
+                            <a href="#" onclick="openOrSwitchToTab('gestaoVeiculos', 'Veículos', 'fas fa-car-side'); return false;
+                            ">Veículos</a>
+                            <div class="submenu-divider"></div>
+                            <a href="#">Grupos</a>
+                            <a href="#">Acessórios e itens</a>
+                            <div class="submenu-divider"></div>
+                            <a href="#">Manutenções</a>
+                            <a href="#">Plano de manutenções</a>
+                            <div class="submenu-divider"></div>
+                            <a href="#">Checklist</a>
+                            <a href="#">Checklist modelos</a>
+                        </div>
+                    </div>
+                    <div class="main-nav-item">
+                        <a href="#" class="px-3 py-2 hover:bg-[#3578a0] flex items-center w-full"> Relatórios <i class="fas fa-chevron-down fa-xs ml-1.5"></i></a>
+                        <div class="submenu submenu-multilevel">
+                            <div class="submenu-item-with-submenu">
+                                <a href="#" class="submenu-parent"><span>Financeiro</span><i class="fas fa-chevron-right fa-xs"></i></a>
+                                <div class="submenu-level-2">
+                                    <a href="#">Geral detalhado</a>
+                                    <a href="#">Faturamento</a>
+                                    <a href="#">Demostrativos de resultados</a>
+                                    <a href="#">Livro de caixa</a>
+                                    <a href="#">Contas bancárias/Caixas</a>
+                                    <a href="#">Plano de contas</a>
+                                </div>
+                            </div>
+                            <div class="submenu-item-with-submenu">
+                                <a href="#" class="submenu-parent"><span>Veícular</span><i class="fas fa-chevron-right fa-xs"></i></a>
+                                <div class="submenu-level-2">
+                                    <a href="#">Manutenções veicular</a>
+                                    <a href="#">Lucro por veículo</a>
+                                    <a href="#">Despesas veicular</a>
+                                    <a href="#">Veículo/cliente</a>
+                                    <a href="#">Licenciamento</a>
+                                    <a href="#">Disponibilidade</a>
+                                </div>
+                            </div>
+                            <div class="submenu-item-with-submenu">
+                                <a href="#" class="submenu-parent"><span>Clientes</span><i class="fas fa-chevron-right fa-xs"></i></a>
+                                <div class="submenu-level-2">
+                                    <a href="#">Contrato/locações</a>
+                                    <a href="#">Aniversariantes</a>
+                                    <a href="#">CNH Vencidas</a>
+                                </div>
+                            </div>
+                            <div class="submenu-item-with-submenu">
+                                <a href="#" class="submenu-parent"><span>Faturas</span><i class="fas fa-chevron-right fa-xs"></i></a>
+                                <div class="submenu-level-2">
+                                    <a href="#">Vencidas/a vencer</a>
+                                    <a href="#">Por veículo</a>
+                                    <a href="#">Pagar/receber</a>
+                                </div>
+                            </div>
+                            <div class="submenu-item-with-submenu">
+                                <a href="#" class="submenu-parent"><span>Fornecedores</span><i class="fas fa-chevron-right fa-xs"></i></a>
+                                <div class="submenu-level-2">
+                                    <a href="#">Fornecedores</a>
+                                    <a href="#">Fornecedor investidor</a>
+                                </div>
+                            </div>
+                            <div class="submenu-item-with-submenu">
+                                <a href="#" class="submenu-parent"><span>Contratos/Locações</span><i class="fas fa-chevron-right fa-xs"></i></a>
+                                <div class="submenu-level-2">
+                                    <a href="#">Contratos/Locações</a>
+                                </div>
+                            </div>
+                            <div class="submenu-item-with-submenu">
+                                <a href="#" class="submenu-parent"><span>Funcionários</span><i class="fas fa-chevron-right fa-xs"></i></a>
+                                <div class="submenu-level-2">
+                                    <a href="#">Vendas</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="main-nav-item">
+                        <a href="#" class="px-3 py-2 hover:bg-[#3578a0] flex items-center w-full"> Financeiro <i class="fas fa-chevron-down fa-xs ml-1.5"></i></a>
+                        <div class="submenu">
+                            <a href="#">Lançamentos</a>
+                            <a href="#">Novo lançamento</a>
+                            <a href="#">Novas parcelas</a>
+                            <a href="#">Promissórias</a>
+                        </div>
+                    </div>
+                    <div class="main-nav-item">
+                        <a href="#" class="px-3 py-2 hover:bg-[#3578a0] flex items-center w-full"> WebSite <i class="fas fa-chevron-down fa-xs ml-1.5"></i></a>
+                        <div class="submenu">
+                            <a href="#">Configurações</a>
+                            <a href="#">Banners</a>
+                            <a href="#">Codigos</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-1 md:space-x-2 ml-2 md:ml-0 relative">
+                    <div class="nav-dropdown-container">
+                        <button id="languageButton" class="p-2 rounded-full hover:bg-[#3578a0] focus:outline-none" title="Selecionar Idioma">
+                            <span class="flag-icon-active" id="activeLanguageFlag">🇧🇷</span>
+                        </button>
+                        <div id="languageDropdown" class="nav-dropdown">
+                            <div class="dropdown-header"><i class="fas fa-check text-green-500"></i>Selecione o idioma</div>
+                            <a href="#" class="dropdown-item" data-lang="pt-BR" data-flag="🇧🇷"><span>Português brasil</span><span style="font-size: 1.25rem;">🇧🇷</span></a>
+                            <a href="#" class="dropdown-item" data-lang="pt-PT" data-flag="🇵🇹"><span>Português portugual</span><span style="font-size: 1.25rem;">🇵🇹</span></a>
+                            <a href="#" class="dropdown-item" data-lang="en-US" data-flag="🇺🇸"><span>English</span><span style="font-size: 1.25rem;">🇺🇸</span></a>
+                            <a href="#" class="dropdown-item" data-lang="es-ES" data-flag="🇪🇸"><span>Español</span><span style="font-size: 1.25rem;">🇪🇸</span></a>
+                        </div>
+                    </div>
+
+                    <div class="nav-dropdown-container">
+                        <button id="notificationsButton" class="p-2 rounded-full hover:bg-[#3578a0] focus:outline-none flex items-center" title="Notificações"> <i class="fas fa-bell"></i>
+                            <span class="notification-badge">403</span> </button>
+                        <div id="notificationsDropdown" class="nav-dropdown">
+                            <div class="dropdown-header bg-pink-100 text-pink-700"><i class="fas fa-exclamation-triangle text-pink-600"></i>403 Notificações</div>
+                            <a href="#" class="dropdown-item">
+                                <div class="flex items-center"><i class="fas fa-tools text-slate-500 mr-2"></i>Manutenções</div><span class="badge">3</span>
+                            </a>
+                            <a href="#" class="dropdown-item">
+                                <div class="flex items-center"><i class="fas fa-calendar-check text-slate-500 mr-2"></i>Tarefas</div><span class="badge">0</span>
+                            </a>
+                            <a href="#" class="dropdown-item">
+                                <div class="flex items-center"><i class="fas fa-file-invoice-dollar text-slate-500 mr-2"></i>Faturas vencidas</div><span class="badge bg-red-200 text-red-700">398</span>
+                            </a>
+                            <a href="#" class="dropdown-item">
+                                <div class="flex items-center"><i class="fas fa-dollar-sign text-slate-500 mr-2"></i>Licenciamento</div><span class="badge">0</span>
+                            </a>
+                            <a href="#" class="dropdown-item">
+                                <div class="flex items-center"><i class="fas fa-id-card text-slate-500 mr-2"></i>CNH Vencidas</div><span class="badge">2</span>
+                            </a>
+                            <a href="#" class="dropdown-item">
+                                <div class="flex items-center"><i class="fas fa-exclamation-circle text-red-500 mr-2"></i>Problemas</div><span class="badge">0</span>
+                            </a>
+                            <a href="#" class="dropdown-footer">Todas as notificações <i class="fas fa-arrow-right fa-xs ml-1"></i></a>
+                        </div>
+                    </div>
+
+                    <button class="p-1 rounded-full hover:bg-[#3578a0] focus:outline-none hidden md:inline-flex" title="Perfil do Usuário"> <i class="fas fa-user-circle text-2xl"></i>
+                    </button>
+                    <button class="p-2 rounded-full hover:bg-[#3578a0] focus:outline-none hidden md:inline-flex" title="Sair"> <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <button id="hamburgerButton" class="md:hidden p-2 rounded-md hover:bg-[#3578a0] focus:outline-none"> <i class="fas fa-bars text-xl"></i>
+            </button>
+        </nav>
+        <div class="secondary-nav py-1.5 px-4 flex items-center justify-start space-x-1.5 shadow-sm overflow-x-auto">
+            <button id="sidebarToggleBtn" class="sidebar-toggle-btn" title="Alternar modo da sidebar">
+                <i class="fas fa-bars"></i>
+                <span class="hidden sm:inline">Modo Sidebar</span>
+            </button>
+            <button class="icon-button" data-tab-id="locRes" data-tab-name="Locações/Reservas" data-tab-icon="fas fa-file-invoice-dollar">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>Locações/Reservas</span>
+            </button>
+            <button class="icon-button" data-tab-id="contratos" data-tab-name="Contratos" data-tab-icon="fas fa-file-signature">
+                <i class="fas fa-file-signature"></i>
+                <span>Contratos</span>
+            </button>
+            <button class="icon-button" data-tab-id="veiculos" data-tab-name="Veículos" data-tab-icon="fas fa-car-side">
+                <i class="fas fa-car-side"></i>
+                <span>Veículos</span>
+            </button>
+            <button class="icon-button" data-tab-page="clientes.html" data-tab-name="Cadastro de Clientes" data-tab-icon="fas fa-users">
+                <i class="fas fa-users"></i>
+                <span>Clientes</span>
+            </button>
+            <button class="icon-button" data-tab-id="funcionarios" data-tab-name="Funcionários" data-tab-icon="fas fa-id-badge">
+                <i class="fas fa-id-badge"></i>
+                <span>Funcionários</span>
+            </button>
+            <button class="icon-button" data-tab-id="localizar" data-tab-name="Localizar" data-tab-icon="fas fa-magnifying-glass">
+                <i class="fas fa-magnifying-glass"></i>
+                <span>Localizar</span>
+            </button>
+            <button class="icon-button" data-tab-id="agenda" data-tab-name="Agenda" data-tab-icon="far fa-calendar-alt">
+                <i class="far fa-calendar-alt"></i>
+                <span>Agenda</span>
+            </button>
+            <button class="icon-button" data-tab-id="matrizFiliais" data-tab-name="Matriz e Filiais" data-tab-icon="fas fa-building-columns">
+                <i class="fas fa-building-columns"></i>
+                <span>Matriz e Filiais</span>
+            </button>
+            <button class="icon-button" data-tab-id="atualizar" data-tab-name="Atualizar" data-tab-icon="fas fa-sync">
+                <i class="fas fa-sync"></i>
+                <span>Atualizar</span>
+            </button>
+        </div>
+    </header>
+
+    <div id="mainLayoutContainer" class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <aside id="sidebar" class="sidebar w-full md:w-64 lg:w-72 p-3 shadow-lg flex-shrink-0 overflow-y-auto">
+            <div id="sidebarTabsContainer">
+                <div class="sidebar-tab active no-close" data-tab-id="inicio">
+                    <div class="flex items-center">
+                        <i class="fas fa-home tab-icon"></i>
+                        <span>Início</span>
+                    </div>
+                    <i class="fas fa-times close-icon"></i>
+                </div>
+            </div>
+
+            <form action="#" id="quickSearchForm">
+                <h3 class="font-semibold text-slate-700 mt-4 mb-2 text-sm px-1">Busca rápida</h3>
+                <select class="w-full p-2 border border-slate-300 rounded-md mb-2 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500" data-chosen-type="normal">
+                    <option value="">Selecione</option>
+                </select>
+                <div class="relative mb-3">
+                    <input type="text" placeholder="Veículo" class="w-full p-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500">
+                </div>
+                <div class="relative mb-3 flex items-center">
+                    <input type="text" placeholder="dd/mm/aaaa" class="w-full p-2 border border-slate-300 rounded-l-md text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500">
+                    <span class="inline-flex items-center px-3 h-[38px] border border-l-0 border-slate-300 bg-slate-50 text-slate-500 text-sm rounded-r-md">
+                        <i class="fas fa-calendar-day"></i>
+                    </span>
+                </div>
+                <button class="w-full btn-green py-2 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow">Ok</button>
+            </form>
+        </aside>
+
+        <main id="mainContentArea" class="content-area flex-grow p-4 overflow-y-auto">
+            <div class="tab-content active-content" data-tab-content-id="inicio">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="kpi-card">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-sky-100 text-sky-600 mr-4">
+                                <i class="fas fa-car fa-2x"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-500">Total de Veículos</p>
+                                <p class="title-page">75</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-emerald-100 text-emerald-600 mr-4">
+                                <i class="fas fa-key fa-2x"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-500">Locados Hoje</p>
+                                <p class="title-page">12</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-amber-100 text-amber-600 mr-4">
+                                <i class="fas fa-chart-pie fa-2x"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-500">Taxa de Ocupação</p>
+                                <p class="title-page">68%</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-indigo-100 text-indigo-600 mr-4">
+                                <i class="fas fa-hand-holding-usd fa-2x"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-500">Receita Prev. Hoje</p>
+                                <p class="title-page">R$ 3.250</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kpi-card mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-base font-semibold text-slate-800">Disponibilidade de Veículos</h4>
+                        <div class="text-xs text-slate-500">Total: 12</div>
+                    </div>
+                    <div class="availability-bar-container mb-2.5">
+                        <div class="availability-segment" style="width: 40%; background-color: #66BB6A;" title="Disponíveis: 4"></div>
+                        <div class="availability-segment" style="width: 30%; background-color: #EF5350;" title="Locados: 3"></div>
+                        <div class="availability-segment" style="width: 20%; background-color: #42A5F5;" title="Reservados: 2"></div>
+                        <div class="availability-segment" style="width: 10%; background-color: #FFEE58; color: #5D4037;" title="Oficina: 1"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-slate-600 px-1 mb-3">
+                        <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span>
+                    </div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-700">
+                        <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#66BB6A] rounded-full mr-1.5"></span>Disponíveis (4)</div>
+                        <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#EF5350] rounded-full mr-1.5"></span>Locados (3)</div>
+                        <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#42A5F5] rounded-full mr-1.5"></span>Reservados (2)</div>
+                        <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#FFEE58] rounded-full mr-1.5 border border-slate-400"></span>Oficina (1)</div>
+                    </div>
+                </div>
+
+
+                <div class="border-b border-slate-300">
+                    <nav class="flex space-x-1 -mb-px overflow-x-auto pb-1" id="inicioSubTabsNav">
+                        <a href="#" data-subtab-target="#inicioSubTabBuscaRapida" class="tab-inactive-main hover:tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link">
+                            Busca rápida
+                        </a>
+                        <a href="#" data-subtab-target="#inicioSubTabReservas" class="tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link" aria-current="page">
+                            Reservas
+                        </a>
+                        <a href="#" data-subtab-target="#inicioSubTabAlugados" class="tab-inactive-main hover:tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link">
+                            Alugados
+                        </a>
+                        <a href="#" data-subtab-target="#inicioSubTabDisponiveis" class="tab-inactive-main hover:tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link">
+                            Disponíveis
+                        </a>
+                        <a href="#" data-subtab-target="#inicioSubTabChegadaPendente" class="tab-inactive-main hover:tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link">
+                            Chegada pendente
+                        </a>
+                        <a href="#" data-subtab-target="#inicioSubTabProximasDevolucoes" class="tab-inactive-main hover:tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link">
+                            Próximas Devoluções
+                        </a>
+                    </nav>
+                </div>
+                <div id="inicioSubTabContentArea" class="py-5">
+                    <div id="inicioSubTabBuscaRapida" class="subtab-content hidden">
+                        <div class="h-64 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50/50">
+                            <p class="text-slate-500">Conteúdo da sub-aba "Busca rápida" aqui.</p>
+                        </div>
+                    </div>
+                    <div id="inicioSubTabReservas" class="subtab-content">
+                        <div class="h-64 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50/50">
+                            <p class="text-slate-500">Conteúdo da sub-aba "Reservas" aparecerá aqui.</p>
+                        </div>
+                    </div>
+                    <div id="inicioSubTabAlugados" class="subtab-content hidden">
+                        <div class="h-64 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50/50">
+                            <p class="text-slate-500">Conteúdo da sub-aba "Alugados" aqui.</p>
+                        </div>
+                    </div>
+                    <div id="inicioSubTabDisponiveis" class="subtab-content hidden">
+                        <div class="h-64 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50/50">
+                            <p class="text-slate-500">Conteúdo da sub-aba "Disponíveis" aqui.</p>
+                        </div>
+                    </div>
+                    <div id="inicioSubTabChegadaPendente" class="subtab-content hidden">
+                        <div class="h-64 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50/50">
+                            <p class="text-slate-500">Conteúdo da sub-aba "Chegada Pendente" aqui.</p>
+                        </div>
+                    </div>
+                    <div id="inicioSubTabProximasDevolucoes" class="subtab-content hidden">
+                        <!-- O conteúdo será injetado aqui pelo JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="offcanvasOverlay" class="offcanvas-overlay"></div>
+    <div id="offcanvasPanel" class="offcanvas-panel">
+        <div class="flex justify-between items-center mb-6 border-b pb-3">
+            <h3 class="text-lg font-semibold text-slate-700">Janela Lateral</h3>
+            <button id="closeOffcanvasButton" class="text-slate-500 hover:text-slate-700">
+                <i class="fas fa-times fa-lg"></i>
+            </button>
+        </div>
+        <div>
+            <p class="text-slate-600">Este é um exemplo de conteúdo para a janela lateral.</p>
+            <p class="mt-4 text-slate-600">Pode adicionar formulários, informações adicionais, ou qualquer outro elemento aqui.</p>
+        </div>
+    </div>
+
+    <div id="deleteConfirmationModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 class="modal-title" id="deleteModalTitle">Confirmar Exclusão</h3>
+            <p class="modal-message" id="deleteModalMessage">Deseja realmente excluir este registo?</p>
+            <div class="modal-actions">
+                <button id="cancelDeleteButton" class="btn-secondary">Não</button>
+                <button id="confirmDeleteButton" class="btn-red py-2 px-4 rounded-md text-sm font-medium">Sim</button>
+            </div>
+        </div>
+    </div>
+
+
+    <footer class="footer-bar p-2 text-center md:flex md:justify-between md:items-center">
+        <div class="flex flex-wrap justify-center md:justify-start gap-x-2 text-xs">
+            <span>[ Usuário : Tiago de Teste ]</span>
+            <span>-</span>
+            <span>[ Empresa : Matriz de teste ]</span>
+            <span>-</span>
+            <span>-</span>
+            <span>[ Plano : Ilimitado ]</span>
+            <span>-</span>
+            <span>[ Idioma : pt_BR ]</span>
+            <span>-</span>
+            <span>[ <i class="fas fa-video"></i> Gravar tela ]</span>
+            <span>-</span>
+            <span>[ <i class="fas fa-info-circle"></i> Minify ]</span>
+        </div>
+        <div class="mt-1 md:mt-0 text-xs">
+            <span>7Carros - v1747233534 - Suporte</span>
+        </div>
+    </footer>
+    <script src="js/dashboard.js"></script>
+    <script src="js/chosen-select.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,2903 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biblioteca de Componentes - Locadora 7Carros</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="styles/base.css" rel="stylesheet">
+    <link href="styles/components.css" rel="stylesheet">
+    <link href="styles/utilities.css" rel="stylesheet">
+    <link href="styles/custom-classes.css" rel="stylesheet">
+    <link href="styles/iframe-pages.css" rel="stylesheet">
+    <link href="styles/chosen-select.css" rel="stylesheet">
+    <link href="styles/nestable-list.css" rel="stylesheet">
+    <style>
+        .component-nav {
+            position: sticky;
+            top: 20px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .component-nav a {
+            display: block;
+            padding: 0.5rem 1rem;
+            color: #475569;
+            text-decoration: none;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s;
+        }
+
+        .component-nav a:hover {
+            background-color: #F1F5F9;
+        }
+
+        .component-nav a.active {
+            background-color: #E0F2FE;
+            color: #0C4A6E;
+            font-weight: 500;
+        }
+
+        .component-section {
+            scroll-margin-top: 20px;
+        }
+
+        .code-block {
+            background-color: #1E293B;
+            color: #E2E8F0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+        }
+
+        .code-block code {
+            color: #E2E8F0;
+        }
+
+        .component-example {
+            background-color: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .component-info {
+            background-color: #F1F5F9;
+            border-left: 4px solid #0EA5E9;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0.25rem;
+        }
+
+        .component-info h4 {
+            font-weight: 600;
+            color: #0C4A6E;
+            margin-bottom: 0.5rem;
+        }
+
+        .component-info ul {
+            list-style-type: disc;
+            margin-left: 1.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .component-info li {
+            margin-bottom: 0.25rem;
+            color: #475569;
+        }
+
+        /* Garantir que todos os inputs tenham foco azul */
+        .form-input:focus,
+        .form-input-focus:focus,
+        select.form-input:focus,
+        select.form-input-focus:focus,
+        input[type="text"].form-input:focus,
+        input[type="email"].form-input:focus,
+        input[type="date"].form-input:focus,
+        input[type="password"].form-input:focus,
+        input[type="tel"].form-input:focus,
+        textarea.form-input:focus {
+            outline: none;
+            border-color: #0EA5E9;
+            box-shadow: 0 0 0 1px #0EA5E9;
+        }
+
+        /* Tabs Verticais */
+        .vertical-tabs-container {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .vertical-tabs-nav {
+            display: flex;
+            flex-direction: column;
+            min-width: 200px;
+            border-right: 1px solid #E2E8F0;
+            padding-right: 1rem;
+        }
+
+        .vertical-tab-button {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #4B5563;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+
+        .vertical-tab-button:hover {
+            background-color: #F1F5F9;
+            color: #0EA5E9;
+        }
+
+        .vertical-tab-button.active {
+            background-color: #E0F2FE;
+            color: #0C4A6E;
+            font-weight: 600;
+        }
+
+        .vertical-tab-content {
+            display: none;
+            flex: 1;
+        }
+
+        .vertical-tab-content.active {
+            display: block;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 9999px;
+        }
+
+        .badge-default {
+            background-color: #F1F5F9;
+            color: #475569;
+        }
+
+        .badge-success {
+            background-color: #D1FAE5;
+            color: #065F46;
+        }
+
+        .badge-warning {
+            background-color: #FEF3C7;
+            color: #92400E;
+        }
+
+        .badge-danger {
+            background-color: #FEE2E2;
+            color: #991B1B;
+        }
+
+        .badge-info {
+            background-color: #DBEAFE;
+            color: #1E40AF;
+        }
+
+        .badge-inverse {
+            background-color: #E9D5FF;
+            color: #6B21A8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="p-1 md:p-4">
+        <div class="mb-6">
+            <h1 class="title-page mb-2">Biblioteca de Componentes</h1>
+            <p class="text-slate-600">Documentação completa dos componentes reutilizáveis do sistema</p>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-6">
+            <!-- Navegação Lateral -->
+            <aside class="lg:w-64 flex-shrink-0">
+                <div class="bg-white shadow-md rounded-lg p-4 component-nav">
+                    <h3 class="font-semibold text-slate-700 mb-3">Índice</h3>
+                    <nav class="space-y-1">
+                        <a href="#lista-modelo" class="component-nav-link">Lista Modelo</a>
+                        <a href="#botoes" class="component-nav-link">Botões</a>
+                        <a href="#forms-tabs" class="component-nav-link">Forms e Tabs</a>
+                        <a href="#tabs-verticais" class="component-nav-link">Tabs Verticais</a>
+                        <a href="#modais" class="component-nav-link">Modais</a>
+                        <a href="#modal-exclusao" class="component-nav-link">Modal de Exclusão</a>
+                        <a href="#offcanvas" class="component-nav-link">Offcanvas</a>
+                        <a href="#cards" class="component-nav-link">Cards</a>
+                        <a href="#tabelas" class="component-nav-link">Tabelas</a>
+                        <a href="#paginacao" class="component-nav-link">Paginação</a>
+                        <a href="#badges" class="component-nav-link">Badges</a>
+                        <a href="#inputs" class="component-nav-link">Inputs e Labels</a>
+                        <a href="#nestable-list" class="component-nav-link">Nestable List</a>
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- Conteúdo Principal -->
+            <main class="flex-1">
+                <!-- Seção: Lista Modelo -->
+                <section id="lista-modelo" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Lista Modelo (Abstração da Lista de Clientes)</h2>
+                    <p class="text-slate-600 mb-4">
+                        Componente reutilizável baseado na lista de clientes. Pode ser usado para qualquer tipo de lista
+                        (veículos, contratos, funcionários, etc.).
+                    </p>
+
+                    <div class="component-info">
+                        <h4>Características:</h4>
+                        <ul>
+                            <li>Cabeçalho com título e área de ações (busca, botões)</li>
+                            <li>Tabela responsiva com colunas ocultas em telas menores</li>
+                            <li>Sistema de paginação completo</li>
+                            <li>Botões de ação por linha (ver, editar, excluir)</li>
+                            <li>Controle de registros por página</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-example">
+                        <div class="clientes-header flex flex-col sm:flex-row justify-between items-center mb-6">
+                            <h2 class="title-section mb-3 sm:mb-0">Lista de Exemplo</h2>
+                            <div class="flex items-center space-x-3 w-full sm:w-auto">
+                                <div class="relative flex-grow sm:flex-grow-0">
+                                    <input type="text" placeholder="Buscar..." class="form-input-focus sm:w-64 pr-8">
+                                    <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                                </div>
+                                <button class="btn-yellow py-2 px-3 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
+                                    <i class="fas fa-bars mr-2"></i>Ação Secundária
+                                </button>
+                                <button class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
+                                    <i class="fas fa-plus mr-2"></i>Adicionar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="bg-white shadow-md rounded-lg overflow-x-auto">
+                            <table class="w-full min-w-full divide-y divide-slate-200">
+                                <thead class="table-header-custom">
+                                    <tr>
+                                        <th class="table-header">ID</th>
+                                        <th class="table-header">Nome</th>
+                                        <th class="table-header hidden md:table-cell">Email</th>
+                                        <th class="table-header hidden lg:table-cell">Telefone</th>
+                                        <th class="table-header px-2 w-36 text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-slate-200">
+                                    <tr class="border-b border-slate-200 hover:bg-slate-50">
+                                        <td class="table-cell">1</td>
+                                        <td class="table-cell">Exemplo Item 1</td>
+                                        <td class="table-cell hidden md:table-cell">exemplo1@teste.com</td>
+                                        <td class="table-cell hidden lg:table-cell">(11) 98765-4321</td>
+                                        <td class="table-cell px-2 w-32 text-center">
+                                            <button title="Ver" class="btn-icon text-sky-600 hover:text-sky-800">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button title="Editar" class="btn-icon text-amber-600 hover:text-amber-800">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button title="Excluir" class="btn-icon text-red-600 hover:text-red-800">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="border-b border-slate-200 hover:bg-slate-50">
+                                        <td class="table-cell">2</td>
+                                        <td class="table-cell">Exemplo Item 2</td>
+                                        <td class="table-cell hidden md:table-cell">exemplo2@teste.com</td>
+                                        <td class="table-cell hidden lg:table-cell">(21) 91234-5678</td>
+                                        <td class="table-cell px-2 w-32 text-center">
+                                            <button title="Ver" class="btn-icon text-sky-600 hover:text-sky-800">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button title="Editar" class="btn-icon text-amber-600 hover:text-amber-800">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button title="Excluir" class="btn-icon text-red-600 hover:text-red-800">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="table-pagination-controls mt-4 flex flex-wrap justify-between items-center">
+                            <div>
+                                <label for="rowsPerPage" class="text-sm text-slate-600 mr-2">Registos por página:</label>
+                                <select id="rowsPerPage" class="form-input-focus select-pagination">
+                                    <option value="10">10</option>
+                                    <option value="20">20</option>
+                                    <option value="30">30</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+                            <div class="text-sm text-slate-600 mt-2 sm:mt-0">
+                                <span>Mostrando 1-10 de 50 registros</span>
+                            </div>
+                            <nav aria-label="Page navigation" class="mt-2 sm:mt-0">
+                                <ul class="inline-flex items-center -space-x-px">
+                                    <li><button class="pagination-button arrow-button rounded-l-md" disabled><i class="fas fa-chevron-left"></i></button></li>
+                                    <li><button class="pagination-button numbered active">1</button></li>
+                                    <li><button class="pagination-button numbered">2</button></li>
+                                    <li><button class="pagination-button numbered">3</button></li>
+                                    <li><button class="pagination-button numbered" disabled>...</button></li>
+                                    <li><button class="pagination-button numbered">10</button></li>
+                                    <li><button class="pagination-button arrow-button rounded-r-md"><i class="fas fa-chevron-right"></i></button></li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Estrutura da Lista Modelo --&gt;
+&lt;div class="clientes-header flex flex-col sm:flex-row justify-between items-center mb-6"&gt;
+    &lt;h2 class="title-section mb-3 sm:mb-0"&gt;Título da Lista&lt;/h2&gt;
+    &lt;div class="flex items-center space-x-3 w-full sm:w-auto"&gt;
+        &lt;div class="relative flex-grow sm:flex-grow-0"&gt;
+            &lt;input type="text" placeholder="Buscar..." class="form-input-focus sm:w-64 pr-8"&gt;
+            &lt;i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"&gt;&lt;/i&gt;
+        &lt;/div&gt;
+        &lt;button class="btn-yellow py-2 px-3 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap"&gt;
+            &lt;i class="fas fa-bars mr-2"&gt;&lt;/i&gt;Ação Secundária
+        &lt;/button&gt;
+        &lt;button class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap"&gt;
+            &lt;i class="fas fa-plus mr-2"&gt;&lt;/i&gt;Adicionar
+        &lt;/button&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div class="bg-white shadow-md rounded-lg overflow-x-auto"&gt;
+    &lt;table class="w-full min-w-full divide-y divide-slate-200"&gt;
+        &lt;thead class="table-header-custom"&gt;
+            &lt;tr&gt;
+                &lt;th class="table-header"&gt;Coluna 1&lt;/th&gt;
+                &lt;th class="table-header"&gt;Coluna 2&lt;/th&gt;
+                &lt;th class="table-header hidden md:table-cell"&gt;Coluna Responsiva&lt;/th&gt;
+                &lt;th class="table-header px-2 w-32 text-center"&gt;Ações&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody class="bg-white divide-y divide-slate-200"&gt;
+            &lt;tr class="border-b border-slate-200 hover:bg-slate-50"&gt;
+                &lt;td class="table-cell"&gt;Dado 1&lt;/td&gt;
+                &lt;td class="table-cell"&gt;Dado 2&lt;/td&gt;
+                &lt;td class="table-cell hidden md:table-cell"&gt;Dado Responsivo&lt;/td&gt;
+                &lt;td class="table-cell px-2 w-32 text-center"&gt;
+                    &lt;button class="btn-icon text-sky-600 hover:text-sky-800"&gt;&lt;i class="fas fa-eye"&gt;&lt;/i&gt;&lt;/button&gt;
+                    &lt;button class="btn-icon text-amber-600 hover:text-amber-800"&gt;&lt;i class="fas fa-edit"&gt;&lt;/i&gt;&lt;/button&gt;
+                    &lt;button class="btn-icon text-red-600 hover:text-red-800"&gt;&lt;i class="fas fa-trash"&gt;&lt;/i&gt;&lt;/button&gt;
+                &lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+&lt;/div&gt;
+
+&lt;!-- Paginação --&gt;
+&lt;div class="table-pagination-controls mt-4 flex flex-wrap justify-between items-center"&gt;
+    &lt;div&gt;
+        &lt;label for="rowsPerPage" class="text-sm text-slate-600 mr-2"&gt;Registos por página:&lt;/label&gt;
+        &lt;select id="rowsPerPage" class="form-input-focus select-pagination"&gt;
+            &lt;option value="10"&gt;10&lt;/option&gt;
+            &lt;option value="20"&gt;20&lt;/option&gt;
+            &lt;option value="30"&gt;30&lt;/option&gt;
+            &lt;option value="50"&gt;50&lt;/option&gt;
+        &lt;/select&gt;
+    &lt;/div&gt;
+    &lt;div class="text-sm text-slate-600 mt-2 sm:mt-0"&gt;
+        &lt;span&gt;Mostrando 1-10 de 50 registros&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;nav aria-label="Page navigation" class="mt-2 sm:mt-0"&gt;
+        &lt;ul class="inline-flex items-center -space-x-px"&gt;
+            &lt;li&gt;&lt;button class="pagination-button arrow-button rounded-l-md" disabled&gt;&lt;i class="fas fa-chevron-left"&gt;&lt;/i&gt;&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered active"&gt;1&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered"&gt;2&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered"&gt;3&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered" disabled&gt;...&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered"&gt;10&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button arrow-button rounded-r-md"&gt;&lt;i class="fas fa-chevron-right"&gt;&lt;/i&gt;&lt;/button&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/nav&gt;
+&lt;/div&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>clientes-header</code> - Container do cabeçalho responsivo</li>
+                            <li><code>title-section</code> - Título da seção</li>
+                            <li><code>form-input-focus</code> - Input de busca com foco</li>
+                            <li><code>table-header-custom</code> - Cabeçalho da tabela</li>
+                            <li><code>table-header</code> - Célula do cabeçalho</li>
+                            <li><code>table-cell</code> - Célula da tabela</li>
+                            <li><code>table-pagination-controls</code> - Container da paginação</li>
+                            <li><code>pagination-button</code> - Botão de paginação</li>
+                            <li><code>select-pagination</code> - Select de registros por página</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Botões -->
+                <section id="botoes" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Botões</h2>
+                    <p class="text-slate-600 mb-4">
+                        Todos os tipos de botões disponíveis no sistema, cada um com sua função específica.
+                    </p>
+
+                    <div class="component-example">
+                        <h3 class="font-semibold text-slate-700 mb-3">Botões de Ação Primária</h3>
+                        <div class="flex flex-wrap gap-3 mb-6">
+                            <button class="btn-blue py-2 px-4 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow">
+                                Botão Azul
+                            </button>
+                            <button class="btn-green py-2 px-4 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow">
+                                Botão Verde
+                            </button>
+                            <button class="btn-red py-2 px-4 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow">
+                                Botão Vermelho
+                            </button>
+                            <button class="btn-yellow py-2 px-4 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow">
+                                Botão Amarelo
+                            </button>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">Botão Secundário</h3>
+                        <div class="flex flex-wrap gap-3 mb-6">
+                            <button class="btn-secondary">Botão Secundário</button>
+                            <button class="btn-secondary hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+                                Botão Secundário com Focus
+                            </button>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">Botões com Ícone</h3>
+                        <div class="flex flex-wrap gap-3 mb-6">
+                            <button class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow">
+                                <i class="fas fa-plus mr-2"></i>Adicionar
+                            </button>
+                            <button class="btn-secondary flex items-center">
+                                <i class="fas fa-arrow-left mr-2"></i>Voltar
+                            </button>
+                            <button id="exemploBtnSalvar" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow">
+                                <i class="fas fa-save mr-2"></i>Salvar
+                            </button>
+                        </div>
+                        <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
+                            <p class="text-sm text-amber-800 mb-2"><strong>Nota:</strong> O botão "Salvar" acima demonstra o comportamento de desabilitar durante a submissão. Clique nele para ver o efeito.</p>
+                            <p class="text-xs text-amber-700">O botão fica desabilitado durante o processo para evitar múltiplos cliques e submissões duplicadas.</p>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">Botões de Ação (Ícones)</h3>
+                        <div class="flex flex-wrap gap-3 mb-6">
+                            <button title="Ver" class="btn-icon text-sky-600 hover:text-sky-800">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button title="Editar" class="btn-icon text-amber-600 hover:text-amber-800">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button title="Excluir" class="btn-icon text-red-600 hover:text-red-800">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">Botões de Navegação Secundária</h3>
+                        <div class="flex flex-wrap gap-3">
+                            <button class="icon-button">
+                                <i class="fas fa-users"></i>
+                                <span>Clientes</span>
+                            </button>
+                            <button class="icon-button">
+                                <i class="fas fa-car-side"></i>
+                                <span>Veículos</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Botões Primários --&gt;
+&lt;button class="btn-blue py-2 px-4 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow"&gt;
+    Botão Azul
+&lt;/button&gt;
+&lt;button class="btn-green py-2 px-4 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow"&gt;
+    Botão Verde
+&lt;/button&gt;
+&lt;button class="btn-red py-2 px-4 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow"&gt;
+    Botão Vermelho
+&lt;/button&gt;
+&lt;button class="btn-yellow py-2 px-4 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow"&gt;
+    Botão Amarelo
+&lt;/button&gt;
+
+&lt;!-- Botão Secundário --&gt;
+&lt;button class="btn-secondary"&gt;Botão Secundário&lt;/button&gt;
+
+&lt;!-- Botões com Ícone --&gt;
+&lt;button class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow"&gt;
+    &lt;i class="fas fa-plus mr-2"&gt;&lt;/i&gt;Adicionar
+&lt;/button&gt;
+
+&lt;!-- Botão Salvar com Proteção contra Múltiplos Cliques --&gt;
+&lt;button id="btnSalvar" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow"&gt;
+    &lt;i class="fas fa-save mr-2"&gt;&lt;/i&gt;Salvar
+&lt;/button&gt;
+
+&lt;!-- JavaScript para proteger contra múltiplos cliques --&gt;
+&lt;script&gt;
+    document.getElementById('btnSalvar').addEventListener('click', async function(e) {
+        e.preventDefault();
+        const btn = this;
+        const originalHTML = btn.innerHTML;
+        const originalDisabled = btn.disabled;
+        
+        // Desabilitar botão e mostrar estado de carregamento
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
+        btn.innerHTML = '&lt;i class="fas fa-spinner fa-spin mr-2"&gt;&lt;/i&gt;Salvando...';
+        
+        try {
+            // Aqui você faria a validação do formulário e a chamada à API
+            // Exemplo de validação:
+            // if (!validarFormulario()) {
+            //     throw new Error('Preencha todos os campos obrigatórios');
+            // }
+            
+            // Simular chamada à API (substitua por sua lógica real)
+            await new Promise(resolve =&gt; setTimeout(resolve, 2000));
+            
+            // Sucesso - você pode redirecionar ou mostrar mensagem
+            alert('Dados salvos com sucesso!');
+            
+            // Reabilitar botão após sucesso (ou redirecionar)
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.innerHTML = originalHTML;
+            
+        } catch (error) {
+            // Erro - reabilitar botão para permitir nova tentativa
+            alert('Erro ao salvar: ' + error.message);
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.innerHTML = originalHTML;
+        }
+    });
+&lt;/script&gt;
+
+&lt;!-- Botões de Ação (Ícones) --&gt;
+&lt;button class="btn-icon text-sky-600 hover:text-sky-800"&gt;
+    &lt;i class="fas fa-eye"&gt;&lt;/i&gt;
+&lt;/button&gt;
+&lt;button class="btn-icon text-amber-600 hover:text-amber-800"&gt;
+    &lt;i class="fas fa-edit"&gt;&lt;/i&gt;
+&lt;/button&gt;
+&lt;button class="btn-icon text-red-600 hover:text-red-800"&gt;
+    &lt;i class="fas fa-trash"&gt;&lt;/i&gt;
+&lt;/button&gt;
+
+&lt;!-- Botões de Navegação Secundária --&gt;
+&lt;button class="icon-button"&gt;
+    &lt;i class="fas fa-users"&gt;&lt;/i&gt;
+    &lt;span&gt;Clientes&lt;/span&gt;
+&lt;/button&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>btn-blue</code> - Botão azul primário (#0EA5E9)</li>
+                            <li><code>btn-green</code> - Botão verde (#22C55E)</li>
+                            <li><code>btn-red</code> - Botão vermelho (#EF4444)</li>
+                            <li><code>btn-yellow</code> - Botão amarelo (#F59E0B)</li>
+                            <li><code>btn-secondary</code> - Botão secundário (borda cinza)</li>
+                            <li><code>btn-icon</code> - Botão apenas com ícone (usado em tabelas)</li>
+                            <li><code>icon-button</code> - Botão com ícone e texto (navegação secundária)</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Forms e Tabs -->
+                <section id="forms-tabs" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Forms e Tabs</h2>
+                    <p class="text-slate-600 mb-4">
+                        Sistema de formulários com abas (tabs) para organizar informações em seções.
+                    </p>
+
+                    <div class="component-example">
+                        <div class="mb-4 border-b border-slate-300">
+                            <nav class="flex -mb-px" id="formTabsNav">
+                                <button data-form-tab-target="#formTab1" class="form-tab-button active">Dados</button>
+                                <button data-form-tab-target="#formTab2" class="form-tab-button">Arquivos</button>
+                                <button data-form-tab-target="#formTab3" class="form-tab-button">Faturas</button>
+                            </nav>
+                        </div>
+
+                        <div id="formTab1" class="form-tab-content active">
+                            <div class="form-section">
+                                <h3 class="form-section-title">Dados do Exemplo</h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div>
+                                        <label for="exemploNome" class="form-label">Nome</label>
+                                        <input type="text" id="exemploNome" class="form-input" placeholder="Digite o nome">
+                                    </div>
+                                    <div>
+                                        <label for="exemploEmail" class="form-label">Email</label>
+                                        <input type="email" id="exemploEmail" class="form-input" placeholder="email@exemplo.com">
+                                    </div>
+                                    <div>
+                                        <label for="exemploTipo" class="form-label">Tipo</label>
+                                        <select id="exemploTipo" class="form-input">
+                                            <option>Opção 1</option>
+                                            <option>Opção 2</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <h3 class="form-section-title">Endereço</h3>
+                                <!-- Linha 1: CEP, Rua, Nº -->
+                                <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 mb-4">
+                                    <div class="sm:col-span-3">
+                                        <label for="exemploCEP" class="form-label">CEP</label>
+                                        <input type="text" id="exemploCEP" class="form-input" placeholder="00000-000">
+                                    </div>
+                                    <div class="sm:col-span-7">
+                                        <label for="exemploRua" class="form-label">Rua</label>
+                                        <input type="text" id="exemploRua" class="form-input" placeholder="Nome da rua">
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label for="exemploNumero" class="form-label">Nº</label>
+                                        <input type="text" id="exemploNumero" class="form-input" placeholder="123">
+                                    </div>
+                                </div>
+                                <!-- Linha 2: Complemento, Bairro, Cidade, Estado -->
+                                <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 mb-4">
+                                    <div class="sm:col-span-3">
+                                        <label for="exemploComplemento" class="form-label">Complemento</label>
+                                        <input type="text" id="exemploComplemento" class="form-input" placeholder="Apto, Bloco, etc">
+                                    </div>
+                                    <div class="sm:col-span-3">
+                                        <label for="exemploBairro" class="form-label">Bairro</label>
+                                        <input type="text" id="exemploBairro" class="form-input" placeholder="Nome do bairro">
+                                    </div>
+                                    <div class="sm:col-span-4">
+                                        <label for="exemploCidade" class="form-label">Cidade</label>
+                                        <input type="text" id="exemploCidade" class="form-input" placeholder="Nome da cidade">
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label for="exemploEstado" class="form-label">Estado</label>
+                                        <input type="text" id="exemploEstado" class="form-input" placeholder="UF">
+                                    </div>
+                                </div>
+                                <!-- Linha 3: País -->
+                                <div class="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                                    <div class="sm:col-span-3">
+                                        <label for="exemploPais" class="form-label">País</label>
+                                        <input type="text" id="exemploPais" class="form-input" value="Brasil" placeholder="País">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="formTab2" class="form-tab-content">
+                            <p class="text-slate-600 p-4">Conteúdo da aba Arquivos aqui...</p>
+                        </div>
+
+                        <div id="formTab3" class="form-tab-content">
+                            <p class="text-slate-600 p-4">Conteúdo da aba Faturas aqui...</p>
+                        </div>
+
+                        <div class="mt-6 flex justify-end space-x-3">
+                            <button type="button" class="btn-secondary hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn-blue py-2 px-4 rounded-md text-sm font-medium shadow hover:shadow-md transition-shadow">
+                                Salvar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Sistema de Tabs --&gt;
+&lt;div class="mb-4 border-b border-slate-300"&gt;
+    &lt;nav class="flex -mb-px" id="formTabsNav"&gt;
+        &lt;button data-form-tab-target="#formTab1" class="form-tab-button active"&gt;Dados&lt;/button&gt;
+        &lt;button data-form-tab-target="#formTab2" class="form-tab-button"&gt;Arquivos&lt;/button&gt;
+        &lt;button data-form-tab-target="#formTab3" class="form-tab-button"&gt;Faturas&lt;/button&gt;
+    &lt;/nav&gt;
+&lt;/div&gt;
+
+&lt;!-- Conteúdo das Tabs --&gt;
+&lt;div id="formTab1" class="form-tab-content active"&gt;
+    &lt;div class="form-section"&gt;
+        &lt;h3 class="form-section-title"&gt;Título da Seção&lt;/h3&gt;
+        &lt;div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"&gt;
+            &lt;div&gt;
+                &lt;label for="campoNome" class="form-label"&gt;Nome&lt;/label&gt;
+                &lt;input type="text" id="campoNome" class="form-input" placeholder="Digite o nome"&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+    
+    &lt;div class="form-section"&gt;
+        &lt;h3 class="form-section-title"&gt;Endereço&lt;/h3&gt;
+        &lt;!-- Linha 1: CEP, Rua, Nº --&gt;
+        &lt;div class="grid grid-cols-1 sm:grid-cols-12 gap-4 mb-4"&gt;
+            &lt;div class="sm:col-span-3"&gt;
+                &lt;label for="cep" class="form-label"&gt;CEP&lt;/label&gt;
+                &lt;input type="text" id="cep" class="form-input" placeholder="00000-000"&gt;
+            &lt;/div&gt;
+            &lt;div class="sm:col-span-7"&gt;
+                &lt;label for="rua" class="form-label"&gt;Rua&lt;/label&gt;
+                &lt;input type="text" id="rua" class="form-input" placeholder="Nome da rua"&gt;
+            &lt;/div&gt;
+            &lt;div class="sm:col-span-2"&gt;
+                &lt;label for="numero" class="form-label"&gt;Nº&lt;/label&gt;
+                &lt;input type="text" id="numero" class="form-input" placeholder="123"&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;!-- Linha 2: Complemento, Bairro, Cidade, Estado --&gt;
+        &lt;div class="grid grid-cols-1 sm:grid-cols-12 gap-4 mb-4"&gt;
+            &lt;div class="sm:col-span-3"&gt;
+                &lt;label for="complemento" class="form-label"&gt;Complemento&lt;/label&gt;
+                &lt;input type="text" id="complemento" class="form-input" placeholder="Apto, Bloco, etc"&gt;
+            &lt;/div&gt;
+            &lt;div class="sm:col-span-3"&gt;
+                &lt;label for="bairro" class="form-label"&gt;Bairro&lt;/label&gt;
+                &lt;input type="text" id="bairro" class="form-input" placeholder="Nome do bairro"&gt;
+            &lt;/div&gt;
+            &lt;div class="sm:col-span-4"&gt;
+                &lt;label for="cidade" class="form-label"&gt;Cidade&lt;/label&gt;
+                &lt;input type="text" id="cidade" class="form-input" placeholder="Nome da cidade"&gt;
+            &lt;/div&gt;
+            &lt;div class="sm:col-span-2"&gt;
+                &lt;label for="estado" class="form-label"&gt;Estado&lt;/label&gt;
+                &lt;input type="text" id="estado" class="form-input" placeholder="UF"&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;!-- Linha 3: País --&gt;
+        &lt;div class="grid grid-cols-1 sm:grid-cols-12 gap-4"&gt;
+            &lt;div class="sm:col-span-3"&gt;
+                &lt;label for="pais" class="form-label"&gt;País&lt;/label&gt;
+                &lt;input type="text" id="pais" class="form-input" value="Brasil" placeholder="País"&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div id="formTab2" class="form-tab-content"&gt;
+    &lt;p&gt;Conteúdo da aba 2&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;!-- JavaScript para controle das tabs --&gt;
+&lt;script&gt;
+    const formTabButtons = document.querySelectorAll('#formTabsNav .form-tab-button');
+    const formTabContents = document.querySelectorAll('.form-tab-content');
+    
+    formTabButtons.forEach(button =&gt; {
+        button.addEventListener('click', () =&gt; {
+            formTabButtons.forEach(btn =&gt; btn.classList.remove('active'));
+            button.classList.add('active');
+            formTabContents.forEach(content =&gt; content.classList.remove('active'));
+            const targetId = button.dataset.formTabTarget;
+            const targetContent = document.querySelector(targetId);
+            if (targetContent) {
+                targetContent.classList.add('active');
+            }
+        });
+    });
+&lt;/script&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>form-tab-button</code> - Botão da tab (com estado active)</li>
+                            <li><code>form-tab-content</code> - Container do conteúdo da tab (com estado active)</li>
+                            <li><code>form-section</code> - Seção do formulário com borda e padding</li>
+                            <li><code>form-section-title</code> - Título da seção do formulário</li>
+                            <li><code>form-label</code> - Label dos campos</li>
+                            <li><code>form-input</code> - Input padrão</li>
+                            <li><code>form-input-focus</code> - Input com estilos de foco</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Tabs Verticais -->
+                <section id="tabs-verticais" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Tabs Verticais</h2>
+                    <p class="text-slate-600 mb-4">
+                        Sistema de abas verticais para organizar conteúdo em uma navegação lateral.
+                    </p>
+
+                    <div class="component-example">
+                        <div class="vertical-tabs-container">
+                            <nav class="vertical-tabs-nav" id="verticalTabsNav">
+                                <button data-vertical-tab-target="#verticalTab1" class="vertical-tab-button active">Informações Gerais</button>
+                                <button data-vertical-tab-target="#verticalTab2" class="vertical-tab-button">Configurações</button>
+                                <button data-vertical-tab-target="#verticalTab3" class="vertical-tab-button">Histórico</button>
+                                <button data-vertical-tab-target="#verticalTab4" class="vertical-tab-button">Documentos</button>
+                            </nav>
+                            <div class="flex-1">
+                                <div id="verticalTab1" class="vertical-tab-content active">
+                                    <h3 class="font-semibold text-slate-700 mb-3">Informações Gerais</h3>
+                                    <p class="text-slate-600">Conteúdo da primeira aba vertical. Aqui você pode colocar formulários, informações detalhadas, etc.</p>
+                                </div>
+                                <div id="verticalTab2" class="vertical-tab-content">
+                                    <h3 class="font-semibold text-slate-700 mb-3">Configurações</h3>
+                                    <p class="text-slate-600">Conteúdo da segunda aba vertical com configurações.</p>
+                                </div>
+                                <div id="verticalTab3" class="vertical-tab-content">
+                                    <h3 class="font-semibold text-slate-700 mb-3">Histórico</h3>
+                                    <p class="text-slate-600">Conteúdo da terceira aba vertical com histórico de ações.</p>
+                                </div>
+                                <div id="verticalTab4" class="vertical-tab-content">
+                                    <h3 class="font-semibold text-slate-700 mb-3">Documentos</h3>
+                                    <p class="text-slate-600">Conteúdo da quarta aba vertical com documentos anexados.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Estrutura de Tabs Verticais --&gt;
+&lt;div class="vertical-tabs-container"&gt;
+    &lt;nav class="vertical-tabs-nav" id="verticalTabsNav"&gt;
+        &lt;button data-vertical-tab-target="#verticalTab1" class="vertical-tab-button active"&gt;Aba 1&lt;/button&gt;
+        &lt;button data-vertical-tab-target="#verticalTab2" class="vertical-tab-button"&gt;Aba 2&lt;/button&gt;
+        &lt;button data-vertical-tab-target="#verticalTab3" class="vertical-tab-button"&gt;Aba 3&lt;/button&gt;
+    &lt;/nav&gt;
+    &lt;div class="flex-1"&gt;
+        &lt;div id="verticalTab1" class="vertical-tab-content active"&gt;
+            &lt;p&gt;Conteúdo da aba 1&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div id="verticalTab2" class="vertical-tab-content"&gt;
+            &lt;p&gt;Conteúdo da aba 2&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div id="verticalTab3" class="vertical-tab-content"&gt;
+            &lt;p&gt;Conteúdo da aba 3&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- JavaScript para controle das tabs verticais --&gt;
+&lt;script&gt;
+    const verticalTabButtons = document.querySelectorAll('#verticalTabsNav .vertical-tab-button');
+    const verticalTabContents = document.querySelectorAll('.vertical-tab-content');
+    
+    verticalTabButtons.forEach(button =&gt; {
+        button.addEventListener('click', () =&gt; {
+            verticalTabButtons.forEach(btn =&gt; btn.classList.remove('active'));
+            button.classList.add('active');
+            verticalTabContents.forEach(content =&gt; content.classList.remove('active'));
+            const targetId = button.dataset.verticalTabTarget;
+            const targetContent = document.querySelector(targetId);
+            if (targetContent) {
+                targetContent.classList.add('active');
+            }
+        });
+    });
+&lt;/script&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>vertical-tabs-container</code> - Container principal com flexbox</li>
+                            <li><code>vertical-tabs-nav</code> - Navegação lateral com borda direita</li>
+                            <li><code>vertical-tab-button</code> - Botão da tab vertical (com estado active)</li>
+                            <li><code>vertical-tab-content</code> - Container do conteúdo (com estado active)</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Modais -->
+                <section id="modais" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Modais</h2>
+                    <p class="text-slate-600 mb-4">
+                        Janelas modais para confirmações, avisos e formulários em overlay.
+                    </p>
+
+                    <div class="component-example">
+                        <button onclick="document.getElementById('exemploModal').classList.add('open')" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
+                            Abrir Modal
+                        </button>
+
+                        <div id="exemploModal" class="modal-overlay">
+                            <div class="modal-box">
+                                <h3 class="modal-title">Título do Modal</h3>
+                                <p class="modal-message">Esta é uma mensagem de exemplo no modal. Use para confirmações, avisos ou formulários.</p>
+                                <div class="modal-actions">
+                                    <button onclick="document.getElementById('exemploModal').classList.remove('open')" class="btn-secondary">
+                                        Cancelar
+                                    </button>
+                                    <button onclick="document.getElementById('exemploModal').classList.remove('open')" class="btn-red py-2 px-4 rounded-md text-sm font-medium">
+                                        Confirmar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Botão para abrir modal --&gt;
+&lt;button onclick="document.getElementById('meuModal').classList.add('open')" class="btn-blue"&gt;
+    Abrir Modal
+&lt;/button&gt;
+
+&lt;!-- Estrutura do Modal --&gt;
+&lt;div id="meuModal" class="modal-overlay"&gt;
+    &lt;div class="modal-box"&gt;
+        &lt;h3 class="modal-title"&gt;Título do Modal&lt;/h3&gt;
+        &lt;p class="modal-message"&gt;Mensagem ou conteúdo do modal aqui.&lt;/p&gt;
+        &lt;div class="modal-actions"&gt;
+            &lt;button onclick="document.getElementById('meuModal').classList.remove('open')" class="btn-secondary"&gt;
+                Cancelar
+            &lt;/button&gt;
+            &lt;button onclick="document.getElementById('meuModal').classList.remove('open')" class="btn-red py-2 px-4 rounded-md text-sm font-medium"&gt;
+                Confirmar
+            &lt;/button&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>modal-overlay</code> - Overlay escuro de fundo (display: none por padrão)</li>
+                            <li><code>modal-overlay.open</code> - Classe para exibir o modal (display: flex)</li>
+                            <li><code>modal-box</code> - Container branco do modal</li>
+                            <li><code>modal-title</code> - Título do modal</li>
+                            <li><code>modal-message</code> - Mensagem/conteúdo do modal</li>
+                            <li><code>modal-actions</code> - Container dos botões de ação</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Modal de Exclusão -->
+                <section id="modal-exclusao" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Modal de Exclusão</h2>
+                    <p class="text-slate-600 mb-4">
+                        Modal específico para confirmação de exclusão de registros, com mensagem personalizada e botões de ação.
+                    </p>
+
+                    <div class="component-example">
+                        <div class="flex flex-wrap gap-3 mb-4">
+                            <button onclick="openExemploModalExclusao('1', 'João Silva', 'cliente', 'none')" class="btn-red py-2 px-4 rounded-md text-sm font-medium">
+                                Excluir (Sem Confirmação)
+                            </button>
+                            <button onclick="openExemploModalExclusao('1', 'João Silva', 'cliente', 'text')" class="btn-red py-2 px-4 rounded-md text-sm font-medium">
+                                Excluir (Modo Simples - digite "EXCLUIR")
+                            </button>
+                            <button onclick="openExemploModalExclusao('1', 'João Silva', 'cliente', 'name')" class="btn-red py-2 px-4 rounded-md text-sm font-medium">
+                                Excluir (Modo Seguro - digite o nome)
+                            </button>
+                        </div>
+
+                        <div id="exemploModalExclusao" class="modal-overlay">
+                            <div class="modal-box" style="max-width: 500px;">
+                                <h3 class="modal-title" id="deleteModalTitleExemplo">Confirmar Exclusão</h3>
+                                <p class="modal-message" id="deleteModalMessageExemplo">Deseja realmente excluir o cliente "João Silva" (ID: 1)?</p>
+
+                                <div class="mt-4 mb-4" id="confirmDeleteSection" style="display: none;">
+                                    <label for="confirmDeleteInput" class="form-label">
+                                        Para confirmar, digite <strong id="confirmDeleteText">EXCLUIR</strong>:
+                                    </label>
+                                    <input type="text" id="confirmDeleteInput" class="form-input-focus" placeholder="Digite EXCLUIR para confirmar" autocomplete="off">
+                                    <p class="text-xs text-slate-500 mt-1" id="confirmDeleteHint"></p>
+                                </div>
+
+                                <div class="modal-actions">
+                                    <button onclick="closeExemploModalExclusao()" class="btn-secondary">
+                                        Cancelar
+                                    </button>
+                                    <button id="confirmDeleteButton" class="btn-red py-2 px-4 rounded-md text-sm font-medium">
+                                        Confirmar Exclusão
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Botões para abrir modal de exclusão --&gt;
+&lt;!-- Modo sem confirmação --&gt;
+&lt;button onclick="openDeleteModal('1', 'João Silva', 'cliente', 'none')" class="btn-red py-2 px-4 rounded-md text-sm font-medium"&gt;
+    Excluir Registro (Sem Confirmação)
+&lt;/button&gt;
+
+&lt;!-- Modo simples (digite EXCLUIR) --&gt;
+&lt;button onclick="openDeleteModal('1', 'João Silva', 'cliente', 'text')" class="btn-red py-2 px-4 rounded-md text-sm font-medium"&gt;
+    Excluir Registro (Modo Simples)
+&lt;/button&gt;
+
+&lt;!-- Modo seguro (digite o nome) --&gt;
+&lt;button onclick="openDeleteModal('1', 'João Silva', 'cliente', 'name')" class="btn-red py-2 px-4 rounded-md text-sm font-medium"&gt;
+    Excluir Registro (Modo Seguro)
+&lt;/button&gt;
+
+&lt;!-- Estrutura do Modal de Exclusão com Proteção --&gt;
+&lt;div id="meuModalExclusao" class="modal-overlay"&gt;
+    &lt;div class="modal-box" style="max-width: 500px;"&gt;
+        &lt;h3 class="modal-title" id="deleteModalTitle"&gt;Confirmar Exclusão&lt;/h3&gt;
+        &lt;p class="modal-message" id="deleteModalMessage"&gt;Deseja realmente excluir este registo?&lt;/p&gt;
+        
+        &lt;!-- Campo de Confirmação (oculto no modo 'none') --&gt;
+        &lt;div class="mt-4 mb-4" id="confirmDeleteSection" style="display: none;"&gt;
+            &lt;label for="confirmDeleteInput" class="form-label"&gt;
+                Para confirmar, digite &lt;strong id="confirmDeleteText"&gt;EXCLUIR&lt;/strong&gt;:
+            &lt;/label&gt;
+            &lt;input 
+                type="text" 
+                id="confirmDeleteInput" 
+                class="form-input-focus" 
+                placeholder="Digite EXCLUIR para confirmar"
+                autocomplete="off"
+            &gt;
+            &lt;p class="text-xs text-slate-500 mt-1" id="confirmDeleteHint"&gt;&lt;/p&gt;
+        &lt;/div&gt;
+
+        &lt;div class="modal-actions"&gt;
+            &lt;button onclick="closeDeleteModal()" class="btn-secondary"&gt;
+                Cancelar
+            &lt;/button&gt;
+            &lt;button 
+                id="confirmDeleteButton" 
+                onclick="confirmDelete()" 
+                class="btn-red py-2 px-4 rounded-md text-sm font-medium"
+            &gt;
+                Confirmar Exclusão
+            &lt;/button&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- JavaScript para controle do modal com proteção --&gt;
+&lt;script&gt;
+    let currentRecordId = null;
+    let currentRecordName = null;
+    const CONFIRM_TEXT = 'EXCLUIR'; // Ou use o nome do registro
+    
+    let currentConfirmType = 'text';
+    let currentExpectedText = '';
+    
+    function openDeleteModal(recordId, recordName, recordType = 'registro', confirmType = 'text') {
+        currentRecordId = recordId;
+        currentRecordName = recordName;
+        currentConfirmType = confirmType;
+        
+        const modal = document.getElementById('meuModalExclusao');
+        const modalTitle = document.getElementById('deleteModalTitle');
+        const modalMessage = document.getElementById('deleteModalMessage');
+        const confirmSection = document.getElementById('confirmDeleteSection');
+        const confirmInput = document.getElementById('confirmDeleteInput');
+        const confirmText = document.getElementById('confirmDeleteText');
+        const confirmButton = document.getElementById('confirmDeleteButton');
+        const confirmHint = document.getElementById('confirmDeleteHint');
+        
+        modalTitle.textContent = 'Confirmar Exclusão';
+        modalMessage.textContent = `Deseja realmente excluir o ${recordType} "${recordName}" (ID: ${recordId})?`;
+        
+        // Modo sem confirmação
+        if (confirmType === 'none') {
+            confirmSection.style.display = 'none';
+            confirmButton.disabled = false;
+            confirmButton.style.opacity = '1';
+            confirmButton.style.cursor = 'pointer';
+            confirmInput.removeEventListener('input', validateDeleteConfirmation);
+            modal.classList.add('open');
+            return;
+        }
+        
+        // Modos com confirmação
+        confirmSection.style.display = 'block';
+        
+        // Tipo de confirmação: 'text' (EXCLUIR) ou 'name' (nome do registro)
+        if (confirmType === 'name') {
+            currentExpectedText = recordName.trim();
+            confirmText.textContent = `"${recordName}"`;
+            confirmInput.placeholder = `Digite "${recordName}" para confirmar`;
+            confirmHint.textContent = 'Digite exatamente o nome do registro para confirmar a exclusão.';
+        } else {
+            currentExpectedText = CONFIRM_TEXT;
+            confirmText.textContent = CONFIRM_TEXT;
+            confirmInput.placeholder = `Digite ${CONFIRM_TEXT} para confirmar`;
+        }
+        
+        // Resetar campo e botão
+        confirmInput.value = '';
+        confirmButton.disabled = true;
+        confirmButton.style.opacity = '0.5';
+        confirmButton.style.cursor = 'not-allowed';
+        
+        // Remover listener anterior se existir
+        confirmInput.removeEventListener('input', validateDeleteConfirmation);
+        
+        // Focar no campo de confirmação
+        modal.classList.add('open');
+        setTimeout(() => confirmInput.focus(), 100);
+        
+        // Validar enquanto digita
+        confirmInput.addEventListener('input', validateDeleteConfirmation);
+    }
+    
+    function validateDeleteConfirmation() {
+        const confirmInput = document.getElementById('confirmDeleteInput');
+        const confirmButton = document.getElementById('confirmDeleteButton');
+        const inputValue = confirmInput.value.trim();
+        
+        // Comparação case-insensitive para ambos os modos 'name' e 'text'
+        let matches = false;
+        if (currentConfirmType === 'name') {
+            matches = inputValue.toLowerCase() === currentExpectedText.toLowerCase();
+        } else {
+            // Modo 'text' agora também é case-insensitive
+            matches = inputValue.toLowerCase() === currentExpectedText.toLowerCase();
+        }
+        
+        if (matches) {
+            confirmButton.disabled = false;
+            confirmButton.style.opacity = '1';
+            confirmButton.style.cursor = 'pointer';
+        } else {
+            confirmButton.disabled = true;
+            confirmButton.style.opacity = '0.5';
+            confirmButton.style.cursor = 'not-allowed';
+        }
+    }
+    
+    function closeDeleteModal() {
+        const modal = document.getElementById('meuModalExclusao');
+        const confirmSection = document.getElementById('confirmDeleteSection');
+        const confirmInput = document.getElementById('confirmDeleteInput');
+        if (confirmInput) {
+            confirmInput.removeEventListener('input', validateDeleteConfirmation);
+            confirmInput.value = '';
+        }
+        if (confirmSection) {
+            confirmSection.style.display = 'none';
+        }
+        modal.classList.remove('open');
+        currentRecordId = null;
+        currentRecordName = null;
+        currentConfirmType = 'text';
+        currentExpectedText = '';
+    }
+    
+    function confirmDelete() {
+        if (!currentRecordId) return;
+        
+        // Aqui você faria a chamada à API para excluir o registro
+        console.log('Excluindo registro:', currentRecordId);
+        alert('Registro excluído com sucesso!'); // Substitua por sua lógica
+        closeDeleteModal();
+    }
+&lt;/script&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Modos de Confirmação:</h4>
+                        <ul>
+                            <li><strong><code>confirmType: 'none'</code></strong> - Sem confirmação de texto. Modal simples com botões Sim/Não (menos seguro, mais rápido)</li>
+                            <li><strong><code>confirmType: 'text'</code></strong> - Usuário digita "EXCLUIR" (case-insensitive: aceita "EXCLUIR", "Excluir", "excluir", etc.)</li>
+                            <li><strong><code>confirmType: 'name'</code></strong> - Usuário digita o nome exato do registro (case-insensitive, mais seguro)</li>
+                        </ul>
+                        <h4 class="mt-3">Características de Segurança:</h4>
+                        <ul>
+                            <li><strong>Campo de Confirmação Obrigatório</strong> - Nos modos 'text' e 'name', o usuário deve digitar o texto correto para habilitar o botão</li>
+                            <li><strong>Validação em Tempo Real</strong> - O botão só é habilitado quando o texto digitado corresponde ao esperado</li>
+                            <li><strong>Comparação Case-Insensitive</strong> - Aceita maiúsculas e minúsculas em ambos os modos de confirmação</li>
+                            <li><strong>Botão Desabilitado por Padrão</strong> - Nos modos com confirmação, o botão inicia desabilitado até a validação</li>
+                        </ul>
+                        <h4 class="mt-3">Características Gerais:</h4>
+                        <ul>
+                            <li>Usa as mesmas classes do modal genérico (<code>modal-overlay</code>, <code>modal-box</code>)</li>
+                            <li>Título fixo: "Confirmar Exclusão"</li>
+                            <li>Mensagem dinâmica que pode incluir nome e ID do registro</li>
+                            <li>Botão "Cancelar" usa classe <code>btn-secondary</code></li>
+                            <li>Botão "Confirmar Exclusão" usa classe <code>btn-red</code> e só fica habilitado após confirmação</li>
+                        </ul>
+                        <h4 class="mt-3">Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>modal-overlay</code> - Overlay escuro de fundo</li>
+                            <li><code>modal-box</code> - Container branco do modal</li>
+                            <li><code>modal-title</code> - Título do modal</li>
+                            <li><code>modal-message</code> - Mensagem de confirmação</li>
+                            <li><code>form-label</code> - Label do campo de confirmação</li>
+                            <li><code>form-input-focus</code> - Campo de texto de confirmação</li>
+                            <li><code>modal-actions</code> - Container dos botões</li>
+                            <li><code>btn-secondary</code> - Botão cancelar</li>
+                            <li><code>btn-red</code> - Botão confirmar exclusão (desabilitado até confirmação)</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Offcanvas -->
+                <section id="offcanvas" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Offcanvas (Painel Lateral)</h2>
+                    <p class="text-slate-600 mb-4">
+                        Painel lateral deslizante que aparece da direita para a esquerda.
+                    </p>
+
+                    <div class="component-example">
+                        <button onclick="document.getElementById('exemploOffcanvas').classList.add('open'); document.getElementById('exemploOffcanvasOverlay').classList.add('open')" class="btn-yellow py-2 px-4 rounded-md text-sm font-medium">
+                            Abrir Offcanvas
+                        </button>
+
+                        <div id="exemploOffcanvasOverlay" class="offcanvas-overlay" onclick="document.getElementById('exemploOffcanvas').classList.remove('open'); document.getElementById('exemploOffcanvasOverlay').classList.remove('open')"></div>
+                        <div id="exemploOffcanvas" class="offcanvas-panel">
+                            <div class="flex justify-between items-center mb-6 border-b pb-3">
+                                <h3 class="text-lg font-semibold text-slate-700">Título do Painel</h3>
+                                <button onclick="document.getElementById('exemploOffcanvas').classList.remove('open'); document.getElementById('exemploOffcanvasOverlay').classList.remove('open')" class="text-slate-500 hover:text-slate-700">
+                                    <i class="fas fa-times fa-lg"></i>
+                                </button>
+                            </div>
+                            <div>
+                                <p class="text-slate-600">Este é um exemplo de conteúdo para o painel lateral.</p>
+                                <p class="mt-4 text-slate-600">Pode adicionar formulários, informações adicionais, ou qualquer outro elemento aqui.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Botão para abrir offcanvas --&gt;
+&lt;button onclick="document.getElementById('meuOffcanvas').classList.add('open'); document.getElementById('meuOffcanvasOverlay').classList.add('open')" class="btn-yellow"&gt;
+    Abrir Offcanvas
+&lt;/button&gt;
+
+&lt;!-- Overlay --&gt;
+&lt;div id="meuOffcanvasOverlay" class="offcanvas-overlay" onclick="document.getElementById('meuOffcanvas').classList.remove('open'); document.getElementById('meuOffcanvasOverlay').classList.remove('open')"&gt;&lt;/div&gt;
+
+&lt;!-- Painel Offcanvas --&gt;
+&lt;div id="meuOffcanvas" class="offcanvas-panel"&gt;
+    &lt;div class="flex justify-between items-center mb-6 border-b pb-3"&gt;
+        &lt;h3 class="text-lg font-semibold text-slate-700"&gt;Título do Painel&lt;/h3&gt;
+        &lt;button onclick="document.getElementById('meuOffcanvas').classList.remove('open'); document.getElementById('meuOffcanvasOverlay').classList.remove('open')" class="text-slate-500 hover:text-slate-700"&gt;
+            &lt;i class="fas fa-times fa-lg"&gt;&lt;/i&gt;
+        &lt;/button&gt;
+    &lt;/div&gt;
+    &lt;div&gt;
+        &lt;p&gt;Conteúdo do painel aqui.&lt;/p&gt;
+    &lt;/div&gt;
+&lt;/div&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>offcanvas-overlay</code> - Overlay escuro de fundo (display: none por padrão)</li>
+                            <li><code>offcanvas-overlay.open</code> - Classe para exibir o overlay (display: block)</li>
+                            <li><code>offcanvas-panel</code> - Painel branco deslizante (posição fixa, right: -400px por padrão)</li>
+                            <li><code>offcanvas-panel.open</code> - Classe para exibir o painel (right: 0)</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Cards -->
+                <section id="cards" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Cards</h2>
+                    <p class="text-slate-600 mb-4">
+                        Cards para exibir informações, KPIs e conteúdo agrupado. Diversos tipos de cards para diferentes necessidades.
+                    </p>
+
+                    <div class="component-example">
+                        <h3 class="font-semibold text-slate-700 mb-3">1. Card KPI (Indicador)</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div class="kpi-card">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-sky-100 text-sky-600 mr-4">
+                                        <i class="fas fa-car fa-2x"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-slate-500">Total de Veículos</p>
+                                        <p class="title-page">75</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="kpi-card">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-emerald-100 text-emerald-600 mr-4">
+                                        <i class="fas fa-key fa-2x"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-slate-500">Locados Hoje</p>
+                                        <p class="title-page">12</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">2. Card de Estatísticas com Gráfico</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                            <div class="kpi-card">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-base font-semibold text-slate-800">Vendas Mensais</h4>
+                                    <span class="text-xs text-slate-500">Últimos 6 meses</span>
+                                </div>
+                                <div class="h-32 bg-gradient-to-t from-sky-100 to-sky-50 rounded-md flex items-end justify-between px-4 mb-2">
+                                    <div class="flex flex-col items-center justify-end flex-1" style="height: 100%;">
+                                        <div class="bg-sky-500 rounded-t" style="width: 60px; height: 60%; min-height: 20px;"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center justify-end flex-1" style="height: 100%;">
+                                        <div class="bg-sky-500 rounded-t" style="width: 60px; height: 80%; min-height: 20px;"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center justify-end flex-1" style="height: 100%;">
+                                        <div class="bg-sky-500 rounded-t" style="width: 60px; height: 45%; min-height: 20px;"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center justify-end flex-1" style="height: 100%;">
+                                        <div class="bg-sky-500 rounded-t" style="width: 60px; height: 90%; min-height: 20px;"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center justify-end flex-1" style="height: 100%;">
+                                        <div class="bg-sky-500 rounded-t" style="width: 60px; height: 70%; min-height: 20px;"></div>
+                                    </div>
+                                    <div class="flex flex-col items-center justify-end flex-1" style="height: 100%;">
+                                        <div class="bg-sky-500 rounded-t" style="width: 60px; height: 85%; min-height: 20px;"></div>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between px-4 text-xs text-slate-500">
+                                    <span class="flex-1 text-center">Jan</span>
+                                    <span class="flex-1 text-center">Fev</span>
+                                    <span class="flex-1 text-center">Mar</span>
+                                    <span class="flex-1 text-center">Abr</span>
+                                    <span class="flex-1 text-center">Mai</span>
+                                    <span class="flex-1 text-center">Jun</span>
+                                </div>
+                            </div>
+                            <div class="kpi-card">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-base font-semibold text-slate-800">Distribuição por Tipo</h4>
+                                    <span class="text-xs text-slate-500">Total: 100</span>
+                                </div>
+                                <div class="flex items-center justify-center h-32 mb-2">
+                                    <div class="relative w-24 h-24">
+                                        <div class="absolute inset-0 rounded-full border-8 border-sky-500"></div>
+                                        <div class="absolute inset-0 rounded-full border-8 border-emerald-500" style="clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 50%);"></div>
+                                        <div class="absolute inset-0 rounded-full border-8 border-amber-500" style="clip-path: polygon(50% 50%, 100% 0%, 100% 100%, 50% 100%);"></div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                                    <div class="flex items-center"><span class="w-3 h-3 bg-sky-500 rounded-full mr-1"></span> Tipo A (45%)</div>
+                                    <div class="flex items-center"><span class="w-3 h-3 bg-emerald-500 rounded-full mr-1"></span> Tipo B (30%)</div>
+                                    <div class="flex items-center"><span class="w-3 h-3 bg-amber-500 rounded-full mr-1"></span> Tipo C (25%)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">3. Card de Lista/Feed</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                            <div class="kpi-card">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-base font-semibold text-slate-800">Últimas Atividades</h4>
+                                    <button class="text-xs text-sky-600 hover:text-sky-800">Ver todas</button>
+                                </div>
+                                <div class="space-y-3 max-h-64 overflow-y-auto">
+                                    <div class="flex items-start gap-3 pb-3 border-b border-slate-100">
+                                        <div class="p-2 rounded-full bg-sky-100 text-sky-600">
+                                            <i class="fas fa-plus text-sm"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-slate-700 font-medium">Novo cliente cadastrado</p>
+                                            <p class="text-xs text-slate-500">João Silva - há 5 minutos</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-3 pb-3 border-b border-slate-100">
+                                        <div class="p-2 rounded-full bg-emerald-100 text-emerald-600">
+                                            <i class="fas fa-check text-sm"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-slate-700 font-medium">Locação confirmada</p>
+                                            <p class="text-xs text-slate-500">Veículo ABC-1234 - há 15 minutos</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-3 pb-3 border-b border-slate-100">
+                                        <div class="p-2 rounded-full bg-amber-100 text-amber-600">
+                                            <i class="fas fa-exclamation text-sm"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-slate-700 font-medium">Manutenção agendada</p>
+                                            <p class="text-xs text-slate-500">Veículo XYZ-5678 - há 1 hora</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="kpi-card">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-base font-semibold text-slate-800">Notificações</h4>
+                                    <span class="badge badge-danger">3</span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="p-3 bg-red-50 border-l-4 border-red-500 rounded">
+                                        <p class="text-sm text-slate-700 font-medium">CNH vencendo em 7 dias</p>
+                                        <p class="text-xs text-slate-500">Cliente: Maria Silva</p>
+                                    </div>
+                                    <div class="p-3 bg-amber-50 border-l-4 border-amber-500 rounded">
+                                        <p class="text-sm text-slate-700 font-medium">Manutenção pendente</p>
+                                        <p class="text-xs text-slate-500">Veículo: ABC-1234</p>
+                                    </div>
+                                    <div class="p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
+                                        <p class="text-sm text-slate-700 font-medium">Nova mensagem recebida</p>
+                                        <p class="text-xs text-slate-500">Cliente: João Silva</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">4. Card de Perfil/Informações</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                            <div class="kpi-card">
+                                <div class="flex items-center mb-4">
+                                    <img src="https://placehold.co/60x60/E0E0E0/757575?text=JS" alt="Foto" class="w-16 h-16 rounded-full mr-3 border-2 border-slate-200">
+                                    <div>
+                                        <h4 class="text-base font-semibold text-slate-800">João Silva</h4>
+                                        <p class="text-xs text-slate-500">Cliente desde 2023</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-2 mb-4">
+                                    <div class="flex items-center text-sm text-slate-600">
+                                        <i class="fas fa-phone w-5 text-slate-400"></i>
+                                        <span>(11) 98765-4321</span>
+                                    </div>
+                                    <div class="flex items-center text-sm text-slate-600">
+                                        <i class="fas fa-envelope w-5 text-slate-400"></i>
+                                        <span>joao@exemplo.com</span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button class="btn-blue py-1.5 px-3 rounded-md text-xs font-medium flex-1">Ver Perfil</button>
+                                    <button class="btn-secondary py-1.5 px-3 rounded-md text-xs font-medium">Editar</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">5. Card de Ação Rápida</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+                            <div class="kpi-card text-center cursor-pointer hover:shadow-lg transition-shadow">
+                                <div class="p-4 rounded-full bg-sky-100 text-sky-600 mx-auto mb-3 w-16 h-16 flex items-center justify-center">
+                                    <i class="fas fa-plus text-2xl"></i>
+                                </div>
+                                <h4 class="text-sm font-semibold text-slate-800 mb-1">Nova Locação</h4>
+                                <p class="text-xs text-slate-500">Criar nova locação</p>
+                            </div>
+                            <div class="kpi-card text-center cursor-pointer hover:shadow-lg transition-shadow">
+                                <div class="p-4 rounded-full bg-emerald-100 text-emerald-600 mx-auto mb-3 w-16 h-16 flex items-center justify-center">
+                                    <i class="fas fa-user-plus text-2xl"></i>
+                                </div>
+                                <h4 class="text-sm font-semibold text-slate-800 mb-1">Novo Cliente</h4>
+                                <p class="text-xs text-slate-500">Cadastrar cliente</p>
+                            </div>
+                            <div class="kpi-card text-center cursor-pointer hover:shadow-lg transition-shadow">
+                                <div class="p-4 rounded-full bg-amber-100 text-amber-600 mx-auto mb-3 w-16 h-16 flex items-center justify-center">
+                                    <i class="fas fa-car text-2xl"></i>
+                                </div>
+                                <h4 class="text-sm font-semibold text-slate-800 mb-1">Novo Veículo</h4>
+                                <p class="text-xs text-slate-500">Adicionar veículo</p>
+                            </div>
+                            <div class="kpi-card text-center cursor-pointer hover:shadow-lg transition-shadow">
+                                <div class="p-4 rounded-full bg-purple-100 text-purple-600 mx-auto mb-3 w-16 h-16 flex items-center justify-center">
+                                    <i class="fas fa-file-invoice text-2xl"></i>
+                                </div>
+                                <h4 class="text-sm font-semibold text-slate-800 mb-1">Nova Fatura</h4>
+                                <p class="text-xs text-slate-500">Emitir fatura</p>
+                            </div>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">6. Card de Notificação/Alerta</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div class="kpi-card border-l-4 border-green-500 bg-green-50">
+                                <div class="flex items-start gap-3">
+                                    <div class="p-2 rounded-full bg-green-100 text-green-600">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="text-base font-semibold text-green-800 mb-1">Sucesso</h4>
+                                        <p class="text-sm text-green-700">Operação realizada com sucesso. Os dados foram salvos corretamente.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="kpi-card border-l-4 border-amber-500 bg-amber-50">
+                                <div class="flex items-start gap-3">
+                                    <div class="p-2 rounded-full bg-amber-100 text-amber-600">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="text-base font-semibold text-amber-800 mb-1">Atenção</h4>
+                                        <p class="text-sm text-amber-700">Verifique os dados antes de continuar. Alguns campos podem estar incompletos.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="kpi-card border-l-4 border-red-500 bg-red-50">
+                                <div class="flex items-start gap-3">
+                                    <div class="p-2 rounded-full bg-red-100 text-red-600">
+                                        <i class="fas fa-times-circle"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="text-base font-semibold text-red-800 mb-1">Erro</h4>
+                                        <p class="text-sm text-red-700">Não foi possível realizar a operação. Tente novamente ou entre em contato com o suporte.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="kpi-card border-l-4 border-blue-500 bg-blue-50">
+                                <div class="flex items-start gap-3">
+                                    <div class="p-2 rounded-full bg-blue-100 text-blue-600">
+                                        <i class="fas fa-info-circle"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="text-base font-semibold text-blue-800 mb-1">Informação</h4>
+                                        <p class="text-sm text-blue-700">Nova funcionalidade disponível. Confira as atualizações do sistema.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">7. Card de Progresso</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div class="kpi-card">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h4 class="text-base font-semibold text-slate-800">Meta Mensal</h4>
+                                    <span class="text-sm font-semibold text-slate-700">75%</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-3 mb-2">
+                                    <div class="bg-sky-500 h-3 rounded-full" style="width: 75%"></div>
+                                </div>
+                                <p class="text-xs text-slate-500">R$ 15.000 de R$ 20.000</p>
+                            </div>
+                            <div class="kpi-card">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h4 class="text-base font-semibold text-slate-800">Conclusão do Projeto</h4>
+                                    <span class="text-sm font-semibold text-slate-700">60%</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-3 mb-2">
+                                    <div class="bg-emerald-500 h-3 rounded-full" style="width: 60%"></div>
+                                </div>
+                                <p class="text-xs text-slate-500">12 de 20 tarefas concluídas</p>
+                            </div>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">8. Card de Timeline/Histórico</h3>
+                        <div class="kpi-card mb-6">
+                            <h4 class="text-base font-semibold text-slate-800 mb-4">Histórico de Ações</h4>
+                            <div class="relative">
+                                <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200"></div>
+                                <div class="space-y-4">
+                                    <div class="relative flex items-start gap-4">
+                                        <div class="relative z-10 p-2 rounded-full bg-sky-100 text-sky-600">
+                                            <i class="fas fa-plus text-xs"></i>
+                                        </div>
+                                        <div class="flex-1 pb-4">
+                                            <p class="text-sm text-slate-700 font-medium">Cliente criado</p>
+                                            <p class="text-xs text-slate-500">João Silva foi cadastrado no sistema</p>
+                                            <p class="text-xs text-slate-400 mt-1">há 2 horas</p>
+                                        </div>
+                                    </div>
+                                    <div class="relative flex items-start gap-4">
+                                        <div class="relative z-10 p-2 rounded-full bg-emerald-100 text-emerald-600">
+                                            <i class="fas fa-check text-xs"></i>
+                                        </div>
+                                        <div class="flex-1 pb-4">
+                                            <p class="text-sm text-slate-700 font-medium">Locação confirmada</p>
+                                            <p class="text-xs text-slate-500">Veículo ABC-1234 locado para Maria</p>
+                                            <p class="text-xs text-slate-400 mt-1">há 5 horas</p>
+                                        </div>
+                                    </div>
+                                    <div class="relative flex items-start gap-4">
+                                        <div class="relative z-10 p-2 rounded-full bg-amber-100 text-amber-600">
+                                            <i class="fas fa-edit text-xs"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-slate-700 font-medium">Dados atualizados</p>
+                                            <p class="text-xs text-slate-500">Informações do veículo XYZ-5678 modificadas</p>
+                                            <p class="text-xs text-slate-400 mt-1">há 1 dia</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">9. Card de Formulário Compacto</h3>
+                        <div class="kpi-card mb-6">
+                            <h4 class="text-base font-semibold text-slate-800 mb-4">Busca Rápida</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                                <div>
+                                    <label class="form-label text-xs">Placa</label>
+                                    <input type="text" class="form-input text-sm" placeholder="ABC-1234">
+                                </div>
+                                <div>
+                                    <label class="form-label text-xs">Cliente</label>
+                                    <input type="text" class="form-input text-sm" placeholder="Nome do cliente">
+                                </div>
+                                <div>
+                                    <label class="form-label text-xs">Status</label>
+                                    <select class="form-input text-sm">
+                                        <option>Todos</option>
+                                        <option>Ativo</option>
+                                        <option>Inativo</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex justify-end gap-2">
+                                <button class="btn-secondary py-1.5 px-3 rounded-md text-xs font-medium">Limpar</button>
+                                <button class="btn-blue py-1.5 px-3 rounded-md text-xs font-medium">Buscar</button>
+                            </div>
+                        </div>
+
+                        <h3 class="font-semibold text-slate-700 mb-3">10. Card Simples (Básico)</h3>
+                        <div class="kpi-card">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="text-base font-semibold text-slate-800">Título do Card</h4>
+                                <div class="text-xs text-slate-500">Total: 12</div>
+                            </div>
+                            <p class="text-slate-600">Conteúdo do card aqui. Pode conter qualquer tipo de informação, gráficos, listas, etc.</p>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- 1. Card KPI (Indicador) --&gt;
+&lt;div class="kpi-card"&gt;
+    &lt;div class="flex items-center"&gt;
+        &lt;div class="p-3 rounded-full bg-sky-100 text-sky-600 mr-4"&gt;
+            &lt;i class="fas fa-car fa-2x"&gt;&lt;/i&gt;
+        &lt;/div&gt;
+        &lt;div&gt;
+            &lt;p class="text-sm text-slate-500"&gt;Label&lt;/p&gt;
+            &lt;p class="title-page"&gt;Valor&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- 2. Card de Estatísticas com Gráfico --&gt;
+&lt;div class="kpi-card"&gt;
+    &lt;div class="flex justify-between items-center mb-3"&gt;
+        &lt;h4 class="text-base font-semibold text-slate-800"&gt;Título&lt;/h4&gt;
+        &lt;span class="text-xs text-slate-500"&gt;Período&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div class="h-32 bg-gradient-to-t from-sky-100 to-sky-50 rounded-md flex items-end justify-between px-4 py-2 mb-2"&gt;
+        &lt;div class="flex flex-col items-center justify-end flex-1" style="height: 100%;"&gt;
+            &lt;div class="bg-sky-500 rounded-t" style="width: 60px; height: 60%; min-height: 20px;"&gt;&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class="flex flex-col items-center justify-end flex-1" style="height: 100%;"&gt;
+            &lt;div class="bg-sky-500 rounded-t" style="width: 60px; height: 80%; min-height: 20px;"&gt;&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;!-- Mais barras... --&gt;
+    &lt;/div&gt;
+    &lt;div class="flex justify-between px-4 text-xs text-slate-500"&gt;
+        &lt;span class="flex-1 text-center"&gt;Jan&lt;/span&gt;
+        &lt;span class="flex-1 text-center"&gt;Fev&lt;/span&gt;
+        &lt;!-- Mais meses... --&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- 3. Card de Lista/Feed --&gt;
+&lt;div class="kpi-card"&gt;
+    &lt;div class="flex justify-between items-center mb-3"&gt;
+        &lt;h4 class="text-base font-semibold text-slate-800"&gt;Título&lt;/h4&gt;
+        &lt;button class="text-xs text-sky-600 hover:text-sky-800"&gt;Ver todas&lt;/button&gt;
+    &lt;/div&gt;
+    &lt;div class="space-y-3 max-h-64 overflow-y-auto"&gt;
+        &lt;div class="flex items-start gap-3 pb-3 border-b border-slate-100"&gt;
+            &lt;div class="p-2 rounded-full bg-sky-100 text-sky-600"&gt;
+                &lt;i class="fas fa-plus text-sm"&gt;&lt;/i&gt;
+            &lt;/div&gt;
+            &lt;div class="flex-1"&gt;
+                &lt;p class="text-sm text-slate-700 font-medium"&gt;Título do item&lt;/p&gt;
+                &lt;p class="text-xs text-slate-500"&gt;Descrição ou timestamp&lt;/p&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;!-- Mais itens... --&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- 4. Card de Perfil/Informações --&gt;
+&lt;div class="kpi-card"&gt;
+    &lt;div class="flex items-center mb-4"&gt;
+        &lt;img src="foto.jpg" alt="Foto" class="w-16 h-16 rounded-full mr-3 border-2 border-slate-200"&gt;
+        &lt;div&gt;
+            &lt;h4 class="text-base font-semibold text-slate-800"&gt;Nome&lt;/h4&gt;
+            &lt;p class="text-xs text-slate-500"&gt;Informação adicional&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class="space-y-2 mb-4"&gt;
+        &lt;div class="flex items-center text-sm text-slate-600"&gt;
+            &lt;i class="fas fa-phone w-5 text-slate-400"&gt;&lt;/i&gt;
+            &lt;span&gt;Telefone&lt;/span&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class="flex gap-2"&gt;
+        &lt;button class="btn-blue py-1.5 px-3 rounded-md text-xs font-medium flex-1"&gt;Ação&lt;/button&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- 5. Card de Ação Rápida --&gt;
+&lt;div class="kpi-card text-center cursor-pointer hover:shadow-lg transition-shadow"&gt;
+    &lt;div class="p-4 rounded-full bg-sky-100 text-sky-600 mx-auto mb-3 w-16 h-16 flex items-center justify-center"&gt;
+        &lt;i class="fas fa-plus text-2xl"&gt;&lt;/i&gt;
+    &lt;/div&gt;
+    &lt;h4 class="text-sm font-semibold text-slate-800 mb-1"&gt;Título&lt;/h4&gt;
+    &lt;p class="text-xs text-slate-500"&gt;Descrição&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;!-- 6. Card de Notificação/Alerta --&gt;
+&lt;div class="kpi-card border-l-4 border-green-500 bg-green-50"&gt;
+    &lt;div class="flex items-start gap-3"&gt;
+        &lt;div class="p-2 rounded-full bg-green-100 text-green-600"&gt;
+            &lt;i class="fas fa-check-circle"&gt;&lt;/i&gt;
+        &lt;/div&gt;
+        &lt;div class="flex-1"&gt;
+            &lt;h4 class="text-base font-semibold text-green-800 mb-1"&gt;Título&lt;/h4&gt;
+            &lt;p class="text-sm text-green-700"&gt;Mensagem de notificação&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- 7. Card de Progresso --&gt;
+&lt;div class="kpi-card"&gt;
+    &lt;div class="flex justify-between items-center mb-2"&gt;
+        &lt;h4 class="text-base font-semibold text-slate-800"&gt;Título&lt;/h4&gt;
+        &lt;span class="text-sm font-semibold text-slate-700"&gt;75%&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div class="w-full bg-slate-200 rounded-full h-3 mb-2"&gt;
+        &lt;div class="bg-sky-500 h-3 rounded-full" style="width: 75%"&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;p class="text-xs text-slate-500"&gt;Descrição do progresso&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;!-- 8. Card de Timeline/Histórico --&gt;
+&lt;div class="kpi-card"&gt;
+    &lt;h4 class="text-base font-semibold text-slate-800 mb-4"&gt;Título&lt;/h4&gt;
+    &lt;div class="relative"&gt;
+        &lt;div class="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200"&gt;&lt;/div&gt;
+        &lt;div class="space-y-4"&gt;
+            &lt;div class="relative flex items-start gap-4"&gt;
+                &lt;div class="relative z-10 p-2 rounded-full bg-sky-100 text-sky-600"&gt;
+                    &lt;i class="fas fa-plus text-xs"&gt;&lt;/i&gt;
+                &lt;/div&gt;
+                &lt;div class="flex-1 pb-4"&gt;
+                    &lt;p class="text-sm text-slate-700 font-medium"&gt;Título do evento&lt;/p&gt;
+                    &lt;p class="text-xs text-slate-500"&gt;Descrição&lt;/p&gt;
+                    &lt;p class="text-xs text-slate-400 mt-1"&gt;Timestamp&lt;/p&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;!-- Mais eventos... --&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- 9. Card de Formulário Compacto --&gt;
+&lt;div class="kpi-card"&gt;
+    &lt;h4 class="text-base font-semibold text-slate-800 mb-4"&gt;Título&lt;/h4&gt;
+    &lt;div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3"&gt;
+        &lt;div&gt;
+            &lt;label class="form-label text-xs"&gt;Campo 1&lt;/label&gt;
+            &lt;input type="text" class="form-input text-sm" placeholder="..."&gt;
+        &lt;/div&gt;
+        &lt;!-- Mais campos... --&gt;
+    &lt;/div&gt;
+    &lt;div class="flex justify-end gap-2"&gt;
+        &lt;button class="btn-secondary py-1.5 px-3 rounded-md text-xs font-medium"&gt;Cancelar&lt;/button&gt;
+        &lt;button class="btn-blue py-1.5 px-3 rounded-md text-xs font-medium"&gt;Ação&lt;/button&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- 10. Card Simples (Básico) --&gt;
+&lt;div class="kpi-card"&gt;
+    &lt;div class="flex justify-between items-center mb-2"&gt;
+        &lt;h4 class="text-base font-semibold text-slate-800"&gt;Título&lt;/h4&gt;
+        &lt;div class="text-xs text-slate-500"&gt;Info adicional&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;p class="text-slate-600"&gt;Conteúdo do card aqui.&lt;/p&gt;
+&lt;/div&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Tipos de Cards Disponíveis:</h4>
+                        <ul>
+                            <li><strong>Card KPI (Indicador)</strong> - Exibe métricas importantes com ícone e valor destacado. Ideal para dashboards e resumos.</li>
+                            <li><strong>Card de Estatísticas com Gráfico</strong> - Inclui visualizações de dados (barras, pizza, linhas). Use para análises e relatórios.</li>
+                            <li><strong>Card de Lista/Feed</strong> - Exibe uma lista de itens com scroll. Perfeito para atividades recentes, notificações ou feeds.</li>
+                            <li><strong>Card de Perfil/Informações</strong> - Mostra informações de uma entidade (cliente, veículo, etc.) com foto e dados principais.</li>
+                            <li><strong>Card de Ação Rápida</strong> - Botão visual grande para ações frequentes. Use para criar, adicionar ou acessar funcionalidades.</li>
+                            <li><strong>Card de Notificação/Alerta</strong> - Exibe mensagens de sucesso, erro, aviso ou informação com cores e ícones apropriados.</li>
+                            <li><strong>Card de Progresso</strong> - Mostra progresso de uma tarefa ou meta com barra de progresso e percentual.</li>
+                            <li><strong>Card de Timeline/Histórico</strong> - Exibe eventos em ordem cronológica com linha vertical conectando os itens.</li>
+                            <li><strong>Card de Formulário Compacto</strong> - Contém campos de formulário em um layout compacto. Ideal para buscas rápidas ou filtros.</li>
+                            <li><strong>Card Simples (Básico)</strong> - Card genérico para qualquer conteúdo. Use quando nenhum dos outros tipos se adequar.</li>
+                        </ul>
+                        <h4 class="mt-3">Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>kpi-card</code> - Classe base para todos os cards (fundo branco, sombra, borda, padding)</li>
+                            <li><code>title-page</code> - Título grande usado para valores principais em cards KPI</li>
+                            <li><code>badge</code> - Badge para contadores e status (usado em cards de notificação)</li>
+                            <li><code>form-label</code> - Label para campos de formulário (usado em cards de formulário)</li>
+                            <li><code>form-input</code> - Input padrão (usado em cards de formulário)</li>
+                            <li><code>btn-blue</code>, <code>btn-secondary</code> - Botões padrão do sistema</li>
+                        </ul>
+                        <h4 class="mt-3">Classes Tailwind Utilizadas:</h4>
+                        <ul>
+                            <li><code>border-l-4</code> - Borda lateral para cards de notificação</li>
+                            <li><code>bg-green-50</code>, <code>bg-red-50</code>, <code>bg-amber-50</code>, <code>bg-blue-50</code> - Cores de fundo para alertas</li>
+                            <li><code>rounded-full</code> - Ícones circulares</li>
+                            <li><code>hover:shadow-lg</code> - Efeito hover para cards de ação rápida</li>
+                            <li><code>transition-shadow</code> - Transição suave de sombra</li>
+                            <li><code>max-h-64 overflow-y-auto</code> - Scroll vertical para listas longas</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Tabelas -->
+                <section id="tabelas" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Tabelas</h2>
+                    <p class="text-slate-600 mb-4">
+                        Estrutura de tabelas responsivas com cabeçalho customizado e células estilizadas.
+                    </p>
+
+                    <div class="component-example">
+                        <div class="bg-white shadow-md rounded-lg overflow-x-auto">
+                            <table class="w-full min-w-full divide-y divide-slate-200">
+                                <thead class="table-header-custom">
+                                    <tr>
+                                        <th class="table-header">ID</th>
+                                        <th class="table-header">Nome</th>
+                                        <th class="table-header hidden md:table-cell">Email</th>
+                                        <th class="table-header">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-slate-200">
+                                    <tr class="border-b border-slate-200 hover:bg-slate-50">
+                                        <td class="table-cell">1</td>
+                                        <td class="table-cell">Exemplo 1</td>
+                                        <td class="table-cell hidden md:table-cell">exemplo1@teste.com</td>
+                                        <td class="table-cell">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">Ativo</span>
+                                        </td>
+                                    </tr>
+                                    <tr class="border-b border-slate-200 hover:bg-slate-50">
+                                        <td class="table-cell">2</td>
+                                        <td class="table-cell">Exemplo 2</td>
+                                        <td class="table-cell hidden md:table-cell">exemplo2@teste.com</td>
+                                        <td class="table-cell">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">Inativo</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;div class="bg-white shadow-md rounded-lg overflow-x-auto"&gt;
+    &lt;table class="w-full min-w-full divide-y divide-slate-200"&gt;
+        &lt;thead class="table-header-custom"&gt;
+            &lt;tr&gt;
+                &lt;th class="table-header"&gt;Coluna 1&lt;/th&gt;
+                &lt;th class="table-header"&gt;Coluna 2&lt;/th&gt;
+                &lt;th class="table-header hidden md:table-cell"&gt;Coluna Responsiva&lt;/th&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody class="bg-white divide-y divide-slate-200"&gt;
+            &lt;tr class="border-b border-slate-200 hover:bg-slate-50"&gt;
+                &lt;td class="table-cell"&gt;Dado 1&lt;/td&gt;
+                &lt;td class="table-cell"&gt;Dado 2&lt;/td&gt;
+                &lt;td class="table-cell hidden md:table-cell"&gt;Dado Responsivo&lt;/td&gt;
+            &lt;/tr&gt;
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+&lt;/div&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>table-header-custom</code> - Cabeçalho da tabela com fundo cinza claro (#e0e7ee)</li>
+                            <li><code>table-header</code> - Célula do cabeçalho (padding, uppercase, etc.)</li>
+                            <li><code>table-cell</code> - Célula da tabela (padding padrão)</li>
+                            <li>Use <code>hidden md:table-cell</code> para ocultar colunas em telas pequenas</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Paginação -->
+                <section id="paginacao" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Paginação</h2>
+                    <p class="text-slate-600 mb-4">
+                        Sistema de paginação com controle de registros por página e navegação entre páginas.
+                    </p>
+
+                    <div class="component-example">
+                        <div class="table-pagination-controls flex flex-wrap justify-between items-center">
+                            <div>
+                                <label for="rowsPerPageExemplo" class="text-sm text-slate-600 mr-2">Registos por página:</label>
+                                <select id="rowsPerPageExemplo" class="form-input-focus select-pagination">
+                                    <option value="10">10</option>
+                                    <option value="20">20</option>
+                                    <option value="30">30</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+                            <div class="text-sm text-slate-600 mt-2 sm:mt-0">
+                                <span>Mostrando 1-10 de 50 registros</span>
+                            </div>
+                            <nav aria-label="Page navigation" class="mt-2 sm:mt-0">
+                                <ul class="inline-flex items-center -space-x-px">
+                                    <li><button class="pagination-button arrow-button rounded-l-md" disabled><i class="fas fa-chevron-left"></i></button></li>
+                                    <li><button class="pagination-button numbered active">1</button></li>
+                                    <li><button class="pagination-button numbered">2</button></li>
+                                    <li><button class="pagination-button numbered">3</button></li>
+                                    <li><button class="pagination-button numbered" disabled>...</button></li>
+                                    <li><button class="pagination-button numbered">10</button></li>
+                                    <li><button class="pagination-button arrow-button rounded-r-md"><i class="fas fa-chevron-right"></i></button></li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;div class="table-pagination-controls flex flex-wrap justify-between items-center"&gt;
+    &lt;div&gt;
+        &lt;label for="rowsPerPage" class="text-sm text-slate-600 mr-2"&gt;Registos por página:&lt;/label&gt;
+        &lt;select id="rowsPerPage" class="form-input-focus select-pagination"&gt;
+            &lt;option value="10"&gt;10&lt;/option&gt;
+            &lt;option value="20"&gt;20&lt;/option&gt;
+            &lt;option value="30"&gt;30&lt;/option&gt;
+            &lt;option value="50"&gt;50&lt;/option&gt;
+        &lt;/select&gt;
+    &lt;/div&gt;
+    &lt;div class="text-sm text-slate-600 mt-2 sm:mt-0"&gt;
+        &lt;span&gt;Mostrando 1-10 de 50 registros&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;nav aria-label="Page navigation" class="mt-2 sm:mt-0"&gt;
+        &lt;ul class="inline-flex items-center -space-x-px"&gt;
+            &lt;li&gt;&lt;button class="pagination-button arrow-button rounded-l-md" disabled&gt;&lt;i class="fas fa-chevron-left"&gt;&lt;/i&gt;&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered active"&gt;1&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered"&gt;2&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered"&gt;3&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered" disabled&gt;...&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button numbered"&gt;10&lt;/button&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;button class="pagination-button arrow-button rounded-r-md"&gt;&lt;i class="fas fa-chevron-right"&gt;&lt;/i&gt;&lt;/button&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/nav&gt;
+&lt;/div&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>table-pagination-controls</code> - Container principal da paginação</li>
+                            <li><code>pagination-button</code> - Botão de paginação base</li>
+                            <li><code>pagination-button.arrow-button</code> - Botão de seta (anterior/próximo)</li>
+                            <li><code>pagination-button.numbered</code> - Botão numérico</li>
+                            <li><code>pagination-button.active</code> - Página ativa (azul)</li>
+                            <li><code>pagination-button:disabled</code> - Botão desabilitado</li>
+                            <li><code>select-pagination</code> - Select de registros por página</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Badges -->
+                <section id="badges" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Badges</h2>
+                    <p class="text-slate-600 mb-4">
+                        Badges para exibir status, categorias e informações de registros, com cores padronizadas para diferentes estados.
+                    </p>
+
+                    <div class="component-example">
+                        <div class="flex flex-wrap gap-4 items-center mb-4">
+                            <span class="badge badge-default">Default</span>
+                            <span class="badge badge-success">Success</span>
+                            <span class="badge badge-warning">Warning</span>
+                            <span class="badge badge-danger">Danger</span>
+                            <span class="badge badge-info">Info</span>
+                            <span class="badge badge-inverse">Inverse</span>
+                        </div>
+                        <div class="mt-4">
+                            <p class="text-sm text-slate-600 mb-2">Exemplos de uso:</p>
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="badge badge-success">Ativo</span>
+                                    <span class="text-sm text-slate-600">- Status de registro ativo</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="badge badge-danger">Inativo</span>
+                                    <span class="text-sm text-slate-600">- Status de registro inativo</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="badge badge-warning">Pendente</span>
+                                    <span class="text-sm text-slate-600">- Aguardando ação</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="badge badge-info">Novo</span>
+                                    <span class="text-sm text-slate-600">- Informação importante</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <p class="text-sm text-slate-600 mb-2">Exemplo em tabela:</p>
+                            <div class="bg-white shadow-md rounded-lg overflow-x-auto">
+                                <table class="w-full min-w-full divide-y divide-slate-200">
+                                    <thead class="table-header-custom">
+                                        <tr>
+                                            <th class="table-header">ID</th>
+                                            <th class="table-header">Nome</th>
+                                            <th class="table-header">Status</th>
+                                            <th class="table-header">Tipo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-slate-200">
+                                        <tr class="border-b border-slate-200 hover:bg-slate-50">
+                                            <td class="table-cell">1</td>
+                                            <td class="table-cell">Cliente Exemplo</td>
+                                            <td class="table-cell">
+                                                <span class="badge badge-success">Ativo</span>
+                                            </td>
+                                            <td class="table-cell">
+                                                <span class="badge badge-info">VIP</span>
+                                            </td>
+                                        </tr>
+                                        <tr class="border-b border-slate-200 hover:bg-slate-50">
+                                            <td class="table-cell">2</td>
+                                            <td class="table-cell">Cliente Exemplo 2</td>
+                                            <td class="table-cell">
+                                                <span class="badge badge-danger">Inativo</span>
+                                            </td>
+                                            <td class="table-cell">
+                                                <span class="badge badge-default">Padrão</span>
+                                            </td>
+                                        </tr>
+                                        <tr class="border-b border-slate-200 hover:bg-slate-50">
+                                            <td class="table-cell">3</td>
+                                            <td class="table-cell">Cliente Exemplo 3</td>
+                                            <td class="table-cell">
+                                                <span class="badge badge-warning">Pendente</span>
+                                            </td>
+                                            <td class="table-cell">
+                                                <span class="badge badge-inverse">Premium</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Badges --&gt;
+&lt;span class="badge badge-default"&gt;Default&lt;/span&gt;
+&lt;span class="badge badge-success"&gt;Success&lt;/span&gt;
+&lt;span class="badge badge-warning"&gt;Warning&lt;/span&gt;
+&lt;span class="badge badge-danger"&gt;Danger&lt;/span&gt;
+&lt;span class="badge badge-info"&gt;Info&lt;/span&gt;
+&lt;span class="badge badge-inverse"&gt;Inverse&lt;/span&gt;
+
+&lt;!-- Exemplos de uso --&gt;
+&lt;span class="badge badge-success"&gt;Ativo&lt;/span&gt;
+&lt;span class="badge badge-danger"&gt;Inativo&lt;/span&gt;
+&lt;span class="badge badge-warning"&gt;Pendente&lt;/span&gt;
+&lt;span class="badge badge-info"&gt;Novo&lt;/span&gt;
+
+&lt;!-- Exemplo em tabela --&gt;
+&lt;td class="table-cell"&gt;
+    &lt;span class="badge badge-success"&gt;Ativo&lt;/span&gt;
+&lt;/td&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>badge</code> - Classe base para badges (padding, tamanho, borda arredondada)</li>
+                            <li><code>badge-default</code> - Badge cinza padrão (fundo: #F1F5F9, texto: #475569)</li>
+                            <li><code>badge-success</code> - Badge verde para sucesso/ativo (fundo: #D1FAE5, texto: #065F46)</li>
+                            <li><code>badge-warning</code> - Badge amarelo para avisos (fundo: #FEF3C7, texto: #92400E)</li>
+                            <li><code>badge-danger</code> - Badge vermelho para erro/inativo (fundo: #FEE2E2, texto: #991B1B)</li>
+                            <li><code>badge-info</code> - Badge azul para informações (fundo: #DBEAFE, texto: #1E40AF)</li>
+                            <li><code>badge-inverse</code> - Badge roxo (fundo: #E9D5FF, texto: #6B21A8)</li>
+                        </ul>
+                        <h4 class="mt-3">Casos de Uso:</h4>
+                        <ul>
+                            <li><strong>Success</strong> - Status ativo, operação bem-sucedida, concluído</li>
+                            <li><strong>Danger</strong> - Status inativo, erro, cancelado</li>
+                            <li><strong>Warning</strong> - Pendente, atenção necessária, aguardando</li>
+                            <li><strong>Info</strong> - Informação importante, novo, destaque</li>
+                            <li><strong>Default</strong> - Estado neutro, padrão</li>
+                            <li><strong>Inverse</strong> - Destaque especial, premium, exclusivo</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Inputs e Labels -->
+                <section id="inputs" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Inputs e Labels</h2>
+                    <p class="text-slate-600 mb-4">
+                        Campos de formulário padronizados com labels e diferentes estados.
+                    </p>
+
+                    <div class="component-example">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <label for="inputPadrao" class="form-label">Input Padrão</label>
+                                <input type="text" id="inputPadrao" class="form-input" placeholder="Digite aqui...">
+                            </div>
+                            <div>
+                                <label for="inputFocus" class="form-label">Input com Focus</label>
+                                <input type="text" id="inputFocus" class="form-input-focus" placeholder="Digite aqui...">
+                            </div>
+                            <div>
+                                <label for="selectPadrao" class="form-label">Select Normal (Chosen)</label>
+                                <select id="selectPadrao" class="chosen-select form-input" data-chosen-type="normal">
+                                    <option value="">Selecione uma opção...</option>
+                                    <option value="1">Opção 1</option>
+                                    <option value="2">Opção 2</option>
+                                    <option value="3">Opção 3</option>
+                                    <option value="4">Opção 4</option>
+                                    <option value="5">Opção 5</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="selectServerSide" class="form-label">Select Server-Side (Chosen)</label>
+                                <select id="selectServerSide" class="chosen-select form-input" data-chosen-type="server-side" data-chosen-search-url="/api/search" data-chosen-placeholder="Digite pelo menos 3 letras...">
+                                    <option value="">Selecione uma opção...</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-2 lg:col-span-3">
+                                <label for="selectMultiple" class="form-label">Select Múltiplo com Tags (Chosen)</label>
+                                <select id="selectMultiple" class="chosen-select form-input" data-chosen-type="multiple" data-chosen-placeholder="Selecione as tecnologias..." multiple>
+                                    <option value="php">PHP</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="python">Python</option>
+                                    <option value="java">Java</option>
+                                    <option value="csharp">C#</option>
+                                    <option value="go">Go</option>
+                                    <option value="rust">Rust</option>
+                                    <option value="typescript">TypeScript</option>
+                                    <option value="ruby">Ruby</option>
+                                    <option value="swift">Swift</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="inputComIcone" class="form-label">Input com Ícone</label>
+                                <div class="relative">
+                                    <input type="text" id="inputComIcone" class="form-input-focus pr-8" placeholder="Buscar...">
+                                    <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="inputData" class="form-label">Input Data</label>
+                                <input type="date" id="inputData" class="form-input">
+                            </div>
+                            <div>
+                                <label for="inputEmail" class="form-label">Input Email</label>
+                                <input type="email" id="inputEmail" class="form-input" placeholder="email@exemplo.com">
+                            </div>
+                            <div class="sm:col-span-2 lg:col-span-3">
+                                <label for="textareaExemplo" class="form-label">Textarea</label>
+                                <textarea id="textareaExemplo" class="form-input" rows="4" placeholder="Digite sua mensagem aqui..."></textarea>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <h3 class="font-semibold text-slate-700 mb-3">Input Group (Borda Envolvendo Label + Input)</h3>
+                            <p class="text-sm text-slate-600 mb-4">Nova variação onde uma borda envolve o conjunto label + input. Quando o input está em foco, a borda externa do container fica azul.</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div class="form-input-group">
+                                    <label for="inputGroupTexto" class="form-label-group">Input de Texto</label>
+                                    <input type="text" id="inputGroupTexto" class="form-input-group-field" placeholder="Digite aqui...">
+                                </div>
+                                <div class="form-input-group">
+                                    <label for="inputGroupEmail" class="form-label-group">Input de Email</label>
+                                    <input type="email" id="inputGroupEmail" class="form-input-group-field" placeholder="email@exemplo.com">
+                                </div>
+                                <div class="form-input-group">
+                                    <label for="inputGroupData" class="form-label-group">Input de Data</label>
+                                    <input type="date" id="inputGroupData" class="form-input-group-field">
+                                </div>
+                                <div class="form-input-group">
+                                    <label for="selectGroup" class="form-label-group">Select (Chosen)</label>
+                                    <select id="selectGroup" class="chosen-select form-input-group-field" data-chosen-type="normal">
+                                        <option value="">Selecione uma opção...</option>
+                                        <option value="1">Opção 1</option>
+                                        <option value="2">Opção 2</option>
+                                        <option value="3">Opção 3</option>
+                                        <option value="4">Opção 4</option>
+                                        <option value="5">Opção 5</option>
+                                    </select>
+                                </div>
+                                <div class="form-input-group">
+                                    <label for="selectGroupServerSide" class="form-label-group">Select Server-Side (Chosen)</label>
+                                    <select id="selectGroupServerSide" class="chosen-select form-input-group-field" data-chosen-type="server-side" data-chosen-search-url="/api/search" data-chosen-placeholder="Digite pelo menos 3 letras...">
+                                        <option value="">Selecione uma opção...</option>
+                                    </select>
+                                </div>
+                                <div class="form-input-group">
+                                    <label for="selectGroupComBotao" class="form-label-group">Função/Role</label>
+                                    <div class="flex">
+                                        <select id="selectGroupComBotao" class="form-input-group-field rounded-r-none border-r-0">
+                                            <option value="">Selecione uma função...</option>
+                                            <option value="1">Administrador</option>
+                                            <option value="2">Gerente</option>
+                                            <option value="3">Operador</option>
+                                        </select>
+                                        <button type="button" class="flex items-center justify-center w-[31px] p-0 bg-[#87909d] hover:!bg-[#6b7480] active:!bg-[#5a626d] text-white border-0 rounded-none cursor-pointer transition-colors duration-200" title="Adicionar nova função">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="sm:col-span-2 lg:col-span-3 form-input-group">
+                                    <label for="selectGroupMultiple" class="form-label-group">Select Múltiplo com Tags (Chosen)</label>
+                                    <select id="selectGroupMultiple" class="chosen-select form-input-group-field" data-chosen-type="multiple" data-chosen-placeholder="Selecione as tecnologias..." multiple>
+                                        <option value="php">PHP</option>
+                                        <option value="javascript">JavaScript</option>
+                                        <option value="python">Python</option>
+                                        <option value="java">Java</option>
+                                        <option value="csharp">C#</option>
+                                        <option value="go">Go</option>
+                                        <option value="rust">Rust</option>
+                                        <option value="typescript">TypeScript</option>
+                                        <option value="ruby">Ruby</option>
+                                        <option value="swift">Swift</option>
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-2 lg:col-span-3 form-input-group">
+                                    <label for="textareaGroup" class="form-label-group">Textarea</label>
+                                    <textarea id="textareaGroup" class="form-input-group-field" rows="4" placeholder="Digite sua mensagem aqui..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <h3 class="font-semibold text-slate-700 mb-3">Radio Buttons</h3>
+                            <div class="space-y-2">
+                                <div class="flex items-center">
+                                    <input type="radio" id="radio1" name="radioExemplo" value="opcao1" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300">
+                                    <label for="radio1" class="ml-2 text-sm text-slate-700">Opção 1</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" id="radio2" name="radioExemplo" value="opcao2" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300" checked>
+                                    <label for="radio2" class="ml-2 text-sm text-slate-700">Opção 2 (selecionada)</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="radio" id="radio3" name="radioExemplo" value="opcao3" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300">
+                                    <label for="radio3" class="ml-2 text-sm text-slate-700">Opção 3</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <h3 class="font-semibold text-slate-700 mb-3">Checkboxes</h3>
+                            <div class="space-y-2">
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="checkbox1" name="checkboxExemplo" value="opcao1" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded" checked>
+                                    <label for="checkbox1" class="ml-2 text-sm text-slate-700">Opção 1 (marcada)</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="checkbox2" name="checkboxExemplo" value="opcao2" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded">
+                                    <label for="checkbox2" class="ml-2 text-sm text-slate-700">Opção 2</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="checkbox3" name="checkboxExemplo" value="opcao3" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded">
+                                    <label for="checkbox3" class="ml-2 text-sm text-slate-700">Opção 3</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Input Padrão --&gt;
+&lt;div&gt;
+    &lt;label for="meuInput" class="form-label"&gt;Label do Campo&lt;/label&gt;
+    &lt;input type="text" id="meuInput" class="form-input" placeholder="Digite aqui..."&gt;
+&lt;/div&gt;
+
+&lt;!-- Input com Focus --&gt;
+&lt;div&gt;
+    &lt;label for="meuInputFocus" class="form-label"&gt;Label do Campo&lt;/label&gt;
+    &lt;input type="text" id="meuInputFocus" class="form-input-focus" placeholder="Digite aqui..."&gt;
+&lt;/div&gt;
+
+&lt;!-- Select Normal (Chosen) - Mostra todos os registros --&gt;
+&lt;div&gt;
+    &lt;label for="meuSelect" class="form-label"&gt;Label do Select&lt;/label&gt;
+    &lt;select id="meuSelect" class="chosen-select form-input" data-chosen-type="normal"&gt;
+        &lt;option value=""&gt;Selecione uma opção...&lt;/option&gt;
+        &lt;option value="1"&gt;Opção 1&lt;/option&gt;
+        &lt;option value="2"&gt;Opção 2&lt;/option&gt;
+        &lt;option value="3"&gt;Opção 3&lt;/option&gt;
+    &lt;/select&gt;
+&lt;/div&gt;
+
+&lt;!-- Select Server-Side (Chosen) - Requer pelo menos 3 letras para buscar --&gt;
+&lt;div&gt;
+    &lt;label for="meuSelectServer" class="form-label"&gt;Select Server-Side&lt;/label&gt;
+    &lt;select id="meuSelectServer" class="chosen-select form-input" 
+            data-chosen-type="server-side" 
+            data-chosen-search-url="/api/search" 
+            data-chosen-min-chars="3"
+            data-chosen-placeholder="Digite pelo menos 3 letras..."&gt;
+        &lt;option value=""&gt;Selecione uma opção...&lt;/option&gt;
+    &lt;/select&gt;
+&lt;/div&gt;
+
+&lt;!-- Textarea --&gt;
+&lt;div&gt;
+    &lt;label for="meuTextarea" class="form-label"&gt;Label do Textarea&lt;/label&gt;
+    &lt;textarea id="meuTextarea" class="form-input" rows="4" placeholder="Digite sua mensagem aqui..."&gt;&lt;/textarea&gt;
+&lt;/div&gt;
+
+&lt;!-- Radio Buttons --&gt;
+&lt;div class="space-y-2"&gt;
+    &lt;div class="flex items-center"&gt;
+        &lt;input type="radio" id="radio1" name="radioGrupo" value="opcao1" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300"&gt;
+        &lt;label for="radio1" class="ml-2 text-sm text-slate-700"&gt;Opção 1&lt;/label&gt;
+    &lt;/div&gt;
+    &lt;div class="flex items-center"&gt;
+        &lt;input type="radio" id="radio2" name="radioGrupo" value="opcao2" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300" checked&gt;
+        &lt;label for="radio2" class="ml-2 text-sm text-slate-700"&gt;Opção 2&lt;/label&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- Checkboxes --&gt;
+&lt;div class="space-y-2"&gt;
+    &lt;div class="flex items-center"&gt;
+        &lt;input type="checkbox" id="checkbox1" name="checkboxGrupo" value="opcao1" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded"&gt;
+        &lt;label for="checkbox1" class="ml-2 text-sm text-slate-700"&gt;Opção 1&lt;/label&gt;
+    &lt;/div&gt;
+    &lt;div class="flex items-center"&gt;
+        &lt;input type="checkbox" id="checkbox2" name="checkboxGrupo" value="opcao2" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded" checked&gt;
+        &lt;label for="checkbox2" class="ml-2 text-sm text-slate-700"&gt;Opção 2&lt;/label&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- Input com Ícone --&gt;
+&lt;div&gt;
+    &lt;label for="busca" class="form-label"&gt;Buscar&lt;/label&gt;
+    &lt;div class="relative"&gt;
+        &lt;input type="text" id="busca" class="form-input-focus pr-8" placeholder="Buscar..."&gt;
+        &lt;i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"&gt;&lt;/i&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- Input Group - Borda envolvendo label + input --&gt;
+&lt;div class="form-input-group"&gt;
+    &lt;label for="meuInputGroup" class="form-label-group"&gt;Label do Campo&lt;/label&gt;
+    &lt;input type="text" id="meuInputGroup" class="form-input-group-field" placeholder="Digite aqui..."&gt;
+&lt;/div&gt;
+
+&lt;!-- Input Group com Email --&gt;
+&lt;div class="form-input-group"&gt;
+    &lt;label for="meuEmailGroup" class="form-label-group"&gt;Email&lt;/label&gt;
+    &lt;input type="email" id="meuEmailGroup" class="form-input-group-field" placeholder="email@exemplo.com"&gt;
+&lt;/div&gt;
+
+&lt;!-- Input Group com Select (Chosen) --&gt;
+&lt;div class="form-input-group"&gt;
+    &lt;label for="meuSelectGroup" class="form-label-group"&gt;Selecione&lt;/label&gt;
+    &lt;select id="meuSelectGroup" class="chosen-select form-input-group-field" data-chosen-type="normal"&gt;
+        &lt;option value=""&gt;Selecione uma opção...&lt;/option&gt;
+        &lt;option value="1"&gt;Opção 1&lt;/option&gt;
+        &lt;option value="2"&gt;Opção 2&lt;/option&gt;
+        &lt;option value="3"&gt;Opção 3&lt;/option&gt;
+    &lt;/select&gt;
+&lt;/div&gt;
+
+&lt;!-- Input Group com Select Server-Side (Chosen) --&gt;
+&lt;div class="form-input-group"&gt;
+    &lt;label for="meuSelectGroupServer" class="form-label-group"&gt;Select Server-Side&lt;/label&gt;
+    &lt;select id="meuSelectGroupServer" class="chosen-select form-input-group-field" 
+            data-chosen-type="server-side" 
+            data-chosen-search-url="/api/search" 
+            data-chosen-placeholder="Digite pelo menos 3 letras..."&gt;
+        &lt;option value=""&gt;Selecione uma opção...&lt;/option&gt;
+    &lt;/select&gt;
+&lt;/div&gt;
+
+&lt;!-- Input Group com Select e Botão --&gt;
+&lt;div class="form-input-group"&gt;
+    &lt;label for="funcaoRole" class="form-label-group"&gt;Função/Role&lt;/label&gt;
+    &lt;div class="flex"&gt;
+        &lt;select id="funcaoRole" class="form-input-group-field rounded-r-none border-r-0"&gt;
+            &lt;option value=""&gt;Selecione uma função...&lt;/option&gt;
+            &lt;option value="1"&gt;Administrador&lt;/option&gt;
+            &lt;option value="2"&gt;Gerente&lt;/option&gt;
+            &lt;option value="3"&gt;Operador&lt;/option&gt;
+        &lt;/select&gt;
+        &lt;button type="button"
+                class="flex items-center justify-center w-[31px] p-0 bg-[#87909d] hover:!bg-[#6b7480] active:!bg-[#5a626d] text-white border-0 rounded-none cursor-pointer transition-colors duration-200"
+                title="Adicionar nova função"&gt;
+            &lt;i class="fas fa-plus"&gt;&lt;/i&gt;
+        &lt;/button&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- Input Group com Textarea --&gt;
+&lt;div class="form-input-group"&gt;
+    &lt;label for="meuTextareaGroup" class="form-label-group"&gt;Mensagem&lt;/label&gt;
+    &lt;textarea id="meuTextareaGroup" class="form-input-group-field" rows="4" placeholder="Digite sua mensagem..."&gt;&lt;/textarea&gt;
+&lt;/div&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes CSS Utilizadas:</h4>
+                        <ul>
+                            <li><code>form-label</code> - Label padronizado (tamanho, peso, cor)</li>
+                            <li><code>form-input</code> - Input padrão (borda, padding, tamanho) - <strong>com foco azul quando ativo</strong></li>
+                            <li><code>form-input-focus</code> - Input com estilos de foco (borda azul, shadow) - <strong>mesmo comportamento de foco que form-input</strong></li>
+                            <li><code>form-input-group</code> - Container com borda envolvendo label + input - <strong>a borda externa fica azul quando o input interno está em foco</strong></li>
+                            <li><code>form-label-group</code> - Label para uso dentro de <code>form-input-group</code> (sem margin-bottom)</li>
+                            <li><code>form-input-group-field</code> - Input/Select/Textarea para uso dentro de <code>form-input-group</code> (sem borda própria)</li>
+                            <li><code>textarea</code> - Use a classe <code>form-input</code> também para textareas</li>
+                            <li><code>radio</code> - Use classes Tailwind: <code>w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300</code></li>
+                            <li><code>checkbox</code> - Use classes Tailwind: <code>w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded</code></li>
+                        </ul>
+                        <p class="mt-2 text-sm text-slate-600"><strong>Nota:</strong> Todos os inputs, textareas e selects com as classes <code>form-input</code> ou <code>form-input-focus</code> exibem borda
+                            azul e sombra quando estão em foco. Radio buttons e checkboxes usam classes Tailwind específicas para manter consistência visual.</p>
+                        <p class="mt-2 text-sm text-slate-600"><strong>Input Group:</strong> A classe <code>form-input-group</code> cria um container com borda que envolve o label e o input. Quando qualquer
+                            campo interno está em foco, a borda externa do container muda para azul (#0EA5E9). O input interno não possui borda própria e usa a classe <code>form-input-group-field</code>.</p>
+                        <h4 class="mt-4">Chosen Select:</h4>
+                        <ul>
+                            <li><code>chosen-select</code> - Classe principal para ativar o chosen-select</li>
+                            <li><code>data-chosen-type="normal"</code> - Tipo normal: mostra todos os registros, busca client-side</li>
+                            <li><code>data-chosen-type="server-side"</code> - Tipo server-side: requer pelo menos 3 letras para buscar</li>
+                            <li><code>data-chosen-search-url</code> - URL da API para busca server-side (obrigatório para server-side)</li>
+                            <li><code>data-chosen-min-chars</code> - Mínimo de caracteres para iniciar busca (padrão: 3)</li>
+                            <li><code>data-chosen-placeholder</code> - Texto placeholder personalizado</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Nestable List -->
+                <section id="nestable-list" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Nestable List - Drag & Drop Hierárquico</h2>
+                    <p class="text-slate-600 mb-4">
+                        Lista hierárquica com drag & drop para reorganizar itens e criar estruturas aninhadas. O JSON é atualizado automaticamente ao mover itens.
+                    </p>
+
+                    <div class="component-info">
+                        <h4>Características:</h4>
+                        <ul>
+                            <li>Drag & drop hierárquico - arraste itens para reorganizar e criar filhos</li>
+                            <li>Sincronização automática com JSON no textarea</li>
+                            <li>Carregar JSON do textarea para renderizar a lista</li>
+                            <li>Botão para adicionar novos itens</li>
+                            <li>Edição de itens via modal</li>
+                            <li>Exclusão com confirmação (digite "EXCLUIR")</li>
+                            <li>Visual hierárquico com indentação e linha vertical</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-example">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Área de Edição Visual -->
+                            <div class="bg-white rounded-lg shadow-md p-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="font-semibold text-slate-700">Estrutura Visual</h3>
+                                    <button id="btnAddItemNestable" class="btn-primary flex items-center gap-2">
+                                        <i class="fas fa-plus"></i>
+                                        Adicionar Item
+                                    </button>
+                                </div>
+
+                                <div id="nestableContainer" class="nestable-container">
+                                    <ol id="nestableList" class="nestable-list">
+                                        <!-- Itens serão inseridos aqui via JavaScript -->
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <!-- Área de JSON -->
+                            <div class="bg-white rounded-lg shadow-md p-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="font-semibold text-slate-700">JSON</h3>
+                                    <div class="flex gap-2">
+                                        <button id="btnLoadJsonNestable" class="btn-secondary text-sm">
+                                            <i class="fas fa-upload"></i> Carregar JSON
+                                        </button>
+                                        <button id="btnClearJsonNestable" class="btn-secondary text-sm">
+                                            <i class="fas fa-trash"></i> Limpar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <textarea id="jsonTextareaNestable" class="w-full h-full max-h-[500px] p-4 border border-slate-300 rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder='Cole ou digite o JSON aqui. Exemplo: [{"id":1,"name":"Item 1"},{"id":2,"name":"Item 2","children":[{"id":3,"name":"Item 3"}]}]'>[
+  {
+    "id": "1",
+    "name": "Produtos"
+  },
+  {
+    "id": "2",
+    "name": "Serviços",
+    "children": [
+      {
+        "id": "3",
+        "name": "Consultoria"
+      },
+      {
+        "id": "4",
+        "name": "Suporte Técnico",
+        "children": [
+          {
+            "id": "5",
+            "name": "Suporte Básico"
+          },
+          {
+            "id": "6",
+            "name": "Suporte Premium"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "7",
+    "name": "Sobre"
+  }
+]</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal de Edição -->
+                    <div id="editModalNestable" class="modal-overlay">
+                        <div class="modal-box" style="max-width: 500px;">
+                            <h3 class="modal-title">Editar Item</h3>
+                            <div class="mt-4">
+                                <label for="editItemNameNestable" class="form-label">Nome do Item:</label>
+                                <input type="text" id="editItemNameNestable" class="form-input-focus w-full" placeholder="Digite o nome do item">
+                            </div>
+                            <div class="modal-actions mt-6">
+                                <button onclick="closeEditModalNestable()" class="btn-secondary">
+                                    Cancelar
+                                </button>
+                                <button onclick="saveEditItemNestable()" class="btn-primary">
+                                    Salvar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal de Exclusão -->
+                    <div id="meuModalExclusaoNestable" class="modal-overlay">
+                        <div class="modal-box" style="max-width: 500px;">
+                            <h3 class="modal-title" id="deleteModalTitleNestable">Confirmar Exclusão</h3>
+                            <p class="modal-message" id="deleteModalMessageNestable">Deseja realmente excluir este registro?</p>
+
+                            <div class="mt-4 mb-4" id="confirmDeleteSectionNestable" style="display: none;">
+                                <label for="confirmDeleteInputNestable" class="form-label">
+                                    Para confirmar, digite <strong id="confirmDeleteTextNestable">EXCLUIR</strong>:
+                                </label>
+                                <input type="text" id="confirmDeleteInputNestable" class="form-input-focus" placeholder="Digite EXCLUIR para confirmar" autocomplete="off">
+                                <p class="text-xs text-slate-500 mt-1" id="confirmDeleteHintNestable"></p>
+                            </div>
+
+                            <div class="modal-actions">
+                                <button onclick="closeDeleteModalNestable()" class="btn-secondary">
+                                    Cancelar
+                                </button>
+                                <button id="confirmDeleteButtonNestable" onclick="confirmDeleteNestable()" class="btn-red py-2 px-4 rounded-md text-sm font-medium">
+                                    Confirmar Exclusão
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- HTML Básico --&gt;
+&lt;div id="nestableContainer" class="nestable-container"&gt;
+    &lt;ol id="nestableList" class="nestable-list"&gt;
+        &lt;!-- Itens serão inseridos via JavaScript --&gt;
+    &lt;/ol&gt;
+&lt;/div&gt;
+
+&lt;textarea id="jsonTextareaNestable"&gt;&lt;/textarea&gt;
+
+&lt;!-- Inicializar --&gt;
+&lt;script src="js/nestable-list.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+    // Usar valores padrão (maxDepth = 10)
+    const nestable = new NestableList('nestableContainer', 'jsonTextareaNestable');
+    
+    // Ou definir profundidade máxima personalizada (0 a N)
+    // Exemplo: permitir apenas 3 níveis (0, 1, 2)
+    // const nestable = new NestableList('nestableContainer', 'jsonTextareaNestable', { maxDepth: 3 });
+    
+    // Exemplo: sem aninhamento (apenas nível raiz)
+    // const nestable = new NestableList('nestableContainer', 'jsonTextareaNestable', { maxDepth: 0 });
+&lt;/script&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Como Usar:</h4>
+                        <ul>
+                            <li>Cole um JSON no textarea ou clique em "Adicionar Item" para começar</li>
+                            <li>Arraste os itens para reorganizar ou criar hierarquias (arraste para dentro de outro item para criar filho)</li>
+                            <li>Use os ícones de editar/excluir que aparecem ao passar o mouse sobre cada item</li>
+                            <li>O JSON é atualizado automaticamente sempre que você move, adiciona, edita ou exclui itens</li>
+                        </ul>
+                        <h4 class="mt-4">Configuração de Profundidade:</h4>
+                        <ul>
+                            <li>Por padrão, permite até 10 níveis de aninhamento</li>
+                            <li>Você pode definir a profundidade máxima usando o parâmetro <code>maxDepth</code> no construtor</li>
+                            <li>Valores válidos: <code>0</code> (sem aninhamento, apenas nível raiz) até <code>N</code> (qualquer número positivo)</li>
+                            <li>Exemplo: <code>new NestableList('container', 'textarea', { maxDepth: 3 })</code> permite apenas 3 níveis (0, 1, 2)</li>
+                        </ul>
+                        <h4 class="mt-4">Formato JSON:</h4>
+                        <ul>
+                            <li>Array de objetos, cada objeto deve ter <code>id</code> e <code>name</code></li>
+                            <li>Para criar filhos, adicione um array <code>children</code> dentro do objeto</li>
+                            <li>Exemplo: <code>[{"id":"1","name":"Item 1"},{"id":"2","name":"Item 2","children":[{"id":"3","name":"Item 3"}]}]</code></li>
+                        </ul>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Navegação suave entre seções
+        document.querySelectorAll('.component-nav-link').forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+
+                if (targetElement) {
+                    // Remover active de todos os links
+                    document.querySelectorAll('.component-nav-link').forEach(l => l.classList.remove('active'));
+                    // Adicionar active ao link clicado
+                    this.classList.add('active');
+
+                    // Scroll suave até a seção
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Atualizar link ativo ao fazer scroll
+        const sections = document.querySelectorAll('.component-section');
+        const navLinks = document.querySelectorAll('.component-nav-link');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (window.pageYOffset >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Ativar primeira seção ao carregar
+        if (navLinks.length > 0) {
+            navLinks[0].classList.add('active');
+        }
+
+        // Controle das tabs de exemplo
+        const formTabButtons = document.querySelectorAll('#formTabsNav .form-tab-button');
+        const formTabContents = document.querySelectorAll('#forms-tabs .form-tab-content');
+
+        formTabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                formTabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                formTabContents.forEach(content => content.classList.remove('active'));
+                const targetId = button.dataset.formTabTarget;
+                const targetContent = document.querySelector(targetId);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                }
+            });
+        });
+
+        // Controle das tabs verticais de exemplo
+        const verticalTabButtons = document.querySelectorAll('#verticalTabsNav .vertical-tab-button');
+        const verticalTabContents = document.querySelectorAll('.vertical-tab-content');
+
+        verticalTabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                verticalTabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                verticalTabContents.forEach(content => content.classList.remove('active'));
+                const targetId = button.dataset.verticalTabTarget;
+                const targetContent = document.querySelector(targetId);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                }
+            });
+        });
+
+        // Controle do Modal de Exclusão com Proteção (exemplo)
+        let exemploCurrentRecordId = null;
+        let exemploCurrentRecordName = null;
+        let exemploConfirmType = 'text';
+        let exemploExpectedText = '';
+        const CONFIRM_TEXT_EXEMPLO = 'EXCLUIR';
+
+        function openExemploModalExclusao(recordId, recordName, recordType = 'registro', confirmType = 'text') {
+            exemploCurrentRecordId = recordId;
+            exemploCurrentRecordName = recordName;
+            exemploConfirmType = confirmType;
+
+            const modal = document.getElementById('exemploModalExclusao');
+            const modalTitle = document.getElementById('deleteModalTitleExemplo');
+            const modalMessage = document.getElementById('deleteModalMessageExemplo');
+            const confirmSection = document.getElementById('confirmDeleteSection');
+            const confirmInput = document.getElementById('confirmDeleteInput');
+            const confirmText = document.getElementById('confirmDeleteText');
+            const confirmButton = document.getElementById('confirmDeleteButton');
+            const confirmHint = document.getElementById('confirmDeleteHint');
+
+            modalTitle.textContent = 'Confirmar Exclusão';
+            modalMessage.textContent = `Deseja realmente excluir o ${recordType} "${recordName}" (ID: ${recordId})?`;
+
+            // Modo sem confirmação
+            if (confirmType === 'none') {
+                confirmSection.style.display = 'none';
+                confirmButton.disabled = false;
+                confirmButton.style.opacity = '1';
+                confirmButton.style.cursor = 'pointer';
+                confirmInput.oninput = null;
+            } else {
+                // Modos com confirmação
+                confirmSection.style.display = 'block';
+
+                if (confirmType === 'name') {
+                    exemploExpectedText = recordName.trim();
+                    confirmText.textContent = `"${recordName}"`;
+                    confirmInput.placeholder = `Digite "${recordName}" para confirmar`;
+                    confirmHint.textContent = 'Digite exatamente o nome do registro para confirmar a exclusão.';
+                } else {
+                    exemploExpectedText = CONFIRM_TEXT_EXEMPLO;
+                    confirmText.textContent = CONFIRM_TEXT_EXEMPLO;
+                    confirmInput.placeholder = `Digite ${CONFIRM_TEXT_EXEMPLO} para confirmar`;
+                }
+
+                confirmInput.value = '';
+                confirmButton.disabled = true;
+                confirmButton.style.opacity = '0.5';
+                confirmButton.style.cursor = 'not-allowed';
+
+                confirmInput.oninput = function () {
+                    const inputValue = confirmInput.value.trim();
+
+                    // Comparação case-insensitive para ambos os modos 'name' e 'text'
+                    let matches = false;
+                    if (exemploConfirmType === 'name') {
+                        matches = inputValue.toLowerCase() === exemploExpectedText.toLowerCase();
+                    } else {
+                        // Modo 'text' agora também é case-insensitive
+                        matches = inputValue.toLowerCase() === exemploExpectedText.toLowerCase();
+                    }
+
+                    if (matches) {
+                        confirmButton.disabled = false;
+                        confirmButton.style.opacity = '1';
+                        confirmButton.style.cursor = 'pointer';
+                    } else {
+                        confirmButton.disabled = true;
+                        confirmButton.style.opacity = '0.5';
+                        confirmButton.style.cursor = 'not-allowed';
+                    }
+                };
+
+                modal.classList.add('open');
+                setTimeout(() => confirmInput.focus(), 100);
+                return;
+            }
+
+            modal.classList.add('open');
+        }
+
+        function closeExemploModalExclusao() {
+            const modal = document.getElementById('exemploModalExclusao');
+            const confirmInput = document.getElementById('confirmDeleteInput');
+            const confirmSection = document.getElementById('confirmDeleteSection');
+            if (confirmInput) {
+                confirmInput.oninput = null;
+                confirmInput.value = '';
+            }
+            if (confirmSection) {
+                confirmSection.style.display = 'none';
+            }
+            modal.classList.remove('open');
+            exemploCurrentRecordId = null;
+            exemploCurrentRecordName = null;
+            exemploConfirmType = 'text';
+            exemploExpectedText = '';
+        }
+
+        // Atualizar o botão de confirmação para usar a função correta
+        document.getElementById('confirmDeleteButton')?.addEventListener('click', function () {
+            if (!this.disabled && exemploCurrentRecordId) {
+                alert('Registro excluído com sucesso! (Exemplo)');
+                closeExemploModalExclusao();
+            }
+        });
+
+        // Botão Salvar com proteção contra múltiplos cliques
+        document.getElementById('exemploBtnSalvar')?.addEventListener('click', async function (e) {
+            e.preventDefault();
+            const btn = this;
+            const originalHTML = btn.innerHTML;
+
+            // Desabilitar botão e mostrar estado de carregamento
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...';
+
+            try {
+                // Simular validação do formulário
+                // Aqui você faria a validação real dos campos
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                // Simular sucesso
+                alert('Dados salvos com sucesso! (Exemplo)');
+
+                // Reabilitar botão após sucesso
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+                btn.innerHTML = originalHTML;
+
+            } catch (error) {
+                // Em caso de erro (validação falhou, etc), reabilitar botão
+                alert('Erro ao salvar: ' + (error.message || 'Preencha todos os campos obrigatórios'));
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+                btn.innerHTML = originalHTML;
+            }
+        });
+    </script>
+    <script src="js/chosen-select.js"></script>
+    <script src="js/nestable-list.js"></script>
+    <script>
+        // Funções globais para os modais do Nestable List
+        function closeEditModalNestable() {
+            if (nestableInstanceNestable) {
+                nestableInstanceNestable.closeEditModal();
+            }
+        }
+
+        function saveEditItemNestable() {
+            if (nestableInstanceNestable) {
+                nestableInstanceNestable.saveEditItem();
+            }
+        }
+
+        function openDeleteModalNestable(recordId, recordName, recordType, confirmType) {
+            if (nestableInstanceNestable) {
+                nestableInstanceNestable.openDeleteModal(recordId, recordName, recordType, confirmType);
+            }
+        }
+
+        function closeDeleteModalNestable() {
+            if (nestableInstanceNestable) {
+                nestableInstanceNestable.closeDeleteModal();
+            }
+        }
+
+        function confirmDeleteNestable() {
+            if (nestableInstanceNestable) {
+                nestableInstanceNestable.confirmDelete();
+            }
+        }
+    </script>
+</body>
+
+</html>

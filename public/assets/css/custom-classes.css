@@ -1,0 +1,220 @@
+/* ============================================
+   CUSTOM CLASSES - Classes customizadas para padrões Tailwind repetidos
+   ============================================ */
+
+/* Títulos */
+.title-page {
+    font-size: 1.25rem; /* text-2xl */
+    font-weight: 600; /* font-semibold */
+    color: #475569; /* text-slate-700 */
+}
+
+.title-section {
+    font-size: 1.25rem; /* text-xl */
+    font-weight: 600; /* font-semibold */
+    color: #475569; /* text-slate-700 */
+}
+
+/* Labels de Formulário */
+.form-label {
+    display: block;
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 500; /* font-medium */
+    color: #475569; /* text-slate-700 */
+    margin-bottom: 0.25rem; /* mb-1 */
+}
+
+/* Inputs/Selects Base */
+.form-input {
+    width: 100%; /* w-full */
+    padding: 0.5rem; /* p-2 */
+    border: 1px solid #CBD5E1; /* border border-slate-300 */
+    border-radius: 0.375rem; /* rounded-md */
+    font-size: 0.875rem; /* text-sm */
+}
+
+.form-input:focus {
+    outline: none; /* focus:outline-none */
+    border-color: #0EA5E9; /* focus:border-sky-500 */
+    box-shadow: 0 0 0 1px #0EA5E9; /* focus:ring-1 focus:ring-sky-500 */
+}
+
+/* Inputs/Selects com Focus */
+.form-input-focus {
+    width: 100%; /* w-full */
+    padding: 0.5rem; /* p-2 */
+    border: 1px solid #CBD5E1; /* border border-slate-300 */
+    border-radius: 0.375rem; /* rounded-md */
+    font-size: 0.875rem; /* text-sm */
+}
+
+.form-input-focus:focus {
+    outline: none; /* focus:outline-none */
+    border-color: #0EA5E9; /* focus:border-sky-500 */
+    box-shadow: 0 0 0 1px #0EA5E9; /* focus:ring-1 focus:ring-sky-500 */
+}
+
+/* Botões Secundários */
+.btn-secondary {
+    padding: 0.5rem 1rem; /* py-2 px-4 */
+    border: 1px solid #CBD5E1; /* border border-slate-300 */
+    border-radius: 0.375rem; /* rounded-md */
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 500; /* font-medium */
+    color: #475569; /* text-slate-700 */
+    background-color: white;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background-color: #F1F5F9; /* hover:bg-slate-100 */
+}
+
+/* Botões com Ícone */
+.btn-with-icon {
+    padding: 0.5rem 1rem; /* py-2 px-4 */
+    border-radius: 0.375rem; /* rounded-md */
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 500; /* font-medium */
+    display: flex; /* flex */
+    align-items: center; /* items-center */
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow */
+    transition: box-shadow 0.2s ease; /* transition-shadow */
+    cursor: pointer;
+}
+
+.btn-with-icon:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* hover:shadow-md */
+}
+
+/* Células de Tabela */
+.table-cell {
+    padding: 0.75rem 1rem; /* py-3 px-4 */
+    font-size: 0.875rem; /* text-sm */
+    color: #475569; /* text-slate-700 */
+}
+
+/* Cabeçalhos de Tabela */
+.table-header {
+    padding: 0.75rem 1rem; /* py-3 px-4 */
+    text-align: left; /* text-left */
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 500; /* font-medium */
+    color: #475569; /* text-slate-600 */
+    text-transform: uppercase; /* uppercase */
+    letter-spacing: 0.05em; /* tracking-wider */
+}
+
+/* Select de Paginação */
+.select-pagination {
+    height: 32px;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    width: auto;
+}
+
+/* 
+    ============================================
+    Input Group - Borda envolvendo label + input
+    ============================================
+*/
+.form-input-group {
+    border: 1px solid #CBD5E1; /* border border-slate-300 */
+    border-radius: 0.375rem; /* rounded-md */
+    padding: 0 0.5rem 0.3rem 0.5rem; /* p-2 - padding padrão similar aos inputs */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    background-color: white;
+}
+
+.form-input-group:focus-within {
+    border-color: #0EA5E9; /* focus:border-sky-500 */
+    box-shadow: 0 0 0 1px #0EA5E9; /* focus:ring-1 focus:ring-sky-500 */
+}
+
+/* Label dentro do grupo (sem margin-bottom) */
+.form-input-group .form-label-group {
+    display: block;
+    font-size: 0.75rem; /* text-sm */
+    font-weight: 400; /* font-medium */
+    color: #505a67; /* text-slate-700 */
+}
+
+/* Input/Select/Textarea dentro do grupo (sem borda) */
+.form-input-group .form-input-group-field {
+    width: 100%; /* w-full */
+    border: none; /* sem borda */
+    border-radius: 0; /* sem border-radius */
+    font-size: 0.9rem; /* text-sm */
+    outline: none; /* sem outline no foco */
+    background: transparent;
+    font-weight: 600;
+}
+
+.form-input-group .form-input-group-field:focus {
+    outline: none; /* sem outline no foco */
+    border: none; /* sem borda no foco */
+    box-shadow: none; /* sem shadow no foco */
+}
+
+/* Inputs de moeda - alinhamento a direita */
+.input-moeda,
+.currency-mask {
+    text-align: right;
+}
+
+/* Chosen Select dentro do form-input-group - sem borda e fundo */
+.form-input-group .chosen-select {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0;
+    padding-right: 1.5rem;
+    font-weight: 600;
+}
+
+.form-input-group .chosen-select:focus {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    font-weight: 500;
+}
+
+/* Form Input Group com input disabled - tom de cinza */
+.form-input-group:has(.form-input-group-field:disabled),
+.form-input-group:has(.form-input-group-field[disabled]) {
+    background-color: #F8FAFC; /* bg-slate-50 */
+    border-color: #ababab;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.form-input-group:has(.form-input-group-field:disabled) .form-label-group,
+.form-input-group:has(.form-input-group-field[disabled]) .form-label-group {
+    color: #585858;
+}
+
+.form-input-group:has(.form-input-group-field:disabled) .form-input-group-field:disabled,
+.form-input-group:has(.form-input-group-field[disabled]) .form-input-group-field[disabled] {
+    color: #585858;
+    cursor: not-allowed;
+}
+
+/* Form Input Group com input readonly - mesmo estilo de disabled */
+.form-input-group:has(.form-input-group-field[readonly]) {
+    background-color: #F8FAFC;
+    border-color: #ababab;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.form-input-group:has(.form-input-group-field[readonly]) .form-label-group {
+    color: #585858;
+}
+
+.form-input-group:has(.form-input-group-field[readonly]) .form-input-group-field[readonly] {
+    color: #585858;
+    cursor: not-allowed;
+}
+

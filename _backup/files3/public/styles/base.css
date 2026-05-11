@@ -1,0 +1,16 @@
+/* ============================================
+   BASE - Reset, Tipografia e Variáveis Globais
+   ============================================ */
+
+html,
+body {
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Estilos para iframes - o scroll será controlado pelo conteúdo dentro do iframe */
+
+body {
+    font-family: 'Inter', sans-serif;
+}
+

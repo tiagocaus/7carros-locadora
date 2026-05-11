@@ -1,0 +1,69 @@
+# Habilita o RewriteEngine
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Define o diretório base
+    RewriteBase /
+
+    # Redireciona para HTTPS (descomente se necessário)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+    # Remove trailing slash (exceto para a raiz)
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [R=301,L]
+
+    # Redireciona todas as requisições para index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Bloqueia acesso a arquivos sensíveis
+<FilesMatch "\.(env|log|sql|md|json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Desabilita listagem de diretórios
+Options -Indexes
+
+# Configurações de segurança
+<IfModule mod_headers.c>
+    # Previne clickjacking
+    Header set X-Frame-Options "SAMEORIGIN"
+
+    # Previne MIME sniffing
+    Header set X-Content-Type-Options "nosniff"
+
+    # Política de referrer
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # HTTPS obrigatorio por 1 ano (so emite se requisicao atual for HTTPS)
+    Header set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+
+    # Bloqueia APIs sensiveis do browser por padrao
+    Header set Permissions-Policy "camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), interest-cohort=()"
+
+    # Content-Security-Policy: descomentar apos auditar CDNs usados no projeto.
+    # Header set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'self'"
+
+    # Cache control para assets
+    <FilesMatch "\.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>
+
+# Compressão Gzip
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# Configurações PHP
+<IfModule mod_php.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+</IfModule>

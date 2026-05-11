@@ -1,0 +1,103 @@
+<?php
+
+/**
+ * Traducciones del módulo Dashboard - Español
+ */
+
+return [
+    'title' => 'Panel de Control',
+
+    // KPI Cards
+    'kpi' => [
+        'total_vehicles' => 'Total de Vehículos',
+        'rented_today' => 'Alquilados Hoy',
+        'occupancy_rate' => 'Tasa de Ocupación',
+        'expected_revenue_today' => 'Ingresos Prev. Hoy',
+    ],
+
+    // Barra de disponibilidad
+    'availability' => [
+        'title' => 'Disponibilidad de Vehículos',
+        'total' => 'Total',
+        'available' => 'Disponibles',
+        'rented' => 'Alquilados',
+        'reserved' => 'Reservados',
+        'workshop' => 'Taller',
+    ],
+
+    // Sub-tabs
+    'tabs' => [
+        'quick_search' => 'Búsqueda rápida',
+        'reservations' => 'Reservas',
+        'rented' => 'Alquilados',
+        'available' => 'Disponibles',
+        'pending_arrival' => 'Llegada pendiente',
+        'upcoming_returns' => 'Próximas Devoluciones',
+    ],
+
+    // Placeholders
+    'placeholders' => [
+        'tab_content' => 'Contenido de la pestaña ":tab" aquí.',
+        'tab_content_will_appear' => 'Contenido de la pestaña ":tab" aparecerá aquí.',
+    ],
+
+    // Dashboard v2 (Cockpit)
+    'v2' => [
+        'title' => 'Panel de Control',
+
+        'kpi' => [
+            'rented_now' => 'Alquilados Ahora',
+            'utilization_rate' => 'Tasa de Utilización',
+            'average_daily_rate' => 'Tarifa Diaria Media (ADR)',
+            'revenue_month' => 'Ingresos del Mes',
+            'overdue_amount' => 'Cuentas Vencidas',
+            'active_contracts' => 'Contratos Activos',
+            'maintenance_cost' => 'Costo Mant. %',
+            'invoices' => 'facturas',
+            'expiring_soon' => 'vencen pronto',
+        ],
+
+        'operations' => [
+            'title' => 'Operaciones del Día',
+            'departures_today' => 'Salidas Hoy',
+            'returns_today' => 'Devoluciones Hoy',
+            'overdue_returns' => 'Atrasados',
+        ],
+
+        'alerts' => [
+            'title' => 'Alertas',
+            'overdue_vehicles' => 'vehículos atrasados en la devolución',
+            'expiring_contracts' => 'contratos vencen en 7 días',
+            'expiring_insurance' => 'seguro vence en 5 días',
+            'overdue_invoices' => 'en facturas vencidas',
+            'pending_fines' => 'multas pendientes',
+            'pending_maintenance' => 'vehículos con mantenimiento preventivo pendiente',
+        ],
+
+        'reservations' => [
+            'upcoming_title' => 'Reservas Próximos 7 Días',
+            'latest_title' => 'Últimas Reservas',
+            'code' => 'Código',
+            'client' => 'Cliente',
+            'vehicle' => 'Vehículo',
+            'date' => 'Fecha',
+            'status_confirmed' => 'Confirmada',
+            'status_new' => 'Nueva',
+            'status_cancelled' => 'Cancelada',
+        ],
+
+        'financial' => [
+            'title' => 'Resumen Financiero',
+            'cash_flow' => 'Flujo del Mes',
+            'revenue' => 'Ingresos',
+            'expenses' => 'Gastos',
+            'balance' => 'Saldo',
+            'top_overdue' => 'Mayores Vencidas',
+            'upcoming_due' => 'Vencen en 7 Días',
+        ],
+
+        'refresh' => [
+            'auto_refresh' => 'Actualiza cada :seconds s',
+        ],
+    ],
+];
