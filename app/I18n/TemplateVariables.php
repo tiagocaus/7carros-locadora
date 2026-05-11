@@ -1426,8 +1426,8 @@ class TemplateVariables
         $parts = explode('.', $variable, 2);
         [$entity, $field] = $parts;
 
-        // Variáveis computadas
-        if ($info['type'] === 'computed') {
+        // Variáveis computadas/HTML usam builders próprios.
+        if (in_array($info['type'], ['computed', 'html'], true)) {
             return self::resolveComputed($variable, $context, $locale);
         }
 

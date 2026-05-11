@@ -2054,8 +2054,15 @@ class LocacoesController
                 'data_retorno' => $locacao['data_retorno'] ?? '',
                 'hora_saida' => !empty($locacao['data_saida']) ? date('H:i', strtotime($locacao['data_saida'])) : '',
                 'hora_prevista' => !empty($locacao['data_prevista']) ? date('H:i', strtotime($locacao['data_prevista'])) : '',
+                'data_retirada' => $locacao['data_saida'] ?? '',
+                'hora_retirada' => !empty($locacao['data_saida']) ? date('H:i', strtotime($locacao['data_saida'])) : '',
+                'data_devolucao' => $locacao['data_prevista'] ?? '',
+                'hora_devolucao' => !empty($locacao['data_prevista']) ? date('H:i', strtotime($locacao['data_prevista'])) : '',
+                'local_retirada' => $locacao['filial_retirada_nome'] ?? '',
+                'local_devolucao' => $locacao['filial_devolucao_nome'] ?? '',
                 'valor_total' => $locacao['total_pagar'] ?? 0,
                 'valor_fatura' => $locacao['total_fatura'] ?? 0,
+                'valor_diaria' => $locacao['diaria_valor'] ?? 0,
                 'quantidade_dias' => (int) ($locacao['dias'] ?? $locacao['quantidade_dias'] ?? 0),
                 'status' => $statusLabel,
                 'observacoes' => $locacao['obs'] ?? '',
@@ -2064,6 +2071,22 @@ class LocacoesController
                 'primeiro_pagamento' => $locacao['primeiro_pagamento'] ?? 0,
                 'filial_retirada' => $locacao['filial_retirada_nome'] ?? '',
                 'filial_devolucao' => $locacao['filial_devolucao_nome'] ?? '',
+                'total_fatura' => $locacao['total_fatura'] ?? 0,
+                'fatura_a_pagar' => $locacao['total_pagar'] ?? 0,
+                'bloqueio_valor' => $locacao['bloqueio_valor'] ?? $locacao['bloqueio_hold_valor'] ?? 0,
+                'deposito_valor' => $locacao['caucao_valor'] ?? 0,
+                'fatura_paga' => $locacao['fatura_paga'] ?? $locacao['valor_pago'] ?? 0,
+                'grupo' => $locacao['grupo_nome'] ?? '',
+                'grupo_descricao' => $locacao['grupo_descricao'] ?? $locacao['grupo_nome'] ?? '',
+                'tanque_saida' => $locacao['combustivel_ini'] ?? '',
+                'tanque_chegada' => $locacao['combustivel_fim'] ?? '',
+                'km_saida' => $locacao['odometro_ini'] ?? '',
+                'km_chegada' => $locacao['odometro_fim'] ?? '',
+                'plano' => $locacao['plano'] ?? '',
+                'info_plano' => $this->formatarInfoPlanoDocumento($locacao),
+                'cobertura' => $locacao['cobertura_carro_valor'] ?? '',
+                'cobertura_terceiros' => $locacao['cobertura_terceiros_valor'] ?? '',
+                'bloqueio_data_devolucao' => $locacao['bloqueio_data_devolucao'] ?? '',
                 'condutores' => !empty($locacao['condutor_adicional']) ? (json_decode($locacao['condutor_adicional'], true) ?: []) : [],
                 'fiadores' => !empty($locacao['array_fiadores']) ? (json_decode($locacao['array_fiadores'], true) ?: []) : [],
                 'avalistas' => !empty($locacao['array_avalistas']) ? (json_decode($locacao['array_avalistas'], true) ?: []) : [],
@@ -2076,8 +2099,29 @@ class LocacoesController
                 'ano' => $veiculo['ano'] ?? '',
                 'cor' => $veiculo['cor'] ?? '',
                 'renavam' => $veiculo['renavam'] ?? '',
+                'categoria' => $veiculo['grupo_nome'] ?? $locacao['grupo_nome'] ?? '',
+                'chassi' => $veiculo['chassi'] ?? '',
+                'combustivel' => $veiculo['tipo_combustivel'] ?? $locacao['veiculo_tipo_combustivel'] ?? '',
+                'valor_compra' => $veiculo['valor_compra'] ?? 0,
+                'valor_venda' => $veiculo['valor_venda'] ?? 0,
             ] : [],
         ];
+    }
+
+    /**
+     * Retorna descrição curta do plano para variáveis de documento.
+     */
+    private function formatarInfoPlanoDocumento(array $locacao): string
+    {
+        $plano = $locacao['plano'] ?? '';
+
+        return match ($plano) {
+            'KL' => 'Km Livre',
+            'KMC' => 'Km Controlado'
+                . (!empty($locacao['km_controlado_franquia']) ? ' - ' . $locacao['km_controlado_franquia'] . ' km' : ''),
+            'DI', 'KP' => 'Diária',
+            default => (string) $plano,
+        };
     }
 
     /**
