@@ -942,12 +942,14 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/pages/contratos/devolver/{id}', [ContratosController::class, 'devolverView']);
     $router->get('/pages/contratos/offcanvas-veiculo', [ContratosController::class, 'offcanvasVeiculo']);
     $router->get('/pages/contratos/offcanvas-impressao', [ContratosController::class, 'offcanvasImpressao']);
+    $router->get('/pages/contratos/offcanvas-odometro', [ContratosController::class, 'offcanvasOdometro']);
 
     // API Contratos (com protecao anti-scraping e CSRF)
     $router->get('/api/contratos', [ContratosController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/buscar-select', [ContratosController::class, 'buscarSelect'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/{id}/regularizacao-renovacao', [ContratosController::class, 'previewRegularizacaoRenovacao'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/contratos/{id}/regularizar-renovacao', [ContratosController::class, 'regularizarRenovacao'], ['csrf', 'rate_limit']);
+    $router->post('/api/contratos/{id}/odometros', [ContratosController::class, 'registrarOdometro'], ['csrf', 'rate_limit']);
     $router->get('/api/contratos/{id}', [ContratosController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Contratos

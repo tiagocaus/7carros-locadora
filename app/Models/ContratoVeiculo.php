@@ -32,6 +32,7 @@ class ContratoVeiculo extends Model
                 'v.marca AS veiculo_marca',
                 'v.ano AS veiculo_ano',
                 'v.cor AS veiculo_cor',
+                'v.odometro AS veiculo_odometro',
                 'v.diagrama AS veiculo_diagrama',
                 'v.tipo_combustivel AS veiculo_tipo_combustivel',
                 'g.nome AS grupo_nome'
@@ -60,6 +61,7 @@ class ContratoVeiculo extends Model
                 'v.marca AS veiculo_marca',
                 'v.ano AS veiculo_ano',
                 'v.cor AS veiculo_cor',
+                'v.odometro AS veiculo_odometro',
                 'v.diagrama AS veiculo_diagrama',
                 'v.tipo_combustivel AS veiculo_tipo_combustivel',
                 'v.valor_por_fracao AS veiculo_valor_por_fracao',
@@ -90,6 +92,7 @@ class ContratoVeiculo extends Model
                 'v.marca AS veiculo_marca',
                 'v.ano AS veiculo_ano',
                 'v.cor AS veiculo_cor',
+                'v.odometro AS veiculo_odometro',
                 'v.diagrama AS veiculo_diagrama',
                 'v.tipo_combustivel AS veiculo_tipo_combustivel',
                 'g.nome AS grupo_nome'
@@ -118,6 +121,7 @@ class ContratoVeiculo extends Model
                 'v.marca AS veiculo_marca',
                 'v.ano AS veiculo_ano',
                 'v.cor AS veiculo_cor',
+                'v.odometro AS veiculo_odometro',
                 'v.diagrama AS veiculo_diagrama',
                 'g.nome AS grupo_nome'
             ])

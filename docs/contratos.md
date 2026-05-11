@@ -7,6 +7,7 @@ Sistema completo de gestao de contratos de locacao de veiculos.
 O modulo de contratos permite gerenciar todo o ciclo de vida de uma locacao:
 - Criacao de contratos com multiplos veiculos
 - Devolucao e substituicao de veiculos durante o contrato
+- Registro rapido de leituras de odometro durante contratos ativos
 - Assinatura digital pelo cliente
 - Impressao de documentos (fatura, contrato, checklist, recibo)
 - Controle de autorenovacao
@@ -67,6 +68,7 @@ app/
 | POST | /contratos/{id}/devolver | ContratosController@devolver | Devolucao |
 | POST | /contratos/{id}/substituir | ContratosController@substituir | Substituicao |
 | POST | /contratos/{id}/veiculos | ContratosController@adicionarVeiculo | Adicionar veiculo |
+| POST | /api/contratos/{id}/odometros | ContratosController@registrarOdometro | Registrar leitura de odometro |
 | POST | /contratos/{id}/limpar-assinatura | ContratosController@limparAssinatura | Limpar assinatura |
 
 ### Bloqueio (Pre-autorizacao no Cartao)
@@ -232,6 +234,15 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 
 - `A` = Ativo (contrato em andamento)
 - `F` = Finalizado (todos os veiculos devolvidos)
+
+## Registro Rapido de Odometro
+
+- A listagem de contratos possui um icone de odometro antes da coluna Seq para contratos ativos com veiculos ativos.
+- O offcanvas lista todos os veiculos ativos do contrato; com um unico veiculo, o formulario abre direto.
+- As leituras intermediarias sao gravadas em `contratos_odometros`, uma por contrato/veiculo/data. Nova leitura no mesmo dia atualiza o registro existente.
+- Ao salvar, o sistema atualiza tambem `veiculos.odometro`, permitindo que a manutencao preventiva considere a km atual do veiculo.
+- `contratos_veiculos.odometro_saida` permanece como km inicial e `contratos_veiculos.odometro_entrada` permanece reservado para devolucao/substituicao.
+- Para plano `KMC`, o offcanvas exibe km rodado, franquia, excedente e valor estimado. Nao gera cobranca automatica; a cobranca oficial continua na devolucao/substituicao.
 
 ## Planos de Veiculo
 

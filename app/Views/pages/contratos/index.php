@@ -26,6 +26,7 @@
         <table class="w-full min-w-full divide-y divide-slate-200">
             <thead class="table-header-custom">
                 <tr>
+                    <th class="table-header px-2 w-10 text-center"></th>
                     <th class="table-header"><?= t('modules.contratos.table.seq') ?></th>
                     <th class="table-header"><?= t('modules.contratos.table.code') ?></th>
                     <th class="table-header"><?= t('modules.contratos.table.client') ?></th>
@@ -87,6 +88,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             'btnReplace' => t('modules.contratos.buttons.replace_vehicle'),
             'btnSyncRenewal' => t('modules.contratos.buttons.regularize_renewal'),
             'btnPrint' => t('common.buttons.print'),
+            'btnOdometer' => 'Registrar odômetro',
+            'btnOdometerDisabled' => 'Disponível apenas para contratos ativos com veículo',
+            'odometerTitle' => 'Registrar odômetro',
             'btnSignature' => t('modules.contratos.buttons.signature'),
             'btnEdit' => t('common.buttons.edit'),
             'btnDelete' => t('common.buttons.delete'),
@@ -155,7 +159,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         function mostrarLoading() {
             tbody.innerHTML = `
             <tr>
-                <td colspan="8" class="table-cell text-center text-slate-500">
+                <td colspan="9" class="table-cell text-center text-slate-500">
                     <i class="fas fa-spinner fa-spin mr-2"></i>${i18n.loading}
                 </td>
             </tr>
@@ -165,7 +169,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         function mostrarMensagemErro(mensagem) {
             tbody.innerHTML = `
             <tr>
-                <td colspan="8" class="table-cell text-center text-red-600">
+                <td colspan="9" class="table-cell text-center text-red-600">
                     <i class="fas fa-exclamation-triangle mr-2"></i>${mensagem}
                 </td>
             </tr>
@@ -176,7 +180,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             if (!contratos || contratos.length === 0) {
                 tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="table-cell text-center text-slate-500">
+                    <td colspan="9" class="table-cell text-center text-slate-500">
                         <i class="fas fa-file-contract mr-2"></i>${i18n.noContracts}
                     </td>
                 </tr>
@@ -248,6 +252,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
                 tableRows += `
                 <tr class="border-b border-slate-200 hover:bg-slate-50">
+                    <td class="table-cell px-2 text-center">
+                        ${c.status === 'A' && qtdVeiculos > 0 ? `
+                            <button title="${i18n.btnOdometer}" class="btn-icon text-cyan-600 hover:text-cyan-800 btn-odometro" data-id="${c.id}"><i class="fas fa-gauge-high"></i></button>
+                        ` : `
+                            <button title="${i18n.btnOdometerDisabled}" class="btn-icon text-slate-300 cursor-not-allowed" disabled><i class="fas fa-gauge-high"></i></button>
+                        `}
+                    </td>
                     <td class="table-cell text-slate-500">${sequencia}</td>
                     <td class="table-cell">
                         <span class="font-medium">${codigo}</span>
@@ -329,6 +340,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 button.addEventListener('click', function() {
                     const id = this.getAttribute('data-id');
                     abrirModalImpressao(id);
+                });
+            });
+
+            // Odometro rapido
+            tbody.querySelectorAll('.btn-odometro').forEach(button => {
+                button.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    abrirOffcanvasOdometro(id);
                 });
             });
 
@@ -553,6 +572,15 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }, '*');
         }
 
+        function abrirOffcanvasOdometro(id) {
+            window.parent.postMessage({
+                action: 'openOffcanvasIframe',
+                url: '/pages/contratos/offcanvas-odometro?id=' + id,
+                title: i18n.odometerTitle,
+                width: '520px'
+            }, '*');
+        }
+
         // ===== LISTENER DE MENSAGENS =====
 
         window.addEventListener('message', function(event) {
@@ -561,6 +589,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             if (event.data.action === 'confirmDelete') {
                 excluirContrato(event.data.recordId);
             } else if (event.data.action === 'contratoRenovacaoRegularizada') {
+                carregarContratos(currentPage, perPage, searchTerm, statusFilter);
+            } else if (event.data.action === 'contratoOdometroRegistrado') {
                 carregarContratos(currentPage, perPage, searchTerm, statusFilter);
             }
         });

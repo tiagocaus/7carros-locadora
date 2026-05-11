@@ -8,6 +8,7 @@ use App\Core\Response;
 use App\Views\Template;
 use App\Models\Contrato;
 use App\Models\ContratoVeiculo;
+use App\Models\ContratoOdometro;
 use App\Models\ContratoTaxaServico;
 use App\Models\Grupo;
 use App\Models\Veiculo;
@@ -167,6 +168,45 @@ class ContratosController
     }
 
     /**
+     * Offcanvas para registrar leitura de odometro durante o contrato.
+     *
+     * GET /pages/contratos/offcanvas-odometro?id={id}
+     */
+    public function offcanvasOdometro(Request $request): void
+    {
+        $id = (int) $request->query('id', 0);
+        $contratoModel = new Contrato();
+        $contrato = $contratoModel->buscarPorId($id);
+
+        if (!$contrato || $contrato['chave'] !== Auth::chave() || !FilialHelper::temAcessoFilial($contrato['id_matriz_filial_retirada'] ?? null)) {
+            Response::html('<div class="p-4 text-sm text-red-600">Contrato nao encontrado ou acesso negado.</div>', 404);
+            return;
+        }
+
+        $contratoVeiculoModel = new ContratoVeiculo();
+        $odometroModel = new ContratoOdometro();
+        $veiculos = $contratoVeiculoModel->listarAtivos($id);
+
+        foreach ($veiculos as &$veiculo) {
+            $ultima = $odometroModel->ultimaPorContratoVeiculo((int) $veiculo['id']);
+            $odometroSaida = (int) ($veiculo['odometro_saida'] ?? 0);
+            $odometroCadastro = (int) ($veiculo['veiculo_odometro'] ?? 0);
+            $ultimaOdometro = (int) ($ultima['odometro'] ?? 0);
+            $veiculo['ultima_leitura'] = $ultima;
+            $veiculo['odometro_minimo'] = max($odometroSaida, $odometroCadastro, $ultimaOdometro);
+            $veiculo['km_rodado_atual'] = max(0, $veiculo['odometro_minimo'] - $odometroSaida);
+        }
+        unset($veiculo);
+
+        $html = Template::render('pages.contratos.offcanvas-odometro', [
+            'contrato' => $contrato,
+            'veiculos' => $veiculos,
+            'hoje' => date('Y-m-d'),
+        ]);
+        Response::html($html);
+    }
+
+    /**
      * Lista contratos do tenant (paginado com busca)
      *
      * GET /api/contratos
@@ -277,6 +317,129 @@ class ContratosController
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao buscar contrato: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Registra leitura rapida de odometro de um veiculo ativo do contrato.
+     *
+     * POST /api/contratos/{id}/odometros
+     */
+    public function registrarOdometro(Request $request, int $id): void
+    {
+        try {
+            $contratoModel = new Contrato();
+            $contrato = $contratoModel->buscarPorId($id);
+
+            if (!$contrato || $contrato['chave'] !== Auth::chave()) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Contrato nao encontrado'
+                ], 404);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($contrato['id_matriz_filial_retirada'] ?? null)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Acesso negado'
+                ], 403);
+                return;
+            }
+
+            if (($contrato['status'] ?? '') !== 'A') {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Somente contratos ativos permitem registrar odometro'
+                ], 422);
+                return;
+            }
+
+            $dados = $request->all();
+            $contratoVeiculoId = (int) ($dados['id_contrato_veiculo'] ?? 0);
+            $odometro = $this->normalizarOdometroContrato($dados['odometro'] ?? 0);
+            $data = date('Y-m-d');
+            $obs = trim((string) ($dados['obs'] ?? ''));
+            $obs = $obs !== '' ? mb_substr($obs, 0, 255) : null;
+
+            if ($contratoVeiculoId <= 0 || $odometro <= 0) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Informe o veiculo e o odometro atual'
+                ], 422);
+                return;
+            }
+
+            $contratoVeiculoModel = new ContratoVeiculo();
+            $veiculoContrato = $contratoVeiculoModel->buscarPorId($contratoVeiculoId);
+
+            if (!$veiculoContrato || (int) $veiculoContrato['id_contrato'] !== $id) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Veiculo do contrato nao encontrado'
+                ], 404);
+                return;
+            }
+
+            if (!empty($veiculoContrato['data_entrada'])) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Este veiculo ja foi devolvido'
+                ], 422);
+                return;
+            }
+
+            $odometroModel = new ContratoOdometro();
+            $ultima = $odometroModel->ultimaPorContratoVeiculo($contratoVeiculoId);
+            $odometroSaida = (int) ($veiculoContrato['odometro_saida'] ?? 0);
+            $odometroCadastro = (int) ($veiculoContrato['veiculo_odometro'] ?? 0);
+            $ultimaOdometro = (int) ($ultima['odometro'] ?? 0);
+            $odometroMinimo = max($odometroSaida, $odometroCadastro, $ultimaOdometro);
+
+            if ($odometro < $odometroMinimo) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Odometro atual nao pode ser menor que ' . number_format($odometroMinimo, 0, '', '.') . ' km'
+                ], 422);
+                return;
+            }
+
+            $registro = $odometroModel->registrarLeitura([
+                'chave' => Auth::chave(),
+                'id_contrato' => $id,
+                'id_contrato_veiculo' => $contratoVeiculoId,
+                'id_veiculo' => (int) $veiculoContrato['id_veiculo'],
+                'odometro_saida' => $odometroSaida,
+                'odometro' => $odometro,
+                'data' => $data,
+                'obs' => $obs,
+                'id_funcionario' => Auth::id(),
+            ]);
+
+            $kmRodado = max(0, $odometro - $odometroSaida);
+            $kmFranquia = (int) ($veiculoContrato['km_franquia'] ?? 0);
+            $kmExcedente = ($veiculoContrato['plano'] ?? '') === 'KMC' ? max(0, $kmRodado - $kmFranquia) : 0;
+            $valorKmExcedente = (float) ($veiculoContrato['valor_km_excedente'] ?? 0);
+
+            Response::json([
+                'success' => true,
+                'message' => 'Odometro registrado com sucesso',
+                'data' => [
+                    'registro' => $registro,
+                    'odometro' => $odometro,
+                    'odometro_formatado' => number_format($odometro, 0, '', '.') . ' km',
+                    'data' => $data,
+                    'data_formatada' => date('d/m/Y'),
+                    'km_rodado' => $kmRodado,
+                    'km_excedente' => $kmExcedente,
+                    'valor_excedente_estimado' => $kmExcedente * $valorKmExcedente,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao registrar odometro: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -3185,6 +3348,19 @@ class ContratosController
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao consultar bloqueio: ' . $e->getMessage()], 500);
         }
+    }
+
+    private function normalizarOdometroContrato(mixed $valor): int
+    {
+        if (is_int($valor)) {
+            return $valor;
+        }
+
+        if (is_float($valor)) {
+            return (int) $valor;
+        }
+
+        return (int) preg_replace('/\D+/', '', (string) $valor);
     }
 
     /**
