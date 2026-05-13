@@ -5,7 +5,7 @@ namespace App\Models;
 /**
  * Model SerproSaldo
  *
- * Gerencia saldo prepago de cada tenant para uso da API SERPRO eFrotas.
+ * Gerencia saldo prepago de cada tenant para uso da API de consultas online.
  * Inclui configuracao de auto-recarga via Stripe.
  *
  * IMPORTANTE: Operacoes de debito/credito usam SELECT ... FOR UPDATE

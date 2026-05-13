@@ -4,7 +4,7 @@
  * Migration 00265: Criar tabela serpro_indicacoes
  *
  * Registra indicacoes de real infrator e principal condutor
- * enviadas a SERPRO eFrotas. Vincula com multas, veiculos,
+ * enviadas ao sistema de consultas online. Vincula com multas, veiculos,
  * clientes e contratos/locacoes do sistema.
  */
 

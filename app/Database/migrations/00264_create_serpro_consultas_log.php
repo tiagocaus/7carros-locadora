@@ -3,7 +3,7 @@
 /**
  * Migration 00264: Criar tabela serpro_consultas_log
  *
- * Log tecnico detalhado de cada chamada a API SERPRO eFrotas.
+ * Log tecnico detalhado de cada chamada a API de consultas online.
  * Registra request/response para debug e auditoria.
  */
 
@@ -46,7 +46,7 @@ return new class extends Migration
                 INDEX idx_scl_created (created_at),
                 INDEX idx_scl_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            COMMENT='Log de chamadas a API SERPRO eFrotas'
+            COMMENT='Log de chamadas a API de consultas online'
         ");
 
         $this->addForeignKeyIfNotExists(

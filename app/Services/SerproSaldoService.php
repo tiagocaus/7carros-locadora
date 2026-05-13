@@ -6,7 +6,7 @@ use App\Models\SerproSaldo;
 use App\Models\SerproTransacao;
 
 /**
- * Service para gestao de saldo prepago SERPRO eFrotas
+ * Service para gestao de saldo prepago de consultas online
  *
  * Responsavel por:
  * - Calcular precos (SERPRO + markup)
@@ -320,7 +320,7 @@ class SerproSaldoService
                 'payment_method' => $autoRecarga['stripe_payment_method_id'],
                 'off_session' => true,
                 'confirm' => true,
-                'description' => 'Auto-recarga SERPRO eFrotas - 7Carros',
+                'description' => 'Auto-recarga de consultas online - 7Carros',
                 'metadata' => [
                     'transacao_id' => $transacaoId,
                     'tipo' => 'auto_recarga_serpro',

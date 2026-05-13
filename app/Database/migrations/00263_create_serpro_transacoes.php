@@ -56,7 +56,7 @@ return new class extends Migration
                 INDEX idx_st_chave_tipo (chave, tipo),
                 INDEX idx_st_chave_status (chave, status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            COMMENT='Historico de transacoes de saldo SERPRO eFrotas'
+            COMMENT='Historico de transacoes de saldo de consultas online'
         ");
     }
 

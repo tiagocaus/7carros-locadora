@@ -5,7 +5,7 @@ namespace App\Models;
 /**
  * Model SerproConfiguracao
  *
- * Gerencia configuracoes da integracao SERPRO eFrotas por tenant.
+ * Gerencia configuracoes da integracao de consultas online por tenant.
  * Cada tenant tem seu CNPJ, configuracoes de auto-consulta e auto-eventos.
  */
 class SerproConfiguracao extends Model

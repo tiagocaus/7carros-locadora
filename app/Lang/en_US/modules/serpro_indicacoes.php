@@ -10,7 +10,7 @@ return [
         'real_infrator_title' => 'Type 1: Actual Offender',
         'real_infrator_desc' => 'Used to transfer the penalty points and responsibility of a specific fine to the person who actually committed the infraction.',
         'real_infrator_when' => 'When receiving a fine and identifying who was driving',
-        'real_infrator_prereq' => 'The fine must have been imported via SERPRO (with agency code, AIT and infraction code)',
+        'real_infrator_prereq' => 'The fine must have been imported via online lookup (with agency code, AIT and infraction code)',
         'real_infrator_fields' => 'Select the fine + driver CPF',
         'real_infrator_result' => 'The infraction points are transferred to the nominated driver\'s license',
 
@@ -22,7 +22,7 @@ return [
         'principal_important' => 'Can be removed when the rental period ends',
 
         'status_title' => 'Nomination Status',
-        'status_enviado' => 'Nomination sent to SERPRO',
+        'status_enviado' => 'Nomination sent to the online lookup system',
         'status_processando' => 'Under review by the agency',
         'status_aceito' => 'Nomination accepted successfully',
         'status_rejeitado' => 'Nomination rejected by the agency',
@@ -30,9 +30,9 @@ return [
         'status_expirado' => 'Nomination deadline expired',
 
         'important_title' => 'Important Information',
-        'important_1' => 'Actual Offender nomination only works for fines imported from SERPRO (not for manually registered fines)',
-        'important_2' => 'The company CNPJ must be configured in SERPRO Settings before making nominations',
-        'important_3' => 'After submission, use the sync button to check the updated status on SERPRO',
+        'important_1' => 'Actual Offender nomination only works for fines imported via online lookup (not for manually registered fines)',
+        'important_2' => 'The company CNPJ must be configured in online lookup settings before making nominations',
+        'important_3' => 'After submission, use the sync button to check the updated status in the online lookup system',
         'important_4' => 'Nominations with "Sent" or "Processing" status can be cancelled',
         'important_5' => 'Respect legal deadlines: the nomination must be made within the period specified in the notification',
 

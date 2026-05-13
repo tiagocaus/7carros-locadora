@@ -10,7 +10,7 @@ return [
         'real_infrator_title' => 'Tipo 1: Trasgressore Reale',
         'real_infrator_desc' => 'Utilizzato per trasferire i punti e la responsabilità di una multa specifica a chi ha realmente commesso l\'infrazione.',
         'real_infrator_when' => 'Quando si riceve una multa e si identifica chi stava guidando',
-        'real_infrator_prereq' => 'La multa deve essere stata importata tramite SERPRO (con codice ente, AIT e codice infrazione)',
+        'real_infrator_prereq' => 'La multa deve essere stata importata tramite consultazione online (con codice ente, AIT e codice infrazione)',
         'real_infrator_fields' => 'Selezionare la multa + CPF del conducente',
         'real_infrator_result' => 'I punti dell\'infrazione vengono trasferiti alla patente del nominato',
 
@@ -22,7 +22,7 @@ return [
         'principal_important' => 'Può essere rimosso al termine del noleggio',
 
         'status_title' => 'Stato della Nomina',
-        'status_enviado' => 'Nomina inviata al SERPRO',
+        'status_enviado' => 'Nomina inviata al sistema di consultazione online',
         'status_processando' => 'In analisi dall\'ente',
         'status_aceito' => 'Nomina accettata con successo',
         'status_rejeitado' => 'Nomina rifiutata dall\'ente',
@@ -30,9 +30,9 @@ return [
         'status_expirado' => 'Termine della nomina scaduto',
 
         'important_title' => 'Informazioni Importanti',
-        'important_1' => 'La nomina del Trasgressore Reale funziona solo per le multe importate dal SERPRO (non per le multe registrate manualmente)',
-        'important_2' => 'Il CNPJ dell\'azienda deve essere configurato nelle Impostazioni SERPRO prima di effettuare nomine',
-        'important_3' => 'Dopo l\'invio, usare il pulsante di sincronizzazione per verificare lo stato aggiornato su SERPRO',
+        'important_1' => 'La nomina del Trasgressore Reale funziona solo per le multe importate tramite consultazione online (non per le multe registrate manualmente)',
+        'important_2' => 'Il CNPJ dell\'azienda deve essere configurato nelle impostazioni di consultazione online prima di effettuare nomine',
+        'important_3' => 'Dopo l\'invio, usare il pulsante di sincronizzazione per verificare lo stato aggiornato nel sistema di consultazione online',
         'important_4' => 'Le nomine con stato "Inviato" o "In elaborazione" possono essere annullate',
         'important_5' => 'Rispettare le scadenze legali: la nomina deve essere effettuata entro il termine stabilito nella notifica',
 

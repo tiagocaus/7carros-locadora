@@ -6,7 +6,7 @@ namespace App\Models;
  * Model SerproIndicacao
  *
  * Gerencia indicacoes de real infrator e principal condutor
- * enviadas a SERPRO eFrotas.
+ * enviadas ao sistema de consultas online.
  */
 class SerproIndicacao extends Model
 {

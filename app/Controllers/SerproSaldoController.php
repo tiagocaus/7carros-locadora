@@ -12,10 +12,10 @@ use App\Models\SerproConfiguracao;
 use App\Services\SerproSaldoService;
 
 /**
- * Controller de Saldo SERPRO eFrotas
+ * Controller de saldo de consultas online
  *
  * Gerencia saldo prepago, recargas (PIX e Stripe) e historico de transacoes.
- * O saldo e usado para pagar consultas e eventos da API SERPRO.
+ * O saldo e usado para pagar consultas e eventos da API de consultas online.
  */
 class SerproSaldoController
 {

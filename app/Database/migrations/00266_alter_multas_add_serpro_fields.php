@@ -3,7 +3,7 @@
 /**
  * Migration 00266: Adicionar campos SERPRO na tabela multas
  *
- * Novos campos para integracao com SERPRO eFrotas:
+ * Novos campos para integracao com consultas online:
  * - Chaves de identificacao da infracao (codigo_orgao, numero_ait, codigo_infracao)
  * - Origem do registro (manual, serpro_consulta, serpro_evento)
  * - Status de processamento (indicacao, transferencia de pontos)

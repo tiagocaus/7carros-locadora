@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\SerproConsultaLog;
 
 /**
- * Service para comunicacao com a API SERPRO eFrotas
+ * Service para comunicacao com a API de consultas online
  *
  * Centraliza todas as chamadas HTTP para a API SERPRO.
  * Usa bearer token unico da 7Carros (configurado via ENV).
@@ -458,11 +458,11 @@ class SerproService
             } elseif ($httpCode === 429) {
                 $erroMensagem = 'Rate limit excedido (15 req/s). Tente novamente em instantes.';
             } elseif ($httpCode === 401) {
-                $erroMensagem = 'Token SERPRO invalido ou expirado.';
+                $erroMensagem = 'Token do sistema de consultas online invalido ou expirado.';
             } elseif ($httpCode === 403) {
-                $erroMensagem = 'Acesso negado pela SERPRO.';
+                $erroMensagem = 'Acesso negado pelo sistema de consultas online.';
             } elseif ($httpCode === 404) {
-                $erroMensagem = 'Recurso nao encontrado na SERPRO.';
+                $erroMensagem = 'Recurso nao encontrado no sistema de consultas online.';
             } else {
                 $erroMensagem = "HTTP {$httpCode}: " . ($responseData['message'] ?? $responseBody ?? 'Erro desconhecido');
             }

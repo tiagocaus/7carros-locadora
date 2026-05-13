@@ -19,7 +19,7 @@ use App\Helpers\FilialHelper;
  *
  * Super tela que unifica todas as funcionalidades de multas:
  * dashboard com KPIs, lista com filtros avancados, saldo SERPRO,
- * acoes rapidas e integracao completa com SERPRO eFrotas.
+ * acoes rapidas e integracao completa com consultas online.
  */
 class CentralMultasController
 {

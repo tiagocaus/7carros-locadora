@@ -12,10 +12,10 @@ use App\Models\Multa;
 use App\Services\SerproService;
 
 /**
- * Controller de Indicacoes SERPRO eFrotas
+ * Controller de indicacoes por consultas online
  *
  * Gerencia indicacoes de real infrator e principal condutor
- * enviadas via API SERPRO.
+ * enviadas via API de consultas online.
  */
 class SerproIndicacaoController
 {
@@ -148,7 +148,7 @@ class SerproIndicacaoController
             if (empty($multa['codigo_orgao']) || empty($multa['numero_ait']) || empty($multa['codigo_infracao'])) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Multa nao possui chaves SERPRO (codigo_orgao, numero_ait, codigo_infracao). Apenas multas importadas da SERPRO podem ter indicacao.',
+                    'message' => 'Multa nao possui identificadores da consulta online (codigo_orgao, numero_ait, codigo_infracao). Apenas multas importadas via consulta online podem ter indicacao.',
                 ], 422);
                 return;
             }
@@ -160,7 +160,7 @@ class SerproIndicacaoController
             if (!$config || empty($config['cnpj_empresa'])) {
                 Response::json([
                     'success' => false,
-                    'message' => 'CNPJ da empresa nao configurado. Acesse Configuracoes SERPRO para cadastrar.',
+                    'message' => 'CNPJ da empresa nao configurado. Acesse as configuracoes de consulta online para cadastrar.',
                 ], 422);
                 return;
             }
@@ -178,7 +178,7 @@ class SerproIndicacaoController
             if (!$resultado['success']) {
                 Response::json([
                     'success' => false,
-                    'message' => $resultado['error'] ?? 'Erro ao enviar indicacao para SERPRO',
+                    'message' => $resultado['error'] ?? 'Erro ao enviar indicacao para o sistema de consultas online',
                 ], 502);
                 return;
             }
@@ -256,7 +256,7 @@ class SerproIndicacaoController
             if (!$config || empty($config['cnpj_empresa'])) {
                 Response::json([
                     'success' => false,
-                    'message' => 'CNPJ da empresa nao configurado. Acesse Configuracoes SERPRO para cadastrar.',
+                    'message' => 'CNPJ da empresa nao configurado. Acesse as configuracoes de consulta online para cadastrar.',
                 ], 422);
                 return;
             }
@@ -273,7 +273,7 @@ class SerproIndicacaoController
             if (!$resultado['success']) {
                 Response::json([
                     'success' => false,
-                    'message' => $resultado['error'] ?? 'Erro ao enviar indicacao para SERPRO',
+                    'message' => $resultado['error'] ?? 'Erro ao enviar indicacao para o sistema de consultas online',
                 ], 502);
                 return;
             }
@@ -329,7 +329,7 @@ class SerproIndicacaoController
             if (empty($indicacao['chave_indicacao'])) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Indicacao sem chave SERPRO',
+                    'message' => 'Indicacao sem identificador da consulta online',
                 ], 422);
                 return;
             }
@@ -345,7 +345,7 @@ class SerproIndicacaoController
             if (!$resultado['success']) {
                 Response::json([
                     'success' => false,
-                    'message' => $resultado['error'] ?? 'Erro ao consultar status na SERPRO',
+                    'message' => $resultado['error'] ?? 'Erro ao consultar status no sistema de consultas online',
                 ], 502);
                 return;
             }
@@ -422,7 +422,7 @@ class SerproIndicacaoController
             if (empty($indicacao['chave_indicacao'])) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Indicacao sem chave SERPRO',
+                    'message' => 'Indicacao sem identificador da consulta online',
                 ], 422);
                 return;
             }
@@ -441,7 +441,7 @@ class SerproIndicacaoController
             if (!$resultado['success']) {
                 Response::json([
                     'success' => false,
-                    'message' => $resultado['error'] ?? 'Erro ao cancelar indicacao na SERPRO',
+                    'message' => $resultado['error'] ?? 'Erro ao cancelar indicacao no sistema de consultas online',
                 ], 502);
                 return;
             }
@@ -494,7 +494,7 @@ class SerproIndicacaoController
         if (!$resultado['success']) {
             Response::json([
                 'success' => false,
-                'message' => $resultado['error'] ?? 'Erro ao excluir indicacao na SERPRO',
+                'message' => $resultado['error'] ?? 'Erro ao excluir indicacao no sistema de consultas online',
             ], 502);
             return;
         }

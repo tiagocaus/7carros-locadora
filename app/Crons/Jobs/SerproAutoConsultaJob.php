@@ -12,7 +12,7 @@ use App\Services\SerproSaldoService;
 use mysqli;
 
 /**
- * Job de auto-consulta SERPRO eFrotas
+ * Job de auto-consulta online de infracoes
  *
  * Executa consultas automaticas de infracoes para todos os tenants
  * com auto_consulta_ativo = 1 e cujo intervalo de dias tenha expirado.
@@ -211,7 +211,7 @@ class SerproAutoConsultaJob extends BaseJob
                 'codigo_orgao' => $codigoOrgao,
                 'numero_ait' => $numeroAit,
                 'codigo_infracao' => $codigoInfracao,
-                'descricao' => $infracao['descricaoInfracao'] ?? $infracao['descricao'] ?? 'Infracao SERPRO',
+                'descricao' => $infracao['descricaoInfracao'] ?? $infracao['descricao'] ?? 'Infracao importada por consulta online',
                 'valor' => (float) ($infracao['valorInfracao'] ?? $infracao['valor'] ?? 0),
                 'valor_desconto_40' => isset($infracao['valorDesconto']) ? (float) $infracao['valorDesconto'] : null,
                 'data_hora' => $infracao['dataHoraInfracao'] ?? $infracao['dataInfracao'] ?? null,

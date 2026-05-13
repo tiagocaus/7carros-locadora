@@ -3,7 +3,7 @@
 /**
  * Migration 00261: Criar tabela serpro_configuracoes
  *
- * Armazena configuracoes da integracao SERPRO eFrotas por tenant.
+ * Armazena configuracoes da integracao de consultas online por tenant.
  * Cada locadora tem seu CNPJ registrado e configuracoes de
  * auto-consulta e auto-eventos.
  */
@@ -36,7 +36,7 @@ return new class extends Migration
 
                 UNIQUE INDEX idx_sc_chave (chave)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            COMMENT='Configuracoes da integracao SERPRO eFrotas por tenant'
+            COMMENT='Configuracoes da integracao de consultas online por tenant'
         ");
     }
 

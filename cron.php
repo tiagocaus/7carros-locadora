@@ -130,7 +130,7 @@ try {
     $scheduler->job(new \App\Crons\Jobs\GerarEncargosFinanceiroJob())
               ->dailyAt('06:00');
 
-    // Auto-Consulta SERPRO eFrotas
+    // Auto-consulta online de infracoes
     // Executa diariamente as 07:00 para consultar infracoes de tenants com auto-consulta ativa
     $scheduler->job(new \App\Crons\Jobs\SerproAutoConsultaJob())
               ->dailyAt('07:00');

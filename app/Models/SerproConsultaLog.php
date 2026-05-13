@@ -5,7 +5,7 @@ namespace App\Models;
 /**
  * Model SerproConsultaLog
  *
- * Log tecnico de chamadas a API SERPRO eFrotas.
+ * Log tecnico de chamadas a API de consultas online.
  * Registra request/response completos para debug e auditoria.
  */
 class SerproConsultaLog extends Model

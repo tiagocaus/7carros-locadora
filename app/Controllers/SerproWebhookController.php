@@ -123,7 +123,7 @@ class SerproWebhookController
             // Verificar se e recarga SERPRO
             $tipo = $metadata['tipo'] ?? '';
             if (!in_array($tipo, ['recarga_serpro', 'auto_recarga_serpro'], true)) {
-                Response::json(['success' => true, 'message' => 'Nao e recarga SERPRO']);
+                Response::json(['success' => true, 'message' => 'Nao e recarga de consultas online']);
                 return;
             }
 
@@ -159,7 +159,7 @@ class SerproWebhookController
     }
 
     /**
-     * Webhook de eventos SERPRO eFrotas
+ * Webhook de eventos de consultas online
      *
      * Recebe notificacoes de novos eventos (multas, recalls, etc.)
      * POST /webhook/multas-online/eventos
@@ -212,7 +212,7 @@ class SerproWebhookController
                     $saldoService->inicializarSaldo();
 
                     if ($saldoService->temSaldoParaEventos(1)) {
-                        $saldoService->debitarEvento("Evento SERPRO: {$tipoEvento} placa {$placa}", $placa);
+                        $saldoService->debitarEvento("Evento de consulta online: {$tipoEvento} placa {$placa}", $placa);
                     }
 
                     // Processar evento conforme tipo
@@ -279,7 +279,7 @@ class SerproWebhookController
             'codigo_orgao' => $codigoOrgao,
             'numero_ait' => $numeroAit,
             'codigo_infracao' => $codigoInfracao,
-            'descricao' => $evento['descricaoInfracao'] ?? $evento['descricao'] ?? 'Evento SERPRO',
+            'descricao' => $evento['descricaoInfracao'] ?? $evento['descricao'] ?? 'Evento de consulta online',
             'valor' => (float) ($evento['valorInfracao'] ?? $evento['valor'] ?? 0),
             'valor_desconto_40' => isset($evento['valorDesconto']) ? (float) $evento['valorDesconto'] : null,
             'data_hora' => $evento['dataHoraInfracao'] ?? $evento['dataInfracao'] ?? null,

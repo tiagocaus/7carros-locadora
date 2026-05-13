@@ -1,6 +1,6 @@
 # Multas
 
-Módulo de gestão de multas de trânsito vinculadas a contratos ou locações. Combina CRUD manual, integração com SERPRO eFrotas para consulta automática, indicação de condutor, e impressão/envio de documentos.
+Módulo de gestão de multas de trânsito vinculadas a contratos ou locações. Combina CRUD manual, integração com sistema de consultas online para consulta automática, indicação de condutor, e impressão/envio de documentos.
 
 ## Visão geral
 

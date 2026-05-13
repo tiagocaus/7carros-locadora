@@ -14,9 +14,9 @@ use App\Services\SerproService;
 use App\Services\SerproSaldoService;
 
 /**
- * Controller de Consultas SERPRO eFrotas
+ * Controller de consultas online
  *
- * Gerencia consultas manuais e em lote de infracoes via API SERPRO,
+ * Gerencia consultas manuais e em lote de infracoes via API de consultas online,
  * download de PDFs (NA/NP), configuracoes do tenant e logs.
  */
 class SerproConsultaController
@@ -498,7 +498,7 @@ class SerproConsultaController
                 'codigo_orgao' => $codigoOrgao,
                 'numero_ait' => $numeroAit,
                 'codigo_infracao' => $codigoInfracao,
-                'descricao' => $infracao['descricaoInfracao'] ?? $infracao['descricao'] ?? 'Infracao SERPRO',
+                'descricao' => $infracao['descricaoInfracao'] ?? $infracao['descricao'] ?? 'Infracao importada por consulta online',
                 'valor' => (float) ($infracao['valorInfracao'] ?? $infracao['valor'] ?? 0),
                 'valor_desconto_40' => isset($infracao['valorDesconto']) ? (float) $infracao['valorDesconto'] : null,
                 'data_hora' => $infracao['dataHoraInfracao'] ?? $infracao['dataInfracao'] ?? null,

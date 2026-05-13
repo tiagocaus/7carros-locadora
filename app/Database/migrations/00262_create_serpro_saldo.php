@@ -3,7 +3,7 @@
 /**
  * Migration 00262: Criar tabela serpro_saldo
  *
- * Saldo prepago de cada tenant para uso da API SERPRO eFrotas.
+ * Saldo prepago de cada tenant para uso da API de consultas online.
  * Inclui configuracao de auto-recarga via Stripe.
  */
 
@@ -36,7 +36,7 @@ return new class extends Migration
 
                 UNIQUE INDEX idx_ss_chave (chave)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            COMMENT='Saldo prepago SERPRO eFrotas por tenant'
+            COMMENT='Saldo prepago de consultas online por tenant'
         ");
     }
 

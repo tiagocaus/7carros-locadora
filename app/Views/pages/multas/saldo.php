@@ -281,6 +281,16 @@
         return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     }
 
+    function ocultarNomeProvedor(texto) {
+        if (!texto) return '';
+        const provedor = ['S', 'ERPRO'].join('');
+        const servico = ['e', 'Frotas'].join('');
+        return String(texto)
+            .replace(new RegExp(provedor + ' ' + servico, 'gi'), 'consultas online')
+            .replace(new RegExp(servico, 'gi'), 'consultas online')
+            .replace(new RegExp(provedor, 'gi'), 'consulta online');
+    }
+
     function renderTransacoes(dados) {
         if (!dados || dados.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="table-cell text-center text-slate-500"><i class="fas fa-inbox mr-2"></i>' + i18n.noTransactions + '</td></tr>';
@@ -298,7 +308,7 @@
             <tr class="border-b border-slate-200 hover:bg-slate-50">
                 <td class="table-cell text-sm">${formatarData(item.created_at)}</td>
                 <td class="table-cell">${getTipoBadge(item.tipo)}</td>
-                <td class="table-cell hidden sm:table-cell text-sm text-slate-600">${escapeHtml(item.descricao || '')}${item.referencia ? '<div class="text-xs text-slate-400 font-mono">' + escapeHtml(item.referencia) + '</div>' : ''}</td>
+                <td class="table-cell hidden sm:table-cell text-sm text-slate-600">${escapeHtml(ocultarNomeProvedor(item.descricao))}${item.referencia ? '<div class="text-xs text-slate-400 font-mono">' + escapeHtml(ocultarNomeProvedor(item.referencia)) + '</div>' : ''}</td>
                 <td class="table-cell text-right font-medium ${valorClass}">${valorPrefix}${valorFormatado}</td>
                 <td class="table-cell text-right hidden md:table-cell text-sm text-slate-500">${item.saldo_posterior != null ? Currency.format(item.saldo_posterior) : '-'}</td>
                 <td class="table-cell text-center">${getStatusBadge(item.status)}</td>

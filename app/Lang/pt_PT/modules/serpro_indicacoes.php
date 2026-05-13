@@ -10,7 +10,7 @@ return [
         'real_infrator_title' => 'Tipo 1: Infrator Real',
         'real_infrator_desc' => 'Utilizado para transferir os pontos e a responsabilidade de uma multa específica para quem realmente cometeu a infração.',
         'real_infrator_when' => 'Ao receber uma multa e identificar quem estava a conduzir',
-        'real_infrator_prereq' => 'A multa precisa de ter sido importada via SERPRO (com código do órgão, AIT e código da infração)',
+        'real_infrator_prereq' => 'A multa precisa de ter sido importada via consulta online (com código do órgão, AIT e código da infração)',
         'real_infrator_fields' => 'Selecionar a multa + CPF do condutor',
         'real_infrator_result' => 'Os pontos da infração sao transferidos para a carta de condução do indicado',
 
@@ -22,7 +22,7 @@ return [
         'principal_important' => 'Pode ser removido quando a locação terminar',
 
         'status_title' => 'Estado da Indicação',
-        'status_enviado' => 'Indicação enviada ao SERPRO',
+        'status_enviado' => 'Indicação enviada ao sistema de consultas online',
         'status_processando' => 'Em análise pelo órgão',
         'status_aceito' => 'Indicação aceite com sucesso',
         'status_rejeitado' => 'Indicação recusada pelo órgão',
@@ -30,9 +30,9 @@ return [
         'status_expirado' => 'Prazo de indicação expirou',
 
         'important_title' => 'Informações Importantes',
-        'important_1' => 'A indicação de Infrator Real so funciona para multas importadas do SERPRO (não para multas registadas manualmente)',
-        'important_2' => 'O CNPJ da empresa deve estar configurado nas Configurações SERPRO antes de realizar indicações',
-        'important_3' => 'Após o envio, utilize o botão de sincronização para consultar o estado atualizado no SERPRO',
+        'important_1' => 'A indicação de Infrator Real so funciona para multas importadas via consulta online (não para multas registadas manualmente)',
+        'important_2' => 'O CNPJ da empresa deve estar configurado nas configurações de consulta online antes de realizar indicações',
+        'important_3' => 'Após o envio, utilize o botão de sincronização para consultar o estado atualizado no sistema de consultas online',
         'important_4' => 'Indicações com estado "Enviado" ou "Em processamento" podem ser canceladas',
         'important_5' => 'Respeite os prazos legais: a indicação deve ser feita dentro do prazo estipulado na notificação',
 

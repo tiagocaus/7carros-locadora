@@ -10,7 +10,7 @@ return [
         'real_infrator_title' => 'Tipo 1: Infractor Real',
         'real_infrator_desc' => 'Se utiliza para transferir los puntos y la responsabilidad de una multa específica a quien realmente cometió la infracción.',
         'real_infrator_when' => 'Al recibir una multa e identificar quien estaba conduciendo',
-        'real_infrator_prereq' => 'La multa debe haber sido importada via SERPRO (con código del órgano, AIT y código de infracción)',
+        'real_infrator_prereq' => 'La multa debe haber sido importada vía consulta en línea (con código del órgano, AIT y código de infracción)',
         'real_infrator_fields' => 'Seleccionar la multa + CPF del conductor',
         'real_infrator_result' => 'Los puntos de la infracción se transfieren a la licencia del indicado',
 
@@ -22,7 +22,7 @@ return [
         'principal_important' => 'Puede ser eliminado cuando termine el alquiler',
 
         'status_title' => 'Estado de la Indicación',
-        'status_enviado' => 'Indicación enviada al SERPRO',
+        'status_enviado' => 'Indicación enviada al sistema de consultas en línea',
         'status_processando' => 'En analisis por el órgano',
         'status_aceito' => 'Indicación aceptada con exito',
         'status_rejeitado' => 'Indicación rechazada por el órgano',
@@ -30,9 +30,9 @@ return [
         'status_expirado' => 'Plazo de indicación vencido',
 
         'important_title' => 'Información Importante',
-        'important_1' => 'La indicación de Infractor Real solo funciona para multas importadas del SERPRO (no para multas registradas manualmente)',
-        'important_2' => 'El CNPJ de la empresa debe estar configurado en Configuración SERPRO antes de realizar indicaciones',
-        'important_3' => 'Después del envío, use el botón de sincronización para consultar el estado actualizado en SERPRO',
+        'important_1' => 'La indicación de Infractor Real solo funciona para multas importadas vía consulta en línea (no para multas registradas manualmente)',
+        'important_2' => 'El CNPJ de la empresa debe estar configurado en la configuración de consultas en línea antes de realizar indicaciones',
+        'important_3' => 'Después del envío, use el botón de sincronización para consultar el estado actualizado en el sistema de consultas en línea',
         'important_4' => 'Las indicaciones con estado "Enviado" o "Procesando" pueden ser canceladas',
         'important_5' => 'Respete los plazos legales: la indicación debe realizarse dentro del plazo estipulado en la notificación',
 

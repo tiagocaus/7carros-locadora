@@ -1,6 +1,6 @@
-# Central de Multas - Integracacao SERPRO eFrotas
+# Central de Multas - Integracao com sistema de consultas online
 
-> Especificacao tecnica completa para integracao com a API SERPRO eFrotas,
+> Especificacao tecnica completa para integracao com a API de consultas online,
 > sistema de saldo prepago e Central de Multas do 7Carros Locadora.
 
 ---
@@ -9,7 +9,7 @@
 
 ### 1.1 Objetivo
 
-Transformar o modulo de multas atual (100% manual) em uma **Central de Multas inteligente** integrada com a API SERPRO eFrotas, permitindo:
+Transformar o modulo de multas atual (100% manual) em uma **Central de Multas inteligente** integrada com a API de consultas online, permitindo:
 
 - Consulta automatica de infracoes de transito
 - Recebimento de eventos/notificacoes em tempo real
@@ -25,7 +25,7 @@ Transformar o modulo de multas atual (100% manual) em uma **Central de Multas in
 │                        MODELO DE NEGOCIO                            │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  7Carros possui CONTRATO UNICO com a SERPRO eFrotas                │
+│  7Carros possui CONTRATO UNICO com o provedor de consultas online  │
 │  Cada tenant (locadora) usa o servico atraves da 7Carros           │
 │                                                                     │
 │  Custo para o tenant:                                               │
@@ -85,7 +85,7 @@ Os precos da SERPRO variam por volume acumulado. A 7Carros define via ENV o prec
 
 ```
 ┌─────────────┐     ┌──────────────────────┐     ┌──────────────────┐
-│   TENANT    │     │    7CARROS SYSTEM     │     │  SERPRO eFrotas   │
+│   TENANT    │     │    7CARROS SYSTEM     │     │ Consultas Online  │
 │  (Locadora) │     │                      │     │      API          │
 │             │     │  ┌────────────────┐  │     │                  │
 │  Dashboard  │────▶│  │ SerproService  │──┼────▶│  /consultas/     │
@@ -508,7 +508,7 @@ ALTER TABLE multas
 
 ```env
 # ============================
-# SERPRO eFrotas API
+# API de consultas online
 # ============================
 SERPRO_BEARER_TOKEN=                          # JWT token da conta 7Carros na SERPRO
 SERPRO_BASE_URL=https://efrotas.estaleiro.serpro.gov.br/efrotas/api
@@ -706,7 +706,7 @@ SerproAutoConsultaJob  → Consulta multas de todos os tenants com auto_consulta
 
 ### 7.1 SerproService
 
-Responsavel por toda comunicacao com a API SERPRO eFrotas.
+Responsavel por toda comunicacao com a API de consultas online.
 
 ```
 app/Services/SerproService.php
@@ -1176,4 +1176,4 @@ Placas Teste:   SAV0741, SAV0742, SAV0743, SAV0744, SAV0745,
 
 > Documento gerado em 27/02/2026
 > Base legal: Portaria SENATRAN No 461/2025
-> API SERPRO eFrotas v1
+> API de consultas online v1
