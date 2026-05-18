@@ -120,6 +120,7 @@ return [
         'no_cards' => 'Nenhum cartão registado',
         'add_card' => 'Adicionar Cartão',
         'save_first' => 'Guarde o cliente para gerir cartões.',
+        'save_first_detail' => 'Depois de guardar o cadastro, poderá adicionar e gerir os cartões de crédito no ecrã de edição do cliente.',
         'select_brand' => 'Selecione a bandeira...',
         'select_gateway' => 'Selecione o gateway...',
         'digits_placeholder' => '0000',

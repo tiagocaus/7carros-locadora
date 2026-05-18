@@ -120,6 +120,7 @@ return [
         'no_cards' => 'Ninguna tarjeta registrada',
         'add_card' => 'Agregar Tarjeta',
         'save_first' => 'Guarde el cliente para gestionar tarjetas.',
+        'save_first_detail' => 'Después de guardar el registro, podrá agregar y gestionar las tarjetas de crédito en la pantalla de edición del cliente.',
         'select_brand' => 'Seleccione la marca...',
         'select_gateway' => 'Seleccione el gateway...',
         'digits_placeholder' => '0000',

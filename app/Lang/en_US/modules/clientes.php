@@ -156,6 +156,7 @@ return [
         'no_cards' => 'No cards registered',
         'add_card' => 'Add Card',
         'save_first' => 'Save the customer to manage cards.',
+        'save_first_detail' => 'After saving the record, you will be able to add and manage credit cards on the customer edit screen.',
         'select_brand' => 'Select brand...',
         'select_gateway' => 'Select gateway...',
         'digits_placeholder' => '0000',

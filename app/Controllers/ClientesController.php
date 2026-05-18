@@ -25,6 +25,36 @@ use App\Services\Gateways\GatewayFactory;
 class ClientesController
 {
     /**
+     * Normaliza o tipo de cliente para os códigos aceitos pela coluna clientes.tipo.
+     */
+    private function normalizarTipoCliente(?string $tipo, ?string $padrao = null): ?string
+    {
+        $valor = strtolower(trim((string) $tipo));
+
+        if ($valor === '') {
+            return $padrao;
+        }
+
+        $tipos = [
+            'pf' => 'PF',
+            'pessoa_fisica' => 'PF',
+            'f' => 'PF',
+            'pj' => 'PJ',
+            'pessoa_juridica' => 'PJ',
+            'j' => 'PJ',
+            'estrangeiro' => 'ES',
+            'es' => 'ES',
+            'foreigner' => 'ES',
+        ];
+
+        if (!isset($tipos[$valor])) {
+            throw new \InvalidArgumentException('Tipo de cliente inválido');
+        }
+
+        return $tipos[$valor];
+    }
+
+    /**
      * Lista todos os clientes (com paginação e busca)
      *
      * GET /api/clientes - Retorna JSON
@@ -232,10 +262,11 @@ class ClientesController
             }
 
             // Mapear campos do formulário para campos do banco
+            $tipoCliente = $this->normalizarTipoCliente($request->input('tipo', 'PF'), 'PF');
             $dados = [
                 'id_matriz_filial' => $request->input('id_matriz_filial', 0),
                 'foto' => $request->input('foto', ''),
-                'tipo' => $request->input('tipo', 'pf'),
+                'tipo' => $tipoCliente,
                 'cpf_cnpj' => $request->input('cpf_cnpj', ''),
                 'senha' => $request->input('senha') ? password_hash($request->input('senha'), PASSWORD_ARGON2ID) : null,
                 'nome_rsocial' => $request->input('nome_rsocial', ''),
@@ -303,6 +334,11 @@ class ClientesController
                 'message' => 'Cliente criado com sucesso',
                 'data' => ['id' => $id]
             ], 201);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,
@@ -350,9 +386,10 @@ class ClientesController
             }
 
             // Mapear campos do formulário para campos do banco
+            $tipoCliente = $this->normalizarTipoCliente($request->input('tipo'), null);
             $dados = [
                 'id_matriz_filial' => $request->input('id_matriz_filial'),
-                'tipo' => $request->input('tipo'),
+                'tipo' => $tipoCliente,
                 'cpf_cnpj' => $request->input('cpf_cnpj'),
                 'nome_rsocial' => $request->input('nome_rsocial'),
                 'rg_ie' => $request->input('rg_ie'),
@@ -424,6 +461,11 @@ class ClientesController
                 'success' => true,
                 'message' => 'Cliente atualizado com sucesso'
             ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,

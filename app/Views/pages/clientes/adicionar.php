@@ -72,9 +72,9 @@
                             <label for="clienteTipo" class="form-label-group">{{ t('modules.clientes.fields.type') }}</label>
                             <select id="clienteTipo" name="tipo" class="form-input-group-field">
                                 <option value="">{{ t('common.labels.select_option') }}...</option>
-                                <option value="pf">{{ t('modules.clientes.fields.type_pf') }}</option>
-                                <option value="pj">{{ t('modules.clientes.fields.type_pj') }}</option>
-                                <option value="estrangeiro">{{ t('modules.clientes.fields.type_foreigner') }}</option>
+                                <option value="PF">{{ t('modules.clientes.fields.type_pf') }}</option>
+                                <option value="PJ">{{ t('modules.clientes.fields.type_pj') }}</option>
+                                <option value="ES">{{ t('modules.clientes.fields.type_foreigner') }}</option>
                             </select>
                         </div>
 
@@ -248,7 +248,7 @@
                     </div>
                 </div>
 
-                <!-- Seção: Cartões de Crédito (visível apenas em modo edição) -->
+                <!-- Seção: Cartões de Crédito -->
                 <div class="form-section mb-6" id="secaoCartoes" style="display: none;">
                     <div class="flex items-center justify-between" style="border-bottom: 1px solid #D1D5DB; padding-bottom: 0.75rem; margin-bottom: 1rem;">
                         <h3 class="form-section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">
@@ -262,6 +262,13 @@
                         </button>
                     </div>
 
+                    <div id="cartoesAvisoSalvar" class="bg-slate-50 border border-slate-200 rounded-lg p-5 text-center" style="display: none;">
+                        <i class="fas fa-credit-card text-4xl mb-3 block text-slate-300"></i>
+                        <p class="text-slate-600 text-lg mb-2">{{ t('modules.clientes.credit_cards.save_first') }}</p>
+                        <p class="text-slate-500 text-sm">{{ t('modules.clientes.credit_cards.save_first_detail') }}</p>
+                    </div>
+
+                    <div id="cartoesConteudo">
                     <!-- Formulário colapsável de adição de cartão -->
                     <div id="addCardFormWrapper" class="mb-4 bg-slate-50 border border-slate-200 rounded-lg p-4" style="display: none;">
                         <div class="flex items-center justify-between mb-3">
@@ -354,6 +361,7 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
                     </div>
                 </div>
 
@@ -684,7 +692,7 @@
 
         // Configuração de visibilidade por tipo de cliente
         const visibilidadeCampos = {
-            pf: {
+            PF: {
                 campoDocumento: { show: true, label: '{{ t("modules.clientes.fields.cpf") }}', required: true, placeholder: '000.000.000-00' },
                 campoNome: { show: true, label: '{{ t("modules.clientes.fields.full_name") }}', required: true },
                 campoNomeFantasia: { show: false },
@@ -695,7 +703,7 @@
                 campoProfissao: { show: true },
                 secaoCNH: { show: true }
             },
-            pj: {
+            PJ: {
                 campoDocumento: { show: true, label: '{{ t("modules.clientes.fields.cnpj") }}', required: true, placeholder: '00.000.000/0000-00' },
                 campoNome: { show: true, label: '{{ t("modules.clientes.fields.company_name") }}', required: true },
                 campoNomeFantasia: { show: true },
@@ -706,7 +714,7 @@
                 campoProfissao: { show: false },
                 secaoCNH: { show: false }
             },
-            estrangeiro: {
+            ES: {
                 campoDocumento: { show: true, label: '{{ t("modules.clientes.fields.passport") }}', required: true, placeholder: '' },
                 campoNome: { show: true, label: '{{ t("modules.clientes.fields.full_name") }}', required: true },
                 campoNomeFantasia: { show: false },
@@ -719,8 +727,22 @@
             }
         };
 
+        function normalizarTipoCliente(tipo) {
+            tipo = String(tipo || '').trim().toLowerCase();
+
+            const tipos = {
+                pf: 'PF',
+                pj: 'PJ',
+                estrangeiro: 'ES',
+                es: 'ES'
+            };
+
+            return tipos[tipo] || tipo;
+        }
+
         // Função para atualizar visibilidade dos campos
         function atualizarVisibilidadeCampos(tipo) {
+            tipo = normalizarTipoCliente(tipo);
             if (!tipo || !visibilidadeCampos[tipo]) return;
 
             const config = visibilidadeCampos[tipo];
@@ -1304,9 +1326,10 @@
             if (data.situacao) document.getElementById('clienteSituacao').value = data.situacao;
             if (data.preferred_locale) document.getElementById('clienteIdioma').value = data.preferred_locale;
             if (data.tipo) {
-                document.getElementById('clienteTipo').value = data.tipo;
+                const tipoCliente = normalizarTipoCliente(data.tipo);
+                document.getElementById('clienteTipo').value = tipoCliente;
                 // Aplicar visibilidade após definir o tipo
-                atualizarVisibilidadeCampos(data.tipo);
+                atualizarVisibilidadeCampos(tipoCliente);
             }
             if (data.cpf_cnpj) document.getElementById('clienteCPF').value = data.cpf_cnpj;
             if (data.nome_rsocial) document.getElementById('clienteNome').value = data.nome_rsocial;
@@ -1602,7 +1625,19 @@
                 const result = await API.post(url, dados);
 
                 if (result.success) {
-                    // Voltar para lista
+                    if (!editMode && result.data?.id) {
+                        const novoId = result.data.id;
+                        if (window.parent !== window) {
+                            window.parent.postMessage({
+                                action: 'navigate',
+                                page: `/pages/clientes/adicionar?id=${novoId}`
+                            }, '*');
+                        } else {
+                            window.location.href = `/pages/clientes/adicionar?id=${novoId}`;
+                        }
+                        return;
+                    }
+
                     if (window.parent !== window) {
                         window.parent.postMessage({
                             action: 'navigate',
@@ -1813,17 +1848,28 @@
             const secao = document.getElementById('secaoCartoes');
             if (!secao) return;
 
-            if (editMode && registroId) {
+            const btnAdd = document.getElementById('btnToggleAddCard');
+            const avisoSalvar = document.getElementById('cartoesAvisoSalvar');
+            const conteudoCartoes = document.getElementById('cartoesConteudo');
+
+            if (editMode && registroId && !viewMode) {
                 secao.style.display = '';
-                const btnAdd = document.getElementById('btnToggleAddCard');
                 if (btnAdd) btnAdd.style.display = '';
+                if (avisoSalvar) avisoSalvar.style.display = 'none';
+                if (conteudoCartoes) conteudoCartoes.style.display = '';
                 carregarCartoesCliente(registroId);
                 carregarGatewaysCartao();
-            }
-
-            if (viewMode && registroId) {
+            } else if (viewMode && registroId) {
                 secao.style.display = '';
+                if (btnAdd) btnAdd.style.display = 'none';
+                if (avisoSalvar) avisoSalvar.style.display = 'none';
+                if (conteudoCartoes) conteudoCartoes.style.display = '';
                 carregarCartoesCliente(registroId);
+            } else {
+                secao.style.display = '';
+                if (btnAdd) btnAdd.style.display = 'none';
+                if (avisoSalvar) avisoSalvar.style.display = '';
+                if (conteudoCartoes) conteudoCartoes.style.display = 'none';
             }
 
             // Botão toggle do formulário
