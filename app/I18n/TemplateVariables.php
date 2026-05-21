@@ -921,6 +921,18 @@ class TemplateVariables
                 'label_key' => 'variables.outros.contagem',
                 'example' => '1'
             ],
+            'reset_url' => [
+                'key' => 'outros.reset_url',
+                'type' => 'text',
+                'label_key' => 'variables.outros.reset_url',
+                'example' => 'https://locadora.7carros.com/public/redefinir-senha?token=abc123'
+            ],
+            'reset_expira_em' => [
+                'key' => 'outros.reset_expira_em',
+                'type' => 'text',
+                'label_key' => 'variables.outros.reset_expira_em',
+                'example' => '60 minutos'
+            ],
             'nova_senha' => [
                 'key' => 'outros.nova_senha',
                 'type' => 'computed',

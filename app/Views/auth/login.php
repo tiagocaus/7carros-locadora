@@ -95,7 +95,7 @@
             </button>
 
             <div class="forgot-password-link">
-                <a href="#" id="forgotPasswordLink">Lembrar senha</a>
+                <a href="#" id="forgotPasswordLink">Redefinir senha</a>
             </div>
         </form>
 
@@ -108,8 +108,8 @@
 <!-- Modal de recuperação de senha -->
 <div id="forgotPasswordModal" class="modal-overlay" style="display: none;">
     <div class="modal-box">
-        <h3 class="modal-title">Lembrar Senha</h3>
-        <p class="modal-message">Digite seu e-mail ou usuário para receber instruções de recuperação de senha.</p>
+        <h3 class="modal-title">Redefinir senha</h3>
+        <p class="modal-message">Digite seu usuário ou e-mail. Se encontrarmos uma conta ativa, enviaremos uma nova senha segura para o e-mail cadastrado.</p>
 
         <div class="form-group">
             <label for="recoveryEmail" class="form-label">E-mail ou Usuário</label>
@@ -124,7 +124,7 @@
         <div class="modal-actions">
             <button type="button" class="btn-modal btn-modal-secondary" id="cancelRecoveryButton">Cancelar</button>
             <button type="button" class="btn-modal btn-modal-primary" id="sendRecoveryButton">
-                <i class="fas fa-paper-plane mr-2"></i>Enviar
+                <i class="fas fa-paper-plane mr-2"></i>Enviar nova senha
             </button>
         </div>
     </div>
@@ -310,6 +310,7 @@ document.addEventListener('DOMContentLoaded', function () {
     forgotPasswordLink.addEventListener('click', function (e) {
         e.preventDefault();
         forgotPasswordModal.style.display = 'flex';
+        document.getElementById('recoveryEmail').focus();
     });
 
     cancelRecoveryButton.addEventListener('click', function () {
@@ -325,26 +326,54 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    sendRecoveryButton.addEventListener('click', function () {
-        const email = document.getElementById('recoveryEmail').value;
+    sendRecoveryButton.addEventListener('click', async function () {
+        const emailInput = document.getElementById('recoveryEmail');
+        const email = emailInput.value.trim();
         const errorDiv = document.getElementById('recoveryError');
         const successDiv = document.getElementById('recoverySuccess');
+        const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
 
         errorDiv.textContent = '';
         successDiv.textContent = '';
+        errorDiv.classList.remove('show');
+        successDiv.classList.remove('show');
 
         if (!email) {
             errorDiv.textContent = 'Por favor, digite seu e-mail ou usuário.';
+            errorDiv.classList.add('show');
+            emailInput.focus();
             return;
         }
 
-        // TODO: Implementar recuperação de senha
-        successDiv.textContent = 'Instruções enviadas para o seu e-mail!';
-        setTimeout(() => {
-            forgotPasswordModal.style.display = 'none';
-            document.getElementById('recoveryEmail').value = '';
-            successDiv.textContent = '';
-        }, 2000);
+        sendRecoveryButton.disabled = true;
+        sendRecoveryButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...';
+
+        try {
+            const response = await fetch('/auth/redefinir-senha', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({ identifier: email })
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Não foi possível solicitar a redefinição.');
+            }
+
+            successDiv.textContent = result.message;
+            successDiv.classList.add('show');
+            emailInput.value = '';
+        } catch (error) {
+            errorDiv.textContent = error.message || 'Erro ao solicitar redefinição de senha.';
+            errorDiv.classList.add('show');
+        } finally {
+            sendRecoveryButton.disabled = false;
+            sendRecoveryButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Enviar nova senha';
+        }
     });
 
     // Loading state no botão de login

@@ -12,6 +12,14 @@ return [
         // Onboarding
         'welcome' => 'Boas-vindas',
         'welcome_description' => 'Mensagem enviada ao cadastrar um novo cliente',
+        'welcome_desc' => 'Mensagem enviada ao cadastrar um novo cliente',
+
+        'cliente_nova_senha' => 'Redefinição de senha do cliente',
+        'cliente_nova_senha_desc' => 'Enviada ao cliente com uma nova senha de acesso',
+        'cliente_nova_senha_link_desc' => 'Enviada ao cliente com link seguro para redefinir a senha',
+
+        'funcionario_nova_senha' => 'Redefinição de senha do funcionário',
+        'funcionario_nova_senha_desc' => 'Enviada ao funcionário com uma nova senha segura de acesso ao painel',
 
         // Locação
         'rental_confirmation' => 'Confirmação de Locação',

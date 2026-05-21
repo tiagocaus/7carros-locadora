@@ -86,6 +86,7 @@ $router->get('/', function ($request) {
 $router->group(['middleware' => 'guest'], function ($router) {
     $router->get('/login', [AuthController::class, 'showLogin']);
     $router->post('/login', [AuthController::class, 'login'], ['csrf']);
+    $router->post('/auth/redefinir-senha', [AuthController::class, 'redefinirSenha'], ['csrf', 'rate_limit']);
 });
 
 // Rota de logout (requer autenticação, sem CSRF pois é ação que beneficia o usuário)

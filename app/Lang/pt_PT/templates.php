@@ -12,6 +12,14 @@ return [
         // Onboarding
         'welcome' => 'Boas-vindas',
         'welcome_description' => 'Mensagem enviada ao registar um novo cliente',
+        'welcome_desc' => 'Mensagem enviada ao registar um novo cliente',
+
+        'cliente_nova_senha' => 'Redefinição de palavra-passe do cliente',
+        'cliente_nova_senha_desc' => 'Enviada ao cliente com uma nova palavra-passe de acesso',
+        'cliente_nova_senha_link_desc' => 'Enviada ao cliente com uma ligação segura para redefinir a palavra-passe',
+
+        'funcionario_nova_senha' => 'Redefinição de palavra-passe do funcionário',
+        'funcionario_nova_senha_desc' => 'Enviada ao funcionário com uma nova palavra-passe segura de acesso ao painel',
 
         // Aluguer
         'rental_confirmation' => 'Confirmação de Aluguer',

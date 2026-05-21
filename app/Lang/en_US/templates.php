@@ -12,6 +12,14 @@ return [
         // Onboarding
         'welcome' => 'Welcome',
         'welcome_description' => 'Message sent when a new customer is registered',
+        'welcome_desc' => 'Message sent when a new customer is registered',
+
+        'cliente_nova_senha' => 'Customer password reset',
+        'cliente_nova_senha_desc' => 'Sent to the customer with a new access password',
+        'cliente_nova_senha_link_desc' => 'Sent to the customer with a secure password reset link',
+
+        'funcionario_nova_senha' => 'Employee password reset',
+        'funcionario_nova_senha_desc' => 'Sent to the employee with a new secure panel access password',
 
         // Rental
         'rental_confirmation' => 'Rental Confirmation',

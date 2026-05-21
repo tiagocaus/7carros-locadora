@@ -291,6 +291,9 @@ return [
         'assinatura_empresa' => 'Assinatura da Empresa',
         'logo_empresa' => 'Logótipo da Empresa',
         'contagem' => 'Contagem',
+        'reset_url' => 'Ligação de Redefinição de Palavra-passe',
+        'reset_expira_em' => 'Prazo de Expiração da Redefinição',
+        'nova_senha' => 'Nova Palavra-passe',
     ],
 
     // Descrições das variáveis (para tooltips no editor)
@@ -306,6 +309,9 @@ return [
         'outros.data_atual' => 'Data do momento do envio da mensagem',
         'outros.hora_atual' => 'Hora do momento do envio da mensagem',
         'outros.contagem' => 'Contador para uso em listas e iterações',
+        'outros.reset_url' => 'URL segura para redefinição de palavra-passe',
+        'outros.reset_expira_em' => 'Tempo restante até a ligação de redefinição expirar',
+        'outros.nova_senha' => 'Nova palavra-passe gerada para redefinição de acesso',
         'fatura.link_boleto' => 'URL para visualização/download da referência multibanco',
         'fatura.codigo_pix' => 'Código PIX copiar e colar para pagamento',
         'multa.orgao_autuador' => 'Nome da entidade responsável pela autuação',

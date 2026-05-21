@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Models\LoginAttempt;
+use App\Services\AuthPasswordResetService;
 use App\Views\Template;
 
 /**
@@ -85,6 +86,23 @@ class AuthController
     {
         Auth::logout();
         Response::redirectWithSuccess('/login', 'Você saiu com sucesso');
+    }
+
+    /**
+     * Solicita redefinição de senha do funcionário pelo login.
+     */
+    public function redefinirSenha(Request $request): void
+    {
+        $identifier = trim((string) $request->input('identifier', ''));
+
+        if ($identifier !== '') {
+            (new AuthPasswordResetService())->requestReset($identifier, $request->ip());
+        }
+
+        Response::json([
+            'success' => true,
+            'message' => 'Se o usuário existir e tiver e-mail cadastrado, enviaremos uma nova senha segura.',
+        ]);
     }
 
     /**

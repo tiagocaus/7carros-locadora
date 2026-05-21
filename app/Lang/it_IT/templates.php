@@ -12,6 +12,14 @@ return [
         // Onboarding
         'welcome' => 'Benvenuto',
         'welcome_description' => 'Messaggio inviato alla registrazione di un nuovo cliente',
+        'welcome_desc' => 'Messaggio inviato alla registrazione di un nuovo cliente',
+
+        'cliente_nova_senha' => 'Reimpostazione password cliente',
+        'cliente_nova_senha_desc' => 'Inviato al cliente con una nuova password di accesso',
+        'cliente_nova_senha_link_desc' => 'Inviato al cliente con un link sicuro per reimpostare la password',
+
+        'funcionario_nova_senha' => 'Reimpostazione password dipendente',
+        'funcionario_nova_senha_desc' => 'Inviato al dipendente con una nuova password sicura per accedere al pannello',
 
         // Noleggio
         'rental_confirmation' => 'Conferma Noleggio',

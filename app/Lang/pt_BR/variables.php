@@ -292,6 +292,9 @@ return [
         'assinatura_empresa' => 'Assinatura da Empresa',
         'logo_empresa' => 'Logo da Empresa',
         'contagem' => 'Contagem',
+        'reset_url' => 'Link de Redefinição de Senha',
+        'reset_expira_em' => 'Prazo de Expiração da Redefinição',
+        'nova_senha' => 'Nova Senha',
     ],
 
     // Descrições das variáveis (para tooltips no editor)
@@ -307,6 +310,9 @@ return [
         'outros.data_atual' => 'Data do momento do envio da mensagem',
         'outros.hora_atual' => 'Hora do momento do envio da mensagem',
         'outros.contagem' => 'Contador para uso em listas e iterações',
+        'outros.reset_url' => 'URL segura para redefinição de senha',
+        'outros.reset_expira_em' => 'Tempo restante para o link de redefinição expirar',
+        'outros.nova_senha' => 'Nova senha gerada para redefinição de acesso',
         'fatura.link_boleto' => 'URL para visualização/download do boleto',
         'fatura.codigo_pix' => 'Código PIX copia e cola para pagamento',
         'multa.orgao_autuador' => 'Nome do órgão responsável pela autuação',
