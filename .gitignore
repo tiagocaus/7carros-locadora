@@ -44,6 +44,11 @@ storage/certificates/*
 vendor/
 composer.lock
 
+# Assets vendor públicos necessários no deploy
+!public/assets/vendor/
+!public/assets/vendor/**
+public/assets/vendor/**/.DS_Store
+
 # PHP
 *.log
 php_errors.log
