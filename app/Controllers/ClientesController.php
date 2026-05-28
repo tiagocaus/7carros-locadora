@@ -306,6 +306,13 @@ class ClientesController
                 return $value !== '' && $value !== null;
             });
 
+            if ($tipoCliente === 'PJ') {
+                $dados['cnh_numero'] = null;
+                $dados['cnh_codigo_seguranca'] = null;
+                $dados['cnh_categoria'] = null;
+                $dados['cnh_validade'] = null;
+            }
+
             $clienteModel = new Cliente();
             $id = $clienteModel->criarComAuditoria($dados);
 
@@ -434,6 +441,14 @@ class ClientesController
             $dados = array_filter($dados, function($value) {
                 return $value !== null && $value !== '';
             });
+
+            $tipoEfetivo = $tipoCliente ?? ($clienteExistente['tipo'] ?? null);
+            if ($tipoEfetivo === 'PJ') {
+                $dados['cnh_numero'] = null;
+                $dados['cnh_codigo_seguranca'] = null;
+                $dados['cnh_categoria'] = null;
+                $dados['cnh_validade'] = null;
+            }
 
             $clienteModel->atualizarComAuditoria($id, $dados);
 

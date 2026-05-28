@@ -557,13 +557,15 @@ class Cliente extends Model
 
     /**
      * Conta clientes com CNH vencida.
-     * Ignora clientes marcados como Inativos (situacao = 'I').
+     * Ignora empresas/PJ, datas zeradas e clientes inativos.
      */
     public function contarCnhVencidas(): int
     {
         return $this->qb
             ->table('clientes')
             ->whereNotNull('cnh_validade')
+            ->whereRaw("(tipo IS NULL OR tipo <> 'PJ')")
+            ->whereRaw("cnh_validade <> '0000-00-00'")
             ->whereRaw('cnh_validade < CURDATE()')
             ->whereRaw("(situacao IS NULL OR situacao <> 'I')")
             ->count();
@@ -571,7 +573,7 @@ class Cliente extends Model
 
     /**
      * Lista clientes com CNH vencida para a tela de notificacoes.
-     * Ignora clientes marcados como Inativos (situacao = 'I').
+     * Ignora empresas/PJ, datas zeradas e clientes inativos.
      */
     public function listarCnhVencidasParaNotificacoes(int $limit = 25, int $offset = 0): array
     {
@@ -579,6 +581,8 @@ class Cliente extends Model
             ->table('clientes')
             ->select(['id', 'nome_rsocial', 'cpf_cnpj', 'cnh_numero', 'cnh_categoria', 'cnh_validade'])
             ->whereNotNull('cnh_validade')
+            ->whereRaw("(tipo IS NULL OR tipo <> 'PJ')")
+            ->whereRaw("cnh_validade <> '0000-00-00'")
             ->whereRaw('cnh_validade < CURDATE()')
             ->whereRaw("(situacao IS NULL OR situacao <> 'I')")
             ->orderBy('cnh_validade', 'ASC')
