@@ -385,6 +385,14 @@ class DocumentosController
 
             // Verificar se pertence ao tenant
             $chave = Auth::chave();
+            if ($documento['chave'] === '0') {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Documento padrao do sistema nao pode ser excluido'
+                ], 403);
+                return;
+            }
+
             if ($documento['chave'] !== $chave) {
                 Response::json([
                     'success' => false,

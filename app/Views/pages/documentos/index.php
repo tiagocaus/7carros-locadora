@@ -190,6 +190,10 @@
             const tipoInfo = tipoLabels[tipo] || tipoLabels[0];
             const status = parseInt(doc.status) || 0;
             const updatedAt = doc.updated_at ? formatarData(doc.updated_at) : '-';
+            const isGlobal = doc.chave === '0';
+            const deleteButton = isGlobal
+                ? ''
+                : `<button title="${i18n.actionDelete}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${doc.id}" data-name="${tituloEscapado}"><i class="fas fa-trash"></i></button>`;
 
             // Badge de tipo
             const tipoBadge = `<span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${tipoInfo.class}">${tipoInfo.text}</span>`;
@@ -209,7 +213,7 @@
                     <td class="table-cell hidden md:table-cell text-slate-500 text-sm">${updatedAt}</td>
                     <td class="table-cell px-2 w-32 text-right">
                         <button title="${i18n.actionEdit}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${doc.id}"><i class="fas fa-edit"></i></button>
-                        <button title="${i18n.actionDelete}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${doc.id}" data-name="${tituloEscapado}"><i class="fas fa-trash"></i></button>
+                        ${deleteButton}
                     </td>
                 </tr>
             `;

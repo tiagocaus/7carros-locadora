@@ -250,6 +250,10 @@ class Documento extends Model
             throw new \InvalidArgumentException('Documento não encontrado');
         }
 
+        if (($documento['chave'] ?? '') === '0') {
+            throw new \InvalidArgumentException('Documento padrão do sistema não pode ser excluído');
+        }
+
         return $this->qb
             ->table('documentos')
             ->where('id', '=', $id)

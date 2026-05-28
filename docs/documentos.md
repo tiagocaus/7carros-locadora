@@ -3,6 +3,7 @@
 Modelos customizáveis de documentos por tenant — usados como PDF anexo em contratos, locações e multas. Cada modelo tem título, conteúdo HTML rico, tipo (qual fluxo usa) e status (ativo/inativo).
 
 Modelos padrão do sistema usam `chave = '0'` e aparecem junto com os documentos do tenant. Ao editar um modelo padrão, o sistema cria uma cópia com a `chave` do tenant e preserva o original global.
+Modelos padrão do sistema não podem ser excluídos por usuários; a interface oculta o botão de exclusão e o backend bloqueia a tentativa por API.
 
 ## Tabela `documentos`
 
@@ -96,6 +97,13 @@ Variável especial para contratos com múltiplos veículos:
 | `{{contrato.veiculos_anexo}}` | Tabela HTML completa para anexo contratual, com identificação do veículo, fornecedor/investidor, plano, valores, seguros, odômetro e combustível/carga de saída |
 
 O modelo padrão global de contrato usa `{{contrato.veiculos_anexo}}` em vez de `{{contrato.veiculos_tabela}}`, porque o anexo é mais completo para contratos com múltiplos veículos e veículos de terceiros/investidores.
+
+Modelos globais padrão criados por migration:
+
+| Título | Tipo |
+|---|---|
+| `Contrato de Locacao de Veiculo(s) - Padrao do Sistema` | `1` Contrato |
+| `Termo de Locacao de Veiculo - Padrao do Sistema` | `2` Locação |
 
 Para **layout** do PDF tipo documento (cabeçalho/rodapé HTML e margens do corpo), ver [Geração de PDF](./pdf.md) (secção *Cabeçalhos e rodapés HTML*).
 
