@@ -23,6 +23,7 @@ use App\Helpers\FilialHelper;
 use App\Helpers\PdfHelper;
 use App\Models\Documento;
 use App\Models\Cliente;
+use App\Models\Fornecedor;
 use App\Models\Checklist;
 use App\Models\ChecklistModelo;
 use App\Config\Planos;
@@ -1994,6 +1995,8 @@ class ContratosController
             $clienteData = $clienteModel->buscarPorId((int) $contrato['id_cliente']) ?? [];
         }
 
+        $fornecedorData = $this->resolverFornecedorDocumento($veiculo);
+
         return [
             'cliente' => [
                 'nome' => $clienteData['nome_rsocial'] ?? $contrato['cliente_nome'] ?? '',
@@ -2096,6 +2099,55 @@ class ContratosController
                 'veiculo_ano' => $veiculo['veiculo_ano'] ?? $veiculo['ano'] ?? '',
                 'veiculo_cor' => $veiculo['veiculo_cor'] ?? $veiculo['cor'] ?? '',
             ] : [],
+            'fornecedor' => $this->formatarFornecedorDocumento($fornecedorData),
+        ];
+    }
+
+    /**
+     * Resolve o fornecedor do veiculo usado na impressao do documento.
+     */
+    private function resolverFornecedorDocumento(?array $veiculo): ?array
+    {
+        if (!$veiculo) {
+            return null;
+        }
+
+        $idFornecedor = (int) ($veiculo['id_fornecedor'] ?? 0);
+
+        if ($idFornecedor <= 0 && !empty($veiculo['id_veiculo'])) {
+            $veiculoCompleto = (new Veiculo())->buscarPorId((int) $veiculo['id_veiculo']);
+            $idFornecedor = (int) ($veiculoCompleto['id_fornecedor'] ?? 0);
+        }
+
+        if ($idFornecedor <= 0) {
+            return null;
+        }
+
+        return (new Fornecedor())->buscarPorId($idFornecedor);
+    }
+
+    /**
+     * Mapeia campos reais de fornecedores para as variaveis {{fornecedor.*}}.
+     */
+    private function formatarFornecedorDocumento(?array $fornecedor): array
+    {
+        if (!$fornecedor) {
+            return [];
+        }
+
+        return [
+            'nome' => $fornecedor['nome_rsocial'] ?? '',
+            'nome_fantasia' => $fornecedor['nome_fantasia'] ?? '',
+            'cpf_cnpj' => $fornecedor['cpf_cnpj'] ?? '',
+            'rg_ie' => $fornecedor['rg_ie'] ?? '',
+            'endereco' => $fornecedor['rua'] ?? '',
+            'numero' => $fornecedor['num'] ?? $fornecedor['numero'] ?? '',
+            'bairro' => $fornecedor['bairro'] ?? '',
+            'cidade' => $fornecedor['cidade'] ?? '',
+            'estado' => $fornecedor['estado'] ?? '',
+            'pais' => $fornecedor['pais'] ?? '',
+            'email' => $fornecedor['email'] ?? '',
+            'observacoes' => $fornecedor['obs'] ?? $fornecedor['observacoes'] ?? '',
         ];
     }
 
@@ -2198,6 +2250,11 @@ class ContratosController
         if ($idDocumento > 0 && $this->tipoIncluiDocumento($tipo)) {
             $documentoModel = new Documento();
             $documentoTexto = $documentoModel->buscarPorId($idDocumento);
+            if ($documentoTexto && !empty($documentoTexto['texto'])) {
+                $renderer = new TemplateRenderer();
+                $context = $this->buildDocumentoContext($contrato, $empresa, $veiculoAtivo);
+                $documentoTexto['texto'] = $renderer->render($documentoTexto['texto'], $context);
+            }
         }
 
         $checklistData = null;
