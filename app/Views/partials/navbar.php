@@ -348,7 +348,7 @@
                 <button id="btnPerfilUsuario" class="p-1 rounded-full hover:bg-[#3578a0] focus:outline-none hidden md:inline-flex" title="{{ t('menu.tooltips.user_profile') }}">
                     <i class="fas fa-user-circle text-2xl"></i>
                 </button>
-                <button class="p-2 rounded-full hover:bg-[#3578a0] focus:outline-none hidden md:inline-flex" title="{{ t('menu.tooltips.logout') }}">
+                <button id="btnLogoutUsuario" onclick="event.preventDefault(); document.getElementById('logout-form').submit();" class="p-2 rounded-full hover:bg-[#3578a0] focus:outline-none hidden md:inline-flex" title="{{ t('menu.tooltips.logout') }}">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
