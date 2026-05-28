@@ -644,7 +644,7 @@ class MultasController
                 // Sem isso, mPDF so aplica o header a partir da pagina 2.
                 $mpdf->SetHTMLHeader($headerHtml, 'O', true);
                 $mpdf->SetHTMLFooter($footerHtml, 'O');
-                $mpdf->WriteHTML($html);
+                PdfHelper::writeHtml($mpdf, $html);
                 $mpdf->Output($filename, 'I');
             } else {
                 PdfHelper::outputInline($html, $filename, $pdfOptions);
@@ -780,7 +780,7 @@ class MultasController
                 ]));
                 $mpdf->SetHTMLHeader($headerHtml, 'O', true);
                 $mpdf->SetHTMLFooter($footerHtml, 'O');
-                $mpdf->WriteHTML($html);
+                PdfHelper::writeHtml($mpdf, $html);
                 $pdfContent = $mpdf->Output('', 'S');
             } else {
                 $pdfContent = PdfHelper::generateAsString($html, $pdfOptionsEnvio);

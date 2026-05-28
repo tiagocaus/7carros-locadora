@@ -883,7 +883,7 @@ class PromissoriasController
                 'margin_bottom' => 5
             ]);
 
-            $mpdf->WriteHTML($html);
+            PdfHelper::writeHtml($mpdf, $html);
             $mpdf->Output('promissoria-' . $codigo . '.pdf', 'I');
             exit;
         } catch (\Exception $e) {
@@ -959,7 +959,7 @@ class PromissoriasController
                 'margin_bottom' => 5
             ]);
 
-            $mpdf->WriteHTML($html);
+            PdfHelper::writeHtml($mpdf, $html);
             $mpdf->Output('parcela-' . $codigo . '-' . $parcelaData['numero_parcela'] . '.pdf', 'I');
             exit;
         } catch (\Exception $e) {

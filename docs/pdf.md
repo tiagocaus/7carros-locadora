@@ -16,7 +16,7 @@ use App\Helpers\PdfHelper;
 
 // ✅ CORRETO - Usa PdfHelper
 $mpdf = PdfHelper::create();
-$mpdf->WriteHTML($html);
+PdfHelper::writeHtml($mpdf, $html);
 $mpdf->Output('documento.pdf', 'I');
 
 // ❌ ERRADO - Não use mPDF diretamente
@@ -95,7 +95,7 @@ include $viewPath;
 $html = ob_get_clean();
 
 // Agora o mPDF recebe o HTML corretamente
-$mpdf->WriteHTML($html);
+PdfHelper::writeHtml($mpdf, $html);
 ```
 
 ## Exemplo Completo
@@ -146,7 +146,7 @@ class DocumentosController
             ]);
 
             // 5. Gerar e enviar PDF
-            $mpdf->WriteHTML($html);
+            PdfHelper::writeHtml($mpdf, $html);
             $mpdf->Output('documento-' . $codigo . '.pdf', 'I');
             exit;
 
@@ -347,7 +347,7 @@ $mpdf = PdfHelper::create(array_merge($pdfOptions, [
 ]));
 $mpdf->SetHTMLHeader($headerHtml, 'O', true); // terceiro true = aplicar também na página 1
 $mpdf->SetHTMLFooter($footerHtml, 'O');
-$mpdf->WriteHTML($html);
+PdfHelper::writeHtml($mpdf, $html);
 ```
 
 Templates `documento.php` mantêm no `@page` apenas `margin-header` / `margin-footer` (extensões mPDF), **sem** duplicar `margin-top`/`margin-bottom` do corpo — evita duas fontes conflitantes.
@@ -410,6 +410,16 @@ O mPDF suporta um subconjunto de CSS. Limitações:
 - Use `float` e `table` para layouts
 - Algumas propriedades CSS3 não funcionam
 
+### Erro `pcre.backtrack_limit` ao gerar PDF
+
+**Sintoma:** mensagem `The HTML code size is larger than pcre.backtrack_limit 1000000` (comum em contratos/locações com documento personalizado grande).
+
+**Causa:** o HTML final (TinyMCE em `documentos.texto`, checklists extensos, CSS + fotos) excede o limite PCRE do PHP (~1 MB por chamada a `WriteHTML()`).
+
+**Solução:** usar sempre `PdfHelper::writeHtml($mpdf, $html)` em vez de `$mpdf->WriteHTML($html)` direto. O helper aumenta os limites PCRE e divide HTML grande em chunks nos fechamentos de tag. Os métodos `outputInline`, `generateAsString`, `outputDownload` e `saveToFile` já usam isso internamente.
+
+**Nota:** evite `$mpdf->WriteHTML()` direto em código novo — a watermark interna do helper é a única exceção (HTML minúsculo).
+
 ### Corpo do PDF sobrepõe cabeçalho ou rodapé HTML
 
 **Causa:** `margin_top` / `margin_bottom` do `PdfHelper::create()` menores que a altura real do HTML passado a `SetHTMLHeader` / `SetHTMLFooter`, ou dependência só de `@page` no CSS.
@@ -419,6 +429,7 @@ O mPDF suporta um subconjunto de CSS. Limitações:
 ## Checklist para Novos PDFs
 
 - [ ] **USAR** `PdfHelper::create()` (ou `outputInline`/`generateAsString`) em vez de `new Mpdf()`
+- [ ] **USAR** `PdfHelper::writeHtml($mpdf, $html)` para enviar HTML ao mPDF — nunca `$mpdf->WriteHTML()` direto
 - [ ] **NÃO** usar `Template::render()` — usar `ob_start()` + `include` + `ob_get_clean()`
 - [ ] **USAR** `PdfHelper::resolveImagePath($filename, $chave)` para qualquer imagem do tenant (logo, fotos, assinaturas) — nunca `FileHelper::url()` nem path montado na mão
 - [ ] Se usar **`SetHTMLHeader` / `SetHTMLFooter`**: definir `margin_top`/`margin_bottom` no `create()` compatíveis com a altura do header/footer (constantes `DOCUMENTO_*` quando for o fluxo de documento personalizado)

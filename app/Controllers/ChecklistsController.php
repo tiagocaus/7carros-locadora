@@ -210,7 +210,7 @@ class ChecklistsController
                 'margin_bottom' => 30
             ]);
 
-            $mpdf->WriteHTML($html);
+            PdfHelper::writeHtml($mpdf, $html);
             $mpdf->Output('checklist-' . ($checklist['codigo'] ?? $id) . '.pdf', 'I');
 
             $this->limparArquivosTemporarios();

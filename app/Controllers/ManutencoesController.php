@@ -689,7 +689,7 @@ class ManutencoesController
                 'margin_bottom' => 10,
             ]);
 
-            $mpdf->WriteHTML($html);
+            PdfHelper::writeHtml($mpdf, $html);
             $mpdf->Output('os-' . ($manutencao['os'] ?? $id) . '.pdf', 'I');
             exit;
         } catch (\Exception $e) {

@@ -1760,7 +1760,7 @@ class LocacoesController
                 // Sem isso, mPDF so aplica o header a partir da pagina 2.
                 $mpdf->SetHTMLHeader($headerHtml, 'O', true);
                 $mpdf->SetHTMLFooter($footerHtml, 'O');
-                $mpdf->WriteHTML($html);
+                PdfHelper::writeHtml($mpdf, $html);
                 $mpdf->Output('locacao-' . $locacao['codigo'] . '.pdf', 'I');
             } else {
                 if ($tipo === 'documento_checklist') {

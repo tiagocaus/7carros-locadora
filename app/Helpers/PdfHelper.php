@@ -16,7 +16,7 @@ use App\Helpers\FileHelper;
  * @example
  * // Uso básico
  * $mpdf = PdfHelper::create();
- * $mpdf->WriteHTML($html);
+ * PdfHelper::writeHtml($mpdf, $html);
  * $mpdf->Output('documento.pdf', 'I');
  *
  * @example
@@ -56,6 +56,12 @@ class PdfHelper
      * Chave de tradução para a watermark
      */
     private const WATERMARK_TRANSLATION_KEY = 'common.pdf.watermark';
+
+    /**
+     * Tamanho maximo (bytes) de cada chunk enviado ao WriteHTML do mPDF.
+     * Deve ficar abaixo do pcre.backtrack_limit padrao (1.000.000).
+     */
+    private const WRITE_HTML_CHUNK_SIZE = 500000;
 
     /**
      * Configurações padrão do mPDF
@@ -195,6 +201,80 @@ class PdfHelper
     }
 
     /**
+     * Escreve HTML no mPDF com protecao contra limite pcre.backtrack_limit.
+     *
+     * HTML grande (documentos TinyMCE, checklists extensos) excede o limite padrao
+     * do PHP e dispara MpdfException. Este metodo aumenta os limites PCRE e, se
+     * necessario, divide o HTML em chunks nos fechamentos de tag.
+     *
+     * @see https://mpdf.github.io/troubleshooting/known-issues.html
+     */
+    public static function writeHtml(Mpdf $mpdf, string $html): void
+    {
+        if (function_exists('ini_set')) {
+            @ini_set('pcre.backtrack_limit', '10000000');
+            @ini_set('pcre.recursion_limit', '10000000');
+        }
+
+        if (strlen($html) <= self::WRITE_HTML_CHUNK_SIZE) {
+            $mpdf->WriteHTML($html);
+            return;
+        }
+
+        foreach (self::splitHtmlChunks($html) as $chunk) {
+            $mpdf->WriteHTML($chunk);
+        }
+    }
+
+    /**
+     * Divide HTML em segmentos validos respeitando fechamentos de tag.
+     *
+     * @return list<string>
+     */
+    private static function splitHtmlChunks(string $html, int $maxLength = self::WRITE_HTML_CHUNK_SIZE): array
+    {
+        $chunks = [];
+        $offset = 0;
+        $length = strlen($html);
+
+        while ($offset < $length) {
+            $remaining = $length - $offset;
+            if ($remaining <= $maxLength) {
+                $chunks[] = substr($html, $offset);
+                break;
+            }
+
+            $segment = substr($html, $offset, $maxLength);
+            $cutAt = self::findSafeHtmlCutPosition($segment, $maxLength);
+            $chunks[] = substr($html, $offset, $cutAt);
+            $offset += $cutAt;
+        }
+
+        return $chunks;
+    }
+
+    /**
+     * Encontra ponto seguro para cortar HTML (ultimo fechamento de tag no segmento).
+     */
+    private static function findSafeHtmlCutPosition(string $segment, int $maxLength): int
+    {
+        $tagStart = strrpos($segment, '</');
+        if ($tagStart !== false) {
+            $tagEnd = strpos($segment, '>', $tagStart);
+            if ($tagEnd !== false) {
+                return $tagEnd + 1;
+            }
+        }
+
+        $genericTagEnd = strrpos($segment, '>');
+        if ($genericTagEnd !== false) {
+            return $genericTagEnd + 1;
+        }
+
+        return $maxLength;
+    }
+
+    /**
      * Cria PDF e retorna como string
      *
      * @param string $html Conteúdo HTML do PDF
@@ -204,7 +284,7 @@ class PdfHelper
     public static function generateAsString(string $html, array $options = []): string
     {
         $mpdf = self::create($options);
-        $mpdf->WriteHTML($html);
+        self::writeHtml($mpdf, $html);
         return $mpdf->Output('', 'S');
     }
 
@@ -218,7 +298,7 @@ class PdfHelper
     public static function outputInline(string $html, string $filename, array $options = []): void
     {
         $mpdf = self::create($options);
-        $mpdf->WriteHTML($html);
+        self::writeHtml($mpdf, $html);
         $mpdf->Output($filename, 'I');
     }
 
@@ -232,7 +312,7 @@ class PdfHelper
     public static function outputDownload(string $html, string $filename, array $options = []): void
     {
         $mpdf = self::create($options);
-        $mpdf->WriteHTML($html);
+        self::writeHtml($mpdf, $html);
         $mpdf->Output($filename, 'D');
     }
 
@@ -248,7 +328,7 @@ class PdfHelper
     {
         try {
             $mpdf = self::create($options);
-            $mpdf->WriteHTML($html);
+            self::writeHtml($mpdf, $html);
             $mpdf->Output($filepath, 'F');
             return true;
         } catch (\Exception $e) {
