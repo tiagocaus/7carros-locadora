@@ -28,7 +28,7 @@ class ThrottlingMiddleware
 
         $ipAddress = $request->ip();
         $userId = Auth::id();
-        $endpoint = $request->url();
+        $endpoint = $request->path();
 
         // Analisa fingerprint da requisição
         $analysis = RequestFingerprintService::analyzeRequest($ipAddress, $userId, $endpoint);
@@ -104,7 +104,7 @@ class ThrottlingMiddleware
         );
 
         // Responde
-        if ($request->isAjax() || str_starts_with($request->url(), '/api/')) {
+        if ($request->isAjax() || str_starts_with($request->path(), '/api/')) {
             Response::json([
                 'success' => false,
                 'message' => 'Comportamento suspeito detectado. Acesso temporariamente bloqueado.',

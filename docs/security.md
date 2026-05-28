@@ -156,11 +156,25 @@ const result = await API.post('/api/clientes', data);
 
 **Header esperado:** `X-CSRF-TOKEN`
 
+#### Padrao de Middlewares por Rota
+
+| Tipo de rota | Middlewares |
+|--------------|-------------|
+| API interna `GET /api/*` | `['api_csrf', 'rate_limit', 'throttle']` |
+| API interna mutavel `POST/PUT/DELETE /api/*` | `['api_csrf', 'rate_limit', 'throttle']` |
+| Acao HTML/form fora de `/api` | `['csrf', 'rate_limit']` |
+| Pagina autenticada `/pages/*` | `auth` herdado do grupo |
+| Webhook publico | autenticacao propria por assinatura/token + `rate_limit` |
+| Rota publica por codigo/token | `rate_limit` |
+
+`/api/session/refresh` eh excecao intencional: nao usa `api_csrf`, pois existe para renovar o token quando ele expira.
+
 #### Exceções
 
 | Rota | Middleware | Motivo |
 |------|------------|--------|
 | `POST /logout` | `['auth']` (sem csrf) | Ação que beneficia o usuário; funciona mesmo com token expirado |
+| `GET /api/session/refresh` | `['auth']` herdado | Renova token CSRF expirado |
 
 #### Tratamento de Token Expirado
 

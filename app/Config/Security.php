@@ -22,6 +22,7 @@ class Security
         'endpoints' => [
             '/api/clientes' => ['limit' => 30, 'window' => 60],
             '/api/funcionarios' => ['limit' => 30, 'window' => 60],
+            '/api/financeiro' => ['limit' => 120, 'window' => 60],
             '/api/veiculos' => ['limit' => 30, 'window' => 60],
             '/api/roles' => ['limit' => 20, 'window' => 60],
             '/webhook/whmcs' => ['limit' => 10, 'window' => 60],

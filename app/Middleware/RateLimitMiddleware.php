@@ -35,7 +35,7 @@ class RateLimitMiddleware
 
         $ipAddress = $request->ip();
         $userId = Auth::id();
-        $endpoint = $this->normalizeEndpoint($request->url());
+        $endpoint = $this->normalizeEndpoint($request->path());
         $method = $request->method();
 
         // Obtém limites para este endpoint/método
@@ -150,7 +150,7 @@ class RateLimitMiddleware
         header("X-RateLimit-Remaining: 0");
 
         // Resposta
-        if ($request->isAjax() || str_starts_with($request->url(), '/api/')) {
+        if ($request->isAjax() || str_starts_with($request->path(), '/api/')) {
             Response::json([
                 'success' => false,
                 'message' => "Muitas requisições. Aguarde {$retryAfter} segundos.",

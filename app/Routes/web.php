@@ -93,45 +93,45 @@ $router->group(['middleware' => 'guest'], function ($router) {
 $router->post('/logout', [AuthController::class, 'logout'], ['auth']);
 
 // Rota pública para servir arquivos via token (não requer autenticação)
-$router->get('/files/{token}', [FileController::class, 'serve']);
+$router->get('/files/{token}', [FileController::class, 'serve'], ['rate_limit']);
 
 // Rota pública para assinatura de contratos (não requer autenticação)
-$router->get('/assinar/{codigo}', [AssinaturaController::class, 'view']);
-$router->post('/assinar/{codigo}', [AssinaturaController::class, 'assinar']);
+$router->get('/assinar/{codigo}', [AssinaturaController::class, 'view'], ['rate_limit']);
+$router->post('/assinar/{codigo}', [AssinaturaController::class, 'assinar'], ['rate_limit']);
 
 // Rota pública para changelog na tela de login (não requer autenticação)
-$router->get('/api/public/changelog', [ChangelogController::class, 'publicIndex']);
+$router->get('/api/public/changelog', [ChangelogController::class, 'publicIndex'], ['rate_limit']);
 
 // Rotas públicas para pagamento (não requer autenticação)
-$router->get('/pagar/{codigo}', [PagamentoPublicoController::class, 'index']);
-$router->post('/pagar/{codigo}/processar', [PagamentoPublicoController::class, 'processar']);
-$router->get('/pagar/{codigo}/status', [PagamentoPublicoController::class, 'status']);
-$router->get('/pagar/{codigo}/gateway/{gatewayId}/capabilities', [PagamentoPublicoController::class, 'gatewayCapabilities']);
-$router->get('/pagar/{codigo}/cartoes', [PagamentoPublicoController::class, 'listarCartoes']);
-$router->post('/pagar/{codigo}/tokenizar', [PagamentoPublicoController::class, 'tokenizar']);
-$router->post('/pagar/{codigo}/salvar-cartao', [PagamentoPublicoController::class, 'salvarCartao']);
+$router->get('/pagar/{codigo}', [PagamentoPublicoController::class, 'index'], ['rate_limit']);
+$router->post('/pagar/{codigo}/processar', [PagamentoPublicoController::class, 'processar'], ['rate_limit']);
+$router->get('/pagar/{codigo}/status', [PagamentoPublicoController::class, 'status'], ['rate_limit']);
+$router->get('/pagar/{codigo}/gateway/{gatewayId}/capabilities', [PagamentoPublicoController::class, 'gatewayCapabilities'], ['rate_limit']);
+$router->get('/pagar/{codigo}/cartoes', [PagamentoPublicoController::class, 'listarCartoes'], ['rate_limit']);
+$router->post('/pagar/{codigo}/tokenizar', [PagamentoPublicoController::class, 'tokenizar'], ['rate_limit']);
+$router->post('/pagar/{codigo}/salvar-cartao', [PagamentoPublicoController::class, 'salvarCartao'], ['rate_limit']);
 
 // Rotas públicas para verificação (não requer autenticação)
-$router->get('/verificar/checklist/{codigo}', [ChecklistsController::class, 'verificarPublico']);
-$router->get('/verificar/contrato/{codigo}', [ContratosController::class, 'verificarPublico']);
-$router->get('/verificar/fatura/{token}', [FinanceiroController::class, 'verificarPublico']);
-$router->get('/verificar/multa/{token}', [MultasController::class, 'verificarPublico']);
+$router->get('/verificar/checklist/{codigo}', [ChecklistsController::class, 'verificarPublico'], ['rate_limit']);
+$router->get('/verificar/contrato/{codigo}', [ContratosController::class, 'verificarPublico'], ['rate_limit']);
+$router->get('/verificar/fatura/{token}', [FinanceiroController::class, 'verificarPublico'], ['rate_limit']);
+$router->get('/verificar/multa/{token}', [MultasController::class, 'verificarPublico'], ['rate_limit']);
 
 // Webhooks de gateways de pagamento (não requer autenticação, sem CSRF)
-$router->post('/webhook/asaas', [PagamentoPublicoController::class, 'webhookAsaas']);
-$router->post('/webhook/stripe', [PagamentoPublicoController::class, 'webhookStripe']);
-$router->post('/webhook/square', [PagamentoPublicoController::class, 'webhookSquare']);
-$router->post('/webhook/cora', [PagamentoPublicoController::class, 'webhookCora']);
-$router->post('/webhook/inter', [PagamentoPublicoController::class, 'webhookInter']);
-$router->post('/webhook/bradesco', [PagamentoPublicoController::class, 'webhookBradesco']);
-$router->post('/webhook/itau', [PagamentoPublicoController::class, 'webhookItau']);
-$router->post('/webhook/bancard', [PagamentoPublicoController::class, 'webhookBancard']);
-$router->post('/webhook/pagopar', [PagamentoPublicoController::class, 'webhookPagopar']);
+$router->post('/webhook/asaas', [PagamentoPublicoController::class, 'webhookAsaas'], ['rate_limit']);
+$router->post('/webhook/stripe', [PagamentoPublicoController::class, 'webhookStripe'], ['rate_limit']);
+$router->post('/webhook/square', [PagamentoPublicoController::class, 'webhookSquare'], ['rate_limit']);
+$router->post('/webhook/cora', [PagamentoPublicoController::class, 'webhookCora'], ['rate_limit']);
+$router->post('/webhook/inter', [PagamentoPublicoController::class, 'webhookInter'], ['rate_limit']);
+$router->post('/webhook/bradesco', [PagamentoPublicoController::class, 'webhookBradesco'], ['rate_limit']);
+$router->post('/webhook/itau', [PagamentoPublicoController::class, 'webhookItau'], ['rate_limit']);
+$router->post('/webhook/bancard', [PagamentoPublicoController::class, 'webhookBancard'], ['rate_limit']);
+$router->post('/webhook/pagopar', [PagamentoPublicoController::class, 'webhookPagopar'], ['rate_limit']);
 
 // Webhooks Multas Online (não requer autenticação, sem CSRF)
-$router->post('/webhook/multas-online/pix', [SerproWebhookController::class, 'webhookPix']);
-$router->post('/webhook/multas-online/stripe', [SerproWebhookController::class, 'webhookStripe']);
-$router->post('/webhook/multas-online/eventos', [SerproWebhookController::class, 'webhookEventos']);
+$router->post('/webhook/multas-online/pix', [SerproWebhookController::class, 'webhookPix'], ['rate_limit']);
+$router->post('/webhook/multas-online/stripe', [SerproWebhookController::class, 'webhookStripe'], ['rate_limit']);
+$router->post('/webhook/multas-online/eventos', [SerproWebhookController::class, 'webhookEventos'], ['rate_limit']);
 
 // Webhooks WHMCS - Provisionamento de tenants (autenticação via TENANT_ONBOARD_SECRET)
 $router->post('/webhook/whmcs/criar', [WhmcsController::class, 'criar'], ['whmcs_auth', 'rate_limit']);
@@ -223,15 +223,15 @@ $router->group(['middleware' => 'auth'], function ($router) {
 
     // API Arquivos de Clientes
     $router->get('/api/clientes/{id}/arquivos', [ClientesController::class, 'arquivos'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->post('/api/clientes/{id}/arquivos', [ClientesController::class, 'uploadArquivo'], ['csrf', 'rate_limit']);
-    $router->post('/api/clientes/{id}/arquivos/{arquivoId}/excluir', [ClientesController::class, 'excluirArquivo'], ['csrf', 'rate_limit']);
+    $router->post('/api/clientes/{id}/arquivos', [ClientesController::class, 'uploadArquivo'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/clientes/{id}/arquivos/{arquivoId}/excluir', [ClientesController::class, 'excluirArquivo'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API Cartões de Crédito de Clientes
     $router->get('/api/clientes/{id}/cartoes', [ClientesController::class, 'cartoes'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/clientes/{id}/gateways-cartao', [ClientesController::class, 'gatewaysCartao'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->post('/api/clientes/{id}/cartoes/tokenizar', [ClientesController::class, 'tokenizarCartao'], ['csrf', 'rate_limit']);
-    $router->post('/api/clientes/{id}/cartoes/{cartaoId}/desativar', [ClientesController::class, 'desativarCartao'], ['csrf', 'rate_limit']);
-    $router->post('/api/clientes/{id}/cartoes/{cartaoId}/padrao', [ClientesController::class, 'definirCartaoPadrao'], ['csrf', 'rate_limit']);
+    $router->post('/api/clientes/{id}/cartoes/tokenizar', [ClientesController::class, 'tokenizarCartao'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/clientes/{id}/cartoes/{cartaoId}/desativar', [ClientesController::class, 'desativarCartao'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/clientes/{id}/cartoes/{cartaoId}/padrao', [ClientesController::class, 'definirCartaoPadrao'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Clientes
     $router->post('/clientes/salvar', [ClientesController::class, 'store'], ['csrf', 'rate_limit']);
@@ -257,7 +257,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     });
 
     // API Perfil (com proteção CSRF)
-    $router->get('/api/perfil', [PerfilController::class, 'show'], ['api_csrf', 'rate_limit']);
+    $router->get('/api/perfil', [PerfilController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Perfil
     $router->post('/perfil/atualizar', [PerfilController::class, 'update'], ['csrf', 'rate_limit']);
@@ -323,9 +323,9 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/matrizes-filiais/{id}/excluir', [MatrizFilialController::class, 'destroy'], ['csrf', 'rate_limit']);
 
     // API Locale (Internacionalização)
-    $router->post('/api/locale/set', [LocaleController::class, 'set'], ['api_csrf']);
-    $router->get('/api/locale/current', [LocaleController::class, 'current'], ['api_csrf']);
-    $router->get('/api/locale/supported', [LocaleController::class, 'supported'], ['api_csrf']);
+    $router->post('/api/locale/set', [LocaleController::class, 'set'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/locale/current', [LocaleController::class, 'current'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/locale/supported', [LocaleController::class, 'supported'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Páginas iframe - Configurações Gerais
     $router->get('/pages/configuracoes/gerais', function ($request) {
@@ -353,8 +353,8 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/api/templates/{slug}', [MessageTemplateController::class, 'getTemplate'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Templates de Mensagem
-    $router->post('/api/templates/{slug}', [MessageTemplateController::class, 'saveTemplate'], ['csrf', 'rate_limit']);
-    $router->post('/api/templates/{slug}/restore', [MessageTemplateController::class, 'restoreDefault'], ['csrf', 'rate_limit']);
+    $router->post('/api/templates/{slug}', [MessageTemplateController::class, 'saveTemplate'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/templates/{slug}/restore', [MessageTemplateController::class, 'restoreDefault'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Páginas iframe - Logs (Auditoria)
     $router->get('/pages/logs', function ($request) {
@@ -465,11 +465,11 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/gateways-pagamento/{id}/atualizar', [GatewaysPagamentoController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/gateways-pagamento/{id}/excluir', [GatewaysPagamentoController::class, 'destroy'], ['csrf', 'rate_limit']);
     $router->post('/gateways-pagamento/{id}/status', [GatewaysPagamentoController::class, 'alterarStatus'], ['csrf', 'rate_limit']);
-    $router->post('/api/gateways-pagamento/{id}/testar', [GatewaysPagamentoController::class, 'testar'], ['csrf', 'rate_limit']);
+    $router->post('/api/gateways-pagamento/{id}/testar', [GatewaysPagamentoController::class, 'testar'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API Links de Pagamento
     $router->get('/api/pagamentos-links', [GatewaysPagamentoController::class, 'linksIndex'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->post('/api/pagamentos-links/gerar', [GatewaysPagamentoController::class, 'gerarLink'], ['csrf', 'rate_limit']);
+    $router->post('/api/pagamentos-links/gerar', [GatewaysPagamentoController::class, 'gerarLink'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Paginas iframe - Planos de Contas
     $router->get('/pages/planos-de-contas', [PlanosDeContasController::class, 'view']);
@@ -537,11 +537,11 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/checklists/{id}/excluir', [ChecklistsController::class, 'destroy'], ['csrf', 'rate_limit']);
 
     // API Checklist Novo - CRUD
-    $router->post('/api/checklists/criar', [ChecklistNovoController::class, 'criar'], ['csrf', 'rate_limit']);
-    $router->post('/api/checklists/{id}/questoes', [ChecklistNovoController::class, 'salvarQuestoes'], ['csrf', 'rate_limit']);
-    $router->post('/api/checklists/{id}/vistoria/upload', [ChecklistNovoController::class, 'uploadVistoria'], ['csrf', 'rate_limit']);
-    $router->post('/api/checklists/{id}/vistoria/{itemId}/excluir', [ChecklistNovoController::class, 'excluirVistoria'], ['csrf', 'rate_limit']);
-    $router->post('/api/checklists/{id}/assinar', [ChecklistNovoController::class, 'assinar'], ['csrf', 'rate_limit']);
+    $router->post('/api/checklists/criar', [ChecklistNovoController::class, 'criar'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/checklists/{id}/questoes', [ChecklistNovoController::class, 'salvarQuestoes'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/checklists/{id}/vistoria/upload', [ChecklistNovoController::class, 'uploadVistoria'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/checklists/{id}/vistoria/{itemId}/excluir', [ChecklistNovoController::class, 'excluirVistoria'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/checklists/{id}/assinar', [ChecklistNovoController::class, 'assinar'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/checklists/novo/{id}', [ChecklistNovoController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/checklists/buscar-locacoes', [ChecklistNovoController::class, 'buscarLocacoes'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/checklists/buscar-contratos', [ChecklistNovoController::class, 'buscarContratos'], ['api_csrf', 'rate_limit', 'throttle']);
@@ -568,7 +568,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
 
     // API Multas
     $router->get('/api/multas/{id}', [MultasController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->post('/api/multas/buscar-responsavel', [MultasController::class, 'buscarResponsavel'], ['api_csrf', 'rate_limit']);
+    $router->post('/api/multas/buscar-responsavel', [MultasController::class, 'buscarResponsavel'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Multas
     $router->post('/multas/salvar', [MultasController::class, 'store'], ['csrf', 'rate_limit']);
@@ -596,8 +596,8 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/multas-online/saldo/auto-recarga', [SerproSaldoController::class, 'atualizarAutoRecarga'], ['csrf', 'rate_limit']);
 
     // API Consultas Online
-    $router->post('/api/multas-online/consultar-infracoes', [SerproConsultaController::class, 'consultarInfracoes'], ['csrf', 'rate_limit']);
-    $router->post('/api/multas-online/consultar-lote', [SerproConsultaController::class, 'consultarLote'], ['csrf', 'rate_limit']);
+    $router->post('/api/multas-online/consultar-infracoes', [SerproConsultaController::class, 'consultarInfracoes'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/multas-online/consultar-lote', [SerproConsultaController::class, 'consultarLote'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/multas-online/pdf/{tipo}', [SerproConsultaController::class, 'downloadPdf'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API Configuracao Consultas
@@ -805,9 +805,9 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/api/promissorias/templates', [PromissoriaTemplateController::class, 'listAll'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/promissorias/templates/{slug}', [PromissoriaTemplateController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/promissorias/templates/{slug}/variables', [PromissoriaTemplateController::class, 'variables'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->post('/api/promissorias/templates/preview', [PromissoriaTemplateController::class, 'preview'], ['csrf', 'rate_limit']);
-    $router->post('/api/promissorias/templates/{slug}', [PromissoriaTemplateController::class, 'save'], ['csrf', 'rate_limit']);
-    $router->post('/api/promissorias/templates/{slug}/restore', [PromissoriaTemplateController::class, 'restore'], ['csrf', 'rate_limit']);
+    $router->post('/api/promissorias/templates/preview', [PromissoriaTemplateController::class, 'preview'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/promissorias/templates/{slug}', [PromissoriaTemplateController::class, 'save'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/promissorias/templates/{slug}/restore', [PromissoriaTemplateController::class, 'restore'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Paginas iframe - Fornecedores
     $router->get('/pages/fornecedores', [FornecedoresController::class, 'view']);
@@ -917,9 +917,9 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/api/changelog/{id}', [ChangelogController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Changelog (apenas admin)
-    $router->post('/api/changelog', [ChangelogController::class, 'store'], ['csrf', 'rate_limit']);
-    $router->post('/api/changelog/{id}/atualizar', [ChangelogController::class, 'update'], ['csrf', 'rate_limit']);
-    $router->post('/api/changelog/{id}/excluir', [ChangelogController::class, 'destroy'], ['csrf', 'rate_limit']);
+    $router->post('/api/changelog', [ChangelogController::class, 'store'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/changelog/{id}/atualizar', [ChangelogController::class, 'update'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/changelog/{id}/excluir', [ChangelogController::class, 'destroy'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Pagina iframe - Gravacoes de Tela
     $router->get('/pages/gravacoes', function ($request) {
@@ -929,9 +929,9 @@ $router->group(['middleware' => 'auth'], function ($router) {
 
     // API Gravacoes (com protecao anti-scraping e CSRF)
     $router->get('/api/gravacoes', [GravacoesController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->get('/api/gravacoes/{id}', [GravacoesController::class, 'show'], ['rate_limit']);
-    $router->post('/api/gravacoes', [GravacoesController::class, 'store'], ['csrf', 'rate_limit']);
-    $router->delete('/api/gravacoes/{id}', [GravacoesController::class, 'destroy'], ['csrf', 'rate_limit']);
+    $router->get('/api/gravacoes/{id}', [GravacoesController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/gravacoes', [GravacoesController::class, 'store'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->delete('/api/gravacoes/{id}', [GravacoesController::class, 'destroy'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Paginas iframe - Contratos
     $router->get('/pages/contratos', [ContratosController::class, 'view']);
@@ -949,8 +949,8 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/api/contratos', [ContratosController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/buscar-select', [ContratosController::class, 'buscarSelect'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/{id}/regularizacao-renovacao', [ContratosController::class, 'previewRegularizacaoRenovacao'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->post('/api/contratos/{id}/regularizar-renovacao', [ContratosController::class, 'regularizarRenovacao'], ['csrf', 'rate_limit']);
-    $router->post('/api/contratos/{id}/odometros', [ContratosController::class, 'registrarOdometro'], ['csrf', 'rate_limit']);
+    $router->post('/api/contratos/{id}/regularizar-renovacao', [ContratosController::class, 'regularizarRenovacao'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/odometros', [ContratosController::class, 'registrarOdometro'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/{id}', [ContratosController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Contratos
@@ -973,15 +973,15 @@ $router->group(['middleware' => 'auth'], function ($router) {
     // Financeiro do Contrato (parcelas)
     $router->get('/api/contratos/{id}/parcelas', [ContratosController::class, 'parcelas'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/opcoes-parcelamento/{id}', [ContratosController::class, 'opcoesParcelamento'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->post('/api/contratos/preview-parcelas', [ContratosController::class, 'previewParcelasStateless'], ['csrf', 'rate_limit']);
-    $router->post('/api/contratos/{id}/gerar-parcelas', [ContratosController::class, 'gerarParcelas'], ['csrf', 'rate_limit']);
-    $router->post('/api/contratos/{id}/parcela-avulsa', [ContratosController::class, 'parcelaAvulsa'], ['csrf', 'rate_limit']);
-    $router->post('/api/contratos/{id}/recalcular-parcelas', [ContratosController::class, 'recalcularParcelas'], ['csrf', 'rate_limit']);
+    $router->post('/api/contratos/preview-parcelas', [ContratosController::class, 'previewParcelasStateless'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/gerar-parcelas', [ContratosController::class, 'gerarParcelas'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/parcela-avulsa', [ContratosController::class, 'parcelaAvulsa'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/recalcular-parcelas', [ContratosController::class, 'recalcularParcelas'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Bloqueio (Authorization Hold) - Contratos
-    $router->post('/api/contratos/{id}/bloqueio/criar', [ContratosController::class, 'criarBloqueio'], ['csrf', 'rate_limit']);
-    $router->post('/api/contratos/{id}/bloqueio/capturar', [ContratosController::class, 'capturarBloqueio'], ['csrf', 'rate_limit']);
-    $router->post('/api/contratos/{id}/bloqueio/liberar', [ContratosController::class, 'liberarBloqueio'], ['csrf', 'rate_limit']);
+    $router->post('/api/contratos/{id}/bloqueio/criar', [ContratosController::class, 'criarBloqueio'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/bloqueio/capturar', [ContratosController::class, 'capturarBloqueio'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/bloqueio/liberar', [ContratosController::class, 'liberarBloqueio'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/{id}/bloqueio/status', [ContratosController::class, 'statusBloqueio'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Pagina iframe - Agenda (timeline Gantt)
@@ -1009,7 +1009,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
 
     // CRUD Locacoes
     $router->post('/locacoes/salvar', [LocacoesController::class, 'store'], ['csrf', 'rate_limit']);
-    $router->post('/api/locacoes/{id}/confirmar-reserva', [LocacoesController::class, 'confirmarReserva'], ['api_csrf', 'rate_limit']);
+    $router->post('/api/locacoes/{id}/confirmar-reserva', [LocacoesController::class, 'confirmarReserva'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/locacoes/{id}/atualizar', [LocacoesController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/locacoes/{id}/excluir', [LocacoesController::class, 'destroy'], ['csrf', 'rate_limit']);
 
@@ -1018,21 +1018,21 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/locacoes/{id}/enviar-link-assinatura', [LocacoesController::class, 'enviarLinkAssinatura'], ['csrf', 'rate_limit']);
 
     // Parcelas de Locacoes
-    $router->post('/api/locacoes/{id}/gerar-parcelas', [LocacoesController::class, 'gerarParcelas'], ['csrf', 'rate_limit']);
-    $router->post('/api/locacoes/{id}/parcelas', [LocacoesController::class, 'adicionarParcela'], ['csrf', 'rate_limit']);
-    $router->post('/api/locacoes/{id}/parcelas/{idParcela}/atualizar', [LocacoesController::class, 'atualizarParcela'], ['csrf', 'rate_limit']);
-    $router->post('/api/locacoes/{id}/parcelas/{idParcela}/excluir', [LocacoesController::class, 'removerParcela'], ['csrf', 'rate_limit']);
-    $router->post('/api/locacoes/{id}/parcelas/{idParcela}/marcar-pago', [LocacoesController::class, 'marcarParcelaPaga'], ['csrf', 'rate_limit']);
-    $router->post('/api/locacoes/{id}/parcelas/{idParcela}/estornar', [LocacoesController::class, 'estornarParcelaPagamento'], ['csrf', 'rate_limit']);
+    $router->post('/api/locacoes/{id}/gerar-parcelas', [LocacoesController::class, 'gerarParcelas'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/locacoes/{id}/parcelas', [LocacoesController::class, 'adicionarParcela'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/locacoes/{id}/parcelas/{idParcela}/atualizar', [LocacoesController::class, 'atualizarParcela'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/locacoes/{id}/parcelas/{idParcela}/excluir', [LocacoesController::class, 'removerParcela'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/locacoes/{id}/parcelas/{idParcela}/marcar-pago', [LocacoesController::class, 'marcarParcelaPaga'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/locacoes/{id}/parcelas/{idParcela}/estornar', [LocacoesController::class, 'estornarParcelaPagamento'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Bloqueio (Authorization Hold)
-    $router->post('/api/locacoes/{id}/bloqueio/criar', [LocacoesController::class, 'criarBloqueio'], ['csrf', 'rate_limit']);
-    $router->post('/api/locacoes/{id}/bloqueio/capturar', [LocacoesController::class, 'capturarBloqueio'], ['csrf', 'rate_limit']);
-    $router->post('/api/locacoes/{id}/bloqueio/liberar', [LocacoesController::class, 'liberarBloqueio'], ['csrf', 'rate_limit']);
+    $router->post('/api/locacoes/{id}/bloqueio/criar', [LocacoesController::class, 'criarBloqueio'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/locacoes/{id}/bloqueio/capturar', [LocacoesController::class, 'capturarBloqueio'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/locacoes/{id}/bloqueio/liberar', [LocacoesController::class, 'liberarBloqueio'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/locacoes/{id}/bloqueio/status', [LocacoesController::class, 'statusBloqueio'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Caucao (Deposito de Garantia)
-    $router->post('/api/locacoes/{id}/caucao/devolver', [LocacoesController::class, 'devolverCaucao'], ['csrf', 'rate_limit']);
+    $router->post('/api/locacoes/{id}/caucao/devolver', [LocacoesController::class, 'devolverCaucao'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Impressao Locacoes
     $router->get('/pages/locacoes/offcanvas-impressao', [LocacoesController::class, 'offcanvasImpressao']);
@@ -1121,8 +1121,8 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/api/documentos/variables', [DocumentosController::class, 'variables'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/documentos/buscar', [DocumentosController::class, 'buscar'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/documentos/{id}', [DocumentosController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->post('/api/documentos/preview', [DocumentosController::class, 'preview'], ['csrf', 'rate_limit']);
-    $router->post('/api/documentos/extrair-texto', [DocumentosController::class, 'extrairTexto'], ['csrf', 'rate_limit']);
+    $router->post('/api/documentos/preview', [DocumentosController::class, 'preview'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/documentos/extrair-texto', [DocumentosController::class, 'extrairTexto'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Documentos
     $router->post('/documentos/salvar', [DocumentosController::class, 'store'], ['csrf', 'rate_limit']);
@@ -1537,53 +1537,53 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/pages/website/ativar', [WebsiteController::class, 'ativar']);
 
     // API - Configuração
-    $router->get('/api/website/config', [WebsiteController::class, 'getConfig'], ['api_csrf', 'rate_limit']);
-    $router->post('/api/website/config', [WebsiteController::class, 'updateConfig'], ['csrf', 'rate_limit']);
+    $router->get('/api/website/config', [WebsiteController::class, 'getConfig'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/config', [WebsiteController::class, 'updateConfig'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Aparência
-    $router->get('/api/website/aparencia', [WebsiteController::class, 'getAparencia'], ['api_csrf', 'rate_limit']);
-    $router->post('/api/website/aparencia', [WebsiteController::class, 'updateAparencia'], ['csrf', 'rate_limit']);
-    $router->post('/api/website/aparencia/reset', [WebsiteController::class, 'resetAparencia'], ['csrf', 'rate_limit']);
+    $router->get('/api/website/aparencia', [WebsiteController::class, 'getAparencia'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/aparencia', [WebsiteController::class, 'updateAparencia'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/aparencia/reset', [WebsiteController::class, 'resetAparencia'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Conteúdos
-    $router->get('/api/website/conteudos/{pagina}', [WebsiteController::class, 'getConteudos'], ['api_csrf', 'rate_limit']);
-    $router->post('/api/website/conteudos/{pagina}', [WebsiteController::class, 'updateConteudos'], ['csrf', 'rate_limit']);
+    $router->get('/api/website/conteudos/{pagina}', [WebsiteController::class, 'getConteudos'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/conteudos/{pagina}', [WebsiteController::class, 'updateConteudos'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - SEO
-    $router->get('/api/website/seo/{pagina}', [WebsiteController::class, 'getSeo'], ['api_csrf', 'rate_limit']);
-    $router->post('/api/website/seo/{pagina}', [WebsiteController::class, 'updateSeo'], ['csrf', 'rate_limit']);
+    $router->get('/api/website/seo/{pagina}', [WebsiteController::class, 'getSeo'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/seo/{pagina}', [WebsiteController::class, 'updateSeo'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Integrações
-    $router->get('/api/website/integracoes', [WebsiteController::class, 'getIntegracoes'], ['api_csrf', 'rate_limit']);
-    $router->post('/api/website/integracoes', [WebsiteController::class, 'saveIntegracao'], ['csrf', 'rate_limit']);
-    $router->delete('/api/website/integracoes/{id}', [WebsiteController::class, 'deleteIntegracao'], ['csrf', 'rate_limit']);
+    $router->get('/api/website/integracoes', [WebsiteController::class, 'getIntegracoes'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/integracoes', [WebsiteController::class, 'saveIntegracao'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->delete('/api/website/integracoes/{id}', [WebsiteController::class, 'deleteIntegracao'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Banners
-    $router->get('/api/website/banners', [WebsiteController::class, 'getBanners'], ['api_csrf', 'rate_limit']);
-    $router->post('/api/website/banners', [WebsiteController::class, 'saveBanner'], ['csrf', 'rate_limit']);
-    $router->put('/api/website/banners/{id}', [WebsiteController::class, 'updateBanner'], ['csrf', 'rate_limit']);
-    $router->delete('/api/website/banners/{id}', [WebsiteController::class, 'deleteBanner'], ['csrf', 'rate_limit']);
-    $router->post('/api/website/banners/reordenar', [WebsiteController::class, 'reordenarBanners'], ['csrf', 'rate_limit']);
+    $router->get('/api/website/banners', [WebsiteController::class, 'getBanners'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/banners', [WebsiteController::class, 'saveBanner'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->put('/api/website/banners/{id}', [WebsiteController::class, 'updateBanner'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->delete('/api/website/banners/{id}', [WebsiteController::class, 'deleteBanner'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/banners/reordenar', [WebsiteController::class, 'reordenarBanners'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Links
-    $router->get('/api/website/links', [WebsiteController::class, 'getLinks'], ['api_csrf', 'rate_limit']);
-    $router->post('/api/website/links', [WebsiteController::class, 'saveLinks'], ['csrf', 'rate_limit']);
+    $router->get('/api/website/links', [WebsiteController::class, 'getLinks'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/links', [WebsiteController::class, 'saveLinks'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Idiomas
-    $router->get('/api/website/idiomas', [WebsiteController::class, 'getIdiomas'], ['api_csrf', 'rate_limit']);
-    $router->post('/api/website/idiomas', [WebsiteController::class, 'saveIdiomas'], ['csrf', 'rate_limit']);
+    $router->get('/api/website/idiomas', [WebsiteController::class, 'getIdiomas'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/idiomas', [WebsiteController::class, 'saveIdiomas'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Ativação
-    $router->post('/api/website/ativar', [WebsiteController::class, 'submitAtivacao'], ['csrf', 'rate_limit']);
-    $router->get('/api/website/verificar-dominio', [WebsiteController::class, 'verificarDominio'], ['api_csrf', 'rate_limit']);
+    $router->post('/api/website/ativar', [WebsiteController::class, 'submitAtivacao'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/website/verificar-dominio', [WebsiteController::class, 'verificarDominio'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Deploy
-    $router->post('/api/website/deploy', [WebsiteController::class, 'executarDeploy'], ['csrf', 'rate_limit']);
-    $router->get('/api/website/deploy/status', [WebsiteController::class, 'deployStatus'], ['api_csrf', 'rate_limit']);
-    $router->get('/api/website/deploy/log', [WebsiteController::class, 'deployLog'], ['api_csrf', 'rate_limit']);
-    $router->post('/api/website/preview', [WebsiteController::class, 'preview'], ['csrf', 'rate_limit']);
+    $router->post('/api/website/deploy', [WebsiteController::class, 'executarDeploy'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/website/deploy/status', [WebsiteController::class, 'deployStatus'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/website/deploy/log', [WebsiteController::class, 'deployLog'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/preview', [WebsiteController::class, 'preview'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Presets
-    $router->post('/api/website/presets', [WebsiteController::class, 'savePreset'], ['csrf', 'rate_limit']);
-    $router->delete('/api/website/presets/{id}', [WebsiteController::class, 'deletePreset'], ['csrf', 'rate_limit']);
+    $router->post('/api/website/presets', [WebsiteController::class, 'savePreset'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->delete('/api/website/presets/{id}', [WebsiteController::class, 'deletePreset'], ['api_csrf', 'rate_limit', 'throttle']);
 });
