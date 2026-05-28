@@ -14,6 +14,8 @@
 - Lançar despesas do "Sem Parar", no contrato e locação.precisamos de uma função nova, temos que poder lançar as despesas do SEM PARAR no contrato
 - Integração com TAG CRX
 - Estatistica de uso do peneu. Ligado com manutenção e manutenção preventiva.
+- Gerar fatura para seguradora.
+- Importar clientes e veículos por planilha
 
 ----
 ### A FAZER

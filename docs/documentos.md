@@ -2,6 +2,8 @@
 
 Modelos customizáveis de documentos por tenant — usados como PDF anexo em contratos, locações e multas. Cada modelo tem título, conteúdo HTML rico, tipo (qual fluxo usa) e status (ativo/inativo).
 
+Modelos padrão do sistema usam `chave = '0'` e aparecem junto com os documentos do tenant. Ao editar um modelo padrão, o sistema cria uma cópia com a `chave` do tenant e preserva o original global.
+
 ## Tabela `documentos`
 
 ```sql
@@ -55,8 +57,9 @@ Métodos principais:
 |---|---|
 | `buscarPorId(int $id)` | Busca completa de um modelo |
 | `listar(...)`, `listarPaginado(...)`, `contar(...)` | CRUD de listagem com filtros opcionais (`search`, `tipo`, `status`) |
-| `listarParaSelect($search, $tipo)` | Lista enxuta para popular `<select>` (apenas ativos) |
+| `listarParaSelect($search, $tipo)` | Lista enxuta para popular `<select>` (apenas ativos, incluindo globais `chave = '0'`) |
 | `criar($dados)`, `atualizar($id, $dados)`, `excluir($id)` | CRUD |
+| `criarCopiaTenant($documentoGlobal, $chave, $dados)` | Copia um modelo global para o tenant antes da edição |
 | `getNomeTipo(int $tipo): string` | Resolve label do tipo (pt_BR fixo, não i18n por enquanto) |
 
 ## Onde cada tipo é usado
@@ -67,7 +70,7 @@ LocacoesController::offcanvasImpressao         →  filtra documentos com tipo I
 MultasController::offcanvasImpressao           →  filtra documentos com tipo === 3
 ```
 
-A filtragem ocorre via `array_filter` sobre o resultado de `listarParaSelect()`. Se o tenant não tem nenhum modelo do tipo apropriado, o select aparece vazio com aviso.
+A filtragem ocorre via `array_filter` sobre o resultado de `listarParaSelect()`. Se o tenant não tem modelo próprio, modelos globais (`chave = '0'`) do tipo apropriado podem aparecer como padrão do sistema; se não houver tenant nem global aplicável, o select aparece vazio com aviso.
 
 ## Telas
 
@@ -85,6 +88,14 @@ A filtragem ocorre via `array_filter` sobre o resultado de `listarParaSelect()`.
 ## Variáveis dinâmicas (placeholders)
 
 O conteúdo do documento aceita placeholders `{{cliente.nome}}`, `{{empresa.cnpj}}`, etc. Nos três fluxos, antes do PDF o `App\I18n\TemplateRenderer` substitui os placeholders: contratos/locações montam o contexto nos respectivos controllers; multas usam `MultasController::buildDocumentoContextMulta()` em `imprimir` e em `enviarMulta`.
+
+Variável especial para contratos com múltiplos veículos:
+
+| Variável | Uso |
+|---|---|
+| `{{contrato.veiculos_anexo}}` | Tabela HTML completa para anexo contratual, com identificação do veículo, fornecedor/investidor, plano, valores, seguros, odômetro e combustível/carga de saída |
+
+O modelo padrão global de contrato usa `{{contrato.veiculos_anexo}}` em vez de `{{contrato.veiculos_tabela}}`, porque o anexo é mais completo para contratos com múltiplos veículos e veículos de terceiros/investidores.
 
 Para **layout** do PDF tipo documento (cabeçalho/rodapé HTML e margens do corpo), ver [Geração de PDF](./pdf.md) (secção *Cabeçalhos e rodapés HTML*).
 

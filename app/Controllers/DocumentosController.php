@@ -61,9 +61,9 @@ class DocumentosController
                 return;
             }
 
-            // Verificar se pertence ao tenant
+            // Modelos globais (chave=0) podem ser abertos para gerar copia customizada.
             $chave = Auth::chave();
-            if ($documento['chave'] !== $chave) {
+            if ($documento['chave'] !== $chave && $documento['chave'] !== '0') {
                 Response::redirect('/pages/documentos');
                 return;
             }
@@ -169,9 +169,9 @@ class DocumentosController
                 return;
             }
 
-            // Verificar se pertence ao tenant
+            // Verificar se pertence ao tenant ou se e modelo global do sistema
             $chave = Auth::chave();
-            if ($documento['chave'] !== $chave) {
+            if ($documento['chave'] !== $chave && $documento['chave'] !== '0') {
                 Response::json([
                     'success' => false,
                     'message' => 'Documento nao encontrado'
@@ -302,8 +302,27 @@ class DocumentosController
                 return;
             }
 
-            // Verificar se pertence ao tenant
             $chave = Auth::chave();
+            if ($documento['chave'] === '0') {
+                $dados = $request->all();
+                $novoId = $documentoModel->criarCopiaTenant($documento, $chave, $dados);
+
+                AuditLogService::registrar(
+                    ($_SESSION['user_name'] ?? 'Sistema') . ", criou copia customizada do documento padrao [{$documento['titulo']}]"
+                );
+
+                Response::json([
+                    'success' => true,
+                    'message' => 'Documento padrao copiado e salvo com sucesso',
+                    'data' => [
+                        'id' => $novoId,
+                        'copied_from_global' => true,
+                    ],
+                ]);
+                return;
+            }
+
+            // Verificar se pertence ao tenant
             if ($documento['chave'] !== $chave) {
                 Response::json([
                     'success' => false,

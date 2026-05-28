@@ -425,6 +425,12 @@ class TemplateVariables
                 'label_key' => 'variables.contrato.veiculos_tabela',
                 'example' => '<table style="width:100%; border-collapse:collapse; border:1px solid #ddd;"><thead><tr style="background:#f5f5f5;"><th style="padding:8px; border:1px solid #ddd; text-align:left;">Veículo</th><th style="padding:8px; border:1px solid #ddd; text-align:left;">Placa</th><th style="padding:8px; border:1px solid #ddd; text-align:left;">Plano</th><th style="padding:8px; border:1px solid #ddd; text-align:right;">Valor/Dia</th></tr></thead><tbody><tr><td style="padding:8px; border:1px solid #ddd;">Chevrolet Onix 2024</td><td style="padding:8px; border:1px solid #ddd;">ABC-1234</td><td style="padding:8px; border:1px solid #ddd;">Km Livre</td><td style="padding:8px; border:1px solid #ddd; text-align:right;">R$ 150,00</td></tr></tbody></table>'
             ],
+            'veiculos_anexo' => [
+                'key' => 'contrato.veiculos_anexo',
+                'type' => 'html',
+                'label_key' => 'variables.contrato.veiculos_anexo',
+                'example' => '<table style="width:100%; border-collapse:collapse; border:1px solid #ddd;"><thead><tr style="background:#f5f5f5;"><th style="padding:6px; border:1px solid #ddd;">Item</th><th style="padding:6px; border:1px solid #ddd;">Veículo</th><th style="padding:6px; border:1px solid #ddd;">Identificação</th><th style="padding:6px; border:1px solid #ddd;">Fornecedor/Investidor</th><th style="padding:6px; border:1px solid #ddd;">Condições</th><th style="padding:6px; border:1px solid #ddd;">Saída</th></tr></thead><tbody><tr><td style="padding:6px; border:1px solid #ddd;">1</td><td style="padding:6px; border:1px solid #ddd;">Chevrolet Onix 2024 - Prata<br>Grupo: Hatch Compacto</td><td style="padding:6px; border:1px solid #ddd;">Placa: ABC-1234<br>RENAVAM: 123456789<br>Chassi: 9BWZZZ377VT004251</td><td style="padding:6px; border:1px solid #ddd;">João Investidor<br>CPF/CNPJ: 123.456.789-00</td><td style="padding:6px; border:1px solid #ddd;">Km Livre<br>Valor: R$ 150,00/dia<br>Seguros: R$ 20,00/dia</td><td style="padding:6px; border:1px solid #ddd;">Data: 01/01/2026<br>Km: 10.000<br>Comb./Carga: Cheio</td></tr></tbody></table>'
+            ],
 
             // Taxas e Serviços
             'taxas' => [
@@ -1524,6 +1530,9 @@ class TemplateVariables
             case 'contrato.veiculos_tabela':
                 return self::buildContratoVeiculosTabela($context['contrato']['veiculos'] ?? [], $locale);
 
+            case 'contrato.veiculos_anexo':
+                return self::buildContratoVeiculosAnexo($context['contrato']['veiculos'] ?? [], $locale);
+
             case 'contrato.taxas':
                 return self::buildContratoTaxasTexto($context['contrato']['taxas'] ?? [], $locale);
 
@@ -1739,6 +1748,123 @@ class TemplateVariables
 
         $html .= '</tbody></table>';
         return $html;
+    }
+
+    /**
+     * Gera anexo juridico/operacional da lista de veiculos do contrato.
+     */
+    private static function buildContratoVeiculosAnexo(array $veiculos, string $locale): ?string
+    {
+        if (empty($veiculos)) {
+            return null;
+        }
+
+        $html = '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+        $html .= '<thead><tr style="background:#f5f5f5;">';
+        $html .= '<th style="border:1px solid #ddd;padding:6px;text-align:center;width:5%;">Item</th>';
+        $html .= '<th style="border:1px solid #ddd;padding:6px;text-align:left;width:20%;">Veiculo</th>';
+        $html .= '<th style="border:1px solid #ddd;padding:6px;text-align:left;width:20%;">Identificacao</th>';
+        $html .= '<th style="border:1px solid #ddd;padding:6px;text-align:left;width:18%;">Fornecedor/Investidor</th>';
+        $html .= '<th style="border:1px solid #ddd;padding:6px;text-align:left;width:22%;">Condicoes</th>';
+        $html .= '<th style="border:1px solid #ddd;padding:6px;text-align:left;width:15%;">Saida</th>';
+        $html .= '</tr></thead><tbody>';
+
+        $i = 1;
+        foreach ($veiculos as $v) {
+            $descricao = trim(implode(' ', array_filter([
+                $v['veiculo_marca'] ?? $v['marca'] ?? '',
+                $v['veiculo_modelo'] ?? $v['modelo'] ?? '',
+                $v['veiculo_ano'] ?? $v['ano'] ?? '',
+            ])));
+            $cor = $v['veiculo_cor'] ?? $v['cor'] ?? '';
+            $grupo = $v['grupo_nome'] ?? $v['grupo'] ?? '';
+
+            $veiculoInfo = self::htmlLines(array_filter([
+                $descricao ?: 'Veiculo nao informado',
+                $cor ? 'Cor: ' . $cor : '',
+                $grupo ? 'Grupo: ' . $grupo : '',
+            ]));
+
+            $identificacao = self::htmlLines(array_filter([
+                'Placa: ' . (($v['veiculo_placa'] ?? $v['placa'] ?? '') ?: '-'),
+                !empty($v['veiculo_renavam'] ?? $v['renavam'] ?? '') ? 'RENAVAM: ' . ($v['veiculo_renavam'] ?? $v['renavam']) : '',
+                !empty($v['veiculo_chassi'] ?? $v['chassi'] ?? '') ? 'Chassi: ' . ($v['veiculo_chassi'] ?? $v['chassi']) : '',
+            ]));
+
+            $fornecedorNome = $v['fornecedor_nome'] ?? $v['fornecedor']['nome'] ?? '';
+            $fornecedorDocumento = $v['fornecedor_cpf_cnpj'] ?? $v['fornecedor']['cpf_cnpj'] ?? '';
+            $fornecedorTipo = !empty($v['fornecedor_investidor']) ? 'Investidor' : 'Fornecedor';
+            $fornecedor = $fornecedorNome
+                ? self::htmlLines(array_filter([
+                    $fornecedorTipo . ': ' . $fornecedorNome,
+                    $fornecedorDocumento ? 'CPF/CNPJ: ' . $fornecedorDocumento : '',
+                ]))
+                : 'Proprio/nao informado';
+
+            $plano = $v['plano'] ?? 'KL';
+            $planoNome = match ($plano) {
+                'KL' => 'Km Livre',
+                'KMC' => 'Km Controlado',
+                'KP' => 'Km Pago',
+                default => (string) $plano,
+            };
+            $valorPlano = match ($plano) {
+                'KL' => $v['valor_plano_km_livre'] ?? 0,
+                'KMC' => $v['valor_plano_km_controlado'] ?? 0,
+                'KP' => $v['valor_plano_km_pago'] ?? 0,
+                default => 0,
+            };
+
+            $seguros = [];
+            if (!empty($v['seguro_carro'])) {
+                $seguros[] = 'Seguro veiculo: ' . self::formatCurrency((float) ($v['valor_seguro_carro'] ?? 0), $locale)
+                    . (!empty($v['cobertura_carro']) ? ' | Cobertura: ' . self::formatCurrency((float) $v['cobertura_carro'], $locale) : '');
+            }
+            if (!empty($v['seguro_terceiros'])) {
+                $seguros[] = 'Seguro terceiros: ' . self::formatCurrency((float) ($v['valor_seguro_terceiros'] ?? 0), $locale)
+                    . (!empty($v['cobertura_terceiros']) ? ' | Cobertura: ' . self::formatCurrency((float) $v['cobertura_terceiros'], $locale) : '');
+            }
+
+            $condicoes = self::htmlLines(array_filter(array_merge([
+                'Plano: ' . $planoNome,
+                'Valor: ' . self::formatCurrency((float) $valorPlano, $locale) . '/periodo',
+                !empty($v['km_franquia']) ? 'Franquia: ' . (int) $v['km_franquia'] . ' km' : '',
+                !empty($v['valor_km_excedente']) ? 'Km excedente: ' . self::formatCurrency((float) $v['valor_km_excedente'], $locale) : '',
+            ], $seguros)));
+
+            $saida = [];
+            if (!empty($v['data_saida'])) {
+                $saida[] = 'Data: ' . self::formatDate((string) $v['data_saida'], $locale)
+                    . (strtotime((string) $v['data_saida']) ? ' ' . date('H:i', strtotime((string) $v['data_saida'])) : '');
+            }
+            if (!empty($v['odometro_saida'])) {
+                $saida[] = 'Km: ' . number_format((float) $v['odometro_saida'], 0, '', '.');
+            }
+            if (array_key_exists('combustivel_saida', $v) && $v['combustivel_saida'] !== null && $v['combustivel_saida'] !== '') {
+                $saida[] = 'Comb./Carga: ' . self::getCombustivelNome($v['combustivel_saida']);
+            }
+
+            $html .= '<tr>';
+            $html .= '<td style="border:1px solid #ddd;padding:6px;text-align:center;vertical-align:top;">' . $i . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:6px;vertical-align:top;">' . $veiculoInfo . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:6px;vertical-align:top;">' . $identificacao . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:6px;vertical-align:top;">' . $fornecedor . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:6px;vertical-align:top;">' . $condicoes . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:6px;vertical-align:top;">' . ($saida ? self::htmlLines($saida) : '-') . '</td>';
+            $html .= '</tr>';
+            $i++;
+        }
+
+        $html .= '</tbody></table>';
+        return $html;
+    }
+
+    private static function htmlLines(array $lines): string
+    {
+        return implode('<br>', array_map(
+            static fn($line) => htmlspecialchars((string) $line, ENT_QUOTES, 'UTF-8'),
+            array_values($lines)
+        ));
     }
 
     /**

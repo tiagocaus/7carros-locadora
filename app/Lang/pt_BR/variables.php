@@ -111,6 +111,7 @@ return [
         // Veículos do Contrato
         'veiculos' => 'Lista de Veículos',
         'veiculos_tabela' => 'Tabela de Veículos',
+        'veiculos_anexo' => 'Anexo de Veículos',
 
         // Taxas e Serviços
         'taxas' => 'Lista de Taxas e Serviços',
@@ -322,6 +323,7 @@ return [
         'contrato.filial_endereco' => 'Endereço completo da filial de retirada',
         'contrato.veiculos' => 'Lista formatada com detalhes de todos os veículos do contrato',
         'contrato.veiculos_tabela' => 'Tabela HTML com veículos (ideal para impressão)',
+        'contrato.veiculos_anexo' => 'Anexo HTML completo com identificação, fornecedor, plano e dados de saída dos veículos',
         'contrato.taxas' => 'Lista formatada de taxas e serviços adicionais',
         'contrato.taxas_tabela' => 'Tabela HTML com taxas e serviços (ideal para impressão)',
         'contrato.parcelas' => 'Lista formatada de parcelas do financeiro',

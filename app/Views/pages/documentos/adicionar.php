@@ -387,8 +387,8 @@
                     }, '*');
                 }
 
-                // Se era novo documento, redirecionar para edicao
-                if (!documentoId && result.data && result.data.id) {
+                // Se era novo documento ou copia de modelo padrao, redirecionar para edicao
+                if (result.data && result.data.id && (!documentoId || result.data.copied_from_global)) {
                     navegarPara('/pages/documentos/' + result.data.id + '/editar');
                 }
             } else {

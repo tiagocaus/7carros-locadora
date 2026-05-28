@@ -49,7 +49,7 @@ class Documento extends Model
     }
 
     /**
-     * Lista todos os documentos do tenant
+     * Lista todos os documentos do tenant, incluindo modelos globais do sistema.
      *
      * @param int|null $tipo Filtrar por tipo (opcional)
      * @return array Lista de documentos
@@ -58,17 +58,23 @@ class Documento extends Model
     {
         $query = $this->qb
             ->table('documentos')
-            ->select(['id', 'titulo', 'tipo', 'status', 'created_at', 'updated_at']);
+            ->withGlobals()
+            ->select(['id', 'chave', 'titulo', 'tipo', 'status', 'created_at', 'updated_at']);
 
         if ($tipo !== null) {
             $query->where('tipo', '=', $tipo);
         }
 
-        return $query->orderBy('titulo', 'ASC')->get();
+        return $this->preferTenantRows(
+            $query
+                ->orderByRaw("CASE WHEN chave = '0' THEN 1 ELSE 0 END")
+                ->orderBy('titulo', 'ASC')
+                ->get()
+        );
     }
 
     /**
-     * Lista documentos com paginacao e busca
+     * Lista documentos com paginacao e busca, incluindo modelos globais do sistema.
      *
      * @param int $page Pagina atual
      * @param int $perPage Registros por pagina
@@ -81,7 +87,8 @@ class Documento extends Model
     {
         $query = $this->qb
             ->table('documentos')
-            ->select(['id', 'titulo', 'tipo', 'status', 'created_at', 'updated_at']);
+            ->withGlobals()
+            ->select(['id', 'chave', 'titulo', 'tipo', 'status', 'created_at', 'updated_at']);
 
         if (!empty($search)) {
             $searchTerm = '%' . $search . '%';
@@ -96,14 +103,17 @@ class Documento extends Model
             $query->where('status', '=', $status);
         }
 
-        return $query
+        $rows = $query
+            ->orderByRaw("CASE WHEN chave = '0' THEN 1 ELSE 0 END")
             ->orderBy('titulo', 'ASC')
-            ->paginate($page, $perPage)
             ->get();
+
+        $rows = $this->preferTenantRows($rows);
+        return array_slice($rows, ($page - 1) * $perPage, $perPage);
     }
 
     /**
-     * Conta o total de documentos do tenant
+     * Conta o total de documentos do tenant, incluindo modelos globais do sistema.
      *
      * @param string $search Termo de busca (opcional)
      * @param int|null $tipo Filtrar por tipo (opcional)
@@ -113,7 +123,9 @@ class Documento extends Model
     public function contar(string $search = '', ?int $tipo = null, ?int $status = null): int
     {
         $query = $this->qb
-            ->table('documentos');
+            ->table('documentos')
+            ->withGlobals()
+            ->select(['id', 'chave', 'titulo', 'tipo']);
 
         if (!empty($search)) {
             $searchTerm = '%' . $search . '%';
@@ -128,7 +140,7 @@ class Documento extends Model
             $query->where('status', '=', $status);
         }
 
-        return $query->count();
+        return count($this->preferTenantRows($query->get()));
     }
 
     /**
@@ -141,6 +153,7 @@ class Documento extends Model
     {
         return $this->qb
             ->table('documentos')
+            ->withGlobals()
             ->where('id', '=', $id)
             ->first();
     }
@@ -162,6 +175,24 @@ class Documento extends Model
                 'tipo' => (int) ($dados['tipo'] ?? 0),
                 'status' => (int) ($dados['status'] ?? 1),
             ]);
+    }
+
+    /**
+     * Cria uma cópia tenant de um modelo global do sistema.
+     */
+    public function criarCopiaTenant(array $documentoGlobal, string $chave, array $dados = []): int
+    {
+        if (($documentoGlobal['chave'] ?? '') !== '0') {
+            throw new \InvalidArgumentException('Documento informado não é um modelo do sistema');
+        }
+
+        return $this->criar([
+            'chave' => $chave,
+            'titulo' => $dados['titulo'] ?? $documentoGlobal['titulo'],
+            'texto' => array_key_exists('texto', $dados) ? $dados['texto'] : ($documentoGlobal['texto'] ?? ''),
+            'tipo' => isset($dados['tipo']) ? (int) $dados['tipo'] : (int) ($documentoGlobal['tipo'] ?? 0),
+            'status' => isset($dados['status']) ? (int) $dados['status'] : (int) ($documentoGlobal['status'] ?? 1),
+        ]);
     }
 
     /**
@@ -236,7 +267,8 @@ class Documento extends Model
     {
         $query = $this->qb
             ->table('documentos')
-            ->select(['id', 'titulo', 'tipo'])
+            ->withGlobals()
+            ->select(['id', 'chave', 'titulo', 'tipo'])
             ->where('status', '=', 1);
 
         if (!empty($search)) {
@@ -248,7 +280,33 @@ class Documento extends Model
             $query->where('tipo', '=', $tipo);
         }
 
-        return $query->orderBy('titulo', 'ASC')->limit(50)->get();
+        return array_slice(
+            $this->preferTenantRows(
+                $query
+                    ->orderByRaw("CASE WHEN chave = '0' THEN 1 ELSE 0 END")
+                    ->orderBy('titulo', 'ASC')
+                    ->get()
+            ),
+            0,
+            50
+        );
+    }
+
+    /**
+     * Remove duplicidades entre modelos globais e customizados, priorizando tenant.
+     */
+    private function preferTenantRows(array $rows): array
+    {
+        $unique = [];
+
+        foreach ($rows as $row) {
+            $key = (int) ($row['tipo'] ?? 0) . '|' . strtolower(trim((string) ($row['titulo'] ?? '')));
+            if (!isset($unique[$key]) || (($unique[$key]['chave'] ?? '0') === '0' && ($row['chave'] ?? '0') !== '0')) {
+                $unique[$key] = $row;
+            }
+        }
+
+        return array_values($unique);
     }
 
     /**

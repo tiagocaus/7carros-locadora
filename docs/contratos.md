@@ -198,6 +198,7 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 ### Documento (documento.php)
 - Modelo customizado da entidade `documentos` (texto rico + placeholders); cabeçalho institucional e rodapé com assinaturas são aplicados pelo controller via `SetHTMLHeader`/`SetHTMLFooter` do mPDF; margens do corpo em `PdfHelper::DOCUMENTO_HTML_*`. Detalhes: [pdf.md](./pdf.md).
 - Corpo: cláusulas e dados mesclados pelo `TemplateRenderer`
+- Contratos com múltiplos veículos devem usar `{{contrato.veiculos_anexo}}` quando o objetivo for um documento contratual completo. Essa variável renderiza o Anexo I com identificação dos veículos, fornecedor/investidor quando houver, plano, valores, seguros e dados de saída. `{{contrato.veiculos_tabela}}` permanece disponível como tabela resumida.
 
 ### Fatura + Documento (fatura_documento.php)
 - Combina os dois em paginas separadas
