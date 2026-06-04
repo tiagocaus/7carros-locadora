@@ -127,11 +127,10 @@ class ChecklistModelosController
     public function buscar(Request $request): void
     {
         try {
-            $chave = Auth::chave();
             $search = $request->query('q', '');
 
             $model = new ChecklistModelo();
-            $modelos = $model->listarParaSelect($chave, $search);
+            $modelos = $model->listarParaSelect($search);
 
             // Formatar para chosen-select (text ao inves de nome)
             $resultado = array_map(fn($m) => [

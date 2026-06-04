@@ -32,7 +32,6 @@ body {
     filter: brightness(1.15);
 }
 
-/* Cores específicas para cada sistema */
 .top-bar-item-locadora {
     background-color: #3B82F6;
 }
@@ -53,10 +52,8 @@ body {
     background-color: #64748B;
 }
 
-
 .top-bar-item.active-system {
     background-color: #438eb9;
-    /* Cor azul */
     color: white;
     position: relative;
     z-index: 10;
@@ -77,7 +74,6 @@ body {
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
     border-top: 4px solid #438eb9;
-    /* Cor azul */
 }
 
 .main-nav {
@@ -1177,15 +1173,11 @@ body {
     .top-bar {
         flex-wrap: nowrap;
         overflow-x: auto;
-        /* Esconder scrollbars */
         scrollbar-width: none;
-        /* Firefox */
         -ms-overflow-style: none;
-        /* IE e Edge */
     }
 
     .top-bar::-webkit-scrollbar {
-        /* Chrome, Safari, Opera */
         display: none;
     }
 
