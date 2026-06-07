@@ -30,11 +30,28 @@ class ConcederAcessoController
         $this->permissionModel = new Permission();
     }
 
+    private function authorize(): bool
+    {
+        if (!Auth::can('configuracoes.editar')) {
+            Response::json([
+                'success' => false,
+                'message' => 'Sem permissao para gerenciar acesso de suporte'
+            ], 403);
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * Exibe a pagina de conceder acesso
      */
     public function view(): void
     {
+        if (!$this->authorize()) {
+            return;
+        }
+
         $html = Template::render('pages.conceder-acesso.index');
         Response::html($html);
     }
@@ -44,6 +61,10 @@ class ConcederAcessoController
      */
     public function status(): void
     {
+        if (!$this->authorize()) {
+            return;
+        }
+
         $usuarioSuporte = $this->funcionarioModel->buscarUsuarioSuporte();
 
         if ($usuarioSuporte) {
@@ -66,6 +87,10 @@ class ConcederAcessoController
      */
     public function criar(): void
     {
+        if (!$this->authorize()) {
+            return;
+        }
+
         $chave = Auth::chave();
 
         // Verifica se ja existe usuario de suporte
@@ -135,6 +160,10 @@ class ConcederAcessoController
      */
     public function excluir(): void
     {
+        if (!$this->authorize()) {
+            return;
+        }
+
         $chave = Auth::chave();
 
         $usuarioSuporte = $this->funcionarioModel->buscarUsuarioSuporte();

@@ -900,14 +900,14 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->delete('/feature-requests/{id}/seguir', [FeatureRequestsController::class, 'deixarDeSeguir'], ['csrf', 'rate_limit']);
 
     // Pagina iframe - Conceder Acesso (Suporte)
-    $router->get('/pages/conceder-acesso', [ConcederAcessoController::class, 'view']);
+    $router->get('/pages/conceder-acesso', [ConcederAcessoController::class, 'view'], ['permission:configuracoes.editar']);
 
     // API Conceder Acesso
-    $router->get('/api/conceder-acesso/status', [ConcederAcessoController::class, 'status'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/conceder-acesso/status', [ConcederAcessoController::class, 'status'], ['permission:configuracoes.editar', 'api_csrf', 'rate_limit', 'throttle']);
 
     // Acoes Conceder Acesso
-    $router->post('/conceder-acesso/criar', [ConcederAcessoController::class, 'criar'], ['csrf', 'rate_limit']);
-    $router->post('/conceder-acesso/excluir', [ConcederAcessoController::class, 'excluir'], ['csrf', 'rate_limit']);
+    $router->post('/conceder-acesso/criar', [ConcederAcessoController::class, 'criar'], ['permission:configuracoes.editar', 'csrf', 'rate_limit']);
+    $router->post('/conceder-acesso/excluir', [ConcederAcessoController::class, 'excluir'], ['permission:configuracoes.editar', 'csrf', 'rate_limit']);
 
     // Pagina iframe - Changelog
     $router->get('/pages/changelog', [ChangelogController::class, 'view']);

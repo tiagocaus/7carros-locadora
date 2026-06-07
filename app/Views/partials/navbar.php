@@ -27,7 +27,9 @@
                         <a href="#" onclick="openOrSwitchToTab('/pages/programa-indicacao', '<?= t('menu.sistema.referral_program') ?>', 'fas fa-users'); return false;">{{ t('menu.sistema.referral_program') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/feature-requests', '<?= t('menu.sistema.feature_request') ?>', 'fas fa-lightbulb'); return false;">{{ t('menu.sistema.feature_request') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/logs', '<?= t('menu.sistema.activity_logs') ?>', 'fas fa-history'); return false;">{{ t('menu.sistema.activity_logs') }}</a>
-                        <a href="#" onclick="openOrSwitchToTab('/pages/conceder-acesso', '<?= t('menu.sistema.grant_access') ?>', 'fas fa-user-shield'); return false;">{{ t('menu.sistema.grant_access') }}</a>
+                        <?php if (\App\Core\Auth::can('configuracoes.editar')): ?>
+                            <a href="#" onclick="openOrSwitchToTab('/pages/conceder-acesso', '<?= t('menu.sistema.grant_access') ?>', 'fas fa-user-shield'); return false;">{{ t('menu.sistema.grant_access') }}</a>
+                        <?php endif; ?>
                         <a href="#" onclick="openOrSwitchToTab('/pages/configuracoes/gerais', '<?= t('menu.sistema.settings') ?>', 'fas fa-cog'); return false;">{{ t('menu.sistema.settings') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/configuracoes/templates', '<?= t('menu.sistema.message_templates') ?>', 'fas fa-envelope'); return false;">{{ t('menu.sistema.message_templates') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/changelog', '<?= t('menu.sistema.changelog') ?>', 'fas fa-list-alt'); return false;">{{ t('menu.sistema.changelog') }}</a>
