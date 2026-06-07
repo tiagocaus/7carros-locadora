@@ -244,8 +244,7 @@ class PdfHelper
                 break;
             }
 
-            $segment = substr($html, $offset, $maxLength);
-            $cutAt = self::findSafeHtmlCutPosition($segment, $maxLength);
+            $cutAt = self::findSafeHtmlCutPosition($html, $offset, $maxLength);
             $chunks[] = substr($html, $offset, $cutAt);
             $offset += $cutAt;
         }
@@ -256,8 +255,19 @@ class PdfHelper
     /**
      * Encontra ponto seguro para cortar HTML (ultimo fechamento de tag no segmento).
      */
-    private static function findSafeHtmlCutPosition(string $segment, int $maxLength): int
+    private static function findSafeHtmlCutPosition(string $html, int $offset, int $maxLength): int
     {
+        $cutPosition = $offset + $maxLength;
+        if (self::isInsideHtmlTag($html, $cutPosition)) {
+            $tagEnd = strpos($html, '>', $cutPosition);
+            if ($tagEnd !== false) {
+                return $tagEnd + 1 - $offset;
+            }
+
+            return strlen($html) - $offset;
+        }
+
+        $segment = substr($html, $offset, $maxLength);
         $tagStart = strrpos($segment, '</');
         if ($tagStart !== false) {
             $tagEnd = strpos($segment, '>', $tagStart);
@@ -272,6 +282,21 @@ class PdfHelper
         }
 
         return $maxLength;
+    }
+
+    /**
+     * Verifica se uma posicao absoluta do HTML esta dentro de uma tag aberta.
+     */
+    private static function isInsideHtmlTag(string $html, int $position): bool
+    {
+        $before = substr($html, 0, $position);
+        $lastOpen = strrpos($before, '<');
+        if ($lastOpen === false) {
+            return false;
+        }
+
+        $lastClose = strrpos($before, '>');
+        return $lastClose === false || $lastOpen > $lastClose;
     }
 
     /**
