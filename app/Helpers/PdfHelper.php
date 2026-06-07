@@ -245,6 +245,10 @@ class PdfHelper
             }
 
             $cutAt = self::findSafeHtmlCutPosition($html, $offset, $maxLength);
+            if ($cutAt <= 0 || $cutAt > $maxLength) {
+                throw new \RuntimeException('Nao foi possivel dividir o HTML do PDF dentro do limite seguro.');
+            }
+
             $chunks[] = substr($html, $offset, $cutAt);
             $offset += $cutAt;
         }
@@ -258,16 +262,23 @@ class PdfHelper
     private static function findSafeHtmlCutPosition(string $html, int $offset, int $maxLength): int
     {
         $cutPosition = $offset + $maxLength;
+        $segment = substr($html, $offset, $maxLength);
+
         if (self::isInsideHtmlTag($html, $cutPosition)) {
-            $tagEnd = strpos($html, '>', $cutPosition);
-            if ($tagEnd !== false) {
-                return $tagEnd + 1 - $offset;
+            $lastOpen = strrpos($segment, '<');
+            $lastClose = strrpos($segment, '>');
+
+            if ($lastOpen !== false && ($lastClose === false || $lastOpen > $lastClose)) {
+                if ($lastOpen > 0) {
+                    return $lastOpen;
+                }
+
+                throw new \RuntimeException('HTML do PDF contem uma tag maior que o limite seguro de processamento.');
             }
 
-            return strlen($html) - $offset;
+            throw new \RuntimeException('HTML do PDF contem uma tag aberta antes do limite seguro de processamento.');
         }
 
-        $segment = substr($html, $offset, $maxLength);
         $tagStart = strrpos($segment, '</');
         if ($tagStart !== false) {
             $tagEnd = strpos($segment, '>', $tagStart);
