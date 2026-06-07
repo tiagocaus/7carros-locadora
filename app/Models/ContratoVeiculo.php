@@ -44,7 +44,7 @@ class ContratoVeiculo extends Model
                 'g.nome AS grupo_nome'
             ])
             ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
-            ->leftJoin('fornecedores', 'f', 'v.id_fornecedor', '=', 'f.id')
+            ->leftJoinRaw('fornecedores', 'f', 'v.id_fornecedor = f.id AND f.chave = cv.chave')
             ->leftJoin('grupos', 'g', 'cv.id_grupo', '=', 'g.id')
             ->where('cv.id_contrato', '=', $contratoId)
             ->orderBy('cv.data_saida', 'ASC')
@@ -81,7 +81,7 @@ class ContratoVeiculo extends Model
                 'g.nome AS grupo_nome'
             ])
             ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
-            ->leftJoin('fornecedores', 'f', 'v.id_fornecedor', '=', 'f.id')
+            ->leftJoinRaw('fornecedores', 'f', 'v.id_fornecedor = f.id AND f.chave = cv.chave')
             ->leftJoin('grupos', 'g', 'cv.id_grupo', '=', 'g.id')
             ->where('cv.id_contrato', '=', $contratoId)
             ->whereNull('cv.data_entrada')
@@ -118,7 +118,7 @@ class ContratoVeiculo extends Model
                 'g.nome AS grupo_nome'
             ])
             ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
-            ->leftJoin('fornecedores', 'f', 'v.id_fornecedor', '=', 'f.id')
+            ->leftJoinRaw('fornecedores', 'f', 'v.id_fornecedor = f.id AND f.chave = cv.chave')
             ->leftJoin('grupos', 'g', 'cv.id_grupo', '=', 'g.id')
             ->where('cv.id_contrato', '=', $contratoId)
             ->whereNull('cv.data_entrada')
@@ -153,7 +153,7 @@ class ContratoVeiculo extends Model
                 'g.nome AS grupo_nome'
             ])
             ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
-            ->leftJoin('fornecedores', 'f', 'v.id_fornecedor', '=', 'f.id')
+            ->leftJoinRaw('fornecedores', 'f', 'v.id_fornecedor = f.id AND f.chave = cv.chave')
             ->leftJoin('grupos', 'g', 'cv.id_grupo', '=', 'g.id')
             ->where('cv.id', '=', $id)
             ->first();
