@@ -166,7 +166,7 @@ class Router
                 $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
 
                 // Executa middlewares
-                if (!$this->runMiddlewares($route['middlewares'], $request)) {
+                if (!$this->runMiddlewares($route['middlewares'], $request, $route['path'])) {
                     return;
                 }
 
@@ -186,13 +186,17 @@ class Router
      * Suporta middlewares com parâmetros no formato: 'middleware:param1,param2'
      * Exemplo: 'permission:clientes.visualizar'
      */
-    private function runMiddlewares(array $middlewareNames, Request $request): bool
+    private function runMiddlewares(array $middlewareNames, Request $request, ?string $routePath = null): bool
     {
         foreach ($middlewareNames as $middlewareEntry) {
             // Separa nome do middleware e parâmetros
             $parts = explode(':', $middlewareEntry, 2);
             $name = $parts[0];
             $params = isset($parts[1]) ? explode(',', $parts[1]) : [];
+
+            if ($name === 'rate_limit' && empty($params) && $routePath !== null) {
+                $params[] = $routePath;
+            }
 
             if (!isset($this->middlewares[$name])) {
                 throw new \RuntimeException("Middleware '$name' não registrado");

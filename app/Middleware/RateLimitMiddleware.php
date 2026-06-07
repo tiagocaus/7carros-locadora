@@ -27,7 +27,7 @@ class RateLimitMiddleware
     /**
      * Executa o middleware
      */
-    public function handle(Request $request): bool
+    public function handle(Request $request, ?string $routePath = null): bool
     {
         if (!Security::RATE_LIMIT['enabled']) {
             return true;
@@ -35,7 +35,7 @@ class RateLimitMiddleware
 
         $ipAddress = $request->ip();
         $userId = Auth::id();
-        $endpoint = $this->normalizeEndpoint($request->path());
+        $endpoint = $this->normalizeEndpoint($routePath ?? $request->path());
         $method = $request->method();
 
         // Obtém limites para este endpoint/método
