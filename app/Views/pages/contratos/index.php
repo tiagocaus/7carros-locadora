@@ -90,6 +90,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             'btnPrint' => t('common.buttons.print'),
             'btnOdometer' => 'Registrar odômetro',
             'btnOdometerDisabled' => 'Disponível apenas para contratos ativos com veículo',
+            'btnOdometerNoPermission' => 'Sem permissão para registrar odômetro',
             'odometerTitle' => 'Registrar odômetro',
             'btnSignature' => t('modules.contratos.buttons.signature'),
             'btnEdit' => t('common.buttons.edit'),
@@ -113,6 +114,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         let searchTerm = '';
         let statusFilter = 'A';
         let searchTimeout = null;
+        const canRegistrarOdometro = <?= !empty($permissions['registrar_odometro']) ? 'true' : 'false' ?>;
 
         // Elementos
         const tbody = document.getElementById('contratosTableBody');
@@ -253,10 +255,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 tableRows += `
                 <tr class="border-b border-slate-200 hover:bg-slate-50">
                     <td class="table-cell px-2 text-center">
-                        ${c.status === 'A' && qtdVeiculos > 0 ? `
+                        ${canRegistrarOdometro && c.status === 'A' && qtdVeiculos > 0 ? `
                             <button title="${i18n.btnOdometer}" class="btn-icon text-cyan-600 hover:text-cyan-800 btn-odometro" data-id="${c.id}"><i class="fas fa-gauge-high"></i></button>
                         ` : `
-                            <button title="${i18n.btnOdometerDisabled}" class="btn-icon text-slate-300 cursor-not-allowed" disabled><i class="fas fa-gauge-high"></i></button>
+                            <button title="${canRegistrarOdometro ? i18n.btnOdometerDisabled : i18n.btnOdometerNoPermission}" class="btn-icon text-slate-300 cursor-not-allowed" disabled><i class="fas fa-gauge-high"></i></button>
                         `}
                     </td>
                     <td class="table-cell text-slate-500">${sequencia}</td>

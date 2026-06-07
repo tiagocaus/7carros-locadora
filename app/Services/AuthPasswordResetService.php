@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Classes\QueryBuilder;
 use App\Models\Model;
+use App\Models\FuncionarioPasswordReset;
 
 /**
  * Redefinicao de senha para funcionarios que acessam o painel.
@@ -32,9 +33,38 @@ class AuthPasswordResetService
             return;
         }
 
-        $novaSenha = $this->gerarSenhaSegura();
-        $hash = password_hash($novaSenha, PASSWORD_ARGON2ID);
+        $resetModel = new FuncionarioPasswordReset();
+        $tokenPlano = $resetModel->criar(
+            (int) $funcionario['id'],
+            (string) $funcionario['chave'],
+            $ipAddress
+        );
 
+        try {
+            $this->registrarLog($funcionario, $ipAddress, 'solicitada');
+            $this->enfileirarEmail($funcionario, $tokenPlano);
+        } catch (\Throwable $e) {
+            error_log('[AuthPasswordReset] Falha ao solicitar redefinicao de senha: ' . $e->getMessage());
+        }
+    }
+
+    public function resetWithToken(string $token, string $novaSenha, string $ipAddress): bool
+    {
+        $resetModel = new FuncionarioPasswordReset();
+        $reset = $resetModel->validar($token);
+        if (!$reset || strlen($novaSenha) < 8) {
+            return false;
+        }
+
+        $funcionario = $this->buscarFuncionarioPorId(
+            (int) $reset['id_funcionario'],
+            (string) $reset['chave']
+        );
+        if (!$this->podeRedefinir($funcionario)) {
+            return false;
+        }
+
+        $hash = password_hash($novaSenha, PASSWORD_ARGON2ID);
         $this->qb->beginTransaction();
 
         try {
@@ -42,6 +72,7 @@ class AuthPasswordResetService
                 ->table('funcionarios')
                 ->withoutChave()
                 ->where('id', '=', $funcionario['id'])
+                ->where('chave', '=', $funcionario['chave'])
                 ->update(['senha' => $hash]);
 
             $this->qb
@@ -50,13 +81,14 @@ class AuthPasswordResetService
                 ->where('usuario_id', '=', $funcionario['id'])
                 ->delete();
 
-            $this->registrarLog($funcionario, $ipAddress);
-            $this->enfileirarEmail($funcionario, $novaSenha);
-
+            $resetModel->marcarUsado((int) $reset['id']);
+            $this->registrarLog($funcionario, $ipAddress, 'concluida');
             $this->qb->commit();
+            return true;
         } catch (\Throwable $e) {
             $this->qb->rollback();
-            error_log('[AuthPasswordReset] Falha ao redefinir senha: ' . $e->getMessage());
+            error_log('[AuthPasswordReset] Falha ao aplicar nova senha: ' . $e->getMessage());
+            return false;
         }
     }
 
@@ -80,6 +112,27 @@ class AuthPasswordResetService
             ->first();
     }
 
+    private function buscarFuncionarioPorId(int $id, string $chave): ?array
+    {
+        return $this->qb
+            ->table('funcionarios')
+            ->withoutChave()
+            ->select([
+                'id',
+                'chave',
+                'id_matriz_filial',
+                'nome',
+                'email',
+                'usuario',
+                'status',
+                'funcao',
+                'ui_locale',
+            ])
+            ->where('id', '=', $id)
+            ->where('chave', '=', $chave)
+            ->first();
+    }
+
     private function podeRedefinir(?array $funcionario): bool
     {
         if (!$funcionario || ($funcionario['status'] ?? null) !== 'A') {
@@ -89,20 +142,7 @@ class AuthPasswordResetService
         return filter_var((string) ($funcionario['email'] ?? ''), FILTER_VALIDATE_EMAIL) !== false;
     }
 
-    private function gerarSenhaSegura(int $length = 16): string
-    {
-        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*+-';
-        $max = strlen($alphabet) - 1;
-        $password = '';
-
-        for ($i = 0; $i < $length; $i++) {
-            $password .= $alphabet[random_int(0, $max)];
-        }
-
-        return $password;
-    }
-
-    private function registrarLog(array $funcionario, string $ipAddress): void
+    private function registrarLog(array $funcionario, string $ipAddress, string $status): void
     {
         $this->qb
             ->table('logs')
@@ -112,14 +152,17 @@ class AuthPasswordResetService
                 'id_funcionario' => (int) $funcionario['id'],
                 'data' => date('Y-m-d H:i:s'),
                 'ip' => $ipAddress,
-                'mensagem' => '[Auth] Senha redefinida via tela de login para usuário: ' . $funcionario['usuario'],
+                'mensagem' => '[Auth] Redefinicao de senha de funcionario ' . $status . ' via tela de login para usuario: ' . $funcionario['usuario'],
                 'campos_alterados' => null,
             ]);
     }
 
-    private function enfileirarEmail(array $funcionario, string $novaSenha): void
+    private function enfileirarEmail(array $funcionario, string $tokenPlano): void
     {
         $chave = (string) $funcionario['chave'];
+        $baseUrl = rtrim((string) ($_ENV['APP_URL'] ?? 'https://locadora.7carros.com'), '/');
+        $resetUrl = $baseUrl . '/auth/redefinir-senha?token=' . $tokenPlano;
+
         $templateService = new MessageTemplateService(null, $chave);
         $context = [
             'funcionario' => [
@@ -132,7 +175,8 @@ class AuthPasswordResetService
             'outros' => [
                 'data_atual' => date('d/m/Y'),
                 'hora_atual' => date('H:i'),
-                'nova_senha' => $novaSenha,
+                'reset_url' => $resetUrl,
+                'reset_expira_em' => FuncionarioPasswordReset::TTL_MINUTES . ' minutos',
             ],
             'id_matriz_filial' => $funcionario['id_matriz_filial'] ?? null,
         ];
@@ -148,10 +192,15 @@ class AuthPasswordResetService
             throw new \RuntimeException('Template funcionario_nova_senha nao encontrado');
         }
 
+        if (!str_contains((string) ($rendered['content'] ?? ''), $resetUrl)) {
+            $rendered['content'] .= '<p>Para definir uma nova senha, acesse: <a href="' . htmlspecialchars($resetUrl, ENT_QUOTES, 'UTF-8') . '">Redefinir senha</a></p>';
+            $rendered['content_plain'] .= "\nRedefinir senha: {$resetUrl}";
+        }
+
         $payload = [
             'to' => $funcionario['email'],
             'to_name' => $funcionario['nome'] ?? '',
-            'subject' => $rendered['subject'] ?? 'Nova senha de acesso',
+            'subject' => $rendered['subject'] ?? 'Redefinicao de senha de acesso',
             'body' => $rendered['content'],
             'body_text' => $rendered['content_plain'],
             'id_matriz_filial' => $funcionario['id_matriz_filial'] ?? null,

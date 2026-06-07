@@ -86,7 +86,9 @@ $router->get('/', function ($request) {
 $router->group(['middleware' => 'guest'], function ($router) {
     $router->get('/login', [AuthController::class, 'showLogin']);
     $router->post('/login', [AuthController::class, 'login'], ['csrf']);
+    $router->get('/auth/redefinir-senha', [AuthController::class, 'showResetForm'], ['rate_limit']);
     $router->post('/auth/redefinir-senha', [AuthController::class, 'redefinirSenha'], ['csrf', 'rate_limit']);
+    $router->post('/auth/redefinir-senha/definir', [AuthController::class, 'definirSenha'], ['csrf', 'rate_limit']);
 });
 
 // Rota de logout (requer autenticação, sem CSRF pois é ação que beneficia o usuário)
@@ -943,14 +945,14 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/pages/contratos/devolver/{id}', [ContratosController::class, 'devolverView']);
     $router->get('/pages/contratos/offcanvas-veiculo', [ContratosController::class, 'offcanvasVeiculo']);
     $router->get('/pages/contratos/offcanvas-impressao', [ContratosController::class, 'offcanvasImpressao']);
-    $router->get('/pages/contratos/offcanvas-odometro', [ContratosController::class, 'offcanvasOdometro']);
+    $router->get('/pages/contratos/offcanvas-odometro', [ContratosController::class, 'offcanvasOdometro'], ['permission:contratos.editar']);
 
     // API Contratos (com protecao anti-scraping e CSRF)
     $router->get('/api/contratos', [ContratosController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/buscar-select', [ContratosController::class, 'buscarSelect'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/{id}/regularizacao-renovacao', [ContratosController::class, 'previewRegularizacaoRenovacao'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/contratos/{id}/regularizar-renovacao', [ContratosController::class, 'regularizarRenovacao'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->post('/api/contratos/{id}/odometros', [ContratosController::class, 'registrarOdometro'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/odometros', [ContratosController::class, 'registrarOdometro'], ['permission:contratos.editar', 'api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/{id}', [ContratosController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Contratos

@@ -109,7 +109,7 @@
 <div id="forgotPasswordModal" class="modal-overlay" style="display: none;">
     <div class="modal-box">
         <h3 class="modal-title">Redefinir senha</h3>
-        <p class="modal-message">Digite seu usuário ou e-mail. Se encontrarmos uma conta ativa, enviaremos uma nova senha segura para o e-mail cadastrado.</p>
+        <p class="modal-message">Digite seu usuario ou e-mail. Se encontrarmos uma conta ativa, enviaremos um link de redefinicao para o e-mail cadastrado.</p>
 
         <div class="form-group">
             <label for="recoveryEmail" class="form-label">E-mail ou Usuário</label>
@@ -124,7 +124,7 @@
         <div class="modal-actions">
             <button type="button" class="btn-modal btn-modal-secondary" id="cancelRecoveryButton">Cancelar</button>
             <button type="button" class="btn-modal btn-modal-primary" id="sendRecoveryButton">
-                <i class="fas fa-paper-plane mr-2"></i>Enviar nova senha
+                <i class="fas fa-paper-plane mr-2"></i>Enviar link
             </button>
         </div>
     </div>
@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
             errorDiv.classList.add('show');
         } finally {
             sendRecoveryButton.disabled = false;
-            sendRecoveryButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Enviar nova senha';
+            sendRecoveryButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Enviar link';
         }
     });
 

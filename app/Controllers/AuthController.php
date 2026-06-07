@@ -6,6 +6,7 @@ use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
+use App\Models\FuncionarioPasswordReset;
 use App\Models\LoginAttempt;
 use App\Services\AuthPasswordResetService;
 use App\Views\Template;
@@ -101,7 +102,86 @@ class AuthController
 
         Response::json([
             'success' => true,
-            'message' => 'Se o usuário existir e tiver e-mail cadastrado, enviaremos uma nova senha segura.',
+            'message' => 'Se o usuario existir e tiver e-mail cadastrado, enviaremos um link para redefinir a senha.',
+        ]);
+    }
+
+    /**
+     * Exibe o formulario publico para definir nova senha via token.
+     */
+    public function showResetForm(Request $request): void
+    {
+        $token = (string) $request->query('token', '');
+        $reset = (new FuncionarioPasswordReset())->validar($token);
+
+        header('Content-Type: text/html; charset=utf-8');
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+
+        if (!$reset) {
+            http_response_code(400);
+            echo $this->renderResetPage([
+                'titulo' => 'Link invalido ou expirado',
+                'corpo' => '<p>Este link de redefinicao expirou ou ja foi usado. Solicite um novo pela tela de login.</p>',
+                'form' => false,
+                'token' => '',
+            ]);
+            return;
+        }
+
+        $csrfToken = Session::get('csrf_token');
+        if (!$csrfToken) {
+            $csrfToken = bin2hex(random_bytes(32));
+            Session::set('csrf_token', $csrfToken);
+            Session::set('csrf_token_time', time());
+        }
+
+        echo $this->renderResetPage([
+            'titulo' => 'Definir nova senha',
+            'corpo' => '<p>Digite sua nova senha de acesso ao painel. Minimo 8 caracteres.</p>',
+            'form' => true,
+            'token' => $token,
+            'csrf' => $csrfToken,
+        ]);
+    }
+
+    /**
+     * Aplica a nova senha apos validacao do token recebido por email.
+     */
+    public function definirSenha(Request $request): void
+    {
+        $token = (string) $request->input('token', '');
+        $senha = (string) $request->input('senha', '');
+        $confirmacao = (string) $request->input('senha_confirmacao', '');
+
+        if (strlen($senha) < 8) {
+            Response::json([
+                'success' => false,
+                'message' => 'A senha deve ter pelo menos 8 caracteres.',
+            ], 422);
+            return;
+        }
+
+        if ($confirmacao !== '' && $senha !== $confirmacao) {
+            Response::json([
+                'success' => false,
+                'message' => 'As senhas nao coincidem.',
+            ], 422);
+            return;
+        }
+
+        $ok = (new AuthPasswordResetService())->resetWithToken($token, $senha, $request->ip());
+        if (!$ok) {
+            Response::json([
+                'success' => false,
+                'message' => 'Link invalido ou expirado.',
+            ], 400);
+            return;
+        }
+
+        Response::json([
+            'success' => true,
+            'message' => 'Senha redefinida com sucesso. Acesse o painel com a nova senha.',
         ]);
     }
 
@@ -149,5 +229,91 @@ class AuthController
     private function clearLoginAttempts(string $username, string $ip): void
     {
         $this->loginAttemptModel->limpar($username, $ip);
+    }
+
+    /**
+     * HTML standalone para troca de senha sem depender do layout autenticado.
+     */
+    private function renderResetPage(array $data): string
+    {
+        $titulo = htmlspecialchars($data['titulo'], ENT_QUOTES, 'UTF-8');
+        $corpo = $data['corpo'];
+        $temForm = !empty($data['form']);
+        $token = htmlspecialchars((string) ($data['token'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $csrf = htmlspecialchars((string) ($data['csrf'] ?? ''), ENT_QUOTES, 'UTF-8');
+
+        $formHtml = '';
+        if ($temForm) {
+            $formHtml = <<<HTML
+<form id="form-reset" method="post" action="/auth/redefinir-senha/definir">
+    <input type="hidden" name="_token" value="{$csrf}">
+    <input type="hidden" name="token" value="{$token}">
+    <label>Nova senha</label>
+    <input type="password" name="senha" minlength="8" required autofocus>
+    <label>Confirmar senha</label>
+    <input type="password" name="senha_confirmacao" minlength="8" required>
+    <button type="submit">Salvar nova senha</button>
+    <div id="msg"></div>
+</form>
+<script>
+document.getElementById('form-reset').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var f = e.target;
+    var msg = document.getElementById('msg');
+    if (f.senha.value !== f.senha_confirmacao.value) {
+        msg.textContent = 'As senhas nao coincidem.';
+        msg.className = 'err';
+        return;
+    }
+    msg.textContent = '';
+    var fd = new FormData(f);
+    try {
+        var r = await fetch(f.action, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+        var j = await r.json();
+        msg.textContent = j.message || (j.success ? 'Senha redefinida.' : 'Erro.');
+        msg.className = j.success ? 'ok' : 'err';
+        if (j.success) {
+            f.querySelectorAll('input,button').forEach(function(el) { el.disabled = true; });
+        }
+    } catch (err) {
+        msg.textContent = 'Erro de rede.';
+        msg.className = 'err';
+    }
+});
+</script>
+HTML;
+        }
+
+        return <<<HTML
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{$titulo}</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;background:#f5f7fa;margin:0;padding:40px 16px;color:#1f2937;}
+.card{max-width:420px;margin:0 auto;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);padding:32px;}
+h1{margin-top:0;color:#1a56db;font-size:22px;}
+label{display:block;margin-top:16px;margin-bottom:6px;font-weight:600;font-size:14px;}
+input[type=password]{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:4px;font-size:15px;box-sizing:border-box;}
+button{margin-top:20px;width:100%;background:#1a56db;color:#fff;border:0;padding:12px;border-radius:4px;font-size:15px;cursor:pointer;}
+button:hover{background:#1e429f;}
+button:disabled{background:#9ca3af;cursor:not-allowed;}
+#msg{margin-top:14px;font-size:14px;}
+#msg.err{color:#b91c1c;}
+#msg.ok{color:#047857;}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>{$titulo}</h1>
+{$corpo}
+{$formHtml}
+</div>
+</body>
+</html>
+HTML;
     }
 }

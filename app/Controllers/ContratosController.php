@@ -49,7 +49,13 @@ class ContratosController
      */
     public function view(Request $request): void
     {
-        $html = Template::render('pages.contratos.index');
+        $permissions = [
+            'registrar_odometro' => Auth::can('contratos.editar'),
+        ];
+
+        $html = Template::render('pages.contratos.index', [
+            'permissions' => $permissions,
+        ]);
         Response::html($html);
     }
 
@@ -175,6 +181,11 @@ class ContratosController
      */
     public function offcanvasOdometro(Request $request): void
     {
+        if (!Auth::can('contratos.editar')) {
+            Response::html('<div class="p-4 text-sm text-red-600">Sem permissao para registrar odometro.</div>', 403);
+            return;
+        }
+
         $id = (int) $request->query('id', 0);
         $contratoModel = new Contrato();
         $contrato = $contratoModel->buscarPorId($id);
@@ -330,6 +341,14 @@ class ContratosController
     public function registrarOdometro(Request $request, int $id): void
     {
         try {
+            if (!Auth::can('contratos.editar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Sem permissao para registrar odometro'
+                ], 403);
+                return;
+            }
+
             $contratoModel = new Contrato();
             $contrato = $contratoModel->buscarPorId($id);
 

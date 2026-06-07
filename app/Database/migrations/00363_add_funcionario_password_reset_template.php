@@ -84,7 +84,7 @@ return new class extends Migration
         $stmt->execute([
             'slug' => 'funcionario_nova_senha',
             'name_key' => 'templates.types.funcionario_nova_senha',
-            'description_key' => 'templates.types.funcionario_nova_senha_desc',
+            'description_key' => 'templates.types.funcionario_nova_senha_link_desc',
             'category' => 'onboarding',
             'channels' => '["email"]',
             'available_variables' => '["funcionario", "empresa", "outros"]',
@@ -101,14 +101,15 @@ return new class extends Migration
             $typeId,
             'pt_BR',
             'email',
-            'Nova senha de acesso - {{empresa.nome_fantasia}}',
-            '<h2 style="color:#1a56db;">Nova senha de acesso</h2>'
+            'Redefinicao de senha - {{empresa.nome_fantasia}}',
+            '<h2 style="color:#1a56db;">Redefinir senha</h2>'
             . '<p>Ola, {{funcionario.nome}}!</p>'
-            . '<p>Foi gerada uma nova senha segura para o seu acesso ao painel da <strong>{{empresa.nome_fantasia}}</strong>.</p>'
-            . '<p>Sua nova senha temporaria e:</p>'
-            . '<p style="font-family:monospace;font-size:18px;font-weight:bold;background:#f3f4f6;padding:12px;border-radius:6px;display:inline-block;">{{outros.nova_senha}}</p>'
-            . '<p>Use esta senha para entrar no painel. Recomendamos altera-la no menu Meu Perfil apos o acesso.</p>'
-            . '<p>Se voce nao solicitou essa redefinicao, entre em contato com o suporte imediatamente.</p>'
+            . '<p>Foi solicitada uma redefinicao de senha para o seu acesso ao painel da <strong>{{empresa.nome_fantasia}}</strong>.</p>'
+            . '<p>Para definir uma nova senha, clique no link abaixo:</p>'
+            . '<p style="margin:20px 0;"><a href="{{outros.reset_url}}" style="background:#1a56db;color:#fff;padding:10px 18px;text-decoration:none;border-radius:4px;display:inline-block;">Redefinir minha senha</a></p>'
+            . '<p style="font-size:13px;color:#555;">Ou copie e cole este link no navegador:<br>{{outros.reset_url}}</p>'
+            . '<p>Este link expira em {{outros.reset_expira_em}} e pode ser usado apenas uma vez.</p>'
+            . '<p>Se voce nao solicitou essa alteracao, ignore este email. Sua senha atual continua valida.</p>'
         );
 
         echo "  - funcionario_nova_senha criado.\n";
