@@ -27,8 +27,12 @@ class ClientesController
     /**
      * Normaliza o tipo de cliente para os códigos aceitos pela coluna clientes.tipo.
      */
-    private function normalizarTipoCliente(?string $tipo, ?string $padrao = null): ?string
+    private function normalizarTipoCliente(mixed $tipo, ?string $padrao = null): ?string
     {
+        if (is_array($tipo) || is_object($tipo)) {
+            throw new \InvalidArgumentException('Tipo de cliente inválido');
+        }
+
         $valor = strtolower(trim((string) $tipo));
 
         if ($valor === '') {
