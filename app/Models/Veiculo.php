@@ -106,7 +106,7 @@ class Veiculo extends Model
                 'mf.nome_fantasia as filial_nome'
             ])
             ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
-            ->leftJoin('fornecedores', 'f', 'v.id_fornecedor', '=', 'f.id')
+            ->leftJoinRaw('fornecedores', 'f', 'v.id_fornecedor = f.id AND f.chave = v.chave')
             ->leftJoin('matrizes_filiais', 'mf', 'v.id_matriz_filial', '=', 'mf.id');
 
         // Filtro de filial
@@ -207,7 +207,7 @@ class Veiculo extends Model
                 'mfl.nome_fantasia as localizacao_nome'
             ])
             ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
-            ->leftJoin('fornecedores', 'f', 'v.id_fornecedor', '=', 'f.id')
+            ->leftJoinRaw('fornecedores', 'f', 'v.id_fornecedor = f.id AND f.chave = v.chave')
             ->leftJoin('matrizes_filiais', 'mf', 'v.id_matriz_filial', '=', 'mf.id')
             ->leftJoin('matrizes_filiais', 'mfl', 'v.id_matriz_filial_localizacao', '=', 'mfl.id')
             ->where('v.id', '=', $id)

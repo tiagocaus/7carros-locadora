@@ -313,6 +313,15 @@ class VeiculosController
                 return;
             }
 
+            $fornecedor = (new Fornecedor())->buscarPorId((int) $dados['id_fornecedor']);
+            if (!$fornecedor) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Fornecedor nao encontrado'
+                ], 400);
+                return;
+            }
+
             // Verificar unicidade da placa
             $model = new Veiculo();
             $veiculoExistente = $model->buscarPorPlaca($chave, $dados['placa']);
@@ -486,6 +495,17 @@ class VeiculosController
                     'message' => 'Voce nao tem acesso a esta filial'
                 ], 403);
                 return;
+            }
+
+            if (isset($dados['id_fornecedor'])) {
+                $fornecedor = (new Fornecedor())->buscarPorId((int) $dados['id_fornecedor']);
+                if (!$fornecedor) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Fornecedor nao encontrado'
+                    ], 400);
+                    return;
+                }
             }
 
             // Verificar unicidade da placa (se alterou)
