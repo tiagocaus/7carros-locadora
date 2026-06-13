@@ -432,6 +432,8 @@
 (function() {
     const REFRESH_INTERVAL = 30000;
     let pollingInterval = null;
+    let dashboardRequestInFlight = false;
+    let dashboardRetryAfterUntil = 0;
 
     function updateTimestamp(ts) {
         const el = document.getElementById('dashTimestamp');
@@ -623,8 +625,20 @@
     }
 
     async function loadDashboardData() {
+        if (dashboardRequestInFlight || Date.now() < dashboardRetryAfterUntil) {
+            return;
+        }
+
+        dashboardRequestInFlight = true;
+
         try {
             const result = await API.get('/api/dashboard/stats');
+            if (result.rate_limited) {
+                const retryAfter = Math.max(1, Number(result.retry_after || 1));
+                dashboardRetryAfterUntil = Date.now() + (retryAfter * 1000);
+                return;
+            }
+
             if (result.success) {
                 const d = result.data;
                 updateKPIs(d.fleet, d.financial, d.contracts);
@@ -638,6 +652,8 @@
             }
         } catch (err) {
             console.error('Dashboard refresh error:', err);
+        } finally {
+            dashboardRequestInFlight = false;
         }
     }
 

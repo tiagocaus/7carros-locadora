@@ -301,11 +301,31 @@ document.addEventListener('DOMContentLoaded', function () {
             toggleDropdown(notificationsDropdown);
             refreshNotificationCounts();
         });
+
+        notificationsDropdown.addEventListener('click', (e) => {
+            if (e.target.closest('a.dropdown-item, a.dropdown-footer')) {
+                notificationsDropdown.classList.remove('open');
+            }
+        });
     }
 
+    let notificationCountsRequestInFlight = false;
+    let notificationCountsRetryAfterUntil = 0;
+
     async function refreshNotificationCounts() {
+        const now = Date.now();
+        if (notificationCountsRequestInFlight || now < notificationCountsRetryAfterUntil) {
+            return;
+        }
+
+        notificationCountsRequestInFlight = true;
         try {
             const result = await API.get('/api/notifications/counts');
+            if (result.rate_limited && result.retry_after) {
+                notificationCountsRetryAfterUntil = Date.now() + (parseInt(result.retry_after, 10) * 1000);
+                return;
+            }
+
             if (result.success) {
                 const d = result.data;
                 const badge = document.getElementById('notifBadgeTotal');
@@ -326,6 +346,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         } catch (e) {
             console.error('Failed to refresh notifications:', e);
+        } finally {
+            notificationCountsRequestInFlight = false;
         }
     }
 

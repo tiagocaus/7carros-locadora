@@ -66,7 +66,7 @@ Config por filial. UNIQUE (chave, id_matriz_filial).
 |-------|-----------|
 | tipo_emissao | 1=Nacional, 2=ABRASF |
 | ambiente | 1=Producao, 2=Homologacao |
-| certificado_path | Caminho PFX em storage/certificates/{chave}/ |
+| certificado_arquivo | Nome do PFX/P12 em storage/certificates/ |
 | certificado_senha | Encrypted via encrypt() |
 | numero_atual | Proximo numero (atomico via UPDATE+1) |
 | emissao_auto | S/N - emissao automatica para pagamentos |
@@ -173,7 +173,8 @@ match ((int) $config['tipo_emissao']) {
 ## Certificado Digital
 
 - Upload PFX via `NFSeCertificado::upload()`
-- Armazenado em `storage/certificates/{chave}/`
+- Armazenado em `storage/certificates/`
+- Nome padrao: `{chave}_{id_matriz_filial}_{timestamp}.{extensao}`
 - Senha encrypted no BD via `encrypt()`
 - Extracao PEM temporaria em `/tmp/` para cURL mTLS
 - Cleanup em `finally` blocks

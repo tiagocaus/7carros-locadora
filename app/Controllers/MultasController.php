@@ -969,6 +969,9 @@ class MultasController
                 'estado_civil' => $cliente['estado_civil'] ?? '',
             ],
             'empresa' => [
+                'id' => $empresa['id'] ?? null,
+                'locale' => $empresa['locale'] ?? null,
+                'currency_code' => $empresa['currency_code'] ?? null,
                 'razao_social' => $empresa['razao_social'] ?? '',
                 'nome_fantasia' => $empresa['nome_fantasia'] ?? '',
                 'cnpj' => $empresa['cpf_cnpj'] ?? '',

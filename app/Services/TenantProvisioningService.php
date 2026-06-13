@@ -480,12 +480,26 @@ class TenantProvisioningService
     /**
      * Apaga TODOS os arquivos do tenant em disco:
      * - storage/uploads/{chave} (PDFs NFS-e, assinaturas, fotos de checklist, imagens)
-     * - storage/certificates/{chave} (certificados digitais .pfx/.p12 NFS-e)
+     * - storage/certificates/{chave}_*.pfx|p12 (certificados digitais NFS-e)
+     * - storage/certificates/{chave} (caminho legado com subpasta)
      */
     private function apagarArquivosDoTenant(string $chave): void
     {
         $this->apagarDiretorio(APP_ROOT . '/storage/uploads/' . $chave);
+        $this->apagarArquivosPorPadrao(APP_ROOT . '/storage/certificates/' . $chave . '_*.pfx');
+        $this->apagarArquivosPorPadrao(APP_ROOT . '/storage/certificates/' . $chave . '_*.PFX');
+        $this->apagarArquivosPorPadrao(APP_ROOT . '/storage/certificates/' . $chave . '_*.p12');
+        $this->apagarArquivosPorPadrao(APP_ROOT . '/storage/certificates/' . $chave . '_*.P12');
         $this->apagarDiretorio(APP_ROOT . '/storage/certificates/' . $chave);
+    }
+
+    private function apagarArquivosPorPadrao(string $pattern): void
+    {
+        foreach (glob($pattern) ?: [] as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
     }
 
     /**

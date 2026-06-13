@@ -8,8 +8,8 @@ namespace App\Services\NFSe;
  * Handles upload, validacao, extracao PEM e gerenciamento
  * de certificados .pfx/.p12 para assinatura e mTLS.
  *
- * Storage: storage/certificates/{chave}/
- * Formato nome: {id_matriz_filial}_{timestamp}.pfx
+ * Storage: storage/certificates/
+ * Formato nome: {chave}_{id_matriz_filial}_{timestamp}.{extensao}
  * Permissao: 0600
  */
 class NFSeCertificado
@@ -50,15 +50,14 @@ class NFSeCertificado
             return $validacao;
         }
 
-        // Criar diretorio do tenant
-        $dir = $this->basePath . '/' . $chave;
-        if (!is_dir($dir)) {
-            mkdir($dir, 0700, true);
+        // Criar diretorio de certificados
+        if (!is_dir($this->basePath)) {
+            mkdir($this->basePath, 0700, true);
         }
 
         // Salvar arquivo
-        $nomeArquivo = $idMatrizFilial . '_' . time() . '.pfx';
-        $caminhoCompleto = $dir . '/' . $nomeArquivo;
+        $nomeArquivo = $this->gerarNomeArquivo($chave, $idMatrizFilial, $ext);
+        $caminhoCompleto = $this->caminhoCertificado($nomeArquivo);
 
         if (file_put_contents($caminhoCompleto, $pfxContent) === false) {
             return ['sucesso' => false, 'mensagem' => 'Erro ao salvar o certificado.'];
@@ -153,7 +152,7 @@ class NFSeCertificado
      */
     public function extrairPEM(string $chave, string $arquivo, string $senhaCriptografada): array
     {
-        $caminhoCompleto = $this->basePath . '/' . $chave . '/' . $arquivo;
+        $caminhoCompleto = $this->caminhoCertificado($arquivo);
 
         if (!file_exists($caminhoCompleto)) {
             throw new \RuntimeException('Arquivo do certificado não encontrado.');
@@ -212,7 +211,7 @@ class NFSeCertificado
     public function isValido(string $chave, string $arquivo, string $senhaCriptografada): bool
     {
         try {
-            $caminhoCompleto = $this->basePath . '/' . $chave . '/' . $arquivo;
+            $caminhoCompleto = $this->caminhoCertificado($arquivo);
             $senha = decrypt($senhaCriptografada);
             if ($senha === null) {
                 return false;
@@ -237,7 +236,7 @@ class NFSeCertificado
     public function diasParaExpirar(string $chave, string $arquivo, string $senhaCriptografada): int
     {
         try {
-            $caminhoCompleto = $this->basePath . '/' . $chave . '/' . $arquivo;
+            $caminhoCompleto = $this->caminhoCertificado($arquivo);
             $senha = decrypt($senhaCriptografada);
             if ($senha === null) {
                 return 0;
@@ -264,12 +263,29 @@ class NFSeCertificado
      */
     public function remover(string $chave, string $arquivo): bool
     {
-        $caminhoCompleto = $this->basePath . '/' . $chave . '/' . $arquivo;
+        $caminhoCompleto = $this->caminhoCertificado($arquivo);
 
         if (file_exists($caminhoCompleto)) {
             return unlink($caminhoCompleto);
         }
 
         return true;
+    }
+
+    private function gerarNomeArquivo(string $chave, int $idMatrizFilial, string $ext): string
+    {
+        $timestamp = time();
+
+        do {
+            $nomeArquivo = $chave . '_' . $idMatrizFilial . '_' . $timestamp . '.' . $ext;
+            $timestamp++;
+        } while (file_exists($this->caminhoCertificado($nomeArquivo)));
+
+        return $nomeArquivo;
+    }
+
+    private function caminhoCertificado(string $arquivo): string
+    {
+        return $this->basePath . '/' . basename($arquivo);
     }
 }

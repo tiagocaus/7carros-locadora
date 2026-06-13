@@ -20,6 +20,9 @@ class Security
 
         // Limites específicos por endpoint (regex pattern)
         'endpoints' => [
+            '/api/dashboard/stats' => ['limit' => 300, 'window' => 60],
+            '/api/dashboard/subtabs' => ['limit' => 180, 'window' => 60],
+            '/api/notifications/counts' => ['limit' => 300, 'window' => 60],
             '/api/clientes' => ['limit' => 30, 'window' => 60],
             '/api/funcionarios' => ['limit' => 30, 'window' => 60],
             '/api/financeiro' => ['limit' => 120, 'window' => 60],

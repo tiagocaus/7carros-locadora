@@ -14,9 +14,10 @@
  * Crontab Configuration (runs every minute):
  *   * * * * * /usr/bin/php /path/to/project/cron.php >> /path/to/project/storage/logs/cron/execution.log 2>&1
  * 
- * Rodar em loop a cada 1 minuto (simula crontab real):
+ * TESTE: Rodar em loop a cada 1 minuto (simula crontab real):
  *   while true; do clear; php cron.php; sleep 10; done
  * 
+ * Real: A cada 5 minutos.
  */
 
 // Carrega Composer autoloader (se existir)

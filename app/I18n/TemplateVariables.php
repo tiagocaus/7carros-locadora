@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\I18n;
 
+use App\Helpers\CurrencyHelper;
+
 /**
  * Define e gerencia variáveis disponíveis para templates de mensagem
  *
@@ -1457,7 +1459,7 @@ class TemplateVariables
         }
 
         // Formatar valor por tipo
-        return self::format($value, $info['type'], $locale);
+        return self::format($value, $info['type'], $locale, $context);
     }
 
     /**
@@ -1525,25 +1527,25 @@ class TemplateVariables
                 return self::buildEnderecoCompleto($context['contrato']['filial'] ?? []);
 
             case 'contrato.veiculos':
-                return self::buildContratoVeiculosTexto($context['contrato']['veiculos'] ?? [], $locale);
+                return self::buildContratoVeiculosTexto($context['contrato']['veiculos'] ?? [], $locale, $context);
 
             case 'contrato.veiculos_tabela':
-                return self::buildContratoVeiculosTabela($context['contrato']['veiculos'] ?? [], $locale);
+                return self::buildContratoVeiculosTabela($context['contrato']['veiculos'] ?? [], $locale, $context);
 
             case 'contrato.veiculos_anexo':
-                return self::buildContratoVeiculosAnexo($context['contrato']['veiculos'] ?? [], $locale);
+                return self::buildContratoVeiculosAnexo($context['contrato']['veiculos'] ?? [], $locale, $context);
 
             case 'contrato.taxas':
-                return self::buildContratoTaxasTexto($context['contrato']['taxas'] ?? [], $locale);
+                return self::buildContratoTaxasTexto($context['contrato']['taxas'] ?? [], $locale, $context);
 
             case 'contrato.taxas_tabela':
-                return self::buildContratoTaxasTabela($context['contrato']['taxas'] ?? [], $locale);
+                return self::buildContratoTaxasTabela($context['contrato']['taxas'] ?? [], $locale, $context);
 
             case 'contrato.parcelas':
-                return self::buildContratoParcelasTexto($context['contrato']['parcelas'] ?? [], $locale);
+                return self::buildContratoParcelasTexto($context['contrato']['parcelas'] ?? [], $locale, $context);
 
             case 'contrato.parcelas_tabela':
-                return self::buildContratoParcelasTabela($context['contrato']['parcelas'] ?? [], $locale);
+                return self::buildContratoParcelasTabela($context['contrato']['parcelas'] ?? [], $locale, $context);
 
             case 'contrato.condutores':
                 return self::buildContratoCondutoresTexto($context['contrato']['condutores'] ?? [], $locale);
@@ -1607,7 +1609,7 @@ class TemplateVariables
     /**
      * Gera texto formatado da lista de veículos do contrato
      */
-    private static function buildContratoVeiculosTexto(array $veiculos, string $locale): ?string
+    private static function buildContratoVeiculosTexto(array $veiculos, string $locale, array $context = []): ?string
     {
         if (empty($veiculos)) {
             return null;
@@ -1645,23 +1647,23 @@ class TemplateVariables
             if ($grupo) {
                 $linha .= "\n   Grupo: {$grupo}";
             }
-            $linha .= "\n   Plano: {$planoNome} - " . self::formatCurrency((float)$valorPlano, $locale) . "/dia";
+            $linha .= "\n   Plano: {$planoNome} - " . self::formatCurrency((float)$valorPlano, $locale, $context) . "/dia";
 
             // Seguros
             if (!empty($v['seguro_carro'])) {
                 $valorSeguro = $v['valor_seguro_carro'] ?? 0;
                 $cobertura = $v['cobertura_carro'] ?? 0;
-                $linha .= "\n   Seguro Veículo: Sim (" . self::formatCurrency((float)$valorSeguro, $locale) . "/dia)";
+                $linha .= "\n   Seguro Veículo: Sim (" . self::formatCurrency((float)$valorSeguro, $locale, $context) . "/dia)";
                 if ($cobertura > 0) {
-                    $linha .= " - Cobertura: " . self::formatCurrency((float)$cobertura, $locale);
+                    $linha .= " - Cobertura: " . self::formatCurrency((float)$cobertura, $locale, $context);
                 }
             }
             if (!empty($v['seguro_terceiros'])) {
                 $valorSeguro = $v['valor_seguro_terceiros'] ?? 0;
                 $cobertura = $v['cobertura_terceiros'] ?? 0;
-                $linha .= "\n   Seguro Terceiros: Sim (" . self::formatCurrency((float)$valorSeguro, $locale) . "/dia)";
+                $linha .= "\n   Seguro Terceiros: Sim (" . self::formatCurrency((float)$valorSeguro, $locale, $context) . "/dia)";
                 if ($cobertura > 0) {
-                    $linha .= " - Cobertura: " . self::formatCurrency((float)$cobertura, $locale);
+                    $linha .= " - Cobertura: " . self::formatCurrency((float)$cobertura, $locale, $context);
                 }
             }
 
@@ -1692,7 +1694,7 @@ class TemplateVariables
     /**
      * Gera tabela HTML de veículos do contrato
      */
-    private static function buildContratoVeiculosTabela(array $veiculos, string $locale): ?string
+    private static function buildContratoVeiculosTabela(array $veiculos, string $locale, array $context = []): ?string
     {
         if (empty($veiculos)) {
             return null;
@@ -1741,8 +1743,8 @@ class TemplateVariables
             $html .= '<td style="border:1px solid #ddd;padding:8px;">' . htmlspecialchars($descricao) . '</td>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;">' . htmlspecialchars($placa) . '</td>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;">' . htmlspecialchars($planoNome) . '</td>';
-            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency((float)$valorPlano, $locale) . '</td>';
-            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency($totalSeguros, $locale) . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency((float)$valorPlano, $locale, $context) . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency($totalSeguros, $locale, $context) . '</td>';
             $html .= '</tr>';
         }
 
@@ -1753,7 +1755,7 @@ class TemplateVariables
     /**
      * Gera anexo juridico/operacional da lista de veiculos do contrato.
      */
-    private static function buildContratoVeiculosAnexo(array $veiculos, string $locale): ?string
+    private static function buildContratoVeiculosAnexo(array $veiculos, string $locale, array $context = []): ?string
     {
         if (empty($veiculos)) {
             return null;
@@ -1817,19 +1819,19 @@ class TemplateVariables
 
             $seguros = [];
             if (!empty($v['seguro_carro'])) {
-                $seguros[] = 'Seguro veiculo: ' . self::formatCurrency((float) ($v['valor_seguro_carro'] ?? 0), $locale)
-                    . (!empty($v['cobertura_carro']) ? ' | Cobertura: ' . self::formatCurrency((float) $v['cobertura_carro'], $locale) : '');
+                $seguros[] = 'Seguro veiculo: ' . self::formatCurrency((float) ($v['valor_seguro_carro'] ?? 0), $locale, $context)
+                    . (!empty($v['cobertura_carro']) ? ' | Cobertura: ' . self::formatCurrency((float) $v['cobertura_carro'], $locale, $context) : '');
             }
             if (!empty($v['seguro_terceiros'])) {
-                $seguros[] = 'Seguro terceiros: ' . self::formatCurrency((float) ($v['valor_seguro_terceiros'] ?? 0), $locale)
-                    . (!empty($v['cobertura_terceiros']) ? ' | Cobertura: ' . self::formatCurrency((float) $v['cobertura_terceiros'], $locale) : '');
+                $seguros[] = 'Seguro terceiros: ' . self::formatCurrency((float) ($v['valor_seguro_terceiros'] ?? 0), $locale, $context)
+                    . (!empty($v['cobertura_terceiros']) ? ' | Cobertura: ' . self::formatCurrency((float) $v['cobertura_terceiros'], $locale, $context) : '');
             }
 
             $condicoes = self::htmlLines(array_filter(array_merge([
                 'Plano: ' . $planoNome,
-                'Valor: ' . self::formatCurrency((float) $valorPlano, $locale) . '/periodo',
+                'Valor: ' . self::formatCurrency((float) $valorPlano, $locale, $context) . '/periodo',
                 !empty($v['km_franquia']) ? 'Franquia: ' . (int) $v['km_franquia'] . ' km' : '',
-                !empty($v['valor_km_excedente']) ? 'Km excedente: ' . self::formatCurrency((float) $v['valor_km_excedente'], $locale) : '',
+                !empty($v['valor_km_excedente']) ? 'Km excedente: ' . self::formatCurrency((float) $v['valor_km_excedente'], $locale, $context) : '',
             ], $seguros)));
 
             $saida = [];
@@ -1870,7 +1872,7 @@ class TemplateVariables
     /**
      * Gera texto formatado da lista de taxas do contrato
      */
-    private static function buildContratoTaxasTexto(array $taxas, string $locale): ?string
+    private static function buildContratoTaxasTexto(array $taxas, string $locale, array $context = []): ?string
     {
         if (empty($taxas)) {
             return null;
@@ -1885,8 +1887,8 @@ class TemplateVariables
             $valorTotal = $t['valor_total'] ?? ($qtd * $valorUnit);
 
             $linha = "{$i}. {$nome}";
-            $linha .= "\n   Quantidade: {$qtd} | Valor Unitário: " . self::formatCurrency((float)$valorUnit, $locale);
-            $linha .= " | Total: " . self::formatCurrency((float)$valorTotal, $locale);
+            $linha .= "\n   Quantidade: {$qtd} | Valor Unitário: " . self::formatCurrency((float)$valorUnit, $locale, $context);
+            $linha .= " | Total: " . self::formatCurrency((float)$valorTotal, $locale, $context);
 
             $linhas[] = $linha;
             $i++;
@@ -1898,7 +1900,7 @@ class TemplateVariables
     /**
      * Gera tabela HTML de taxas do contrato
      */
-    private static function buildContratoTaxasTabela(array $taxas, string $locale): ?string
+    private static function buildContratoTaxasTabela(array $taxas, string $locale, array $context = []): ?string
     {
         if (empty($taxas)) {
             return null;
@@ -1923,15 +1925,15 @@ class TemplateVariables
             $html .= '<tr>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;">' . htmlspecialchars($nome) . '</td>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;">' . $qtd . '</td>';
-            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency((float)$valorUnit, $locale) . '</td>';
-            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency((float)$valorTotal, $locale) . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency((float)$valorUnit, $locale, $context) . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency((float)$valorTotal, $locale, $context) . '</td>';
             $html .= '</tr>';
         }
 
         $html .= '</tbody><tfoot>';
         $html .= '<tr style="background:#f5f5f5;font-weight:bold;">';
         $html .= '<td colspan="3" style="border:1px solid #ddd;padding:8px;text-align:right;">Total Taxas</td>';
-        $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency($totalGeral, $locale) . '</td>';
+        $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency($totalGeral, $locale, $context) . '</td>';
         $html .= '</tr></tfoot></table>';
 
         return $html;
@@ -1940,7 +1942,7 @@ class TemplateVariables
     /**
      * Gera texto formatado da lista de parcelas do contrato
      */
-    private static function buildContratoParcelasTexto(array $parcelas, string $locale): ?string
+    private static function buildContratoParcelasTexto(array $parcelas, string $locale, array $context = []): ?string
     {
         if (empty($parcelas)) {
             return null;
@@ -1960,7 +1962,7 @@ class TemplateVariables
             $statusTxt = $pago ? "PAGO" . ($dataPago ? " em {$dataPago}" : '') : "PENDENTE";
 
             $linha = "Parcela {$num}/{$total} - Vencimento: {$vencimento}";
-            $linha .= "\n   Valor: " . self::formatCurrency((float)$valor, $locale) . " | Status: {$statusTxt}";
+            $linha .= "\n   Valor: " . self::formatCurrency((float)$valor, $locale, $context) . " | Status: {$statusTxt}";
             if ($forma || $conta) {
                 $linha .= "\n   ";
                 if ($forma) {
@@ -1983,7 +1985,7 @@ class TemplateVariables
     /**
      * Gera tabela HTML de parcelas do contrato
      */
-    private static function buildContratoParcelasTabela(array $parcelas, string $locale): ?string
+    private static function buildContratoParcelasTabela(array $parcelas, string $locale, array $context = []): ?string
     {
         if (empty($parcelas)) {
             return null;
@@ -2011,7 +2013,7 @@ class TemplateVariables
             $html .= '<tr>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;">' . $num . '/' . $total . '</td>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;">' . $vencimento . '</td>';
-            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency((float)$valor, $locale) . '</td>';
+            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency((float)$valor, $locale, $context) . '</td>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;' . $statusStyle . '">' . $statusTxt . '</td>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;">' . $dataPago . '</td>';
             $html .= '</tr>';
@@ -2329,7 +2331,7 @@ class TemplateVariables
     /**
      * Formata valor conforme tipo
      */
-    public static function format(mixed $value, string $type, string $locale = 'pt_BR'): string
+    public static function format(mixed $value, string $type, string $locale = 'pt_BR', array $context = []): string
     {
         if ($value === null || $value === '') {
             return '';
@@ -2337,7 +2339,7 @@ class TemplateVariables
 
         switch ($type) {
             case 'currency':
-                return self::formatCurrency((float) $value, $locale);
+                return self::formatCurrency((float) $value, $locale, $context);
 
             case 'date':
                 return self::formatDate($value, $locale);
@@ -2356,21 +2358,52 @@ class TemplateVariables
     /**
      * Formata valor monetário
      */
-    private static function formatCurrency(float $value, string $locale): string
+    private static function formatCurrency(float $value, string $locale, array $context = []): string
     {
-        // Usa formatação baseada no locale
-        $symbols = [
-            'pt_BR' => ['R$ ', ',', '.'],
-            'pt_PT' => ['', ',', '.', ' €'],
-            'en_US' => ['$ ', '.', ','],
-            'es_ES' => ['', ',', '.', ' €'],
-            'it_IT' => ['', ',', '.', ' €'],
+        $empresa = $context['empresa'] ?? [];
+        $matrizId = isset($empresa['id']) && (int) $empresa['id'] > 0 ? (int) $empresa['id'] : null;
+
+        if ($matrizId !== null) {
+            try {
+                return CurrencyHelper::format($value, true, $matrizId);
+            } catch (\Throwable) {
+                // Fallback abaixo mantém documentos imprimíveis mesmo sem acesso ao BD.
+            }
+        }
+
+        $currency = strtoupper((string) ($empresa['currency_code'] ?? $empresa['currency'] ?? ''));
+        $locale = (string) ($empresa['locale'] ?? $locale);
+
+        $localeConfigs = [
+            'pt_BR' => ['decimal' => ',', 'thousands' => '.', 'position' => 'before'],
+            'pt_PT' => ['decimal' => ',', 'thousands' => '.', 'position' => 'after'],
+            'en_US' => ['decimal' => '.', 'thousands' => ',', 'position' => 'before'],
+            'es_ES' => ['decimal' => ',', 'thousands' => '.', 'position' => 'after'],
+            'it_IT' => ['decimal' => ',', 'thousands' => '.', 'position' => 'after'],
         ];
 
-        $sym = $symbols[$locale] ?? $symbols['pt_BR'];
-        $formatted = number_format($value, 2, $sym[1], $sym[2]);
+        $currencySymbols = [
+            'BRL' => 'R$',
+            'USD' => '$',
+            'EUR' => '€',
+            'GBP' => '£',
+        ];
 
-        return $sym[0] . $formatted . ($sym[3] ?? '');
+        if ($currency === '') {
+            $currency = match ($locale) {
+                'en_US' => 'USD',
+                'pt_PT', 'es_ES', 'it_IT' => 'EUR',
+                default => 'BRL',
+            };
+        }
+
+        $config = $localeConfigs[$locale] ?? $localeConfigs['pt_BR'];
+        $symbol = $currencySymbols[$currency] ?? $currency;
+        $formatted = number_format($value, 2, $config['decimal'], $config['thousands']);
+
+        return $config['position'] === 'after'
+            ? $formatted . ' ' . $symbol
+            : $symbol . ' ' . $formatted;
     }
 
     /**
