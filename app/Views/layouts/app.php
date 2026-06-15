@@ -1762,7 +1762,7 @@
             } else if (event.data && event.data.action === 'openCartaoModal') {
                 openCartaoModal(event.data, event.source);
             } else if (event.data && event.data.action === 'openIndicacaoModal') {
-                openIndicacaoModal(event.source);
+                openIndicacaoModal(event.data, event.source);
             } else if (event.data && event.data.action === 'openIndicacaoInstrucoes') {
                 openIndicacaoInstrucoes();
             } else if (event.data && event.data.action === 'openSpotlight') {
@@ -2299,27 +2299,36 @@
         });
 
         // --- Indicacao ---
-        window.openIndicacaoModal = async function(source) {
+        window.openIndicacaoModal = async function(data, source) {
+            if (data && typeof data.postMessage === 'function' && !source) {
+                source = data;
+                data = {};
+            }
+            data = data || {};
+            const bloqueiaTipoRealInfrator = !!data.id_multa;
+            const tipoSelect = document.getElementById('indicacaoTipoSelect');
             _multasModalSource = source;
             document.getElementById('formIndicacaoModal').classList.remove('hidden');
             document.getElementById('indicacaoLoadingContainer').classList.add('hidden');
-            document.getElementById('indicacaoTipoSelect').value = 'real_infrator';
-            document.getElementById('indicacaoCamposRealInfrator').classList.remove('hidden');
-            document.getElementById('indicacaoCamposPrincipalCondutor').classList.add('hidden');
-            document.getElementById('indicacaoCampoCnh').classList.add('hidden');
+            tipoSelect.value = bloqueiaTipoRealInfrator ? 'real_infrator' : (data.tipo || 'real_infrator');
+            tipoSelect.disabled = bloqueiaTipoRealInfrator;
             document.getElementById('indicacaoCpfInput').value = '';
             document.getElementById('indicacaoNomeInput').value = '';
             document.getElementById('indicacaoCnhInput').value = '';
             document.getElementById('indicacaoPlacaInput').value = '';
+            toggleIndicacaoCampos();
             _openModal('indicacaoModal');
 
             // Carregar multas para select
+            const select = document.getElementById('indicacaoSelectMulta');
+            select.innerHTML = '<option value="">' + layoutT('indication.loading_fines') + '</option>';
             try {
-                const result = await _multasFetch('/api/multas?perPage=100&pago=N');
-                const select = document.getElementById('indicacaoSelectMulta');
+                const result = await _multasFetch('/api/central-multas/multas?perPage=100&pago=N');
                 select.innerHTML = '<option value="">' + layoutT('indication.select_fine') + '</option>';
                 if (result.success && result.data) {
                     result.data.forEach(function(m) {
+                        if (!m.codigo_orgao || !m.numero_ait || !m.codigo_infracao) return;
+                        if (!/^\d+$/.test(String(m.codigo_orgao)) || !/^\d+$/.test(String(m.codigo_infracao))) return;
                         const placa = m.veiculo_placa || '';
                         const ait = m.n_infracao || m.numero_ait || '';
                         const valor = m.valor ? formatLayoutCurrency(parseFloat(m.valor)) : '';
@@ -2329,7 +2338,20 @@
                         select.appendChild(opt);
                     });
                 }
-            } catch (e) { console.error('Erro ao carregar multas:', e); }
+                if (data.id_multa) {
+                    const selectedId = String(data.id_multa);
+                    if (!Array.from(select.options).some(function(opt) { return opt.value === selectedId; })) {
+                        const opt = document.createElement('option');
+                        opt.value = selectedId;
+                        opt.textContent = data.multa_label || ('#' + selectedId);
+                        select.appendChild(opt);
+                    }
+                    select.value = selectedId;
+                }
+            } catch (e) {
+                select.innerHTML = '<option value="">Erro ao carregar multas</option>';
+                console.error('Erro ao carregar multas:', e);
+            }
         };
 
         window.closeIndicacaoModal = function() {
@@ -2371,7 +2393,13 @@
 
                 if (result.success) {
                     closeIndicacaoModal();
-                    if (_multasModalSource) _multasModalSource.postMessage({ action: 'indicacaoResult', success: true, message: result.message || layoutT('indication.sent') }, '*');
+                    const indicacaoMessage = { action: 'indicacaoResult', success: true, message: result.message || layoutT('indication.sent') };
+                    if (_multasModalSource) _multasModalSource.postMessage(indicacaoMessage, '*');
+                    document.querySelectorAll('iframe').forEach((iframe) => {
+                        if (iframe.contentWindow && iframe.contentWindow !== _multasModalSource) {
+                            iframe.contentWindow.postMessage(indicacaoMessage, '*');
+                        }
+                    });
                 } else {
                     throw new Error(result.message);
                 }

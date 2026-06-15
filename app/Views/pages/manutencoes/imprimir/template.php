@@ -290,11 +290,11 @@
                     </tr>
                     <tr>
                         <td class="sub-label"><?= t('modules.manutencao.fields.changed_oil') ?>:</td>
-                        <td class="sub-value"><?= !empty($manutencao['trocou_oleo']) ? t('common.labels.yes') : t('common.labels.no') ?></td>
+                        <td class="sub-value"><?= ($manutencao['trocou_oleo'] ?? '') === 'S' ? t('common.labels.yes') : t('common.labels.no') ?></td>
                     </tr>
                     <tr>
                         <td class="sub-label"><?= t('modules.manutencao.fields.changed_tires') ?>:</td>
-                        <td class="sub-value"><?= !empty($manutencao['trocou_pneus']) ? t('common.labels.yes') : t('common.labels.no') ?></td>
+                        <td class="sub-value"><?= ($manutencao['trocou_pneus'] ?? '') === 'S' ? t('common.labels.yes') : t('common.labels.no') ?></td>
                     </tr>
                 </table>
             </td>

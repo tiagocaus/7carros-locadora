@@ -510,11 +510,19 @@ ALTER TABLE multas
 # ============================
 # API de consultas online
 # ============================
-SERPRO_BEARER_TOKEN=                          # JWT token da conta 7Carros na SERPRO
-SERPRO_BASE_URL=https://efrotas.estaleiro.serpro.gov.br/efrotas/api
-SERPRO_BASE_URL_TRANSACIONAL=https://efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional
-SERPRO_BASE_URL_CRLV=https://efrotas.estaleiro.serpro.gov.br/efrotas/api
 SERPRO_AMBIENTE=homologacao                   # homologacao | producao
+SERPRO_BEARER_TOKEN=                          # JWT token usado em homologacao
+SERPRO_HOMOLOGACAO_BASE_URL=https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api
+SERPRO_HOMOLOGACAO_BASE_URL_TRANSACIONAL=https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api/transacional
+SERPRO_HOMOLOGACAO_BASE_URL_CRLV=https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api
+SERPRO_PRODUCAO_BASE_URL=https://efrotas.estaleiro.serpro.gov.br/efrotas/api
+SERPRO_PRODUCAO_BASE_URL_TRANSACIONAL=https://efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional
+SERPRO_PRODUCAO_BASE_URL_CRLV=https://efrotas.estaleiro.serpro.gov.br/efrotas/api
+SERPRO_CERT_PATH=storage/certificates/7carros/certificate.pfx
+SERPRO_CERT_PASSWORD=                         # senha do certificado digital A1/PFX usado em producao
+SERPRO_CERT_TYPE=P12                          # P12/PFX ou PEM
+SERPRO_CERT_KEY_PATH=                         # obrigatorio apenas quando SERPRO_CERT_TYPE=PEM e chave estiver separada
+SERPRO_CERT_KEY_PASSWORD=                     # senha da chave PEM, se houver
 SERPRO_WEBHOOK_SECRET=                        # token para validar webhooks recebidos
 
 # ============================
@@ -574,11 +582,24 @@ STRIPE_WEBHOOK_SECRET=
 
 | Operacao                   | Metodo | Endpoint                          | Body                                |
 |----------------------------|--------|-----------------------------------|-------------------------------------|
-| Listar eventos ativos      | GET    | `/gerenciamento/v1/eventos`       | -                                   |
-| Ativar/Desativar evento    | PUT    | `/gerenciamento/v1/eventos`       | `{"tipoEvento":1,"ativo":true}`     |
-| Consultar URL webhook      | GET    | `/gerenciamento/v1/url-eventos`   | -                                   |
-| Registrar URL webhook      | POST   | `/gerenciamento/v1/url-eventos`   | `{"url":"...","headers":{...}}`     |
-| Remover URL webhook        | DELETE | `/gerenciamento/v1/url-eventos`   | -                                   |
+| Listar eventos ativos      | GET    | `/autorizador/v1/eventos`         | -                                   |
+| Ativar/Desativar evento    | PUT    | `/autorizador/v1/eventos`         | `{"eventosPermitidos":[{"codigo":1,"ativo":true}]}` |
+| Consultar URL webhook      | GET    | `/autorizador/v1/endpoint`        | -                                   |
+| Registrar URL webhook      | PUT    | `/autorizador/v1/endpoint`        | `{"url":"...","header":"X-Webhook-Secret","valor":"..."}` |
+| Remover URL webhook        | DELETE | `/autorizador/v1/endpoint/{id}`   | -                                   |
+
+#### Cadastro idempotente do webhook
+
+O cadastro do endpoint pode retornar HTTP 409 com mensagem equivalente a `Endpoint ja existe na base de dados do Efrotas`.
+Esse retorno nao deve ser tratado como falha automaticamente:
+
+1. Consultar `GET /autorizador/v1/endpoint`.
+2. Se a URL cadastrada for a URL esperada (`{APP_URL}/webhook/multas-online/eventos`), considerar o webhook registrado e seguir para ativar eventos.
+3. Se a URL cadastrada for diferente, bloquear a ativacao e orientar a remocao/ajuste do endpoint atual.
+
+O servidor atual nao repassa de forma confiavel o header `Authorization` para PHP em chamadas publicas de webhook. Por isso, o endpoint deve ser cadastrado na Consulta Online com `header=X-Webhook-Secret` e `valor={SERPRO_WEBHOOK_SECRET}`.
+
+Depois de validar ou cadastrar o webhook, ativar o evento de notificacao de autuacao com `PUT /autorizador/v1/eventos` e body `{"eventosPermitidos":[{"codigo":1,"ativo":true}]}`.
 
 ### 5.3 Transacional - Real Infrator
 
@@ -613,16 +634,22 @@ STRIPE_WEBHOOK_SECRET=
 ### 5.6 Autenticacao
 
 ```
-Header: Authorization: Bearer {SERPRO_BEARER_TOKEN}
 Accept: application/json
 Content-Type: application/json (POST/PUT)
 ```
 
+- A troca de ambiente eh feita apenas por `SERPRO_AMBIENTE`.
+- Homologacao: usa `SERPRO_HOMOLOGACAO_*` e envia `Authorization: Bearer {SERPRO_BEARER_TOKEN}`.
+- Producao: usa `SERPRO_PRODUCAO_*` e certificado digital mTLS. PFX/P12 usa `SERPRO_CERT_PATH` + `SERPRO_CERT_PASSWORD`; PEM usa `SERPRO_CERT_PATH` + `SERPRO_CERT_KEY_PATH`.
+- As URLs de homologacao/producao sao obrigatorias no `.env`; o PHP nao mantem fallback hardcoded para endpoints SERPRO.
+- Em producao, `SERPRO_BEARER_TOKEN` eh ignorado mesmo que esteja preenchido.
+- Se o PFX antigo falhar no cURL com erro de certificado, converta para PEM com OpenSSL em modo `-legacy` e configure `SERPRO_CERT_TYPE=PEM`.
+
 **Rate limit:** 15 conexoes/segundo por IP (HTTP 429 se exceder)
 
 **Ambiente de homologacao:**
-- URL Base: `https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api`
-- URL Transacional: `https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional`
+- URL Base: `https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api`
+- URL Transacional: `https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api/transacional`
 - CNPJ Teste: `33683111000107`
 - Placas Teste: `SAV0741` a `SAV0750`
 
@@ -725,11 +752,11 @@ Metodos:
 ├── downloadNPPdf(placa, co, na, ci)       → GET /consultas/sne/pdf/.../NP
 ├── consultarCRLV(placa)                   → GET /v1/documento/placa/{p}
 ├── consultarNotificacoes(dataIni, dataFim) → GET /notificacoes/v1/...
-├── listarEventos()                        → GET /gerenciamento/v1/eventos
-├── ativarEvento(tipoEvento, ativo)        → PUT /gerenciamento/v1/eventos
-├── consultarUrlWebhook()                  → GET /gerenciamento/v1/url-eventos
-├── registrarUrlWebhook(url, headers)      → POST /gerenciamento/v1/url-eventos
-├── removerUrlWebhook()                    → DELETE /gerenciamento/v1/url-eventos
+├── listarEventos()                        → GET /autorizador/v1/eventos
+├── ativarEvento(tipoEvento, ativo)        → PUT /autorizador/v1/eventos
+├── consultarUrlWebhook()                  → GET /autorizador/v1/endpoint
+├── registrarUrlWebhook(url, headers)      → PUT /autorizador/v1/endpoint (header X-Webhook-Secret)
+├── removerUrlWebhook()                    → DELETE /autorizador/v1/endpoint/{id}
 ├── indicarRealInfrator(dados)             → POST /transacional/v1/realinfrator/indicacoes/inserir
 ├── cancelarRealInfrator(chave, dados)     → POST /transacional/v1/realinfrator/indicacoes/{ch}/cancelar
 ├── statusRealInfrator(chave)              → GET /transacional/v1/realinfrator/indicacoes/{ch}/status
@@ -1074,7 +1101,8 @@ Novas permissoes a serem criadas:
 ## 12. Seguranca
 
 ### 12.1 Webhook SERPRO
-- Validacao por header `Authorization: Bearer {SERPRO_WEBHOOK_SECRET}`
+- Validacao por header `X-Webhook-Secret: {SERPRO_WEBHOOK_SECRET}`
+- Compatibilidade temporaria com header legado `Authorization: Bearer {SERPRO_WEBHOOK_SECRET}`
 - Sem CSRF (endpoint publico)
 - Rate limit
 - Log de todas as requisicoes recebidas
@@ -1092,7 +1120,8 @@ Novas permissoes a serem criadas:
 ### 12.4 Dados Sensiveis
 - CPF parcialmente mascarado na interface (`***456.789-**`)
 - Logs de API nao expoem dados pessoais ao tenant
-- Bearer token SERPRO apenas no backend (ENV)
+- Bearer token SERPRO apenas no backend (ENV) e somente para homologacao
+- Senha do certificado SERPRO apenas no backend (ENV)
 
 ---
 
@@ -1120,9 +1149,9 @@ Novas permissoes a serem criadas:
 - [ ] Consulta em lote (todos veiculos)
 - [ ] Download NA/NP PDFs
 - [ ] Consulta CRLV
-- [ ] SerproWebhookController (eventos SERPRO)
+- [x] SerproWebhookController (eventos SERPRO)
 - [ ] SerproAutoConsultaJob (CRON)
-- [ ] Configuracoes (auto-consulta, auto-eventos)
+- [x] Configuracoes (auto-consulta, auto-eventos)
 
 ### Fase 4 - Real Infrator e Principal Condutor
 - [ ] SerproIndicacaoController
@@ -1150,8 +1179,8 @@ Novas permissoes a serem criadas:
 ### 14.1 Ambiente de Homologacao SERPRO
 
 ```
-URL Base:       https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api
-URL Transac.:   https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional
+URL Base:       https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api
+URL Transac.:   https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api/transacional
 CNPJ Teste:     33683111000107
 Placas Teste:   SAV0741, SAV0742, SAV0743, SAV0744, SAV0745,
                 SAV0746, SAV0747, SAV0748, SAV0749, SAV0750

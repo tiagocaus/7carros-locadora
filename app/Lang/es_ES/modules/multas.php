@@ -227,14 +227,18 @@ return [
         'automation' => [
             'title' => 'Automatizaciones',
             'auto_query' => 'Auto-consulta',
+            'auto_query_help' => 'Consulta automáticamente las multas de los vehículos registrados en el intervalo elegido. El cobro se realiza por placa consultada, no por la cantidad de multas encontradas. Ejemplo: si una placa devuelve varias multas, se cobrará solo 1 consulta de esa placa.',
             'every' => 'cada',
             'auto_events' => 'Eventos automáticos',
+            'auto_events_help' => 'Recibe notificaciones automáticas de Consulta Online cuando se identifiquen nuevos eventos de multas. Cada evento recibido consume saldo como Evento, separado del cobro de Consulta por placa.',
             'last_query' => 'Ultima consulta: :date',
             'interval_1d' => '1 dia',
             'interval_3d' => '3 días',
             'interval_7d' => '7 días',
             'interval_14d' => '14 días',
             'interval_30d' => '30 días',
+            'online_query_requires_cnpj' => 'Consulta Online exige CNPJ. Registre una matriz o filial con CNPJ válido para activar las automatizaciones.',
+            'online_query_multiple_cnpjs' => 'Hay más de un CNPJ registrado. Configure qué CNPJ se usará en Consulta Online antes de activar las automatizaciones.',
         ],
 
         'filters' => [
@@ -348,6 +352,7 @@ return [
             'main_driver' => 'Conductor Principal',
             'all_status' => 'Todos los estados',
             'sent' => 'Enviado',
+            'pending' => 'Pendiente',
             'processing' => 'Procesando',
             'accepted' => 'Aceptado',
             'rejected' => 'Rechazado',

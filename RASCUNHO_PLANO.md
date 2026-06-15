@@ -6,6 +6,7 @@
 - Quando tiver substituição veícular, criar um novo checklist digital.
 - Impressão dos checklist não está boa, precisa ajudar.
 - Tela de contrato, aba financeiro, ao clicar em "+ Adicionar Parcela Avulsa", está aparecendo um prompt, isso ta errado, tem que ser algo moderno seguindo padrao do sistema. Qual sua sugestão para isso?
+- Percebi que que em "messages_queue", foi enviado ao cliente essa URL "https://locadora.7carros.com/storage/temp/fatura_C1380S945L26_1781380935.pdf", acredito que seja porque o whatsapp precisa, mas depois de enviado esse arquivo é excluirdo de alguma forma?
 
 ### SUGESTÕES DE CLIENTES
 - Criar um webhook para o sistema enviar notificações POST para determinada URL, quando tiver fatura vencida, fatura paga.
@@ -16,6 +17,7 @@
 - Estatistica de uso do peneu. Ligado com manutenção e manutenção preventiva.
 - Gerar fatura para seguradora.
 - Importar clientes e veículos por planilha
+- Na no dasboard não está mostrando chegada pensente.
 
 ----
 ### A FAZER

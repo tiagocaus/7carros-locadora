@@ -99,6 +99,8 @@ class FeatureRequest extends Model
         }
 
         // Ordenação
+        $query->orderByRaw("CASE WHEN fr.status = 'pendente' THEN 0 ELSE 1 END ASC");
+
         $ordenar = $filtros['ordenar'] ?? 'recentes';
         switch ($ordenar) {
             case 'votos':

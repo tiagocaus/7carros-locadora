@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
 use App\Models\Multa;
+use App\Models\MatrizFilial;
 use App\Models\Veiculo;
 use App\Models\SerproConfiguracao;
 use App\Models\SerproConsultaLog;
@@ -21,6 +22,13 @@ use App\Services\SerproSaldoService;
  */
 class SerproConsultaController
 {
+    /**
+     * Tipos de evento SERPRO suportados pela Central de Multas.
+     *
+     * A ativacao por cliente continua vindo de serpro_configuracoes.auto_eventos_ativo.
+     */
+    private const TIPOS_EVENTOS_MULTAS_SERPRO = [1];
+
     /**
      * Consulta infracoes de um veiculo por placa
      *
@@ -308,16 +316,26 @@ class SerproConsultaController
             $configModel = new SerproConfiguracao();
             $configModel->salvar($dados);
 
-            // Se auto_eventos ativado, registrar webhook na SERPRO
             if ($dados['auto_eventos_ativo']) {
-                $this->registrarWebhookSerpro($configModel);
+                $resultadoEventos = $this->configurarEventosSerpro($configModel);
+                if (!$resultadoEventos['success']) {
+                    $configModel->salvar([
+                        'auto_eventos_ativo' => 0,
+                    ]);
+
+                    Response::json([
+                        'success' => false,
+                        'message' => $resultadoEventos['message'],
+                    ], 502);
+                    return;
+                }
             }
 
             Response::json([
                 'success' => true,
                 'message' => 'Configuracao salva com sucesso.',
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao salvar configuracao: ' . $e->getMessage(),
@@ -347,12 +365,40 @@ class SerproConsultaController
             $config = $configModel->buscarPorChave();
 
             if (!$config) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Configuracao de consulta online nao encontrada. Configure o CNPJ da empresa primeiro.',
-                    'requires_setup' => true,
-                ], 422);
-                return;
+                if ($valor === 1) {
+                    $resultadoConfig = $this->criarConfiguracaoInicialConsultaOnline($configModel);
+                    if (!$resultadoConfig['success']) {
+                        Response::json([
+                            'success' => false,
+                            'message' => $resultadoConfig['message'],
+                            'requires_setup' => true,
+                        ], 422);
+                        return;
+                    }
+                } elseif ($valor === 0) {
+                    Response::json([
+                        'success' => true,
+                        'message' => 'Automacao ja estava desativada.',
+                    ]);
+                    return;
+                } else {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Configuracao de consulta online nao encontrada. Configure o CNPJ da empresa primeiro.',
+                        'requires_setup' => true,
+                    ], 422);
+                    return;
+                }
+            } elseif ($valor === 1 && !$this->cnpjSerproValido((string) ($config['cnpj_empresa'] ?? ''))) {
+                $resultadoConfig = $this->preencherCnpjConsultaOnline($configModel);
+                if (!$resultadoConfig['success']) {
+                    Response::json([
+                        'success' => false,
+                        'message' => $resultadoConfig['message'],
+                        'requires_setup' => true,
+                    ], 422);
+                    return;
+                }
             }
 
             $dados = [$campo => $valor];
@@ -366,16 +412,39 @@ class SerproConsultaController
 
             $configModel->salvar($dados);
 
-            // Se auto_eventos ativado, registrar webhook na SERPRO
             if ($campo === 'auto_eventos_ativo' && $valor === 1) {
-                $this->registrarWebhookSerpro($configModel);
+                $resultadoEventos = $this->configurarEventosSerpro($configModel);
+                if (!$resultadoEventos['success']) {
+                    $configModel->salvar([
+                        'auto_eventos_ativo' => 0,
+                    ]);
+
+                    Response::json([
+                        'success' => false,
+                        'message' => $resultadoEventos['message'],
+                    ], 502);
+                    return;
+                }
+            }
+
+            if ($campo === 'auto_eventos_ativo' && $valor === 0) {
+                $resultadoEventos = $this->desativarEventosSerpro();
+                if (!$resultadoEventos['success']) {
+                    $configModel->salvar(['auto_eventos_ativo' => 1]);
+
+                    Response::json([
+                        'success' => false,
+                        'message' => $resultadoEventos['message'],
+                    ], 502);
+                    return;
+                }
             }
 
             Response::json([
                 'success' => true,
                 'message' => 'Configuracao atualizada com sucesso.',
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao atualizar configuracao: ' . $e->getMessage(),
@@ -469,12 +538,20 @@ class SerproConsultaController
         $novas = 0;
 
         // Buscar veiculo pela placa
-        $veiculo = $veiculoModel->buscarPorPlaca($_SESSION['chave'], $placa);
+        $veiculo = $veiculoModel->buscarPorPlaca($placa);
 
         foreach ($infracoes as $infracao) {
-            $codigoOrgao = $infracao['codigoOrgao'] ?? '';
-            $numeroAit = $infracao['numeroAit'] ?? '';
-            $codigoInfracao = $infracao['codigoInfracao'] ?? '';
+            $dadosMulta = $multaModel->normalizarInfracaoSerpro(array_merge($infracao, [
+                'id_veiculo' => $veiculo ? (int) $veiculo['id'] : null,
+                'placa' => $placa,
+                'origem' => 'serpro_consulta',
+                'status_processamento' => 'novo',
+                'serpro_sync_at' => date('Y-m-d H:i:s'),
+            ]));
+
+            $codigoOrgao = $dadosMulta['codigo_orgao'] ?? '';
+            $numeroAit = $dadosMulta['numero_ait'] ?? '';
+            $codigoInfracao = $dadosMulta['codigo_infracao'] ?? '';
 
             if (empty($codigoOrgao) || empty($numeroAit)) {
                 continue;
@@ -485,30 +562,11 @@ class SerproConsultaController
 
             if ($existente) {
                 // Atualizar dados se necessario
-                $multaModel->atualizarDadosSerpro($existente['id'], [
-                    'serpro_sync_at' => date('Y-m-d H:i:s'),
-                ]);
+                $multaModel->atualizarDadosSerpro($existente['id'], $dadosMulta);
                 continue;
             }
 
             // Criar nova multa
-            $dadosMulta = [
-                'id_veiculo' => $veiculo ? (int) $veiculo['id'] : null,
-                'placa' => $placa,
-                'codigo_orgao' => $codigoOrgao,
-                'numero_ait' => $numeroAit,
-                'codigo_infracao' => $codigoInfracao,
-                'descricao' => $infracao['descricaoInfracao'] ?? $infracao['descricao'] ?? 'Infracao importada por consulta online',
-                'valor' => (float) ($infracao['valorInfracao'] ?? $infracao['valor'] ?? 0),
-                'valor_desconto_40' => isset($infracao['valorDesconto']) ? (float) $infracao['valorDesconto'] : null,
-                'data_hora' => $infracao['dataHoraInfracao'] ?? $infracao['dataInfracao'] ?? null,
-                'data_vencimento' => $infracao['dataVencimento'] ?? null,
-                'local' => $infracao['localInfracao'] ?? $infracao['local'] ?? null,
-                'origem' => 'serpro_consulta',
-                'status_processamento' => 'novo',
-                'serpro_sync_at' => date('Y-m-d H:i:s'),
-            ];
-
             $multaModel->criarDeSerpro($dadosMulta);
             $novas++;
         }
@@ -517,34 +575,254 @@ class SerproConsultaController
     }
 
     /**
-     * Registra URL de webhook na SERPRO para receber eventos
+     * Configura URL de webhook e ativa os tipos de evento na SERPRO.
      */
-    private function registrarWebhookSerpro(SerproConfiguracao $configModel): void
+    private function configurarEventosSerpro(SerproConfiguracao $configModel): array
     {
         try {
             $appUrl = env('APP_URL', '');
             if (empty($appUrl)) {
-                return;
+                return ['success' => false, 'message' => 'URL da aplicacao nao configurada para registrar eventos da Consulta Online.'];
+            }
+
+            $webhookSecret = env('SERPRO_WEBHOOK_SECRET', '');
+            if (empty($webhookSecret)) {
+                return ['success' => false, 'message' => 'Chave de validacao dos eventos da Consulta Online nao configurada.'];
             }
 
             $webhookUrl = rtrim($appUrl, '/') . '/webhook/multas-online/eventos';
-            $webhookSecret = env('SERPRO_WEBHOOK_SECRET', '');
-
-            $headers = [];
-            if (!empty($webhookSecret)) {
-                $headers = [
-                    ['chave' => 'X-Webhook-Secret', 'valor' => $webhookSecret],
-                ];
-            }
+            $headers = [
+                'X-Webhook-Secret' => $webhookSecret,
+            ];
 
             $serpro = new SerproService();
             $resultado = $serpro->registrarUrlWebhook($webhookUrl, $headers);
 
-            if ($resultado['success']) {
-                $configModel->atualizarWebhookStatus(true);
+            if (!$resultado['success']) {
+                $webhookJaConfigurado = $this->sincronizarWebhookJaRegistrado($serpro, $webhookUrl, $headers, $resultado);
+                if (!$webhookJaConfigurado['success']) {
+                    $configModel->atualizarWebhookStatus(false);
+                    return [
+                        'success' => false,
+                        'message' => 'Erro ao registrar eventos da Consulta Online: ' . ($webhookJaConfigurado['message'] ?? ($resultado['error'] ?? 'erro desconhecido')),
+                    ];
+                }
             }
-        } catch (\Exception $e) {
+
+            $configModel->atualizarWebhookStatus(true);
+
+            foreach ($this->tiposEventosSerpro() as $tipoEvento) {
+                $resultadoEvento = $serpro->ativarEvento($tipoEvento, true);
+                if (!$resultadoEvento['success']) {
+                    return [
+                        'success' => false,
+                        'message' => "Webhook registrado, mas erro ao ativar evento da Consulta Online {$tipoEvento}: " . ($resultadoEvento['error'] ?? 'erro desconhecido'),
+                    ];
+                }
+            }
+
+            return ['success' => true, 'message' => 'Eventos da Consulta Online configurados com sucesso.'];
+        } catch (\Throwable $e) {
             error_log('SerproConsultaController::registrarWebhookSerpro - Erro: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Erro ao configurar eventos da Consulta Online: ' . $e->getMessage()];
         }
+    }
+
+    /**
+     * Trata o cadastro de webhook como idempotente quando a Consulta Online
+     * responde que o endpoint ja existe. Se a URL for a mesma mas o header
+     * cadastrado estiver desatualizado, remove e recadastra.
+     */
+    private function sincronizarWebhookJaRegistrado(SerproService $serpro, string $webhookUrl, array $headers, array $resultadoRegistro): array
+    {
+        $status = (int) ($resultadoRegistro['status'] ?? 0);
+        $erro = strtolower((string) ($resultadoRegistro['error'] ?? ''));
+        if ($status !== 409 && !str_contains($erro, 'endpoint ja existe') && !str_contains($erro, 'endpoint já existe')) {
+            return [
+                'success' => false,
+                'message' => $resultadoRegistro['error'] ?? 'erro desconhecido',
+            ];
+        }
+
+        $endpointAtual = $serpro->consultarUrlWebhook();
+        if (!$endpointAtual['success']) {
+            return [
+                'success' => false,
+                'message' => 'endpoint ja existe, mas nao foi possivel consultar a URL cadastrada: ' . ($endpointAtual['error'] ?? 'erro desconhecido'),
+            ];
+        }
+
+        $endpoints = $endpointAtual['data'] ?? [];
+        if (!is_array($endpoints)) {
+            return [
+                'success' => false,
+                'message' => 'endpoint ja existe, mas a consulta da URL cadastrada retornou formato invalido.',
+            ];
+        }
+
+        if (isset($endpoints['url'])) {
+            $endpoints = [$endpoints];
+        }
+
+        foreach ($endpoints as $endpoint) {
+            if (!is_array($endpoint)) {
+                continue;
+            }
+
+            $urlAtual = rtrim((string) ($endpoint['url'] ?? ''), '/');
+            if ($urlAtual !== rtrim($webhookUrl, '/')) {
+                continue;
+            }
+
+            $headerEsperado = (string) array_key_first($headers);
+            $valorEsperado = (string) ($headers[$headerEsperado] ?? '');
+            $headerAtual = (string) ($endpoint['header'] ?? '');
+            $valorAtual = (string) ($endpoint['valor'] ?? '');
+
+            if (strcasecmp($headerAtual, $headerEsperado) === 0 && hash_equals($valorEsperado, $valorAtual)) {
+                return ['success' => true];
+            }
+
+            $remocao = $serpro->removerUrlWebhook();
+            if (!$remocao['success']) {
+                return [
+                    'success' => false,
+                    'message' => 'endpoint ja existe com header desatualizado, mas nao foi possivel remove-lo: ' . ($remocao['error'] ?? 'erro desconhecido'),
+                ];
+            }
+
+            $novoRegistro = $serpro->registrarUrlWebhook($webhookUrl, $headers);
+            if (!$novoRegistro['success']) {
+                return [
+                    'success' => false,
+                    'message' => 'endpoint ja existe com header desatualizado, mas nao foi possivel recadastra-lo: ' . ($novoRegistro['error'] ?? 'erro desconhecido'),
+                ];
+            }
+
+            return ['success' => true];
+        }
+
+        return [
+            'success' => false,
+            'message' => 'ja existe outro endpoint cadastrado na Consulta Online. Remova o endpoint atual antes de ativar os eventos.',
+        ];
+    }
+
+    /**
+     * Desativa os tipos de evento configurados na SERPRO.
+     */
+    private function desativarEventosSerpro(): array
+    {
+        try {
+            $serpro = new SerproService();
+
+            foreach ($this->tiposEventosSerpro() as $tipoEvento) {
+                $resultadoEvento = $serpro->ativarEvento($tipoEvento, false);
+                if (!$resultadoEvento['success']) {
+                    return [
+                        'success' => false,
+                        'message' => "Erro ao desativar evento da Consulta Online {$tipoEvento}: " . ($resultadoEvento['error'] ?? 'erro desconhecido'),
+                    ];
+                }
+            }
+
+            return ['success' => true, 'message' => 'Eventos da Consulta Online desativados com sucesso.'];
+        } catch (\Throwable $e) {
+            error_log('SerproConsultaController::desativarEventosSerpro - Erro: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Erro ao desativar eventos da Consulta Online: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Cria a configuracao inicial usando um CNPJ valido do tenant.
+     */
+    private function criarConfiguracaoInicialConsultaOnline(SerproConfiguracao $configModel): array
+    {
+        $resultado = $this->resolverCnpjConsultaOnline();
+        if (!$resultado['success']) {
+            return $resultado;
+        }
+
+        $configModel->salvar([
+            'cnpj_empresa' => $resultado['cnpj'],
+            'auto_consulta_ativo' => 0,
+            'intervalo_dias_consulta' => 7,
+            'auto_eventos_ativo' => 0,
+        ]);
+
+        return ['success' => true];
+    }
+
+    /**
+     * Preenche CNPJ ausente em configuracao existente usando um CNPJ valido do tenant.
+     */
+    private function preencherCnpjConsultaOnline(SerproConfiguracao $configModel): array
+    {
+        $resultado = $this->resolverCnpjConsultaOnline();
+        if (!$resultado['success']) {
+            return $resultado;
+        }
+
+        $configModel->salvar(['cnpj_empresa' => $resultado['cnpj']]);
+
+        return ['success' => true];
+    }
+
+    /**
+     * Retorna o CNPJ que deve ser usado pela Consulta Online.
+     */
+    private function resolverCnpjConsultaOnline(): array
+    {
+        $model = new MatrizFilial();
+        $matriz = $model->buscarMatriz();
+        $cnpjMatriz = preg_replace('/\D/', '', (string) ($matriz['cpf_cnpj'] ?? ''));
+
+        if ($this->cnpjSerproValido($cnpjMatriz)) {
+            return ['success' => true, 'cnpj' => $cnpjMatriz];
+        }
+
+        $empresas = $model->listar(null, [], 'tipo DESC, razao_social ASC');
+        $cnpjsValidos = [];
+
+        foreach ($empresas as $empresa) {
+            $cnpj = preg_replace('/\D/', '', (string) ($empresa['cpf_cnpj'] ?? ''));
+            if ($this->cnpjSerproValido($cnpj)) {
+                $cnpjsValidos[$cnpj] = $empresa;
+            }
+        }
+
+        if (count($cnpjsValidos) === 1) {
+            return ['success' => true, 'cnpj' => array_key_first($cnpjsValidos)];
+        }
+
+        if (count($cnpjsValidos) > 1) {
+            return [
+                'success' => false,
+                'message' => t('modules.multas.central.automation.online_query_multiple_cnpjs'),
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => t('modules.multas.central.automation.online_query_requires_cnpj'),
+        ];
+    }
+
+    /**
+     * Valida formato minimo de CNPJ para envio a SERPRO.
+     */
+    private function cnpjSerproValido(string $cnpj): bool
+    {
+        $cnpj = preg_replace('/\D/', '', $cnpj);
+
+        return strlen($cnpj) === 14 && !preg_match('/^(\d)\1{13}$/', $cnpj);
+    }
+
+    /**
+     * Tipos de evento SERPRO que a Central de Multas deve receber.
+     */
+    private function tiposEventosSerpro(): array
+    {
+        return self::TIPOS_EVENTOS_MULTAS_SERPRO;
     }
 }

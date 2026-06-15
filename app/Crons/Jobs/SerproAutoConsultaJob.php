@@ -186,9 +186,17 @@ class SerproAutoConsultaJob extends BaseJob
         $novas = 0;
 
         foreach ($infracoes as $infracao) {
-            $codigoOrgao = $infracao['codigoOrgao'] ?? '';
-            $numeroAit = $infracao['numeroAit'] ?? '';
-            $codigoInfracao = $infracao['codigoInfracao'] ?? '';
+            $dadosMulta = $multaModel->normalizarInfracaoSerpro(array_merge($infracao, [
+                'id_veiculo' => $idVeiculo,
+                'placa' => $placa,
+                'origem' => 'serpro_consulta',
+                'status_processamento' => 'novo',
+                'serpro_sync_at' => date('Y-m-d H:i:s'),
+            ]));
+
+            $codigoOrgao = $dadosMulta['codigo_orgao'] ?? '';
+            $numeroAit = $dadosMulta['numero_ait'] ?? '';
+            $codigoInfracao = $dadosMulta['codigo_infracao'] ?? '';
 
             if (empty($codigoOrgao) || empty($numeroAit)) {
                 continue;
@@ -198,28 +206,12 @@ class SerproAutoConsultaJob extends BaseJob
             $existente = $multaModel->buscarPorChavesSerpro($codigoOrgao, $numeroAit, $codigoInfracao);
 
             if ($existente) {
-                $multaModel->atualizarDadosSerpro($existente['id'], [
-                    'serpro_sync_at' => date('Y-m-d H:i:s'),
-                ]);
+                $multaModel->atualizarDadosSerpro($existente['id'], $dadosMulta);
                 continue;
             }
 
             // Criar multa
-            $multaModel->criarDeSerpro([
-                'id_veiculo' => $idVeiculo,
-                'placa' => $placa,
-                'codigo_orgao' => $codigoOrgao,
-                'numero_ait' => $numeroAit,
-                'codigo_infracao' => $codigoInfracao,
-                'descricao' => $infracao['descricaoInfracao'] ?? $infracao['descricao'] ?? 'Infracao importada por consulta online',
-                'valor' => (float) ($infracao['valorInfracao'] ?? $infracao['valor'] ?? 0),
-                'valor_desconto_40' => isset($infracao['valorDesconto']) ? (float) $infracao['valorDesconto'] : null,
-                'data_hora' => $infracao['dataHoraInfracao'] ?? $infracao['dataInfracao'] ?? null,
-                'data_vencimento' => $infracao['dataVencimento'] ?? null,
-                'local' => $infracao['localInfracao'] ?? $infracao['local'] ?? null,
-                'origem' => 'serpro_consulta',
-                'status_processamento' => 'novo',
-            ]);
+            $multaModel->criarDeSerpro($dadosMulta);
 
             $novas++;
         }

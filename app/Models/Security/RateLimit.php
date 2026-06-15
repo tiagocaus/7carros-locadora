@@ -28,6 +28,25 @@ class RateLimit extends Model
         string $endpoint,
         int $window
     ): int {
+        $result = $this->incrementarEObterDetalhes($identifier, $ipAddress, $userId, $endpoint, $window);
+        return (int) ($result['hits'] ?? 1);
+    }
+
+    /**
+     * Incrementa contador e retorna dados atuais da janela.
+     *
+     * Usa o horário do PHP em todos os pontos da query para não misturar
+     * timezones do PHP com o NOW() do MySQL.
+     *
+     * @return array{hits:int, expires_at:string|null}
+     */
+    public function incrementarEObterDetalhes(
+        string $identifier,
+        string $ipAddress,
+        ?int $userId,
+        string $endpoint,
+        int $window
+    ): array {
         $now = date('Y-m-d H:i:s');
         $expiresAt = date('Y-m-d H:i:s', time() + $window);
 
@@ -36,14 +55,14 @@ class RateLimit extends Model
                 (identifier, ip_address, user_id, endpoint, hits, window_start, expires_at, created_at, updated_at)
                 VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
-                    hits = IF(expires_at < NOW(), 1, hits + 1),
-                    window_start = IF(expires_at < NOW(), NOW(), window_start),
-                    expires_at = IF(expires_at < NOW(), ?, expires_at),
-                    updated_at = NOW()";
+                    hits = IF(expires_at <= ?, 1, hits + 1),
+                    window_start = IF(expires_at <= ?, ?, window_start),
+                    expires_at = IF(expires_at <= ?, ?, expires_at),
+                    updated_at = ?";
 
         $stmt = $this->getMysqli()->prepare($sql);
         $stmt->bind_param(
-            'ssissssss',
+            'ssisssssssssss',
             $identifier,
             $ipAddress,
             $userId,
@@ -52,14 +71,22 @@ class RateLimit extends Model
             $expiresAt,
             $now,
             $now,
-            $expiresAt
+            $now,
+            $now,
+            $now,
+            $now,
+            $expiresAt,
+            $now
         );
         $stmt->execute();
         $stmt->close();
 
-        // Obtém valor atual
         $result = $this->buscarPorIdentifier($identifier);
-        return (int) ($result['hits'] ?? 1);
+
+        return [
+            'hits' => (int) ($result['hits'] ?? 1),
+            'expires_at' => $result['expires_at'] ?? $expiresAt,
+        ];
     }
 
     /**
@@ -103,7 +130,7 @@ class RateLimit extends Model
         return $this->qb
             ->table('security_rate_limits')
             ->withoutChave()
-            ->whereRaw('expires_at < NOW()')
+            ->whereRaw('expires_at <= ?', [date('Y-m-d H:i:s')])
             ->delete();
     }
 
@@ -156,11 +183,16 @@ class RateLimit extends Model
                     AVG(hits) as avg_hits,
                     MAX(hits) as max_hits
                 FROM security_rate_limits
-                WHERE expires_at > NOW()";
+                WHERE expires_at > ?";
 
-        $result = $this->getMysqli()->query($sql);
+        $now = date('Y-m-d H:i:s');
+        $stmt = $this->getMysqli()->prepare($sql);
+        $stmt->bind_param('s', $now);
+        $stmt->execute();
+        $result = $stmt->get_result();
         $row = $result->fetch_assoc();
         $result->free();
+        $stmt->close();
 
         return $row ?: [];
     }

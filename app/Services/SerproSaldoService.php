@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\SerproSaldo;
 use App\Models\SerproTransacao;
+use App\Models\Model;
 
 /**
  * Service para gestao de saldo prepago de consultas online
@@ -175,7 +176,7 @@ class SerproSaldoService
         string $descricao,
         ?string $referencia
     ): array {
-        $mysqli = $this->saldoModel->getMysqli();
+        $mysqli = Model::sharedMysqli();
         $mysqli->begin_transaction();
 
         try {
@@ -238,7 +239,7 @@ class SerproSaldoService
             ];
         }
 
-        $mysqli = $this->saldoModel->getMysqli();
+        $mysqli = Model::sharedMysqli();
         $mysqli->begin_transaction();
 
         try {

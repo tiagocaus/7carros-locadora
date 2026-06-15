@@ -15,7 +15,8 @@
     let taxas = [];
     let parcelas = []; // Parcelas financeiras
     let parcelasOriginais = []; // Para detectar alteracoes
-    let resolverDiferencaPendente = false;
+    let confirmacaoPendente = null;
+    let parcelaAvulsaRascunho = null;
 
     // Cache de dados
     let gruposDisponiveis = [];
@@ -254,14 +255,48 @@
             if (meta) meta.content = event.data.csrfToken;
         }
 
-        if (event.data && event.data.action === 'genericConfirmed' && resolverDiferencaPendente) {
-            resolverDiferencaPendente = false;
-            executarResolucaoDiferenca('recalcular');
+        if (event.data && event.data.action === 'genericConfirmed' && confirmacaoPendente) {
+            const acao = confirmacaoPendente;
+            confirmacaoPendente = null;
+
+            if (acao === 'resolverDiferenca') {
+                executarResolucaoDiferenca('recalcular');
+            } else if (acao === 'limparParcelas') {
+                executarLimparParcelas();
+            } else if (acao === 'regenerarPendentes') {
+                executarRegenerarPendentes();
+            }
             return;
         }
 
-        if (event.data && event.data.action === 'genericModalClosed' && resolverDiferencaPendente) {
-            resolverDiferencaPendente = false;
+        if (event.data && event.data.action === 'genericModalClosed' && confirmacaoPendente) {
+            confirmacaoPendente = null;
+            return;
+        }
+
+        if (event.data && event.data.action === 'parcelaAvulsaDataInformada') {
+            const dataVenci = (event.data.value || '').trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dataVenci)) {
+                window.parent.postMessage({ action: 'openAlert', message: i18n.invalidDate || 'Data invalida. Use o formato AAAA-MM-DD.' }, '*');
+                return;
+            }
+
+            parcelaAvulsaRascunho = { data_venci: dataVenci };
+            window.parent.postMessage({
+                action: 'openInputModal',
+                title: i18n.addInstallment || 'Adicionar parcela',
+                label: i18n.promptInstallmentValue || 'Valor da parcela',
+                value: '',
+                callbackAction: 'parcelaAvulsaValorInformado'
+            }, '*');
+            return;
+        }
+
+        if (event.data && event.data.action === 'parcelaAvulsaValorInformado') {
+            if (!parcelaAvulsaRascunho) return;
+            const dataVenci = parcelaAvulsaRascunho.data_venci;
+            parcelaAvulsaRascunho = null;
+            executarAdicionarParcelaAvulsa(dataVenci, event.data.value || '');
             return;
         }
 
@@ -2478,7 +2513,16 @@
 
     // Limpa todas as parcelas
     function limparParcelas() {
-        if (!confirm(i18n.clearAllConfirm || 'Deseja limpar todas as parcelas?')) return;
+        confirmacaoPendente = 'limparParcelas';
+        window.parent.postMessage({
+            action: 'openGenericConfirmModal',
+            title: i18n.clearInstallmentsTitle || 'Limpar parcelas',
+            message: i18n.clearAllConfirm || 'Deseja limpar todas as parcelas?',
+            confirmText: i18n.clearInstallmentsConfirm || 'Limpar parcelas'
+        }, '*');
+    }
+
+    function executarLimparParcelas() {
         parcelas = [];
         renderizarParcelas();
         const elSecao = document.getElementById('secaoParcelasGeradas');
@@ -2518,7 +2562,7 @@
             return;
         }
 
-        resolverDiferencaPendente = true;
+        confirmacaoPendente = 'resolverDiferenca';
         window.parent.postMessage({
             action: 'openGenericConfirmModal',
             title: 'Resolver diferença financeira',
@@ -2529,12 +2573,17 @@
 
     // Adiciona parcela avulsa
     async function adicionarParcelaAvulsa() {
-        const dataVenci = prompt(i18n.promptDueDate || 'Data de vencimento (AAAA-MM-DD):');
-        if (!dataVenci) return;
+        parcelaAvulsaRascunho = null;
+        window.parent.postMessage({
+            action: 'openInputModal',
+            title: i18n.addInstallment || 'Adicionar parcela',
+            label: i18n.promptDueDate || 'Data de vencimento (AAAA-MM-DD)',
+            value: '',
+            callbackAction: 'parcelaAvulsaDataInformada'
+        }, '*');
+    }
 
-        const valorStr = prompt(i18n.promptInstallmentValue || 'Valor da parcela:');
-        if (!valorStr) return;
-
+    async function executarAdicionarParcelaAvulsa(dataVenci, valorStr) {
         const valor = Currency.parse(valorStr);
         if (valor <= 0) {
             window.parent.postMessage({ action: 'openAlert', message: i18n.invalidValue || 'Valor invalido' }, '*');
@@ -2641,10 +2690,16 @@
             return;
         }
 
-        if (!confirm(i18n.recalculateConfirm || 'Deseja redistribuir o saldo entre as parcelas pendentes?')) {
-            return;
-        }
+        confirmacaoPendente = 'regenerarPendentes';
+        window.parent.postMessage({
+            action: 'openGenericConfirmModal',
+            title: i18n.regenerateInstallmentsTitle || 'Regenerar parcelas',
+            message: i18n.recalculateConfirm || 'Deseja redistribuir o saldo entre as parcelas pendentes?',
+            confirmText: i18n.regenerateInstallmentsConfirm || 'Regenerar parcelas'
+        }, '*');
+    }
 
+    async function executarRegenerarPendentes() {
         try {
             const result = await API.post(`/api/contratos/${registroId}/recalcular-parcelas`);
             if (result.success) {

@@ -200,16 +200,17 @@ class MessageQueueService
             ]);
 
             // Se falhar ao publicar no RabbitMQ, atualiza status para failed
-            $this->qb->update(
-                'messages_queue',
-                [
+            $query = $this->qb->table('messages_queue');
+            if ($chave !== null) {
+                $query->withChave($chave);
+            }
+            $query
+                ->where('id', '=', $messageId)
+                ->update([
                     'status' => 'failed',
                     'error_message' => 'Erro ao publicar na fila: ' . $e->getMessage(),
                     'updated_at' => date('Y-m-d H:i:s'),
-                ],
-                'id = ?',
-                [$messageId]
-            );
+                ]);
 
             error_log("Erro ao publicar mensagem na fila RabbitMQ: " . $e->getMessage());
             throw new \RuntimeException("Erro ao publicar mensagem na fila: " . $e->getMessage(), 0, $e);
@@ -391,7 +392,7 @@ class MessageQueueService
             return $length === 12 || $length === 13;
         }
 
-        return $length === 10 || $length === 11;
+        return $length >= 8 && $length <= 15;
     }
 
     /**

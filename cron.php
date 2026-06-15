@@ -136,6 +136,11 @@ try {
     $scheduler->job(new \App\Crons\Jobs\SerproAutoConsultaJob())
               ->dailyAt('07:00');
 
+    // Indicacoes de Condutor - Sincronizacao de Status
+    // Executa a cada 30 minutos para atualizar status de indicacoes enviadas/processando/pendentes
+    $scheduler->job(new \App\Crons\Jobs\SerproSyncIndicacoesStatusJob())
+              ->everyThirtyMinutes();
+
     // NFS-e - Emissao Automatica
     // Executa a cada 5 minutos para emitir NFS-e de pagamentos confirmados (max 50/exec)
     $scheduler->job(new \App\Crons\Jobs\NFSeEmitirAutoJob())

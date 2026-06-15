@@ -324,7 +324,7 @@ class VeiculosController
 
             // Verificar unicidade da placa
             $model = new Veiculo();
-            $veiculoExistente = $model->buscarPorPlaca($chave, $dados['placa']);
+            $veiculoExistente = $model->buscarPorPlaca($dados['placa']);
             if ($veiculoExistente) {
                 Response::json([
                     'success' => false,
@@ -510,7 +510,7 @@ class VeiculosController
 
             // Verificar unicidade da placa (se alterou)
             if (!empty($dados['placa']) && $dados['placa'] !== $veiculo['placa']) {
-                $veiculoExistente = $model->buscarPorPlaca($chave, $dados['placa'], $id);
+                $veiculoExistente = $model->buscarPorPlaca($dados['placa'], $id);
                 if ($veiculoExistente) {
                     Response::json([
                         'success' => false,

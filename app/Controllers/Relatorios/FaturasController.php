@@ -33,6 +33,7 @@ class FaturasController extends BaseRelatorioController
             if (!$this->checkPermission('relatorios.faturas.vencidas_a_vencer')) return;
 
             $filialId = $request->query('filial', '');
+            $clienteId = $this->normalizarClienteId($request->query('cliente', ''));
             $visao = $request->query('visao', 'vencidas');
 
             if (!$this->validateFilialAccess($filialId)) return;
@@ -40,7 +41,7 @@ class FaturasController extends BaseRelatorioController
             [$filialWhere, $filialParams] = $this->getFilialFilter();
 
             $model = new FaturasReport();
-            $result = $model->faturasVencidasAVencer($visao, $filialWhere, $filialParams, $filialId);
+            $result = $model->faturasVencidasAVencer($visao, $filialWhere, $filialParams, $filialId, $clienteId);
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
         } catch (\Exception $e) {
@@ -54,11 +55,12 @@ class FaturasController extends BaseRelatorioController
         if (!$this->checkPermission('relatorios.faturas.vencidas_a_vencer')) return;
 
         $filialId = $request->query('filial', '');
+        $clienteId = $this->normalizarClienteId($request->query('cliente', ''));
         $visao = $request->query('visao', 'vencidas');
 
         [$filialWhere, $filialParams] = $this->getFilialFilter();
         $model = new FaturasReport();
-        $result = $model->faturasVencidasAVencer($visao, $filialWhere, $filialParams, $filialId);
+        $result = $model->faturasVencidasAVencer($visao, $filialWhere, $filialParams, $filialId, $clienteId);
 
         $this->renderPdf(
             'vencidas-a-vencer.php',
@@ -233,6 +235,17 @@ class FaturasController extends BaseRelatorioController
         string $orientation = 'P'
     ): void {
         $this->renderPdfPeriodo($templateFile, $titulo, $descricao, $totals, $details, '', '', $orientation);
+    }
+
+    private function normalizarClienteId(mixed $clienteId): string
+    {
+        $clienteId = trim((string) $clienteId);
+
+        if ($clienteId === '' || !ctype_digit($clienteId) || (int) $clienteId <= 0) {
+            return '';
+        }
+
+        return $clienteId;
     }
 
     /**

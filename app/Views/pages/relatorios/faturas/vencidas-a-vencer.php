@@ -28,6 +28,12 @@
                 <option value=""><?= t('modules.relatorios.common.all_branches') ?></option>
             </select>
         </div>
+        <div class="flex-1 min-w-[220px] max-w-[320px]">
+            <label for="filterCliente" class="block text-xs text-slate-500 mb-1">Cliente</label>
+            <select id="filterCliente" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/clientes/buscar" data-chosen-placeholder="Todos os clientes">
+                <option value="">Todos os clientes</option>
+            </select>
+        </div>
         <div class="flex items-end gap-2">
             <button id="btnAplicar" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
                 <i class="fas fa-search mr-2"></i><?= t('modules.relatorios.common.apply') ?>
@@ -117,6 +123,7 @@
     function exportarPdf() {
         const params = new URLSearchParams({
             filial: document.getElementById('filterFilial').value,
+            cliente: document.getElementById('filterCliente').value,
             visao: visaoAtual,
         });
         ReportUtils.exportPdf(`${PDF_URL}?${params.toString()}`, '<?= t("modules.relatorios.faturas.vencidas_a_vencer.title") ?>');
@@ -128,6 +135,7 @@
 
             const params = {
                 filial: document.getElementById('filterFilial').value,
+                cliente: document.getElementById('filterCliente').value,
                 visao: visaoAtual,
             };
 

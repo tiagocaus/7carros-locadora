@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "bdf294da-2605-46d6-8d77-30ffcccf04d1",
     "name": "SERPRO eFrotas API",
-    "description": "Coleção completa da API eFrotas do SERPRO para gestão de frotas de veículos.\n\n**Ambiente de Homologação:**\n\n- URL Base: [https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api](https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api)\n    \n- URL Transacional: [https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional](https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional)\n    \n- CNPJ de Teste: 33683111000107\n    \n- Placas de Teste: SAV0741, SAV0742, SAV0743, SAV0744, SAV0745,  \n    SAV0746, SAV0747, SAV0748, SAV0749, SAV0750\n    \n\n**Ambiente de Produção:**\n\n- URL Base: [https://efrotas.estaleiro.serpro.gov.br/efrotas/api](https://efrotas.estaleiro.serpro.gov.br/efrotas/api)\n    \n- Requer certificado digital\n    \n\n**Rate Limit:**  \nCada IP pode efetuar até 15 conexões por segundo. Caso exceda, retorna HTTP 429.\n\nLink original: [https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/swagger-ui/index.html?configUrl=/efrotas/v3/api-docs/swagger-config&amp;urls.primaryName=Consultas](https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/swagger-ui/index.html?configUrl=%2Fefrotas%2Fv3%2Fapi-docs%2Fswagger-config&urls.primaryName=Consultas)\n\nRoteiro: [https://centraldeajuda.serpro.gov.br/efrotas/manuais/roteiro-hom-efrotas%20-%20v%202.0.pdf](https://centraldeajuda.serpro.gov.br/efrotas/manuais/roteiro-hom-efrotas%20-%20v%202.0.pdf)",
+    "description": "Coleção completa da API eFrotas do SERPRO para gestão de frotas de veículos.\n\n**Ambiente de Homologação:**\n\n- URL Base: [https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api](https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api)\n    \n- URL Transacional: [https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api/transacional](https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api/transacional)\n    \n- CNPJ de Teste: 33683111000107\n    \n- Placas de Teste: SAV0741, SAV0742, SAV0743, SAV0744, SAV0745,  \n    SAV0746, SAV0747, SAV0748, SAV0749, SAV0750\n    \n\n**Ambiente de Produção:**\n\n- URL Base: [https://efrotas.estaleiro.serpro.gov.br/efrotas/api](https://efrotas.estaleiro.serpro.gov.br/efrotas/api)\n    \n- Requer certificado digital\n    \n\n**Rate Limit:**  \nCada IP pode efetuar até 15 conexões por segundo. Caso exceda, retorna HTTP 429.\n\nLink original: [https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/swagger-ui/index.html?configUrl=/efrotas/v3/api-docs/swagger-config&amp;urls.primaryName=Consultas](https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/swagger-ui/index.html?configUrl=%2Fefrotas%2Fv3%2Fapi-docs%2Fswagger-config&urls.primaryName=Consultas)\n\nRoteiro: [https://centraldeajuda.serpro.gov.br/efrotas/manuais/roteiro-hom-efrotas%20-%20v%202.0.pdf](https://centraldeajuda.serpro.gov.br/efrotas/manuais/roteiro-hom-efrotas%20-%20v%202.0.pdf)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "12452463"
   },
@@ -461,12 +461,12 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/gerenciamento/v1/eventos",
+              "raw": "{{base_url}}/autorizador/v1/eventos",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "gerenciamento",
+                "autorizador",
                 "v1",
                 "eventos"
               ]
@@ -491,15 +491,15 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"tipoEvento\": 1,\n    \"ativo\": true\n}"
+              "raw": "{\n    \"eventosPermitidos\": [\n        {\n            \"codigo\": 1,\n            \"ativo\": true\n        }\n    ]\n}"
             },
             "url": {
-              "raw": "{{base_url}}/gerenciamento/v1/eventos",
+              "raw": "{{base_url}}/autorizador/v1/eventos",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "gerenciamento",
+                "autorizador",
                 "v1",
                 "eventos"
               ]
@@ -519,14 +519,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/gerenciamento/v1/url-eventos",
+              "raw": "{{base_url}}/autorizador/v1/endpoint",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "gerenciamento",
+                "autorizador",
                 "v1",
-                "url-eventos"
+                "endpoint"
               ]
             },
             "description": "Consulta a URL configurada para recebimento de eventos"
@@ -536,7 +536,7 @@
         {
           "name": "Cadastrar URL de webhook",
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [
               {
                 "key": "Accept",
@@ -549,20 +549,20 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"url\": \"https://seu-dominio.com/webhook/efrotas\",\n    \"headers\": {\n        \"Authorization\": \"Bearer seu-token-aqui\"\n    }\n}"
+              "raw": "{\n    \"url\": \"https://seu-dominio.com/webhook/efrotas\",\n    \"header\": \"X-Webhook-Secret\",\n    \"valor\": \"seu-token-aqui\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/gerenciamento/v1/url-eventos",
+              "raw": "{{base_url}}/autorizador/v1/endpoint",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "gerenciamento",
+                "autorizador",
                 "v1",
-                "url-eventos"
+                "endpoint"
               ]
             },
-            "description": "Cadastra a URL do webhook para recebimento de eventos"
+            "description": "Cadastra a URL do webhook para recebimento de eventos. Use X-Webhook-Secret porque alguns servidores nao repassam Authorization para PHP em webhooks publicos. Se retornar HTTP 409 com endpoint ja existente, consulte GET /autorizador/v1/endpoint e trate como sucesso apenas quando a URL cadastrada e o header forem os esperados."
           },
           "response": []
         },
@@ -577,14 +577,21 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/gerenciamento/v1/url-eventos",
+              "raw": "{{base_url}}/autorizador/v1/endpoint/:id",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "gerenciamento",
+                "autorizador",
                 "v1",
-                "url-eventos"
+                "endpoint",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
               ]
             },
             "description": "Remove a URL do webhook configurada"
@@ -1212,12 +1219,12 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api",
+      "value": "https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api",
       "description": "URL base para APIs de consulta"
     },
     {
       "key": "base_url_transacional",
-      "value": "https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional",
+      "value": "https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api/transacional",
       "description": "URL base para APIs transacionais (Boleto, Principal Condutor, Real Infrator)"
     },
     {

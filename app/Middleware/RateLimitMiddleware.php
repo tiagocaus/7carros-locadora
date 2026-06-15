@@ -47,14 +47,16 @@ class RateLimitMiddleware
         $identifier = $this->generateIdentifier($ipAddress, $userId, $endpoint);
 
         // Verifica e atualiza contador
-        $currentHits = $this->incrementAndGet($identifier, $ipAddress, $userId, $endpoint, $window);
+        $rateLimit = $this->incrementAndGetDetails($identifier, $ipAddress, $userId, $endpoint, $window);
+        $currentHits = (int) $rateLimit['hits'];
+        $retryAfter = $this->secondsUntilReset($rateLimit['expires_at'] ?? null, $window);
 
         // Adiciona headers de rate limit
-        $this->addRateLimitHeaders($currentHits, $limit, $window);
+        $this->addRateLimitHeaders($currentHits, $limit, $window, $retryAfter);
 
         // Verifica se excedeu o limite
         if ($currentHits > $limit) {
-            $this->handleLimitExceeded($request, $ipAddress, $endpoint, $currentHits, $limit, $userId);
+            $this->handleLimitExceeded($request, $ipAddress, $endpoint, $currentHits, $limit, $userId, $retryAfter);
             return false;
         }
 
@@ -90,28 +92,29 @@ class RateLimitMiddleware
     }
 
     /**
-     * Incrementa contador e retorna valor atual
+     * Incrementa contador e retorna dados atuais da janela
      */
-    private function incrementAndGet(
+    private function incrementAndGetDetails(
         string $identifier,
         string $ipAddress,
         ?int $userId,
         string $endpoint,
         int $window
-    ): int {
-        return $this->model->incrementarEObter($identifier, $ipAddress, $userId, $endpoint, $window);
+    ): array {
+        return $this->model->incrementarEObterDetalhes($identifier, $ipAddress, $userId, $endpoint, $window);
     }
 
     /**
      * Adiciona headers de rate limit à resposta
      */
-    private function addRateLimitHeaders(int $current, int $limit, int $window): void
+    private function addRateLimitHeaders(int $current, int $limit, int $window, int $retryAfter): void
     {
         $remaining = max(0, $limit - $current);
 
         header("X-RateLimit-Limit: {$limit}");
         header("X-RateLimit-Remaining: {$remaining}");
         header("X-RateLimit-Window: {$window}");
+        header("X-RateLimit-Reset: {$retryAfter}");
     }
 
     /**
@@ -123,18 +126,9 @@ class RateLimitMiddleware
         string $endpoint,
         int $currentHits,
         int $limit,
-        ?int $userId
+        ?int $userId,
+        int $retryAfter
     ): void {
-        // Calcula tempo de espera
-        $result = $this->model->buscarExpiracao(
-            $this->generateIdentifier($ipAddress, $userId, $endpoint)
-        );
-
-        $retryAfter = 60; // padrão
-        if ($result && $result['expires_at']) {
-            $retryAfter = max(1, strtotime($result['expires_at']) - time());
-        }
-
         // Loga o evento
         SecurityLogService::logRateLimit(
             $ipAddress,
@@ -162,6 +156,23 @@ class RateLimitMiddleware
             echo "Muitas requisições. Aguarde {$retryAfter} segundos.";
             exit;
         }
+    }
+
+    /**
+     * Calcula segundos até o fim da janela usando o horário da aplicação.
+     */
+    private function secondsUntilReset(?string $expiresAt, int $fallback): int
+    {
+        if (!$expiresAt) {
+            return $fallback;
+        }
+
+        $expiresTimestamp = strtotime($expiresAt);
+        if ($expiresTimestamp === false) {
+            return $fallback;
+        }
+
+        return max(1, $expiresTimestamp - time());
     }
 
     /**

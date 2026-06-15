@@ -15,6 +15,9 @@
             <button id="btnNovo" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center whitespace-nowrap">
                 <i class="fas fa-plus mr-2"></i><?= t('modules.multas.central.add_fine') ?>
             </button>
+            <button type="button" onclick="window.parent.openOrSwitchToTab('/pages/multas-online/indicacoes','<?= t('modules.multas.indicacoes.title') ?>','fas fa-user-shield','indicacoes-condutor')" class="bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md text-sm font-medium flex items-center whitespace-nowrap">
+                <i class="fas fa-user-shield mr-2"></i><?= t('modules.multas.central.nominations.title') ?>
+            </button>
             <button id="btnConsultarOnline" class="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-md text-sm font-medium flex items-center">
                 <i class="fas fa-satellite-dish mr-2"></i> <?= t('modules.multas.central.check_online') ?>
             </button>
@@ -126,6 +129,7 @@
             <label class="flex items-center text-sm text-slate-600 gap-1.5 cursor-pointer">
                 <input type="checkbox" id="toggleAutoConsulta" class="rounded">
                 <?= t('modules.multas.central.automation.auto_query') ?>
+                <?= aviso(t('modules.multas.central.automation.auto_query_help')) ?>
             </label>
             <div id="intervaloWrapper" class="hidden flex items-center gap-1.5">
                 <label class="text-xs text-slate-500"><?= t('modules.multas.central.automation.every') ?></label>
@@ -140,9 +144,11 @@
             <label class="flex items-center text-sm text-slate-600 gap-1.5 cursor-pointer">
                 <input type="checkbox" id="toggleAutoEventos" class="rounded">
                 <?= t('modules.multas.central.automation.auto_events') ?>
+                <?= aviso(t('modules.multas.central.automation.auto_events_help')) ?>
             </label>
             <span class="text-xs text-slate-400" id="ultimaConsultaInfo"></span>
         </div>
+        <div id="consultaOnlineCnpjAviso" class="hidden mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2"></div>
     </div>
 
     <!-- Filtros -->
@@ -324,7 +330,7 @@
 
             // Saldo
             const saldo = result.data.saldo;
-            document.getElementById('saldoAtual').textContent = Currency.format(saldo?.saldo || 0);
+            document.getElementById('saldoAtual').textContent = Currency.format(Number(saldo || 0));
             document.getElementById('precoConsulta').textContent = Currency.format(result.data.precos?.consulta || 0);
             document.getElementById('precoEvento').textContent = Currency.format(result.data.precos?.evento || 0);
 
@@ -354,6 +360,14 @@
             }
             if (config?.ultima_consulta) {
                 document.getElementById('ultimaConsultaInfo').textContent = i18n.lastQuery.replace(':date', formatarData(config.ultima_consulta));
+            }
+            const cnpjAviso = document.getElementById('consultaOnlineCnpjAviso');
+            if (config?.cnpj_aviso) {
+                cnpjAviso.textContent = config.cnpj_aviso;
+                cnpjAviso.classList.remove('hidden');
+            } else {
+                cnpjAviso.textContent = '';
+                cnpjAviso.classList.add('hidden');
             }
 
         } catch (error) {
@@ -443,6 +457,8 @@
             const infracao = m.codigo_infracao || m.n_infracao || m.tipo || '-';
             const valor = Currency.format(m.valor || 0);
             const desconto40 = m.valor_desconto_40 ? '<div class="text-xs text-green-600">40%: ' + Currency.format(m.valor_desconto_40) + '</div>' : '';
+            const podeIndicar = !!(m.codigo_orgao && m.numero_ait && m.codigo_infracao && /^\d+$/.test(String(m.codigo_orgao)) && /^\d+$/.test(String(m.codigo_infracao)));
+            const indicacaoLabel = `${placa} - ${m.numero_ait || m.n_infracao || '-'} ${valor}`;
 
             rows += `
             <tr class="border-b border-slate-200 hover:bg-slate-50">
@@ -471,7 +487,7 @@
                     <div class="flex items-center justify-center gap-1">
                         <button title="${i18n.actionPrint}" class="btn-icon text-blue-600 hover:text-blue-800 btn-imprimir" data-id="${m.id}"><i class="fas fa-print"></i></button>
                         <button title="${i18n.actionEdit}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${m.id}"><i class="fas fa-edit"></i></button>
-                        ${m.numero_ait ? `<button title="${i18n.actionNominate}" class="btn-icon text-orange-600 hover:text-orange-800 btn-indicar" data-id="${m.id}"><i class="fas fa-user-shield"></i></button>` : ''}
+                        ${podeIndicar ? `<button title="${i18n.actionNominate}" class="btn-icon text-orange-600 hover:text-orange-800 btn-indicar" data-id="${m.id}" data-label="${escapeHtml(indicacaoLabel)}"><i class="fas fa-user-shield"></i></button>` : ''}
                         ${m.pago === 'N' ? `<button title="${i18n.actionMarkPaid}" class="btn-icon text-green-600 hover:text-green-800 btn-pagar" data-id="${m.id}"><i class="fas fa-check-circle"></i></button>` : `<button title="${i18n.actionMarkUnpaid}" class="btn-icon text-slate-400 hover:text-slate-600 btn-nao-pago" data-id="${m.id}"><i class="fas fa-undo"></i></button>`}
                         <button title="${i18n.actionDelete}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${m.id}" data-name="${escapeHtml(placa)}" data-pago="${m.pago}"><i class="fas fa-trash"></i></button>
                     </div>
@@ -500,7 +516,12 @@
 
         tbody.querySelectorAll('.btn-indicar').forEach(btn => {
             btn.addEventListener('click', function() {
-                window.parent.openOrSwitchToTab('/pages/multas-online/indicacoes', 'Indicacoes', 'fas fa-user-shield', 'indicacoes-condutor');
+                window.parent.postMessage({
+                    action: 'openIndicacaoModal',
+                    tipo: 'real_infrator',
+                    id_multa: this.dataset.id,
+                    multa_label: this.dataset.label || ''
+                }, '*');
             });
         });
 
@@ -593,7 +614,7 @@
     function abrirModalLote() {
         window.parent.postMessage({
             action: 'openConsultaLoteModal',
-            saldo: Currency.format(dashboardData?.saldo?.saldo || 0),
+            saldo: Currency.format(Number(dashboardData?.saldo || 0)),
             precoConsulta: Currency.format(dashboardData?.precos?.consulta || 0)
         }, '*');
     }

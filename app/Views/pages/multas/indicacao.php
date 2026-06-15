@@ -51,6 +51,7 @@
         <select id="filtroStatus" class="form-input-focus text-sm w-40">
             <option value=""><?= t('modules.multas.indicacoes.filters.all_status') ?></option>
             <option value="enviado"><?= t('modules.multas.indicacoes.filters.sent') ?></option>
+            <option value="pendente"><?= t('modules.multas.indicacoes.filters.pending') ?></option>
             <option value="processando"><?= t('modules.multas.indicacoes.filters.processing') ?></option>
             <option value="aceito"><?= t('modules.multas.indicacoes.filters.accepted') ?></option>
             <option value="rejeitado"><?= t('modules.multas.indicacoes.filters.rejected') ?></option>
@@ -169,6 +170,7 @@
     function getStatusBadge(status) {
         const map = {
             'enviado': 'bg-amber-100 text-amber-700',
+            'pendente': 'bg-blue-100 text-blue-700',
             'processando': 'bg-blue-100 text-blue-700',
             'aceito': 'bg-green-100 text-green-700',
             'rejeitado': 'bg-red-100 text-red-700',
@@ -201,7 +203,7 @@
                 <td class="table-cell text-center">${getStatusBadge(item.status_serpro)}</td>
                 <td class="table-cell text-center w-28">
                     <button title="${escapeHtml(i18n.actionCheckStatus)}" class="btn-icon text-blue-600 hover:text-blue-800 btn-status" data-id="${item.id}"><i class="fas fa-sync-alt"></i></button>
-                    ${['enviado','processando'].includes(item.status_serpro) ? `<button title="${escapeHtml(i18n.actionCancel)}" class="btn-icon text-red-600 hover:text-red-800 btn-cancelar" data-id="${item.id}"><i class="fas fa-times-circle"></i></button>` : ''}
+                    ${['enviado','pendente','processando'].includes(item.status_serpro) ? `<button title="${escapeHtml(i18n.actionCancel)}" class="btn-icon text-red-600 hover:text-red-800 btn-cancelar" data-id="${item.id}"><i class="fas fa-times-circle"></i></button>` : ''}
                 </td>
             </tr>`;
         });
@@ -283,6 +285,7 @@
     window.addEventListener('message', function(event) {
         // Resultado do modal de indicacao no parent
         if (event.data?.action === 'indicacaoResult' && event.data.success) {
+            currentPage = 1;
             carregarDados(1);
             carregarResumo();
         }

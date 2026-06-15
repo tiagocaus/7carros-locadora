@@ -23,6 +23,13 @@ class FaturasReport extends BaseReportModel
         }
     }
 
+    private function applyClienteFilter($query, string $clienteId, string $prefix = 'f'): void
+    {
+        if ($clienteId !== '') {
+            $query->whereRaw("{$prefix}.id_cliente = ?", [(int) $clienteId]);
+        }
+    }
+
     /**
      * 7.1 - Faturas Vencidas / A Vencer.
      *
@@ -39,7 +46,8 @@ class FaturasReport extends BaseReportModel
         string $visao,
         string $filialWhere,
         array $filialParams,
-        string $filialId = ''
+        string $filialId = '',
+        string $clienteId = ''
     ): array {
         $visao = $visao === 'a_vencer' ? 'a_vencer' : 'vencidas';
 
@@ -54,6 +62,7 @@ class FaturasReport extends BaseReportModel
             ->whereRaw('f.pago = ?', ['N'])
             ->whereRaw('f.data_venci < CURDATE()');
         $this->applyFilialFilter($queryTotaisVencidas, $filialWhere, $filialParams, $filialId);
+        $this->applyClienteFilter($queryTotaisVencidas, $clienteId);
 
         $resultVencidas = $queryTotaisVencidas->first() ?? ['total_vencido' => 0, 'qtd_vencidas' => 0];
 
@@ -67,6 +76,7 @@ class FaturasReport extends BaseReportModel
             ->whereRaw('f.pago = ?', ['N'])
             ->whereRaw('f.data_venci >= CURDATE()');
         $this->applyFilialFilter($queryTotaisAVencer, $filialWhere, $filialParams, $filialId);
+        $this->applyClienteFilter($queryTotaisAVencer, $clienteId);
 
         $resultAVencer = $queryTotaisAVencer->first() ?? ['total_a_vencer' => 0, 'qtd_a_vencer' => 0];
 
@@ -109,6 +119,7 @@ class FaturasReport extends BaseReportModel
         }
 
         $this->applyFilialFilter($queryLista, $filialWhere, $filialParams, $filialId);
+        $this->applyClienteFilter($queryLista, $clienteId);
 
         $faturas = $queryLista->get();
 
@@ -153,6 +164,7 @@ class FaturasReport extends BaseReportModel
                 ->groupBy('faixa')
                 ->orderByRaw("CASE faixa WHEN '1-7' THEN 1 WHEN '8-15' THEN 2 WHEN '16-30' THEN 3 WHEN '31-60' THEN 4 WHEN '61-90' THEN 5 ELSE 6 END");
             $this->applyFilialFilter($queryAging, $filialWhere, $filialParams, $filialId);
+            $this->applyClienteFilter($queryAging, $clienteId);
 
             $rows = $queryAging->get();
             $faixasOrdem = ['1-7', '8-15', '16-30', '31-60', '61-90', '90+'];
@@ -189,6 +201,7 @@ class FaturasReport extends BaseReportModel
                 ->groupBy('faixa')
                 ->orderByRaw("CASE faixa WHEN 'hoje' THEN 1 WHEN '1-7' THEN 2 WHEN '8-15' THEN 3 WHEN '16-30' THEN 4 ELSE 5 END");
             $this->applyFilialFilter($queryPrazos, $filialWhere, $filialParams, $filialId);
+            $this->applyClienteFilter($queryPrazos, $clienteId);
 
             $rows = $queryPrazos->get();
             $faixasOrdem = ['hoje', '1-7', '8-15', '16-30', '30+'];

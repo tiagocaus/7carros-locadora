@@ -227,14 +227,18 @@ return [
         'automation' => [
             'title' => 'Automations',
             'auto_query' => 'Auto-query',
+            'auto_query_help' => 'Automatically checks fines for registered vehicles at the selected interval. The charge is per checked plate, not by the number of fines found. Example: if one plate returns several fines, only 1 query is charged for that plate.',
             'every' => 'every',
             'auto_events' => 'Automatic events',
+            'auto_events_help' => 'Receives automatic Online Query notifications when new fine events are identified. Each received event consumes balance as an Event, separate from the Query charge per plate.',
             'last_query' => 'Last query: :date',
             'interval_1d' => '1 day',
             'interval_3d' => '3 days',
             'interval_7d' => '7 days',
             'interval_14d' => '14 days',
             'interval_30d' => '30 days',
+            'online_query_requires_cnpj' => 'Online Query requires a CNPJ. Register a head office or branch with a valid CNPJ to activate automations.',
+            'online_query_multiple_cnpjs' => 'There is more than one registered CNPJ. Configure which CNPJ Online Query should use before activating automations.',
         ],
 
         'filters' => [
@@ -348,6 +352,7 @@ return [
             'main_driver' => 'Main Driver',
             'all_status' => 'All statuses',
             'sent' => 'Sent',
+            'pending' => 'Pending',
             'processing' => 'Processing',
             'accepted' => 'Accepted',
             'rejected' => 'Rejected',

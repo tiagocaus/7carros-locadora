@@ -8,6 +8,7 @@
 .DS_Store
 Thumbs.db
 temp.txt
+temp-bd.txt
 
 # Logs
 storage/logs/*

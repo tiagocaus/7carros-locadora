@@ -8,7 +8,7 @@ use App\Models\SerproConsultaLog;
  * Service para comunicacao com a API de consultas online
  *
  * Centraliza todas as chamadas HTTP para a API SERPRO.
- * Usa bearer token unico da 7Carros (configurado via ENV).
+ * Usa bearer token em homologacao e certificado digital mTLS em producao.
  * Rate limit: 15 conexoes/segundo por IP.
  *
  * @see SERPRO_CENTRAL_MULTAS.md para documentacao completa dos endpoints
@@ -20,23 +20,37 @@ class SerproService
     private string $baseUrlCrlv;
     private string $bearerToken;
     private string $ambiente;
+    private string $certPath;
+    private string $certKeyPath;
+    private string $certKeyPassword;
+    private string $certPassword;
+    private string $certType;
+    private ?string $urlConfigError = null;
     private SerproConsultaLog $log;
 
     public function __construct()
     {
-        $this->ambiente = env('SERPRO_AMBIENTE', 'homologacao');
+        $this->ambiente = $this->normalizarValorEnv(env('SERPRO_AMBIENTE', 'homologacao'));
 
         if ($this->ambiente === 'homologacao') {
-            $this->baseUrl = 'https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api';
-            $this->baseUrlTransacional = 'https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional';
-            $this->baseUrlCrlv = 'https://hom-efrotas.estaleiro.serpro.gov.br/efrotas/api';
+            $this->baseUrl = $this->envUrl('SERPRO_HOMOLOGACAO_BASE_URL');
+            $this->baseUrlTransacional = $this->envUrl('SERPRO_HOMOLOGACAO_BASE_URL_TRANSACIONAL');
+            $this->baseUrlCrlv = $this->envUrl('SERPRO_HOMOLOGACAO_BASE_URL_CRLV');
         } else {
-            $this->baseUrl = env('SERPRO_BASE_URL', 'https://efrotas.estaleiro.serpro.gov.br/efrotas/api');
-            $this->baseUrlTransacional = env('SERPRO_BASE_URL_TRANSACIONAL', 'https://efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional');
-            $this->baseUrlCrlv = env('SERPRO_BASE_URL_CRLV', 'https://efrotas.estaleiro.serpro.gov.br/efrotas/api');
+            $this->baseUrl = $this->envUrl('SERPRO_PRODUCAO_BASE_URL');
+            $this->baseUrlTransacional = $this->envUrl('SERPRO_PRODUCAO_BASE_URL_TRANSACIONAL');
+            $this->baseUrlCrlv = $this->envUrl('SERPRO_PRODUCAO_BASE_URL_CRLV');
         }
 
         $this->bearerToken = env('SERPRO_BEARER_TOKEN', '');
+        $this->certPath = env('SERPRO_CERT_PATH', '');
+        $this->certKeyPath = env('SERPRO_CERT_KEY_PATH', '');
+        $this->certKeyPassword = env('SERPRO_CERT_KEY_PASSWORD', '');
+        $this->certPassword = env('SERPRO_CERT_PASSWORD', '');
+        $this->certType = strtoupper((string) env('SERPRO_CERT_TYPE', 'P12'));
+        if ($this->certType === 'PFX') {
+            $this->certType = 'P12';
+        }
         $this->log = new SerproConsultaLog();
     }
 
@@ -191,7 +205,7 @@ class SerproService
      */
     public function listarEventos(): array
     {
-        $endpoint = '/gerenciamento/v1/eventos';
+        $endpoint = '/autorizador/v1/eventos';
 
         return $this->get($endpoint, 'listar_eventos');
     }
@@ -201,10 +215,14 @@ class SerproService
      */
     public function ativarEvento(int $tipoEvento, bool $ativo): array
     {
-        $endpoint = '/gerenciamento/v1/eventos';
+        $endpoint = '/autorizador/v1/eventos';
         $body = [
-            'tipoEvento' => $tipoEvento,
-            'ativo' => $ativo,
+            'eventosPermitidos' => [
+                [
+                    'codigo' => $tipoEvento,
+                    'ativo' => $ativo,
+                ],
+            ],
         ];
 
         return $this->request('PUT', $this->baseUrl . $endpoint, $body, 'ativar_evento');
@@ -215,7 +233,7 @@ class SerproService
      */
     public function consultarUrlWebhook(): array
     {
-        $endpoint = '/gerenciamento/v1/url-eventos';
+        $endpoint = '/autorizador/v1/endpoint';
 
         return $this->get($endpoint, 'consultar_url_webhook');
     }
@@ -225,13 +243,23 @@ class SerproService
      */
     public function registrarUrlWebhook(string $url, array $headers = []): array
     {
-        $endpoint = '/gerenciamento/v1/url-eventos';
+        $endpoint = '/autorizador/v1/endpoint';
+        $headerName = '';
+        $headerValue = '';
+
+        foreach ($headers as $key => $value) {
+            $headerName = (string) $key;
+            $headerValue = (string) $value;
+            break;
+        }
+
         $body = [
             'url' => $url,
-            'headers' => $headers,
+            'header' => $headerName,
+            'valor' => $headerValue,
         ];
 
-        return $this->request('POST', $this->baseUrl . $endpoint, $body, 'registrar_url_webhook');
+        return $this->request('PUT', $this->baseUrl . $endpoint, $body, 'registrar_url_webhook');
     }
 
     /**
@@ -239,7 +267,24 @@ class SerproService
      */
     public function removerUrlWebhook(): array
     {
-        $endpoint = '/gerenciamento/v1/url-eventos';
+        $endpointAtual = $this->consultarUrlWebhook();
+        if (!$endpointAtual['success']) {
+            return $endpointAtual;
+        }
+
+        $endpointData = $endpointAtual['data'][0] ?? $endpointAtual['data'] ?? [];
+        $endpointId = (int) ($endpointData['id'] ?? 0);
+
+        if ($endpointId <= 0) {
+            return [
+                'success' => true,
+                'status' => 200,
+                'data' => null,
+                'error' => null,
+            ];
+        }
+
+        $endpoint = '/autorizador/v1/endpoint/' . $endpointId;
 
         return $this->request('DELETE', $this->baseUrl . $endpoint, null, 'remover_url_webhook');
     }
@@ -413,8 +458,30 @@ class SerproService
 
         $headers = [
             'Accept: application/json',
-            'Authorization: Bearer ' . $this->bearerToken,
         ];
+
+        if ($this->urlConfigError !== null) {
+            return $this->configError($chave, $tipoOperacao, $url, $placa, $body, $this->urlConfigError);
+        }
+
+        if ($this->ambiente === 'homologacao') {
+            if ($this->bearerToken === '') {
+                return $this->configError($chave, $tipoOperacao, $url, $placa, $body, 'SERPRO_BEARER_TOKEN nao configurado para homologacao.');
+            }
+
+            $headers[] = 'Authorization: Bearer ' . $this->bearerToken;
+        }
+
+        if ($this->ambiente === 'producao') {
+            $certPath = $this->resolveCertPath();
+            $certValidationError = $this->validateProductionCertificate($certPath);
+
+            if ($certValidationError !== null) {
+                return $this->configError($chave, $tipoOperacao, $url, $placa, $body, $certValidationError);
+            }
+        } else {
+            $certPath = null;
+        }
 
         if ($body !== null) {
             $headers[] = 'Content-Type: application/json';
@@ -422,21 +489,47 @@ class SerproService
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HEADER, true);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 
+        if ($certPath !== null) {
+            curl_setopt($ch, CURLOPT_SSLCERT, $certPath);
+            curl_setopt($ch, CURLOPT_SSLCERTTYPE, $this->certType);
+
+            if ($this->certType === 'PEM' && $this->certKeyPath !== '') {
+                curl_setopt($ch, CURLOPT_SSLKEY, $this->resolvePath($this->certKeyPath));
+                curl_setopt($ch, CURLOPT_SSLKEYTYPE, 'PEM');
+
+                if ($this->certKeyPassword !== '') {
+                    curl_setopt($ch, CURLOPT_KEYPASSWD, $this->certKeyPassword);
+                }
+            } elseif ($this->certPassword !== '') {
+                curl_setopt($ch, CURLOPT_SSLCERTPASSWD, $this->certPassword);
+            }
+        }
+
         if ($body !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
         }
 
-        $responseBody = curl_exec($ch);
+        $responseRaw = curl_exec($ch);
         $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
         $curlError = curl_error($ch);
         curl_close($ch);
 
         $duracaoMs = (int) ((microtime(true) - $startTime) * 1000);
+        $responseHeaders = [];
+        $responseBody = false;
+
+        if ($responseRaw !== false) {
+            $responseHeaderText = substr($responseRaw, 0, $headerSize);
+            $responseBody = substr($responseRaw, $headerSize);
+            $responseHeaders = $this->parseResponseHeaders($responseHeaderText);
+        }
 
         // Parse response
         $responseData = null;
@@ -448,23 +541,32 @@ class SerproService
             }
         }
 
+        if ($successLocation = $this->extrairChaveIndicacaoLocation($responseHeaders)) {
+            if (!is_array($responseData)) {
+                $responseData = [];
+            }
+            $responseData['location'] = $responseHeaders['location'];
+            $responseData['chaveIndicacao'] = $successLocation;
+        }
+
         // Determinar sucesso
         $success = $httpCode >= 200 && $httpCode < 300 && $curlError === '';
         $erroMensagem = null;
 
         if (!$success) {
+            $erroApi = $this->extrairMensagemErro($responseData, $responseBody);
             if ($curlError !== '') {
                 $erroMensagem = "cURL error: {$curlError}";
             } elseif ($httpCode === 429) {
                 $erroMensagem = 'Rate limit excedido (15 req/s). Tente novamente em instantes.';
             } elseif ($httpCode === 401) {
-                $erroMensagem = 'Token do sistema de consultas online invalido ou expirado.';
+                $erroMensagem = 'Token do sistema de consultas online invalido ou expirado. ' . $erroApi;
             } elseif ($httpCode === 403) {
-                $erroMensagem = 'Acesso negado pelo sistema de consultas online.';
+                $erroMensagem = 'Acesso negado pelo sistema de consultas online. ' . $erroApi;
             } elseif ($httpCode === 404) {
-                $erroMensagem = 'Recurso nao encontrado no sistema de consultas online.';
+                $erroMensagem = 'Recurso nao encontrado no sistema de consultas online. ' . $erroApi;
             } else {
-                $erroMensagem = "HTTP {$httpCode}: " . ($responseData['message'] ?? $responseBody ?? 'Erro desconhecido');
+                $erroMensagem = $erroApi;
             }
         }
 
@@ -477,7 +579,7 @@ class SerproService
             $url,
             $placa,
             null, // headers (nao logar bearer token)
-            $body,
+            $this->sanitizeRequestPayloadForLog($tipoOperacao, $body),
             $httpCode,
             $responseData,
             $logStatus,
@@ -491,6 +593,203 @@ class SerproService
             'status' => $httpCode,
             'data' => $responseData,
             'error' => $erroMensagem,
+        ];
+    }
+
+    /**
+     * Remove segredos do payload antes de gravar log tecnico.
+     */
+    private function sanitizeRequestPayloadForLog(string $tipoOperacao, ?array $body): ?array
+    {
+        if ($body === null) {
+            return null;
+        }
+
+        if ($tipoOperacao === 'registrar_url_webhook' && array_key_exists('valor', $body)) {
+            $body['valor'] = '[redacted]';
+        }
+
+        if (
+            $tipoOperacao === 'registrar_url_webhook'
+            && isset($body['headers'])
+            && is_array($body['headers'])
+            && array_key_exists('Authorization', $body['headers'])
+        ) {
+            $body['headers']['Authorization'] = '[redacted]';
+        }
+
+        return $body;
+    }
+
+    /**
+     * Normaliza valores vindos do .env para tolerar comentarios inline acidentais.
+     */
+    private function normalizarValorEnv(mixed $valor): string
+    {
+        $valor = trim((string) $valor);
+        $valor = preg_replace('/\s+#.*$/', '', $valor) ?? $valor;
+
+        return strtolower(trim($valor));
+    }
+
+    /**
+     * Le URL obrigatoria de ambiente removendo barras finais.
+     */
+    private function envUrl(string $name): string
+    {
+        $value = trim((string) env($name, ''));
+        $value = preg_replace('/\s+#.*$/', '', $value) ?? $value;
+
+        if ($value === '' && $this->urlConfigError === null) {
+            $this->urlConfigError = "{$name} nao configurado para o ambiente SERPRO {$this->ambiente}.";
+        }
+
+        return rtrim($value, '/');
+    }
+
+    /**
+     * Extrai a mensagem mais util da resposta de erro da API.
+     */
+    private function extrairMensagemErro(?array $responseData, string|false $responseBody): string
+    {
+        if (is_array($responseData)) {
+            foreach (['mensagemTecnica', 'mensagem', 'message', 'error', 'detail', 'title'] as $campo) {
+                if (!empty($responseData[$campo]) && is_scalar($responseData[$campo])) {
+                    return (string) $responseData[$campo];
+                }
+            }
+
+            if (!empty($responseData['raw']) && is_scalar($responseData['raw'])) {
+                return (string) $responseData['raw'];
+            }
+        }
+
+        if (is_string($responseBody) && $responseBody !== '') {
+            return $responseBody;
+        }
+
+        return 'Erro desconhecido';
+    }
+
+    /**
+     * Converte headers HTTP em array simples com nomes em lowercase.
+     */
+    private function parseResponseHeaders(string $headerText): array
+    {
+        $headers = [];
+        $blocks = preg_split("/\r\n\r\n|\n\n|\r\r/", trim($headerText));
+        $lastBlock = $blocks ? end($blocks) : '';
+
+        foreach (preg_split("/\r\n|\n|\r/", (string) $lastBlock) as $line) {
+            if (!str_contains($line, ':')) {
+                continue;
+            }
+
+            [$name, $value] = explode(':', $line, 2);
+            $headers[strtolower(trim($name))] = trim($value);
+        }
+
+        return $headers;
+    }
+
+    /**
+     * Extrai a chave da indicacao quando a API retorna Location: /indicacoes/{chave}.
+     */
+    private function extrairChaveIndicacaoLocation(array $headers): ?string
+    {
+        if (empty($headers['location'])) {
+            return null;
+        }
+
+        $path = trim((string) parse_url($headers['location'], PHP_URL_PATH), '/');
+        $parts = explode('/', $path);
+        $chave = end($parts);
+
+        return $chave !== false && $chave !== '' ? $chave : null;
+    }
+
+    /**
+     * Resolve caminho absoluto do certificado SERPRO.
+     */
+    private function resolveCertPath(): string
+    {
+        return $this->resolvePath($this->certPath);
+    }
+
+    /**
+     * Resolve caminho absoluto dentro do projeto quando necessario.
+     */
+    private function resolvePath(string $path): string
+    {
+        if ($path === '' || str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 2);
+
+        return $appRoot . '/' . ltrim($path, '/');
+    }
+
+    /**
+     * Valida configuracao mTLS antes de abrir conexao com a SERPRO.
+     */
+    private function validateProductionCertificate(string $certPath): ?string
+    {
+        if ($certPath === '') {
+            return 'SERPRO_CERT_PATH nao configurado para producao.';
+        }
+
+        if (!is_file($certPath) || !is_readable($certPath)) {
+            return 'Certificado SERPRO nao encontrado ou sem permissao de leitura: ' . $certPath;
+        }
+
+        if ($this->certType === 'PEM') {
+            $keyPath = $this->resolvePath($this->certKeyPath);
+            if ($keyPath !== '' && (!is_file($keyPath) || !is_readable($keyPath))) {
+                return 'Chave privada SERPRO nao encontrada ou sem permissao de leitura: ' . $keyPath;
+            }
+
+            return null;
+        }
+
+        if (in_array($this->certType, ['P12', 'PFX'], true) && $this->certPassword === '') {
+            return 'SERPRO_CERT_PASSWORD nao configurado para o certificado digital SERPRO.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Retorna erro de configuracao e registra tentativa sem expor credenciais.
+     */
+    private function configError(
+        string $chave,
+        string $tipoOperacao,
+        string $url,
+        ?string $placa,
+        ?array $body,
+        string $message
+    ): array {
+        $this->log->registrar(
+            $chave,
+            $tipoOperacao,
+            $url,
+            $placa,
+            null,
+            $body,
+            0,
+            null,
+            'erro',
+            $message,
+            null,
+            0
+        );
+
+        return [
+            'success' => false,
+            'status' => 0,
+            'data' => null,
+            'error' => $message,
         ];
     }
 

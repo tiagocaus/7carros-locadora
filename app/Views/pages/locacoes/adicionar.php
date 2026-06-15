@@ -1079,9 +1079,26 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const saida = document.getElementById('data_saida')?.value;
             const prevista = document.getElementById('data_prevista')?.value;
             if (saida && prevista) {
-                const diff = Math.ceil((new Date(prevista) - new Date(saida)) / (1000 * 60 * 60 * 24));
+                const status = document.getElementById('locacaoStatus')?.value || 'R';
+                const toleranciaMinutos = status === 'F'
+                    ? (parseInt(document.getElementById('minuto_tolerancia')?.value, 10) || 0)
+                    : 0;
+                const diffMs = Math.max(0, new Date(prevista) - new Date(saida));
+                const minutosCobradosMs = Math.max(0, diffMs - (toleranciaMinutos * 60 * 1000));
+                const diff = Math.ceil(minutosCobradosMs / (1000 * 60 * 60 * 24));
                 document.getElementById('dias').value = Math.max(1, diff);
             }
+        }
+
+        function aplicarChegadaAtual() {
+            const campoChegada = document.getElementById('data_prevista');
+            if (!campoChegada) return;
+
+            campoChegada.value = formatDateTimeLocal(new Date());
+            calcularDias();
+            renderTaxas();
+            atualizarResumo();
+            carregarResumoFinanceiro();
         }
 
         // ===== NOVO CLIENTE =====
@@ -2052,7 +2069,12 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
             // Dados de devolucao (quando status muda para F)
             if (dados.status === 'F' && isEditing && locacaoData?.status === 'A') {
+                calcularDias();
+                renderTaxas();
+                atualizarResumo();
+                carregarResumoFinanceiro();
                 dados.data_chegada = document.getElementById('data_prevista')?.value || '';
+                dados.dias = document.getElementById('dias')?.value || dados.dias || '1';
                 delete dados.data_prevista;
                 dados.odometro_fim = document.getElementById('odometro_fim')?.value || '';
                 dados.combustivel_fim = document.getElementById('combustivel_fim')?.value || '';
@@ -2492,6 +2514,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('dias')?.addEventListener('change', atualizarResumoETaxas);
         document.getElementById('data_saida')?.addEventListener('change', () => { calcularDias(); atualizarResumoETaxas(); });
         document.getElementById('data_prevista')?.addEventListener('change', () => { calcularDias(); atualizarResumoETaxas(); });
+        document.getElementById('minuto_tolerancia')?.addEventListener('change', () => { calcularDias(); atualizarResumoETaxas(); });
 
         // ===== ABAS =====
 
@@ -2949,10 +2972,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
             // Se mudou para F, o campo de previsao passa a representar data_chegada.
             if (this.value === 'F') {
-                const dataPrincipal = document.getElementById('data_prevista');
-                if (dataPrincipal && !dataPrincipal.value) {
-                    dataPrincipal.value = formatDateTimeLocal(new Date());
-                }
+                aplicarChegadaAtual();
+                return;
             }
             atualizarResumo();
             carregarResumoFinanceiro();

@@ -11,6 +11,7 @@ use App\Models\SerproSaldo;
 use App\Models\SerproTransacao;
 use App\Models\SerproIndicacao;
 use App\Models\SerproConfiguracao;
+use App\Models\MatrizFilial;
 use App\Services\SerproSaldoService;
 use App\Helpers\FilialHelper;
 
@@ -65,6 +66,8 @@ class CentralMultasController
             // Config SERPRO
             $configModel = new SerproConfiguracao();
             $config = $configModel->buscarPorChave();
+            $cnpjConfigurado = $this->cnpjConsultaOnlineValido((string) ($config['cnpj_empresa'] ?? ''));
+            $cnpjStatus = $this->statusCnpjConsultaOnline($cnpjConfigurado);
 
             Response::json([
                 'success' => true,
@@ -81,7 +84,9 @@ class CentralMultasController
                         'auto_consulta_ativo' => (int) ($config['auto_consulta_ativo'] ?? 0),
                         'auto_eventos_ativo' => (int) ($config['auto_eventos_ativo'] ?? 0),
                         'intervalo_dias_consulta' => (int) ($config['intervalo_dias_consulta'] ?? 7),
-                        'cnpj_configurado' => !empty($config['cnpj_empresa']),
+                        'cnpj_configurado' => $cnpjConfigurado,
+                        'cnpj_disponivel' => $cnpjStatus['disponivel'],
+                        'cnpj_aviso' => $cnpjStatus['aviso'],
                         'ultima_consulta' => $config['ultima_consulta_em'] ?? null,
                     ],
                 ],
@@ -92,6 +97,53 @@ class CentralMultasController
                 'message' => 'Erro ao carregar dashboard: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Verifica se existe CNPJ valido para uso na Consulta Online.
+     */
+    private function statusCnpjConsultaOnline(bool $cnpjConfigurado): array
+    {
+        if ($cnpjConfigurado) {
+            return ['disponivel' => true, 'aviso' => null];
+        }
+
+        $model = new MatrizFilial();
+        $empresas = $model->listar(null, [], 'tipo DESC, razao_social ASC');
+        $cnpjsValidos = [];
+
+        foreach ($empresas as $empresa) {
+            $cnpj = preg_replace('/\D/', '', (string) ($empresa['cpf_cnpj'] ?? ''));
+            if ($this->cnpjConsultaOnlineValido($cnpj)) {
+                $cnpjsValidos[$cnpj] = true;
+            }
+        }
+
+        if (count($cnpjsValidos) === 1) {
+            return ['disponivel' => true, 'aviso' => null];
+        }
+
+        if (count($cnpjsValidos) > 1) {
+            return [
+                'disponivel' => false,
+                'aviso' => t('modules.multas.central.automation.online_query_multiple_cnpjs'),
+            ];
+        }
+
+        return [
+            'disponivel' => false,
+            'aviso' => t('modules.multas.central.automation.online_query_requires_cnpj'),
+        ];
+    }
+
+    /**
+     * A Consulta Online exige CNPJ; CPF nao habilita automacoes.
+     */
+    private function cnpjConsultaOnlineValido(string $cnpj): bool
+    {
+        $cnpj = preg_replace('/\D/', '', $cnpj);
+
+        return strlen($cnpj) === 14 && !preg_match('/^(\d)\1{13}$/', $cnpj);
     }
 
     /**

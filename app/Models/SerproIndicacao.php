@@ -181,6 +181,34 @@ class SerproIndicacao extends Model
     }
 
     /**
+     * Lista indicacoes enviadas que ainda precisam de sincronizacao de status.
+     *
+     * Uso exclusivo de CRON: precisa atravessar tenants, mas cada atualizacao
+     * posterior define a sessao do tenant antes de usar os Models.
+     */
+    public function listarParaSincronizarStatus(int $limit = 100): array
+    {
+        return $this->qb
+            ->table('serpro_indicacoes')
+            ->withoutChave()
+            ->select([
+                'id',
+                'chave',
+                'tipo',
+                'id_multa',
+                'chave_indicacao',
+                'status_serpro',
+            ])
+            ->whereIn('status_serpro', ['enviado', 'processando', 'pendente'])
+            ->whereRaw("chave_indicacao IS NOT NULL AND chave_indicacao <> ''")
+            ->whereRaw('(updated_at IS NULL OR updated_at <= DATE_SUB(NOW(), INTERVAL 15 MINUTE))')
+            ->orderBy('updated_at', 'ASC')
+            ->orderBy('id', 'ASC')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
      * Resumo de indicacoes do tenant (para dashboard)
      */
     public function resumo(): array
@@ -192,7 +220,7 @@ class SerproIndicacao extends Model
                 COUNT(CASE WHEN status_serpro = 'enviado' THEN 1 END) AS enviadas,
                 COUNT(CASE WHEN status_serpro = 'aceito' THEN 1 END) AS aceitas,
                 COUNT(CASE WHEN status_serpro = 'rejeitado' THEN 1 END) AS rejeitadas,
-                COUNT(CASE WHEN status_serpro IN ('enviado', 'processando') THEN 1 END) AS pendentes
+                COUNT(CASE WHEN status_serpro IN ('enviado', 'processando', 'pendente') THEN 1 END) AS pendentes
             ")
             ->first();
 

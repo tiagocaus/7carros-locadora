@@ -1,0 +1,727 @@
+---
+openapi: 3.0.3
+info:
+  title: e-Frotas Consultas API
+  description: "O módulo de consultas do e-Frotas disponibiliza consultas sobre a\
+    \ sua frota.\n\nTodos os veículos disponíveis nos CNPJs com a mesma raiz poderã\
+    o ser consultados\n\nO acesso se dará APENAS mediante **certificado digital**\
+    \ e precisará previamente ter um acesso concedido através de um contrato válido\
+    \ no sistema **CREDENCIA**.\n\n\n\n\n**Rate Limit**: \n\nO e-Frotas impõe um limite\
+    \ de requisições (rate limit) a seus clientes. A limitação de requisições a APIs\
+    \ é uma boa prática de mercado e visa proteger o coletivo dos clientes da API\
+    \ no caso de abuso por parte de um único cliente.\n\nNa configuração atual, cada\
+    \ IP consumidor pode efetuar até 15 conexões por segundo. Esse valor pode ser\
+    \ alterado sem aviso prévio.\n\nCaso o cliente exceda o limite de requisições,\
+    \ o serviço retorna o status de resposta HTTP 429 (too many requests).\n\n\n**ID\
+    \ de requisição**: \n\nEsse ID é a chave entre as base SERPRO e Frotista. Esse\
+    \ ID sempre será retornado no response header de todas as consultas no header\
+    \ **x-id-rastreamento**.\n\n Link para Central de Ajuda do e-Frotas <a href='https://centraldeajuda.serpro.gov.br/efrotas'>\
+    \ https://centraldeajuda.serpro.gov.br/efrotas</a>\n\n"
+  version: 1.0.0
+servers:
+- url: "{endpoint}"
+  description: Endereço da api
+  variables:
+    endpoint:
+      default: https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api
+      description: Endereço da api
+      enum:
+      - http://localhost:8123
+      - https://des-efrotas.np.estaleiro.serpro.gov.br/efrotas/api
+      - https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api
+security:
+- x-token-client: []
+- Authorization: []
+tags:
+- name: Operações com SNE
+- name: Operações com infrações
+- name: Operações com veículos
+paths:
+  /consultas/sne/pdf/placa/{placa}/codigoOrgao/{codigoOrgao}/numeroAit/{numeroAit}/codigoInfracao/{codigoInfracao}/NA:
+    get:
+      tags:
+      - Operações com SNE
+      description: Consulta o PDF de Notificação de Autuação no SNE
+      parameters:
+      - name: codigoInfracao
+        in: path
+        description: O código da infração
+        required: true
+        schema:
+          type: string
+      - name: codigoOrgao
+        in: path
+        description: O código do órgão autuador da infração
+        required: true
+        schema:
+          type: string
+      - name: numeroAit
+        in: path
+        description: O número do auto de infração
+        required: true
+        schema:
+          type: string
+      - name: placa
+        in: path
+        description: A placa do veículo que houve a infração
+        required: true
+        schema:
+          type: string
+        example: ABC0A01
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pdf'
+  /consultas/sne/pdf/placa/{placa}/codigoOrgao/{codigoOrgao}/numeroAit/{numeroAit}/codigoInfracao/{codigoInfracao}/NP:
+    get:
+      tags:
+      - Operações com SNE
+      description: Consulta o PDF de Notificação de Penalidade no SNE
+      parameters:
+      - name: codigoInfracao
+        in: path
+        description: O código da infração
+        required: true
+        schema:
+          type: string
+      - name: codigoOrgao
+        in: path
+        description: O código do órgão autuador da infração
+        required: true
+        schema:
+          type: string
+      - name: numeroAit
+        in: path
+        description: O número do auto de infração
+        required: true
+        schema:
+          type: string
+      - name: placa
+        in: path
+        description: A placa do veículo que houve a infração
+        required: true
+        schema:
+          type: string
+        example: ABC0A01
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pdf'
+  /consultas/v1/infracoes/codigoOrgao/{codigoOrgao}/numeroAit/{numeroAit}/codigoInfracao/{codigoInfracao}:
+    get:
+      tags:
+      - Operações com infrações
+      description: Consultar dados de uma infração a partir da sua chave
+      parameters:
+      - name: codigoInfracao
+        in: path
+        description: Código da Infração
+        required: true
+        schema:
+          type: string
+      - name: codigoOrgao
+        in: path
+        description: Código do órgão
+        required: true
+        schema:
+          type: string
+      - name: numeroAit
+        in: path
+        description: Número do Auto de infração
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfracaoDTO'
+  /consultas/v1/infracoes/placa/{placa}:
+    get:
+      tags:
+      - Operações com infrações
+      description: Consulta as infrações não pagas de um veículo
+      parameters:
+      - name: placa
+        in: path
+        description: A placa do veículo para o qual se deseja obter as infrações
+        required: true
+        schema:
+          type: string
+        example: ABC0A01
+      - name: dataFinal
+        in: query
+        description: "Data fim do período de cometimento, no formato yyyy-MM-dd (limite\
+          \ de 1 ano da data inicial)"
+        required: true
+        schema:
+          type: string
+        example: 2023-10-30
+      - name: dataInicial
+        in: query
+        description: "Data início do período de cometimento, no formato yyyy-MM-dd"
+        required: true
+        schema:
+          type: string
+        example: 2023-01-01
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InfracaoDTO'
+  /consultas/v1/veiculos:
+    get:
+      tags:
+      - Operações com veículos
+      description: "Consulta todos os veículos de um CNPJ ou todos os veículos de\
+        \ uma filial desde que tenham a mesma raiz. \n\n\nSe a opção cnpjFilial estiver\
+        \ com algum valor, a consulta retorna os dados do CNPJ da filial.\n\n\n Nã\
+        o passando nenhum valor nesse campo, os dados retornados serão os do CNPJ\
+        \ do certificado."
+      parameters:
+      - name: cnpjFilial
+        in: query
+        required: false
+        schema:
+          default: ""
+          type: string
+      - name: pagina
+        in: query
+        schema:
+          format: int32
+          default: 1
+          type: integer
+      - name: quantidade
+        in: query
+        schema:
+          format: int32
+          default: 20
+          type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListaVeiculoDTO'
+        "403":
+          description: Consulta não autorizada
+  /consultas/v1/veiculos/placa/{placa}:
+    get:
+      tags:
+      - Operações com veículos
+      description: Consulta de dados de um veículo
+      parameters:
+      - name: placa
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VeiculoDTO'
+        "403":
+          description: Consulta não autorizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+  /consultas/v1/veiculos/placa/{placa}/associado:
+    get:
+      tags:
+      - Operações com veículos
+      description: Verifica se um veículo está associado a um CNPJ
+      parameters:
+      - name: placa
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+        "403":
+          description: Consulta não autorizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+  /consultas/v1/veiculos/placa/{placa}/ocorrencias-roubo-furto:
+    get:
+      tags:
+      - Operações com veículos
+      description: Consulta ocorrência de roubo e furto por placa.
+      parameters:
+      - name: placa
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcorrenciaDeRouboFurtoDTO'
+        "403":
+          description: Consulta não autorizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+  /consultas/v1/veiculos/placa/{placa}/recall:
+    get:
+      tags:
+      - Operações com veículos
+      description: Consulta o recall de um veículo por placa.
+      parameters:
+      - name: placa
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcorrenciaDeRecallDTO'
+        "403":
+          description: Consulta não autorizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+  /consultas/v1/veiculos/placa/{placa}/restricoes-renajud:
+    get:
+      tags:
+      - Operações com veículos
+      description: Consulta restrições judiciais por placa
+      parameters:
+      - name: placa
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: pagina
+        in: query
+        schema:
+          format: int32
+          default: 1
+          type: integer
+      - name: quantidade
+        in: query
+        schema:
+          format: int32
+          default: 50
+          type: integer
+      - name: tipoRestricao
+        in: query
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestricaoJudicialDTO'
+        "403":
+          description: Consulta não autorizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensagem'
+components:
+  schemas:
+    IndicadoresDTO:
+      type: object
+      properties:
+        rouboFurto:
+          description: Indicador se existe roubo e/ou furto
+          type: boolean
+        recall:
+          description: Indicador se existe recall pendente
+          type: boolean
+        comunicacaoVenda:
+          description: Indicador se existe comunicação de venda
+          type: boolean
+        renajud:
+          description: Indicador se existe Restrição Judicial
+          type: boolean
+        infracoesExigiveis:
+          description: Indicador se existe infração exigível (vencida e não paga)
+          type: boolean
+    InfracaoDTO:
+      type: object
+      properties:
+        codigoOrgaoAutuador:
+          description: Código do órgão autuador
+          type: string
+        numeroAutoInfracao:
+          description: Número do auto de infração
+          type: string
+        codigoInfracao:
+          description: Código da infração
+          type: string
+        ufOrgaoAutuador:
+          description: Unidade Federativa do órgão autuador
+          type: string
+        valorIntegralInfracao:
+          description: Valor da infração sem descontos ou acréscimos
+          type: number
+        descricaoInfracao:
+          description: Descrição do motivo do cometimento da infração
+          type: string
+        dataVencimentoPenalidade:
+          description: Data do vencimento da penalidade
+          type: string
+        dataPagamento:
+          description: Data do pagamento
+          type: string
+        dataRegistroPagamento:
+          allOf:
+          - $ref: '#/components/schemas/LocalDate'
+          - description: Data que o pagamento foi registrado no Renainf
+        placa:
+          description: Placa do veículo
+          type: string
+        gravidade:
+          description: "Se a infração é leve, média, grave ou gravíssima"
+          type: string
+        dataLimiteDefesaAutuacao:
+          description: Data Limite Para Interposição De Defesa Prévia E/Ou Identificação
+            Do Condutor Infrator
+          type: string
+        localAutuacao:
+          description: 'Local Da Infração '
+          type: string
+        descricaoMunicipioAutuacao:
+          description: Nome Do Município da infração
+          type: string
+        codigoMunicipioAutuacao:
+          format: int32
+          description: Código Do Município da infração
+          type: integer
+        codigoDesdobramento:
+          description: Desdobramento da infração
+          type: string
+        nomePossuidorOriginal:
+          description: Nome do possuidor do veículo no momento da infração.
+          type: string
+        numeroDocumentoPossuidorOriginal:
+          description: Documento do possuidor do veículo no momento da infração.
+          type: string
+        numeroDocumentoInfratorConsiderado:
+          description: Documento do infrator considerado após aplicação das regras
+            de real infrator e principal condutor.
+          type: string
+        dataAutuacao:
+          description: Data do cometimento da autuação
+          type: string
+        horaAutuacao:
+          description: Hora do cometimento da autuação
+          type: string
+        dataEmissaoNotificacaoAutuacao:
+          description: Data Emissão Notificação (Inserida pelo órgão)
+          type: string
+        dataEmissaoNotificacaoPenalidade:
+          description: Data Emissão Penalidade (Inserida pelo órgão)
+          type: string
+        medicaoReal:
+          format: int64
+          description: Medição Realizada
+          type: integer
+        limitePermitido:
+          format: int32
+          description: Limite Regulamentado
+          type: integer
+        renainf:
+          format: int64
+          description: Número Renainf
+          type: integer
+        nomePossuidor:
+          description: Nome do condutor - Caso tenha sido identificado
+          type: string
+        numeroDocumentoPossuidor:
+          description: Documento do condutor - Caso tenha sido identificado
+          type: string
+        siglaUfLocalAutuacao:
+          description: Sigla da Unidade Federativa do local da autuação
+          type: string
+        descricaoPaisOrigemVeiculo:
+          description: País de origem do veículo
+          type: string
+        indicadorExigibilidade:
+          description: Indicador se a infração é exigível. (Não paga e vencida)
+          type: boolean
+        indicadorFotoRecebida:
+          description: "Indicador se a infração tem foto cadastrada no renainf, ou\
+            \ seja, enviada pelo órgão"
+          type: boolean
+        indicadorCanceladaSuspensa:
+          description: Indicador se a infração foi cancelada através de lançamento
+            de ocorrência
+          type: boolean
+        renainfOriginario:
+          format: int64
+          description: Número Renainf da infração original
+          type: integer
+        chaveDaInfracaoOriginal:
+          allOf:
+          - $ref: '#/components/schemas/InfracaoOriginalDTO'
+          - description: Chave da infração original
+        codigoEquipamentoAfericao:
+          description: Código do equipamento caso a infração seja de radar
+          type: string
+        codigoAgenteFiscalizador:
+          description: Código/Matrícula do agente de fiscalização responsável pela
+            lavratura da infração
+          type: string
+        observacoes:
+          description: Campo livre com observações feitas pelo órgão autuador
+          type: string
+        versao:
+          description: Versão do DTO
+          type: string
+    InfracaoOriginalDTO:
+      type: object
+      properties:
+        codigoOrgaoAutuador:
+          description: Código do órgão autuador
+          type: string
+        numeroAutoInfracao:
+          description: Número do auto de infração
+          type: string
+        codigoInfracao:
+          description: Código da infração
+          type: string
+    ListaVeiculoDTO:
+      type: object
+      properties:
+        placa:
+          description: Placa do veículo
+          type: string
+        renavam:
+          description: Número Renavam do veículo
+          type: string
+        descricaoMarcaModelo:
+          description: Marca/Modelo do veículo
+          type: string
+        anoFabricacao:
+          format: int32
+          description: Ano da fabricação
+          type: integer
+        anoModelo:
+          format: int32
+          description: ano do modelo
+          type: integer
+        chassi:
+          description: Chassi do veículo
+          type: string
+        quantidadeTotalRestricoes:
+          format: int32
+          description: "Quantidade total de restrições (recall, roubo furto, renajud,\
+            \ comunicação de venda e infrações exigíveis)"
+          type: integer
+        versao:
+          description: Versão do DTO
+          type: string
+    LocalDate:
+      format: date
+      type: string
+      example: 2022-03-10
+    Mensagem:
+      type: object
+      properties:
+        mensagem:
+          description: Mensagem de erro tratada para ser mostrada no sistema chamador
+          type: string
+        mensagemTecnica:
+          description: Erro real que aconteceu para ser passado para equipe técnica
+            do serpro
+          type: string
+    OcorrenciaDeRecallDTO:
+      type: object
+      properties:
+        nomeRecall:
+          description: Nome do recall pendente
+          type: string
+        descricaoRecall:
+          description: Descrição do motivo do recall
+          type: string
+        dataRegistro:
+          allOf:
+          - $ref: '#/components/schemas/LocalDate'
+          - description: Data de registro do recall na base central
+    OcorrenciaDeRouboFurtoDTO:
+      type: object
+      properties:
+        chassi:
+          description: Chassi do veículo
+          type: string
+        placa:
+          description: Placa do veículo
+          type: string
+        categoriaOcorrencia:
+          description: "DECLARACAO, CIRCULACAO e outros"
+          type: string
+        tipoOcorrenciaDeclaracao:
+          description: ROUBO ou FURTO
+          type: string
+        numeroBoletimOcorrencia:
+          description: Número do boletim de ocorrência
+          type: string
+        dataOcorrencia:
+          description: Data da ocorrência
+          type: string
+        numeroOrgaoSeguranca:
+          description: Número do órgão de segurança pública
+          type: string
+        descricaoMunicipioRegistroOcorrencia:
+          description: Nome do município da ocorrência
+          type: string
+        ufRegistroOcorrencia:
+          description: UF do município da ocorrência
+          type: string
+    Pdf:
+      type: object
+      properties:
+        placa:
+          description: Placa de veículo
+          type: string
+        filename:
+          description: nome do arquivo pdf
+          type: string
+        chaveInfracao:
+          description: Chave da infração
+          type: string
+        base64:
+          description: Base64 do PDF gerado
+          type: string
+    PossuidorDTO:
+      type: object
+      properties:
+        tipoDocumento:
+          description: Tipo de documento (CNPJ ou CPF)
+          type: string
+        numeroDocumento:
+          description: Número do documento do proprietário
+          type: string
+    RestricaoJudicialDTO:
+      type: object
+      properties:
+        tipo:
+          description: "TRANSFERENCIA, CIRCULACAO, LICENCIAMENTO, PENHORA, CONDUTOR"
+          type: string
+        numeroProcesso:
+          description: Número do processo
+          type: string
+        dataHora:
+          description: Data e hora no formato yyyy-MM-dd HH:mm
+          type: string
+        codigoRamoJustica:
+          description: Código do Ramo de Justiça
+          type: string
+        codigoTribunal:
+          description: Código do Tribunal
+          type: string
+        codigoOrgaoJudiciario:
+          description: Código do órgão Judiciário
+          type: string
+        nomeOrgaoJudicial:
+          description: Nome do órgão Judiciário
+          type: string
+    VeiculoDTO:
+      type: object
+      properties:
+        placa:
+          description: Placa do veículo
+          type: string
+        renavam:
+          description: Número Renavam do veículo
+          type: string
+        descricaoMunicipioEmplacamento:
+          description: Nome do município de emplacamento
+          type: string
+        chassi:
+          description: Chassi do veículo
+          type: string
+        descricaoCor:
+          description: Cor do veículo
+          type: string
+        anoFabricacao:
+          format: int32
+          description: Ano da fabricação
+          type: integer
+        anoModelo:
+          format: int32
+          description: ano do modelo
+          type: integer
+        descricaoCombustivel:
+          description: "Tipo de combustível (Alcool, Gasolina etc)"
+          type: string
+        descricaoTipoVeiculo:
+          description: "Tipo (Automóvel, bonde, reboque)"
+          type: string
+        descricaoEspecie:
+          description: "Espécie do veículo  (Bicicleta, automovel, motocicleta)"
+          type: string
+        descricaoCategoria:
+          description: "Categoria (PARTICULAR, ALUGUEL )"
+          type: string
+        procedencia:
+          description: País de origem
+          type: string
+        ufJurisdicao:
+          description: UF de jurisdição
+          type: string
+        quantidadeTotalRestricoes:
+          format: int32
+          description: "Quantidade total de restrições (recall, roubo furto, renajud,\
+            \ comunicação de venda e infrações exigíveis)"
+          type: integer
+        descricaoMarcaModelo:
+          description: Marca/Modelo do veículo
+          type: string
+        proprietario:
+          $ref: '#/components/schemas/PossuidorDTO'
+        indicadores:
+          $ref: '#/components/schemas/IndicadoresDTO'
+        versao:
+          description: Versão do DTO
+          type: string
+  securitySchemes:
+    Authorization:
+      type: http
+      in: header
+      scheme: Bearer
+      bearerFormat: JWT
+    x-token-client:
+      type: apiKey
+      name: x-token-client
+      in: header

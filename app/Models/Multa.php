@@ -758,15 +758,24 @@ class Multa extends Model
      */
     public function criarDeSerpro(array $dados): int
     {
+        $dados = $this->normalizarInfracaoSerpro($dados);
+        $dataHora = $this->normalizarDataHoraSerpro($dados['data_hora'] ?? null);
+        $dadosResponsavel = $this->resolverResponsavelSerpro([
+            'id_veiculo' => $dados['id_veiculo'] ?? null,
+            'data_hora' => $dataHora,
+        ]);
+
         return $this->qb
             ->table('multas')
-            ->insert([
+            ->insert(array_merge([
                 'chave' => $_SESSION['chave'],
                 'tipo' => '',
                 'id_veiculo' => $dados['id_veiculo'] ?? null,
                 'local' => $dados['local'] ?? '',
-                'data_hora' => $dados['data_hora'] ?? null,
-                'data_vencimento' => $dados['data_vencimento'] ?? null,
+                'cidade' => $dados['cidade'] ?? '',
+                'estado' => $dados['estado'] ?? '',
+                'data_hora' => $dataHora ?? date('Y-m-d H:i:s'),
+                'data_vencimento' => $this->normalizarDataSerpro($dados['data_vencimento'] ?? null) ?? date('Y-m-d'),
                 'valor' => (float) ($dados['valor'] ?? 0),
                 'pago' => 'N',
                 'descri' => $dados['descricao'] ?? '',
@@ -778,8 +787,144 @@ class Multa extends Model
                 'origem' => $dados['origem'] ?? 'serpro_consulta',
                 'status_processamento' => $dados['status_processamento'] ?? 'novo',
                 'valor_desconto_40' => $dados['valor_desconto_40'] ?? null,
+                'data_notificacao_autuacao' => $this->normalizarDataSerpro($dados['data_notificacao_autuacao'] ?? null),
+                'data_notificacao_penalidade' => $this->normalizarDataSerpro($dados['data_notificacao_penalidade'] ?? null),
                 'serpro_sync_at' => $dados['serpro_sync_at'] ?? date('Y-m-d H:i:s'),
-            ]);
+                'array' => $dados['payload_serpro'] ?? null,
+            ], $dadosResponsavel));
+    }
+
+    /**
+     * Normaliza payloads oficiais e legados da API de consultas online.
+     */
+    public function normalizarInfracaoSerpro(array $dados): array
+    {
+        $infracao = isset($dados['infracao']) && is_array($dados['infracao'])
+            ? array_merge($dados, $dados['infracao'])
+            : $dados;
+
+        $dataHora = $this->primeiroValor($infracao, ['dataHoraInfracao', 'dataInfracao', 'data_hora']);
+        if (empty($dataHora)) {
+            $dataAutuacao = $this->primeiroValor($infracao, ['dataAutuacao']);
+            $horaAutuacao = $this->primeiroValor($infracao, ['horaAutuacao']);
+            if (!empty($dataAutuacao)) {
+                $dataHora = trim($dataAutuacao . ' ' . ($horaAutuacao ?: '00:00:00'));
+            }
+        }
+
+        $normalizado = [
+            'id_veiculo' => $dados['id_veiculo'] ?? null,
+            'placa' => $this->primeiroValor($infracao, ['placa']) ?? ($dados['placa'] ?? null),
+            'codigo_orgao' => $this->primeiroValor($infracao, ['codigo_orgao', 'codigoOrgao', 'codigoOrgaoAutuador']),
+            'numero_ait' => $this->primeiroValor($infracao, ['numero_ait', 'numeroAit', 'numeroAutoInfracao']),
+            'codigo_infracao' => $this->primeiroValor($infracao, ['codigo_infracao', 'codigoInfracao']),
+            'descricao' => $this->primeiroValor($infracao, ['descricao', 'descricaoInfracao', 'descricaoTipoPenalidade']) ?? 'Infracao importada por consulta online',
+            'valor' => $this->primeiroValor($infracao, ['valor', 'valorInfracao', 'valorOriginal', 'valorIntegralInfracao']) ?? 0,
+            'valor_desconto_40' => $this->primeiroValor($infracao, ['valor_desconto_40', 'valorDesconto']),
+            'data_hora' => $dataHora,
+            'data_vencimento' => $this->primeiroValor($infracao, [
+                'data_vencimento',
+                'dataVencimento',
+                'dataVencimentoPenalidade',
+                'dataVencimentoNotificacaoPenalidade',
+                'dataVencimentoNotificacao',
+            ]),
+            'local' => $this->primeiroValor($infracao, ['local', 'localInfracao', 'localAutuacao']),
+            'cidade' => $this->primeiroValor($infracao, ['cidade', 'descricaoMunicipioAutuacao']),
+            'estado' => $this->normalizarUf($this->primeiroValor($infracao, ['estado', 'siglaUfLocalAutuacao', 'ufOrgaoAutuador'])),
+            'data_notificacao_autuacao' => $this->primeiroValor($infracao, ['dataEmissaoNotificacaoAutuacao']),
+            'data_notificacao_penalidade' => $this->primeiroValor($infracao, ['dataEmissaoNotificacaoPenalidade']),
+            'origem' => $dados['origem'] ?? 'serpro_consulta',
+            'status_processamento' => $dados['status_processamento'] ?? 'novo',
+            'serpro_sync_at' => $dados['serpro_sync_at'] ?? date('Y-m-d H:i:s'),
+            'indicador_foto_recebida' => $this->primeiroValor($infracao, ['indicadorFotoRecebida']),
+            'id_rastreamento' => $this->primeiroValor($infracao, ['idRastreamento']),
+            'tipo_evento' => $this->primeiroValor($infracao, ['tipoEvento']),
+            'chave_infracao' => $this->primeiroValor($infracao, ['chaveInfracao']),
+        ];
+
+        if (isset($dados['payload_serpro'])) {
+            $normalizado['payload_serpro'] = $dados['payload_serpro'];
+        } else {
+            $normalizado['payload_serpro'] = json_encode($dados, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        return array_merge($dados, array_filter($normalizado, static fn($valor) => $valor !== null));
+    }
+
+    /**
+     * Resolve contrato/locacao responsavel para multas recebidas via SERPRO.
+     */
+    public function resolverResponsavelSerpro(array $dados): array
+    {
+        $veiculoId = !empty($dados['id_veiculo']) ? (int) $dados['id_veiculo'] : null;
+        $dataHora = $this->normalizarDataHoraSerpro($dados['data_hora'] ?? null);
+
+        if (!$veiculoId || !$dataHora) {
+            return [];
+        }
+
+        $responsavel = $this->buscarResponsavel($veiculoId, $dataHora);
+        if (!$responsavel) {
+            return [];
+        }
+
+        return [
+            'tipo' => $responsavel['tipo'],
+            'id_contrato' => $responsavel['id_contrato'],
+            'id_locacao' => $responsavel['id_locacao'],
+            'id_cliente' => $responsavel['id_cliente'],
+            'id_matriz_filial' => $responsavel['id_matriz_filial'],
+        ];
+    }
+
+    /**
+     * Normaliza datas vindas da API para comparacao com periodos de contratos/locacoes.
+     */
+    private function normalizarDataHoraSerpro(?string $dataHora): ?string
+    {
+        if (empty($dataHora)) {
+            return null;
+        }
+
+        try {
+            return (new \DateTimeImmutable($dataHora))->format('Y-m-d H:i:s');
+        } catch (\Exception $e) {
+            return $dataHora;
+        }
+    }
+
+    private function normalizarDataSerpro(?string $data): ?string
+    {
+        if (empty($data)) {
+            return null;
+        }
+
+        try {
+            return (new \DateTimeImmutable($data))->format('Y-m-d');
+        } catch (\Exception $e) {
+            return $data;
+        }
+    }
+
+    private function primeiroValor(array $dados, array $chaves): mixed
+    {
+        foreach ($chaves as $chave) {
+            if (array_key_exists($chave, $dados) && $dados[$chave] !== null && $dados[$chave] !== '') {
+                return $dados[$chave];
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizarUf(mixed $uf): ?string
+    {
+        if ($uf === null || $uf === '') {
+            return null;
+        }
+
+        return substr(strtoupper((string) $uf), 0, 2);
     }
 
     /**
@@ -793,7 +938,10 @@ class Multa extends Model
             'codigo_orgao', 'numero_ait', 'codigo_infracao', 'origem',
             'status_processamento', 'valor_desconto_40', 'na_pdf_path',
             'np_pdf_path', 'data_notificacao_autuacao', 'data_notificacao_penalidade',
-            'serpro_sync_at',
+            'serpro_sync_at', 'tipo', 'id_contrato', 'id_locacao', 'id_cliente',
+            'id_matriz_filial', 'local', 'cidade', 'estado', 'data_hora',
+            'data_vencimento', 'valor', 'descri', 'orgao_autuador', 'n_infracao',
+            'array',
         ];
 
         foreach ($camposPermitidos as $campo) {

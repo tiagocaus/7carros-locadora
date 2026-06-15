@@ -9,7 +9,9 @@ use App\Views\Template;
 use App\Models\SerproIndicacao;
 use App\Models\SerproConfiguracao;
 use App\Models\Multa;
+use App\Models\Veiculo;
 use App\Services\SerproService;
+use App\Services\SerproIndicacaoStatusService;
 
 /**
  * Controller de indicacoes por consultas online
@@ -153,6 +155,14 @@ class SerproIndicacaoController
                 return;
             }
 
+            if (!ctype_digit((string) $multa['codigo_orgao']) || !ctype_digit((string) $multa['codigo_infracao'])) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Multa nao possui identificadores oficiais validos da consulta online. Consulte a placa novamente antes de indicar real infrator.',
+                ], 422);
+                return;
+            }
+
             // Buscar CNPJ do tenant
             $configModel = new SerproConfiguracao();
             $config = $configModel->buscarPorChave();
@@ -179,7 +189,7 @@ class SerproIndicacaoController
                 Response::json([
                     'success' => false,
                     'message' => $resultado['error'] ?? 'Erro ao enviar indicacao para o sistema de consultas online',
-                ], 502);
+                ], 422);
                 return;
             }
 
@@ -234,7 +244,7 @@ class SerproIndicacaoController
     public function indicarPrincipalCondutor(Request $request): void
     {
         try {
-            $placa = strtoupper(trim($request->input('placa', '')));
+            $placa = strtoupper(str_replace(['-', ' '], '', trim($request->input('placa', ''))));
             $cpfIndicado = $request->input('cpf_indicado', '');
             $cnhIndicado = $request->input('cnh_indicado', '');
             $nomeIndicado = $request->input('nome_indicado', '');
@@ -247,6 +257,14 @@ class SerproIndicacaoController
                     'message' => 'Placa, CPF e CNH do condutor sao obrigatorios',
                 ], 422);
                 return;
+            }
+
+            if (empty($idVeiculo)) {
+                $veiculoModel = new Veiculo();
+                $veiculo = $veiculoModel->buscarPorPlaca($placa);
+                if ($veiculo) {
+                    $idVeiculo = (int) $veiculo['id'];
+                }
             }
 
             // Buscar CNPJ do tenant
@@ -274,7 +292,7 @@ class SerproIndicacaoController
                 Response::json([
                     'success' => false,
                     'message' => $resultado['error'] ?? 'Erro ao enviar indicacao para o sistema de consultas online',
-                ], 502);
+                ], 422);
                 return;
             }
 
@@ -334,60 +352,20 @@ class SerproIndicacaoController
                 return;
             }
 
-            $serpro = new SerproService();
-
-            if ($indicacao['tipo'] === 'real_infrator') {
-                $resultado = $serpro->statusRealInfrator($indicacao['chave_indicacao']);
-            } else {
-                $resultado = $serpro->statusPrincipalCondutor($indicacao['chave_indicacao']);
-            }
+            $statusService = new SerproIndicacaoStatusService();
+            $resultado = $statusService->sincronizar($indicacao);
 
             if (!$resultado['success']) {
                 Response::json([
                     'success' => false,
-                    'message' => $resultado['error'] ?? 'Erro ao consultar status no sistema de consultas online',
-                ], 502);
+                    'message' => $resultado['message'] ?? 'Erro ao consultar status no sistema de consultas online',
+                ], 422);
                 return;
-            }
-
-            // Atualizar status local
-            $statusSerpro = $resultado['data']['status'] ?? $resultado['data']['situacao'] ?? null;
-            $dadosUpdate = [];
-
-            if ($statusSerpro) {
-                $statusNormalizado = $this->normalizarStatusSerpro($statusSerpro);
-                $dadosUpdate['status_serpro'] = $statusNormalizado;
-            }
-
-            if (!empty($resultado['data']['motivoRejeicao'])) {
-                $dadosUpdate['motivo_rejeicao'] = $resultado['data']['motivoRejeicao'];
-            }
-
-            if (!empty($resultado['data']['dataResposta'])) {
-                $dadosUpdate['data_resposta'] = $resultado['data']['dataResposta'];
-            }
-
-            if (!empty($dadosUpdate)) {
-                $indicacaoModel->atualizarStatus($id, $dadosUpdate);
-
-                // Atualizar status da multa se indicacao de real infrator
-                if ($indicacao['tipo'] === 'real_infrator' && !empty($indicacao['id_multa'])) {
-                    $multaModel = new Multa();
-                    $statusMulta = $this->mapStatusParaMulta($dadosUpdate['status_serpro'] ?? '');
-                    if ($statusMulta) {
-                        $multaModel->atualizarDadosSerpro((int) $indicacao['id_multa'], [
-                            'status_processamento' => $statusMulta,
-                        ]);
-                    }
-                }
             }
 
             Response::json([
                 'success' => true,
-                'data' => [
-                    'status_serpro' => $resultado['data'],
-                    'status_local' => $dadosUpdate['status_serpro'] ?? $indicacao['status_serpro'],
-                ],
+                'data' => $resultado['data'],
             ]);
         } catch (\Exception $e) {
             Response::json([
@@ -442,7 +420,7 @@ class SerproIndicacaoController
                 Response::json([
                     'success' => false,
                     'message' => $resultado['error'] ?? 'Erro ao cancelar indicacao no sistema de consultas online',
-                ], 502);
+                ], 422);
                 return;
             }
 
@@ -495,7 +473,7 @@ class SerproIndicacaoController
             Response::json([
                 'success' => false,
                 'message' => $resultado['error'] ?? 'Erro ao excluir indicacao no sistema de consultas online',
-            ], 502);
+            ], 422);
             return;
         }
 
@@ -511,48 +489,4 @@ class SerproIndicacaoController
         ]);
     }
 
-    /**
-     * Normaliza status retornado pela SERPRO
-     */
-    private function normalizarStatusSerpro(string $status): string
-    {
-        $status = strtolower(trim($status));
-
-        $mapa = [
-            'aceita' => 'aceito',
-            'aceito' => 'aceito',
-            'aprovada' => 'aceito',
-            'rejeitada' => 'rejeitado',
-            'rejeitado' => 'rejeitado',
-            'negada' => 'rejeitado',
-            'processando' => 'processando',
-            'em_processamento' => 'processando',
-            'enviada' => 'enviado',
-            'enviado' => 'enviado',
-            'cancelada' => 'cancelado',
-            'cancelado' => 'cancelado',
-            'excluida' => 'excluido',
-            'excluido' => 'excluido',
-            'expirada' => 'expirado',
-            'expirado' => 'expirado',
-        ];
-
-        return $mapa[$status] ?? $status;
-    }
-
-    /**
-     * Mapeia status da indicacao para status da multa
-     */
-    private function mapStatusParaMulta(string $statusIndicacao): ?string
-    {
-        $mapa = [
-            'aceito' => 'indicacao_aceita',
-            'rejeitado' => 'indicacao_rejeitada',
-            'enviado' => 'indicacao_enviada',
-            'processando' => 'indicacao_enviada',
-            'cancelado' => 'novo',
-        ];
-
-        return $mapa[$statusIndicacao] ?? null;
-    }
 }

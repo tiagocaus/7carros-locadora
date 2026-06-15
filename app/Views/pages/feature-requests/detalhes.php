@@ -143,7 +143,11 @@
             <!-- Notificar -->
             <div class="mb-4">
                 <label class="flex items-center cursor-pointer">
-                    <input type="checkbox" id="chkNotificar" checked class="mr-2">
+                    <input type="checkbox" id="chkNotificar" class="mr-2">
+                    <span class="text-sm"><?= t('modules.feature_requests.admin.notify_creator') ?></span>
+                </label>
+                <label class="flex items-center cursor-pointer mt-2">
+                    <input type="checkbox" id="chkNotificarSeguidores" class="mr-2">
                     <span class="text-sm"><?= t('modules.feature_requests.admin.notify_followers') ?></span>
                 </label>
             </div>
@@ -384,6 +388,10 @@
             }
             document.getElementById('respostaInfo').textContent = respostaInfo.join(' | ');
             document.getElementById('respostaContainer').classList.remove('hidden');
+        } else {
+            document.getElementById('respostaAdmin').textContent = '';
+            document.getElementById('respostaInfo').textContent = '';
+            document.getElementById('respostaContainer').classList.add('hidden');
         }
 
         // Botoes de acao
@@ -501,6 +509,8 @@
         document.getElementById('selectStatus').value = pedido.status;
         document.getElementById('selectPrioridade').value = pedido.prioridade;
         document.getElementById('txtResposta').value = pedido.resposta_admin || '';
+        document.getElementById('chkNotificar').checked = true;
+        document.getElementById('chkNotificarSeguidores').checked = false;
 
         // Carregar seguidores
         carregarSeguidores();
@@ -577,7 +587,7 @@
         try {
             let result;
             if (segue) {
-                result = await API.delete(`/feature-requests/${pedidoId}/seguir`);
+                result = await API.post(`/feature-requests/${pedidoId}/deixar-de-seguir`);
                 if (result.success) {
                     meusPedidosSeguidos = meusPedidosSeguidos.filter(id => id !== parseInt(pedidoId));
                     pedido.total_seguidores = Math.max(0, (pedido.total_seguidores || 0) - 1);
@@ -610,26 +620,35 @@
         const prioridade = document.getElementById('selectPrioridade').value;
         const resposta = document.getElementById('txtResposta').value.trim();
         const notificar = document.getElementById('chkNotificar').checked;
+        const notificarSeguidores = document.getElementById('chkNotificarSeguidores').checked;
 
         const btnSalvar = document.getElementById('btnSalvarAdmin');
         btnSalvar.disabled = true;
         btnSalvar.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${i18n.saving}`;
 
         try {
-            const result = await API.put(`/feature-requests/${pedidoId}/status`, {
+            const result = await API.post(`/feature-requests/${pedidoId}/status`, {
                 status: status,
                 prioridade: prioridade,
                 resposta_admin: resposta,
-                notificar: notificar ? 1 : 0
+                notificar: notificar ? 1 : 0,
+                notificar_seguidores: notificarSeguidores ? 1 : 0
             });
 
             if (result.success) {
                 showToast(i18n.adminSaveSuccess, 'success');
 
-                // Atualizar dados locais
-                pedido.status = status;
-                pedido.prioridade = prioridade;
-                pedido.resposta_admin = resposta;
+                // Atualizar dados locais com o retorno do backend para refletir labels, cores e datas.
+                if (result.data) {
+                    pedido = { ...pedido, ...result.data };
+                } else {
+                    const agora = new Date().toISOString();
+                    pedido.status = status;
+                    pedido.prioridade = prioridade;
+                    pedido.resposta_admin = resposta;
+                    pedido.respondido_em = resposta ? agora : null;
+                    pedido.updated_at = agora;
+                }
 
                 // Re-renderizar
                 renderizarPedido();
@@ -687,6 +706,9 @@
     document.getElementById('btnVotar')?.addEventListener('click', toggleVoto);
     document.getElementById('btnSeguir')?.addEventListener('click', toggleSeguir);
     document.getElementById('btnSalvarAdmin')?.addEventListener('click', salvarAdmin);
+    document.getElementById('selectStatus')?.addEventListener('change', function() {
+        document.getElementById('chkNotificarSeguidores').checked = this.value === 'concluido';
+    });
 
     // Event listeners do modal de edicao
     document.getElementById('btnEditar')?.addEventListener('click', abrirModalEditar);

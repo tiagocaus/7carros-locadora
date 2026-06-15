@@ -93,6 +93,9 @@ class FeatureRequestsController
                 $pedido['votei'] = in_array($pedido['id'], $votados);
                 $pedido['sigo'] = in_array($pedido['id'], $seguidos);
                 $pedido['status_label'] = FeatureRequest::STATUS_LABELS[$pedido['status']] ?? $pedido['status'];
+                if ($pedido['status'] === 'aguardando_info') {
+                    $pedido['status_label'] = 'Aguardando';
+                }
                 $pedido['status_cor'] = FeatureRequest::STATUS_CORES[$pedido['status']] ?? 'bg-gray-100 text-gray-800';
             }
             unset($pedido);
@@ -520,7 +523,8 @@ class FeatureRequestsController
             $novoStatus = $dados['status'] ?? $pedido['status'];
             $novaPrioridade = $dados['prioridade'] ?? $pedido['prioridade'];
             $resposta = $dados['resposta_admin'] ?? $dados['resposta'] ?? null;
-            $notificar = ($dados['notificar'] ?? 0) == 1;
+            $notificarCriador = ($dados['notificar'] ?? 0) == 1;
+            $notificarSeguidores = ($dados['notificar_seguidores'] ?? 0) == 1;
             $respondidoPor = $_SESSION['user_id'] ?? null;
 
             // Validar status
@@ -544,6 +548,11 @@ class FeatureRequestsController
             }
 
             $statusAnterior = $pedido['status'];
+            $respostaAnterior = trim((string) ($pedido['resposta_admin'] ?? ''));
+            $respostaAtual = trim((string) ($resposta ?? ''));
+            $statusMudou = $novoStatus !== $statusAnterior;
+            $respostaMudou = $respostaAtual !== '' && $respostaAtual !== $respostaAnterior;
+
             $model->atualizarStatus($id, $novoStatus, $resposta, $respondidoPor, $novaPrioridade);
 
             // Log de auditoria
@@ -551,14 +560,16 @@ class FeatureRequestsController
                 ($_SESSION['user_name'] ?? 'Sistema') . ", alterou status do pedido [{$pedido['titulo']}] de [{$statusAnterior}] para [{$novoStatus}]"
             );
 
-            // Enviar notificações se solicitado e status mudou para concluído ou aguardando_info
-            if ($notificar && ($novoStatus === 'concluido' || $novoStatus === 'aguardando_info')) {
-                $this->enviarNotificacoes($id, $novoStatus, $resposta);
+            if (($notificarCriador || $notificarSeguidores) && ($statusMudou || $respostaMudou)) {
+                $this->enviarNotificacoes($id, $novoStatus, $resposta, $notificarCriador, $notificarSeguidores);
             }
+
+            $pedidoAtualizado = $model->buscarPorId($id);
 
             Response::json([
                 'success' => true,
                 'message' => 'Status atualizado com sucesso',
+                'data' => $pedidoAtualizado,
             ]);
         } catch (\Exception $e) {
             Response::json([
@@ -880,7 +891,13 @@ class FeatureRequestsController
      * @param string $status Novo status
      * @param string|null $resposta Resposta do admin
      */
-    private function enviarNotificacoes(int $featureRequestId, string $status, ?string $resposta = null): void
+    private function enviarNotificacoes(
+        int $featureRequestId,
+        string $status,
+        ?string $resposta = null,
+        bool $notificarCriador = true,
+        bool $notificarSeguidores = false
+    ): void
     {
         $model = new FeatureRequest();
         $pedido = $model->buscarPorId($featureRequestId);
@@ -889,8 +906,6 @@ class FeatureRequestsController
             return;
         }
 
-        $followerModel = new FeatureRequestFollower();
-
         // Preparar mensagens
         $statusLabel = FeatureRequest::STATUS_LABELS[$status] ?? $status;
 
@@ -898,33 +913,99 @@ class FeatureRequestsController
             ? "Recurso Concluído: {$pedido['titulo']}"
             : "Atualização sobre seu pedido: {$pedido['titulo']}";
 
-        $corpoEmail = $this->gerarCorpoEmail($pedido, $status, $resposta);
+        $corpoEmailCriador = $this->gerarCorpoEmail($pedido, $status, $resposta, 'criou este pedido de recurso');
+        $corpoEmailSeguidor = $this->gerarCorpoEmail($pedido, $status, $resposta, 'segue este pedido de recurso');
         $mensagemWhatsApp = $this->gerarMensagemWhatsApp($pedido, $status, $resposta);
 
+        $chavePedido = $pedido['chave'] ?? null;
+
         // Notificacoes por email
-        $seguidoresEmail = $followerModel->listarParaNotificacaoEmail($featureRequestId);
-        foreach ($seguidoresEmail as $seguidor) {
-            queue_system_message('email', [
-                'to' => $seguidor['email'],
-                'subject' => $assuntoEmail,
-                'body' => $corpoEmail,
-            ]);
+        $emailsCriador = [];
+        if ($notificarCriador) {
+            $emailSolicitante = trim((string) ($pedido['email_solicitante'] ?? ''));
+            if ($emailSolicitante !== '' && filter_var($emailSolicitante, FILTER_VALIDATE_EMAIL)) {
+                $emailsCriador[strtolower($emailSolicitante)] = $emailSolicitante;
+            }
+        }
+
+        $emailsSeguidores = [];
+        if ($notificarSeguidores) {
+            $followerModel = new FeatureRequestFollower();
+            $seguidoresEmail = $followerModel->listarParaNotificacaoEmail($featureRequestId);
+            foreach ($seguidoresEmail as $seguidor) {
+                $email = trim((string) ($seguidor['email'] ?? ''));
+                if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    continue;
+                }
+
+                if (!isset($emailsCriador[strtolower($email)])) {
+                    $emailsSeguidores[strtolower($email)] = $email;
+                }
+            }
+        }
+
+        foreach ($emailsCriador as $email) {
+            try {
+                queue_system_message('email', [
+                    'to' => $email,
+                    'subject' => $assuntoEmail,
+                    'body' => $corpoEmailCriador,
+                ], $chavePedido);
+            } catch (\Throwable $e) {
+                error_log("Erro ao enfileirar email de pedido de recurso {$featureRequestId} para {$email}: " . $e->getMessage());
+            }
+        }
+
+        foreach ($emailsSeguidores as $email) {
+            try {
+                queue_system_message('email', [
+                    'to' => $email,
+                    'subject' => $assuntoEmail,
+                    'body' => $corpoEmailSeguidor,
+                ], $chavePedido);
+            } catch (\Throwable $e) {
+                error_log("Erro ao enfileirar email de pedido de recurso {$featureRequestId} para {$email}: " . $e->getMessage());
+            }
         }
 
         // Notificacoes por WhatsApp
-        $seguidoresWhatsApp = $followerModel->listarParaNotificacaoWhatsApp($featureRequestId);
-        foreach ($seguidoresWhatsApp as $seguidor) {
-            queue_system_message('whatsapp', [
-                'to' => $seguidor['telefone'],
-                'message' => $mensagemWhatsApp,
-            ]);
+        $whatsappsNotificados = [];
+        if ($notificarCriador) {
+            $telefoneSolicitante = trim((string) ($pedido['telefone_solicitante'] ?? ''));
+            if ($telefoneSolicitante !== '') {
+                $whatsappsNotificados[preg_replace('/\D/', '', $telefoneSolicitante)] = $telefoneSolicitante;
+            }
+        }
+
+        if ($notificarSeguidores) {
+            $followerModel = $followerModel ?? new FeatureRequestFollower();
+            $seguidoresWhatsApp = $followerModel->listarParaNotificacaoWhatsApp($featureRequestId);
+            foreach ($seguidoresWhatsApp as $seguidor) {
+                $telefone = trim((string) ($seguidor['telefone'] ?? ''));
+                if ($telefone === '') {
+                    continue;
+                }
+
+                $whatsappsNotificados[preg_replace('/\D/', '', $telefone)] = $telefone;
+            }
+        }
+
+        foreach ($whatsappsNotificados as $telefone) {
+            try {
+                queue_system_message('whatsapp', [
+                    'to' => $telefone,
+                    'message' => $mensagemWhatsApp,
+                ], $chavePedido);
+            } catch (\Throwable $e) {
+                error_log("Erro ao enfileirar WhatsApp de pedido de recurso {$featureRequestId} para {$telefone}: " . $e->getMessage());
+            }
         }
     }
 
     /**
      * Gera corpo do email de notificação
      */
-    private function gerarCorpoEmail(array $pedido, string $status, ?string $resposta): string
+    private function gerarCorpoEmail(array $pedido, string $status, ?string $resposta, string $motivo): string
     {
         $statusLabel = FeatureRequest::STATUS_LABELS[$status] ?? $status;
 
@@ -943,7 +1024,7 @@ class FeatureRequestsController
         }
 
         $html .= "<hr>";
-        $html .= "<p><em>Você está recebendo esta mensagem porque segue este pedido de recurso.</em></p>";
+        $html .= "<p><em>Você está recebendo esta mensagem porque {$motivo}.</em></p>";
 
         return $html;
     }

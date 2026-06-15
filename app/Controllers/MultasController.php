@@ -118,11 +118,9 @@ class MultasController
                 return;
             }
 
-            $chave = Auth::chave();
-
             // Buscar veiculo por placa
             $veiculoModel = new Veiculo();
-            $veiculo = $veiculoModel->buscarPorPlaca($chave, strtoupper(str_replace(['-', ' '], '', $placa)));
+            $veiculo = $veiculoModel->buscarPorPlaca($placa);
 
             if (!$veiculo) {
                 Response::json([

@@ -238,12 +238,67 @@ class Router
                 throw new \RuntimeException("Método '$method' não existe no controller '$controllerClass'");
             }
 
+            $reflection = new \ReflectionMethod($controller, $method);
+            $routeParams = $this->normalizeRouteParams($reflection, $params);
+            if ($routeParams === null) {
+                Response::notFound();
+                return;
+            }
+
             // Injeta Request e params no método do controller
-            $controller->$method($request, ...array_values($params));
+            $controller->$method($request, ...$routeParams);
         } else {
+            $reflection = new \ReflectionFunction(\Closure::fromCallable($handler));
+            $routeParams = $this->normalizeRouteParams($reflection, $params);
+            if ($routeParams === null) {
+                Response::notFound();
+                return;
+            }
+
             // Handler é uma closure
-            $handler($request, ...array_values($params));
+            $handler($request, ...$routeParams);
         }
+    }
+
+    /**
+     * Normaliza parâmetros de rota conforme os tipos declarados no handler.
+     */
+    private function normalizeRouteParams(\ReflectionFunctionAbstract $reflection, array $params): ?array
+    {
+        $arguments = [];
+        $values = array_values($params);
+        $position = 0;
+        $parameters = $reflection->getParameters();
+
+        // O primeiro argumento do handler é sempre o Request.
+        for ($i = 1; $i < count($parameters); $i++) {
+            $parameter = $parameters[$i];
+            $name = $parameter->getName();
+
+            if (array_key_exists($name, $params)) {
+                $value = $params[$name];
+            } elseif (array_key_exists($position, $values)) {
+                $value = $values[$position];
+            } elseif ($parameter->isOptional()) {
+                continue;
+            } else {
+                return null;
+            }
+
+            $position++;
+            $type = $parameter->getType();
+
+            if ($type instanceof \ReflectionNamedType && $type->getName() === 'int') {
+                if (!is_string($value) || !preg_match('/^-?\d+$/', $value)) {
+                    return null;
+                }
+                $value = (int) $value;
+            }
+
+            $arguments[] = $value;
+        }
+
+        return $arguments;
     }
 
     /**

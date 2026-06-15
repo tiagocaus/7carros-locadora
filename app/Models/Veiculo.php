@@ -224,22 +224,41 @@ class Veiculo extends Model
     /**
      * Busca um veiculo por placa
      *
-     * @param string $chave Chave do tenant
      * @param string $placa Placa do veiculo
      * @param int|null $ignorarId ID para ignorar na busca (para edicao)
      * @return array|null Dados ou null
      */
-    public function buscarPorPlaca(string $chave, string $placa, ?int $ignorarId = null): ?array
+    public function buscarPorPlaca(string $placa, ?int $ignorarId = null): ?array
     {
+        $placa = strtoupper(str_replace(['-', ' '], '', trim($placa)));
+
         $query = $this->qb
             ->table('veiculos')
-            ->where('placa', '=', $placa);
+            ->whereRaw("UPPER(REPLACE(REPLACE(placa, '-', ''), ' ', '')) = ?", [$placa]);
 
         if ($ignorarId !== null) {
             $query->where('id', '!=', $ignorarId);
         }
 
         return $query->first();
+    }
+
+    /**
+     * Busca veiculo por placa em todos os tenants.
+     *
+     * Uso permitido para webhooks publicos/cross-tenant, onde nao existe sessao
+     * do tenant e a identificacao precisa ser feita pela placa recebida.
+     */
+    public function buscarPorPlacaCrossTenant(string $placa): ?array
+    {
+        $placa = strtoupper(trim($placa));
+
+        return $this->qb
+            ->table('veiculos')
+            ->withoutChave()
+            ->select(['id', 'chave', 'placa', 'modelo', 'marca'])
+            ->whereRaw("UPPER(REPLACE(placa, '-', '')) = ?", [str_replace('-', '', $placa)])
+            ->first();
     }
 
     /**

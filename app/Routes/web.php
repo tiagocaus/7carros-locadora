@@ -895,10 +895,12 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/feature-requests/salvar', [FeatureRequestsController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/feature-requests/{id}/atualizar', [FeatureRequestsController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/feature-requests/{id}/excluir', [FeatureRequestsController::class, 'destroy'], ['csrf', 'rate_limit']);
+    $router->post('/feature-requests/{id}/status', [FeatureRequestsController::class, 'atualizarStatus'], ['csrf', 'rate_limit']);
     $router->put('/feature-requests/{id}/status', [FeatureRequestsController::class, 'atualizarStatus'], ['csrf', 'rate_limit']);
     $router->post('/feature-requests/{id}/votar', [FeatureRequestsController::class, 'votar'], ['csrf', 'rate_limit']);
     $router->delete('/feature-requests/{id}/voto', [FeatureRequestsController::class, 'removerVoto'], ['csrf', 'rate_limit']);
     $router->post('/feature-requests/{id}/seguir', [FeatureRequestsController::class, 'seguir'], ['csrf', 'rate_limit']);
+    $router->post('/feature-requests/{id}/deixar-de-seguir', [FeatureRequestsController::class, 'deixarDeSeguir'], ['csrf', 'rate_limit']);
     $router->delete('/feature-requests/{id}/seguir', [FeatureRequestsController::class, 'deixarDeSeguir'], ['csrf', 'rate_limit']);
 
     // Pagina iframe - Conceder Acesso (Suporte)

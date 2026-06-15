@@ -59,6 +59,12 @@ class ProcessMessageQueueJob extends BaseJob
         $processed = 0;
         $successful = 0;
         $failed = 0;
+        $republished = 0;
+        $recoveredFailed = 0;
+
+        $recovery = $this->recoverFailedPublications();
+        $republished = $recovery['republished'];
+        $recoveredFailed = $recovery['recovered_failed'];
 
         if (!$this->hasRunnableMessages()) {
             $this->log('Nenhuma mensagem pendente/processando no banco; conexão RabbitMQ não será aberta.');
@@ -70,6 +76,8 @@ class ProcessMessageQueueJob extends BaseJob
                     'processed' => $processed,
                     'successful' => $successful,
                     'failed' => $failed,
+                    'republished' => $republished,
+                    'recovered_failed' => $recoveredFailed,
                 ],
             ];
         }
@@ -216,33 +224,41 @@ class ProcessMessageQueueJob extends BaseJob
         } catch (\Exception $e) {
             $this->amqpLog('consumer.error', ['error' => $e->getMessage()]);
             $this->log("Erro ao conectar ao RabbitMQ: " . $e->getMessage(), 'ERROR');
-            
+
+            $fallback = $this->processDatabaseFallbackMessages($this->maxMessages);
+            $processed += $fallback['processed'];
+            $successful += $fallback['successful'];
+            $failed += $fallback['failed'];
+
             return [
-                'success' => false,
-                'message' => 'Erro ao processar fila: ' . $e->getMessage(),
+                'success' => $fallback['processed'] > 0 && $fallback['failed'] === 0,
+                'message' => $fallback['processed'] > 0
+                    ? "RabbitMQ indisponivel; fallback processou {$fallback['processed']} mensagem(ns)"
+                    : 'Erro ao processar fila: ' . $e->getMessage(),
                 'data' => [
                     'processed' => $processed,
                     'successful' => $successful,
                     'failed' => $failed,
+                    'republished' => $republished,
+                    'recovered_failed' => $recoveredFailed,
                 ],
             ];
         }
 
-        // Re-publicar mensagens órfãs do BD
-        $orphanCount = $this->processOrphanedMessages();
-        if ($orphanCount > 0) {
-            $this->log("Re-publicadas {$orphanCount} mensagens órfãs no RabbitMQ");
-        }
+        $orphanRecovery = $this->recoverOrphanedPendingMessages();
+        $republished += $orphanRecovery['republished'];
 
-        $this->log("Processamento concluído: {$processed} mensagens processadas ({$successful} sucesso, {$failed} falhas)");
+        $this->log("Processamento concluído: {$processed} mensagens processadas ({$successful} sucesso, {$failed} falhas, {$republished} re-publicadas)");
 
         return [
             'success' => true,
-            'message' => "Processadas {$processed} mensagens ({$successful} sucesso, {$failed} falhas)",
+            'message' => "Processadas {$processed} mensagens ({$successful} sucesso, {$failed} falhas, {$republished} re-publicadas)",
             'data' => [
                 'processed' => $processed,
                 'successful' => $successful,
                 'failed' => $failed,
+                'republished' => $republished,
+                'recovered_failed' => $recoveredFailed,
             ],
         ];
     }
@@ -288,6 +304,10 @@ class ProcessMessageQueueJob extends BaseJob
             $data['error_message'] = mb_convert_encoding($errorMessage, 'UTF-8', 'UTF-8');
         }
 
+        if ($status === 'sent') {
+            $data['error_message'] = null;
+        }
+
         if ($setProcessedAt) {
             $data['processed_at'] = date('Y-m-d H:i:s');
         }
@@ -319,26 +339,112 @@ class ProcessMessageQueueJob extends BaseJob
     private function hasRunnableMessages(): bool
     {
         return $this->qb
+            ->withoutChave()
             ->table('messages_queue')
-            ->whereIn('status', ['pending', 'processing'])
+            ->whereRaw("(
+                status IN ('pending', 'processing')
+                OR (
+                    status = 'failed'
+                    AND error_message LIKE 'Erro ao publicar na fila:%'
+                    AND attempts < ?
+                    AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                )
+            )", [$this->maxAttempts])
             ->count() > 0;
     }
 
     /**
-     * Re-publica mensagens órfãs (pending no BD mas ausentes no RabbitMQ)
+     * Recupera falhas de publicacao causadas por indisponibilidade temporaria do RabbitMQ.
      */
-    private function processOrphanedMessages(): int
+    private function recoverFailedPublications(): array
     {
-        $orphaned = $this->qb->table('messages_queue')
-            ->select(['id', 'type', 'payload', 'chave', 'batch_id'])
-            ->where('status', '=', 'pending')
-            ->where('attempts', '=', 0)
-            ->whereRaw('created_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE)')
-            ->limit(20)
-            ->get();
+        $candidates = $this->loadRecoverableFailedMessages();
 
-        if (empty($orphaned)) {
-            return 0;
+        if (empty($candidates)) {
+            return [
+                'republished' => 0,
+                'recovered_failed' => 0,
+            ];
+        }
+
+        $republished = 0;
+        $recoveredFailed = 0;
+
+        try {
+            $this->amqpLog('recover.connect.start');
+            $connection = $this->getConnection();
+            $this->amqpLog('recover.connect.ok');
+            $this->amqpLog('recover.channel.create.start');
+            $channel = $connection->channel();
+            $this->amqpLog('recover.channel.create.ok');
+            $queueName = Database::env('RABBITMQ_QUEUE_NAME', 'messages_queue');
+            $this->amqpLog('recover.queue.declare.start', ['queue' => $queueName]);
+            $channel->queue_declare($queueName, false, true, false, false);
+            $this->amqpLog('recover.queue.declare.ok', ['queue' => $queueName]);
+
+            foreach ($candidates as $msg) {
+                $payload = json_decode($msg['payload'], true);
+                if (!is_array($payload)) {
+                    $this->markMessageFailed((int) $msg['id'], 'Payload invalido para re-publicacao');
+                    $this->log("Mensagem #{$msg['id']} nao foi re-publicada: payload invalido", 'WARNING');
+                    continue;
+                }
+
+                $messageData = [
+                    'id'       => (int) $msg['id'],
+                    'type'     => $msg['type'],
+                    'payload'  => $payload,
+                    'chave'    => $msg['chave'],
+                    'batch_id' => $msg['batch_id'],
+                ];
+
+                $amqpMsg = new AMQPMessage(
+                    json_encode($messageData, JSON_UNESCAPED_UNICODE),
+                    ['delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT]
+                );
+                $this->amqpLog('recover.publish.start', ['message_id' => (int) $msg['id']]);
+                $channel->basic_publish($amqpMsg, '', $queueName);
+                $this->amqpLog('recover.publish.ok', ['message_id' => (int) $msg['id']]);
+
+                $wasFailed = ($msg['status'] ?? '') === 'failed';
+                $this->markMessageRepublished((int) $msg['id'], $wasFailed);
+
+                $this->log("Mensagem #{$msg['id']} re-publicada no RabbitMQ");
+                $republished++;
+                if ($wasFailed) {
+                    $recoveredFailed++;
+                }
+            }
+
+            $this->amqpLog('recover.channel.close.start');
+            $channel->close();
+            $this->amqpLog('recover.channel.close.ok');
+            $this->amqpLog('recover.connection.close.start');
+            $connection->close();
+            $this->amqpLog('recover.connection.close.ok');
+        } catch (\Exception $e) {
+            $this->amqpLog('recover.error', ['error' => $e->getMessage()]);
+            $this->log("Erro ao recuperar mensagens no RabbitMQ: " . $e->getMessage(), 'ERROR');
+        }
+
+        return [
+            'republished' => $republished,
+            'recovered_failed' => $recoveredFailed,
+        ];
+    }
+
+    /**
+     * Recupera mensagens pending que ficaram no banco e nao foram consumidas.
+     *
+     * Executa depois do consumo normal para reduzir risco de duplicar uma
+     * mensagem que ainda esteja presente no RabbitMQ.
+     */
+    private function recoverOrphanedPendingMessages(): array
+    {
+        $candidates = $this->loadOrphanedPendingMessages();
+
+        if (empty($candidates)) {
+            return ['republished' => 0];
         }
 
         $republished = 0;
@@ -355,11 +461,18 @@ class ProcessMessageQueueJob extends BaseJob
             $channel->queue_declare($queueName, false, true, false, false);
             $this->amqpLog('orphan.queue.declare.ok', ['queue' => $queueName]);
 
-            foreach ($orphaned as $msg) {
+            foreach ($candidates as $msg) {
+                $payload = json_decode($msg['payload'], true);
+                if (!is_array($payload)) {
+                    $this->markMessageFailed((int) $msg['id'], 'Payload invalido para re-publicacao');
+                    $this->log("Mensagem #{$msg['id']} nao foi re-publicada: payload invalido", 'WARNING');
+                    continue;
+                }
+
                 $messageData = [
-                    'id'       => $msg['id'],
+                    'id'       => (int) $msg['id'],
                     'type'     => $msg['type'],
-                    'payload'  => json_decode($msg['payload'], true),
+                    'payload'  => $payload,
                     'chave'    => $msg['chave'],
                     'batch_id' => $msg['batch_id'],
                 ];
@@ -372,15 +485,8 @@ class ProcessMessageQueueJob extends BaseJob
                 $channel->basic_publish($amqpMsg, '', $queueName);
                 $this->amqpLog('orphan.publish.ok', ['message_id' => (int) $msg['id']]);
 
-                $this->qb->table('messages_queue')
-                    ->where('id', '=', $msg['id'])
-                    ->update([
-                        'attempts'      => 1,
-                        'error_message' => 'Re-publicada (mensagem órfã)',
-                        'updated_at'    => date('Y-m-d H:i:s'),
-                    ]);
-
-                $this->log("Mensagem órfã #{$msg['id']} re-publicada no RabbitMQ");
+                $this->markMessageRepublished((int) $msg['id'], false);
+                $this->log("Mensagem pendente #{$msg['id']} re-publicada no RabbitMQ");
                 $republished++;
             }
 
@@ -392,10 +498,161 @@ class ProcessMessageQueueJob extends BaseJob
             $this->amqpLog('orphan.connection.close.ok');
         } catch (\Exception $e) {
             $this->amqpLog('orphan.error', ['error' => $e->getMessage()]);
-            $this->log("Erro ao re-publicar órfãs: " . $e->getMessage(), 'ERROR');
+            $this->log("Erro ao re-publicar pendentes: " . $e->getMessage(), 'ERROR');
         }
 
-        return $republished;
+        return ['republished' => $republished];
+    }
+
+    private function loadRecoverableFailedMessages(): array
+    {
+        return $this->qb
+            ->withoutChave()
+            ->table('messages_queue')
+            ->select(['id', 'type', 'status', 'payload', 'chave', 'batch_id'])
+            ->where('status', '=', 'failed')
+            ->whereRaw("error_message LIKE 'Erro ao publicar na fila:%'")
+            ->whereRaw('attempts < ?', [$this->maxAttempts])
+            ->whereRaw('created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)')
+            ->limit(20)
+            ->get();
+    }
+
+    private function loadOrphanedPendingMessages(): array
+    {
+        return $this->qb
+            ->withoutChave()
+            ->table('messages_queue')
+            ->select(['id', 'type', 'status', 'payload', 'chave', 'batch_id'])
+            ->where('status', '=', 'pending')
+            ->whereRaw('updated_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE)')
+            ->limit(20)
+            ->get();
+    }
+
+    /**
+     * Fallback quando o RabbitMQ esta indisponivel.
+     */
+    private function processDatabaseFallbackMessages(int $limit): array
+    {
+        $messages = $this->loadDatabaseFallbackMessages($limit);
+
+        if (empty($messages)) {
+            $this->log('Fallback pelo banco: nenhuma mensagem elegivel para processamento.');
+            return [
+                'processed' => 0,
+                'successful' => 0,
+                'failed' => 0,
+            ];
+        }
+
+        $processed = 0;
+        $successful = 0;
+        $failed = 0;
+
+        foreach ($messages as $message) {
+            $messageId = (int) $message['id'];
+            $type = (string) $message['type'];
+            $payload = json_decode((string) $message['payload'], true);
+            $chave = $message['chave'] ?? null;
+
+            if (!is_array($payload)) {
+                $this->markMessageFailed($messageId, 'Payload invalido para fallback pelo banco');
+                $failed++;
+                continue;
+            }
+
+            $processed++;
+            $this->log("Fallback pelo banco: processando mensagem #{$messageId} ({$type})");
+            $this->updateMessageStatus($messageId, 'processing');
+
+            try {
+                $result = $this->processMessage($type, $payload, $chave);
+
+                if ($result['success']) {
+                    $this->updateMessageStatus($messageId, 'sent', null, true);
+                    $successful++;
+                    $this->log("Fallback pelo banco: mensagem #{$messageId} enviada com sucesso");
+                    continue;
+                }
+
+                $attempts = $this->incrementAttempts($messageId);
+                if ($attempts >= $this->maxAttempts) {
+                    $this->updateMessageStatus($messageId, 'failed', $result['message'] ?? 'Falha no envio');
+                } else {
+                    $this->updateMessageStatus($messageId, 'pending', $result['message'] ?? 'Falha no envio');
+                }
+                $failed++;
+            } catch (\Exception $ex) {
+                $attempts = $this->incrementAttempts($messageId);
+                if ($attempts >= $this->maxAttempts) {
+                    $this->updateMessageStatus($messageId, 'failed', $ex->getMessage());
+                } else {
+                    $this->updateMessageStatus($messageId, 'pending', $ex->getMessage());
+                }
+                $failed++;
+                $this->log("Fallback pelo banco: erro na mensagem #{$messageId}: {$ex->getMessage()}", 'ERROR');
+            }
+        }
+
+        return [
+            'processed' => $processed,
+            'successful' => $successful,
+            'failed' => $failed,
+        ];
+    }
+
+    private function loadDatabaseFallbackMessages(int $limit): array
+    {
+        return $this->qb
+            ->withoutChave()
+            ->table('messages_queue')
+            ->select(['id', 'type', 'status', 'payload', 'chave', 'batch_id'])
+            ->whereRaw("(
+                status = 'pending'
+                OR (
+                    status = 'processing'
+                    AND updated_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+                )
+                OR (
+                    status = 'failed'
+                    AND error_message LIKE 'Erro ao publicar na fila:%'
+                    AND attempts < ?
+                    AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                )
+            )", [$this->maxAttempts])
+            ->orderBy('id', 'ASC')
+            ->limit($limit)
+            ->get();
+    }
+
+    private function markMessageRepublished(int $messageId, bool $wasFailed): void
+    {
+        $this->qb
+            ->withoutChave()
+            ->table('messages_queue')
+            ->where('id', '=', $messageId)
+            ->update([
+                'status' => 'pending',
+                'attempts' => $wasFailed ? 1 : 0,
+                'error_message' => $wasFailed
+                    ? 'Re-publicada apos falha de conexao com RabbitMQ'
+                    : 'Re-publicada (mensagem pendente no banco)',
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+    }
+
+    private function markMessageFailed(int $messageId, string $errorMessage): void
+    {
+        $this->qb
+            ->withoutChave()
+            ->table('messages_queue')
+            ->where('id', '=', $messageId)
+            ->update([
+                'status' => 'failed',
+                'error_message' => $errorMessage,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
     }
 
     /**

@@ -1438,7 +1438,7 @@
 
             // Event listeners
             container.querySelectorAll('.email-input').forEach(input => {
-                input.addEventListener('change', function() {
+                input.addEventListener('input', function() {
                     const idx = parseInt(this.dataset.idx);
                     const field = this.dataset.field;
                     emails[idx][field] = this.value;
@@ -1533,7 +1533,7 @@
 
             // Event listeners
             container.querySelectorAll('.telefone-input').forEach(input => {
-                input.addEventListener('change', function() {
+                input.addEventListener('input', function() {
                     const idx = parseInt(this.dataset.idx);
                     const field = this.dataset.field;
                     telefones[idx][field] = this.value;
@@ -1598,9 +1598,55 @@
             renderizarTelefones();
         });
 
+        function sincronizarContatosDoFormulario() {
+            const emailsSincronizados = [];
+            document.querySelectorAll('#emailsContainer .email-input[data-field="email"]').forEach(input => {
+                const idx = parseInt(input.dataset.idx);
+                const descricaoInput = document.querySelector(`#emailsContainer .email-input[data-idx="${idx}"][data-field="descricao"]`);
+                const principalInput = document.querySelector(`#emailsContainer .email-principal-radio[data-idx="${idx}"]`);
+
+                emailsSincronizados[idx] = {
+                    email: input.value || '',
+                    descricao: descricaoInput?.value || '',
+                    principal: principalInput?.checked ? 'S' : 'N'
+                };
+            });
+            emails = emailsSincronizados.filter(Boolean);
+
+            const telefonesSincronizados = [];
+            document.querySelectorAll('#telefonesContainer .telefone-input[data-field="telefone"]').forEach(input => {
+                const idx = parseInt(input.dataset.idx);
+                const descricaoInput = document.querySelector(`#telefonesContainer .telefone-input[data-idx="${idx}"][data-field="descricao"]`);
+                const principalInput = document.querySelector(`#telefonesContainer .telefone-principal-radio[data-idx="${idx}"]`);
+                const flag = (nome) => document.querySelector(`#telefonesContainer .telefone-flag[data-idx="${idx}"][data-flag="${nome}"]`)?.checked ? 'S' : 'N';
+                const telefone = input.value.trim() && input._intlPhone?.getCleanValue
+                    ? input._intlPhone.getCleanValue()
+                    : input.value;
+
+                telefonesSincronizados[idx] = {
+                    telefone: telefone || '',
+                    descricao: descricaoInput?.value || '',
+                    whatsapp: flag('whatsapp'),
+                    telegram: flag('telegram'),
+                    sms: flag('sms'),
+                    principal: principalInput?.checked ? 'S' : 'N'
+                };
+            });
+            telefones = telefonesSincronizados.filter(Boolean);
+
+            if (emails.length > 0 && !emails.some(email => email.principal === 'S')) {
+                emails[0].principal = 'S';
+            }
+            if (telefones.length > 0 && !telefones.some(telefone => telefone.principal === 'S')) {
+                telefones[0].principal = 'S';
+            }
+        }
+
         // Interceptar submit do formulário para adicionar contatos
         document.getElementById('formCliente')?.addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            sincronizarContatosDoFormulario();
 
             const formData = new FormData(this);
             const dados = {};
@@ -2485,6 +2531,8 @@
             for (let [key, value] of formData.entries()) {
                 dados[key] = value;
             }
+
+            sincronizarContatosDoFormulario();
 
             dados.emails = JSON.stringify(emails);
             dados.telefones = JSON.stringify(telefones);

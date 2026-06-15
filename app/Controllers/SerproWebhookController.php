@@ -172,8 +172,11 @@ class SerproWebhookController
             // Validar secret se configurado
             $secret = env('SERPRO_WEBHOOK_SECRET', '');
             if (!empty($secret)) {
-                $headerSecret = $_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? '';
-                if ($headerSecret !== $secret) {
+                $headerSecret = trim((string) ($_SERVER['HTTP_X_WEBHOOK_SECRET'] ?? ''));
+                $authorization = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ''));
+                $expectedAuthorization = 'Bearer ' . $secret;
+
+                if (!hash_equals($secret, $headerSecret) && !hash_equals($expectedAuthorization, $authorization)) {
                     error_log('[SerproWebhook] Eventos - secret invalido');
                     Response::json(['error' => 'Unauthorized'], 401);
                     return;
@@ -188,14 +191,12 @@ class SerproWebhookController
 
             foreach ($eventos as $evento) {
                 $tipoEvento = $evento['tipoEvento'] ?? $evento['tipo'] ?? '';
-                $placa = $evento['placa'] ?? '';
+                $placa = $evento['placa'] ?? ($evento['infracao']['placa'] ?? '');
 
                 if (empty($placa)) {
                     continue;
                 }
 
-                // Buscar qual tenant tem esse veiculo
-                $veiculoModel = new \App\Models\Veiculo();
                 $veiculo = $this->buscarVeiculoPorPlacaCrossTenant($placa);
 
                 if (!$veiculo) {
@@ -227,7 +228,7 @@ class SerproWebhookController
                 'success' => true,
                 'processados' => $processados,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             error_log('[SerproWebhook] Erro eventos: ' . $e->getMessage());
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }
@@ -239,12 +240,7 @@ class SerproWebhookController
     private function buscarVeiculoPorPlacaCrossTenant(string $placa): ?array
     {
         $veiculoModel = new \App\Models\Veiculo();
-        return $veiculoModel->qb
-            ->table('veiculos')
-            ->withoutChave()
-            ->select(['id', 'chave', 'placa', 'modelo', 'marca'])
-            ->where('placa', '=', strtoupper(trim($placa)))
-            ->first();
+        return $veiculoModel->buscarPorPlacaCrossTenant($placa);
     }
 
     /**
@@ -252,42 +248,41 @@ class SerproWebhookController
      */
     private function processarEvento(array $evento, array $veiculo): void
     {
-        $codigoOrgao = $evento['codigoOrgao'] ?? '';
-        $numeroAit = $evento['numeroAit'] ?? '';
-        $codigoInfracao = $evento['codigoInfracao'] ?? '';
+        $multaModel = new \App\Models\Multa();
+        $dadosEvento = $multaModel->normalizarInfracaoSerpro(array_merge($evento, [
+            'id_veiculo' => (int) $veiculo['id'],
+            'placa' => $veiculo['placa'],
+            'origem' => 'serpro_evento',
+            'status_processamento' => 'novo',
+        ]));
+
+        $codigoOrgao = $dadosEvento['codigo_orgao'] ?? '';
+        $numeroAit = $dadosEvento['numero_ait'] ?? '';
+        $codigoInfracao = $dadosEvento['codigo_infracao'] ?? '';
 
         if (empty($codigoOrgao) || empty($numeroAit)) {
             return;
         }
 
-        $multaModel = new \App\Models\Multa();
-
         // Verificar se multa ja existe
         $existente = $multaModel->buscarPorChavesSerpro($codigoOrgao, $numeroAit, $codigoInfracao);
 
         if ($existente) {
-            $multaModel->atualizarDadosSerpro($existente['id'], [
-                'serpro_sync_at' => date('Y-m-d H:i:s'),
-            ]);
+            $dadosAtualizacao = $dadosEvento;
+
+            if (empty($existente['id_contrato']) && empty($existente['id_locacao'])) {
+                $dadosAtualizacao = array_merge($dadosAtualizacao, $multaModel->resolverResponsavelSerpro([
+                    'id_veiculo' => (int) $veiculo['id'],
+                    'data_hora' => $dadosEvento['data_hora'] ?? null,
+                ]));
+            }
+
+            $multaModel->atualizarDadosSerpro($existente['id'], $dadosAtualizacao);
             return;
         }
 
         // Criar nova multa a partir do evento
-        $multaModel->criarDeSerpro([
-            'id_veiculo' => (int) $veiculo['id'],
-            'placa' => $veiculo['placa'],
-            'codigo_orgao' => $codigoOrgao,
-            'numero_ait' => $numeroAit,
-            'codigo_infracao' => $codigoInfracao,
-            'descricao' => $evento['descricaoInfracao'] ?? $evento['descricao'] ?? 'Evento de consulta online',
-            'valor' => (float) ($evento['valorInfracao'] ?? $evento['valor'] ?? 0),
-            'valor_desconto_40' => isset($evento['valorDesconto']) ? (float) $evento['valorDesconto'] : null,
-            'data_hora' => $evento['dataHoraInfracao'] ?? $evento['dataInfracao'] ?? null,
-            'data_vencimento' => $evento['dataVencimento'] ?? null,
-            'local' => $evento['localInfracao'] ?? $evento['local'] ?? null,
-            'origem' => 'serpro_evento',
-            'status_processamento' => 'novo',
-        ]);
+        $multaModel->criarDeSerpro($dadosEvento);
     }
 
     /**

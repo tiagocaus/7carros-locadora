@@ -227,14 +227,18 @@ return [
         'automation' => [
             'title' => 'Automazioni',
             'auto_query' => 'Auto-consulta',
+            'auto_query_help' => 'Consulta automaticamente le multe dei veicoli registrati nell intervallo scelto. L addebito viene effettuato per targa consultata, non in base al numero di multe trovate. Esempio: se una targa restituisce varie multe, viene addebitata solo 1 consulta per quella targa.',
             'every' => 'ogni',
             'auto_events' => 'Eventi automatici',
+            'auto_events_help' => 'Riceve notifiche automatiche di Consulta Online quando vengono identificati nuovi eventi di multe. Ogni evento ricevuto consuma saldo come Evento, separato dall addebito di Consulta per targa.',
             'last_query' => 'Ultima consulta: :date',
             'interval_1d' => '1 giorno',
             'interval_3d' => '3 giorni',
             'interval_7d' => '7 giorni',
             'interval_14d' => '14 giorni',
             'interval_30d' => '30 giorni',
+            'online_query_requires_cnpj' => 'Consulta Online richiede un CNPJ. Registra una sede principale o filiale con CNPJ valido per attivare le automazioni.',
+            'online_query_multiple_cnpjs' => 'Esiste più di un CNPJ registrato. Configura quale CNPJ usare in Consulta Online prima di attivare le automazioni.',
         ],
 
         'filters' => [
@@ -348,6 +352,7 @@ return [
             'main_driver' => 'Conducente Principale',
             'all_status' => 'Tutti gli stati',
             'sent' => 'Inviato',
+            'pending' => 'In attesa',
             'processing' => 'In elaborazione',
             'accepted' => 'Accettato',
             'rejected' => 'Rifiutato',

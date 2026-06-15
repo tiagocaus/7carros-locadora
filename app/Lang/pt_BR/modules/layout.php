@@ -149,7 +149,7 @@ return [
         'consult' => 'Consultar infrações',
         'consulting' => 'Consultando infrações...',
         'batch_title' => 'Consulta em lote',
-        'batch_text' => 'Consultar infrações de todos os veículos cadastrados. Será debitado do saldo o valor por consulta para cada placa.',
+        'batch_text' => 'Consultar infrações de todos os veículos cadastrados. Será debitado do saldo o valor de 1 consulta para cada placa consultada, mesmo que a placa tenha várias multas encontradas.',
         'current_balance' => 'Seu saldo atual:',
         'start_batch' => 'Iniciar consulta em lote',
         'consulting_vehicles' => 'Consultando veículos...',

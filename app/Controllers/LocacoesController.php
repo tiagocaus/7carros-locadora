@@ -43,6 +43,21 @@ class LocacoesController
         return t('modules.locacoes.api.' . $key, $replace);
     }
 
+    private function calcularDiasComTolerancia(string $dataSaida, string $dataChegada, int $minutosTolerancia = 0): int
+    {
+        $saidaTimestamp = strtotime($dataSaida);
+        $chegadaTimestamp = strtotime($dataChegada);
+
+        if ($saidaTimestamp === false || $chegadaTimestamp === false) {
+            return 1;
+        }
+
+        $diferencaMinutos = max(0, (int) ceil(($chegadaTimestamp - $saidaTimestamp) / 60));
+        $minutosCobrados = max(0, $diferencaMinutos - max(0, $minutosTolerancia));
+
+        return max(1, (int) ceil($minutosCobrados / 1440));
+    }
+
     /**
      * Renderiza a pagina de listagem de locacoes
      *
@@ -520,6 +535,27 @@ class LocacoesController
 
             $statusAnteriorValidacao = $locacao['status'] ?? 'R';
             $statusNovoValidacao = $dados['status'] ?? $statusAnteriorValidacao;
+            $fechandoLocacao = $statusAnteriorValidacao === 'A' && $statusNovoValidacao === 'F';
+            if ($fechandoLocacao) {
+                $dados['data_chegada'] = !empty($dados['data_chegada'])
+                    ? (string) $dados['data_chegada']
+                    : date('Y-m-d H:i:s');
+                unset($dados['data_prevista']);
+
+                if (!empty($dados['data_saida'])) {
+                    $minutosTolerancia = (int) (
+                        $dados['minuto_tolerancia']
+                        ?? $locacao['minuto_tolerancia']
+                        ?? $locacao['minutos_tolerancia']
+                        ?? 0
+                    );
+                    $dados['dias'] = $this->calcularDiasComTolerancia(
+                        (string) $dados['data_saida'],
+                        (string) $dados['data_chegada'],
+                        $minutosTolerancia
+                    );
+                }
+            }
             $dataPrincipalEhChegada = $statusNovoValidacao === 'F';
 
             if (empty($dados['data_saida']) || (!$dataPrincipalEhChegada && empty($dados['data_prevista'])) || ($dataPrincipalEhChegada && empty($dados['data_chegada']))) {

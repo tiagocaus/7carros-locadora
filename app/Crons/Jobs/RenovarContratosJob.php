@@ -86,6 +86,7 @@ class RenovarContratosJob extends BaseJob
             ->whereRaw("auto_renovacao = 'auto'")
             ->whereRaw("status = 'A'")
             ->whereNotNull('data_renovacao')
+            ->whereRaw("data_renovacao <> '0000-00-00'")
             ->whereRaw('data_renovacao <= ?', [date('Y-m-d')])
             ->orderBy('chave')
             ->get();
@@ -104,6 +105,7 @@ class RenovarContratosJob extends BaseJob
             ->whereRaw("auto_renovacao = 'auto'")
             ->whereRaw("status = 'A'")
             ->whereNotNull('data_renovacao')
+            ->whereRaw("data_renovacao <> '0000-00-00'")
             ->whereRaw('data_renovacao <= ?', [date('Y-m-d')])
             ->orderBy('data_renovacao', 'ASC')
             ->get();
