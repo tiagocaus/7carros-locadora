@@ -97,7 +97,7 @@ return [
     ],
     'session' => [
         'title' => 'Sessão expirada',
-        'message' => 'Sua sessão expirou por inatividade. Por favor, recarregue a página para continuar.',
+        'message' => 'Não foi possível renovar sua sessão automaticamente. Recarregue a página para continuar.',
     ],
     'integration' => [
         'add_title' => 'Adicionar código',

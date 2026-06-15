@@ -20,6 +20,7 @@ $map = [
     'Link de pagamento' => 'Link de pagamento',
     'Link de assinatura' => 'Link de assinatura',
     'Sessão expirada' => 'Sessão expirada',
+    'Não foi possível renovar sua sessão automaticamente. Recarregue a página para continuar.' => 'Não foi possível renovar a sua sessão automaticamente. Recarregue a página para continuar.',
     'Recarregar página' => 'Recarregar página',
     'Visualizar gravação' => 'Ver gravação',
     'Consultar multas online' => 'Consultar multas online',

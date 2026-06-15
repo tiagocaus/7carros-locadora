@@ -16,8 +16,6 @@
  * 
  * TESTE: Rodar em loop a cada 1 minuto (simula crontab real):
  *   while true; do clear; php cron.php; sleep 10; done
- * 
- * Real: A cada 5 minutos.
  */
 
 // Carrega Composer autoloader (se existir)
@@ -106,9 +104,9 @@ try {
               ->everyFiveMinutes();
 
     // Manutenção Preventiva
-    // Executa diariamente às 00:01 para verificar veículos próximos da manutenção
+    // Executa diariamente às 00:00 para verificar veículos próximos da manutenção
     $scheduler->job(new \App\Crons\Jobs\CheckPreventiveMaintenanceJob())
-              ->dailyAt('00:01');
+              ->dailyAt('00:00');
 
     // Comissoes Mensais de Investidores
     // Executa no dia 1 de cada mes às 06:00 para gerar comissoes mensais

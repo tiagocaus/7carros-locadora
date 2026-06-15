@@ -83,6 +83,7 @@ $map = [
     'Erro ao enviar link por WhatsApp' => 'Error al enviar el enlace por WhatsApp',
     'Sessão expirada' => 'Sesión expirada',
     'Sua sessão expirou por inatividade. Por favor, recarregue a página para continuar.' => 'Su sesión expiró por inactividad. Recargue la página para continuar.',
+    'Não foi possível renovar sua sessão automaticamente. Recarregue a página para continuar.' => 'No fue posible renovar su sesión automáticamente. Recargue la página para continuar.',
     'Adicionar código' => 'Añadir código',
     'Editar código' => 'Editar código',
     'Descrição' => 'Descripción',

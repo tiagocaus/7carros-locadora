@@ -96,8 +96,8 @@ project-root/
 3. Cria instância de Scheduler
    ↓
 4. Registra jobs com suas frequências:
-   - ProcessMessageQueueJob -> everyFifteenMinutes()
-   - CheckPreventiveMaintenanceJob -> dailyAt('00:01')
+   - ProcessMessageQueueJob -> everyMinute()
+   - CheckPreventiveMaintenanceJob -> dailyAt('00:00')
    - RotateAuthorizationHoldsJob -> dailyAt('06:30')
    ↓
 5. Scheduler verifica cada job:
@@ -205,13 +205,13 @@ O Scheduler permite definir frequências diferentes para cada job usando uma API
 ```php
 $scheduler = new \App\Crons\Scheduler();
 
-// A cada 15 minutos
+// A cada 1 minuto
 $scheduler->job(new ProcessMessageQueueJob())
-          ->everyFifteenMinutes();
+          ->everyMinute();
 
-// Diariamente às 00:01
+// Diariamente às 00:00
 $scheduler->job(new CheckPreventiveMaintenanceJob())
-          ->dailyAt('00:01');
+          ->dailyAt('00:00');
 
 // Diariamente às 08:00 (apenas dias de semana)
 $scheduler->job(new SendDailyReportJob())
@@ -237,11 +237,11 @@ O Scheduler salva o estado de execução em `storage/cron/schedule-state.json`:
 {
   "App\\Crons\\Jobs\\ProcessMessageQueueJob": {
     "last_run": "2025-12-18 10:00:00",
-    "next_run": "2025-12-18 10:15:00"
+    "next_run": "2025-12-18 10:01:00"
   },
   "App\\Crons\\Jobs\\CheckPreventiveMaintenanceJob": {
-    "last_run": "2025-12-18 00:01:00",
-    "next_run": "2025-12-19 00:01:00"
+    "last_run": "2025-12-18 00:00:00",
+    "next_run": "2025-12-19 00:00:00"
   }
 }
 ```
@@ -258,7 +258,7 @@ Isso evita que o mesmo job seja executado múltiplas vezes no mesmo minuto, mesm
 
 **Arquivo**: `app/Crons/Jobs/ProcessMessageQueueJob.php`
 
-**Frequência**: Executa a cada 1-5 minutos (via crontab, recomendado)
+**Frequência**: Executa a cada 1 minuto
 
 **Documentação**: Veja [messaging.md](./messaging.md) para documentação completa do sistema de mensageria.
 
@@ -396,10 +396,10 @@ $scheduler = new \App\Crons\Scheduler();
 
 // Jobs existentes
 $scheduler->job(new \App\Crons\Jobs\ProcessMessageQueueJob())
-          ->everyFifteenMinutes();
+          ->everyMinute();
 
 $scheduler->job(new \App\Crons\Jobs\CheckPreventiveMaintenanceJob())
-          ->dailyAt('00:01');
+          ->dailyAt('00:00');
 
 // ↓ ADICIONAR NOVO JOB AQUI ↓
 $scheduler->job(new \App\Crons\Jobs\NomeDoJob())
@@ -410,9 +410,9 @@ $summary = $scheduler->run();
 ```
 
 **Frequências mais comuns:**
-- `->everyFifteenMinutes()` - Tarefas frequentes (filas, notificações)
+- `->everyMinute()` - Tarefas críticas/frequentes (fila de mensagens)
 - `->hourly()` - Tarefas horárias (sincronizações)
-- `->dailyAt('00:01')` - Tarefas diárias (relatórios, verificações)
+- `->dailyAt('00:00')` - Tarefas diárias (relatórios, verificações)
 - `->weeklyOn(1, '03:00')` - Tarefas semanais (limpeza, backups)
 
 ### Passo 3: Testar Manualmente
@@ -453,7 +453,7 @@ crontab -e
 - `2>&1` - Redireciona stderr para stdout (captura erros)
 
 **Por que a cada minuto?**
-O Scheduler interno verifica a cada execução se cada job deve rodar baseado na frequência configurada. Isso permite ter jobs com frequências diferentes (15min, diário, semanal) usando uma única entrada no crontab.
+O Scheduler interno verifica a cada execução se cada job deve rodar baseado na frequência configurada. Isso permite ter jobs com frequências diferentes (1min, 5min, diário, semanal) usando uma única entrada no crontab.
 
 **3. Salvar e sair** (`:wq` no vim)
 
@@ -469,8 +469,8 @@ Com o Scheduler, você **não precisa de múltiplas entradas no crontab**. Basta
 
 ```php
 // No cron.php - defina as frequências aqui:
-$scheduler->job(new ProcessMessageQueueJob())->everyFifteenMinutes();
-$scheduler->job(new CheckMaintenanceJob())->dailyAt('00:01');
+$scheduler->job(new ProcessMessageQueueJob())->everyMinute();
+$scheduler->job(new CheckMaintenanceJob())->dailyAt('00:00');
 $scheduler->job(new SendReportsJob())->dailyAt('08:00');
 $scheduler->job(new CleanupLogsJob())->weeklyOn(0, '03:00');
 $scheduler->job(new BackupJob())->monthlyOn(1, '02:00');

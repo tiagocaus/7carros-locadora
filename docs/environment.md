@@ -227,12 +227,14 @@ UPLOAD_ALLOWED_EXTENSIONS=jpg,jpeg,png,pdf,doc,docx
 
 ### Session Configuration
 
-```env
-SESSION_LIFETIME=120             # Session lifetime in minutes
-SESSION_SECURE=false             # true to require HTTPS
-SESSION_HTTP_ONLY=true           # Prevent JavaScript access
-SESSION_SAME_SITE=lax            # lax, strict, or none
-```
+As configurações efetivas de sessão são definidas em `app/Core/Session.php`.
+Atualmente o sistema usa 4 horas de inatividade (`session.gc_maxlifetime`
+e `session.cookie_lifetime` = `14400`) e heartbeat via `api.js` enquanto a
+aba principal está visível.
+
+> Observação: variáveis `SESSION_*` em `.env` não são lidas pelo código atual.
+> Para alterar o lifetime, ajuste `Session.php` ou implemente leitura explícita
+> dessas variáveis.
 
 ### Logging
 

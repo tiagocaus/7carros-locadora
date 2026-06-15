@@ -11,8 +11,8 @@ use App\Crons\Jobs\BaseJob;
  *
  * Exemplo de uso:
  *   $scheduler = new Scheduler();
- *   $scheduler->job(new ProcessMessageQueueJob())->everyFifteenMinutes();
- *   $scheduler->job(new CheckPreventiveMaintenanceJob())->dailyAt('00:01');
+ *   $scheduler->job(new ProcessMessageQueueJob())->everyMinute();
+ *   $scheduler->job(new CheckPreventiveMaintenanceJob())->dailyAt('00:00');
  *   $summary = $scheduler->run();
  */
 class Scheduler

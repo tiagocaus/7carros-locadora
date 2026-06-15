@@ -216,13 +216,26 @@ const API = {
     },
 
     /**
-     * Atualiza o token CSRF na meta tag local e broadcast para parent/iframes
+     * Sincroniza o token CSRF na página atual.
+     * Cobre tanto chamadas AJAX (meta tag) quanto formulários HTML já abertos
+     * que usam input hidden _token.
      */
-    updateCsrfToken(newToken) {
+    syncCsrfToken(newToken) {
         const meta = document.querySelector('meta[name="csrf-token"]');
         if (meta) {
             meta.content = newToken;
         }
+
+        document.querySelectorAll('input[name="_token"]').forEach(function(input) {
+            input.value = newToken;
+        });
+    },
+
+    /**
+     * Atualiza o token CSRF local e broadcast para parent/iframes
+     */
+    updateCsrfToken(newToken) {
+        this.syncCsrfToken(newToken);
 
         // Notifica parent (se estamos num iframe)
         if (window.parent !== window) {

@@ -98,8 +98,15 @@
         // Receber token CSRF atualizado do parent ou sibling
         window.addEventListener('message', function(event) {
             if (event.data && event.data.action === 'csrfTokenRefreshed' && event.data.csrfToken) {
-                var meta = document.querySelector('meta[name="csrf-token"]');
-                if (meta) meta.content = event.data.csrfToken;
+                if (window.API && typeof window.API.syncCsrfToken === 'function') {
+                    window.API.syncCsrfToken(event.data.csrfToken);
+                } else {
+                    var meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) meta.content = event.data.csrfToken;
+                    document.querySelectorAll('input[name="_token"]').forEach(function(input) {
+                        input.value = event.data.csrfToken;
+                    });
+                }
             }
         });
 

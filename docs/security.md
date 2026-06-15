@@ -132,10 +132,10 @@ Proteção contra Cross-Site Request Forgery.
 |---------|-------|
 | **Tamanho** | 64 caracteres (32 bytes em hex) |
 | **Geração** | `bin2hex(random_bytes(32))` |
-| **Expiração** | 15 minutos de inatividade |
+| **Rotação** | A cada 15 minutos ao renderizar novo HTML autenticado, ou via heartbeat/refresh |
 | **Armazenamento** | `$_SESSION['csrf_token']` |
 
-O token é regenerado automaticamente a cada 15 minutos (`Template.php:234-265`).
+O token é regenerado automaticamente a cada 15 minutos ao renderizar HTML autenticado (`Template.php:247-276`) e também pelo endpoint `GET /api/session/refresh`. Quando o token é renovado no JavaScript, `api.js` sincroniza a `<meta name="csrf-token">` e todos os `input[name="_token"]` já abertos na página.
 
 #### Uso em Formulários HTML
 
@@ -180,17 +180,19 @@ const result = await API.post('/api/clientes', data);
 
 **Em formulários HTML:**
 - Retorna erro 403 com mensagem "Token CSRF inválido ou expirado"
+- Formulários abertos por muito tempo são atualizados automaticamente quando o heartbeat renova o token, desde que a página tenha `api.js` carregado
 
 **Em requisições AJAX:**
 - Retorna status HTTP 419
-- O helper `API.js` intercepta e exibe modal de sessão expirada
-- Modal oferece botão "Recarregar Página" para renovar o token
+- O helper `API.js` intercepta, chama `/api/session/refresh`, atualiza o CSRF e repete a requisição uma vez
+- Se `/api/session/refresh` retornar 401, a sessão PHP realmente acabou e o usuário é enviado para `/login`
+- Se a renovação falhar por outro motivo, o modal oferece botão "Recarregar Página"
 
 ```javascript
 // Fluxo interno do api.js
 if (response.status === 419) {
-    this.showSessionExpiredModal(); // Exibe modal via postMessage
-    throw new Error('Sessão expirada');
+    await this.refreshCsrfToken();
+    return retryRequest();
 }
 ```
 
@@ -228,7 +230,9 @@ Formulários autenticados do sistema não devem acionar autocomplete do navegado
 
 ### Continuidade de Sessão (Heartbeat)
 
-`session.gc_maxlifetime` é 4h (`Session.php:24`), mas é resetado a cada hit no servidor. Para que usuários preenchendo formulários longos (locação, contrato, multa, promissória) não percam dados por timeout silencioso, o `api.js` mantém a sessão viva via heartbeat:
+`session.gc_maxlifetime` e `session.cookie_lifetime` são 4h (`Session.php:24-25`). A política atual é expiração por inatividade: não há expiração absoluta baseada no horário do login. Cada hit HTTP válido no servidor renova a janela de sessão PHP. "Atividade" significa requisição HTTP, não movimento de mouse/teclado.
+
+Para que usuários preenchendo formulários longos (locação, contrato, multa, promissória) não percam dados por timeout silencioso, o `api.js` mantém a sessão viva via heartbeat:
 
 | Aspecto | Valor |
 |---|---|
@@ -237,6 +241,8 @@ Formulários autenticados do sistema não devem acionar autocomplete do navegado
 | **Condição** | Apenas com `document.visibilityState === 'visible'` (não estende sessão de aba abandonada) |
 | **Escopo** | Janela principal (`window.top === window`); iframes filhos compartilham a sessão via cookie |
 | **Auto-start** | Sim, ao carregar `api.js` |
+
+Se a aba ficar em segundo plano, o navegador for fechado ou o computador suspender por mais de 4h sem hits no servidor, a sessão normal expira. Se o login foi feito com "lembrar-me", o `remember_token` pode reautenticar o usuário por até 30 dias, desde que o token ainda exista e o funcionário esteja ativo.
 
 **API pública:**
 ```javascript
@@ -248,6 +254,7 @@ API.stopHeartbeat();                      // para o ping
 - Cookie de sessão é `HttpOnly` + `Secure` + `SameSite=Lax` — atacante remoto sem o cookie não consegue chamar `/api/session/refresh` em nome da vítima.
 - Heartbeat só roda enquanto a aba está visível; se o usuário fecha o navegador ou minimiza por muito tempo, a sessão expira normalmente pelo `gc_maxlifetime`.
 - O fingerprint da sessão (`Session.php:48`) ainda valida user-agent — qualquer divergência ainda destrói a sessão.
+- O heartbeat renova também o token CSRF e sincroniza `<meta name="csrf-token">` e `input[name="_token"]` para evitar falsos "Sessão expirada" em formulários longos.
 
 **Arquivos:**
 - `public/assets/js/api.js` — métodos `startHeartbeat`, `stopHeartbeat`, `_heartbeatTick` + auto-start no fim do arquivo.
