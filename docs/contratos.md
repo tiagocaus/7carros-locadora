@@ -200,6 +200,7 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 
 ### Fatura (fatura.php)
 - Dados da empresa e cliente
+- Dados do cliente incluem endereco completo quando cadastrado
 - Lista de veiculos com valores
 - Taxas e servicos
 - Totais e desconto

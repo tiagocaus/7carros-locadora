@@ -299,6 +299,14 @@ class Contrato extends Model
                 'c.*',
                 'cl.nome_rsocial AS cliente_nome',
                 'cl.cpf_cnpj AS cliente_cpf_cnpj',
+                'cl.cep AS cliente_cep',
+                'cl.rua AS cliente_rua',
+                'cl.numero AS cliente_numero',
+                'cl.complemento AS cliente_complemento',
+                'cl.bairro AS cliente_bairro',
+                'cl.cidade AS cliente_cidade',
+                'cl.estado AS cliente_estado',
+                'cl.pais AS cliente_pais',
                 'mf.nome_fantasia AS filial_nome',
                 'ct.nome AS conta_descricao',
                 'fp.nome AS forma_pagamento_descricao',
@@ -325,6 +333,7 @@ class Contrato extends Model
 
             $contrato['cliente_email'] = $emailPrincipal['email'] ?? '';
             $contrato['cliente_telefone'] = $telefonePrincipal['telefone'] ?? '';
+            $contrato['cliente_endereco_completo'] = $this->montarEnderecoCliente($contrato);
         }
 
         // Carregar dados do bloqueio ativo (pre-autorizacao)
@@ -346,6 +355,35 @@ class Contrato extends Model
         }
 
         return $contrato;
+    }
+
+    private function montarEnderecoCliente(array $contrato): string
+    {
+        $linha = trim(implode(', ', array_filter([
+            trim((string) ($contrato['cliente_rua'] ?? '')),
+            trim((string) ($contrato['cliente_numero'] ?? '')),
+            trim((string) ($contrato['cliente_complemento'] ?? '')),
+        ], fn($valor) => $valor !== '')));
+
+        $cidadeUf = trim(implode('/', array_filter([
+            trim((string) ($contrato['cliente_cidade'] ?? '')),
+            trim((string) ($contrato['cliente_estado'] ?? '')),
+        ], fn($valor) => $valor !== '')));
+
+        $localidade = trim(implode(' - ', array_filter([
+            trim((string) ($contrato['cliente_bairro'] ?? '')),
+            $cidadeUf,
+        ], fn($valor) => $valor !== '')));
+
+        $cep = trim((string) ($contrato['cliente_cep'] ?? ''));
+        $pais = trim((string) ($contrato['cliente_pais'] ?? ''));
+
+        return trim(implode(' - ', array_filter([
+            $linha,
+            $localidade,
+            $cep !== '' ? 'CEP ' . $cep : '',
+            $pais,
+        ], fn($valor) => $valor !== '')));
     }
 
     /**

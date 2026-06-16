@@ -30,6 +30,12 @@ $_faturaStandalone = $_faturaStandalone ?? false;
             <td><strong><?= t('modules.contratos.pdf.email_label') ?></strong></td>
             <td><?= htmlspecialchars($contrato['cliente_email'] ?? '-') ?></td>
         </tr>
+        <?php if (!empty($contrato['cliente_endereco_completo'])): ?>
+        <tr>
+            <td><strong><?= t('modules.contratos.pdf.address_label') ?></strong></td>
+            <td colspan="3"><?= htmlspecialchars($contrato['cliente_endereco_completo']) ?></td>
+        </tr>
+        <?php endif; ?>
     </table>
 </div>
 

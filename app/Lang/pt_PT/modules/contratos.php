@@ -437,6 +437,7 @@ return [
         'client_label' => 'Cliente:',
         'cpf_cnpj_label' => 'NIF/NIPC:',
         'phone_label' => 'Telefone:',
+        'address_label' => 'Endereço:',
         'zip_label' => 'Código postal:',
         'email_label' => 'Email:',
         'plate_field' => 'Matrícula:',
