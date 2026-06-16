@@ -418,6 +418,7 @@ return [
         'select_checklist_placeholder' => '-- Select a model --',
         'generate_pdf' => 'Generate PDF',
         'send_via' => 'Send via',
+        'no_channels_available' => 'Client has no email or phone, the branch has no active connection, or no channels are enabled on your plan.',
     ],
 
     // Print templates (PDF)

@@ -132,6 +132,7 @@ class WhatsappController
             $model = new Whatsapp();
 
             $conexoes = $model->listarPaginado($page, $perPage, $search);
+            $conexoes = $this->preencherRemoteJidAusente($conexoes, $model);
             $total = $model->contar($search);
             $totalPages = $total > 0 ? (int) ceil($total / $perPage) : 1;
 
@@ -421,9 +422,15 @@ class WhatsappController
                 return;
             }
 
-            // Excluir instancia na API do provedor de WhatsApp de forma segura
-            // (logout primeiro, depois delete)
-            $this->safeDeleteInstance($conexao['instanceName']);
+            // Excluir instancia na API do provedor de WhatsApp de forma segura.
+            $deleteResponse = $this->safeDeleteInstance($conexao['instanceName']);
+            if (!$deleteResponse['success']) {
+                Response::json([
+                    'success' => false,
+                    'message' => $deleteResponse['message'] ?? 'Erro ao excluir instancia no provedor'
+                ], 500);
+                return;
+            }
 
             // Excluir do banco
             $model->excluir($id);
@@ -433,8 +440,9 @@ class WhatsappController
                 ? $this->formatarTelefone($conexao['remoteJid'])
                 : 'sem numero';
 
+            $modoExclusao = !empty($deleteResponse['local_only']) ? 'limpeza local' : 'remocao completa';
             AuditLogService::registrar(
-                ($_SESSION['user_name'] ?? 'Sistema') . ", excluiu conexao WhatsApp [{$numeroFormatado}] (instancia: {$conexao['instanceName']})"
+                ($_SESSION['user_name'] ?? 'Sistema') . ", excluiu conexao WhatsApp [{$numeroFormatado}] (instancia: {$conexao['instanceName']}, {$modoExclusao})"
             );
 
             Response::json([
@@ -552,9 +560,12 @@ class WhatsappController
 
             $newStatus = $statusMap[$state] ?? 'disconnected';
 
-            // JID ja vem no proprio status quando conectado
+            // O /session/status nem sempre traz o JID; quando vazio, buscar no endpoint admin.
             if ($newStatus === 'connected') {
                 $remoteJid = $apiResponse['data']['owner'] ?: null;
+                if (empty($remoteJid)) {
+                    $remoteJid = $this->buscarRemoteJidAdmin($conexao['instanceName']);
+                }
             }
 
             // Atualizar status no banco se mudou
@@ -1137,7 +1148,7 @@ class WhatsappController
             $loggedIn = !empty($data['LoggedIn']) || !empty($data['loggedIn']);
             $connected = !empty($data['Connected']) || !empty($data['connected']);
             $state = $loggedIn ? 'open' : ($connected ? 'connecting' : 'close');
-            $owner = $data['Jid'] ?? $data['jid'] ?? '';
+            $owner = $this->extrairRemoteJid($data);
             $response['data'] = ['state' => $state, 'owner' => $owner];
         }
 
@@ -1174,11 +1185,64 @@ class WhatsappController
                 return ['success' => false, 'message' => 'Instancia nao encontrada', 'data' => null];
             }
 
-            $jid = $payload['jid'] ?? '';
+            $jid = $this->extrairRemoteJid($payload);
             $response['data'] = ['instance' => ['owner' => $jid]];
         }
 
         return $response;
+    }
+
+    /**
+     * Preenche JID ausente de conexoes ja conectadas exibidas na listagem.
+     */
+    private function preencherRemoteJidAusente(array $conexoes, Whatsapp $model): array
+    {
+        foreach ($conexoes as &$conexao) {
+            if (
+                strcasecmp((string) ($conexao['status'] ?? ''), 'connected') !== 0
+                || !empty($conexao['remoteJid'])
+                || empty($conexao['instanceName'])
+            ) {
+                continue;
+            }
+
+            $remoteJid = $this->buscarRemoteJidAdmin($conexao['instanceName']);
+            if ($remoteJid === null) {
+                continue;
+            }
+
+            $model->atualizar((int) $conexao['id'], ['remoteJid' => $remoteJid]);
+            $conexao['remoteJid'] = $remoteJid;
+        }
+        unset($conexao);
+
+        return $conexoes;
+    }
+
+    /**
+     * Busca o JID salvo no cadastro admin do provedor.
+     */
+    private function buscarRemoteJidAdmin(string $instanceName): ?string
+    {
+        $fetchResponse = $this->fetchInstance($instanceName);
+        $remoteJid = $fetchResponse['data']['instance']['owner'] ?? '';
+
+        return $remoteJid !== '' ? $remoteJid : null;
+    }
+
+    /**
+     * Extrai JID/owner aceitando variações de payload do provedor.
+     */
+    private function extrairRemoteJid(array $payload): string
+    {
+        return (string) (
+            $payload['Jid']
+            ?? $payload['jid']
+            ?? $payload['remoteJid']
+            ?? $payload['remote_jid']
+            ?? $payload['owner']
+            ?? ''
+        );
     }
 
     /**
@@ -1210,7 +1274,7 @@ class WhatsappController
     }
 
     /**
-     * Exclui o user no provedor.
+     * Exclui completamente o user no provedor.
      */
     private function deleteInstance(string $instanceName): array
     {
@@ -1219,70 +1283,73 @@ class WhatsappController
         $instanceId = $conexao['instanceId'] ?? '';
 
         if ($instanceId === '') {
-            return ['success' => true, 'message' => 'instanceId vazio, nada a excluir', 'data' => null];
+            return [
+                'success' => true,
+                'message' => 'instanceId vazio, nada a excluir no provedor',
+                'data' => null,
+                'local_only' => true,
+            ];
         }
 
-        $url = rtrim($this->baseUrl, '/') . '/admin/users/' . urlencode($instanceId);
+        $url = rtrim($this->baseUrl, '/') . '/admin/users/' . urlencode($instanceId) . '/full';
         return $this->makeRequest($url, 'DELETE', [], 'admin');
     }
 
     /**
-     * Logout + delete em sequencia.
+     * Delete completo no provedor, permitindo limpeza local quando a instancia remota ja nao existe.
      */
-    private function safeDeleteInstance(string $instanceName, int $maxAttempts = 5, int $waitMs = 1000): array
+    private function safeDeleteInstance(string $instanceName): array
     {
         $steps = [];
 
-        // Passo 1: Verificar estado atual
-        $stateResponse = $this->getConnectionState($instanceName);
-        $currentState = $stateResponse['data']['state'] ?? 'unknown';
-        $steps[] = ['action' => 'check_state', 'state' => $currentState];
+        $deleteResponse = $this->deleteInstance($instanceName);
+        $steps[] = [
+            'action' => 'delete_full',
+            'success' => $deleteResponse['success'],
+            'http_code' => $deleteResponse['http_code'] ?? null,
+        ];
 
-        // Passo 2: Se conectado/connecting, logout
-        if (in_array($currentState, ['open', 'connecting'], true)) {
-            $logoutResponse = $this->logoutInstance($instanceName);
-            $steps[] = ['action' => 'logout', 'success' => $logoutResponse['success']];
-
-            if (!$logoutResponse['success']) {
-                $steps[] = ['action' => 'logout_failed', 'message' => $logoutResponse['message'] ?? 'Erro desconhecido'];
-            } else {
-                // Passo 3: Aguardar logout
-                $disconnected = false;
-                for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-                    usleep($waitMs * 1000);
-                    $checkResponse = $this->getConnectionState($instanceName);
-                    $newState = $checkResponse['data']['state'] ?? 'unknown';
-                    $steps[] = ['action' => 'verify_logout', 'attempt' => $attempt, 'state' => $newState];
-
-                    if (in_array($newState, ['close', 'closed', 'unknown'], true)) {
-                        $disconnected = true;
-                        break;
-                    }
-                }
-
-                if (!$disconnected) {
-                    $steps[] = ['action' => 'logout_timeout', 'message' => 'Timeout aguardando desconexao'];
-                }
-            }
+        if ($deleteResponse['success']) {
+            return [
+                'success' => true,
+                'message' => $deleteResponse['message'] ?? 'Instancia excluida com sucesso',
+                'steps' => $steps,
+                'local_only' => !empty($deleteResponse['local_only']),
+            ];
         }
 
-        // Passo 4: Excluir o user no provedor
-        $deleteResponse = $this->deleteInstance($instanceName);
-        $steps[] = ['action' => 'delete', 'success' => $deleteResponse['success']];
-
-        if (!$deleteResponse['success']) {
+        if ($this->isRemoteInstanceMissing($deleteResponse)) {
+            $steps[] = ['action' => 'remote_missing', 'message' => $deleteResponse['message'] ?? 'Instancia remota nao encontrada'];
             return [
-                'success' => false,
-                'message' => 'Erro ao excluir instancia: ' . ($deleteResponse['message'] ?? 'Erro desconhecido'),
+                'success' => true,
+                'message' => 'Instancia remota nao encontrada; registro local sera removido',
                 'steps' => $steps,
+                'local_only' => true,
             ];
         }
 
         return [
-            'success' => true,
-            'message' => 'Instancia excluida com sucesso',
+            'success' => false,
+            'message' => 'Erro ao excluir instancia no provedor: ' . ($deleteResponse['message'] ?? 'Erro desconhecido'),
             'steps' => $steps,
         ];
+    }
+
+    /**
+     * Identifica respostas em que o registro remoto ja nao existe.
+     */
+    private function isRemoteInstanceMissing(array $response): bool
+    {
+        if (($response['http_code'] ?? null) === 404) {
+            return true;
+        }
+
+        $message = strtolower((string) ($response['message'] ?? ''));
+        return str_contains($message, 'not found')
+            || str_contains($message, 'nao encontrado')
+            || str_contains($message, 'não encontrado')
+            || str_contains($message, 'no rows')
+            || str_contains($message, 'user not found');
     }
 
     /**
@@ -1374,6 +1441,7 @@ class WhatsappController
                 'success' => false,
                 'message' => "Erro cURL: {$error}",
                 'data' => null,
+                'http_code' => $httpCode,
             ];
         }
 
@@ -1383,6 +1451,8 @@ class WhatsappController
             return [
                 'success' => true,
                 'data' => $response,
+                'message' => $response['message'] ?? null,
+                'http_code' => $httpCode,
             ];
         }
 
@@ -1390,6 +1460,7 @@ class WhatsappController
             'success' => false,
             'message' => $response['message'] ?? $response['error'] ?? "HTTP {$httpCode}",
             'data' => $response,
+            'http_code' => $httpCode,
         ];
     }
 

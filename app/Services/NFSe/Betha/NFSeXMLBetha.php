@@ -11,6 +11,7 @@ class NFSeXMLBetha implements NFSeXMLInterface
 {
     private const NAMESPACE = 'http://www.betha.com.br/e-nota-dps';
     private const VERSAO = '1.00';
+    private const FISCAL_TIMEZONE = 'America/Sao_Paulo';
 
     public function gerarXML(array $dados): string
     {
@@ -21,6 +22,7 @@ class NFSeXMLBetha implements NFSeXMLInterface
         $valores = $dados['valores'] ?? [];
         $tribISSQN = (int) ($valores['trib_issqn'] ?? 4);
         $valorServicos = number_format((float) ($valores['servicos'] ?? 0), 2, '.', '');
+        $baseCalculo = max(0, (float) ($valores['base_calculo'] ?? ((float) ($valores['servicos'] ?? 0) - (float) ($valores['deducoes'] ?? 0))));
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<DPS xmlns="' . self::NAMESPACE . '" versao="' . self::VERSAO . '">';
@@ -82,7 +84,24 @@ class NFSeXMLBetha implements NFSeXMLInterface
             $xml .= '<pAliq>' . number_format((float) ($valores['aliquota_iss'] ?? 0), 2, '.', '') . '</pAliq>';
             $xml .= '<vISSQN>' . number_format((float) ($valores['valor_iss'] ?? 0), 2, '.', '') . '</vISSQN>';
         }
-        $xml .= '</tribMun></trib>';
+        $xml .= '</tribMun>';
+
+        $aliquotaIBS = (float) ($valores['aliquota_ibs'] ?? 0.10);
+        $aliquotaCBS = (float) ($valores['aliquota_cbs'] ?? 0.90);
+        $valorIBS = (float) $valorServicos * ($aliquotaIBS / 100);
+        $valorCBS = (float) $valorServicos * ($aliquotaCBS / 100);
+        $valorISSTrib = $tribISSQN === 1
+            ? (float) ($valores['valor_iss'] ?? ($baseCalculo * ((float) ($valores['aliquota_iss'] ?? 0) / 100)))
+            : 0;
+
+        $xml .= '<totTrib>';
+        $xml .= '<vTotTrib>';
+        $xml .= '<vTotTribFed>' . number_format($valorCBS, 2, '.', '') . '</vTotTribFed>';
+        $xml .= '<vTotTribEst>' . number_format($valorIBS, 2, '.', '') . '</vTotTribEst>';
+        $xml .= '<vTotTribMun>' . number_format($valorISSTrib, 2, '.', '') . '</vTotTribMun>';
+        $xml .= '</vTotTrib>';
+        $xml .= '</totTrib>';
+        $xml .= '</trib>';
         $xml .= '</valores>';
 
         $xml .= '</infDPS>';
@@ -251,9 +270,10 @@ class NFSeXMLBetha implements NFSeXMLInterface
     private function formatarDataISO(string $data): string
     {
         try {
-            return (new \DateTime($data))->format('Y-m-d\TH:i:sP');
-        } catch (\Exception) {
-            return date('Y-m-d\TH:i:sP');
+            $timezone = new \DateTimeZone(self::FISCAL_TIMEZONE);
+            return (new \DateTimeImmutable($data))->setTimezone($timezone)->format('Y-m-d\TH:i:sP');
+        } catch (\Throwable) {
+            return (new \DateTimeImmutable('now', new \DateTimeZone(self::FISCAL_TIMEZONE)))->format('Y-m-d\TH:i:sP');
         }
     }
 

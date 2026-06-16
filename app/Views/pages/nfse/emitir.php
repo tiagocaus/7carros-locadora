@@ -198,6 +198,7 @@
     let configData = null;
     let aliquotaISS = 0;
     let emissaoBloqueada = false;
+    let nfseDuplicadaParaVisualizar = null;
 
     // Pegar id_financeiro da URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -221,6 +222,18 @@
         document.getElementById('btnVoltar').addEventListener('click', voltarParaLista);
         document.getElementById('btnCancelarForm').addEventListener('click', voltarParaLista);
         document.getElementById('btnAdicionarItemNaoTributavel').addEventListener('click', adicionarItemManualNaoTributavel);
+
+        window.addEventListener('message', function (event) {
+            if (event.data && event.data.action === 'genericConfirmed' && nfseDuplicadaParaVisualizar) {
+                const nfse = nfseDuplicadaParaVisualizar;
+                nfseDuplicadaParaVisualizar = null;
+                abrirNfseEmNovaAba(nfse);
+            }
+
+            if (event.data && event.data.action === 'genericModalClosed') {
+                nfseDuplicadaParaVisualizar = null;
+            }
+        });
     }
 
     async function carregarDadosFinanceiro(id) {
@@ -271,7 +284,7 @@
 
         // Valor
         const valorTotal = parseFloat(financeiroData.valor_total || 0);
-        document.getElementById('valorServicos').value = formatarMoeda(valorTotal).replace('R$ ', '');
+        document.getElementById('valorServicos').value = Currency.format(valorTotal, false);
 
         // Descricao do servico (da config)
         if (configData && configData.descricao_servico) {
@@ -353,7 +366,7 @@
                     <span class="nfse-item-descricao-text">${descricao}</span>
                 </td>
                 <td class="px-3 py-2 text-right font-medium" data-valor="${valor}">
-                    ${formatarMoeda(valor)}
+                    ${Currency.format(valor, true)}
                 </td>
                 <td class="px-3 py-2"></td>
             </tr>
@@ -398,18 +411,18 @@
         const valorDeducoes = calcularTotalNaoTributavel();
         const baseCalculo = valorServicos - valorDeducoes;
 
-        document.getElementById('valorDeducoes').value = formatarMoeda(valorDeducoes).replace('R$ ', '');
-        document.getElementById('valorTributavel').value = formatarMoeda(Math.max(0, baseCalculo)).replace('R$ ', '');
-        document.getElementById('baseCalculo').value = formatarMoeda(Math.max(0, baseCalculo)).replace('R$ ', '');
+        document.getElementById('valorDeducoes').value = Currency.format(valorDeducoes, false);
+        document.getElementById('valorTributavel').value = Currency.format(Math.max(0, baseCalculo), false);
+        document.getElementById('baseCalculo').value = Currency.format(Math.max(0, baseCalculo), false);
 
         const tribISSQN = configData ? parseInt(configData.trib_issqn || 4) : 4;
         const valorISS = tribISSQN === 1 ? Math.max(0, baseCalculo) * (aliquotaISS / 100) : 0;
         const valorIBS = valorServicos * (0.10 / 100);
         const valorCBS = valorServicos * (0.90 / 100);
 
-        document.getElementById('resumoISS').textContent = formatarMoeda(valorISS);
-        document.getElementById('resumoIBS').textContent = formatarMoeda(valorIBS);
-        document.getElementById('resumoCBS').textContent = formatarMoeda(valorCBS);
+        document.getElementById('resumoISS').textContent = Currency.format(valorISS, true);
+        document.getElementById('resumoIBS').textContent = Currency.format(valorIBS, true);
+        document.getElementById('resumoCBS').textContent = Currency.format(valorCBS, true);
     }
 
     function calcularTotalNaoTributavel() {
@@ -433,7 +446,7 @@
                 ? (row.querySelector('.nfse-item-descricao')?.value || '').trim()
                 : (row.querySelector('.nfse-item-descricao-text')?.textContent || '').trim();
             const valor = manual
-                ? (parseFromCurrency(row.querySelector('.nfse-item-valor')?.value || '0') || 0)
+                ? (Currency.parse(row.querySelector('.nfse-item-valor')?.value || '0') || 0)
                 : parseFloat(row.querySelector('[data-valor]')?.dataset.valor || 0);
 
             if (descricao || valor > 0) {
@@ -506,6 +519,11 @@
                     voltarParaLista();
                 }
             } else {
+                if (ehDuplicidadeComNfse(result)) {
+                    mostrarConfirmacaoNfseDuplicada(result.data);
+                    return;
+                }
+
                 const msg = result.message || '<?= t('modules.nfse.messages.emit_error') ?>';
                 window.parent.postMessage({ action: 'openAlert', message: msg }, '*');
             }
@@ -515,6 +533,40 @@
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
         }
+    }
+
+    function ehDuplicidadeComNfse(result) {
+        const erro = result?.erro || {};
+        return !!(
+            result?.data?.id &&
+            (erro.codigo === 'NOTA_DUPLICADA' || erro.categoria === 'duplicidade')
+        );
+    }
+
+    function mostrarConfirmacaoNfseDuplicada(nfse) {
+        nfseDuplicadaParaVisualizar = nfse;
+        window.parent.postMessage({
+            action: 'openGenericConfirmModal',
+            title: 'NFS-e já emitida',
+            message: 'Já existe uma NFS-e emitida para este lançamento. Deseja visualizar a nota?',
+            confirmText: 'Visualizar'
+        }, '*');
+    }
+
+    function abrirNfseEmNovaAba(nfse) {
+        const id = parseInt(nfse?.id || 0, 10);
+        if (!id) return;
+
+        const numero = nfse?.numero ? String(nfse.numero) : String(id);
+        const page = `/pages/nfse/${id}/visualizar`;
+        const title = `NFS-e #${numero}`;
+
+        if (window.parent && typeof window.parent.openOrSwitchToTab === 'function') {
+            window.parent.openOrSwitchToTab(page, title, 'fas fa-file-invoice', `nfse-${id}`);
+            return;
+        }
+
+        window.parent.postMessage({ action: 'navigate', page }, '*');
     }
 
     function voltarParaLista() {

@@ -97,6 +97,20 @@ class NFSeConfiguracao extends Model
     }
 
     /**
+     * Normaliza senha/validade de certificado importado do legado.
+     */
+    public function normalizarCertificado(int $idMatrizFilial, string $senhaCriptografada, ?string $validade): int
+    {
+        return $this->qb
+            ->table('nfse_configuracoes')
+            ->where('id_matriz_filial', '=', $idMatrizFilial)
+            ->update([
+                'certificado_senha' => $senhaCriptografada,
+                'certificado_validade' => $validade,
+            ]);
+    }
+
+    /**
      * Remove dados do certificado
      */
     public function removerCertificado(int $idMatrizFilial): int

@@ -418,6 +418,7 @@ return [
         'select_checklist_placeholder' => '-- Seleccione un modelo --',
         'generate_pdf' => 'Generar PDF',
         'send_via' => 'Enviar por',
+        'no_channels_available' => 'Cliente sin correo o teléfono registrado, sucursal sin conexión activa, o canales de envío no habilitados en su plan.',
     ],
 
     // Templates de impresion (PDF)

@@ -58,6 +58,7 @@ Regras:
 - `NFSeService` e o unico orquestrador de emissao, consulta, cancelamento e reenvio.
 - Cada emissor deve ter XML/API proprios.
 - Nacional e Betha nao podem compartilhar parser de retorno.
+- `dhEmi` deve ser gerado no horario fiscal `America/Sao_Paulo`, nao em UTC, para evitar rejeicao por data futura em emissores municipais.
 - `NFSeAssinatura::assinar()` deve receber o atributo de ID correto:
   - Nacional: `Id`
   - Betha: `id`
@@ -93,6 +94,18 @@ Campos principais:
 
 `codigo_municipio` deve ter 7 digitos. Valores com 8 digitos geralmente sao CEP e devem ser corrigidos antes de emitir.
 
+### Certificado Digital
+
+- Certificados novos devem gravar a senha com o helper `encrypt()` atual do sistema.
+- Certificados importados do legado podem ter senha em AES-256-CBC com a chave fixa `nfse_7carros_locadora_key`.
+- O formato legado deve ser aceito apenas como fallback de leitura/migracao. Ao conseguir abrir o certificado legado, o sistema deve regravar a senha com `encrypt()` atual e atualizar `certificado_validade`.
+- Falha de descriptografia, senha incorreta ou arquivo corrompido nao deve ser tratada como certificado vencido. A tela e a emissao devem diferenciar:
+  - certificado realmente vencido;
+  - arquivo ausente;
+  - senha/descriptografia invalida;
+  - erro de leitura do PFX/P12.
+- A rotina `scripts/normalizar-nfse-certificados.php` pode ser usada para normalizar registros importados em lote. Por padrao ela roda em `dry-run`; use `--apply` somente depois de revisar o relatorio.
+
 ---
 
 ## Nacional SEFIN
@@ -116,11 +129,14 @@ Regras de XML:
 
 - Namespace: `http://www.sped.fazenda.gov.br/nfse`
 - Root: `<DPS versao="1.00">`
+- `<infDPS>` deve conter apenas `Id`; nao repetir `versao` nesse elemento.
 - Elemento assinado: `infDPS`
 - Atributo de ID: `Id`
 - Assinatura: SHA256
 - Envio: XML assinado compactado em GZip/Base64 no campo `dpsXmlGZipB64`
 - Cancelamento: evento `101101` em `pedidoRegistroEventoXmlGZipB64`
+- Textos enviados no XML devem ser normalizados em maiusculas e escapados como XML.
+- Endereco do tomador deve ser enviado apenas quando houver CEP com 8 digitos e codigo IBGE do municipio do tomador com 7 digitos; sem esses dados, omitir o bloco `<end>`.
 
 Mapeamento Simples Nacional:
 
@@ -134,6 +150,7 @@ Mapeamento Simples Nacional:
 IM no DPS:
 
 - Enviar `<IM>` somente quando `enviar_im = S` e a filial tiver IM preenchida.
+- A IM da filial vem de `matrizes_filiais.ins_muni`.
 - Padrao recomendado: `enviar_im = N`.
 - Ative apenas quando o cadastro do CNPJ no municipio exigir IM no DPS.
 
@@ -177,6 +194,10 @@ Regras de XML:
 - Atributo de ID: `id` minusculo
 - Assinatura: SHA256
 - Texto do servico em maiusculo
+- Bloco `<trib>` deve conter `<tribMun>` e `<totTrib>`; sem `<totTrib>` a Betha rejeita a DPS por schema incompleto.
+- `<dhEmi>` deve usar horario local do prestador (`America/Sao_Paulo`, offset `-03:00`), nao UTC.
+- `ConsultarStatusDpsEnvio` deve enviar `<tpAmb>`, `<codigoIbge>`, `<cpfCnpjPrestador>`, `<protocolo>` e `<tipoIntegracao>`, nessa ordem.
+- Para consulta de emissao Betha, `<tipoIntegracao>` deve ser `EMISSAO`.
 - Resposta pode vir com prefixo `ns2:`; parsers devem usar namespace, nao string fixa.
 
 Fluxo:
@@ -200,6 +221,8 @@ Numeracao:
 Para NFS-e rejeitada:
 
 - Maximo de 3 tentativas.
+- Reenvio manual pode liberar tentativa extra somente para `XML_INVALIDO` com financeiro vinculado e causa tecnica conhecida ja corrigida no gerador XML/data fiscal.
+- Reenvio automatico por CRON continua limitado a `tentativas_envio < 3`.
 - Se houver `id_financeiro`, regenerar XML com os dados atuais antes de reenviar.
 - Se nao houver `id_financeiro`, reaproveitar o XML salvo como fallback.
 - Em Betha, regenerar evita erro de DPS ja recepcionada com mesmo ID.
@@ -242,7 +265,7 @@ Nao crie tabela separada para itens nao tributaveis sem necessidade fiscal nova.
 |-----|------------|--------|-----------|
 | `NFSeEmitirAutoJob` | 5min | 50 | Emite NFS-e de pagamentos confirmados |
 | `NFSeReenviarJob` | 5min | 20 | Reenvia rejeitadas recuperaveis |
-| `NFSeConsultarBethaJob` | 5min | 20 | Consulta protocolos Betha em processamento |
+| `NFSeConsultarBethaJob` | 1min | 20 | Consulta protocolos Betha em processamento |
 | `NFSeEnviarEmailJob` | 5min | 30 | Envia PDF por email |
 
 ---
@@ -279,6 +302,18 @@ POST /nfse/configuracoes/certificado
 POST /nfse/configuracoes/certificado/remover
 POST /nfse/configuracoes/testar-conexao
 ```
+
+---
+
+## DANFSE em PDF
+
+- A DANFSE deve ser gerada por `NFSePDF` usando `PdfHelper`.
+- A logo da matriz/filial deve usar `PdfHelper::resolveImagePath()`; nunca use URL tokenizada do `FileHelper` dentro do mPDF.
+- O cabecalho deve exibir logo no canto superior esquerdo e QR Code no canto superior direito.
+- O QR Code deve abrir a consulta publica `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave={chave_acesso}`.
+- O link da consulta publica deve aparecer tambem no fim da pagina.
+- O bloco de valores deve exibir aliquota ISS, valor ISS, ISS retido, valor ISS retido e valor liquido.
+- O download regenera o PDF para entregar sempre o layout fiscal atual.
 
 ---
 

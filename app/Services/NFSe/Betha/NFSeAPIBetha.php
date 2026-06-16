@@ -13,6 +13,7 @@ class NFSeAPIBetha implements NFSeAPIInterface
     private const URL = 'https://nota-eletronica.betha.cloud/dps/ws';
     private const TIMEOUT_CONEXAO = 30;
     private const TIMEOUT_REQUISICAO = 90;
+    private const TIPO_INTEGRACAO_EMISSAO = 'EMISSAO';
 
     public function enviar(string $xml, string $certPath, string $keyPath, int $ambiente): array
     {
@@ -22,8 +23,17 @@ class NFSeAPIBetha implements NFSeAPIInterface
 
     public function consultar(string $chaveAcesso, string $certPath, string $keyPath, int $ambiente): array
     {
+        return $this->consultarStatusDps($chaveAcesso, '', '', $certPath, $keyPath, $ambiente);
+    }
+
+    public function consultarStatusDps(string $protocolo, string $codigoIbge, string $cpfCnpjPrestador, string $certPath, string $keyPath, int $ambiente): array
+    {
         $body = '<ConsultarStatusDpsEnvio xmlns="http://www.betha.com.br/e-nota-dps">'
-            . '<protocolo>' . htmlspecialchars($chaveAcesso, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</protocolo>'
+            . '<tpAmb>' . (int) $ambiente . '</tpAmb>'
+            . '<codigoIbge>' . htmlspecialchars($this->somenteDigitos($codigoIbge), ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</codigoIbge>'
+            . '<cpfCnpjPrestador>' . htmlspecialchars($this->somenteDigitos($cpfCnpjPrestador), ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</cpfCnpjPrestador>'
+            . '<protocolo>' . htmlspecialchars($protocolo, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</protocolo>'
+            . '<tipoIntegracao>' . self::TIPO_INTEGRACAO_EMISSAO . '</tipoIntegracao>'
             . '</ConsultarStatusDpsEnvio>';
 
         return $this->soapRequest($body, 'ConsultarStatusDps', $certPath, $keyPath);
@@ -36,8 +46,13 @@ class NFSeAPIBetha implements NFSeAPIInterface
 
     public function testarConexao(string $certPath, string $keyPath, int $ambiente): array
     {
+        return $this->testarConexaoMunicipio($certPath, $keyPath, $ambiente, '', '');
+    }
+
+    public function testarConexaoMunicipio(string $certPath, string $keyPath, int $ambiente, string $codigoIbge, string $cpfCnpjPrestador): array
+    {
         $resultado = $this->soapRequest(
-            '<ConsultarStatusDpsEnvio xmlns="http://www.betha.com.br/e-nota-dps"><protocolo>0</protocolo></ConsultarStatusDpsEnvio>',
+            '<ConsultarStatusDpsEnvio xmlns="http://www.betha.com.br/e-nota-dps"><tpAmb>' . (int) $ambiente . '</tpAmb><codigoIbge>' . htmlspecialchars($this->somenteDigitos($codigoIbge), ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</codigoIbge><cpfCnpjPrestador>' . htmlspecialchars($this->somenteDigitos($cpfCnpjPrestador), ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</cpfCnpjPrestador><protocolo>0</protocolo><tipoIntegracao>' . self::TIPO_INTEGRACAO_EMISSAO . '</tipoIntegracao></ConsultarStatusDpsEnvio>',
             'ConsultarStatusDps',
             $certPath,
             $keyPath
@@ -104,6 +119,11 @@ class NFSeAPIBetha implements NFSeAPIInterface
     private function semDeclaracaoXml(string $xml): string
     {
         return trim(preg_replace('/^<\?xml[^>]*>\s*/', '', $xml) ?? $xml);
+    }
+
+    private function somenteDigitos(string $valor): string
+    {
+        return preg_replace('/\D+/', '', $valor) ?? '';
     }
 
     private function mapearErroCurl(int $errno): string

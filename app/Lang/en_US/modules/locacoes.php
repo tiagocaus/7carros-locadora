@@ -262,6 +262,7 @@ return [
         'fill_dates_first' => 'Fill in the pickup and expected return dates',
         'load_data_error' => 'Error loading data',
         'select_group_first' => 'Select the group first',
+        'vehicle_defined_at_checkout' => 'Vehicle will be assigned at pickup',
         'vehicle_unavailable' => 'Vehicle not available for the selected period',
         'only_reservation_checkout' => 'Only reservations can have pickup registered',
         'only_open_return' => 'Only open rentals can have return registered',
@@ -484,6 +485,7 @@ return [
         'select_checklist_placeholder' => '-- Select a model --',
         'generate_pdf' => 'Generate PDF',
         'send_via' => 'Send via',
+        'no_channels_available' => 'Client has no email or phone, the branch has no active connection, or no channels are enabled on your plan.',
     ],
     'pdf' => [
         'invoice_title' => 'INVOICE',
@@ -527,6 +529,7 @@ return [
         'vehicle_header' => 'Vehicle',
         'plate_header' => 'Plate',
         'group_header' => 'Group',
+        'group_category_label' => 'Group/Category',
         'plan_header' => 'Plan',
         'vehicle_insurance_header' => 'Vehicle Ins.',
         'third_party_insurance_header' => 'Third Party Ins.',

@@ -20,6 +20,7 @@
 - Na no dasboard não está mostrando chegada pensente.
 - Colocar opção para imprimir o contrato ou locação em nome da seguradora.
 - Colocar opção de pagamento parcial na tela do financeiro.
+- Na impressão da reserva/voucher, mostrar os "possiveis carros da categoria".
 
 ----
 ### A FAZER

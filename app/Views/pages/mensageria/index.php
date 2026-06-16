@@ -34,7 +34,7 @@
                     <th class="table-header"><?= t('modules.mensageria.table.linked_branches') ?></th>
                     <th class="table-header hidden md:table-cell w-40"><?= t('modules.mensageria.table.identifier') ?></th>
                     <th class="table-header text-center w-28"><?= t('modules.mensageria.table.status') ?></th>
-                    <th class="table-header px-2 w-48 text-center"><?= t('modules.mensageria.table.actions') ?></th>
+                    <th class="table-header px-2 w-56 text-center"><?= t('modules.mensageria.table.actions') ?></th>
                 </tr>
             </thead>
             <tbody id="conexoesTableBody" class="bg-white divide-y divide-slate-200">
@@ -412,7 +412,7 @@
                     <td class="table-cell text-sm">${empresasTexto}</td>
                     <td class="table-cell hidden md:table-cell text-slate-600 text-sm">${identificador}</td>
                     <td class="table-cell text-center">${statusBadge}</td>
-                    <td class="table-cell px-2 w-48 text-right">
+                    <td class="table-cell px-2 w-56 text-right">
                         ${actionButtons}
                     </td>
                 </tr>

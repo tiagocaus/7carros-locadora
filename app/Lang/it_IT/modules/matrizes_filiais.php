@@ -190,7 +190,7 @@ return [
         'no_records' => 'Nessun record trovato',
         'delete_error' => 'Errore durante l\'eliminazione: :message',
         'delete_has_links_title' => 'Sede/filiale con collegamenti',
-        'delete_has_links_confirm' => "Non è possibile eliminare questa sede/filiale perché esistono record collegati:\n\n:links\n\nVuoi disattivarla?",
+        'delete_has_links_confirm' => 'Non è possibile eliminare questo record perché esistono collegamenti. Vuoi disattivarla?',
         'deactivate_button' => 'Disattiva sede/filiale',
         'deactivated' => 'Sede/filiale disattivata con successo',
         'deactivate_error' => 'Errore durante la disattivazione della sede/filiale',

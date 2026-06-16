@@ -19,6 +19,10 @@ use App\Core\Router;
 use App\Core\Request;
 use App\Core\Session;
 use App\Core\Response;
+use App\Core\Database;
+
+// Padroniza o relogio da aplicacao antes de sessoes, logs e regras de bloqueio.
+date_default_timezone_set(Database::env('APP_TIMEZONE', 'America/Sao_Paulo'));
 
 // Inicia a sessão
 Session::start();
@@ -60,7 +64,7 @@ if (!$honeypotMiddleware->handle($request)) {
 require APP_ROOT . '/app/Routes/web.php';
 
 // Trata erros globais em produção
-if (\App\Core\Database::env('APP_ENV') === 'production') {
+if (Database::env('APP_ENV') === 'production') {
     set_error_handler(function($errno, $errstr, $errfile, $errline) {
         error_log("Error [$errno]: $errstr in $errfile on line $errline");
         Response::serverError('Ocorreu um erro. Tente novamente mais tarde.');
@@ -80,7 +84,7 @@ try {
     error_log($e->getMessage());
 
     // Em desenvolvimento, mostra detalhes do erro
-    if (\App\Core\Database::env('APP_ENV', 'production') === 'development') {
+    if (Database::env('APP_ENV', 'production') === 'development') {
         echo "<h1>Erro</h1>";
         echo "<p><strong>Mensagem:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
         echo "<p><strong>Arquivo:</strong> " . htmlspecialchars($e->getFile()) . "</p>";

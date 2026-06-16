@@ -26,6 +26,8 @@ use App\Models\Cliente;
 use App\Models\Fornecedor;
 use App\Models\Checklist;
 use App\Models\ChecklistModelo;
+use App\Models\Whatsapp;
+use App\Models\Sms;
 use App\Config\Planos;
 use App\I18n\TemplateRenderer;
 use App\Services\AuditLogService;
@@ -587,7 +589,7 @@ class ContratosController
             try {
                 $contratoCriado = $contratoModel->buscarPorId($id);
                 $clienteModel = new Cliente();
-                $cliente = $clienteModel->buscarPorId((int) $dados['id_cliente']);
+                $cliente = $clienteModel->buscarPorIdComContatos((int) $dados['id_cliente']);
                 $filialModel = new MatrizFilial();
                 $empresa = $filialModel->buscarPorId((int) ($dados['id_matriz_filial_retirada'] ?? $_SESSION['id_matriz_filial'] ?? 0));
 
@@ -602,6 +604,7 @@ class ContratosController
                     $context = [
                         'cliente' => $cliente,
                         'empresa' => $empresa,
+                        'id_matriz_filial' => (int) ($dados['id_matriz_filial_retirada'] ?? $_SESSION['id_matriz_filial'] ?? 0),
                         'contrato' => [
                             'numero'      => $contratoCriado['codigo'],
                             'data_inicio' => $contratoCriado['data_ini'],
@@ -611,9 +614,13 @@ class ContratosController
                         'veiculo' => $veiculoDados ?? [],
                     ];
 
-                    queue_template_message('contract_confirmation', 'email', $context);
-                    queue_template_message('contract_confirmation', 'whatsapp', $context);
-                    queue_template_message('contract_confirmation', 'sms', $context);
+                    foreach (['email', 'whatsapp', 'sms'] as $canal) {
+                        try {
+                            queue_template_message('contract_confirmation', $canal, $context);
+                        } catch (\Throwable $e) {
+                            error_log("Erro ao enfileirar contract_confirmation/{$canal}: " . $e->getMessage());
+                        }
+                    }
                 }
             } catch (\Throwable $e) {
                 // Falha na mensageria nao deve impedir criacao do contrato
@@ -1853,10 +1860,19 @@ class ContratosController
         $todosModelos = $checklistModeloModel->listarParaSelect();
         $checklistModelos = array_values(array_filter($todosModelos, fn($m) => (int) $m['tipo'] === 1));
 
-        // Verificar canais de mensageria disponiveis
-        $temEmail = ($planoInfo['smtp'] ?? 0) > 0;
-        $temWhatsapp = ($planoInfo['whatsapp'] ?? 0) > 0;
-        $temSms = ($planoInfo['sms'] ?? 0) > 0;
+        // Verificar canais de mensageria disponiveis para a filial/cliente.
+        $filialId = (int) ($contrato['id_matriz_filial_retirada'] ?? 0);
+        $telefoneCliente = trim((string) ($contrato['cliente_telefone'] ?? ''));
+        $emailCliente = trim((string) ($contrato['cliente_email'] ?? ''));
+        $temEmail = ($planoInfo['smtp'] ?? 0) > 0 && $emailCliente !== '';
+        $temWhatsapp = ($planoInfo['whatsapp'] ?? 0) > 0
+            && $telefoneCliente !== ''
+            && $filialId > 0
+            && (new Whatsapp())->buscarConectadaPorFilial($filialId) !== null;
+        $temSms = ($planoInfo['sms'] ?? 0) > 0
+            && $telefoneCliente !== ''
+            && $filialId > 0
+            && (new Sms())->buscarValidadaPorFilial($filialId) !== null;
 
         $html = Template::render('pages.contratos.offcanvas-impressao', [
             'contrato' => $contrato,
@@ -2461,6 +2477,7 @@ class ContratosController
             if (!empty($contrato['id_forma_pagamento'])) {
                 $preview = $this->gerarPreviewRegularizacao($contratoModel, $id, $contrato, $regularizacao);
             }
+            $canaisDisponiveis = $this->canaisMensageriaContrato($contrato);
 
             Response::json([
                 'success' => true,
@@ -2476,6 +2493,7 @@ class ContratosController
                     'regularizacao' => $regularizacao,
                     'financeiro_disponivel' => !empty($contrato['id_forma_pagamento']),
                     'preview_financeiro' => $preview,
+                    'canais_disponiveis' => $canaisDisponiveis,
                 ]
             ]);
         } catch (\Exception $e) {
@@ -2653,14 +2671,13 @@ class ContratosController
         }
 
         $clienteModel = new Cliente();
-        $cliente = $clienteModel->buscarPorId((int) ($contrato['id_cliente'] ?? 0));
+        $cliente = $clienteModel->buscarPorIdComContatos((int) ($contrato['id_cliente'] ?? 0));
         if (!$cliente) {
             throw new \RuntimeException('Cliente do contrato nao encontrado para envio de cobranca');
         }
 
-        $email = (new ContatoEmail())->getPrincipal('cliente', (int) $cliente['id'])['email'] ?? '';
-        $telefonePrincipal = (new ContatoTelefone())->getPrincipal('cliente', (int) $cliente['id']);
-        $telefone = $telefonePrincipal['telefone'] ?? '';
+        $email = $cliente['email'] ?? '';
+        $telefone = $cliente['telefone'] ?? $cliente['celular'] ?? '';
 
         $financeiroModel = new Financeiro();
         $linkModel = new PagamentoLink();
@@ -2697,6 +2714,7 @@ class ContratosController
                 'empresa' => [
                     'id' => $contrato['id_matriz_filial_retirada'] ?? null,
                 ],
+                'id_matriz_filial' => $contrato['id_matriz_filial_retirada'] ?? null,
                 'fatura' => [
                     'numero' => $financeiro['codigo'] ?? $financeiro['sequencia'] ?? $idParcela,
                     'valor' => $financeiro['valor_total'],
@@ -2738,6 +2756,32 @@ class ContratosController
     private function enfileirarCobrancasRegularizacao(array $idsParcelas, array $canais, array $contrato): array
     {
         return $this->enfileirarCobrancasParcelas($idsParcelas, $canais, $contrato);
+    }
+
+    /**
+     * Retorna canais efetivamente disponiveis para cobranca do contrato.
+     */
+    private function canaisMensageriaContrato(array $contrato): array
+    {
+        $planoInfo = Planos::getPlano(Auth::user()['plano'] ?? 'G') ?? [];
+        $cliente = !empty($contrato['id_cliente'])
+            ? (new Cliente())->buscarPorIdComContatos((int) $contrato['id_cliente'])
+            : null;
+        $filialId = (int) ($contrato['id_matriz_filial_retirada'] ?? 0);
+        $telefone = trim((string) ($cliente['telefone'] ?? $cliente['celular'] ?? ''));
+        $email = trim((string) ($cliente['email'] ?? ''));
+
+        return [
+            'email' => ($planoInfo['smtp'] ?? 0) > 0 && $email !== '',
+            'whatsapp' => ($planoInfo['whatsapp'] ?? 0) > 0
+                && $telefone !== ''
+                && $filialId > 0
+                && (new Whatsapp())->buscarConectadaPorFilial($filialId) !== null,
+            'sms' => ($planoInfo['sms'] ?? 0) > 0
+                && $telefone !== ''
+                && $filialId > 0
+                && (new Sms())->buscarValidadaPorFilial($filialId) !== null,
+        ];
     }
 
     /**

@@ -688,6 +688,10 @@ class PagamentoPublicoController
                     'telefone'      => $telCliente,
                     'celular'       => $telCliente,
                 ],
+                'empresa' => [
+                    'id' => (int) ($locacao['id_matriz_filial_retirada'] ?? 0),
+                ],
+                'id_matriz_filial' => (int) ($locacao['id_matriz_filial_retirada'] ?? 0),
                 'locacao' => [
                     'numero'          => $locacao['codigo'] ?? '',
                     'data_retirada'   => !empty($locacao['data_saida']) ? date('d/m/Y', strtotime($locacao['data_saida'])) : '',
@@ -703,9 +707,13 @@ class PagamentoPublicoController
             ];
 
             if (function_exists('queue_template_message')) {
-                queue_template_message('confirmacao_reserva', 'email', $context, $chave);
-                queue_template_message('confirmacao_reserva', 'whatsapp', $context, $chave);
-                queue_template_message('confirmacao_reserva', 'sms', $context, $chave);
+                foreach (['email', 'whatsapp', 'sms'] as $canal) {
+                    try {
+                        queue_template_message('confirmacao_reserva', $canal, $context, $chave);
+                    } catch (\Throwable $e) {
+                        error_log("[Webhook/Reserva] Erro ao enfileirar confirmacao_reserva/{$canal}: " . $e->getMessage());
+                    }
+                }
             }
         } catch (\Throwable $e) {
             error_log("[Webhook/Reserva] Erro ao efetivar locacao {$idLocacao}: " . $e->getMessage());

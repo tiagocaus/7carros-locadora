@@ -193,7 +193,7 @@ return [
         'no_records' => 'No records found',
         'delete_error' => 'Error deleting: :message',
         'delete_has_links_title' => 'Headquarters/branch has links',
-        'delete_has_links_confirm' => "This headquarters/branch cannot be deleted because it has linked records:\n\n:links\n\nDo you want to deactivate it?",
+        'delete_has_links_confirm' => 'This record cannot be deleted because it has linked records. Do you want to deactivate it?',
         'deactivate_button' => 'Deactivate headquarters/branch',
         'deactivated' => 'Headquarters/branch deactivated successfully',
         'deactivate_error' => 'Error deactivating headquarters/branch',

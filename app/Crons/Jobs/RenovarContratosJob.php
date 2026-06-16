@@ -4,8 +4,11 @@ namespace App\Crons\Jobs;
 
 use App\Classes\QueryBuilder;
 use App\Core\Database;
+use App\Models\Cliente;
 use App\Models\Contrato;
+use App\Models\Financeiro;
 use App\Models\FormaPagamento;
+use App\Models\PagamentoLink;
 use App\Services\AuditLogService;
 use mysqli;
 
@@ -45,9 +48,13 @@ class RenovarContratosJob extends BaseJob
 
             foreach ($contratos as $contrato) {
                 try {
-                    $this->renovarContrato($contrato, $chave);
+                    $envios = $this->renovarContrato($contrato, $chave);
                     $renovados++;
                     $this->log("Contrato #{$contrato['codigo']} renovado com sucesso");
+                    foreach ($envios as $envio) {
+                        $status = !empty($envio['success']) ? 'OK' : 'FALHA';
+                        $this->log("  -> Cobranca {$envio['canal']} parcela {$envio['parcela_id']}: {$status} " . ($envio['message'] ?? ''));
+                    }
                 } catch (\Exception $e) {
                     $erros[] = [
                         'tenant' => $chave,
@@ -114,10 +121,12 @@ class RenovarContratosJob extends BaseJob
     /**
      * Executa a renovação de um contrato individual
      */
-    private function renovarContrato(array $contrato, string $chave): void
+    private function renovarContrato(array $contrato, string $chave): array
     {
         $contratoModel = new Contrato();
         $regularizacao = $contratoModel->calcularRegularizacaoAutorenovacao($contrato);
+        $idsParcelas = [];
+        $envios = [];
 
         // Atualizar datas do contrato
         $contratoModel->atualizar($contrato['id'], [
@@ -143,7 +152,7 @@ class RenovarContratosJob extends BaseJob
             $preview = $contratoModel->gerarPreviewParcelas($contrato['id'], $config);
 
             if (!empty($preview['parcelas'])) {
-                $contratoModel->salvarParcelasContrato(
+                $idsParcelas = $contratoModel->salvarParcelasContrato(
                     $contrato['id'],
                     $preview['parcelas'],
                     $chave
@@ -151,6 +160,9 @@ class RenovarContratosJob extends BaseJob
             }
 
             $this->log("  -> {$preview['resumo']['num_parcelas']} parcela(s) gerada(s)");
+            if (!empty($idsParcelas)) {
+                $envios = $this->enfileirarCobrancasParcelas($idsParcelas, $contrato, $chave);
+            }
         } else {
             $this->log("  -> Sem forma de pagamento definida, parcelas nao geradas", 'WARNING');
         }
@@ -165,6 +177,97 @@ class RenovarContratosJob extends BaseJob
                 AuditLogService::campo('Data Renovação', $contrato['data_renovacao'], $regularizacao['nova_data_renovacao']),
             ]
         );
+
+        return $envios;
+    }
+
+    /**
+     * Enfileira cobrancas das parcelas geradas na renovacao automatica.
+     */
+    private function enfileirarCobrancasParcelas(array $idsParcelas, array $contrato, string $chave): array
+    {
+        $resultado = [];
+        $cliente = !empty($contrato['id_cliente'])
+            ? (new Cliente())->buscarPorIdComContatos((int) $contrato['id_cliente'])
+            : null;
+
+        if (!$cliente) {
+            return [[
+                'parcela_id' => null,
+                'canal' => 'all',
+                'success' => false,
+                'message' => 'Cliente do contrato nao encontrado para envio de cobranca',
+            ]];
+        }
+
+        $email = $cliente['email'] ?? '';
+        $telefone = $cliente['telefone'] ?? $cliente['celular'] ?? '';
+        $financeiroModel = new Financeiro();
+        $linkModel = new PagamentoLink();
+
+        foreach ($idsParcelas as $idParcela) {
+            $financeiro = $financeiroModel->buscarPorId((int) $idParcela);
+            if (!$financeiro) {
+                continue;
+            }
+
+            $link = $linkModel->buscarPorFinanceiro((int) $idParcela);
+            if (!$link) {
+                $linkId = $linkModel->criar([
+                    'chave' => $chave,
+                    'id_financeiro' => (int) $idParcela,
+                    'id_cliente' => $financeiro['id_cliente'] ?? null,
+                    'valor' => $financeiro['valor_total'],
+                    'descricao' => $financeiro['descricao'] ?? 'Cobrança',
+                    'expires_at' => date('Y-m-d H:i:s', strtotime('+30 days')),
+                ]);
+                $link = $linkModel->buscarPorId($linkId);
+            }
+
+            $context = [
+                'cliente' => [
+                    'nome' => $cliente['nome_rsocial'] ?? '',
+                    'primeiro_nome' => explode(' ', trim((string) ($cliente['nome_rsocial'] ?? '')))[0] ?? '',
+                    'email' => $email,
+                    'cpf_cnpj' => $cliente['cpf_cnpj'] ?? '',
+                    'telefone' => $telefone,
+                    'celular' => $telefone,
+                    'preferred_locale' => $cliente['preferred_locale'] ?? null,
+                ],
+                'empresa' => [
+                    'id' => $contrato['id_matriz_filial_retirada'] ?? null,
+                ],
+                'id_matriz_filial' => $contrato['id_matriz_filial_retirada'] ?? null,
+                'fatura' => [
+                    'numero' => $financeiro['codigo'] ?? $financeiro['sequencia'] ?? $idParcela,
+                    'valor' => $financeiro['valor_total'],
+                    'data_vencimento' => $financeiro['data_venci'],
+                    'descricao' => $financeiro['descricao'] ?? '',
+                    'status' => 'Pendente',
+                    'link_boleto' => $link ? $linkModel->getUrl($link['codigo']) : '',
+                ],
+            ];
+
+            foreach (['email', 'whatsapp', 'sms'] as $canal) {
+                if ($canal === 'email' && $email === '') {
+                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => false, 'message' => 'Cliente sem email'];
+                    continue;
+                }
+                if (in_array($canal, ['whatsapp', 'sms'], true) && $telefone === '') {
+                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => false, 'message' => 'Cliente sem telefone'];
+                    continue;
+                }
+
+                try {
+                    $messageId = queue_template_message('payment_reminder', $canal, $context, $chave);
+                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => true, 'message' => "message_id={$messageId}"];
+                } catch (\Throwable $e) {
+                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => false, 'message' => $e->getMessage()];
+                }
+            }
+        }
+
+        return $resultado;
     }
 
     private function setContextoTenant(string $chave): void

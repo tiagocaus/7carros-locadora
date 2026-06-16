@@ -12,6 +12,8 @@ use App\Models\MatrizFilial;
 use App\Models\PagamentoLink;
 use App\Models\PlanoDeContas;
 use App\Models\Cliente;
+use App\Models\Whatsapp;
+use App\Models\Sms;
 use App\Helpers\FilialHelper;
 use App\Helpers\PdfHelper;
 use App\Config\Planos;
@@ -946,10 +948,17 @@ class FinanceiroController
         $planoCodigo = Auth::user()['plano'] ?? 'G';
         $planoInfo = Planos::getPlano($planoCodigo) ?? [];
 
-        $telefone = $cliente['celular'] ?? $cliente['telefone'] ?? '';
+        $filialId = (int) ($lancamento['id_matriz_filial'] ?? 0);
+        $telefone = trim((string) ($cliente['celular'] ?? $cliente['telefone'] ?? ''));
         $temEmail = ($planoInfo['smtp'] ?? 0) > 0 && !empty($cliente['email']);
-        $temWhatsapp = ($planoInfo['whatsapp'] ?? 0) > 0 && !empty($telefone);
-        $temSms = ($planoInfo['sms'] ?? 0) > 0 && !empty($telefone);
+        $temWhatsapp = ($planoInfo['whatsapp'] ?? 0) > 0
+            && $telefone !== ''
+            && $filialId > 0
+            && (new Whatsapp())->buscarConectadaPorFilial($filialId) !== null;
+        $temSms = ($planoInfo['sms'] ?? 0) > 0
+            && $telefone !== ''
+            && $filialId > 0
+            && (new Sms())->buscarValidadaPorFilial($filialId) !== null;
 
         $html = Template::render('pages.financeiro.offcanvas-impressao', [
             'lancamento' => $lancamento,

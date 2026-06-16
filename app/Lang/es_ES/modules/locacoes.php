@@ -262,6 +262,7 @@ return [
         'fill_dates_first' => 'Rellene las fechas de salida y devolución prevista',
         'load_data_error' => 'Error al cargar los datos',
         'select_group_first' => 'Seleccione el grupo primero',
+        'vehicle_defined_at_checkout' => 'El vehículo se definirá en la salida',
         'vehicle_unavailable' => 'Vehículo no disponible para el período seleccionado',
         'only_reservation_checkout' => 'Solo las reservas pueden tener salida registrada',
         'only_open_return' => 'Solo los alquileres abiertos pueden tener devolución registrada',
@@ -484,6 +485,7 @@ return [
         'select_checklist_placeholder' => '-- Seleccione un modelo --',
         'generate_pdf' => 'Generar PDF',
         'send_via' => 'Enviar vía',
+        'no_channels_available' => 'Cliente sin correo o teléfono registrado, sucursal sin conexión activa, o canales de envío no habilitados en su plan.',
     ],
     'pdf' => [
         'invoice_title' => 'FACTURA',
@@ -527,6 +529,7 @@ return [
         'vehicle_header' => 'Vehículo',
         'plate_header' => 'Matrícula',
         'group_header' => 'Grupo',
+        'group_category_label' => 'Grupo/Categoría',
         'plan_header' => 'Plan',
         'vehicle_insurance_header' => 'Seg. Vehículo',
         'third_party_insurance_header' => 'Seg. Terceros',

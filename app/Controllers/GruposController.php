@@ -44,7 +44,16 @@ class GruposController
             // Se tem id_filial, retornar grupos com quantidade de veiculos disponiveis
             $filialId = $request->query('id_filial');
             if (!empty($filialId)) {
-                $grupos = $grupoModel->listarComDisponibilidade((int) $filialId);
+                $dataSaida = $this->normalizarDataHora($request->query('data_saida', ''));
+                $dataPrevista = $this->normalizarDataHora($request->query('data_prevista', ''));
+                $contexto = (string) $request->query('contexto', '');
+
+                if ($contexto === 'reserva' && $dataSaida && $dataPrevista) {
+                    $grupos = $grupoModel->listarComDisponibilidadePeriodo((int) $filialId, $dataSaida, $dataPrevista);
+                } else {
+                    $grupos = $grupoModel->listarComDisponibilidade((int) $filialId);
+                }
+
                 Response::json([
                     'success' => true,
                     'data' => $grupos
@@ -85,6 +94,18 @@ class GruposController
                 'message' => 'Erro ao buscar grupos: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function normalizarDataHora(string $valor): ?string
+    {
+        if ($valor === '') {
+            return null;
+        }
+
+        $valor = str_replace('T', ' ', trim($valor));
+        $timestamp = strtotime($valor);
+
+        return $timestamp ? date('Y-m-d H:i:s', $timestamp) : null;
     }
 
     /**

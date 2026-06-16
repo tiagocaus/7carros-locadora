@@ -69,7 +69,6 @@ class NFSe extends Model
      * Lista NFS-e com paginacao e filtros
      */
     public function listarPaginado(
-        string $chave,
         int $page,
         int $perPage,
         string $search = '',
@@ -84,7 +83,16 @@ class NFSe extends Model
         $query = $this->qb
             ->table('nfse', 'n')
             ->select([
-                'n.*',
+                'n.id',
+                'n.numero',
+                'n.serie',
+                'n.tomador_nome',
+                'n.valor_servicos',
+                'n.ambiente',
+                'n.status',
+                'n.tipo_emissao',
+                'n.data_emissao',
+                'n.created_at',
                 'mf.nome_fantasia AS filial_nome',
             ])
             ->leftJoin('matrizes_filiais', 'mf', 'n.id_matriz_filial', '=', 'mf.id');
@@ -136,7 +144,6 @@ class NFSe extends Model
      * Conta total de NFS-e com filtros
      */
     public function contar(
-        string $chave,
         string $search = '',
         string $filialWhere = '',
         array $filialParams = [],
@@ -188,13 +195,15 @@ class NFSe extends Model
     /**
      * Estatisticas para dashboard
      */
-    public function estatisticas(string $chave, string $filialWhere = '', array $filialParams = [], string $dataInicio = '', string $dataFim = '', string $filialId = ''): array
+    public function estatisticas(string $filialWhere = '', array $filialParams = [], string $dataInicio = '', string $dataFim = '', string $filialId = ''): array
     {
-        $buildQuery = function (string $status) use ($chave, $filialWhere, $filialParams, $dataInicio, $dataFim, $filialId) {
+        $buildQuery = function (?string $status = null) use ($filialWhere, $filialParams, $dataInicio, $dataFim, $filialId) {
             $q = $this->qb
-                ->table('nfse')
-                ->where('status', '=', $status);
+                ->table('nfse');
 
+            if ($status !== null) {
+                $q->where('status', '=', $status);
+            }
             if (!empty($filialWhere)) {
                 $q->whereRaw($filialWhere, $filialParams);
             }
@@ -211,11 +220,23 @@ class NFSe extends Model
             return $q->count();
         };
 
+        $autorizada = $buildQuery('autorizada');
+        $rejeitada = $buildQuery('rejeitada');
+        $cancelada = $buildQuery('cancelada');
+        $pendente = $buildQuery('pendente');
+        $processando = $buildQuery('processando');
+
         return [
-            'autorizadas' => $buildQuery('autorizada'),
-            'rejeitadas' => $buildQuery('rejeitada'),
-            'canceladas' => $buildQuery('cancelada'),
-            'pendentes' => $buildQuery('pendente') + $buildQuery('processando'),
+            'total' => $buildQuery(),
+            'autorizada' => $autorizada,
+            'rejeitada' => $rejeitada,
+            'cancelada' => $cancelada,
+            'pendente' => $pendente,
+            'processando' => $processando,
+            'autorizadas' => $autorizada,
+            'rejeitadas' => $rejeitada,
+            'canceladas' => $cancelada,
+            'pendentes' => $pendente + $processando,
         ];
     }
 

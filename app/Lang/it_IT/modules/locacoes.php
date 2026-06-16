@@ -262,6 +262,7 @@ return [
         'fill_dates_first' => 'Compila le date di ritiro e riconsegna prevista',
         'load_data_error' => 'Errore nel caricamento dei dati',
         'select_group_first' => 'Seleziona prima il gruppo',
+        'vehicle_defined_at_checkout' => 'Il veicolo sarà definito al ritiro',
         'vehicle_unavailable' => 'Veicolo non disponibile per il periodo selezionato',
         'only_reservation_checkout' => 'Solo le prenotazioni possono avere il ritiro registrato',
         'only_open_return' => 'Solo i noleggi aperti possono avere la riconsegna registrata',
@@ -484,6 +485,7 @@ return [
         'select_checklist_placeholder' => '-- Seleziona un modello --',
         'generate_pdf' => 'Genera PDF',
         'send_via' => 'Invia tramite',
+        'no_channels_available' => 'Cliente senza e-mail o telefono registrato, filiale senza connessione attiva, oppure canali di invio non abilitati nel piano.',
     ],
     'pdf' => [
         'invoice_title' => 'FATTURA',
@@ -527,6 +529,7 @@ return [
         'vehicle_header' => 'Veicolo',
         'plate_header' => 'Targa',
         'group_header' => 'Gruppo',
+        'group_category_label' => 'Gruppo/Categoria',
         'plan_header' => 'Piano',
         'vehicle_insurance_header' => 'Ass. Veicolo',
         'third_party_insurance_header' => 'Ass. Terzi',

@@ -22,6 +22,8 @@ use App\Models\Checklist;
 use App\Models\ChecklistModelo;
 use App\Models\Assinatura;
 use App\Models\Multa;
+use App\Models\Whatsapp;
+use App\Models\Sms;
 use App\Config\Planos;
 use App\I18n\TemplateRenderer;
 use App\Core\Database;
@@ -485,7 +487,7 @@ class LocacoesController
             try {
                 $locacaoCriada = $locacaoModel->buscarPorId($id);
                 $clienteModel = new Cliente();
-                $cliente = $clienteModel->buscarPorId((int) $dados['id_cliente']);
+                $cliente = $clienteModel->buscarPorIdComContatos((int) $dados['id_cliente']);
                 $filialModel = new MatrizFilial();
                 $empresa = $filialModel->buscarPorId((int) ($dados['id_matriz_filial_retirada'] ?? $_SESSION['id_matriz_filial'] ?? 0));
 
@@ -499,6 +501,7 @@ class LocacoesController
                     $context = [
                         'cliente' => $cliente,
                         'empresa' => $empresa,
+                        'id_matriz_filial' => (int) ($dados['id_matriz_filial_retirada'] ?? $_SESSION['id_matriz_filial'] ?? 0),
                         'locacao' => [
                             'numero'          => $locacaoCriada['codigo'],
                             'data_retirada'   => $locacaoCriada['data_saida'],
@@ -513,9 +516,13 @@ class LocacoesController
                         'veiculo' => $veiculoDados ?? [],
                     ];
 
-                    queue_template_message('rental_confirmation', 'email', $context);
-                    queue_template_message('rental_confirmation', 'whatsapp', $context);
-                    queue_template_message('rental_confirmation', 'sms', $context);
+                    foreach (['email', 'whatsapp', 'sms'] as $canal) {
+                        try {
+                            queue_template_message('rental_confirmation', $canal, $context);
+                        } catch (\Throwable $e) {
+                            error_log("Erro ao enfileirar rental_confirmation/{$canal}: " . $e->getMessage());
+                        }
+                    }
                 }
             } catch (\Throwable $e) {
                 error_log('Erro ao enviar notificacao de locacao: ' . $e->getMessage());
@@ -1018,11 +1025,13 @@ class LocacoesController
                     'cpf_cnpj' => $obs['documento'] ?? '',
                 ],
                 'empresa' => [
+                    'id' => (int) ($locacao['id_matriz_filial_retirada'] ?? 0),
                     'nome_fantasia' => $empresa['nome_fantasia'] ?? '',
                     'razao_social'  => $empresa['razao_social'] ?? '',
                     'email'         => $empresa['email'] ?? '',
                     'telefone'      => $empresa['celular'] ?? $empresa['telefone'] ?? '',
                 ],
+                'id_matriz_filial' => (int) ($locacao['id_matriz_filial_retirada'] ?? 0),
                 'locacao' => [
                     'numero' => $locacao['codigo'] ?? '',
                     'data_retirada' => date('d/m/Y', strtotime((string) $locacao['data_saida'])),
@@ -1038,9 +1047,13 @@ class LocacoesController
             ];
 
             if (function_exists('queue_template_message')) {
-                queue_template_message('confirmacao_reserva', 'email', $context, Auth::chave());
-                queue_template_message('confirmacao_reserva', 'whatsapp', $context, Auth::chave());
-                queue_template_message('confirmacao_reserva', 'sms', $context, Auth::chave());
+                foreach (['email', 'whatsapp', 'sms'] as $canal) {
+                    try {
+                        queue_template_message('confirmacao_reserva', $canal, $context, Auth::chave());
+                    } catch (\Throwable $e) {
+                        error_log("Erro ao enfileirar confirmacao_reserva/{$canal}: " . $e->getMessage());
+                    }
+                }
             }
 
             Response::json(['success' => true, 'message' => $this->apiMessage('reservation_confirmed')]);
@@ -1666,10 +1679,19 @@ class LocacoesController
         $todosModelos = $checklistModeloModel->listarParaSelect();
         $checklistModelos = array_values(array_filter($todosModelos, fn($m) => (int) $m['tipo'] === 1));
 
-        // Verificar canais de mensageria disponiveis
-        $temEmail = ($planoInfo['smtp'] ?? 0) > 0;
-        $temWhatsapp = ($planoInfo['whatsapp'] ?? 0) > 0;
-        $temSms = ($planoInfo['sms'] ?? 0) > 0;
+        // Verificar canais de mensageria disponiveis para a filial/cliente.
+        $filialId = (int) ($locacao['id_matriz_filial_retirada'] ?? 0);
+        $telefoneCliente = trim((string) ($locacao['cliente_telefone'] ?? ''));
+        $emailCliente = trim((string) ($locacao['cliente_email'] ?? ''));
+        $temEmail = ($planoInfo['smtp'] ?? 0) > 0 && $emailCliente !== '';
+        $temWhatsapp = ($planoInfo['whatsapp'] ?? 0) > 0
+            && $telefoneCliente !== ''
+            && $filialId > 0
+            && (new Whatsapp())->buscarConectadaPorFilial($filialId) !== null;
+        $temSms = ($planoInfo['sms'] ?? 0) > 0
+            && $telefoneCliente !== ''
+            && $filialId > 0
+            && (new Sms())->buscarValidadaPorFilial($filialId) !== null;
 
         $html = Template::render('pages.locacoes.offcanvas-impressao', [
             'locacao' => $locacao,

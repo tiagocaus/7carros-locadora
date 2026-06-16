@@ -141,6 +141,9 @@ $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.p
     if ($veiculoReferenciaFatura === '') {
         $veiculoReferenciaFatura = trim((string) ($locacao['veiculo_info'] ?? ''));
     }
+    if ($veiculoReferenciaFatura === '' && !empty($locacao['grupo_nome'])) {
+        $veiculoReferenciaFatura = t('modules.locacoes.pdf.group_category_label') . ': ' . trim((string) $locacao['grupo_nome']);
+    }
     $descricaoPlanoFatura = trim($planoComposicao . ($veiculoReferenciaFatura !== '' ? ' - ' . $veiculoReferenciaFatura : ''));
 
     if ($valorPlanoComposicao > 0) {

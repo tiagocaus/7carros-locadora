@@ -16,6 +16,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
 {
     private const NAMESPACE = 'http://www.sped.fazenda.gov.br/nfse';
     private const VERSAO = '1.00';
+    private const FISCAL_TIMEZONE = 'America/Sao_Paulo';
 
     public function gerarXML(array $dados): string
     {
@@ -23,30 +24,30 @@ class NFSeXMLNacional implements NFSeXMLInterface
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<DPS xmlns="' . self::NAMESPACE . '" versao="' . self::VERSAO . '">';
-        $xml .= '<infDPS Id="' . $idDPS . '" versao="' . self::VERSAO . '">';
+        $xml .= '<infDPS Id="' . $idDPS . '">';
 
         // Identificacao
         $xml .= '<tpAmb>' . ($dados['ambiente'] ?? 2) . '</tpAmb>';
         $xml .= '<dhEmi>' . $this->formatarDataISO($dados['data_emissao'] ?? date('Y-m-d\TH:i:sP')) . '</dhEmi>';
-        $xml .= '<verAplic>7Carros1.0</verAplic>';
-        $xml .= '<serie>' . htmlspecialchars($dados['serie'] ?? 'DPS') . '</serie>';
-        $xml .= '<nDPS>' . ($dados['numero'] ?? 0) . '</nDPS>';
-        $xml .= '<dCompet>' . ($dados['data_competencia'] ?? date('Y-m-d')) . '</dCompet>';
+        $xml .= '<verAplic>7Carros v8.3</verAplic>';
+        $xml .= '<serie>' . $this->escapeXml((string) ($dados['serie'] ?? 'DPS')) . '</serie>';
+        $xml .= '<nDPS>' . (int) ($dados['numero'] ?? 0) . '</nDPS>';
+        $xml .= '<dCompet>' . $this->escapeXml((string) ($dados['data_competencia'] ?? date('Y-m-d'))) . '</dCompet>';
         $xml .= '<tpEmit>1</tpEmit>';
-        $xml .= '<cLocEmi>' . ($dados['municipio_codigo'] ?? '') . '</cLocEmi>';
+        $xml .= '<cLocEmi>' . $this->somenteDigitos((string) ($dados['municipio_codigo'] ?? '')) . '</cLocEmi>';
 
         // Prestador
         $prest = $dados['prestador'] ?? [];
         $xml .= '<prest>';
-        $xml .= '<CNPJ>' . preg_replace('/\D/', '', $prest['cnpj'] ?? '') . '</CNPJ>';
+        $xml .= '<CNPJ>' . $this->somenteDigitos((string) ($prest['cnpj'] ?? '')) . '</CNPJ>';
         if (($prest['enviar_im'] ?? 'N') === 'S' && !empty($prest['inscricao_municipal'])) {
-            $xml .= '<IM>' . preg_replace('/\D/', '', $prest['inscricao_municipal']) . '</IM>';
+            $xml .= '<IM>' . $this->somenteDigitos((string) $prest['inscricao_municipal']) . '</IM>';
         }
         if (!empty($prest['telefone'])) {
-            $xml .= '<fone>' . preg_replace('/\D/', '', $prest['telefone']) . '</fone>';
+            $xml .= '<fone>' . $this->somenteDigitos((string) $prest['telefone']) . '</fone>';
         }
         if (!empty($prest['email'])) {
-            $xml .= '<email>' . htmlspecialchars($prest['email']) . '</email>';
+            $xml .= '<email>' . $this->textoMaiusculo((string) $prest['email']) . '</email>';
         }
         $xml .= '<regTrib>';
         $regime = (int) ($prest['regime_tributario'] ?? 1);
@@ -61,13 +62,14 @@ class NFSeXMLNacional implements NFSeXMLInterface
         // Tomador
         $tomador = $dados['tomador'] ?? [];
         $xml .= '<toma>';
-        $cpfCnpj = preg_replace('/\D/', '', $tomador['cpf_cnpj'] ?? '');
+        $cpfCnpj = $this->somenteDigitos((string) ($tomador['cpf_cnpj'] ?? ''));
         if (strlen($cpfCnpj) === 14) {
             $xml .= '<CNPJ>' . $cpfCnpj . '</CNPJ>';
         } elseif (strlen($cpfCnpj) === 11) {
             $xml .= '<CPF>' . $cpfCnpj . '</CPF>';
         }
-        $xml .= '<xNome>' . mb_strtoupper(htmlspecialchars($tomador['nome'] ?? '')) . '</xNome>';
+        $xml .= '<xNome>' . $this->textoMaiusculo((string) ($tomador['nome'] ?? '')) . '</xNome>';
+        $xml .= $this->gerarEnderecoTomador($tomador['endereco'] ?? []);
         $xml .= '</toma>';
 
         // Servico
@@ -75,7 +77,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $valores = $dados['valores'] ?? [];
         $xml .= '<serv>';
         $xml .= '<locPrest>';
-        $xml .= '<cLocPrestacao>' . ($dados['municipio_codigo'] ?? '') . '</cLocPrestacao>';
+        $xml .= '<cLocPrestacao>' . $this->somenteDigitos((string) ($dados['municipio_codigo'] ?? '')) . '</cLocPrestacao>';
         $xml .= '</locPrest>';
         $xml .= '<cServ>';
 
@@ -83,7 +85,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $tribISSQN = (int) ($valores['trib_issqn'] ?? 4);
         $cTribNac = $this->mapearCTribNac($tribISSQN);
         $xml .= '<cTribNac>' . $cTribNac . '</cTribNac>';
-        $xml .= '<xDescServ>' . mb_strtoupper(htmlspecialchars($servico['descricao'] ?? '')) . '</xDescServ>';
+        $xml .= '<xDescServ>' . $this->textoMaiusculo((string) ($servico['descricao'] ?? '')) . '</xDescServ>';
 
         // NBS: 1.1101.11 -> 111011100 (9 digitos)
         $nbs = $this->converterNBS($servico['codigo'] ?? '1.1101.11');
@@ -139,16 +141,16 @@ class NFSeXMLNacional implements NFSeXMLInterface
 
     public function gerarXMLCancelamento(string $chaveAcesso, string $motivo, array $dados): string
     {
-        $id = 'PRE' . preg_replace('/\D/', '', $chaveAcesso);
+        $id = 'PRE' . $this->somenteDigitos($chaveAcesso);
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<pedRegEvento xmlns="' . self::NAMESPACE . '" versao="1.01">';
-        $xml .= '<infPedReg Id="' . htmlspecialchars($id) . '">';
+        $xml .= '<infPedReg Id="' . $this->escapeXml($id) . '">';
         $xml .= '<tpAmb>' . (int) ($dados['ambiente'] ?? 2) . '</tpAmb>';
-        $xml .= '<chNFSe>' . htmlspecialchars($chaveAcesso) . '</chNFSe>';
+        $xml .= '<chNFSe>' . $this->escapeXml($chaveAcesso) . '</chNFSe>';
         $xml .= '<dhEvento>' . date('Y-m-d\TH:i:sP') . '</dhEvento>';
         $xml .= '<tpEvento>101101</tpEvento>';
         $xml .= '<xDescEvento>Cancelamento de NFS-e</xDescEvento>';
-        $xml .= '<detEvento><evCancNFSe><xJust>' . mb_strtoupper(htmlspecialchars($motivo)) . '</xJust></evCancNFSe></detEvento>';
+        $xml .= '<detEvento><evCancNFSe><xJust>' . $this->textoMaiusculo($motivo) . '</xJust></evCancNFSe></detEvento>';
         $xml .= '</infPedReg>';
         $xml .= '</pedRegEvento>';
 
@@ -252,12 +254,12 @@ class NFSeXMLNacional implements NFSeXMLInterface
      */
     private function gerarIdDPS(array $dados): string
     {
-        $cMun = str_pad($dados['municipio_codigo'] ?? '0000000', 7, '0', STR_PAD_LEFT);
-        $cnpj = preg_replace('/\D/', '', $dados['prestador']['cnpj'] ?? '');
+        $cMun = str_pad($this->somenteDigitos((string) ($dados['municipio_codigo'] ?? '')), 7, '0', STR_PAD_LEFT);
+        $cnpj = $this->somenteDigitos((string) ($dados['prestador']['cnpj'] ?? ''));
         $tpInsc = strlen($cnpj) === 14 ? '2' : '1';
         $nInsc = str_pad($cnpj, 14, '0', STR_PAD_LEFT);
         $serie = str_pad(substr((string) ($dados['serie'] ?? 'DPS'), 0, 5), 5, '0', STR_PAD_RIGHT);
-        $nDPS = str_pad($dados['numero'] ?? '0', 15, '0', STR_PAD_LEFT);
+        $nDPS = str_pad((string) ($dados['numero'] ?? '0'), 15, '0', STR_PAD_LEFT);
 
         return 'DPS' . $cMun . $tpInsc . $nInsc . $serie . $nDPS;
     }
@@ -267,7 +269,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
      */
     private function converterNBS(string $nbs): string
     {
-        $limpo = str_replace('.', '', $nbs);
+        $limpo = $this->somenteDigitos($nbs);
         return str_pad($limpo, 9, '0', STR_PAD_RIGHT);
     }
 
@@ -300,10 +302,67 @@ class NFSeXMLNacional implements NFSeXMLInterface
     private function formatarDataISO(string $data): string
     {
         try {
-            $dt = new \DateTime($data);
-            return $dt->format('Y-m-d\TH:i:sP');
-        } catch (\Exception) {
-            return date('Y-m-d\TH:i:sP');
+            $timezone = new \DateTimeZone(self::FISCAL_TIMEZONE);
+            return (new \DateTimeImmutable($data))->setTimezone($timezone)->format('Y-m-d\TH:i:sP');
+        } catch (\Throwable) {
+            return (new \DateTimeImmutable('now', new \DateTimeZone(self::FISCAL_TIMEZONE)))->format('Y-m-d\TH:i:sP');
         }
+    }
+
+    private function gerarEnderecoTomador(mixed $endereco): string
+    {
+        if (is_string($endereco)) {
+            $decoded = json_decode($endereco, true);
+            $endereco = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($endereco)) {
+            return '';
+        }
+
+        $codigoMunicipio = $this->somenteDigitos((string) ($endereco['codigo_municipio'] ?? ''));
+        $cep = $this->somenteDigitos((string) ($endereco['cep'] ?? ''));
+
+        if (strlen($codigoMunicipio) !== 7 || strlen($cep) !== 8) {
+            return '';
+        }
+
+        $xml = '<end>';
+        $xml .= '<endNac>';
+        $xml .= '<cMun>' . $codigoMunicipio . '</cMun>';
+        $xml .= '<CEP>' . $cep . '</CEP>';
+        $xml .= '</endNac>';
+
+        if (!empty($endereco['logradouro'])) {
+            $xml .= '<xLgr>' . $this->textoMaiusculo((string) $endereco['logradouro']) . '</xLgr>';
+        }
+        if (!empty($endereco['numero'])) {
+            $xml .= '<nro>' . $this->textoMaiusculo((string) $endereco['numero']) . '</nro>';
+        }
+        if (!empty($endereco['complemento'])) {
+            $xml .= '<xCpl>' . $this->textoMaiusculo((string) $endereco['complemento']) . '</xCpl>';
+        }
+        if (!empty($endereco['bairro'])) {
+            $xml .= '<xBairro>' . $this->textoMaiusculo((string) $endereco['bairro']) . '</xBairro>';
+        }
+
+        $xml .= '</end>';
+
+        return $xml;
+    }
+
+    private function textoMaiusculo(string $texto): string
+    {
+        return $this->escapeXml(mb_strtoupper($texto, 'UTF-8'));
+    }
+
+    private function escapeXml(string $valor): string
+    {
+        return htmlspecialchars($valor, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+    }
+
+    private function somenteDigitos(string $valor): string
+    {
+        return preg_replace('/\D/', '', $valor) ?? '';
     }
 }

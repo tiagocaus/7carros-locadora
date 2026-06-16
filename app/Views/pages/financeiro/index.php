@@ -122,6 +122,13 @@
         paymentLink: '<?= t("modules.financeiro.buttons.payment_link") ?>',
         printSend: '<?= t("modules.financeiro.buttons.print_send") ?>',
         printSendTitle: '<?= addslashes(t("modules.financeiro.print.title")) ?>',
+        emitNfse: 'Emitir NFS-e',
+        resendNfse: 'Reenviar NFS-e',
+        viewNfse: 'Visualizar NFS-e',
+        resendNfseTitle: 'Reenviar NFS-e',
+        resendNfseConfirm: 'Esta NFS-e foi rejeitada. Deseja reenviar a nota agora?',
+        resendNfseSuccess: 'NFS-e reenviada com sucesso.',
+        resendNfseError: 'Erro ao reenviar NFS-e.',
         edit: '<?= t("common.buttons.edit") ?>',
         delete: '<?= t("common.buttons.delete") ?>',
         paymentLinkError: '<?= t("modules.financeiro.messages.payment_link_error") ?>',
@@ -133,6 +140,7 @@
     let perPage = 10;
     let searchTerm = '';
     let searchTimeout = null;
+    let nfseReenvioPendente = null;
 
     // Estado dos filtros
     let filterFilial = '';
@@ -154,6 +162,29 @@
         } else {
             window.location.href = page;
         }
+    }
+
+    function montarBotaoNfse(lancamento, pago, isReceita) {
+        if (!pago || !isReceita) {
+            return '';
+        }
+
+        const nfseId = parseInt(lancamento.nfse_id || 0, 10);
+        const nfseStatus = String(lancamento.nfse_status || '').toLowerCase();
+
+        if (!nfseId) {
+            return `<button title="${i18n.emitNfse}" class="btn-icon text-purple-600 hover:text-purple-800 btn-nfse-emit" data-id="${lancamento.id}"><i class="fas fa-file-invoice"></i></button>`;
+        }
+
+        if (nfseStatus === 'rejeitada') {
+            return `<button title="${i18n.resendNfse}" class="btn-icon text-red-600 hover:text-red-800 btn-nfse-resend" data-nfse-id="${nfseId}"><i class="fas fa-redo"></i></button>`;
+        }
+
+        if (nfseStatus === 'pendente' || nfseStatus === 'processando') {
+            return `<button title="${i18n.viewNfse}" class="btn-icon text-purple-600 hover:text-purple-800 btn-nfse-view" data-nfse-id="${nfseId}"><i class="fas fa-file-invoice"></i></button>`;
+        }
+
+        return '';
     }
 
     // ===== INICIALIZACAO DOS FILTROS =====
@@ -320,6 +351,8 @@
                 }
             }
 
+            const botaoNfse = montarBotaoNfse(l, pago, isReceita);
+
             tableRows += `
                 <tr class="border-b border-slate-200 hover:bg-slate-50">
                     <td class="table-cell w-16 text-center text-slate-500">${l.sequencia || '-'}</td>
@@ -333,7 +366,7 @@
                     <td class="table-cell w-36 text-center">${statusBadge}</td>
                     <td class="table-cell px-2 w-48 text-right">
                         ${!pago && isReceita ? `<button title="${i18n.paymentLink}" class="btn-icon text-blue-600 hover:text-blue-800 btn-payment-link" data-id="${l.id}"><i class="fas fa-external-link-alt"></i></button>` : ''}
-                        ${pago && isReceita && parseInt(l.tem_nfse || 0) === 0 ? `<button title="Emitir NFS-e" class="btn-icon text-purple-600 hover:text-purple-800 btn-nfse" data-id="${l.id}"><i class="fas fa-file-invoice"></i></button>` : ''}
+                        ${botaoNfse}
                         ${isReceita && l.id_cliente ? `<button title="${i18n.printSend}" class="btn-icon text-blue-600 hover:text-blue-800 btn-imprimir-fatura" data-id="${l.id}"><i class="fas fa-print"></i></button>` : ''}
                         <button title="${i18n.edit}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${l.id}"><i class="fas fa-edit"></i></button>
                         <button title="${i18n.delete}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${l.id}" data-name="${descricao}"><i class="fas fa-trash"></i></button>
@@ -383,10 +416,29 @@
         });
 
         // Event listeners para botoes de NFS-e
-        tbody.querySelectorAll('.btn-nfse').forEach(button => {
+        tbody.querySelectorAll('.btn-nfse-emit').forEach(button => {
             button.addEventListener('click', function () {
                 const id = this.getAttribute('data-id');
                 navegarPara('/pages/nfse/emitir?id_financeiro=' + id);
+            });
+        });
+
+        tbody.querySelectorAll('.btn-nfse-view').forEach(button => {
+            button.addEventListener('click', function () {
+                const nfseId = this.getAttribute('data-nfse-id');
+                navegarPara('/pages/nfse/' + nfseId + '/visualizar');
+            });
+        });
+
+        tbody.querySelectorAll('.btn-nfse-resend').forEach(button => {
+            button.addEventListener('click', function () {
+                nfseReenvioPendente = this.getAttribute('data-nfse-id');
+                window.parent.postMessage({
+                    action: 'openGenericConfirmModal',
+                    title: i18n.resendNfseTitle,
+                    message: i18n.resendNfseConfirm,
+                    confirmText: i18n.resendNfse
+                }, '*');
             });
         });
 
@@ -582,6 +634,40 @@
         }
     }
 
+    // ===== NFS-E =====
+
+    async function reenviarNfse(id) {
+        if (!id) return;
+
+        try {
+            const result = await API.post(`/nfse/${id}/reenviar`, {});
+            const message = result.success
+                ? (result.message || i18n.resendNfseSuccess)
+                : (result.message || i18n.resendNfseError);
+
+            window.parent.postMessage({ action: 'openAlert', message }, '*');
+
+            if (result.success) {
+                carregarLancamentos(currentPage, perPage, searchTerm);
+            }
+        } catch (error) {
+            console.error('Erro ao reenviar NFS-e:', error);
+            window.parent.postMessage({ action: 'openAlert', message: i18n.resendNfseError }, '*');
+        }
+    }
+
+    window.addEventListener('message', function (event) {
+        if (event.data && event.data.action === 'genericConfirmed' && nfseReenvioPendente) {
+            const nfseId = nfseReenvioPendente;
+            nfseReenvioPendente = null;
+            reenviarNfse(nfseId);
+        }
+
+        if (event.data && event.data.action === 'genericModalClosed') {
+            nfseReenvioPendente = null;
+        }
+    });
+
     // ===== LINK DE PAGAMENTO =====
 
     async function abrirLinkPagamento(id, button) {
@@ -602,14 +688,22 @@
                     window.open(result.url, '_blank');
                 }
             } else {
-                alert(result.message || i18n.paymentLinkError);
+                openAlert(result.message || i18n.paymentLinkError);
             }
         } catch (error) {
             console.error('Erro:', error);
-            alert(i18n.paymentLinkError);
+            openAlert(i18n.paymentLinkError);
         } finally {
             button.innerHTML = originalHtml;
             button.disabled = false;
+        }
+    }
+
+    function openAlert(message) {
+        if (window.parent !== window) {
+            window.parent.postMessage({ action: 'openAlert', message }, '*');
+        } else {
+            console.error(message);
         }
     }
 

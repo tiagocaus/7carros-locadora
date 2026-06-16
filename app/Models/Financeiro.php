@@ -96,8 +96,29 @@ class Financeiro extends Model
             ->selectSubquery(function ($q) {
                 $q->table('nfse', 'nf')
                   ->selectRaw('COUNT(*)')
-                  ->whereRaw('nf.id_financeiro = f.id AND nf.status != \'cancelada\'');
+                  ->whereRaw('nf.id_financeiro = f.id AND nf.chave = f.chave AND nf.status != \'cancelada\'');
             }, 'tem_nfse')
+            ->selectSubquery(function ($q) {
+                $q->table('nfse', 'nf')
+                  ->selectRaw('nf.id')
+                  ->whereRaw('nf.id_financeiro = f.id AND nf.chave = f.chave AND nf.status != \'cancelada\'')
+                  ->orderByDesc('nf.id')
+                  ->limit(1);
+            }, 'nfse_id')
+            ->selectSubquery(function ($q) {
+                $q->table('nfse', 'nf')
+                  ->selectRaw('nf.status')
+                  ->whereRaw('nf.id_financeiro = f.id AND nf.chave = f.chave AND nf.status != \'cancelada\'')
+                  ->orderByDesc('nf.id')
+                  ->limit(1);
+            }, 'nfse_status')
+            ->selectSubquery(function ($q) {
+                $q->table('nfse', 'nf')
+                  ->selectRaw('nf.numero')
+                  ->whereRaw('nf.id_financeiro = f.id AND nf.chave = f.chave AND nf.status != \'cancelada\'')
+                  ->orderByDesc('nf.id')
+                  ->limit(1);
+            }, 'nfse_numero')
             ->leftJoin('clientes', 'c', 'f.id_cliente', '=', 'c.id')
             ->leftJoin('fornecedores', 'fo', 'f.id_fornecedor', '=', 'fo.id')
             ->leftJoin('funcionarios', 'func', 'f.id_funcionario', '=', 'func.id')
@@ -283,7 +304,7 @@ class Financeiro extends Model
                 'f.*',
                 'c.nome_rsocial AS cliente_nome',
                 'c.cpf_cnpj AS cliente_cpf_cnpj',
-                'c.email AS cliente_email',
+                "(SELECT ce.email FROM contatos_emails ce WHERE ce.entidade_tipo = 'cliente' AND ce.entidade_id = c.id ORDER BY ce.principal = 'S' DESC, ce.id ASC LIMIT 1) AS cliente_email",
                 'fo.nome_rsocial AS fornecedor_nome',
                 'pc.descricao_i18n AS plano_conta_descricao_i18n',
                 'pc.hierarquia AS plano_conta_hierarquia',

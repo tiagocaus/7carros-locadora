@@ -24,6 +24,8 @@ use App\Services\NFSe\Betha\NFSeAPIBetha;
  */
 class NFSeService
 {
+    private const FISCAL_TIMEZONE = 'America/Sao_Paulo';
+
     private NFSeModel $nfseModel;
     private NFSeConfiguracao $configModel;
     private NFSeEvento $eventoModel;
@@ -61,7 +63,11 @@ class NFSeService
         // 2. Verificar duplicidade
         $existente = $this->nfseModel->buscarPorFinanceiro($idFinanceiro);
         if ($existente) {
-            return $this->erro('Já existe uma NFS-e emitida para este lançamento.', 'NOTA_DUPLICADA');
+            return $this->erro('Já existe uma NFS-e emitida para este lançamento.', 'NOTA_DUPLICADA', [], [
+                'id' => (int) $existente['id'],
+                'numero' => $existente['numero'] ?? null,
+                'id_financeiro' => (int) ($existente['id_financeiro'] ?? $idFinanceiro),
+            ]);
         }
 
         // 3. Buscar configuracao
@@ -78,8 +84,17 @@ class NFSeService
         if (empty($config['certificado_arquivo']) || empty($config['certificado_senha'])) {
             return $this->erro('Certificado digital não configurado.', 'CERT_NAO_ENCONTRADO');
         }
-        if (!$this->certificado->isValido($chave, $config['certificado_arquivo'], $config['certificado_senha'])) {
-            return $this->erro('Certificado digital vencido.', 'CERT_EXPIRADO');
+
+        $analiseCertificado = $this->certificado->analisar(
+            $chave,
+            $config['certificado_arquivo'],
+            $config['certificado_senha'],
+            true
+        );
+        $this->normalizarCertificadoLegado($idMatrizFilial, $config, $analiseCertificado);
+
+        if (($analiseCertificado['status'] ?? null) !== 'valido') {
+            return $this->erroCertificado($analiseCertificado);
         }
 
         // 5. Montar dados
@@ -96,6 +111,31 @@ class NFSeService
             'nacional' => $this->emitirNacional($dados, $config, $chave),
             'betha' => $this->emitirBetha($dados, $config, $chave),
             default => $this->erro('Tipo de emissão NFS-e não suportado: ' . $tipoEmissao, 'CONFIGURACAO_INCOMPLETA'),
+        };
+    }
+
+    private function normalizarCertificadoLegado(int $idMatrizFilial, array &$config, array $analiseCertificado): void
+    {
+        if (($analiseCertificado['formato_senha'] ?? null) !== 'legado' || empty($analiseCertificado['senha'])) {
+            return;
+        }
+
+        $senhaNormalizada = encrypt($analiseCertificado['senha']);
+        $validade = $analiseCertificado['validade'] ?? null;
+
+        $this->configModel->normalizarCertificado($idMatrizFilial, $senhaNormalizada, $validade);
+        $config['certificado_senha'] = $senhaNormalizada;
+        $config['certificado_validade'] = $validade;
+    }
+
+    private function erroCertificado(array $analiseCertificado): array
+    {
+        return match ($analiseCertificado['status'] ?? '') {
+            'vencido' => $this->erro('Certificado digital vencido.', 'CERT_EXPIRADO'),
+            'arquivo_ausente' => $this->erro('Arquivo do certificado digital não encontrado.', 'CERT_NAO_ENCONTRADO'),
+            'senha_invalida' => $this->erro('Senha do certificado incorreta ou arquivo inválido.', 'CERT_SENHA'),
+            'descriptografia_invalida' => $this->erro('Erro ao descriptografar a senha do certificado.', 'CERT_SENHA'),
+            default => $this->erro('Erro ao ler o certificado digital.', 'CERT_LEITURA'),
         };
     }
 
@@ -148,10 +188,18 @@ class NFSeService
 
         try {
             $api = $this->resolverAPI($nfse['tipo_emissao'] ?? 'nacional');
-            $identificador = ($nfse['tipo_emissao'] ?? 'nacional') === 'betha'
-                ? (string) ($nfse['protocolo'] ?? '')
-                : (string) ($nfse['chave_acesso'] ?? '');
-            $resultado = $api->consultar($identificador, $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+            if (($nfse['tipo_emissao'] ?? 'nacional') === 'betha' && $api instanceof NFSeAPIBetha) {
+                $resultado = $api->consultarStatusDps(
+                    (string) ($nfse['protocolo'] ?? ''),
+                    (string) ($config['codigo_municipio'] ?? ''),
+                    (string) ($nfse['prestador_cnpj'] ?? ''),
+                    $pem['certPath'],
+                    $pem['keyPath'],
+                    (int) $config['ambiente']
+                );
+            } else {
+                $resultado = $api->consultar((string) ($nfse['chave_acesso'] ?? ''), $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+            }
 
             $this->eventoModel->registrar($idNFSe, 'consulta', null, 'Consulta de status realizada', $resultado['resposta'] ?? null);
 
@@ -170,7 +218,7 @@ class NFSeService
     /**
      * Reenvia NFS-e rejeitada
      */
-    public function reenviar(int $idNFSe, string $chave): array
+    public function reenviar(int $idNFSe, string $chave, bool $permitirTentativaExtraManual = false): array
     {
         $nfse = $this->nfseModel->buscarPorId($idNFSe);
         if (!$nfse) {
@@ -179,7 +227,8 @@ class NFSeService
         if ($nfse['status'] !== 'rejeitada') {
             return $this->erro('Somente NFS-e rejeitadas podem ser reenviadas.', 'ERRO_DESCONHECIDO');
         }
-        if ((int) ($nfse['tentativas_envio'] ?? 0) >= 3) {
+        $tentativaExtraManual = $permitirTentativaExtraManual && $this->permiteTentativaExtraManual($nfse);
+        if ((int) ($nfse['tentativas_envio'] ?? 0) >= 3 && !$tentativaExtraManual) {
             return $this->erro('Número máximo de tentativas atingido (3).', 'ERRO_DESCONHECIDO');
         }
 
@@ -196,6 +245,15 @@ class NFSeService
 
             // Incrementar tentativas
             $this->nfseModel->incrementarTentativas($idNFSe);
+
+            if ($tentativaExtraManual) {
+                $this->eventoModel->registrar(
+                    $idNFSe,
+                    'reenvio_manual',
+                    'LIMITE_TECNICO',
+                    'Tentativa manual extra liberada após correção técnica do XML/data fiscal.'
+                );
+            }
 
             if (!empty($nfse['id_financeiro'])) {
                 $financeiroModel = new Financeiro();
@@ -237,6 +295,18 @@ class NFSeService
         } finally {
             $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
         }
+    }
+
+    private function permiteTentativaExtraManual(array $nfse): bool
+    {
+        if (($nfse['codigo_rejeicao'] ?? '') !== 'XML_INVALIDO' || empty($nfse['id_financeiro'])) {
+            return false;
+        }
+
+        $motivo = (string) ($nfse['motivo_rejeicao'] ?? '');
+
+        return str_contains($motivo, 'Data de emissão inválida')
+            || str_contains($motivo, "conteúdo do elemento 'trib' não está completo");
     }
 
     /**
@@ -572,12 +642,13 @@ class NFSeService
         $aliquotaCBS = 0.90;
         $valorIBS = $valorServicos * ($aliquotaIBS / 100);
         $valorCBS = $valorServicos * ($aliquotaCBS / 100);
+        $dataFiscal = $this->agoraFiscal();
 
         return [
             'ambiente' => (int) ($config['ambiente'] ?? 2),
             'serie' => $config['serie'] ?? 'DPS',
-            'data_emissao' => date('Y-m-d\TH:i:sP'),
-            'data_competencia' => date('Y-m-d'),
+            'data_emissao' => $dataFiscal->format('Y-m-d\TH:i:sP'),
+            'data_competencia' => $dataFiscal->format('Y-m-d'),
             'municipio_codigo' => $config['codigo_municipio'] ?? '',
             'tipo_emissao' => $config['tipo_emissao'] ?? 'nacional',
             'id_financeiro' => (int) $financeiro['id'],
@@ -587,7 +658,7 @@ class NFSeService
             'prestador' => [
                 'cnpj' => $empresa['cpf_cnpj'] ?? '',
                 'razao_social' => $empresa['razao_social'] ?? '',
-                'inscricao_municipal' => $empresa['inscricao_municipal'] ?? '',
+                'inscricao_municipal' => $empresa['ins_muni'] ?? $empresa['inscricao_municipal'] ?? '',
                 'telefone' => $empresa['celular'] ?? '',
                 'email' => $empresa['email'] ?? '',
                 'regime_tributario' => (int) ($config['regime_tributario'] ?? 1),
@@ -659,9 +730,28 @@ class NFSeService
             'ambiente' => $dados['ambiente'] ?? 2,
             'status' => 'pendente',
             'tipo_emissao' => $dados['tipo_emissao'] ?? 'nacional',
-            'data_emissao' => date('Y-m-d H:i:s'),
-            'data_competencia' => $dados['data_competencia'] ?? date('Y-m-d'),
+            'data_emissao' => $this->formatarDataBanco($dados['data_emissao'] ?? null),
+            'data_competencia' => $dados['data_competencia'] ?? $this->agoraFiscal()->format('Y-m-d'),
         ]);
+    }
+
+    private function agoraFiscal(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('now', new \DateTimeZone(self::FISCAL_TIMEZONE));
+    }
+
+    private function formatarDataBanco(?string $data): string
+    {
+        try {
+            $timezone = new \DateTimeZone(self::FISCAL_TIMEZONE);
+            $date = $data
+                ? new \DateTimeImmutable($data)
+                : new \DateTimeImmutable('now', $timezone);
+
+            return $date->setTimezone($timezone)->format('Y-m-d H:i:s');
+        } catch (\Throwable) {
+            return $this->agoraFiscal()->format('Y-m-d H:i:s');
+        }
     }
 
     private function normalizarItensNaoTributaveis(mixed $itens): array
@@ -736,13 +826,14 @@ class NFSeService
         }
 
         return [
-            'logradouro' => $cliente['logradouro'] ?? $cliente['endereco'] ?? '',
+            'logradouro' => $cliente['rua'] ?? $cliente['logradouro'] ?? $cliente['endereco'] ?? '',
             'numero' => $cliente['numero'] ?? '',
             'complemento' => $cliente['complemento'] ?? '',
             'bairro' => $cliente['bairro'] ?? '',
             'cidade' => $cliente['cidade'] ?? '',
             'uf' => $cliente['estado'] ?? '',
             'cep' => $cliente['cep'] ?? '',
+            'codigo_municipio' => $cliente['codigo_municipio'] ?? $cliente['municipio_codigo'] ?? $cliente['codigo_ibge'] ?? '',
         ];
     }
 
@@ -815,7 +906,14 @@ class NFSeService
         try {
             $api = new NFSeAPIBetha();
             $xmlParser = new NFSeXMLBetha();
-            $resultado = $api->consultar((string) $nfse['protocolo'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+            $resultado = $api->consultarStatusDps(
+                (string) $nfse['protocolo'],
+                (string) ($config['codigo_municipio'] ?? ''),
+                (string) ($nfse['prestador_cnpj'] ?? ''),
+                $pem['certPath'],
+                $pem['keyPath'],
+                (int) $config['ambiente']
+            );
             $retorno = $xmlParser->parseRetornoStatus($resultado['resposta'] ?? '');
 
             if ($retorno['sucesso']) {
@@ -874,15 +972,21 @@ class NFSeService
     /**
      * Formata retorno de erro padronizado
      */
-    private function erro(string $mensagem, string $codigo, array $errosAPI = []): array
+    private function erro(string $mensagem, string $codigo, array $errosAPI = [], ?array $dados = null): array
     {
         $erroFormatado = NFSeErros::formatarParaUsuario($codigo);
 
-        return [
+        $retorno = [
             'sucesso' => false,
             'mensagem' => $mensagem,
             'erro' => $erroFormatado,
             'erros_api' => $errosAPI,
         ];
+
+        if ($dados !== null) {
+            $retorno['dados'] = $dados;
+        }
+
+        return $retorno;
     }
 }

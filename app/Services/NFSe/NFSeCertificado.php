@@ -14,11 +14,15 @@ namespace App\Services\NFSe;
  */
 class NFSeCertificado
 {
+    private const SENHA_FORMATO_ATUAL = 'atual';
+    private const SENHA_FORMATO_LEGADO = 'legado';
+    private const LEGACY_PASSWORD_KEY = 'nfse_7carros_locadora_key';
+
     private string $basePath;
 
-    public function __construct()
+    public function __construct(?string $basePath = null)
     {
-        $this->basePath = dirname(__DIR__, 3) . '/storage/certificates';
+        $this->basePath = $basePath ?? dirname(__DIR__, 3) . '/storage/certificates';
     }
 
     /**
@@ -158,16 +162,16 @@ class NFSeCertificado
             throw new \RuntimeException('Arquivo do certificado não encontrado.');
         }
 
-        $senha = decrypt($senhaCriptografada);
-        if ($senha === null) {
-            throw new \RuntimeException('Erro ao descriptografar a senha do certificado.');
+        $pfxContent = file_get_contents($caminhoCompleto);
+        if ($pfxContent === false) {
+            throw new \RuntimeException('Erro ao ler o arquivo do certificado.');
         }
 
-        $pfxContent = file_get_contents($caminhoCompleto);
-        $certs = [];
-        if (!openssl_pkcs12_read($pfxContent, $certs, $senha)) {
+        $resultado = $this->lerCertificadoComSenhaCriptografada($pfxContent, $senhaCriptografada);
+        if (!$resultado['sucesso']) {
             throw new \RuntimeException('Erro ao ler o certificado. Verifique a senha.');
         }
+        $certs = $resultado['certs'];
 
         // Exportar PEM
         $pemPublica = '';
@@ -210,24 +214,8 @@ class NFSeCertificado
      */
     public function isValido(string $chave, string $arquivo, string $senhaCriptografada): bool
     {
-        try {
-            $caminhoCompleto = $this->caminhoCertificado($arquivo);
-            $senha = decrypt($senhaCriptografada);
-            if ($senha === null) {
-                return false;
-            }
-
-            $pfxContent = file_get_contents($caminhoCompleto);
-            $certs = [];
-            if (!openssl_pkcs12_read($pfxContent, $certs, $senha)) {
-                return false;
-            }
-
-            $certData = openssl_x509_parse($certs['cert']);
-            return ($certData['validTo_time_t'] ?? 0) > time();
-        } catch (\Throwable) {
-            return false;
-        }
+        $analise = $this->analisar($chave, $arquivo, $senhaCriptografada);
+        return $analise['status'] === 'valido';
     }
 
     /**
@@ -235,27 +223,71 @@ class NFSeCertificado
      */
     public function diasParaExpirar(string $chave, string $arquivo, string $senhaCriptografada): int
     {
-        try {
-            $caminhoCompleto = $this->caminhoCertificado($arquivo);
-            $senha = decrypt($senhaCriptografada);
-            if ($senha === null) {
-                return 0;
-            }
+        $analise = $this->analisar($chave, $arquivo, $senhaCriptografada);
+        return (int) ($analise['dias'] ?? 0);
+    }
 
-            $pfxContent = file_get_contents($caminhoCompleto);
-            $certs = [];
-            if (!openssl_pkcs12_read($pfxContent, $certs, $senha)) {
-                return 0;
-            }
-
-            $certData = openssl_x509_parse($certs['cert']);
-            $validoAte = $certData['validTo_time_t'] ?? 0;
-
-            $diff = $validoAte - time();
-            return max(0, (int) floor($diff / 86400));
-        } catch (\Throwable) {
-            return 0;
+    /**
+     * Analisa o certificado salvo e diferencia vencimento real de falhas de leitura/senha.
+     *
+     * @return array{
+     *     status:string,
+     *     valido:bool,
+     *     dias:?int,
+     *     validade:?string,
+     *     mensagem:string,
+     *     formato_senha:?string,
+     *     senha?:string
+     * }
+     */
+    public function analisar(string $chave, string $arquivo, string $senhaCriptografada, bool $incluirSenha = false): array
+    {
+        $caminhoCompleto = $this->caminhoCertificado($arquivo);
+        if (!file_exists($caminhoCompleto)) {
+            return $this->analiseErro('arquivo_ausente', 'Arquivo do certificado não encontrado.');
         }
+
+        $pfxContent = file_get_contents($caminhoCompleto);
+        if ($pfxContent === false) {
+            return $this->analiseErro('leitura_invalida', 'Erro ao ler o arquivo do certificado.');
+        }
+
+        $resultado = $this->lerCertificadoComSenhaCriptografada($pfxContent, $senhaCriptografada);
+        if (!$resultado['sucesso']) {
+            $status = $resultado['possui_senha'] ? 'senha_invalida' : 'descriptografia_invalida';
+            $mensagem = $resultado['possui_senha']
+                ? 'Senha do certificado incorreta ou arquivo inválido.'
+                : 'Erro ao descriptografar a senha do certificado.';
+
+            return $this->analiseErro($status, $mensagem);
+        }
+
+        $certData = openssl_x509_parse($resultado['certs']['cert']);
+        if (!$certData) {
+            return $this->analiseErro('leitura_invalida', 'Não foi possível ler os dados do certificado.');
+        }
+
+        $validoAte = (int) ($certData['validTo_time_t'] ?? 0);
+        $diff = $validoAte - time();
+        $dias = max(0, (int) floor($diff / 86400));
+        $status = $diff > 0 ? 'valido' : 'vencido';
+
+        $analise = [
+            'status' => $status,
+            'valido' => $status === 'valido',
+            'dias' => $dias,
+            'validade' => $validoAte > 0 ? date('Y-m-d', $validoAte) : null,
+            'mensagem' => $status === 'valido'
+                ? 'Certificado digital válido.'
+                : 'Certificado digital vencido.',
+            'formato_senha' => $resultado['formato_senha'],
+        ];
+
+        if ($incluirSenha) {
+            $analise['senha'] = $resultado['senha'];
+        }
+
+        return $analise;
     }
 
     /**
@@ -287,5 +319,72 @@ class NFSeCertificado
     private function caminhoCertificado(string $arquivo): string
     {
         return $this->basePath . '/' . basename($arquivo);
+    }
+
+    private function analiseErro(string $status, string $mensagem): array
+    {
+        return [
+            'status' => $status,
+            'valido' => false,
+            'dias' => null,
+            'validade' => null,
+            'mensagem' => $mensagem,
+            'formato_senha' => null,
+        ];
+    }
+
+    private function lerCertificadoComSenhaCriptografada(string $pfxContent, string $senhaCriptografada): array
+    {
+        $senhas = $this->senhasPossiveis($senhaCriptografada);
+        if (empty($senhas)) {
+            return ['sucesso' => false, 'possui_senha' => false];
+        }
+
+        foreach ($senhas as $candidate) {
+            $certs = [];
+            if (openssl_pkcs12_read($pfxContent, $certs, $candidate['senha'])) {
+                return [
+                    'sucesso' => true,
+                    'possui_senha' => true,
+                    'certs' => $certs,
+                    'senha' => $candidate['senha'],
+                    'formato_senha' => $candidate['formato'],
+                ];
+            }
+        }
+
+        return ['sucesso' => false, 'possui_senha' => true];
+    }
+
+    private function senhasPossiveis(string $senhaCriptografada): array
+    {
+        $senhas = [];
+
+        $senhaAtual = decrypt($senhaCriptografada);
+        if ($senhaAtual !== null) {
+            $senhas[] = ['senha' => $senhaAtual, 'formato' => self::SENHA_FORMATO_ATUAL];
+        }
+
+        $senhaLegado = $this->descriptografarSenhaLegado($senhaCriptografada);
+        if ($senhaLegado !== null && $senhaLegado !== $senhaAtual) {
+            $senhas[] = ['senha' => $senhaLegado, 'formato' => self::SENHA_FORMATO_LEGADO];
+        }
+
+        return $senhas;
+    }
+
+    private function descriptografarSenhaLegado(string $valorBase64): ?string
+    {
+        $data = base64_decode($valorBase64, true);
+        if ($data === false || strlen($data) < 17) {
+            return null;
+        }
+
+        $key = hash('sha256', self::LEGACY_PASSWORD_KEY, true);
+        $iv = substr($data, 0, 16);
+        $encrypted = substr($data, 16);
+        $senha = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
+
+        return $senha !== false ? $senha : null;
     }
 }

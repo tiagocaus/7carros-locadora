@@ -248,7 +248,7 @@
         let acoesHtml = '';
 
         if (n.status === 'autorizada' || n.status === 'cancelada') {
-            acoesHtml += `<a href="/nfse/${n.id}/pdf" target="_blank" class="btn-purple py-1 px-3 rounded text-xs"><i class="fas fa-file-pdf mr-1"></i><?= t('modules.nfse.buttons.download_pdf') ?></a>`;
+            acoesHtml += `<button type="button" data-id="${n.id}" data-numero="${escapeAttr(n.numero || n.id)}" class="btn-download-pdf-nfse btn-purple py-1 px-3 rounded text-xs"><i class="fas fa-file-pdf mr-1"></i><?= t('modules.nfse.buttons.download_pdf') ?></button>`;
         }
         if (n.status === 'autorizada') {
             acoesHtml += `<button onclick="enviarEmail(${n.id})" class="btn-green py-1 px-3 rounded text-xs"><i class="fas fa-envelope mr-1"></i><?= t('modules.nfse.buttons.send_email') ?></button>`;
@@ -263,8 +263,9 @@
         // Identificacao
         document.getElementById('infoNumero').textContent = n.numero || '-';
         document.getElementById('infoSerie').textContent = n.serie || '-';
-        document.getElementById('infoDataEmissao').textContent = n.created_at ? n.created_at.substring(0, 10).split('-').reverse().join('/') : '-';
-        document.getElementById('infoCompetencia').textContent = n.data_competencia || '-';
+        const dataBase = n.data_emissao || n.created_at || '';
+        document.getElementById('infoDataEmissao').textContent = dataBase ? DateHelper.format(dataBase.substring(0, 10)) : '-';
+        document.getElementById('infoCompetencia').textContent = n.data_competencia ? DateHelper.format(n.data_competencia) : '-';
         const tiposEmissao = {
             nacional: '<?= t('modules.nfse.tipo_emissao.nacional') ?>',
             betha: '<?= t('modules.nfse.tipo_emissao.betha') ?>'
@@ -294,15 +295,15 @@
         document.getElementById('infoDescricaoServico').textContent = n.descricao_servico || '-';
 
         // Valores
-        document.getElementById('infoValorServicos').textContent = formatarMoeda(parseFloat(n.valor_servicos || 0));
-        document.getElementById('infoValorDeducoes').textContent = formatarMoeda(parseFloat(n.valor_deducoes || 0));
-        document.getElementById('infoBaseCalculo').textContent = formatarMoeda(parseFloat(n.base_calculo || 0));
+        document.getElementById('infoValorServicos').textContent = Currency.format(parseFloat(n.valor_servicos || 0), true);
+        document.getElementById('infoValorDeducoes').textContent = Currency.format(parseFloat(n.valor_deducoes || 0), true);
+        document.getElementById('infoBaseCalculo').textContent = Currency.format(parseFloat(n.base_calculo || 0), true);
         document.getElementById('infoAliquotaISS').textContent = parseFloat(n.aliquota_iss || 0).toFixed(2).replace('.', ',');
-        document.getElementById('infoValorISS').textContent = formatarMoeda(parseFloat(n.valor_iss || 0));
+        document.getElementById('infoValorISS').textContent = Currency.format(parseFloat(n.valor_iss || 0), true);
         document.getElementById('infoAliquotaIBS').textContent = parseFloat(n.aliquota_ibs || 0.10).toFixed(2).replace('.', ',');
-        document.getElementById('infoValorIBS').textContent = formatarMoeda(parseFloat(n.valor_ibs || 0));
+        document.getElementById('infoValorIBS').textContent = Currency.format(parseFloat(n.valor_ibs || 0), true);
         document.getElementById('infoAliquotaCBS').textContent = parseFloat(n.aliquota_cbs || 0.90).toFixed(2).replace('.', ',');
-        document.getElementById('infoValorCBS').textContent = formatarMoeda(parseFloat(n.valor_cbs || 0));
+        document.getElementById('infoValorCBS').textContent = Currency.format(parseFloat(n.valor_cbs || 0), true);
 
         if (parseFloat(n.valor_deducoes || 0) === 0) {
             document.getElementById('rowDeducoes').classList.add('hidden');
@@ -363,6 +364,14 @@
         window.parent.postMessage({ action: 'navigate', page: page }, '*');
     };
 
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-download-pdf-nfse');
+        if (!btn) return;
+
+        e.preventDefault();
+        baixarPdfNfse(btn.dataset.id, btn.dataset.numero);
+    });
+
     window.enviarEmail = async function(id) {
         try {
             const result = await API.post(`/nfse/${id}/email`, {});
@@ -394,8 +403,45 @@
         }
     };
 
+    window.baixarPdfNfse = async function(id, numero) {
+        try {
+            const response = await fetch(`/nfse/${id}/pdf`, {
+                method: 'GET',
+                headers: API.getHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('download_failed');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `nfse_${String(numero || id).replace(/[^A-Za-z0-9_.-]/g, '_')}.pdf`;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        } catch (e) {
+            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.load_error') ?>' }, '*');
+        }
+    };
+
     function voltarParaLista() {
         window.parent.postMessage({ action: 'navigate', page: '/pages/nfse' }, '*');
+    }
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+
+    function escapeAttr(text) {
+        return escapeHtml(text).replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 })();
 </script>

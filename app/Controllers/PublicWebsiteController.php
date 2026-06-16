@@ -585,6 +585,10 @@ class PublicWebsiteController
                     'celular' => $clienteInfo['telefone'] ?? '',
                     'cpf_cnpj' => $clienteInfo['documento'] ?? '',
                 ],
+                'empresa' => [
+                    'id' => (int) $dados['filial_retirada_id'],
+                ],
+                'id_matriz_filial' => (int) $dados['filial_retirada_id'],
                 'locacao' => [
                     'numero' => $codigo,
                     'data_retirada' => date('d/m/Y', strtotime($dados['data_saida'])),
@@ -645,20 +649,28 @@ class PublicWebsiteController
             }
 
             $empresaMatriz = $matrizFilial->buscarMatriz();
-            $this->restoreTenantContext();
 
-            // Disparo de mensagens (fora do contexto tenant — cada service resolve credenciais)
+            // Disparo de mensagens no contexto do tenant para validar canais por filial.
             //  - pedido_reserva: sempre (funciona como backup caso o cliente feche a tela)
             //  - confirmacao_reserva: so quando a reserva ja esta efetivamente confirmada
             //    (sem confirmacao manual pendente e sem pagamento antecipado pendente)
             if (function_exists('queue_template_message')) {
-                queue_template_message('pedido_reserva', 'email', $context, $chave);
-                queue_template_message('pedido_reserva', 'whatsapp', $context, $chave);
+                foreach (['email', 'whatsapp'] as $canal) {
+                    try {
+                        queue_template_message('pedido_reserva', $canal, $context, $chave);
+                    } catch (\Throwable $e) {
+                        error_log("[Site/Publico] Erro ao enfileirar pedido_reserva/{$canal}: " . $e->getMessage());
+                    }
+                }
 
                 if (!$requerConfirmacao && !$pagamentoAntecipado) {
-                    queue_template_message('confirmacao_reserva', 'email', $context, $chave);
-                    queue_template_message('confirmacao_reserva', 'whatsapp', $context, $chave);
-                    queue_template_message('confirmacao_reserva', 'sms', $context, $chave);
+                    foreach (['email', 'whatsapp', 'sms'] as $canal) {
+                        try {
+                            queue_template_message('confirmacao_reserva', $canal, $context, $chave);
+                        } catch (\Throwable $e) {
+                            error_log("[Site/Publico] Erro ao enfileirar confirmacao_reserva/{$canal}: " . $e->getMessage());
+                        }
+                    }
                 }
             }
 
@@ -671,11 +683,17 @@ class PublicWebsiteController
                     . "Retirada: " . date('d/m/Y', strtotime($dados['data_saida'])) . " {$dados['hora_saida']}\n"
                     . ($requerConfirmacao ? "\n⚠️ Aguarda sua confirmacao no painel." : '')
                     . ($pagamentoAntecipado ? "\n💳 Aguarda pagamento do cliente." : '');
-                queue_system_message('whatsapp', [
-                    'to' => preg_replace('/\D/', '', (string) $empresaMatriz['celular']),
-                    'message' => $msgLocadora,
-                ], $chave);
+                try {
+                    queue_system_message('whatsapp', [
+                        'to' => preg_replace('/\D/', '', (string) $empresaMatriz['celular']),
+                        'message' => $msgLocadora,
+                    ], $chave);
+                } catch (\Throwable $e) {
+                    error_log('[Site/Publico] Erro ao notificar locadora por WhatsApp: ' . $e->getMessage());
+                }
             }
+
+            $this->restoreTenantContext();
 
             Response::json([
                 'success' => true,

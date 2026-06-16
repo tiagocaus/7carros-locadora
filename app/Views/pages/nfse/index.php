@@ -170,12 +170,14 @@
             filterDataInicio = e.target.value;
             currentPage = 1;
             carregarDados();
+            carregarEstatisticas();
         });
 
         document.getElementById('filterDataFim').addEventListener('change', (e) => {
             filterDataFim = e.target.value;
             currentPage = 1;
             carregarDados();
+            carregarEstatisticas();
         });
 
         document.getElementById('rowsPerPage').addEventListener('change', (e) => {
@@ -239,7 +241,12 @@
 
     async function carregarEstatisticas() {
         try {
-            const result = await API.get('/api/nfse/estatisticas');
+            const params = {};
+            if (filterFilial) params.filial = filterFilial;
+            if (filterDataInicio) params.data_inicio = filterDataInicio;
+            if (filterDataFim) params.data_fim = filterDataFim;
+
+            const result = await API.get('/api/nfse/estatisticas', params);
             if (result.success && result.data) {
                 const d = result.data;
                 document.getElementById('statTotal').textContent = d.total || 0;
@@ -265,6 +272,7 @@
             const result = await API.get('/api/nfse', params);
 
             if (!result.success) {
+                console.error('Erro ao carregar NFS-e:', result.message || result);
                 tbody.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-slate-500 py-8">${i18n.loadError}</td></tr>`;
                 return;
             }
@@ -284,6 +292,7 @@
 
             atualizarPaginacao(pagination);
         } catch (e) {
+            console.error('Erro ao carregar NFS-e:', e);
             tbody.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-red-500 py-8">${i18n.loadError}</td></tr>`;
         } finally {
             if (isFirstLoad) {
@@ -296,9 +305,9 @@
     function renderRow(n) {
         const numero = n.numero || '-';
         const tomador = escapeHtml(n.tomador_nome || '-');
-        const cpfCnpj = n.tomador_cpf_cnpj || '';
-        const dataEmissao = n.created_at ? n.created_at.substring(0, 10).split('-').reverse().join('/') : '-';
-        const valor = formatarMoeda(parseFloat(n.valor_servicos || 0));
+        const dataBase = n.data_emissao || n.created_at || '';
+        const dataEmissao = dataBase ? dataBase.substring(0, 10).split('-').reverse().join('/') : '-';
+        const valor = Currency.format(parseFloat(n.valor_servicos || 0), true);
         const tiposEmissao = {
             nacional: 'Nacional',
             betha: 'Betha'
@@ -312,7 +321,6 @@
             <td class="table-cell text-center font-medium">${numero}</td>
             <td class="table-cell">
                 <div class="text-sm font-medium text-slate-900">${tomador}</div>
-                <div class="text-xs text-slate-400">${cpfCnpj}</div>
             </td>
             <td class="table-cell hidden md:table-cell text-center text-sm">${dataEmissao}</td>
             <td class="table-cell hidden sm:table-cell text-right text-sm font-medium">${valor}</td>
@@ -348,7 +356,7 @@
 
         // PDF (autorizada ou cancelada)
         if (n.status === 'autorizada' || n.status === 'cancelada') {
-            html += `<a href="/nfse/${n.id}/pdf" target="_blank" title="<?= t('modules.nfse.buttons.download_pdf') ?>" class="text-purple-600 hover:text-purple-800 p-1"><i class="fas fa-file-pdf"></i></a>`;
+            html += `<button type="button" data-id="${n.id}" data-numero="${escapeAttr(n.numero || n.id)}" title="<?= t('modules.nfse.buttons.download_pdf') ?>" class="btn-download-pdf-nfse text-purple-600 hover:text-purple-800 p-1"><i class="fas fa-file-pdf"></i></button>`;
         }
 
         // Email (autorizada)
@@ -408,6 +416,14 @@
         window.parent.postMessage({ action: 'navigate', page: page }, '*');
     };
 
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-download-pdf-nfse');
+        if (!btn) return;
+
+        e.preventDefault();
+        baixarPdfNfse(btn.dataset.id, btn.dataset.numero);
+    });
+
     window.enviarEmail = async function(id) {
         try {
             const result = await API.post(`/nfse/${id}/email`, {});
@@ -428,6 +444,43 @@
             window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.resend_error') ?>' }, '*');
         }
     };
+
+    window.baixarPdfNfse = async function(id, numero) {
+        try {
+            const response = await fetch(`/nfse/${id}/pdf`, {
+                method: 'GET',
+                headers: API.getHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('download_failed');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `nfse_${String(numero || id).replace(/[^A-Za-z0-9_.-]/g, '_')}.pdf`;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        } catch (e) {
+            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.load_error') ?>' }, '*');
+        }
+    };
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+
+    function escapeAttr(text) {
+        return escapeHtml(text).replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
 })();
 </script>
 @endsection

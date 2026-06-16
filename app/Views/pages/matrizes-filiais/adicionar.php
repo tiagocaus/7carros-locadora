@@ -1970,12 +1970,18 @@
                     document.getElementById('certValidadeLabel').textContent =
                         '<?= t('modules.nfse.config.cert_validade') ?>: ' + validade;
 
-                    const dias = config.certificado_dias_expiracao || 0;
+                    const dias = config.certificado_dias_expiracao;
+                    const status = config.certificado_status || '';
+                    const mensagem = config.certificado_status_mensagem || 'Não foi possível validar o certificado. Reenvie o arquivo e a senha.';
                     const diasEl = document.getElementById('certDiasExpirar');
-                    if (dias <= 0) {
+                    if (status === 'vencido') {
                         diasEl.innerHTML = '<span class="text-red-600 font-bold"><?= t('modules.nfse.config.cert_expirado') ?></span>';
-                    } else {
+                    } else if (status && status !== 'valido') {
+                        diasEl.innerHTML = '<span class="text-red-600 font-bold">' + mensagem + '</span>';
+                    } else if (dias !== null && dias !== undefined) {
                         diasEl.textContent = dias + ' <?= t('modules.nfse.config.cert_dias_expirar') ?>';
+                    } else {
+                        diasEl.textContent = mensagem;
                     }
                 } else {
                     naoConfig.classList.remove('hidden');

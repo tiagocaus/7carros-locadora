@@ -24,7 +24,7 @@ class LoginAttempt extends Model
             ->withoutChave()
             ->where('usuario', '=', $usuario)
             ->where('ip_address', '=', $ip)
-            ->whereRaw('bloqueado_ate > NOW()')
+            ->whereNotNull('bloqueado_ate')
             ->first();
     }
 

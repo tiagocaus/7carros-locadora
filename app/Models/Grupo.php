@@ -285,4 +285,30 @@ class Grupo extends Model
         return $query->get();
     }
 
+    /**
+     * Lista grupos com quantidade livre no periodo informado.
+     *
+     * @param int $filialId ID da filial
+     * @param string $dataSaida Data/hora inicial (Y-m-d H:i:s)
+     * @param string $dataPrevista Data/hora final (Y-m-d H:i:s)
+     * @return array Lista de grupos com qtd_disponiveis
+     */
+    public function listarComDisponibilidadePeriodo(int $filialId, string $dataSaida, string $dataPrevista): array
+    {
+        $grupos = $this->qb
+            ->table('grupos')
+            ->select(['id', 'nome'])
+            ->orderBy('nome', 'ASC')
+            ->get();
+
+        $mapaDisponibilidade = (new Veiculo())->gruposDisponiveisPorFilial($filialId, $dataSaida, $dataPrevista);
+
+        foreach ($grupos as &$grupo) {
+            $grupo['qtd_disponiveis'] = $mapaDisponibilidade[(int) $grupo['id']] ?? 0;
+        }
+        unset($grupo);
+
+        return $grupos;
+    }
+
 }

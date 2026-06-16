@@ -301,6 +301,7 @@ return [
         'fill_dates_first' => 'Preencha as datas de saída e devolução prevista',
         'load_data_error' => 'Erro ao carregar dados',
         'select_group_first' => 'Selecione o grupo primeiro',
+        'vehicle_defined_at_checkout' => 'Veículo será definido na saída',
         'vehicle_unavailable' => 'Veículo não disponível para o período selecionado',
         'only_reservation_checkout' => 'Somente reservas podem ter saída registrada',
         'only_open_return' => 'Somente locações abertas podem ter devolução registrada',
@@ -535,6 +536,7 @@ return [
         'select_checklist_placeholder' => '-- Selecione um modelo --',
         'generate_pdf' => 'Gerar PDF',
         'send_via' => 'Enviar por',
+        'no_channels_available' => 'Cliente sem e-mail ou telefone cadastrado, filial sem conexão ativa, ou canais de envio não habilitados no seu plano.',
     ],
 
     // Templates de impressao (PDF)
@@ -582,6 +584,7 @@ return [
         'vehicle_header' => 'Veículo',
         'plate_header' => 'Placa',
         'group_header' => 'Grupo',
+        'group_category_label' => 'Grupo/Categoria',
         'plan_header' => 'Plano',
         'vehicle_insurance_header' => 'Seguro Veic.',
         'third_party_insurance_header' => 'Seguro Terc.',

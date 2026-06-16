@@ -191,7 +191,7 @@ return [
         'no_records' => 'Ningún registro encontrado',
         'delete_error' => 'Error al eliminar: :message',
         'delete_has_links_title' => 'Matriz/sucursal con vínculos',
-        'delete_has_links_confirm' => "No es posible eliminar esta matriz/sucursal porque existen vínculos:\n\n:links\n\n¿Desea desactivarla?",
+        'delete_has_links_confirm' => 'No es posible eliminar este registro porque existen vínculos. ¿Desea desactivarla?',
         'deactivate_button' => 'Desactivar matriz/sucursal',
         'deactivated' => 'Matriz/sucursal desactivada con éxito',
         'deactivate_error' => 'Error al desactivar matriz/sucursal',

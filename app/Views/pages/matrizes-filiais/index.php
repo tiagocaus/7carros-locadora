@@ -363,16 +363,8 @@
             console.warn(mensagem);
         }
 
-        function formatarVinculos(vinculos) {
-            if (!vinculos) return [];
-            if (Array.isArray(vinculos)) return vinculos;
-
-            return Object.entries(vinculos).map(([label, total]) => `${total} ${label}`);
-        }
-
-        function abrirConfirmacaoDesativacao(id, vinculos) {
-            const links = formatarVinculos(vinculos);
-            const message = i18n.deleteHasLinksConfirm.replace(':links', links.join('\n'));
+        function abrirConfirmacaoDesativacao(id) {
+            const message = i18n.deleteHasLinksConfirm;
             pendingDeactivateId = id;
 
             if (window.parent !== window) {
@@ -395,7 +387,7 @@
                 if (result.success) {
                     carregarDados(currentPage, perPage, searchTerm);
                 } else if (result.pode_desativar) {
-                    abrirConfirmacaoDesativacao(id, result.vinculos);
+                    abrirConfirmacaoDesativacao(id);
                 } else {
                     console.error('Erro ao excluir:', result.message);
                     mostrarAlerta(i18n.deleteError.replace(':message', result.message || ''));

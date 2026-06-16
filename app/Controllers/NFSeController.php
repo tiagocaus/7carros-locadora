@@ -129,7 +129,6 @@ class NFSeController
                 return;
             }
 
-            $chave = Auth::chave();
             $page = max(1, (int) $request->query('page', 1));
             $perPage = max(1, min(100, (int) $request->query('perPage', 10)));
             $search = $request->query('search', '');
@@ -151,13 +150,13 @@ class NFSeController
             $nfseModel = new NFSe();
 
             $notas = $nfseModel->listarPaginado(
-                $chave, $page, $perPage, $search,
+                $page, $perPage, $search,
                 $filialWhere, $filialParams,
                 $filialId, $status, $dataInicio, $dataFim, $ambiente
             );
 
             $total = $nfseModel->contar(
-                $chave, $search,
+                $search,
                 $filialWhere, $filialParams,
                 $filialId, $status, $dataInicio, $dataFim, $ambiente
             );
@@ -223,8 +222,13 @@ class NFSeController
             $dataFim = $request->query('data_fim', '');
             $filialId = $request->query('filial', '');
 
+            if (!empty($filialId) && !FilialHelper::temAcessoFilial((int) $filialId)) {
+                Response::json(['success' => false, 'message' => 'Voce nao tem permissao para acessar esta filial'], 403);
+                return;
+            }
+
             $nfseModel = new NFSe();
-            $stats = $nfseModel->estatisticas(Auth::chave(), $filialWhere, $filialParams, $dataInicio, $dataFim, $filialId);
+            $stats = $nfseModel->estatisticas($filialWhere, $filialParams, $dataInicio, $dataFim, $filialId);
 
             Response::json(['success' => true, 'data' => $stats]);
         } catch (\Exception $e) {
@@ -399,7 +403,7 @@ class NFSeController
             }
 
             $service = new NFSeService();
-            $resultado = $service->reenviar($id, Auth::chave());
+            $resultado = $service->reenviar($id, Auth::chave(), true);
 
             $httpCode = ($resultado['sucesso'] ?? false) ? 200 : 422;
             Response::json([
@@ -461,19 +465,29 @@ class NFSeController
                 return;
             }
 
-            // Gerar PDF se nao existe
-            if (empty($nfse['pdf_url'])) {
-                $pdf = new \App\Services\NFSe\NFSePDF();
-                $pdfResult = $pdf->gerar($nfse);
-                if (!$pdfResult['sucesso']) {
-                    Response::json(['success' => false, 'message' => 'Erro ao gerar PDF'], 500);
-                    return;
-                }
+            $pdf = new \App\Services\NFSe\NFSePDF();
+            $pdfUrlAnterior = $nfse['pdf_url'] ?? '';
+            $pdfAnteriorExiste = $pdfUrlAnterior !== '' && file_exists($pdf->getCaminhoCompleto($pdfUrlAnterior));
+
+            // Regenera para entregar sempre o layout fiscal atual (logo, QR Code e ajustes visuais).
+            $pdfResult = $pdf->gerar($nfse);
+            if ($pdfResult['sucesso']) {
+                $nfseModel = new NFSe();
                 $nfseModel->salvarPdfUrl($id, $pdfResult['caminho']);
+
+                if ($pdfUrlAnterior !== '' && $pdfUrlAnterior !== $pdfResult['caminho']) {
+                    $caminhoAnterior = $pdf->getCaminhoCompleto($pdfUrlAnterior);
+                    if (file_exists($caminhoAnterior)) {
+                        @unlink($caminhoAnterior);
+                    }
+                }
+
                 $nfse['pdf_url'] = $pdfResult['caminho'];
+            } elseif (!$pdfAnteriorExiste) {
+                Response::json(['success' => false, 'message' => 'Erro ao gerar PDF'], 500);
+                return;
             }
 
-            $pdf = new \App\Services\NFSe\NFSePDF();
             $caminhoCompleto = $pdf->getCaminhoCompleto($nfse['pdf_url']);
 
             if (!file_exists($caminhoCompleto)) {
@@ -482,9 +496,11 @@ class NFSeController
             }
 
             $nomeArquivo = 'nfse_' . ($nfse['numero'] ?? $id) . '.pdf';
+            $nomeArquivo = preg_replace('/[^A-Za-z0-9_.-]/', '_', $nomeArquivo);
+            $nomeArquivoEncoded = rawurlencode($nomeArquivo);
 
             header('Content-Type: application/pdf');
-            header('Content-Disposition: inline; filename="' . $nomeArquivo . '"');
+            header('Content-Disposition: attachment; filename="' . $nomeArquivo . '"; filename*=UTF-8\'\'' . $nomeArquivoEncoded);
             header('Content-Length: ' . filesize($caminhoCompleto));
             readfile($caminhoCompleto);
             exit;
@@ -527,11 +543,32 @@ class NFSeController
             // Adicionar info do certificado ANTES de mascarar senha
             if ($config && !empty($config['certificado_arquivo'])) {
                 $cert = new NFSeCertificado();
-                $config['certificado_dias_expiracao'] = $cert->diasParaExpirar(
+                $analiseCertificado = $cert->analisar(
                     Auth::chave(),
                     $config['certificado_arquivo'],
-                    $config['certificado_senha'] ?? ''
+                    $config['certificado_senha'] ?? '',
+                    true
                 );
+
+                if (($analiseCertificado['formato_senha'] ?? null) === 'legado' && !empty($analiseCertificado['senha'])) {
+                    $senhaNormalizada = encrypt($analiseCertificado['senha']);
+                    $configModel->normalizarCertificado(
+                        $filialId,
+                        $senhaNormalizada,
+                        $analiseCertificado['validade'] ?? null
+                    );
+                    $config['certificado_senha'] = $senhaNormalizada;
+                    $config['certificado_validade'] = $analiseCertificado['validade'] ?? $config['certificado_validade'];
+                    $analiseCertificado['formato_senha'] = 'atual';
+                }
+
+                $config['certificado_status'] = $analiseCertificado['status'] ?? null;
+                $config['certificado_status_mensagem'] = $analiseCertificado['mensagem'] ?? null;
+                $config['certificado_dias_expiracao'] = $analiseCertificado['dias'] ?? null;
+                if (!empty($analiseCertificado['validade'])) {
+                    $config['certificado_validade'] = $analiseCertificado['validade'];
+                }
+                unset($analiseCertificado['senha']);
             }
 
             // Mascarar senha DEPOIS de usar
@@ -742,7 +779,20 @@ class NFSeController
                     default => throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado: ' . $tipoEmissao),
                 };
 
-                $resultado = $api->testarConexao($pem['certPath'], $pem['keyPath'], (int) ($config['ambiente'] ?? 2));
+                if ($api instanceof \App\Services\NFSe\Betha\NFSeAPIBetha) {
+                    $matrizFilialModel = new \App\Models\MatrizFilial();
+                    $filial = $matrizFilialModel->buscarPorId($filialId);
+
+                    $resultado = $api->testarConexaoMunicipio(
+                        $pem['certPath'],
+                        $pem['keyPath'],
+                        (int) ($config['ambiente'] ?? 2),
+                        (string) ($config['codigo_municipio'] ?? ''),
+                        (string) ($filial['cpf_cnpj'] ?? '')
+                    );
+                } else {
+                    $resultado = $api->testarConexao($pem['certPath'], $pem['keyPath'], (int) ($config['ambiente'] ?? 2));
+                }
 
                 $httpCode = ($resultado['sucesso'] ?? false) ? 200 : 422;
                 Response::json([

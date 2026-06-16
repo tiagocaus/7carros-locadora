@@ -188,7 +188,7 @@
                             <option value=""><?= t('common.labels.select') ?></option>
                         </select>
                     </div>
-                    <div class="md:col-span-6 form-input-group">
+                    <div id="campoVeiculoWrapper" class="md:col-span-6 form-input-group">
                         <label for="id_veiculo" class="form-label-group">
                             <?= t('modules.locacoes.fields.vehicle') ?> <span class="text-red-500" id="asterisco_id_veiculo">*</span>
                         </label>
@@ -1252,6 +1252,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const filialId = document.getElementById('id_matriz_filial_retirada')?.value;
             const selectVeiculo = document.getElementById('id_veiculo');
 
+            if (isStatusReserva()) {
+                prepararVeiculoParaReserva();
+                return;
+            }
+
             if (!grupoId || !filialId) {
                 selectVeiculo.innerHTML = '<option value=""><?= t('modules.locacoes.messages.select_group_first') ?></option>';
                 if (selectVeiculo.chosenSelect) selectVeiculo.chosenSelect.refresh();
@@ -1277,19 +1282,52 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }
         }
 
+        function isStatusReserva() {
+            const status = document.getElementById('locacaoStatus')?.value || 'R';
+            return ['R', 'P'].includes(status);
+        }
+
+        function prepararVeiculoParaReserva() {
+            const selectVeiculo = document.getElementById('id_veiculo');
+            if (!selectVeiculo) return;
+
+            if (!isEditing || !locacaoData?.id_veiculo) {
+                selectVeiculo.innerHTML = '<option value=""><?= t('modules.locacoes.messages.vehicle_defined_at_checkout') ?></option>';
+                selectVeiculo.value = '';
+            }
+
+            selectVeiculo.removeAttribute('required');
+            if (selectVeiculo.chosenSelect) selectVeiculo.chosenSelect.refresh();
+        }
+
         async function carregarGrupos() {
             const filialId = document.getElementById('id_matriz_filial_retirada')?.value;
             const selectGrupo = document.getElementById('id_grupo');
             if (!filialId) return;
 
             try {
-                const result = await API.get('/api/grupos', { id_filial: filialId });
+                const params = { id_filial: filialId };
+                if (isStatusReserva()) {
+                    const dataSaida = document.getElementById('data_saida')?.value || '';
+                    const dataPrevista = document.getElementById('data_prevista')?.value || '';
+                    if (dataSaida && dataPrevista) {
+                        params.contexto = 'reserva';
+                        params.data_saida = dataSaida;
+                        params.data_prevista = dataPrevista;
+                    }
+                }
+
+                const valorAtual = selectGrupo.value;
+                const result = await API.get('/api/grupos', params);
                 if (result.success) {
                     selectGrupo.innerHTML = '<option value=""><?= t('common.labels.select') ?></option>';
                     result.data.forEach(g => {
-                    const disp = g.qtd_disponiveis !== undefined ? ` (${g.qtd_disponiveis})` : '';
+                        const disp = g.qtd_disponiveis !== undefined ? ` (${g.qtd_disponiveis})` : '';
                         selectGrupo.add(new Option(g.nome + disp, g.id));
                     });
+                    if (valorAtual && Array.from(selectGrupo.options).some(opt => opt.value === valorAtual)) {
+                        selectGrupo.value = valorAtual;
+                    }
                     if (selectGrupo.chosenSelect) selectGrupo.chosenSelect.refresh();
                 }
             } catch (e) {
@@ -1301,13 +1339,19 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const grupoId = this.value;
             if (!grupoId) {
                 const selectVeiculo = document.getElementById('id_veiculo');
-                selectVeiculo.innerHTML = '<option value=""><?= t('modules.locacoes.messages.select_group_first') ?></option>';
+                selectVeiculo.innerHTML = isStatusReserva()
+                    ? '<option value=""><?= t('modules.locacoes.messages.vehicle_defined_at_checkout') ?></option>'
+                    : '<option value=""><?= t('modules.locacoes.messages.select_group_first') ?></option>';
                 if (selectVeiculo.chosenSelect) selectVeiculo.chosenSelect.refresh();
                 return;
             }
 
             await carregarValoresGrupo(grupoId);
-            await carregarVeiculosPorGrupo(grupoId);
+            if (isStatusReserva()) {
+                prepararVeiculoParaReserva();
+            } else {
+                await carregarVeiculosPorGrupo(grupoId);
+            }
         });
 
         // Recarregar grupos e veiculos quando filial de retirada muda
@@ -1319,7 +1363,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const grupoId = document.getElementById('id_grupo')?.value;
             if (grupoId) {
                 carregarValoresGrupo(grupoId);
-                carregarVeiculosPorGrupo(grupoId);
+                if (isStatusReserva()) {
+                    prepararVeiculoParaReserva();
+                } else {
+                    carregarVeiculosPorGrupo(grupoId);
+                }
             }
             verificarKmRetorno();
         });
@@ -2524,8 +2572,16 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('seguro_carro')?.addEventListener('change', atualizarResumoETaxas);
         document.getElementById('seguro_terceiros')?.addEventListener('change', atualizarResumoETaxas);
         document.getElementById('dias')?.addEventListener('change', atualizarResumoETaxas);
-        document.getElementById('data_saida')?.addEventListener('change', () => { calcularDias(); atualizarResumoETaxas(); });
-        document.getElementById('data_prevista')?.addEventListener('change', () => { calcularDias(); atualizarResumoETaxas(); });
+        document.getElementById('data_saida')?.addEventListener('change', () => {
+            calcularDias();
+            atualizarResumoETaxas();
+            if (isStatusReserva()) carregarGrupos();
+        });
+        document.getElementById('data_prevista')?.addEventListener('change', () => {
+            calcularDias();
+            atualizarResumoETaxas();
+            if (isStatusReserva()) carregarGrupos();
+        });
         document.getElementById('minuto_tolerancia')?.addEventListener('change', () => { calcularDias(); atualizarResumoETaxas(); });
 
         // ===== ABAS =====
@@ -2959,7 +3015,15 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     ? campoVeiculo.setAttribute('required', '')
                     : campoVeiculo.removeAttribute('required');
             }
+            document.getElementById('campoVeiculoWrapper')?.classList.toggle('hidden', !veiculoObrigatorio);
             document.getElementById('asterisco_id_veiculo')?.classList.toggle('hidden', !veiculoObrigatorio);
+
+            if (veiculoObrigatorio) {
+                const grupoId = document.getElementById('id_grupo')?.value;
+                if (grupoId) carregarVeiculosPorGrupo(grupoId);
+            } else {
+                prepararVeiculoParaReserva();
+            }
 
             // Parcelas: visivel quando estiver editando
             if (secaoParcelas) {
@@ -2981,6 +3045,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         document.getElementById('locacaoStatus')?.addEventListener('change', function() {
             atualizarVisibilidadePorStatus();
+            carregarGrupos();
 
             // Se mudou para F, o campo de previsao passa a representar data_chegada.
             if (this.value === 'F') {

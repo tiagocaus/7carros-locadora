@@ -193,7 +193,13 @@ class AuthController
         $attempts = $this->loginAttemptModel->buscarBloqueio($username, $ip);
 
         if ($attempts) {
-            $minutesLeft = ceil((strtotime($attempts['bloqueado_ate']) - time()) / 60);
+            $secondsLeft = $this->secondsUntilUnlock($attempts['bloqueado_ate'] ?? null);
+            if ($secondsLeft <= 0) {
+                $this->clearLoginAttempts($username, $ip);
+                return;
+            }
+
+            $minutesLeft = max(1, (int) ceil($secondsLeft / 60));
             Response::backWithError(
                 "Muitas tentativas de login. Tente novamente em $minutesLeft minutos."
             );
@@ -209,6 +215,12 @@ class AuthController
         $attempt = $this->loginAttemptModel->buscar($username, $ip);
 
         if ($attempt) {
+            if (!empty($attempt['bloqueado_ate']) && $this->secondsUntilUnlock($attempt['bloqueado_ate']) <= 0) {
+                $this->clearLoginAttempts($username, $ip);
+                $this->loginAttemptModel->registrar($username, $ip);
+                return;
+            }
+
             $newAttempts = $attempt['tentativas'] + 1;
             $bloqueadoAte = null;
 
@@ -229,6 +241,23 @@ class AuthController
     private function clearLoginAttempts(string $username, string $ip): void
     {
         $this->loginAttemptModel->limpar($username, $ip);
+    }
+
+    /**
+     * Calcula segundos restantes de bloqueio usando o timezone da aplicacao.
+     */
+    private function secondsUntilUnlock(?string $blockedUntil): int
+    {
+        if (empty($blockedUntil)) {
+            return 0;
+        }
+
+        $blockedUntilTimestamp = strtotime($blockedUntil);
+        if ($blockedUntilTimestamp === false) {
+            return 0;
+        }
+
+        return max(0, $blockedUntilTimestamp - time());
     }
 
     /**

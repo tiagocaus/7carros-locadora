@@ -238,7 +238,7 @@ return [
         'no_records' => 'Nenhum registro encontrado',
         'delete_error' => 'Erro ao excluir: :message',
         'delete_has_links_title' => 'Matriz/Filial com vínculos',
-        'delete_has_links_confirm' => "Não é possível excluir esta matriz/filial porque existem vínculos:\n\n:links\n\nDeseja desativá-la?",
+        'delete_has_links_confirm' => 'Não é possível excluir esse registro, porque existe vínculos. Deseja desativá-la?',
         'deactivate_button' => 'Desativar matriz/filial',
         'deactivated' => 'Matriz/Filial desativada com sucesso',
         'deactivate_error' => 'Erro ao desativar matriz/filial',

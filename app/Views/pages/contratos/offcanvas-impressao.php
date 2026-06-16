@@ -157,6 +157,10 @@
             <?php endif; ?>
         </div>
     </div>
+    <?php else: ?>
+    <div class="border-t border-slate-200 pt-4 text-xs text-slate-500">
+        <?= t('modules.contratos.print.no_channels_available') ?>
+    </div>
     <?php endif; ?>
 </div>
 @endsection

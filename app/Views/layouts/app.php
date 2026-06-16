@@ -1009,6 +1009,7 @@
         // Variáveis globais para o modal de exclusão
         let globalRecordId = null;
         let globalRecordName = null;
+        let globalRecordType = null;
         let globalCustomAction = null;
         let globalSourceWindow = null; // Referência do iframe de origem
         const CONFIRM_TEXT = layoutT('delete.confirm_text');
@@ -1021,6 +1022,7 @@
         window.openGlobalDeleteModal = function(recordId, recordName, recordType = 'registro', confirmType = 'text', customAction = null) {
             globalRecordId = recordId;
             globalRecordName = recordName;
+            globalRecordType = recordType;
             globalCustomAction = customAction;
             globalConfirmType = confirmType;
 
@@ -1098,6 +1100,7 @@
             modal.classList.remove('open');
             globalRecordId = null;
             globalRecordName = null;
+            globalRecordType = null;
             globalCustomAction = null;
             globalConfirmType = 'text';
             globalExpectedText = '';
@@ -1140,6 +1143,7 @@
                     action: 'confirmDelete',
                     recordId: globalRecordId,
                     recordName: globalRecordName,
+                    recordType: globalRecordType,
                     customAction: globalCustomAction
                 }, '*');
             }
@@ -1461,7 +1465,28 @@
             aviso.textContent = financeiroDisponivel ? '' : layoutT('renewal.no_payment_method');
 
             renderParcelasRenovacaoSync(preview?.parcelas || []);
+            aplicarCanaisRenovacaoSync(data.canais_disponiveis || {});
             atualizarEstadoFinanceiroRenovacaoSync();
+        }
+
+        function aplicarCanaisRenovacaoSync(canais) {
+            const mapa = {
+                renovacaoSyncEmail: !!canais.email,
+                renovacaoSyncWhatsapp: !!canais.whatsapp,
+                renovacaoSyncSms: !!canais.sms
+            };
+
+            Object.keys(mapa).forEach(function(id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.checked = false;
+                el.dataset.canalDisponivel = mapa[id] ? '1' : '0';
+                el.disabled = !mapa[id];
+                const label = el.closest('label');
+                if (label) {
+                    label.classList.toggle('opacity-50', !mapa[id]);
+                }
+            });
         }
 
         function renderParcelasRenovacaoSync(parcelas) {
@@ -1486,8 +1511,9 @@
             document.getElementById('renovacaoSyncCanaisBox').style.opacity = gerar ? '1' : '0.45';
             ['renovacaoSyncEmail', 'renovacaoSyncWhatsapp', 'renovacaoSyncSms'].forEach(function(id) {
                 const el = document.getElementById(id);
-                el.disabled = !gerar;
-                if (!gerar) el.checked = false;
+                const canalDisponivel = el.dataset.canalDisponivel !== '0';
+                el.disabled = !gerar || !canalDisponivel;
+                if (!gerar || !canalDisponivel) el.checked = false;
             });
         }
 

@@ -293,7 +293,9 @@ class Locacao extends Model
         if ($veiculo) {
             $locacao['id_veiculo'] = $veiculo['id_veiculo'];
             $locacao['id_grupo'] = $veiculo['id_grupo'];
-            $locacao['veiculo_info'] = $veiculo['veiculo_placa'] . ' - ' . $veiculo['veiculo_marca'] . ' ' . $veiculo['veiculo_modelo'];
+            $locacao['veiculo_info'] = !empty($veiculo['id_veiculo'])
+                ? trim(($veiculo['veiculo_placa'] ?? '') . ' - ' . ($veiculo['veiculo_marca'] ?? '') . ' ' . ($veiculo['veiculo_modelo'] ?? ''))
+                : null;
             $locacao['veiculo_placa'] = $veiculo['veiculo_placa'];
             $locacao['grupo_nome'] = $veiculo['grupo_nome'];
             $locacao['plano'] = $veiculo['plano'] === 'KP' ? 'DI' : $veiculo['plano'];
