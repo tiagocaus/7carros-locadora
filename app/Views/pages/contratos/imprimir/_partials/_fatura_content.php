@@ -173,8 +173,13 @@ $_faturaStandalone = $_faturaStandalone ?? false;
                 $segVeic = !empty($v['seguro_carro']) ? (float) ($v['valor_seguro_carro'] ?? 0) : 0;
                 $segTerc = !empty($v['seguro_terceiros']) ? (float) ($v['valor_seguro_terceiros'] ?? 0) : 0;
                 $totalDia = $valorPlano + $segVeic + $segTerc;
+                $kmFranquia = (int) ($v['km_franquia'] ?? 0);
+                $mostrarInfoKmFranquia = ($contrato['status'] ?? '') === 'A'
+                    && ($v['plano'] ?? '') === 'KMC'
+                    && $kmFranquia > 0;
+                $totalKmFranquia = $kmFranquia * max(1, (int) ($contrato['dias'] ?? 1));
             ?>
-            <tr>
+            <tr<?= $mostrarInfoKmFranquia ? ' class="has-km-franquia"' : '' ?>>
                 <td><?= htmlspecialchars(($v['veiculo_marca'] ?? '') . ' ' . ($v['veiculo_modelo'] ?? '')) ?></td>
                 <td><?= htmlspecialchars($v['veiculo_placa'] ?? '-') ?></td>
                 <td><?= htmlspecialchars($v['grupo_nome'] ?? '-') ?></td>
@@ -184,6 +189,17 @@ $_faturaStandalone = $_faturaStandalone ?? false;
                 <td class="text-right"><?= currency_format($valorPlano) ?></td>
                 <td class="text-right"><?= currency_format($totalDia) ?></td>
             </tr>
+            <?php if ($mostrarInfoKmFranquia): ?>
+            <tr class="km-franquia-row">
+                <td colspan="8" class="km-franquia-info">
+                    <?= htmlspecialchars(t('modules.contratos.pdf.km_allowance_info', [
+                        'franquia' => number_format($kmFranquia, 0, ',', '.') . 'km',
+                        'unidade' => t('modules.contratos.pdf.km_allowance_unit_counting'),
+                        'total' => number_format($totalKmFranquia, 0, ',', '.') . 'Km',
+                    ])) ?>
+                </td>
+            </tr>
+            <?php endif; ?>
             <?php endforeach; ?>
         </tbody>
     </table>

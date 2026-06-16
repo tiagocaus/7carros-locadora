@@ -9,6 +9,7 @@
 Thumbs.db
 temp.txt
 temp-bd.txt
+temp-ftp.txt
 
 # Logs
 storage/logs/*

@@ -1070,6 +1070,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     // API WhatsApp (com protecao anti-scraping e CSRF)
     $router->get('/api/whatsapp', [WhatsappController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/whatsapp/filiais-ocupadas', [WhatsappController::class, 'filiaisOcupadas'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/whatsapp/check-number', [WhatsappController::class, 'checkNumber'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/whatsapp/{id}', [WhatsappController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/whatsapp/{id}/status', [WhatsappController::class, 'status'], ['api_csrf', 'rate_limit', 'throttle']);
 

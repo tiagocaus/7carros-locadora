@@ -488,6 +488,8 @@ return [
         'qty_header' => 'Cant',
         'unit_value_header' => 'Valor Unit.',
         'total_header' => 'Total',
+        'km_allowance_info' => 'Su plan permite usar :franquia/:unidade. Totalizando :total.',
+        'km_allowance_unit_counting' => 'Conteo',
         'subtotal_label' => 'Subtotal:',
         'discount_label' => 'Descuento:',
         'total_to_pay' => 'TOTAL A PAGAR:',

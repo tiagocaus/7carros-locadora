@@ -1754,6 +1754,11 @@ class LocacoesController
             $multas = (new Multa())->listarParaFaturaLocacao($id);
             $totalMultas = array_reduce($multas, fn($total, $multa) => $total + (float) ($multa['valor'] ?? 0), 0.0);
 
+            // Dados complementares da capa/fatura
+            $historicoVeiculos = (new LocacaoVeiculo())->listarPorLocacao($id);
+            $referenciasFatura = $this->montarReferenciasFaturaLocacao($locacao);
+            $locacao['cliente_endereco_completo'] = $this->montarEnderecoFatura($locacao, 'cliente_');
+
             // Buscar parcelas/recebimentos da locacao para a fatura
             $parcelasFinanceiras = $locacaoModel->listarParcelas($id, true);
             $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id, true);
@@ -1807,7 +1812,7 @@ class LocacoesController
                 : '';
 
             // Output buffering para gerar HTML (NUNCA usar Template::render para PDF)
-            extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'parcelasFinanceiras', 'resumoFinanceiro', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
+            extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
             ob_start();
             $viewPath = __DIR__ . '/../Views/pages/locacoes/imprimir/' . $tipo . '.php';
             include $viewPath;
@@ -2341,6 +2346,70 @@ class LocacoesController
         ];
     }
 
+    private function montarEnderecoFatura(array $dados, string $prefixo = ''): string
+    {
+        $linha = trim(implode(', ', array_filter([
+            trim((string) ($dados[$prefixo . 'rua'] ?? '')),
+            trim((string) ($dados[$prefixo . 'numero'] ?? '')),
+            trim((string) ($dados[$prefixo . 'complemento'] ?? '')),
+        ], fn($valor) => $valor !== '')));
+
+        $cidadeUf = trim(implode('/', array_filter([
+            trim((string) ($dados[$prefixo . 'cidade'] ?? '')),
+            trim((string) ($dados[$prefixo . 'estado'] ?? '')),
+        ], fn($valor) => $valor !== '')));
+
+        $localidade = trim(implode(' - ', array_filter([
+            trim((string) ($dados[$prefixo . 'bairro'] ?? '')),
+            $cidadeUf,
+        ], fn($valor) => $valor !== '')));
+
+        $cep = trim((string) ($dados[$prefixo . 'cep'] ?? ''));
+        $pais = trim((string) ($dados[$prefixo . 'pais'] ?? ''));
+
+        return trim(implode(' - ', array_filter([
+            $linha,
+            $localidade,
+            $cep !== '' ? 'CEP ' . $cep : '',
+            $pais,
+        ], fn($valor) => $valor !== '')));
+    }
+
+    private function montarReferenciasFaturaLocacao(array $locacao): array
+    {
+        $grupos = [
+            ['campo' => 'array_fiadores', 'tipo' => t('modules.locacoes.pdf.guarantor_type')],
+            ['campo' => 'array_avalistas', 'tipo' => t('modules.locacoes.pdf.endorser_type')],
+            ['campo' => 'array_testemunhas', 'tipo' => t('modules.locacoes.pdf.witness_type')],
+        ];
+
+        $clienteModel = new Cliente();
+        $referencias = [];
+
+        foreach ($grupos as $grupo) {
+            $pessoas = !empty($locacao[$grupo['campo']])
+                ? (json_decode($locacao[$grupo['campo']], true) ?: [])
+                : [];
+
+            foreach ($pessoas as $pessoa) {
+                $cliente = null;
+                if (!empty($pessoa['id'])) {
+                    $cliente = $clienteModel->buscarPorIdComContatos((int) $pessoa['id']);
+                }
+
+                $referencias[] = [
+                    'tipo' => $grupo['tipo'],
+                    'nome' => $pessoa['nome'] ?? $cliente['nome_rsocial'] ?? '-',
+                    'doc' => $pessoa['cc'] ?? $cliente['cpf_cnpj'] ?? '-',
+                    'telefone' => $pessoa['telefone'] ?? $cliente['telefone'] ?? '-',
+                    'endereco' => $pessoa['endereco'] ?? ($cliente ? $this->montarEnderecoFatura($cliente) : ''),
+                ];
+            }
+        }
+
+        return $referencias;
+    }
+
     /**
      * Gera PDF da locacao como string (para envio por mensageria)
      */
@@ -2366,6 +2435,11 @@ class LocacoesController
         // Buscar multas vinculadas explicitamente a locacao
         $multas = (new Multa())->listarParaFaturaLocacao($id);
         $totalMultas = array_reduce($multas, fn($total, $multa) => $total + (float) ($multa['valor'] ?? 0), 0.0);
+
+        // Dados complementares da capa/fatura
+        $historicoVeiculos = (new LocacaoVeiculo())->listarPorLocacao($id);
+        $referenciasFatura = $this->montarReferenciasFaturaLocacao($locacao);
+        $locacao['cliente_endereco_completo'] = $this->montarEnderecoFatura($locacao, 'cliente_');
 
         // Buscar parcelas/recebimentos da locacao para a fatura
         $parcelasFinanceiras = $locacaoModel->listarParcelas($id, true);
@@ -2411,7 +2485,7 @@ class LocacoesController
             ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
             : '';
 
-        extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'parcelasFinanceiras', 'resumoFinanceiro', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
+        extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
 
         ob_start();
         $viewPath = __DIR__ . '/../Views/pages/locacoes/imprimir/' . $tipo . '.php';

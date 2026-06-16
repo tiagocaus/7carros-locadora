@@ -113,26 +113,9 @@ class WhatsAppService
     {
         $url = rtrim($this->baseUrl, '/') . '/chat/send/text';
 
-        $data = [
-            'Phone' => $this->formatarTelefone($payload['to']),
+        return $this->sendWithPhoneFallback($url, $instanceToken, (string) $payload['to'], [
             'Body' => $payload['message'],
-        ];
-
-        $response = $this->makeRequest($url, $instanceToken, $data);
-
-        if ($response['http_code'] !== 200) {
-            return [
-                'success' => false,
-                'message' => "Erro na API WhatsApp: HTTP {$response['http_code']}",
-                'data' => $response['body'],
-            ];
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Mensagem WhatsApp enviada com sucesso',
-            'data' => $response['body'],
-        ];
+        ], 'Mensagem WhatsApp enviada com sucesso');
     }
 
     /**
@@ -162,7 +145,6 @@ class WhatsAppService
         if ($isImage) {
             $url = rtrim($this->baseUrl, '/') . '/chat/send/image';
             $data = [
-                'Phone' => $this->formatarTelefone($payload['to']),
                 'Image' => $dataUri,
             ];
             if (!empty($payload['caption'])) {
@@ -171,26 +153,57 @@ class WhatsAppService
         } else {
             $url = rtrim($this->baseUrl, '/') . '/chat/send/document';
             $data = [
-                'Phone' => $this->formatarTelefone($payload['to']),
                 'Document' => $dataUri,
                 'FileName' => $download['filename'],
             ];
         }
 
-        $response = $this->makeRequest($url, $instanceToken, $data);
+        return $this->sendWithPhoneFallback(
+            $url,
+            $instanceToken,
+            (string) $payload['to'],
+            $data,
+            'Midia WhatsApp enviada com sucesso'
+        );
+    }
 
-        if ($response['http_code'] !== 200) {
-            return [
-                'success' => false,
-                'message' => "Erro na API WhatsApp: HTTP {$response['http_code']}",
-                'data' => $response['body'],
-            ];
+    /**
+     * Envia para o telefone original e, se o provedor falhar, tenta a variante
+     * brasileira sem o nono digito. Nao duplica envio quando a primeira tentativa
+     * tem sucesso.
+     */
+    private function sendWithPhoneFallback(
+        string $url,
+        string $instanceToken,
+        string $telefone,
+        array $data,
+        string $successMessage
+    ): array {
+        $telefones = self::gerarTelefonesCandidatos($telefone);
+        $lastResponse = null;
+
+        foreach ($telefones as $phone) {
+            $payload = $data;
+            $payload['Phone'] = $phone;
+
+            $response = $this->makeRequest($url, $instanceToken, $payload);
+            $lastResponse = $response;
+
+            if ($response['http_code'] === 200) {
+                return [
+                    'success' => true,
+                    'message' => $successMessage,
+                    'data' => $response['body'],
+                ];
+            }
         }
 
+        $httpCode = $lastResponse['http_code'] ?? 0;
+
         return [
-            'success' => true,
-            'message' => 'Midia WhatsApp enviada com sucesso',
-            'data' => $response['body'],
+            'success' => false,
+            'message' => "Erro na API WhatsApp: HTTP {$httpCode}. Telefones tentados: " . implode(', ', $telefones),
+            'data' => $lastResponse['body'] ?? null,
         ];
     }
 
@@ -271,16 +284,28 @@ class WhatsAppService
     }
 
     /**
-     * Formata numero de telefone para o formato do provedor (so digitos, com codigo do pais).
+     * Gera telefones candidatos para envio.
+     *
+     * O cadastro ja salva telefone internacionalizado. A unica regra adicional
+     * aqui e compatibilidade com WhatsApp no Brasil: alguns numeros so existem
+     * sem o nono digito na API do provedor.
+     *
+     * @return array<int,string>
      */
-    private function formatarTelefone(string $telefone): string
+    public static function gerarTelefonesCandidatos(string $telefone): array
     {
         $telefone = preg_replace('/[^0-9]/', '', $telefone);
 
-        if (strlen($telefone) === 11 && $telefone[0] !== '5') {
+        if (strlen($telefone) === 10 || strlen($telefone) === 11) {
             $telefone = '55' . $telefone;
         }
 
-        return $telefone;
+        $telefones = [$telefone];
+
+        if (strlen($telefone) === 13 && str_starts_with($telefone, '55') && $telefone[4] === '9') {
+            $telefones[] = substr($telefone, 0, 4) . substr($telefone, 5);
+        }
+
+        return array_values(array_unique(array_filter($telefones)));
     }
 }

@@ -39,6 +39,12 @@ app/
 
 Mesmo padrão de contratos: header/footer HTML no `LocacoesController::imprimir` e margens centralizadas em `PdfHelper` ([pdf.md](./pdf.md)).
 
+### PDF tipo `fatura`
+
+A fatura da locação mantém a ordem principal: Dados do Cliente, Dados da Locação, Composição da Fatura, Totais e Pagamentos. Dados complementares aparecem depois dos pagamentos quando houver informação: condutor adicional, referências/intervenientes (fiadores, avalistas e testemunhas), histórico de veículos/substituições e multas vinculadas.
+
+Em Dados do Cliente, a fatura exibe o endereço completo do cliente quando cadastrado. Em locações com plano KMC abertas ou em reserva, a linha do plano na Composição da Fatura informa a franquia por dia e o total de km permitido no período.
+
 ## Fluxo de Status
 
 ```
@@ -77,6 +83,10 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 - Apos fechar (`status = F`), a locacao deixa de ter veiculo ativo porque
   `locacoes_veiculos.data_entrada` fica preenchida. Listagens e telas de
   exibicao devem mostrar o ultimo veiculo do historico da locacao.
+- Na tela de edicao, ao trocar status de `A` para `F`, o select de veiculo
+  deve preservar/injetar o veiculo atual da locacao mesmo que ele nao apareca
+  na busca de veiculos disponiveis. O endpoint `/api/veiculos/por-grupo`
+  continua retornando apenas veiculos disponiveis para novas selecoes.
 
 ## Tabelas do Banco
 

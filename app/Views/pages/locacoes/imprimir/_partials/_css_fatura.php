@@ -11,5 +11,18 @@
     padding-top: 8px;
 }
 
+table.data-table tr.has-km-franquia td { border-bottom: 0; }
+table.data-table tr.km-franquia-row td {
+    border-top: 0;
+    border-bottom: 1px solid #eee;
+    background: #fafafa;
+}
+table.data-table tr.km-franquia-row td.km-franquia-info {
+    padding-top: 0;
+    font-size: 8pt;
+    line-height: 1.25;
+    color: #666;
+}
+
 /* Observacoes */
 .obs-box { padding: 8px; font-size: 9pt; border: 1px solid #eee; background: #fafafa; }

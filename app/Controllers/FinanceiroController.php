@@ -18,6 +18,7 @@ use App\Helpers\FilialHelper;
 use App\Helpers\PdfHelper;
 use App\Config\Planos;
 use App\Services\AuditLogService;
+use App\Services\ComissaoInvestidorService;
 use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
 
 /**
@@ -719,12 +720,36 @@ class FinanceiroController
                 $campos['data_pago'] = $dados['data_pago'];
             }
 
+            $idsElegiveisComissao = [];
+            if (($campos['pago'] ?? null) === 'S') {
+                $idsElegiveisComissao = $financeiroModel->listarIdsElegiveisComissaoPagamentoLote($dados['ids']);
+            }
+
             $atualizados = $financeiroModel->atualizarParcelasLote($dados['ids'], $campos, $chave);
+            $comissoesGeradas = 0;
+
+            if (!empty($idsElegiveisComissao)) {
+                $comissaoService = new ComissaoInvestidorService();
+
+                foreach ($idsElegiveisComissao as $idFinanceiro) {
+                    try {
+                        $comissaoId = $comissaoService->processarComissaoPorFinanceiro((int) $idFinanceiro);
+                        if ($comissaoId) {
+                            $comissoesGeradas++;
+                        }
+                    } catch (\Exception $e) {
+                        error_log("[Comissao] Erro no hook de parcelas em lote: " . $e->getMessage());
+                    }
+                }
+            }
 
             Response::json([
                 'success' => true,
                 'message' => "{$atualizados} parcela(s) atualizada(s)",
-                'data' => ['atualizados' => $atualizados]
+                'data' => [
+                    'atualizados' => $atualizados,
+                    'comissoes_geradas' => $comissoesGeradas
+                ]
             ]);
         } catch (\Exception $e) {
             Response::json([

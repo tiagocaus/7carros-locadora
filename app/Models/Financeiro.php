@@ -1111,6 +1111,35 @@ class Financeiro extends Model
     }
 
     /**
+     * Busca parcelas que podem gerar comissao de investidor ao serem pagas em lote.
+     *
+     * @param array $ids IDs das parcelas a verificar
+     * @return array<int> IDs elegiveis
+     */
+    public function listarIdsElegiveisComissaoPagamentoLote(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if (empty($ids)) {
+            return [];
+        }
+
+        $rows = $this->qb
+            ->table('financeiro')
+            ->select(['id'])
+            ->whereIn('id', $ids)
+            ->where('tipo', '=', 'R')
+            ->where('pago', '!=', 'S')
+            ->whereRaw('(id_locacao IS NOT NULL OR id_contrato IS NOT NULL)')
+            ->get();
+
+        return array_map(fn($row) => (int) $row['id'], $rows);
+    }
+
+    /**
      * Exclui parcelas em lote
      *
      * @param array $ids IDs das parcelas a excluir

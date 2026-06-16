@@ -8,6 +8,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
 use App\Models\Whatsapp;
+use App\Services\WhatsAppService;
 use App\Helpers\PlanoLimiteHelper;
 use App\Services\AuditLogService;
 
@@ -219,6 +220,106 @@ class WhatsappController
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao buscar filiais ocupadas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Verifica se um telefone possui WhatsApp usando a conexao da filial atual.
+     *
+     * POST /api/whatsapp/check-number
+     */
+    public function checkNumber(Request $request): void
+    {
+        try {
+            $telefone = (string) $request->input('telefone', '');
+            $candidatos = WhatsAppService::gerarTelefonesCandidatos($telefone);
+
+            if (empty($candidatos)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Informe um telefone valido para verificar WhatsApp',
+                    'exists' => false,
+                ], 422);
+                return;
+            }
+
+            $filialId = (int) ($_SESSION['id_matriz_filial'] ?? 0);
+            if ($filialId <= 0) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Filial atual nao identificada para verificar WhatsApp',
+                    'exists' => false,
+                ], 422);
+                return;
+            }
+
+            $model = new Whatsapp();
+            $conexao = $model->buscarConectadaPorFilial($filialId);
+
+            if (!$conexao) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Nenhuma instancia WhatsApp conectada para esta filial',
+                    'exists' => false,
+                ], 422);
+                return;
+            }
+
+            if (empty($this->baseUrl)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'WHATSAPP_API_URL nao configurada',
+                    'exists' => false,
+                ], 500);
+                return;
+            }
+
+            $url = rtrim($this->baseUrl, '/') . '/user/check';
+            $response = $this->makeRequest($url, 'POST', ['Phone' => $candidatos], 'user', $conexao['instanceName']);
+
+            $apiData = is_array($response['data'] ?? null) ? $response['data'] : [];
+
+            if (!$response['success'] || ($apiData['success'] ?? true) === false) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Erro ao verificar WhatsApp: ' . ($response['message'] ?? $apiData['message'] ?? 'Erro desconhecido'),
+                    'exists' => false,
+                ], 502);
+                return;
+            }
+
+            $users = $apiData['data']['Users']
+                ?? $apiData['Users']
+                ?? $apiData['data']['users']
+                ?? $apiData['users']
+                ?? [];
+            $users = is_array($users) ? $users : [];
+
+            $checkedPhone = null;
+            foreach ($users as $user) {
+                $isInWhatsapp = $user['IsInWhatsapp']
+                    ?? $user['isInWhatsapp']
+                    ?? $user['is_in_whatsapp']
+                    ?? false;
+
+                if ($isInWhatsapp === true || $isInWhatsapp === 1 || $isInWhatsapp === 'true' || $isInWhatsapp === '1') {
+                    $checkedPhone = (string) ($user['Query'] ?? $user['query'] ?? $user['JID'] ?? $user['jid'] ?? '');
+                    break;
+                }
+            }
+
+            Response::json([
+                'success' => true,
+                'exists' => $checkedPhone !== null,
+                'checked_phone' => $checkedPhone,
+                'candidates' => $candidatos,
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao verificar WhatsApp: ' . $e->getMessage(),
+                'exists' => false,
             ], 500);
         }
     }

@@ -231,8 +231,8 @@
                 // Impressao (todos)
                 actionButtons += `<button title="${i18n.btnPrint}" class="btn-icon text-blue-600 hover:text-blue-800 btn-print" data-id="${loc.id}"><i class="fas fa-print"></i></button>`;
 
-                // Assinatura (somente Aberto e Fechado)
-                if (loc.status !== 'R') {
+                // Assinatura (Reserva confirmada, Aberto e Fechado)
+                if (loc.status !== 'P') {
                     actionButtons += `<button title="${i18n.btnSignature}" class="btn-icon ${assinaturaClass} btn-assinatura" data-id="${loc.id}" data-codigo="${codigo}" data-tem="${temAssinatura ? '1' : '0'}"><i class="fas fa-signature"></i></button>`;
                 }
 

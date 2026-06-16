@@ -631,6 +631,9 @@
             phoneDescPlaceholder: '<?= t("modules.clientes.messages.phone_description_placeholder") ?>',
             primaryEmail: '<?= t("modules.clientes.messages.primary_email") ?>',
             primaryPhone: '<?= t("modules.clientes.messages.primary_phone") ?>',
+            whatsappPhoneRequired: '<?= t("modules.clientes.messages.whatsapp_phone_required") ?>',
+            whatsappNotFound: '<?= t("modules.clientes.messages.whatsapp_not_found") ?>',
+            whatsappCheckError: '<?= t("modules.clientes.messages.whatsapp_check_error") ?>',
             tooltipRemove: '<?= t("modules.clientes.tooltips.remove") ?>',
             tooltipViewFile: '<?= t("modules.clientes.tooltips.view_file") ?>',
             tooltipDeleteFile: '<?= t("modules.clientes.tooltips.delete_file") ?>',
@@ -1233,7 +1236,7 @@
                             message: result.message || i18n.chargeSent
                         }, '*');
                     } else {
-                        alert(result.message || i18n.chargeSent);
+                        mostrarAlerta(result.message || i18n.chargeSent);
                     }
                 } else {
                     if (window.parent !== window) {
@@ -1245,7 +1248,7 @@
                             }]
                         }, '*');
                     } else {
-                        alert(result.message || i18n.errorSendingCharge);
+                        mostrarAlerta(result.message || i18n.errorSendingCharge);
                     }
                 }
             } catch (error) {
@@ -1304,7 +1307,7 @@
                             }]
                         }, '*');
                     } else {
-                        alert(result.message || i18n.errorDeletingEntry);
+                        mostrarAlerta(result.message || i18n.errorDeletingEntry);
                     }
                 }
             } catch (error) {
@@ -1471,6 +1474,69 @@
             });
         }
 
+        function obterTelefoneLimpo(idx) {
+            const input = document.querySelector(`#telefonesContainer .telefone-input[data-idx="${idx}"][data-field="telefone"]`);
+            if (!input) {
+                return '';
+            }
+
+            return input.value.trim() && input._intlPhone?.getCleanValue
+                ? input._intlPhone.getCleanValue()
+                : input.value.trim();
+        }
+
+        function setTelefoneWhatsappLoading(checkbox, loading) {
+            const label = checkbox.closest('label');
+            const icon = label?.querySelector('.telefone-whatsapp-icon');
+
+            checkbox.disabled = loading;
+
+            if (!icon) {
+                return;
+            }
+
+            if (loading) {
+                icon.className = 'telefone-whatsapp-icon fas fa-spinner fa-spin text-slate-500';
+            } else {
+                icon.className = 'telefone-whatsapp-icon fab fa-whatsapp text-green-500';
+            }
+        }
+
+        async function validarTelefoneWhatsapp(idx, checkbox) {
+            const telefone = obterTelefoneLimpo(idx);
+
+            if (!telefone) {
+                checkbox.checked = false;
+                telefones[idx].whatsapp = 'N';
+                mostrarAlerta(i18n.whatsappPhoneRequired);
+                return;
+            }
+
+            telefones[idx].telefone = telefone;
+            setTelefoneWhatsappLoading(checkbox, true);
+
+            try {
+                const result = await API.post('/api/whatsapp/check-number', { telefone });
+
+                if (result.success && result.exists) {
+                    checkbox.checked = true;
+                    telefones[idx].whatsapp = 'S';
+                    return;
+                }
+
+                checkbox.checked = false;
+                telefones[idx].whatsapp = 'N';
+                mostrarAlerta(result.message || i18n.whatsappNotFound);
+            } catch (error) {
+                console.error('Erro ao verificar WhatsApp:', error);
+                checkbox.checked = false;
+                telefones[idx].whatsapp = 'N';
+                mostrarAlerta(i18n.whatsappCheckError);
+            } finally {
+                setTelefoneWhatsappLoading(checkbox, false);
+            }
+        }
+
         // Renderizar telefones
         function renderizarTelefones() {
             const container = document.getElementById('telefonesContainer');
@@ -1511,7 +1577,7 @@
                         <label class="flex items-center gap-1 cursor-pointer">
                             <input type="checkbox" class="telefone-flag" data-idx="${idx}" data-flag="whatsapp"
                                 ${tel.whatsapp === 'S' ? 'checked' : ''} ${viewMode ? 'disabled' : ''}>
-                            <i class="fab fa-whatsapp text-green-500"></i> WhatsApp
+                            <i class="telefone-whatsapp-icon fab fa-whatsapp text-green-500"></i> WhatsApp
                         </label>
                         <label class="flex items-center gap-1 cursor-pointer">
                             <input type="checkbox" class="telefone-flag" data-idx="${idx}" data-flag="telegram"
@@ -1558,6 +1624,12 @@
                 checkbox.addEventListener('change', function() {
                     const idx = parseInt(this.dataset.idx);
                     const flag = this.dataset.flag;
+
+                    if (flag === 'whatsapp' && this.checked) {
+                        validarTelefoneWhatsapp(idx, this);
+                        return;
+                    }
+
                     telefones[idx][flag] = this.checked ? 'S' : 'N';
                 });
             });
@@ -1720,8 +1792,10 @@
         function mostrarAlerta(mensagem) {
             if (window.parent !== window) {
                 window.parent.postMessage({ action: 'openAlert', message: mensagem }, '*');
+            } else if (typeof window.openAlert === 'function') {
+                window.openAlert(mensagem);
             } else {
-                alert(mensagem);
+                console.warn(mensagem);
             }
         }
 

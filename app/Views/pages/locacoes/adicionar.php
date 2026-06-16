@@ -1248,9 +1248,24 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             aplicarValorDiaria();
         }
 
+        function garantirVeiculoAtualNoSelect(selectVeiculo) {
+            if (!selectVeiculo || !isEditing || !locacaoData?.id_veiculo) {
+                return;
+            }
+
+            const idVeiculoAtual = String(locacaoData.id_veiculo);
+            const jaExiste = Array.from(selectVeiculo.options).some(opt => opt.value === idVeiculoAtual);
+
+            if (!jaExiste) {
+                const textoVeiculo = locacaoData.veiculo_info || locacaoData.veiculo_placa || idVeiculoAtual;
+                selectVeiculo.add(new Option(textoVeiculo, idVeiculoAtual));
+            }
+        }
+
         async function carregarVeiculosPorGrupo(grupoId) {
             const filialId = document.getElementById('id_matriz_filial_retirada')?.value;
             const selectVeiculo = document.getElementById('id_veiculo');
+            const valorAtual = selectVeiculo?.value || (isEditing && locacaoData?.id_veiculo ? String(locacaoData.id_veiculo) : '');
 
             if (isStatusReserva()) {
                 prepararVeiculoParaReserva();
@@ -1275,6 +1290,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     result.data.forEach(v => {
                         selectVeiculo.add(new Option(`${v.placa} - ${v.modelo}`, v.id));
                     });
+                    garantirVeiculoAtualNoSelect(selectVeiculo);
+                    if (valorAtual && Array.from(selectVeiculo.options).some(opt => opt.value === String(valorAtual))) {
+                        selectVeiculo.value = String(valorAtual);
+                    }
                     if (selectVeiculo.chosenSelect) selectVeiculo.chosenSelect.refresh();
                 }
             } catch (error) {

@@ -12,6 +12,31 @@ $_faturaStandalone = $_faturaStandalone ?? false;
 $_faturaDocTitulo = $_faturaDocTitulo ?? t('modules.locacoes.pdf.invoice_title');
 $_faturaDadosTitulo = $_faturaDadosTitulo ?? t('modules.locacoes.pdf.rental_data');
 $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.pdf.total_rental_label');
+$_formatarOdometroFatura = static function($valor): string {
+    if ($valor === null || $valor === '') {
+        return '-';
+    }
+
+    return number_format((int) $valor, 0, ',', '.') . ' km';
+};
+$_formatarDataFatura = static function($valor, bool $comHora = false): string {
+    if (empty($valor)) {
+        return '-';
+    }
+
+    return date($comHora ? 'd/m/Y H:i' : 'd/m/Y', strtotime($valor));
+};
+$_formatarVeiculoFatura = static function(array $item): string {
+    $placa = trim((string) ($item['veiculo_placa'] ?? ''));
+    $nome = trim((string) (($item['veiculo_marca'] ?? '') . ' ' . ($item['veiculo_modelo'] ?? '')));
+    $grupo = trim((string) ($item['grupo_nome'] ?? ''));
+
+    if ($placa !== '' || $nome !== '') {
+        return trim($placa . ($nome !== '' ? ' - ' . $nome : ''));
+    }
+
+    return $grupo !== '' ? t('modules.locacoes.pdf.group_category_label') . ': ' . $grupo : '-';
+};
 ?>
 
 <!-- HEADER -->
@@ -33,6 +58,12 @@ $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.p
             <td><strong><?= t('modules.locacoes.pdf.email_label') ?></strong></td>
             <td><?= htmlspecialchars($locacao['cliente_email'] ?? '-') ?></td>
         </tr>
+        <?php if (!empty($locacao['cliente_endereco_completo'])): ?>
+        <tr>
+            <td><strong><?= t('modules.locacoes.pdf.address_label') ?></strong></td>
+            <td colspan="3"><?= htmlspecialchars($locacao['cliente_endereco_completo']) ?></td>
+        </tr>
+        <?php endif; ?>
     </table>
 </div>
 
@@ -47,6 +78,12 @@ $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.p
             <td style="width: 35%;"><?= !empty($locacao['data_prevista']) ? date('d/m/Y H:i', strtotime($locacao['data_prevista'])) : '-' ?></td>
         </tr>
         <tr>
+            <td><strong><?= t('modules.locacoes.odometer_fuel.odometer_out') ?></strong></td>
+            <td><?= $_formatarOdometroFatura($locacao['odometro_ini'] ?? null) ?></td>
+            <td><strong><?= t('modules.locacoes.odometer_fuel.odometer_return') ?></strong></td>
+            <td><?= $_formatarOdometroFatura($locacao['odometro_fim'] ?? null) ?></td>
+        </tr>
+        <tr>
             <td><strong><?= t('modules.locacoes.pdf.days_label') ?></strong></td>
             <td><?= (int) ($locacao['dias'] ?? $locacao['quantidade_dias'] ?? 0) ?></td>
             <td><strong><?= t('modules.locacoes.pdf.method_label') ?></strong></td>
@@ -54,70 +91,6 @@ $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.p
         </tr>
     </table>
 </div>
-
-<!-- CONDUTOR ADICIONAL -->
-<?php
-    $condutores = !empty($locacao['condutor_adicional']) ? json_decode($locacao['condutor_adicional'], true) : [];
-    if (!empty($condutores)):
-?>
-<div class="section">
-    <div class="section-title"><?= t('modules.locacoes.pdf.additional_driver') ?></div>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th style="width: 40%;"><?= t('modules.locacoes.pdf.name_header') ?></th>
-                <th style="width: 20%;"><?= t('modules.locacoes.pdf.cpf_header') ?></th>
-                <th style="width: 20%;"><?= t('modules.locacoes.pdf.cnh_header') ?></th>
-                <th style="width: 20%;"><?= t('modules.locacoes.pdf.cnh_validity_header') ?></th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($condutores as $c): ?>
-            <tr>
-                <td><?= htmlspecialchars($c['nome'] ?? '-') ?></td>
-                <td><?= htmlspecialchars($c['cc'] ?? '-') ?></td>
-                <td><?= htmlspecialchars($c['cn'] ?? '-') ?></td>
-                <td><?= !empty($c['va']) ? date('d/m/Y', strtotime($c['va'])) : '-' ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
-<?php endif; ?>
-
-<!-- FIADORES, AVALISTAS, TESTEMUNHAS -->
-<?php
-    $fiadores = !empty($locacao['array_fiadores']) ? json_decode($locacao['array_fiadores'], true) : [];
-    $avalistas = !empty($locacao['array_avalistas']) ? json_decode($locacao['array_avalistas'], true) : [];
-    $testemunhas = !empty($locacao['array_testemunhas']) ? json_decode($locacao['array_testemunhas'], true) : [];
-    $pessoasExtras = [];
-    foreach ($fiadores as $f) { $pessoasExtras[] = ['tipo' => t('modules.locacoes.pdf.guarantor_type'), 'nome' => $f['nome'] ?? '-', 'doc' => $f['cc'] ?? '-']; }
-    foreach ($avalistas as $a) { $pessoasExtras[] = ['tipo' => t('modules.locacoes.pdf.endorser_type'), 'nome' => $a['nome'] ?? '-', 'doc' => $a['cc'] ?? '-']; }
-    foreach ($testemunhas as $tw) { $pessoasExtras[] = ['tipo' => t('modules.locacoes.pdf.witness_type'), 'nome' => $tw['nome'] ?? '-', 'doc' => $tw['cc'] ?? '-']; }
-    if (!empty($pessoasExtras)):
-?>
-<div class="section">
-    <div class="section-title"><?= t('modules.locacoes.pdf.guarantors_endorsers_witnesses') ?></div>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th style="width: 20%;"><?= t('modules.locacoes.pdf.type_header') ?></th>
-                <th style="width: 45%;"><?= t('modules.locacoes.pdf.name_table_header') ?></th>
-                <th style="width: 35%;"><?= t('modules.locacoes.pdf.cpf_cnpj_table_header') ?></th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($pessoasExtras as $p): ?>
-            <tr>
-                <td><?= htmlspecialchars($p['tipo']) ?></td>
-                <td><?= htmlspecialchars($p['nome']) ?></td>
-                <td><?= htmlspecialchars($p['doc']) ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
-<?php endif; ?>
 
 <!-- COMPOSICAO DA FATURA -->
 <?php
@@ -147,11 +120,21 @@ $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.p
     $descricaoPlanoFatura = trim($planoComposicao . ($veiculoReferenciaFatura !== '' ? ' - ' . $veiculoReferenciaFatura : ''));
 
     if ($valorPlanoComposicao > 0) {
+        $kmFranquiaFatura = (int) ($locacao['km_controlado_franquia'] ?? 0);
+        $mostrarInfoKmFranquia = in_array(($locacao['status'] ?? ''), ['R', 'A'], true)
+            && ($locacao['plano'] ?? '') === 'KMC'
+            && $kmFranquiaFatura > 0;
+
         $linhasFatura[] = [
             'descricao' => $descricaoPlanoFatura,
             'qtd' => t_choice('modules.locacoes.pdf.day_count', $diasFatura),
             'unitario' => $valorPlanoComposicao,
             'total' => $valorPlanoComposicao * $diasFatura,
+            'km_franquia_info' => $mostrarInfoKmFranquia ? t('modules.locacoes.pdf.km_allowance_info', [
+                'franquia' => number_format($kmFranquiaFatura, 0, ',', '.') . 'km',
+                'unidade' => t('modules.locacoes.pdf.km_allowance_unit_day'),
+                'total' => number_format($kmFranquiaFatura * $diasFatura, 0, ',', '.') . 'Km',
+            ]) : null,
         ];
     }
 
@@ -270,12 +253,20 @@ $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.p
         </thead>
         <tbody>
             <?php foreach ($linhasFatura as $linha): ?>
-            <tr>
+            <tr<?= !empty($linha['km_franquia_info']) ? ' class="has-km-franquia"' : '' ?>>
                 <td><?= htmlspecialchars($linha['descricao']) ?></td>
                 <td class="text-center"><?= htmlspecialchars($linha['qtd']) ?></td>
                 <td class="text-right"><?= currency_format((float) $linha['unitario']) ?></td>
                 <td class="text-right"><?= currency_format((float) $linha['total']) ?></td>
             </tr>
+            <?php if (!empty($linha['km_franquia_info'])): ?>
+            <tr class="km-franquia-row">
+                <td class="km-franquia-info"><?= htmlspecialchars($linha['km_franquia_info']) ?></td>
+                <td class="text-center">&nbsp;</td>
+                <td class="text-right">&nbsp;</td>
+                <td class="text-right">&nbsp;</td>
+            </tr>
+            <?php endif; ?>
             <?php endforeach; ?>
             <?php if ($kmRodadosFatura !== null): ?>
             <tr>
@@ -373,6 +364,137 @@ $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.p
                     <td><?= $parcelaPaga ? t('modules.locacoes.installments.paid') : t('modules.locacoes.installments.pending') ?></td>
                     <td class="text-right"><?= currency_format((float) ($parcela['valor_total'] ?? 0)) ?></td>
                 </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
+<!-- CONDUTOR ADICIONAL -->
+<?php
+    $condutores = !empty($locacao['condutor_adicional']) ? json_decode($locacao['condutor_adicional'], true) : [];
+    if (!empty($condutores)):
+?>
+<div class="section" style="margin-top: 12px;">
+    <div class="section-title"><?= t('modules.locacoes.pdf.additional_driver') ?></div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 40%;"><?= t('modules.locacoes.pdf.name_header') ?></th>
+                <th style="width: 20%;"><?= t('modules.locacoes.pdf.cpf_header') ?></th>
+                <th style="width: 20%;"><?= t('modules.locacoes.pdf.cnh_header') ?></th>
+                <th style="width: 20%;"><?= t('modules.locacoes.pdf.cnh_validity_header') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($condutores as $c): ?>
+            <tr>
+                <td><?= htmlspecialchars($c['nome'] ?? '-') ?></td>
+                <td><?= htmlspecialchars($c['cc'] ?? '-') ?></td>
+                <td><?= htmlspecialchars($c['cn'] ?? $c['cnh'] ?? '-') ?></td>
+                <td><?= !empty($c['va'] ?? $c['cnh_validade'] ?? null) ? date('d/m/Y', strtotime($c['va'] ?? $c['cnh_validade'])) : '-' ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
+<!-- REFERENCIAS / INTERVENIENTES -->
+<?php if (!empty($referenciasFatura ?? [])): ?>
+<div class="section" style="margin-top: 12px;">
+    <div class="section-title"><?= t('modules.locacoes.pdf.references_interveners') ?></div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 16%;"><?= t('modules.locacoes.pdf.type_header') ?></th>
+                <th style="width: 32%;"><?= t('modules.locacoes.pdf.name_table_header') ?></th>
+                <th style="width: 20%;"><?= t('modules.locacoes.pdf.cpf_cnpj_table_header') ?></th>
+                <th style="width: 32%;"><?= t('modules.locacoes.pdf.phone_header') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($referenciasFatura as $referencia): ?>
+            <tr>
+                <td><?= htmlspecialchars($referencia['tipo'] ?? '-') ?></td>
+                <td><?= htmlspecialchars($referencia['nome'] ?? '-') ?></td>
+                <td><?= htmlspecialchars($referencia['doc'] ?? '-') ?></td>
+                <td><?= htmlspecialchars($referencia['telefone'] ?? '-') ?></td>
+            </tr>
+            <?php if (!empty($referencia['endereco'])): ?>
+            <tr>
+                <td>&nbsp;</td>
+                <td colspan="3" style="font-size: 8pt; color: #666;">
+                    <strong><?= t('modules.locacoes.pdf.address_label') ?></strong>
+                    <?= htmlspecialchars($referencia['endereco']) ?>
+                </td>
+            </tr>
+            <?php endif; ?>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
+<!-- HISTORICO DE VEICULOS / SUBSTITUICOES -->
+<?php
+    $historicoVeiculosPdf = is_array($historicoVeiculos ?? null) ? $historicoVeiculos : [];
+    $mostrarHistoricoVeiculosPdf = count($historicoVeiculosPdf) > 1;
+    foreach ($historicoVeiculosPdf as $historicoVeiculoPdf) {
+        if (!empty($historicoVeiculoPdf['data_entrada']) || !empty($historicoVeiculoPdf['motivo_saida'])) {
+            $mostrarHistoricoVeiculosPdf = true;
+            break;
+        }
+    }
+?>
+<?php if ($mostrarHistoricoVeiculosPdf): ?>
+<div class="section" style="margin-top: 12px;">
+    <div class="section-title"><?= t('modules.locacoes.pdf.vehicle_history_substitutions') ?></div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 38%;"><?= t('modules.locacoes.pdf.vehicle_header') ?></th>
+                <th style="width: 18%;"><?= t('modules.locacoes.pdf.checkout_header') ?></th>
+                <th style="width: 18%;"><?= t('modules.locacoes.pdf.return_header') ?></th>
+                <th style="width: 26%;"><?= t('modules.locacoes.pdf.reason_header') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($historicoVeiculosPdf as $historicoVeiculoPdf): ?>
+            <tr>
+                <td><?= htmlspecialchars($_formatarVeiculoFatura($historicoVeiculoPdf)) ?></td>
+                <td><?= $_formatarDataFatura($historicoVeiculoPdf['data_saida'] ?? null) ?></td>
+                <td><?= !empty($historicoVeiculoPdf['data_entrada']) ? $_formatarDataFatura($historicoVeiculoPdf['data_entrada']) : t('modules.locacoes.pdf.current_vehicle_label') ?></td>
+                <td><?= htmlspecialchars(!empty($historicoVeiculoPdf['motivo_saida']) ? $historicoVeiculoPdf['motivo_saida'] : (!empty($historicoVeiculoPdf['data_entrada']) ? t('modules.locacoes.pdf.returned_vehicle_label') : t('modules.locacoes.pdf.current_vehicle_label'))) ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
+<!-- MULTAS VINCULADAS -->
+<?php if (!empty($multas ?? [])): ?>
+<div class="section" style="margin-top: 12px;">
+    <div class="section-title"><?= t('modules.locacoes.pdf.linked_fines_section') ?></div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 16%;"><?= t('modules.locacoes.pdf.date_header') ?></th>
+                <th style="width: 20%;"><?= t('modules.locacoes.pdf.vehicle_plate_header') ?></th>
+                <th style="width: 18%;" class="text-right"><?= t('modules.locacoes.installments.value') ?></th>
+                <th style="width: 46%;"><?= t('modules.locacoes.pdf.description_header') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($multas as $multa): ?>
+            <?php $descricaoMultaDetalhe = ($multa['descri'] ?? '') ?: (($multa['n_infracao'] ?? '') ?: ($multa['numero_ait'] ?? '-')); ?>
+            <tr>
+                <td><?= $_formatarDataFatura($multa['data_hora'] ?? null) ?></td>
+                <td><?= htmlspecialchars($multa['veiculo_placa'] ?? '-') ?></td>
+                <td class="text-right"><?= currency_format((float) ($multa['valor'] ?? 0)) ?></td>
+                <td><?= htmlspecialchars($descricaoMultaDetalhe) ?></td>
+            </tr>
             <?php endforeach; ?>
         </tbody>
     </table>

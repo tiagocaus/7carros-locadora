@@ -492,6 +492,8 @@ return [
         'qty_header' => 'Qtd',
         'unit_value_header' => 'Valor Unit.',
         'total_header' => 'Total',
+        'km_allowance_info' => 'Seu plano permite usar :franquia/:unidade. Totalizando :total.',
+        'km_allowance_unit_counting' => 'Contagem',
         'subtotal_label' => 'Subtotal:',
         'discount_label' => 'Desconto:',
         'total_to_pay' => 'TOTAL A PAGAR:',
