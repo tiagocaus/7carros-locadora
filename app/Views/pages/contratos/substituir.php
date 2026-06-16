@@ -927,6 +927,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         btnConfirmar.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${i18n.processing}`;
 
         try {
+            const valorKmPago = Currency.parse(document.getElementById('valorDiaria').value || '0');
+            const valorKmControlado = Currency.parse(document.getElementById('valorKmControlado').value || '0');
+            const valorKmLivre = Currency.parse(document.getElementById('valorKmLivre').value || '0');
+
             const payload = {
                 id_contrato_veiculo_antigo: veiculoAtualData.id,
                 // Dados devolucao (veiculo entra na empresa)
@@ -944,9 +948,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 seguro_carro: checkSeguroCarro.checked ? 1 : 0,
                 seguro_terceiros: checkSeguroTerceiros.checked ? 1 : 0,
                 // Valores
-                valor_plano_km_pago: Currency.parse(document.getElementById('valorDiaria').value || '0'),
-                valor_plano_km_controlado: Currency.parse(document.getElementById('valorKmControlado').value || '0'),
-                valor_plano_km_livre: Currency.parse(document.getElementById('valorKmLivre').value || '0'),
+                valor_plano_km_pago: planoNovo === 'KP' ? valorKmPago : 0,
+                valor_plano_km_controlado: planoNovo === 'KMC' ? valorKmControlado : 0,
+                valor_plano_km_livre: planoNovo === 'KL' ? valorKmLivre : 0,
                 valor_km_excedente: Currency.parse(document.getElementById('valorKmExcedente').value || document.getElementById('valorKmDiaria').value || '0'),
                 km_franquia: parseInt(document.getElementById('kmFranquia').value || '0'),
                 valor_seguro_carro: Currency.parse(document.getElementById('valorSeguroCarro').value || '0'),

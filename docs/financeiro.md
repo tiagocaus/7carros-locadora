@@ -358,6 +358,10 @@ Quando um veiculo eh substituido durante um contrato/locacao:
 | `adicionarParcela()` | Locacao | Parcela avulsa com veiculo ativo |
 | `criarParcelas()` | Financeiro | Propaga `id_veiculo` do registro base |
 
+### Cobranca automatica de parcelas de contrato
+
+Na criacao de um contrato novo, quando o front envia parcelas para `/api/contratos/{id}/gerar-parcelas` com `salvar=true` e `from_creation=true`, o backend salva as parcelas em `financeiro`, cria ou reutiliza o link em `pagamentos_links` para cada parcela e enfileira o template `payment_reminder` para email, WhatsApp e SMS. O envio e assincrono via `messages_queue`; indisponibilidade de um canal fica registrada no resumo da resposta e nao desfaz as parcelas.
+
 ### Diferenca entre `financeiro.id_veiculo` e `financeiro_itens.id_veiculo`
 
 - **`financeiro.id_veiculo`**: Nivel cabecalho. Usado para parcelas de contratos/locacoes (que nao criam itens em `financeiro_itens`). Preenchido automaticamente pelo sistema.
@@ -386,7 +390,8 @@ Parcela 3 (id=12, parcela=3, total_parcelas=3, id_financeiro_origem=10)    <- fi
 3. Clica "Gerar Preview" - frontend calcula datas e valores (arredondamento na ultima parcela)
 4. Ao salvar, o payload inclui array `parcelas[]` junto com os dados do lancamento
 5. No Controller (`salvar()`), a 1a parcela eh o lancamento criado; as demais sao criadas via `Financeiro::criarParcelas()`
-6. Toda operacao ocorre em transacao atomica
+6. As sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` antes da criacao das parcelas, reduzindo locks em `matrizes_filiais` em parcelamentos grandes
+7. Toda operacao ocorre em transacao atomica
 
 ### Fluxo de Edicao (Lote)
 
@@ -402,7 +407,7 @@ Na aba "Parcelamento" do modo editar:
 |--------|-----------|
 | `listarParcelas(int $idOrigem)` | Lista todas as parcelas (pai + filhas) ordenadas por numero |
 | `contarParcelas(int $idOrigem)` | Conta total de parcelas incluindo a origem |
-| `criarParcelas(int $idOrigem, array $parcelas, array $dadosBase)` | Cria parcelas em lote herdando dados do pai |
+| `criarParcelas(int $idOrigem, array $parcelas, array $dadosBase, ?array $sequenciasReservadas = null)` | Cria parcelas em lote herdando dados do pai |
 | `atualizarParcelasLote(array $ids, array $campos, string $chave)` | Atualiza campos de multiplas parcelas |
 | `excluirParcelasLote(array $ids, string $chave)` | Exclui parcelas (protege a origem) |
 | `ehParcelaOrigem(int $id)` | Verifica se eh a parcela pai |

@@ -104,9 +104,9 @@ try {
               ->everyFiveMinutes();
 
     // Manutenção Preventiva
-    // Executa diariamente às 00:00 para verificar veículos próximos da manutenção
+    // Executa diariamente às 00:05 para verificar veículos próximos da manutenção
     $scheduler->job(new \App\Crons\Jobs\CheckPreventiveMaintenanceJob())
-              ->dailyAt('00:00');
+              ->dailyAt('00:05');
 
     // Comissoes Mensais de Investidores
     // Executa no dia 1 de cada mes às 06:00 para gerar comissoes mensais
@@ -114,25 +114,25 @@ try {
               ->monthlyOn(1, '06:00');
 
     // Limpeza de Gravacoes de Tela
-    // Executa diariamente as 03:00 para remover gravacoes com mais de 30 dias
+    // Executa diariamente as 01:00 para remover gravacoes com mais de 30 dias
     $scheduler->job(new \App\Crons\Jobs\CleanupOldRecordingsJob())
-              ->dailyAt('03:00');
+              ->dailyAt('01:00');
 
     // Renovacao Automatica de Contratos
-    // Executa diariamente as 06:00 para renovar contratos com auto_renovacao ativa
+    // Executa diariamente as 01:10 para renovar contratos com auto_renovacao ativa
     $scheduler->job(new \App\Crons\Jobs\RenovarContratosJob())
-              ->dailyAt('06:00');
+              ->dailyAt('01:10');
 
     // Encargos de Veiculos - Geracao Financeira
-    // Executa diariamente as 06:00 para gerar lancamentos financeiros de encargos proximos ao vencimento
+    // Executa diariamente as 02:00 para gerar lancamentos financeiros de encargos proximos ao vencimento
     // e renovar encargos recorrentes vencidos
     $scheduler->job(new \App\Crons\Jobs\GerarEncargosFinanceiroJob())
-              ->dailyAt('06:00');
+              ->dailyAt('02:00');
 
     // Auto-consulta online de infracoes
-    // Executa diariamente as 07:00 para consultar infracoes de tenants com auto-consulta ativa
+    // Executa diariamente as 03:30 para consultar infracoes de tenants com auto-consulta ativa
     $scheduler->job(new \App\Crons\Jobs\SerproAutoConsultaJob())
-              ->dailyAt('07:00');
+              ->dailyAt('03:30');
 
     // Indicacoes de Condutor - Sincronizacao de Status
     // Executa a cada 30 minutos para atualizar status de indicacoes enviadas/processando/pendentes
@@ -155,9 +155,14 @@ try {
               ->everyFiveMinutes();
 
     // Rotacao de Authorization Holds (Bloqueio)
-    // Executa diariamente as 06:30 - rotaciona holds que expiram em 2 dias e marca expirados
+    // Executa diariamente as 03:00 - rotaciona holds que expiram em 2 dias e marca expirados
     $scheduler->job(new \App\Crons\Jobs\RotateAuthorizationHoldsJob())
-              ->dailyAt('06:30');
+              ->dailyAt('03:00');
+
+    // Resumo Diario dos CRONs
+    // Executa diariamente as 04:30 para enviar resumo dos jobs executados 1x por dia
+    $scheduler->job(new \App\Crons\Jobs\SendDailyCronSummaryJob())
+              ->dailyAt('04:30');
 
     // ========================================
     // Exemplos de outros jobs (descomentar quando necessário)

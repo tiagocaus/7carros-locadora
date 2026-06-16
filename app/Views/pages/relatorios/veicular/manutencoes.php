@@ -71,6 +71,7 @@
                     <th class="table-header hidden sm:table-cell"><?= t('modules.relatorios.veicular.manutencoes.col_data_entrada') ?></th>
                     <th class="table-header hidden sm:table-cell"><?= t('modules.relatorios.veicular.manutencoes.col_data_saida') ?></th>
                     <th class="table-header text-center"><?= t('modules.relatorios.veicular.manutencoes.col_dias_parado') ?></th>
+                    <th class="table-header text-right"><?= t('modules.relatorios.veicular.manutencoes.col_desconto') ?></th>
                     <th class="table-header text-right"><?= t('modules.relatorios.veicular.manutencoes.col_valor') ?></th>
                     <th class="table-header text-center"><?= t('modules.relatorios.veicular.manutencoes.col_status') ?></th>
                 </tr>
@@ -100,6 +101,7 @@
     const totalsConfig = [
         { key: 'total_manutencoes', label: '<?= t("modules.relatorios.veicular.manutencoes.total_manutencoes") ?>', icon: 'fa-wrench', format: 'number' },
         { key: 'custo_total', label: '<?= t("modules.relatorios.veicular.manutencoes.custo_total") ?>', icon: 'fa-money-bill-wave', format: 'currency' },
+        { key: 'desconto_total', label: '<?= t("modules.relatorios.veicular.manutencoes.desconto_total") ?>', icon: 'fa-tag', format: 'currency' },
         { key: 'custo_medio', label: '<?= t("modules.relatorios.veicular.manutencoes.custo_medio") ?>', icon: 'fa-calculator', format: 'currency' },
         { key: 'dias_parados_total', label: '<?= t("modules.relatorios.veicular.manutencoes.dias_parados_total") ?>', icon: 'fa-calendar-times', format: 'number', color: 'red' },
         { key: 'custo_por_km', label: '<?= t("modules.relatorios.veicular.manutencoes.custo_por_km") ?>', icon: 'fa-road', format: 'currency' },
@@ -245,6 +247,7 @@
                 <td class="table-cell hidden sm:table-cell">${row.data_entrada ? DateHelper.format(row.data_entrada) : '-'}</td>
                 <td class="table-cell hidden sm:table-cell">${row.data_saida ? DateHelper.format(row.data_saida) : '-'}</td>
                 <td class="table-cell text-center">${row.dias_parado}</td>
+                <td class="table-cell text-right">${Currency.format(row.desconto || 0, true)}</td>
                 <td class="table-cell text-right font-medium">${Currency.format(row.valor, true)}</td>
                 <td class="table-cell text-center">${statusBadge}</td>
             </tr>`;

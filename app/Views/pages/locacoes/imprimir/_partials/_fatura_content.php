@@ -299,6 +299,10 @@ $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.p
     if ($codigoPromocaoPdf !== '') {
         $descontoLabelPdf .= ' (' . $codigoPromocaoPdf . ')';
     }
+    $parcelasFinanceirasPdf = is_array($parcelasFinanceiras ?? null) ? $parcelasFinanceiras : [];
+    $resumoFinanceiroPdf = is_array($resumoFinanceiro ?? null) ? $resumoFinanceiro : [];
+    $totalPagoPdf = (float) ($resumoFinanceiroPdf['total_pago'] ?? 0);
+    $totalAPagarPdf = max(0, $totalGeralPdf - $totalPagoPdf);
 ?>
 <div class="totals">
     <table class="totals-table" cellpadding="0" cellspacing="0">
@@ -320,12 +324,57 @@ $_faturaTotalRegistroLabel = $_faturaTotalRegistroLabel ?? t('modules.locacoes.p
             <td class="value-col"><?= currency_format($totalMultasPdf) ?></td>
         </tr>
         <?php endif; ?>
+        <?php if ($totalPagoPdf > 0): ?>
+        <tr>
+            <td class="label-col"><?= t('modules.locacoes.installments.total_paid') ?></td>
+            <td class="value-col" style="color: #07803a;">- <?= currency_format($totalPagoPdf) ?></td>
+        </tr>
+        <?php endif; ?>
         <tr class="total-row">
             <td class="label-col"><?= t('modules.locacoes.pdf.total_to_pay') ?></td>
-            <td class="value-col"><?= currency_format($totalGeralPdf) ?></td>
+            <td class="value-col"><?= currency_format($totalAPagarPdf) ?></td>
         </tr>
     </table>
 </div>
+
+<!-- PAGAMENTOS -->
+<?php if (!empty($parcelasFinanceirasPdf)): ?>
+<div class="section" style="margin-top: 12px;">
+    <div class="section-title"><?= t('modules.locacoes.installments.payments') ?></div>
+    <table class="data-table" style="margin-top: 6px;">
+        <thead>
+            <tr>
+                <th style="width: 12%;"><?= t('modules.locacoes.installments.title') ?></th>
+                <th style="width: 16%;"><?= t('modules.locacoes.installments.due_date') ?></th>
+                <th style="width: 16%;"><?= t('modules.locacoes.installments.payment_date') ?></th>
+                <th style="width: 22%;"><?= t('modules.locacoes.installments.payment_method_short') ?></th>
+                <th style="width: 14%;"><?= t('modules.locacoes.pdf.status_label') ?></th>
+                <th style="width: 20%;" class="text-right"><?= t('modules.locacoes.installments.value') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($parcelasFinanceirasPdf as $parcela): ?>
+                <?php
+                    $parcelaNumero = (int) ($parcela['parcela'] ?? 0);
+                    $totalParcelas = (int) ($parcela['total_parcelas'] ?? 0);
+                    $parcelaLabel = $parcelaNumero > 0
+                        ? $parcelaNumero . ($totalParcelas > 0 ? '/' . $totalParcelas : '')
+                        : '-';
+                    $parcelaPaga = ($parcela['pago'] ?? 'N') === 'S';
+                ?>
+                <tr>
+                    <td><?= htmlspecialchars($parcelaLabel) ?></td>
+                    <td><?= !empty($parcela['data_venci']) ? date('d/m/Y', strtotime($parcela['data_venci'])) : '-' ?></td>
+                    <td><?= !empty($parcela['data_pago']) ? date('d/m/Y', strtotime($parcela['data_pago'])) : '-' ?></td>
+                    <td><?= htmlspecialchars($parcela['forma_pagamento_descricao'] ?? '-') ?></td>
+                    <td><?= $parcelaPaga ? t('modules.locacoes.installments.paid') : t('modules.locacoes.installments.pending') ?></td>
+                    <td class="text-right"><?= currency_format((float) ($parcela['valor_total'] ?? 0)) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
 
 <!-- GARANTIAS (Bloqueio + Caucao) -->
 <?php

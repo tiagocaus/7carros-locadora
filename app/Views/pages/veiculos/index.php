@@ -67,6 +67,7 @@
     let perPage = 10;
     let searchTerm = '';
     let searchTimeout = null;
+    let pendingDeactivateVehicleId = null;
 
     // Elementos
     const tbody = document.getElementById('veiculosTableBody');
@@ -96,6 +97,11 @@
         thisVehicle: '<?= t('modules.veiculos.messages.this_vehicle') ?>',
         deleteConfirm: '<?= t('modules.veiculos.messages.delete_confirm') ?>',
         deleteError: '<?= t('modules.veiculos.messages.delete_error') ?>',
+        deleteHasLinksTitle: <?= json_encode(t('modules.veiculos.messages.delete_has_links_title')) ?>,
+        deleteHasLinksConfirm: <?= json_encode(t('modules.veiculos.messages.delete_has_links_confirm')) ?>,
+        deactivateButton: <?= json_encode(t('modules.veiculos.messages.deactivate_button')) ?>,
+        deactivated: <?= json_encode(t('modules.veiculos.messages.deactivated')) ?>,
+        deactivateError: <?= json_encode(t('modules.veiculos.messages.deactivate_error')) ?>,
         showingTpl: '<?= t('modules.veiculos.pagination.showing') ?>',
     };
 
@@ -217,19 +223,13 @@
                 const id = this.getAttribute('data-id');
                 const name = this.getAttribute('data-name') || i18n.thisVehicle;
 
-                if (window.parent !== window) {
-                    window.parent.postMessage({
-                        action: 'openDeleteModal',
-                        recordId: id,
-                        recordName: name,
-                        recordType: 'veiculo',
-                        confirmType: 'text'
-                    }, '*');
-                } else {
-                    if (confirm(i18n.deleteConfirm.replace(':name', name))) {
-                        excluirVeiculo(id);
-                    }
-                }
+                window.parent.postMessage({
+                    action: 'openDeleteModal',
+                    recordId: id,
+                    recordName: name,
+                    recordType: 'veiculo',
+                    confirmType: 'text'
+                }, '*');
             });
         });
     }
@@ -349,16 +349,40 @@
 
             if (result.success) {
                 carregarVeiculos(currentPage, perPage, searchTerm);
+            } else if (result.pode_desativar && result.vinculos && result.vinculos.length > 0) {
+                pendingDeactivateVehicleId = id;
+                window.parent.postMessage({
+                    action: 'openGenericConfirmModal',
+                    title: i18n.deleteHasLinksTitle,
+                    message: i18n.deleteHasLinksConfirm.replace(':links', result.vinculos.join('\n')),
+                    confirmText: i18n.deactivateButton
+                }, '*');
             } else {
                 let msg = result.message || i18n.deleteError;
                 if (result.vinculos && result.vinculos.length > 0) {
                     msg += '\n\n' + result.vinculos.join('\n');
                 }
-                alert(msg);
+                mostrarAlerta(msg);
             }
         } catch (error) {
             console.error('Erro:', error);
-            alert(i18n.deleteError);
+            mostrarAlerta(i18n.deleteError);
+        }
+    }
+
+    async function desativarVeiculo(id) {
+        try {
+            const result = await API.post(`/veiculos/${id}/desativar`);
+
+            if (result.success) {
+                mostrarAlerta(result.message || i18n.deactivated);
+                carregarVeiculos(currentPage, perPage, searchTerm);
+            } else {
+                mostrarAlerta(result.message || i18n.deactivateError);
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            mostrarAlerta(i18n.deactivateError);
         }
     }
 
@@ -371,9 +395,26 @@
         if (event.data.action === 'confirmDelete') {
             excluirVeiculo(event.data.recordId);
         }
+
+        if (event.data.action === 'genericConfirmed' && pendingDeactivateVehicleId) {
+            const id = pendingDeactivateVehicleId;
+            pendingDeactivateVehicleId = null;
+            desativarVeiculo(id);
+        }
+
+        if (event.data.action === 'genericModalClosed' && pendingDeactivateVehicleId) {
+            pendingDeactivateVehicleId = null;
+        }
     });
 
     // ===== HELPERS =====
+
+    function mostrarAlerta(message) {
+        window.parent.postMessage({
+            action: 'openAlert',
+            message: message
+        }, '*');
+    }
 
     function escapeHtml(text) {
         if (!text) return '';

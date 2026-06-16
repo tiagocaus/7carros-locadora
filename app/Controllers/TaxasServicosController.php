@@ -244,10 +244,10 @@ class TaxasServicosController
                 return;
             }
 
-            // Validar valor (so obrigatorio quando tipo_valor=POR; para MON vem das valores_filiais)
+            // Validar valor (so obrigatorio quando tipo_valor=POR; para MON vem de valores_filiais)
             $tipoValor = $dados['tipo_valor'] ?? 'MON';
             if ($tipoValor !== 'MON') {
-                $valorConvertido = (float) str_replace(',', '.', $dados['valor'] ?? '');
+                $valorConvertido = currency_parse($dados['valor'] ?? null);
                 if (!isset($dados['valor']) || $dados['valor'] === '' || $valorConvertido <= 0) {
                     Response::json([
                         'success' => false,
@@ -255,6 +255,11 @@ class TaxasServicosController
                     ], 400);
                     return;
                 }
+                $dados['valor'] = $valorConvertido;
+            } else {
+                $valoresFiliais = $this->prepararValoresMonetariosPorFilial($filiaisIds, $dados);
+                $dados['valores_filiais'] = $valoresFiliais;
+                $dados['valor'] = reset($valoresFiliais);
             }
 
             $model = new TaxaServico();
@@ -279,6 +284,11 @@ class TaxasServicosController
                 'message' => 'Taxa/servico criado com sucesso',
                 'data' => ['id' => $id]
             ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,
@@ -327,10 +337,10 @@ class TaxasServicosController
                 return;
             }
 
-            // Validar valor (so obrigatorio quando tipo_valor=POR; para MON vem das valores_filiais)
+            // Validar valor (so obrigatorio quando tipo_valor=POR; para MON vem de valores_filiais)
             $tipoValor = $dados['tipo_valor'] ?? ($taxa['tipo_valor'] ?? 'MON');
             if ($tipoValor !== 'MON') {
-                $valorConvertido = (float) str_replace(',', '.', $dados['valor'] ?? '');
+                $valorConvertido = currency_parse($dados['valor'] ?? null);
                 if (!isset($dados['valor']) || $dados['valor'] === '' || $valorConvertido <= 0) {
                     Response::json([
                         'success' => false,
@@ -338,6 +348,11 @@ class TaxasServicosController
                     ], 400);
                     return;
                 }
+                $dados['valor'] = $valorConvertido;
+            } else {
+                $valoresFiliais = $this->prepararValoresMonetariosPorFilial($filiaisIds, $dados);
+                $dados['valores_filiais'] = $valoresFiliais;
+                $dados['valor'] = reset($valoresFiliais);
             }
 
             $model->atualizar($id, $dados);
@@ -432,7 +447,6 @@ class TaxasServicosController
      * Persiste valores da taxa por filial (tabela taxaseservicos_valores_filiais).
      *
      * Payload esperado em $dados['valores_filiais'] = { id_filial: valor, ... }.
-     * Se vier vazio, cria entry zerada para cada filial participante.
      */
     private function salvarValoresFiliais(int $taxaId, array $filiaisIds, array $dados, string $chave): void
     {
@@ -441,7 +455,10 @@ class TaxasServicosController
         foreach ($filiaisIds as $fid) {
             $fid = (int) $fid;
             if ($fid <= 0) continue;
-            $valor = $mapa[$fid] ?? ($mapa[(string) $fid] ?? 0);
+            if (!array_key_exists($fid, $mapa) && !array_key_exists((string) $fid, $mapa)) {
+                throw new \InvalidArgumentException('Informe o valor para todas as filiais selecionadas');
+            }
+            $valor = $mapa[$fid] ?? $mapa[(string) $fid];
             $model->upsert([
                 'chave' => $chave,
                 'id_taxaservico' => $taxaId,
@@ -449,6 +466,42 @@ class TaxasServicosController
                 'valor' => $valor,
             ]);
         }
+    }
+
+    /**
+     * Normaliza e valida os valores monetarios por filial.
+     */
+    private function prepararValoresMonetariosPorFilial(array $filiaisIds, array $dados): array
+    {
+        $mapa = $dados['valores_filiais'] ?? null;
+        if (!is_array($mapa)) {
+            throw new \InvalidArgumentException('Informe o valor para todas as filiais selecionadas');
+        }
+
+        $valores = [];
+        foreach ($filiaisIds as $fid) {
+            $fid = (int) $fid;
+            if ($fid <= 0) {
+                continue;
+            }
+
+            if (!array_key_exists($fid, $mapa) && !array_key_exists((string) $fid, $mapa)) {
+                throw new \InvalidArgumentException('Informe o valor para todas as filiais selecionadas');
+            }
+
+            $valor = currency_parse($mapa[$fid] ?? $mapa[(string) $fid]);
+            if ($valor <= 0) {
+                throw new \InvalidArgumentException('Informe um valor maior que zero para todas as filiais selecionadas');
+            }
+
+            $valores[$fid] = $valor;
+        }
+
+        if (empty($valores)) {
+            throw new \InvalidArgumentException('Informe o valor para todas as filiais selecionadas');
+        }
+
+        return $valores;
     }
 
     /**

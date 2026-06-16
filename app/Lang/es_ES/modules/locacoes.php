@@ -317,6 +317,7 @@ return [
     ],
     'installments' => [
         'title' => 'Cuotas',
+        'payments' => 'Pagos',
         'generate' => 'Generar Cuotas',
         'add' => 'Agregar',
         'generate_auto' => 'Generar Cuotas Automáticamente',

@@ -251,6 +251,15 @@ class Multa extends Model
      */
     public function criar(array $dados): int
     {
+        $sequenciaFinanceiro = null;
+        if (!empty($dados['id_matriz_filial'])) {
+            $sequenciaFinanceiro = SequenciaHelper::proximaSequencia(
+                $dados['chave'],
+                (int) $dados['id_matriz_filial'],
+                'financeiro'
+            );
+        }
+
         $this->qb->beginTransaction();
 
         try {
@@ -300,13 +309,8 @@ class Multa extends Model
                 'valor_subtotal' => $dados['valor'] ?? 0,
             ];
 
-            // Gerar sequencia se tiver filial
-            if (!empty($dados['id_matriz_filial'])) {
-                $dadosFinanceiro['sequencia'] = SequenciaHelper::proximaSequencia(
-                    $dados['chave'],
-                    (int) $dados['id_matriz_filial'],
-                    'financeiro'
-                );
+            if ($sequenciaFinanceiro !== null) {
+                $dadosFinanceiro['sequencia'] = $sequenciaFinanceiro;
             }
 
             $idFinanceiro = $financeiro->criar($dadosFinanceiro);

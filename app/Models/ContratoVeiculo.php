@@ -167,6 +167,8 @@ class ContratoVeiculo extends Model
      */
     public function adicionar(array $dados): int
     {
+        $dados = $this->normalizarValoresPlano($dados);
+
         return $this->qb
             ->table('contratos_veiculos')
             ->insert([
@@ -177,21 +179,21 @@ class ContratoVeiculo extends Model
                 'data_saida' => $dados['data_saida'] ?? date('Y-m-d H:i:s'),
                 'data_entrada' => $dados['data_entrada'] ?? null,
                 'plano' => $dados['plano'] ?? 'KL',
-                'valor_plano_km_pago' => currency_parse($dados['valor_plano_km_pago'] ?? 0),
-                'valor_plano_km_livre' => currency_parse($dados['valor_plano_km_livre'] ?? 0),
-                'valor_plano_km_controlado' => currency_parse($dados['valor_plano_km_controlado'] ?? 0),
+                'valor_plano_km_pago' => \currency_parse($dados['valor_plano_km_pago'] ?? 0),
+                'valor_plano_km_livre' => \currency_parse($dados['valor_plano_km_livre'] ?? 0),
+                'valor_plano_km_controlado' => \currency_parse($dados['valor_plano_km_controlado'] ?? 0),
                 'km_franquia' => (int) ($dados['km_franquia'] ?? 0),
-                'valor_km_excedente' => currency_parse($dados['valor_km_excedente'] ?? 0),
+                'valor_km_excedente' => \currency_parse($dados['valor_km_excedente'] ?? 0),
                 'minutos_tolerancia' => (int) ($dados['minutos_tolerancia'] ?? 0),
-                'valor_tolerancia' => currency_parse($dados['valor_tolerancia'] ?? 0),
-                'valor_km_retorno' => currency_parse($dados['valor_km_retorno'] ?? 0),
-                'valor_condutor_adicional' => currency_parse($dados['valor_condutor_adicional'] ?? 0),
+                'valor_tolerancia' => \currency_parse($dados['valor_tolerancia'] ?? 0),
+                'valor_km_retorno' => \currency_parse($dados['valor_km_retorno'] ?? 0),
+                'valor_condutor_adicional' => \currency_parse($dados['valor_condutor_adicional'] ?? 0),
                 'seguro_carro' => isset($dados['seguro_carro']) ? (int) $dados['seguro_carro'] : 0,
-                'valor_seguro_carro' => currency_parse($dados['valor_seguro_carro'] ?? 0),
-                'cobertura_carro' => currency_parse($dados['cobertura_carro'] ?? 0),
+                'valor_seguro_carro' => \currency_parse($dados['valor_seguro_carro'] ?? 0),
+                'cobertura_carro' => \currency_parse($dados['cobertura_carro'] ?? 0),
                 'seguro_terceiros' => isset($dados['seguro_terceiros']) ? (int) $dados['seguro_terceiros'] : 0,
-                'valor_seguro_terceiros' => currency_parse($dados['valor_seguro_terceiros'] ?? 0),
-                'cobertura_terceiros' => currency_parse($dados['cobertura_terceiros'] ?? 0),
+                'valor_seguro_terceiros' => \currency_parse($dados['valor_seguro_terceiros'] ?? 0),
+                'cobertura_terceiros' => \currency_parse($dados['cobertura_terceiros'] ?? 0),
                 'odometro_saida' => (int) ($dados['odometro_saida'] ?? 0),
                 'odometro_entrada' => $dados['odometro_entrada'] ?? null,
                 'combustivel_saida' => $dados['combustivel_saida'] ?? null,
@@ -210,6 +212,7 @@ class ContratoVeiculo extends Model
      */
     public function atualizar(int $id, array $dados): int
     {
+        $dados = $this->normalizarValoresPlano($dados);
         $dadosUpdate = [];
 
         if (isset($dados['id_veiculo'])) {
@@ -230,31 +233,31 @@ class ContratoVeiculo extends Model
 
         // Valores
         if (isset($dados['valor_plano_km_pago'])) {
-            $dadosUpdate['valor_plano_km_pago'] = currency_parse($dados['valor_plano_km_pago']);
+            $dadosUpdate['valor_plano_km_pago'] = \currency_parse($dados['valor_plano_km_pago']);
         }
         if (isset($dados['valor_plano_km_livre'])) {
-            $dadosUpdate['valor_plano_km_livre'] = currency_parse($dados['valor_plano_km_livre']);
+            $dadosUpdate['valor_plano_km_livre'] = \currency_parse($dados['valor_plano_km_livre']);
         }
         if (isset($dados['valor_plano_km_controlado'])) {
-            $dadosUpdate['valor_plano_km_controlado'] = currency_parse($dados['valor_plano_km_controlado']);
+            $dadosUpdate['valor_plano_km_controlado'] = \currency_parse($dados['valor_plano_km_controlado']);
         }
         if (isset($dados['km_franquia'])) {
             $dadosUpdate['km_franquia'] = (int) $dados['km_franquia'];
         }
         if (isset($dados['valor_km_excedente'])) {
-            $dadosUpdate['valor_km_excedente'] = currency_parse($dados['valor_km_excedente']);
+            $dadosUpdate['valor_km_excedente'] = \currency_parse($dados['valor_km_excedente']);
         }
         if (isset($dados['minutos_tolerancia'])) {
             $dadosUpdate['minutos_tolerancia'] = (int) $dados['minutos_tolerancia'];
         }
         if (isset($dados['valor_tolerancia'])) {
-            $dadosUpdate['valor_tolerancia'] = currency_parse($dados['valor_tolerancia']);
+            $dadosUpdate['valor_tolerancia'] = \currency_parse($dados['valor_tolerancia']);
         }
         if (isset($dados['valor_km_retorno'])) {
-            $dadosUpdate['valor_km_retorno'] = currency_parse($dados['valor_km_retorno']);
+            $dadosUpdate['valor_km_retorno'] = \currency_parse($dados['valor_km_retorno']);
         }
         if (isset($dados['valor_condutor_adicional'])) {
-            $dadosUpdate['valor_condutor_adicional'] = currency_parse($dados['valor_condutor_adicional']);
+            $dadosUpdate['valor_condutor_adicional'] = \currency_parse($dados['valor_condutor_adicional']);
         }
 
         // Seguros
@@ -262,19 +265,19 @@ class ContratoVeiculo extends Model
             $dadosUpdate['seguro_carro'] = (int) $dados['seguro_carro'];
         }
         if (isset($dados['valor_seguro_carro'])) {
-            $dadosUpdate['valor_seguro_carro'] = currency_parse($dados['valor_seguro_carro']);
+            $dadosUpdate['valor_seguro_carro'] = \currency_parse($dados['valor_seguro_carro']);
         }
         if (isset($dados['cobertura_carro'])) {
-            $dadosUpdate['cobertura_carro'] = currency_parse($dados['cobertura_carro']);
+            $dadosUpdate['cobertura_carro'] = \currency_parse($dados['cobertura_carro']);
         }
         if (isset($dados['seguro_terceiros'])) {
             $dadosUpdate['seguro_terceiros'] = (int) $dados['seguro_terceiros'];
         }
         if (isset($dados['valor_seguro_terceiros'])) {
-            $dadosUpdate['valor_seguro_terceiros'] = currency_parse($dados['valor_seguro_terceiros']);
+            $dadosUpdate['valor_seguro_terceiros'] = \currency_parse($dados['valor_seguro_terceiros']);
         }
         if (isset($dados['cobertura_terceiros'])) {
-            $dadosUpdate['cobertura_terceiros'] = currency_parse($dados['cobertura_terceiros']);
+            $dadosUpdate['cobertura_terceiros'] = \currency_parse($dados['cobertura_terceiros']);
         }
 
         // Odometro e combustivel
@@ -386,6 +389,32 @@ class ContratoVeiculo extends Model
 
         // Criar novo registro
         return $this->adicionar($dadosInsert);
+    }
+
+    /**
+     * Mantem apenas o valor do plano selecionado no campo correspondente.
+     */
+    private function normalizarValoresPlano(array $dados): array
+    {
+        $plano = strtoupper((string) ($dados['plano'] ?? ''));
+        if ($plano === '') {
+            return $dados;
+        }
+
+        if ($plano === 'KC') {
+            $plano = 'KP';
+            $dados['plano'] = 'KP';
+        }
+
+        $valorKmPago = \currency_parse($dados['valor_plano_km_pago'] ?? 0);
+        $valorKmLivre = \currency_parse($dados['valor_plano_km_livre'] ?? 0);
+        $valorKmControlado = \currency_parse($dados['valor_plano_km_controlado'] ?? 0);
+
+        $dados['valor_plano_km_pago'] = $plano === 'KP' ? $valorKmPago : 0;
+        $dados['valor_plano_km_livre'] = $plano === 'KL' ? $valorKmLivre : 0;
+        $dados['valor_plano_km_controlado'] = $plano === 'KMC' ? $valorKmControlado : 0;
+
+        return $dados;
     }
 
     /**

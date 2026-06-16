@@ -317,10 +317,12 @@
     $totalServicos = 0;
     $totalPago = 0;
     $totalPendente = 0;
+    $totalDescontos = 0;
     foreach ($itens as $item) {
         $valorTotal = (float)($item['valor_total'] ?? 0);
+        $totalDescontos += (float)($item['desconto'] ?? 0);
         $totalServicos += $valorTotal;
-        if (!empty($item['pago'])) {
+        if (($item['pago'] ?? 'N') === 'S') {
             $totalPago += $valorTotal;
         } else {
             $totalPendente += $valorTotal;
@@ -333,10 +335,11 @@
         <thead>
             <tr>
                 <th style="width: 5%;">#</th>
-                <th style="width: 45%;"><?= t('modules.manutencao.fields.description') ?></th>
+                <th style="width: 38%;"><?= t('modules.manutencao.fields.description') ?></th>
                 <th style="width: 10%; text-align: center;"><?= t('modules.manutencao.fields.qty') ?></th>
-                <th style="width: 15%; text-align: right;"><?= t('modules.manutencao.fields.unit_value') ?></th>
-                <th style="width: 15%; text-align: right;"><?= t('modules.manutencao.fields.total_value') ?></th>
+                <th style="width: 14%; text-align: right;"><?= t('modules.manutencao.fields.unit_value') ?></th>
+                <th style="width: 13%; text-align: right;"><?= t('modules.manutencao.fields.discount') ?></th>
+                <th style="width: 12%; text-align: right;"><?= t('modules.manutencao.fields.total_value') ?></th>
                 <th style="width: 10%; text-align: center;"><?= t('modules.manutencao.fields.status') ?></th>
             </tr>
         </thead>
@@ -346,10 +349,11 @@
                 <td><?= $i + 1 ?></td>
                 <td><?= htmlspecialchars($item['descricao'] ?? '-') ?></td>
                 <td style="text-align: center;"><?= number_format((float)($item['quantidade'] ?? 1), 0) ?></td>
-                <td style="text-align: right;"><?= number_format((float)($item['valor_unitario'] ?? 0), 2, ',', '.') ?></td>
-                <td style="text-align: right;"><?= number_format((float)($item['valor_total'] ?? 0), 2, ',', '.') ?></td>
+                <td style="text-align: right;"><?= currency_format((float)($item['valor_unitario'] ?? 0)) ?></td>
+                <td style="text-align: right;"><?= currency_format((float)($item['desconto'] ?? 0)) ?></td>
+                <td style="text-align: right;"><?= currency_format((float)($item['valor_total'] ?? 0)) ?></td>
                 <td style="text-align: center;">
-                    <?php if (!empty($item['pago'])): ?>
+                    <?php if (($item['pago'] ?? 'N') === 'S'): ?>
                         <span class="badge badge-pago"><?= t('modules.manutencao.badges.paid') ?></span>
                     <?php else: ?>
                         <span class="badge badge-pendente"><?= t('modules.manutencao.badges.pending') ?></span>
@@ -363,16 +367,20 @@
     <!-- Totais -->
     <table class="totais-table">
         <tr>
+            <td class="totais-label"><?= t('modules.manutencao.fields.discount') ?></td>
+            <td class="totais-value"><?= currency_format($totalDescontos) ?></td>
+        </tr>
+        <tr>
             <td class="totais-label"><?= t('modules.manutencao.table.totals') ?></td>
-            <td class="totais-value"><?= number_format($totalServicos, 2, ',', '.') ?></td>
+            <td class="totais-value"><?= currency_format($totalServicos) ?></td>
         </tr>
         <tr>
             <td class="totais-label"><?= t('modules.manutencao.table.total_paid') ?></td>
-            <td class="totais-value"><?= number_format($totalPago, 2, ',', '.') ?></td>
+            <td class="totais-value"><?= currency_format($totalPago) ?></td>
         </tr>
         <tr>
             <td class="totais-label"><?= t('modules.manutencao.table.total_pending') ?></td>
-            <td class="totais-value"><?= number_format($totalPendente, 2, ',', '.') ?></td>
+            <td class="totais-value"><?= currency_format($totalPendente) ?></td>
         </tr>
     </table>
     <?php else: ?>

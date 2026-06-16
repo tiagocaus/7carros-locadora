@@ -46,6 +46,7 @@ return [
     ],
     'fields' => [
         'type' => 'Type',
+        'status' => 'Status',
         'trade_name' => 'Trade Name',
         'company_name' => 'Legal Name',
         'cpf_cnpj' => 'Tax ID',
@@ -111,6 +112,11 @@ return [
         'parent' => 'Headquarters',
         'branch' => 'Branch',
     ],
+
+    'status_options' => [
+        'active' => 'Active',
+        'inactive' => 'Inactive',
+    ],
     'contact' => [
         'emails_title' => 'Emails',
         'phones_title' => 'Phone Numbers',
@@ -172,6 +178,7 @@ return [
         'company_name' => 'Legal Name',
         'cpf_cnpj' => 'Tax ID',
         'city_state' => 'City/State',
+        'status' => 'Status',
         'actions' => 'Actions',
     ],
     'actions' => [
@@ -185,6 +192,11 @@ return [
         'server_error' => 'Error connecting to the server',
         'no_records' => 'No records found',
         'delete_error' => 'Error deleting: :message',
+        'delete_has_links_title' => 'Headquarters/branch has links',
+        'delete_has_links_confirm' => "This headquarters/branch cannot be deleted because it has linked records:\n\n:links\n\nDo you want to deactivate it?",
+        'deactivate_button' => 'Deactivate headquarters/branch',
+        'deactivated' => 'Headquarters/branch deactivated successfully',
+        'deactivate_error' => 'Error deactivating headquarters/branch',
         'save_error' => 'Error saving: :message',
         'id_not_found' => 'Error: ID not found',
         'format_not_supported' => 'Format not supported. Use JPEG, PNG or WebP only.',

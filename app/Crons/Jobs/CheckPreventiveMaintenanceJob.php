@@ -30,17 +30,6 @@ class CheckPreventiveMaintenanceJob extends BaseJob
      */
     protected function handle(): array
     {
-        $inicioExecucao = microtime(true);
-
-        if (Database::env('MANUTENCAO_CRON_ENABLED', 'true') !== 'true') {
-            $this->log(t('modules.manutencao.cron.disabled'));
-            return [
-                'success' => true,
-                'message' => t('modules.manutencao.cron.disabled'),
-                'data' => []
-            ];
-        }
-
         // Cria conexão mysqli
         $mysqli = new mysqli(
             Database::env('DB_HOST'),
@@ -142,14 +131,8 @@ class CheckPreventiveMaintenanceJob extends BaseJob
             'os' => $osGeradas
         ]));
 
-        // Calcula tempo de execução
-        $tempoExecucao = microtime(true) - $inicioExecucao;
-
-        // Envia email de resumo para APP_COMPANY_EMAIL
-        $this->enviarResumoExecucao($tenantsProcessados, $veiculosProcessados, $osGeradas, $erros, $tempoExecucao);
-
         return [
-            'success' => true,
+            'success' => empty($erros),
             'message' => t('modules.manutencao.cron.result', [
                 'tenants' => $tenantsProcessados,
                 'veiculos' => $veiculosProcessados,
@@ -160,6 +143,7 @@ class CheckPreventiveMaintenanceJob extends BaseJob
                 'veiculos_processados' => $veiculosProcessados,
                 'os_geradas' => $osGeradas,
                 'os_lista' => $osCriadas,
+                'erros' => $erros,
             ]
         ];
     }
@@ -458,119 +442,6 @@ class CheckPreventiveMaintenanceJob extends BaseJob
                 $this->notificationSkipLogs[$key] = true;
             }
         }
-    }
-
-    /**
-     * Envia email de resumo da execução do CRON para APP_COMPANY_EMAIL
-     */
-    private function enviarResumoExecucao(
-        int $tenantsProcessados,
-        int $veiculosProcessados,
-        int $osGeradas,
-        array $erros,
-        float $tempoExecucao
-    ): void {
-        $emailDestino = Database::env('APP_COMPANY_EMAIL');
-        if (empty($emailDestino)) {
-            $this->log('APP_COMPANY_EMAIL não configurado, resumo não enviado', 'WARNING');
-            return;
-        }
-
-        $temErros = !empty($erros);
-        $assunto = $temErros
-            ? '[ERRO] Resumo CRON - ' . date('d/m/Y H:i')
-            : 'Resumo CRON - ' . date('d/m/Y H:i');
-
-        // Monta corpo do email em HTML
-        $corpo = $this->montarCorpoResumo($tenantsProcessados, $veiculosProcessados, $osGeradas, $erros, $tempoExecucao);
-
-        // Envia email diretamente (sem fila, pois é email interno)
-        $emailService = new \App\Services\EmailService();
-        $resultado = $emailService->send([
-            'to' => $emailDestino,
-            'to_name' => '7Carros Admin',
-            'subject' => $assunto,
-            'body' => $corpo,
-        ]);
-
-        if ($resultado['success']) {
-            $this->log("Email de resumo enviado para {$emailDestino}");
-        } else {
-            $this->log("Falha ao enviar email de resumo: {$resultado['message']}", 'ERROR');
-        }
-    }
-
-    /**
-     * Monta o corpo HTML do email de resumo (simplificado)
-     */
-    private function montarCorpoResumo(
-        int $tenantsProcessados,
-        int $veiculosProcessados,
-        int $osGeradas,
-        array $erros,
-        float $tempoExecucao
-    ): string {
-        $temErros = !empty($erros);
-
-        $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; background: #f3f4f6; color: #1f2937; }
-            .container { max-width: 500px; margin: 0 auto; }
-            .header { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; }
-            .header h1 { margin: 0; font-size: 18px; font-weight: 600; }
-            .header .date { margin-top: 5px; font-size: 13px; opacity: 0.9; }
-            .content { background: white; padding: 20px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-            .section { margin-bottom: 20px; padding: 15px; background: #f9fafb; border-radius: 8px; border-left: 4px solid #3b82f6; }
-            .section-title { font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-            .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-            .stat-item { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px dashed #e5e7eb; }
-            .stat-item:last-child { border-bottom: none; }
-            .stat-label { color: #6b7280; }
-            .stat-value { font-weight: 600; color: #1f2937; }
-            .error-section { background: #fef2f2; border-left-color: #dc2626; }
-            .error-section .section-title { color: #dc2626; }
-            .error-item { background: white; padding: 10px; border-radius: 6px; margin-top: 8px; font-size: 12px; }
-            .error-item .error-location { color: #6b7280; margin-bottom: 4px; }
-            .error-item .error-message { color: #dc2626; font-family: monospace; }
-            .footer { text-align: center; margin-top: 15px; font-size: 11px; color: #9ca3af; }
-        </style></head><body><div class="container">';
-
-        // Cabeçalho
-        $html .= '<div class="header">';
-        $html .= '<h1>📊 Resumo de Execução - CRON Jobs</h1>';
-        $html .= '<div class="date">' . date('d/m/Y H:i:s') . '</div>';
-        $html .= '</div>';
-
-        // Conteúdo
-        $html .= '<div class="content">';
-
-        // Seção: Manutenção Preventiva
-        $html .= '<div class="section">';
-        $html .= '<div class="section-title">🔧 Manutenção Preventiva</div>';
-        $html .= '<div class="stat-item"><span class="stat-label">Tenants processados</span><span class="stat-value">' . number_format($tenantsProcessados, 0, ',', '.') . '</span></div>';
-        $html .= '<div class="stat-item"><span class="stat-label">Veículos analisados</span><span class="stat-value">' . number_format($veiculosProcessados, 0, ',', '.') . '</span></div>';
-        $html .= '<div class="stat-item"><span class="stat-label">OS criadas</span><span class="stat-value">' . number_format($osGeradas, 0, ',', '.') . '</span></div>';
-        $html .= '<div class="stat-item"><span class="stat-label">Tempo de execução</span><span class="stat-value">' . number_format($tempoExecucao, 2, ',', '.') . 's</span></div>';
-        $html .= '</div>';
-
-        // Seção: Erros (apenas se houver)
-        if ($temErros) {
-            $html .= '<div class="section error-section">';
-            $html .= '<div class="section-title">⚠️ Erros Encontrados (' . count($erros) . ')</div>';
-            foreach ($erros as $erro) {
-                $html .= '<div class="error-item">';
-                $html .= '<div class="error-location">Tenant: ' . htmlspecialchars(substr($erro['tenant'], 0, 12)) . '... | Placa: ' . htmlspecialchars($erro['placa']) . '</div>';
-                $html .= '<div class="error-message">' . htmlspecialchars($erro['erro']) . '</div>';
-                $html .= '</div>';
-            }
-            $html .= '</div>';
-        }
-
-        // Footer
-        $html .= '<div class="footer">7Carros Locadora - Sistema de Gestão</div>';
-
-        $html .= '</div></div></body></html>';
-
-        return $html;
     }
 
     /**

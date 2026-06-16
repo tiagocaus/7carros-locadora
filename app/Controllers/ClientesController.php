@@ -59,6 +59,33 @@ class ClientesController
     }
 
     /**
+     * Remove formatacao de CPF/CNPJ para envio aos gateways.
+     */
+    private function normalizarDocumentoCartao(mixed $documento): string
+    {
+        if (is_array($documento) || is_object($documento)) {
+            return '';
+        }
+
+        return preg_replace('/\D/', '', (string) $documento);
+    }
+
+    /**
+     * Extrai o documento informado no campo de titular do cartao.
+     */
+    private function obterDocumentoTitularCartao(array $dados): string
+    {
+        foreach (['cpf', 'cpf_cnpj', 'documento_titular', 'holder_document'] as $campo) {
+            $documento = $this->normalizarDocumentoCartao($dados[$campo] ?? '');
+            if ($documento !== '') {
+                return $documento;
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * Lista todos os clientes (com paginação e busca)
      *
      * GET /api/clientes - Retorna JSON
@@ -1207,7 +1234,7 @@ class ClientesController
             }
 
             $clienteModel = new Cliente();
-            $cliente = $clienteModel->buscarPorId($id);
+            $cliente = $clienteModel->buscarPorIdComContatos($id);
             if (!$cliente) {
                 Response::json(['success' => false, 'message' => 'Cliente não encontrado'], 404);
                 return;
@@ -1251,6 +1278,19 @@ class ClientesController
                 return;
             }
 
+            $documentoTitular = $this->obterDocumentoTitularCartao($dados);
+
+            if (
+                ($gatewayConfig['gateway_code'] ?? '') === 'asaas'
+                && !in_array(strlen($documentoTitular), [11, 14], true)
+            ) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Informe o CPF/CNPJ do titular do cartão para tokenizar.'
+                ], 400);
+                return;
+            }
+
             // Preparar dados do cartão
             $cardData = [
                 'holder' => $dados['holder'] ?? '',
@@ -1258,9 +1298,11 @@ class ClientesController
                 'expiry_month' => $dados['expiry_month'] ?? '',
                 'expiry_year' => $dados['expiry_year'] ?? '',
                 'cvv' => $dados['cvv'] ?? '',
-                'cpf' => $cliente['cpf_cnpj'] ?? '',
-                'email' => $dados['email'] ?? '',
-                'phone' => $dados['phone'] ?? '',
+                'cpf' => $documentoTitular,
+                'email' => $dados['email'] ?? $cliente['email'] ?? '',
+                'phone' => $dados['phone'] ?? $cliente['telefone'] ?? '',
+                'postal_code' => $dados['postal_code'] ?? $cliente['cep'] ?? '',
+                'address_number' => $dados['address_number'] ?? $cliente['numero'] ?? '',
                 // Para Stripe que já recebe token do frontend
                 'payment_method_id' => $dados['payment_method_id'] ?? null,
                 'brand' => $dados['brand'] ?? null,

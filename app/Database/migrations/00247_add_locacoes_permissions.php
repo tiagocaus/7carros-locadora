@@ -56,7 +56,9 @@ return new class extends Migration
             'Atendente' => [
                 'locacoes.visualizar',
                 'locacoes.criar',
+                'locacoes.editar',
                 'locacoes.saida',
+                'locacoes.devolucao',
                 'locacoes.imprimir'
             ],
             'Assistente Administrativo' => [

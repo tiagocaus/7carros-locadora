@@ -317,6 +317,7 @@ return [
     ],
     'installments' => [
         'title' => 'Prestações',
+        'payments' => 'Pagamentos',
         'generate' => 'Gerar Prestações',
         'add' => 'Adicionar',
         'generate_auto' => 'Gerar Prestações Automaticamente',

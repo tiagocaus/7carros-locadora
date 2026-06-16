@@ -917,7 +917,7 @@ Este documento especifica o comportamento e as informações que cada relatório
 
 ### 4.1 Contrato/Locações (por cliente)
 
-**Objetivo**: Histórico completo de locações por cliente.
+**Objetivo**: Histórico consolidado de contratos e locações por cliente.
 
 **Informações a exibir**:
 
@@ -925,15 +925,15 @@ Este documento especifica o comportamento e as informações que cada relatório
 |-------|-----------|
 | Cliente | Nome/Razão social |
 | CPF/CNPJ | Documento |
-| Nº Locações | Quantidade total |
-| Primeira locação | Data |
-| Última locação | Data |
+| Nº Contratos/Locações | Quantidade total |
+| Primeira contratação/locação | Data |
+| Última contratação/locação | Data |
 | Faturamento total | Valor acumulado |
-| Ticket médio | Média por locação |
+| Ticket médio | Média por contrato/locação |
 | Dias médios | Duração média |
 
 **Detalhamento por cliente**:
-- Lista de todas as locações
+- Lista consolidada de contratos e locações
 - Veículos mais locados
 - Formas de pagamento preferidas
 - Histórico de ocorrências

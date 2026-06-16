@@ -41,7 +41,7 @@ Cadastro de taxas disponiveis para uso em contratos.
 | nome | VARCHAR(100) | Nome da taxa |
 | base_calculo | VARCHAR(3) | Modo de calculo: FIX, PER, VLT |
 | tipo_valor | VARCHAR(3) | Tipo: MON (moeda), POR (%) |
-| valor | DECIMAL(10,2) | Usado **só** quando `tipo_valor='POR'`. Para MON o valor vive em `taxaseservicos_valores_filiais` (ver abaixo) |
+| valor | DECIMAL(10,2) | Para `POR`, valor oficial do percentual. Para `MON`, fallback/display preenchido com o primeiro valor positivo das filiais; o valor oficial vive em `taxaseservicos_valores_filiais` |
 | aplicar | VARCHAR(1) | Auto-aplicar: S ou N |
 | onde_usar | VARCHAR(15) | Canais: SIS, SITE, APP |
 | created_at | TIMESTAMP | Data de criacao |
@@ -63,7 +63,13 @@ Relacionamento N:N entre taxas e filiais.
 
 ### Tabela `taxaseservicos_valores_filiais`
 
-Valor monetário da taxa **por filial**, quando `tipo_valor='MON'`. Cada filial guarda o valor na própria moeda. Taxas com `tipo_valor='POR'` (percentual) ignoram esta tabela — usam `taxaseservicos.valor` direto.
+Valor monetario da taxa **por filial**, quando `tipo_valor='MON'`. Cada filial guarda o valor na propria moeda. Taxas com `tipo_valor='POR'` (percentual) ignoram esta tabela — usam `taxaseservicos.valor` direto.
+
+Para `MON`, `taxaseservicos.valor` nao deve ser tratado como fonte oficial. Ele existe como fallback/display para listagens, compatibilidade e casos antigos sem valor por filial. Ao criar ou atualizar uma taxa monetaria, o backend deve gravar:
+- `taxaseservicos_valores_filiais.valor`: valor oficial de cada filial selecionada.
+- `taxaseservicos.valor`: primeiro valor positivo informado nas filiais, apenas como fallback/display.
+
+Nunca salve `taxaseservicos.valor = 0` para `MON` quando existem valores por filial.
 
 | Campo | Tipo | Descricao |
 |-------|------|-----------|
@@ -79,10 +85,10 @@ Valor monetário da taxa **por filial**, quando `tipo_valor='MON'`. Cada filial 
 
 **Uso:**
 - UI (`taxas-e-servicos/adicionar.php`): tabela dinâmica aparece quando `tipo_valor=MON` — uma linha por filial marcada, com símbolo de moeda correspondente.
-- Backend: `TaxaServico::resolverValor($taxa, $filialId)` retorna o valor correto (tsvf.valor se MON, senão `t.valor`). Já está embutido em `listarParaSelect()` e `listarAutoAplicar()` via `CASE WHEN`.
+- Backend: `TaxaServico::resolverValor($taxa, $filialId)` retorna o valor correto (`tsvf.valor` se `MON` com filial, senao `t.valor`). Ja esta embutido em `listarParaSelect()`, `listarAutoAplicar()` e listagem paginada.
 - Consumidores (`ContratosController`, `LocacoesController`): usam `resolverValor()` pra popular `valor_unitario` no snapshot, passando a filial de retirada.
 
-Migrations: 00315 (schema) + 00316 (backfill).
+Migrations: 00315 (schema), 00316 (backfill inicial) e 00371 (backfill do fallback/display zerado).
 
 ### Tabela `contratos_taxaseservicos`
 

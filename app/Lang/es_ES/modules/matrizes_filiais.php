@@ -44,6 +44,7 @@ return [
     ],
     'fields' => [
         'type' => 'Tipo',
+        'status' => 'Estado',
         'trade_name' => 'Nombre Comercial',
         'company_name' => 'Razón Social',
         'cpf_cnpj' => 'NIF/CIF',
@@ -109,6 +110,11 @@ return [
         'parent' => 'Sede Principal',
         'branch' => 'Sucursal',
     ],
+
+    'status_options' => [
+        'active' => 'Activa',
+        'inactive' => 'Inactiva',
+    ],
     'contact' => [
         'emails_title' => 'Correos Electrónicos',
         'phones_title' => 'Teléfonos',
@@ -170,6 +176,7 @@ return [
         'company_name' => 'Razón Social',
         'cpf_cnpj' => 'NIF/CIF',
         'city_state' => 'Ciudad/Provincia',
+        'status' => 'Estado',
         'actions' => 'Acciones',
     ],
     'actions' => [
@@ -183,6 +190,11 @@ return [
         'server_error' => 'Error al conectar con el servidor',
         'no_records' => 'Ningún registro encontrado',
         'delete_error' => 'Error al eliminar: :message',
+        'delete_has_links_title' => 'Matriz/sucursal con vínculos',
+        'delete_has_links_confirm' => "No es posible eliminar esta matriz/sucursal porque existen vínculos:\n\n:links\n\n¿Desea desactivarla?",
+        'deactivate_button' => 'Desactivar matriz/sucursal',
+        'deactivated' => 'Matriz/sucursal desactivada con éxito',
+        'deactivate_error' => 'Error al desactivar matriz/sucursal',
         'save_error' => 'Error al guardar: :message',
         'id_not_found' => 'Error: ID no encontrado',
         'format_not_supported' => 'Formato no admitido. Use solo JPEG, PNG o WebP.',

@@ -208,6 +208,7 @@
                                 <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase w-96"><?= t('modules.manutencao.fields.product') ?></th>
                                 <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase w-20"><?= t('modules.manutencao.fields.qty') ?></th>
                                 <th class="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase w-28"><?= t('modules.manutencao.fields.unit_value') ?></th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase w-28"><?= t('modules.manutencao.fields.discount') ?></th>
                                 <th class="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase w-28"><?= t('modules.manutencao.fields.total_value') ?></th>
                                 <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase w-20"><?= t('modules.manutencao.fields.status') ?></th>
                                 <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase w-16"><?= t('modules.manutencao.fields.action') ?></th>
@@ -219,6 +220,7 @@
                         <tfoot class="bg-slate-50">
                             <tr>
                                 <td colspan="3" class="px-3 py-2 text-right text-sm font-bold"><?= t('modules.manutencao.table.totals') ?></td>
+                                <td class="px-3 py-2 text-right text-sm font-bold" id="totalDescontos"><?= currency_format(0) ?></td>
                                 <td class="px-3 py-2 text-right text-sm font-bold" id="totalServicos"><?= currency_format(0) ?></td>
                                 <td colspan="2"></td>
                             </tr>
@@ -352,6 +354,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         'description' => t('modules.manutencao.fields.description'),
         'qty' => t('modules.manutencao.fields.qty'),
         'unit_value' => t('modules.manutencao.fields.unit_value'),
+        'discount' => t('modules.manutencao.fields.discount'),
         'total_value' => t('modules.manutencao.fields.total_value'),
     ],
     'sections' => [
@@ -409,6 +412,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         'provideDescription' => t('modules.manutencao.messages.provide_description'),
         'productOutOfStock' => t('modules.manutencao.messages.product_out_of_stock'),
         'stockInsufficient' => t('modules.manutencao.messages.stock_insufficient'),
+        'discountExceedsSubtotal' => t('modules.manutencao.messages.discount_exceeds_subtotal'),
         'selectAtLeastOne' => t('modules.manutencao.messages.select_at_least_one'),
         'entryCreated' => t('modules.manutencao.messages.entry_created'),
         'genericError' => t('modules.manutencao.messages.generic_error'),
@@ -800,16 +804,21 @@ window.manutencoesAuditI18n = <?= json_encode([
         if (!tbody) return;
 
         if (itensData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-500">${i18n.noItems}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-slate-500">${i18n.noItems}</td></tr>`;
+            document.getElementById('totalDescontos').textContent = Currency.format(0, true);
+            document.getElementById('totalServicos').textContent = Currency.format(0, true);
             return;
         }
 
         let html = '';
         let total = 0;
+        let totalDescontos = 0;
 
         itensData.forEach((item, index) => {
             const valorTotal = parseFloat(item.valor_total) || 0;
+            const desconto = parseFloat(item.desconto) || 0;
             total += valorTotal;
+            totalDescontos += desconto;
 
             const statusBadge = item.pago === 'S'
                 ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">${i18n.badgePaid}</span>`
@@ -827,6 +836,7 @@ window.manutencoesAuditI18n = <?= json_encode([
                     </td>
                     <td class="px-3 py-2 text-center text-sm">${formatarQtd(item.quantidade)} <span class="text-slate-400 text-xs">${unidade}</span></td>
                     <td class="px-3 py-2 text-right text-sm">${Currency.format(item.valor_unitario, true)}</td>
+                    <td class="px-3 py-2 text-right text-sm">${Currency.format(desconto, true)}</td>
                     <td class="px-3 py-2 text-right text-sm">${Currency.format(item.valor_total, true)}</td>
                     <td class="px-3 py-2 text-center">${statusBadge}</td>
                     <td class="px-3 py-2 text-center">
@@ -838,6 +848,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         });
 
         tbody.innerHTML = html;
+        document.getElementById('totalDescontos').textContent = Currency.format(totalDescontos, true);
         document.getElementById('totalServicos').textContent = Currency.format(total, true);
     }
 
@@ -875,6 +886,9 @@ window.manutencoesAuditI18n = <?= json_encode([
             <td class="px-3 py-2">
                 <input type="text" class="form-input-focus w-full text-sm text-right item-valor input-moeda" value="0,00">
             </td>
+            <td class="px-3 py-2">
+                <input type="text" class="form-input-focus w-full text-sm text-right item-desconto input-moeda" value="0,00">
+            </td>
             <td class="px-3 py-2 text-right text-sm item-total">${Currency.format(0, true)}</td>
             <td class="px-3 py-2 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">${i18n.badgeNew}</span></td>
             <td class="px-3 py-2 text-center">
@@ -892,6 +906,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         // Aplicar mascara de moeda
         if (window.Currency && window.Currency.applyMask) {
             Currency.applyMask(tr.querySelector('.item-valor'));
+            Currency.applyMask(tr.querySelector('.item-desconto'));
         }
 
         // Evento de selecao do produto
@@ -948,13 +963,16 @@ window.manutencoesAuditI18n = <?= json_encode([
 
         tr.querySelector('.item-qtd')?.addEventListener('input', () => calcularTotalLinha(tr));
         tr.querySelector('.item-valor')?.addEventListener('input', () => calcularTotalLinha(tr));
+        tr.querySelector('.item-desconto')?.addEventListener('input', () => calcularTotalLinha(tr));
     }
 
     function calcularTotalLinha(tr) {
         const qtd = parseQtd(tr.querySelector('.item-qtd')?.value || 0);
         const valorStr = tr.querySelector('.item-valor')?.value || '0';
         const valor = Currency.parse(valorStr);
-        const total = qtd * valor;
+        const descontoStr = tr.querySelector('.item-desconto')?.value || '0';
+        const desconto = Currency.parse(descontoStr);
+        const total = Math.max(0, (qtd * valor) - desconto);
         tr.querySelector('.item-total').textContent = Currency.format(total, true);
     }
 
@@ -964,6 +982,8 @@ window.manutencoesAuditI18n = <?= json_encode([
         let qtd = parseQtd(tr.querySelector('.item-qtd')?.value || 0);
         const valorStr = tr.querySelector('.item-valor')?.value || '0';
         const valor = Currency.parse(valorStr);
+        const descontoStr = tr.querySelector('.item-desconto')?.value || '0';
+        const desconto = Currency.parse(descontoStr);
 
         if (!select.value && !descricao) {
             toast.error(i18n.provideDescription);
@@ -983,6 +1003,12 @@ window.manutencoesAuditI18n = <?= json_encode([
 
         const selectedOption = select.options[select.selectedIndex];
         const unidade = tr.dataset.unidade || 'UN';
+        const subtotal = qtd * valor;
+
+        if (desconto > subtotal) {
+            toast.error(i18n.discountExceedsSubtotal);
+            return;
+        }
 
         itensData.push({
             id_estoque: select.value || null,
@@ -990,7 +1016,8 @@ window.manutencoesAuditI18n = <?= json_encode([
             estoque_unidade: unidade,
             quantidade: qtd,
             valor_unitario: valor,
-            valor_total: qtd * valor,
+            desconto: desconto,
+            valor_total: subtotal - desconto,
             pago: 'N'
         });
 
@@ -1046,6 +1073,9 @@ window.manutencoesAuditI18n = <?= json_encode([
             <td class="px-3 py-2">
                 <input type="text" class="form-input-focus w-full text-sm text-right item-valor input-moeda" value="${Currency.format(item.valor_unitario, false)}">
             </td>
+            <td class="px-3 py-2">
+                <input type="text" class="form-input-focus w-full text-sm text-right item-desconto input-moeda" value="${Currency.format(item.desconto || 0, false)}">
+            </td>
             <td class="px-3 py-2 text-right text-sm item-total">${Currency.format(item.valor_total, true)}</td>
             <td class="px-3 py-2 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">${i18n.badgeEditing}</span></td>
             <td class="px-3 py-2 text-center">
@@ -1065,6 +1095,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         // Aplicar mascara de moeda
         if (window.Currency && window.Currency.applyMask) {
             Currency.applyMask(tr.querySelector('.item-valor'));
+            Currency.applyMask(tr.querySelector('.item-desconto'));
         }
 
         // Evento de selecao do estoque
@@ -1124,6 +1155,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         // Eventos de calculo
         tr.querySelector('.item-qtd')?.addEventListener('input', () => calcularTotalLinha(tr));
         tr.querySelector('.item-valor')?.addEventListener('input', () => calcularTotalLinha(tr));
+        tr.querySelector('.item-desconto')?.addEventListener('input', () => calcularTotalLinha(tr));
 
         // Eventos de salvar/cancelar
         tr.querySelector('.btn-salvar-edicao')?.addEventListener('click', () => salvarEdicaoItem(index, tr));
@@ -1134,6 +1166,7 @@ window.manutencoesAuditI18n = <?= json_encode([
     function salvarTodasEdicoesAbertas() {
         const tbody = document.getElementById('itensTableBody');
         const linhasEditando = tbody.querySelectorAll('tr[data-editing-index]');
+        let invalido = false;
 
         linhasEditando.forEach(tr => {
             const idx = parseInt(tr.getAttribute('data-editing-index'));
@@ -1143,7 +1176,16 @@ window.manutencoesAuditI18n = <?= json_encode([
             const q = parseQtd(tr.querySelector('.item-qtd')?.value || 0);
             const vStr = tr.querySelector('.item-valor')?.value || '0';
             const v = Currency.parse(vStr);
+            const dStr = tr.querySelector('.item-desconto')?.value || '0';
+            const d = Currency.parse(dStr);
             const un = tr.dataset.unidade || 'UN';
+            const subtotal = q * v;
+
+            if (d > subtotal) {
+                toast.error(i18n.discountExceedsSubtotal);
+                invalido = true;
+                return;
+            }
 
             // So atualizar se tiver descricao ou estoque
             if (desc || idEst) {
@@ -1154,10 +1196,13 @@ window.manutencoesAuditI18n = <?= json_encode([
                     estoque_unidade: un,
                     quantidade: q,
                     valor_unitario: v,
-                    valor_total: q * v
+                    desconto: d,
+                    valor_total: subtotal - d
                 };
             }
         });
+
+        return !invalido;
     }
 
     function salvarEdicaoItem(index, tr) {
@@ -1184,8 +1229,18 @@ window.manutencoesAuditI18n = <?= json_encode([
             }
         }
 
+        const qtd = parseQtd(tr.querySelector('.item-qtd')?.value || 0);
+        const valor = Currency.parse(tr.querySelector('.item-valor')?.value || '0');
+        const desconto = Currency.parse(tr.querySelector('.item-desconto')?.value || '0');
+        if (desconto > (qtd * valor)) {
+            toast.error(i18n.discountExceedsSubtotal);
+            return;
+        }
+
         // Salvar TODAS as linhas em edicao antes de re-renderizar
-        salvarTodasEdicoesAbertas();
+        if (!salvarTodasEdicoesAbertas()) {
+            return;
+        }
 
         renderItens();
     }

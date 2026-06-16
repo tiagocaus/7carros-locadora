@@ -602,6 +602,7 @@ return [
         'resolve_error' => 'Erro ao resolver diferença',
         'add_installment_error' => 'Erro ao adicionar parcela',
         'installments_generated_save' => 'Parcelas geradas! Deseja salvar agora?',
+        'installment_charges_queued' => 'Parcelas salvas e cobranças enfileiradas para envio.',
         'prompt_due_date' => 'Data de vencimento (AAAA-MM-DD):',
         'prompt_installment_value' => 'Valor da parcela:',
         'view_in_financial' => 'Ver no Financeiro',

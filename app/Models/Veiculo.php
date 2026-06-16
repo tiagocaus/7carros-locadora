@@ -114,11 +114,13 @@ class Veiculo extends Model
             $query->whereRaw($filialWhere, $filialParams);
         }
 
-        // Busca por placa, renavam, chassi, marca ou modelo
+        // Busca por campos visiveis da listagem e identificadores do veiculo
         if (!empty($search)) {
             $query->whereRaw(
-                '(v.placa LIKE ? OR v.renavam LIKE ? OR v.chassi LIKE ? OR v.marca LIKE ? OR v.modelo LIKE ?)',
+                '(v.placa LIKE ? OR v.renavam LIKE ? OR v.chassi LIKE ? OR v.marca LIKE ? OR v.modelo LIKE ? OR g.nome LIKE ? OR mf.nome_fantasia LIKE ?)',
                 [
+                    '%' . $search . '%',
+                    '%' . $search . '%',
                     '%' . $search . '%',
                     '%' . $search . '%',
                     '%' . $search . '%',
@@ -149,7 +151,10 @@ class Veiculo extends Model
         ?string $filialWhere = null,
         array $filialParams = []
     ): int {
-        $query = $this->qb->table('veiculos', 'v');
+        $query = $this->qb
+            ->table('veiculos', 'v')
+            ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
+            ->leftJoin('matrizes_filiais', 'mf', 'v.id_matriz_filial', '=', 'mf.id');
 
         // Filtro de filial
         if (!empty($filialWhere)) {
@@ -159,8 +164,10 @@ class Veiculo extends Model
         // Busca
         if (!empty($search)) {
             $query->whereRaw(
-                '(v.placa LIKE ? OR v.renavam LIKE ? OR v.chassi LIKE ? OR v.marca LIKE ? OR v.modelo LIKE ?)',
+                '(v.placa LIKE ? OR v.renavam LIKE ? OR v.chassi LIKE ? OR v.marca LIKE ? OR v.modelo LIKE ? OR g.nome LIKE ? OR mf.nome_fantasia LIKE ?)',
                 [
+                    '%' . $search . '%',
+                    '%' . $search . '%',
                     '%' . $search . '%',
                     '%' . $search . '%',
                     '%' . $search . '%',
@@ -463,44 +470,29 @@ class Veiculo extends Model
     {
         $vinculos = [];
 
-        // Verificar locacoes (via locacoes_veiculos)
-        $locacoes = $this->qb
-            ->table('locacoes_veiculos')
-            ->where('id_veiculo', '=', $id)
-            ->count();
+        $checks = [
+            ['table' => 'locacoes_veiculos', 'label' => 'locacao(oes)'],
+            ['table' => 'contratos_veiculos', 'label' => 'contrato(s)'],
+            ['table' => 'manutencoes', 'label' => 'manutencao(oes)'],
+            ['table' => 'multas', 'label' => 'multa(s)'],
+            ['table' => 'financeiro', 'label' => 'lancamento(s) financeiro(s)'],
+            ['table' => 'financeiro_itens', 'label' => 'item(ns) financeiro(s)'],
+            ['table' => 'checklist', 'label' => 'checklist(s)'],
+            ['table' => 'serpro_indicacoes', 'label' => 'indicacao(oes) SERPRO'],
+            ['table' => 'comissoes_investidores', 'label' => 'comissao(oes) de investidor'],
+            ['table' => 'veiculos_acessorios_vinculados', 'label' => 'acessorio(s) vinculado(s)'],
+            ['table' => 'veiculos_encargos', 'label' => 'encargo(s) vinculado(s)'],
+        ];
 
-        if ($locacoes > 0) {
-            $vinculos[] = "Existem {$locacoes} locacao(oes) vinculada(s)";
-        }
+        foreach ($checks as $check) {
+            $total = $this->qb
+                ->table($check['table'])
+                ->where('id_veiculo', '=', $id)
+                ->count();
 
-        // Verificar contratos
-        $contratos = $this->qb
-            ->table('contratos')
-            ->where('id_veiculo', '=', $id)
-            ->count();
-
-        if ($contratos > 0) {
-            $vinculos[] = "Existem {$contratos} contrato(s) vinculado(s)";
-        }
-
-        // Verificar manutencoes
-        $manutencoes = $this->qb
-            ->table('manutencoes')
-            ->where('id_veiculo', '=', $id)
-            ->count();
-
-        if ($manutencoes > 0) {
-            $vinculos[] = "Existem {$manutencoes} manutencao(oes) vinculada(s)";
-        }
-
-        // Verificar multas
-        $multas = $this->qb
-            ->table('multas')
-            ->where('id_veiculo', '=', $id)
-            ->count();
-
-        if ($multas > 0) {
-            $vinculos[] = "Existem {$multas} multa(s) vinculada(s)";
+            if ($total > 0) {
+                $vinculos[] = "Existem {$total} {$check['label']}";
+            }
         }
 
         return [

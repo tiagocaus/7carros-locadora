@@ -19,6 +19,10 @@
                 <div class="totals-value"><?= currency_format($totals['custo_total']) ?></div>
             </td>
             <td>
+                <div class="totals-label"><?= t('modules.relatorios.veicular.manutencoes.desconto_total') ?></div>
+                <div class="totals-value"><?= currency_format($totals['desconto_total'] ?? 0) ?></div>
+            </td>
+            <td>
                 <div class="totals-label"><?= t('modules.relatorios.veicular.manutencoes.custo_medio') ?></div>
                 <div class="totals-value"><?= currency_format($totals['custo_medio']) ?></div>
             </td>
@@ -44,6 +48,7 @@
                 <th class="center"><?= t('modules.relatorios.veicular.manutencoes.col_data_entrada') ?></th>
                 <th class="center"><?= t('modules.relatorios.veicular.manutencoes.col_data_saida') ?></th>
                 <th class="center"><?= t('modules.relatorios.veicular.manutencoes.col_dias_parado') ?></th>
+                <th class="right"><?= t('modules.relatorios.veicular.manutencoes.col_desconto') ?></th>
                 <th class="right"><?= t('modules.relatorios.veicular.manutencoes.col_valor') ?></th>
                 <th class="center"><?= t('modules.relatorios.veicular.manutencoes.col_status') ?></th>
             </tr>
@@ -66,6 +71,7 @@
                 <td class="center"><?= !empty($row['data_entrada']) ? format_date($row['data_entrada']) : '-' ?></td>
                 <td class="center"><?= !empty($row['data_saida']) ? format_date($row['data_saida']) : '-' ?></td>
                 <td class="center"><?= (int) $row['dias_parado'] ?></td>
+                <td class="right"><?= currency_format($row['desconto'] ?? 0) ?></td>
                 <td class="right"><?= currency_format($row['valor']) ?></td>
                 <td class="center"><span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($row['status_label'] ?? '-') ?></span></td>
             </tr>

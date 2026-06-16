@@ -598,6 +598,7 @@ return [
         'resolve_error' => 'Error resolving difference',
         'add_installment_error' => 'Error adding installment',
         'installments_generated_save' => 'Installments generated! Do you want to save now?',
+        'installment_charges_queued' => 'Installments saved and payment reminders queued for delivery.',
         'prompt_due_date' => 'Due date (YYYY-MM-DD):',
         'prompt_installment_value' => 'Installment value:',
         'view_in_financial' => 'View in Financial',

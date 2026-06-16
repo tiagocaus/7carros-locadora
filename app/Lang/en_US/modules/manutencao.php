@@ -55,7 +55,6 @@ return [
 
     // CRON messages
     'cron' => [
-        'disabled' => 'Preventive maintenance disabled via ENV',
         'processing_tenant' => 'Processing tenant: :chave',
         'os_generated' => 'WO :codigo generated for vehicle :placa',
         'finished' => 'Finished: :tenants tenants | :veiculos vehicles | :os WOs generated',
@@ -137,6 +136,7 @@ return [
         'product' => 'Product',
         'qty' => 'Qty',
         'unit_value' => 'Unit Value',
+        'discount' => 'Discount',
         'total_value' => 'Total Value',
         'action' => 'Action',
         'description' => 'Description',
@@ -220,6 +220,7 @@ return [
         'provide_description' => 'Provide a description or select a product',
         'product_out_of_stock' => 'Product out of stock.',
         'stock_insufficient' => 'Only :qty available. Quantity adjusted.',
+        'discount_exceeds_subtotal' => 'Discount cannot be greater than the item subtotal.',
         'select_at_least_one' => 'Select at least one item',
         'entry_created' => 'Entry created successfully',
         'generic_error' => 'Error',

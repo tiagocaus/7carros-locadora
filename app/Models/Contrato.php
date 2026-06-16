@@ -73,13 +73,52 @@ class Contrato extends Model
                 'ct.nome AS conta_descricao',
                 'fp.nome AS forma_pagamento_descricao'
             ])
+            ->selectRaw("
+                COALESCE(
+                    (
+                        SELECT CONCAT(v_resumo_ativo.placa, ' - ', v_resumo_ativo.modelo)
+                        FROM contratos_veiculos cv_resumo_ativo
+                        LEFT JOIN veiculos v_resumo_ativo
+                            ON v_resumo_ativo.id = cv_resumo_ativo.id_veiculo
+                            AND v_resumo_ativo.chave = cv_resumo_ativo.chave
+                        WHERE cv_resumo_ativo.id_contrato = c.id
+                          AND cv_resumo_ativo.chave = c.chave
+                          AND cv_resumo_ativo.data_entrada IS NULL
+                        ORDER BY cv_resumo_ativo.data_saida ASC, cv_resumo_ativo.id ASC
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT CONCAT(v_resumo.placa, ' - ', v_resumo.modelo)
+                        FROM contratos_veiculos cv_resumo
+                        LEFT JOIN veiculos v_resumo
+                            ON v_resumo.id = cv_resumo.id_veiculo
+                            AND v_resumo.chave = cv_resumo.chave
+                        WHERE cv_resumo.id_contrato = c.id
+                          AND cv_resumo.chave = c.chave
+                        ORDER BY cv_resumo.data_saida ASC, cv_resumo.id ASC
+                        LIMIT 1
+                    )
+                ) AS veiculo_resumo
+            ")
+            ->selectRaw("
+                (
+                    SELECT COUNT(*)
+                    FROM contratos_veiculos cv_total
+                    WHERE cv_total.id_contrato = c.id
+                      AND cv_total.chave = c.chave
+                ) AS qtd_veiculos
+            ")
             // Subquery para veiculo ativo
             ->selectSubquery(function ($q) {
                 $q->table('contratos_veiculos', 'cv_ativo')
                   ->selectRaw("CONCAT(v.placa, ' - ', v.modelo)")
                   ->leftJoin('veiculos', 'v', 'cv_ativo.id_veiculo', '=', 'v.id')
                   ->whereRaw('cv_ativo.id_contrato = c.id')
+                  ->whereRaw('cv_ativo.chave = c.chave')
+                  ->whereRaw('v.chave = cv_ativo.chave')
                   ->whereNull('cv_ativo.data_entrada')
+                  ->orderBy('cv_ativo.data_saida', 'ASC')
+                  ->orderBy('cv_ativo.id', 'ASC')
                   ->limit(1);
             }, 'veiculo_ativo')
             // Subquery para contar veiculos ativos
@@ -87,6 +126,7 @@ class Contrato extends Model
                 $q->table('contratos_veiculos', 'cv_count')
                   ->selectRaw('COUNT(*)')
                   ->whereRaw('cv_count.id_contrato = c.id')
+                  ->whereRaw('cv_count.chave = c.chave')
                   ->whereNull('cv_count.data_entrada');
             }, 'qtd_veiculos_ativos')
             // Subquery para verificar se tem assinatura
@@ -107,7 +147,24 @@ class Contrato extends Model
             $query->whereNested(function ($q) use ($searchTerm) {
                 $q->where('c.codigo', 'LIKE', $searchTerm)
                   ->orWhere('cl.nome_rsocial', 'LIKE', $searchTerm)
-                  ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm);
+                  ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm)
+                  ->orWhereRaw(
+                      "EXISTS (
+                          SELECT 1
+                          FROM contratos_veiculos cv_busca
+                          INNER JOIN veiculos v_busca
+                              ON v_busca.id = cv_busca.id_veiculo
+                              AND v_busca.chave = cv_busca.chave
+                          WHERE cv_busca.id_contrato = c.id
+                            AND cv_busca.chave = c.chave
+                            AND (
+                                v_busca.placa LIKE ?
+                                OR v_busca.modelo LIKE ?
+                                OR v_busca.marca LIKE ?
+                            )
+                      )",
+                      [$searchTerm, $searchTerm, $searchTerm]
+                  );
             });
         }
 
@@ -154,7 +211,24 @@ class Contrato extends Model
             $query->whereNested(function ($q) use ($searchTerm) {
                 $q->where('c.codigo', 'LIKE', $searchTerm)
                   ->orWhere('cl.nome_rsocial', 'LIKE', $searchTerm)
-                  ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm);
+                  ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm)
+                  ->orWhereRaw(
+                      "EXISTS (
+                          SELECT 1
+                          FROM contratos_veiculos cv_busca
+                          INNER JOIN veiculos v_busca
+                              ON v_busca.id = cv_busca.id_veiculo
+                              AND v_busca.chave = cv_busca.chave
+                          WHERE cv_busca.id_contrato = c.id
+                            AND cv_busca.chave = c.chave
+                            AND (
+                                v_busca.placa LIKE ?
+                                OR v_busca.modelo LIKE ?
+                                OR v_busca.marca LIKE ?
+                            )
+                      )",
+                      [$searchTerm, $searchTerm, $searchTerm]
+                  );
             });
         }
 
@@ -1186,13 +1260,19 @@ class Contrato extends Model
         $contratoVeiculoModel = new ContratoVeiculo();
         $veiculoAtivo = $contratoVeiculoModel->buscarAtivo($contratoId);
         $idVeiculoAtivo = $veiculoAtivo ? (int) $veiculoAtivo['id_veiculo'] : null;
+        $idMatrizFilial = (int) ($contrato['id_matriz_filial_retirada'] ?? 0);
+        $sequencias = $idMatrizFilial > 0 && count($parcelas) > 0
+            ? \App\Helpers\SequenciaHelper::proximasSequencias($chave, $idMatrizFilial, 'financeiro', count($parcelas))
+            : [];
 
         foreach ($parcelas as $index => $parcela) {
             $dados = [
                 'chave' => $chave,
+                'sequencia' => $sequencias[$index] ?? null,
                 'id_contrato' => $contratoId,
                 'id_veiculo' => $idVeiculoAtivo,
                 'id_cliente' => $contrato['id_cliente'],
+                'id_matriz_filial' => $idMatrizFilial ?: null,
                 'id_conta' => $parcela['id_conta'] ?? null,
                 'id_forma_pagamento' => $parcela['id_forma_pagamento'] ?? null,
                 'tipo' => 'R', // Receita

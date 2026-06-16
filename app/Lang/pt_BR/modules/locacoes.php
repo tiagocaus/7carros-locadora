@@ -360,6 +360,7 @@ return [
 
     'installments' => [
         'title' => 'Parcelas',
+        'payments' => 'Pagamentos',
         'generate' => 'Gerar Parcelas',
         'add' => 'Adicionar',
         'generate_auto' => 'Gerar Parcelas Automaticamente',

@@ -61,6 +61,9 @@ return new class extends Migration
             'Atendente' => [
                 'contratos.visualizar',
                 'contratos.criar',
+                'contratos.editar',
+                'contratos.devolver',
+                'contratos.substituir',
                 'contratos.assinatura',
                 'contratos.imprimir'
             ],

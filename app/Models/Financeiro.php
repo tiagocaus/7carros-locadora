@@ -402,15 +402,38 @@ class Financeiro extends Model
     public function criarCompleto(array $dados): int
     {
         $chave = $dados['chave'];
+        $parcelas = !empty($dados['parcelas']) && is_array($dados['parcelas']) ? $dados['parcelas'] : [];
+        $totalParcelas = count($parcelas);
+        $parcelasAdicionais = $totalParcelas > 1 ? array_slice($parcelas, 1) : [];
+        $sequenciasParcelas = [];
+
+        $idMatrizFilial = (int) ($dados['id_matriz_filial'] ?? 0);
+        $quantidadeSequencias = (empty($dados['sequencia']) ? 1 : 0) + count($parcelasAdicionais);
+
+        if ($idMatrizFilial > 0 && $quantidadeSequencias > 0) {
+            $sequenciasReservadas = \App\Helpers\SequenciaHelper::proximasSequencias(
+                $chave,
+                $idMatrizFilial,
+                'financeiro',
+                $quantidadeSequencias
+            );
+
+            if (empty($dados['sequencia'])) {
+                $dados['sequencia'] = array_shift($sequenciasReservadas);
+            }
+
+            $sequenciasParcelas = $sequenciasReservadas;
+        }
+
         $mysqli = $this->getMysqli();
         $mysqli->begin_transaction();
 
         try {
             // Gerar sequencia se nao informada
-            if (empty($dados['sequencia'])) {
+            if (empty($dados['sequencia']) && $idMatrizFilial > 0) {
                 $dados['sequencia'] = \App\Helpers\SequenciaHelper::proximaSequencia(
                     $chave,
-                    $dados['id_matriz_filial'],
+                    $idMatrizFilial,
                     'financeiro'
                 );
             }
@@ -423,19 +446,16 @@ class Financeiro extends Model
             }
 
             // Criar parcelas se enviadas
-            if (!empty($dados['parcelas']) && is_array($dados['parcelas']) && count($dados['parcelas']) > 0) {
+            if ($totalParcelas > 0) {
                 // A primeira parcela ja foi criada (o lancamento principal)
                 // Precisamos criar as demais (a partir do indice 1)
-                $parcelasAdicionais = array_slice($dados['parcelas'], 1);
-
                 if (!empty($parcelasAdicionais)) {
                     $lancamentoCriado = $this->buscarPorId($id);
-                    $this->criarParcelas($id, $parcelasAdicionais, $lancamentoCriado);
+                    $this->criarParcelas($id, $parcelasAdicionais, $lancamentoCriado, $sequenciasParcelas);
                 }
 
                 // Atualizar a primeira parcela com dados de parcelamento
-                $totalParcelas = count($dados['parcelas']);
-                $valorPrimeiraParcela = (float) $dados['parcelas'][0]['valor'];
+                $valorPrimeiraParcela = (float) $parcelas[0]['valor'];
 
                 $this->atualizar($id, [
                     'parcela' => 1,
@@ -805,7 +825,7 @@ class Financeiro extends Model
         if (!empty($search)) {
             $searchTerm = "%{$search}%";
             $query->whereNested(function ($q) use ($searchTerm) {
-                $q->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) COLLATE utf8mb4_unicode_ci LIKE ?", [$searchTerm])
+                $q->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) LIKE ?", [$searchTerm])
                   ->orWhere('hierarquia', 'LIKE', $searchTerm);
             });
         }
@@ -932,9 +952,10 @@ class Financeiro extends Model
      * @param int $idOrigem ID do lancamento que sera a primeira parcela
      * @param array $parcelas Array de parcelas a criar (exceto a primeira)
      * @param array $dadosBase Dados base herdados do lancamento original
+     * @param array<int,int>|null $sequenciasReservadas Sequencias financeiras ja reservadas
      * @return array IDs das parcelas criadas
      */
-    public function criarParcelas(int $idOrigem, array $parcelas, array $dadosBase): array
+    public function criarParcelas(int $idOrigem, array $parcelas, array $dadosBase, ?array $sequenciasReservadas = null): array
     {
         $idsGerados = [];
         $totalParcelas = count($parcelas) + 1; // +1 porque a primeira parcela eh o lancamento original
@@ -967,12 +988,15 @@ class Financeiro extends Model
                 $taxaFixaParcelaSnapshot = $formaPagamento['taxa_fixa_parcela'];
             }
 
-            // Gerar sequencia ANTES de construir o insert para evitar reset do QueryBuilder
-            $sequencia = \App\Helpers\SequenciaHelper::proximaSequencia(
-                $dadosBase['chave'],
-                $dadosBase['id_matriz_filial'],
-                'financeiro'
-            );
+            $sequencia = $sequenciasReservadas[$index] ?? null;
+            if ($sequencia === null && !empty($dadosBase['id_matriz_filial'])) {
+                // Fallback para chamadas antigas que nao reservam sequencias em lote.
+                $sequencia = \App\Helpers\SequenciaHelper::proximaSequencia(
+                    $dadosBase['chave'],
+                    (int) $dadosBase['id_matriz_filial'],
+                    'financeiro'
+                );
+            }
 
             $id = $this->qb
                 ->table('financeiro')

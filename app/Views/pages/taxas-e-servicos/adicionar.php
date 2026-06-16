@@ -699,14 +699,16 @@
                     erros.push('- Valor');
                 }
             } else {
-                // MON: pelo menos uma filial deve ter valor > 0
+                // MON: todas as filiais selecionadas devem ter valor > 0
                 const inputs = document.querySelectorAll('.valor-filial-input');
-                let algumValor = false;
+                let todosComValor = inputs.length > 0;
                 inputs.forEach(inp => {
-                    if (inp.value && inp.value !== '0,00') algumValor = true;
+                    if (!inp.value || inp.value === '0,00' || Currency.parse(inp.value) <= 0) {
+                        todosComValor = false;
+                    }
                 });
-                if (!algumValor && inputs.length > 0) {
-                    erros.push('- Valor (ao menos uma filial)');
+                if (!todosComValor) {
+                    erros.push('- Valor (todas as filiais)');
                 }
             }
 
@@ -715,17 +717,23 @@
                 return;
             }
 
-            // Converter valor para formato backend (POR usa campo unico; MON vai zero)
-            dados.valor = tipoValor === 'POR' ? Currency.parse(dados.valor) : 0;
+            // Converter valor para formato backend (POR usa campo unico; MON usa valores por filial)
+            dados.valor = tipoValor === 'POR' ? Currency.parse(dados.valor) : null;
 
             // Coletar valores por filial (so quando tipo_valor=MON)
             if (tipoValor === 'MON') {
                 const valoresFiliais = {};
+                let primeiroValorFilial = null;
                 document.querySelectorAll('.valor-filial-input').forEach(inp => {
                     const fid = parseInt(inp.dataset.filialId);
-                    if (fid > 0) valoresFiliais[fid] = Currency.parse(inp.value);
+                    if (fid > 0) {
+                        const valor = Currency.parse(inp.value);
+                        valoresFiliais[fid] = valor;
+                        if (primeiroValorFilial === null) primeiroValorFilial = valor;
+                    }
                 });
                 dados.valores_filiais = valoresFiliais;
+                dados.valor = primeiroValorFilial;
             }
 
             // Filiais

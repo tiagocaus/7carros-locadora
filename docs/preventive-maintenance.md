@@ -121,20 +121,20 @@ Depois: {"motor_oleo": "30.000"}  (20k + 10k intervalo)
 
 ### Para Usuários do Tenant
 - **Gatilho**: OS gerada
-- **Destinatários**: Permissão `notificacoes.manutencoes_preventivas`
+- **Destinatários**: usuários/funcionários internos com permissão `notificacoes.manutencoes_preventivas`
 - **Canais**: Email, WhatsApp, SMS
+- **Observação**: não envia notificações para clientes finais da locadora
 
 ### Para Administração
-- **Gatilho**: Final de cada execução CRON
+- **Gatilho**: Resumo diário centralizado dos CRONs
 - **Destinatário**: `APP_COMPANY_EMAIL`
-- **Conteúdo**: Resumo com totais e erros
+- **Conteúdo**: Seção de manutenção preventiva no resumo diário dos CRONs
 
 ## Configurações
 
 ```env
-MANUTENCAO_CRON_ENABLED=true     # Habilita CRON
 MANUTENCAO_MARGEM_KM=500         # Margem em km
-APP_COMPANY_EMAIL=admin@x.com    # Email para resumo
+APP_COMPANY_EMAIL=admin@x.com    # Email para resumo diario centralizado
 ```
 
 ## Exemplo Prático

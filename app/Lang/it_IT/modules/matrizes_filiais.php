@@ -44,6 +44,7 @@ return [
     ],
     'fields' => [
         'type' => 'Tipo',
+        'status' => 'Stato',
         'trade_name' => 'Nome Commerciale',
         'company_name' => 'Ragione Sociale',
         'cpf_cnpj' => 'Codice Fiscale/P.IVA',
@@ -109,6 +110,10 @@ return [
         'parent' => 'Sede Principale',
         'branch' => 'Filiale',
     ],
+    'status_options' => [
+        'active' => 'Attiva',
+        'inactive' => 'Inattiva',
+    ],
     'contact' => [
         'emails_title' => 'E-mail',
         'phones_title' => 'Telefoni',
@@ -170,6 +175,7 @@ return [
         'company_name' => 'Ragione Sociale',
         'cpf_cnpj' => 'Codice Fiscale/P.IVA',
         'city_state' => 'Città/Prov.',
+        'status' => 'Stato',
         'actions' => 'Azioni',
     ],
     'actions' => [
@@ -183,6 +189,11 @@ return [
         'server_error' => 'Errore di connessione con il server',
         'no_records' => 'Nessun record trovato',
         'delete_error' => 'Errore durante l\'eliminazione: :message',
+        'delete_has_links_title' => 'Sede/filiale con collegamenti',
+        'delete_has_links_confirm' => "Non è possibile eliminare questa sede/filiale perché esistono record collegati:\n\n:links\n\nVuoi disattivarla?",
+        'deactivate_button' => 'Disattiva sede/filiale',
+        'deactivated' => 'Sede/filiale disattivata con successo',
+        'deactivate_error' => 'Errore durante la disattivazione della sede/filiale',
         'save_error' => 'Errore durante il salvataggio: :message',
         'id_not_found' => 'Errore: ID non trovato',
         'format_not_supported' => 'Formato non supportato. Usa solo JPEG, PNG o WebP.',

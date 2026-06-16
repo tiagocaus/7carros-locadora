@@ -10,6 +10,7 @@ namespace App\Models;
  * Campos:
  * - id_estoque: FK opcional para produto no estoque
  * - descricao: texto obrigatorio quando nao houver id_estoque
+ * - desconto: desconto monetario aplicado ao item
  * - id_financeiro: FK para lancamento financeiro (quando pago)
  * - pago: S/N - status de pagamento
  *
@@ -145,10 +146,12 @@ class ManutencaoItem extends Model
             }
         }
 
-        // Calcular valor_total
+        // Calcular valor_total liquido
         $quantidade = (float) ($dados['quantidade'] ?? 1);
         $valorUnitario = (float) ($dados['valor_unitario'] ?? 0);
-        $dados['valor_total'] = round($quantidade * $valorUnitario, 2);
+        $desconto = (float) ($dados['desconto'] ?? 0);
+        $dados['desconto'] = $desconto;
+        $dados['valor_total'] = $this->calcularValorTotal($quantidade, $valorUnitario, $desconto);
 
         // Determinar ordem
         if (empty($dados['ordem'])) {
@@ -163,7 +166,7 @@ class ManutencaoItem extends Model
         // Campos permitidos
         $camposPermitidos = [
             'chave', 'id_manutencao', 'id_estoque', 'id_financeiro',
-            'descricao', 'quantidade', 'valor_unitario', 'valor_total',
+            'descricao', 'quantidade', 'valor_unitario', 'desconto', 'valor_total',
             'pago', 'data_pagamento', 'ordem'
         ];
 
@@ -200,15 +203,17 @@ class ManutencaoItem extends Model
             throw new \InvalidArgumentException('Nao e possivel alterar itens ja pagos');
         }
 
-        // Recalcular valor_total se quantidade ou valor_unitario mudaram
-        if (isset($dados['quantidade']) || isset($dados['valor_unitario'])) {
+        // Recalcular valor_total se quantidade, valor unitario ou desconto mudaram
+        if (isset($dados['quantidade']) || isset($dados['valor_unitario']) || isset($dados['desconto'])) {
             $quantidade = (float) ($dados['quantidade'] ?? $item['quantidade']);
             $valorUnitario = (float) ($dados['valor_unitario'] ?? $item['valor_unitario']);
-            $dados['valor_total'] = round($quantidade * $valorUnitario, 2);
+            $desconto = (float) ($dados['desconto'] ?? $item['desconto'] ?? 0);
+            $dados['desconto'] = $desconto;
+            $dados['valor_total'] = $this->calcularValorTotal($quantidade, $valorUnitario, $desconto);
         }
 
         $camposPermitidos = [
-            'id_estoque', 'descricao', 'quantidade', 'valor_unitario', 'valor_total',
+            'id_estoque', 'descricao', 'quantidade', 'valor_unitario', 'desconto', 'valor_total',
             'pago', 'data_pagamento', 'id_financeiro', 'ordem'
         ];
 
@@ -433,5 +438,24 @@ class ManutencaoItem extends Model
         $stmt->bind_param('di', $quantidade, $idEstoque);
         $stmt->execute();
         $stmt->close();
+    }
+
+    /**
+     * Calcula o total liquido do item validando desconto.
+     */
+    private function calcularValorTotal(float $quantidade, float $valorUnitario, float $desconto): float
+    {
+        $subtotal = round($quantidade * $valorUnitario, 2);
+        $desconto = round($desconto, 2);
+
+        if ($desconto < 0) {
+            throw new \InvalidArgumentException('Desconto nao pode ser negativo');
+        }
+
+        if ($desconto > $subtotal) {
+            throw new \InvalidArgumentException('Desconto nao pode ser maior que o subtotal do item');
+        }
+
+        return round($subtotal - $desconto, 2);
     }
 }

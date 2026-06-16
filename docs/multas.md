@@ -89,6 +89,19 @@ O PDF usa `SetHTMLHeader` / `SetHTMLFooter` como em contratos/locações; a marg
 - `termo_indicacao` exige `!empty($multa['numero_ait'])` → 422
 - `documento` exige `id_documento` válido com `tipo=3` → 422
 
+### Cadastro manual e financeiro
+
+Ao cadastrar multa manualmente, `Multa::criar()` cria a multa e um lançamento
+financeiro de despesa vinculado (`multas.id_financeiro` e
+`financeiro.id_multa`). A sequência do financeiro deve ser gerada antes da
+transação principal de multa/financeiro para reduzir contenção em
+`matrizes_filiais.sequencia_financeiro`.
+
+Erros transitórios de banco, como lock wait timeout ou deadlock, não devem ser
+expostos ao usuário com a mensagem técnica do MySQL. O controller deve registrar
+o detalhe em log e responder uma mensagem amigável em português pedindo para
+tentar novamente em alguns segundos.
+
 ### Envio por mensageria
 
 Botões email/whatsapp/sms condicionais ao plano do tenant (`Planos::getPlano($user['plano'])` checa `smtp`, `whatsapp`, `sms`). PDF é gerado em `storage/temp/`, enfileirado via `queue_message()`. Cliente sem email/telefone cadastrado recebe 422.

@@ -34,6 +34,15 @@ class FinanceiroController
     /** @var array<int,string> Arquivos temporarios criados durante geracao de PDF (QR code etc) */
     private array $tmpFiles = [];
 
+    private function mensagemErroBanco(\Throwable $e, string $contexto): string
+    {
+        if (str_contains($e->getMessage(), 'Lock wait timeout exceeded')) {
+            return "{$contexto}: o sistema esta processando outro lancamento financeiro no momento. Tente novamente em instantes.";
+        }
+
+        return "{$contexto}: " . $e->getMessage();
+    }
+
     /**
      * Valida campos obrigatorios do lancamento
      *
@@ -340,7 +349,7 @@ class FinanceiroController
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,
-                'message' => 'Erro ao criar lancamento: ' . $e->getMessage()
+                'message' => $this->mensagemErroBanco($e, 'Erro ao criar lancamento')
             ], 500);
         }
     }

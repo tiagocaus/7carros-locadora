@@ -74,6 +74,9 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 - Antes de fechar, exige parcelas financeiras lancadas com total igual ao total final da locacao
 - Parcelas pendentes nao bloqueiam o fechamento; a regra exige lancamento, nao pagamento
 - Atualiza status do veiculo para "D" (Disponivel)
+- Apos fechar (`status = F`), a locacao deixa de ter veiculo ativo porque
+  `locacoes_veiculos.data_entrada` fica preenchida. Listagens e telas de
+  exibicao devem mostrar o ultimo veiculo do historico da locacao.
 
 ## Tabelas do Banco
 
@@ -165,10 +168,10 @@ Reservas podem ter linha sem veiculo especifico (`id_veiculo = NULL`) para guard
 | id_grupo | INT UNSIGNED | FK para grupos (SET NULL) |
 | data_saida | DATETIME | Quando veiculo saiu (inicio uso) |
 | data_entrada | DATETIME | Quando veiculo voltou (NULL = ativo) |
-| plano | VARCHAR | KMC, KL ou KP |
-| valor_plano_km_pago | DECIMAL | Valor plano km pago |
-| valor_plano_km_livre | DECIMAL | Valor plano km livre |
-| valor_plano_km_controlado | DECIMAL | Valor plano km controlado |
+| plano | VARCHAR | KMC, KL ou KP/DI |
+| valor_plano_km_pago | DECIMAL | Valor base/diaria do plano km cobrado/pago |
+| valor_plano_km_livre | DECIMAL | Valor base/diaria do plano km livre |
+| valor_plano_km_controlado | DECIMAL | Valor base/diaria do plano km controlado |
 | km_franquia | INT | Franquia de km (plano KMC) |
 | valor_km_excedente | DECIMAL | Valor por km excedente |
 | seguro_carro | TINYINT | Seguro do veiculo ativo |
@@ -185,6 +188,12 @@ Reservas podem ter linha sem veiculo especifico (`id_veiculo = NULL`) para guard
 | km_excedente | INT | Km alem da franquia (plano KMC) |
 | motivo_saida | VARCHAR | Motivo da substituicao |
 | acao_valores | VARCHAR | "manter" ou "grupo" |
+
+### Mapeamento de valores por plano
+
+- `KL` (Km Livre): o valor principal da diaria deve ser salvo em `valor_plano_km_livre`.
+- `KMC` (Km Controlado): o valor principal da diaria deve ser salvo em `valor_plano_km_controlado`; `valor_km_excedente` permanece separado para cobrar km acima da franquia.
+- `DI`/`KP` (Km Cobrado/Pago): o valor principal da diaria deve ser salvo em `valor_plano_km_pago`.
 
 ### Tabela `locacoes_taxaseservicos`
 
@@ -245,6 +254,8 @@ $locacao->gerarParcelas($locacaoId, [
 - Ultima parcela absorve diferenca de arredondamento
 - Vencimentos incrementam +1 mes
 - Cada parcela recebe `id_veiculo` do veiculo ativo automaticamente
+- Parcelamentos grandes reservam sequencias financeiras em lote via `SequenciaHelper::proximasSequencias()` para evitar locks repetidos em `matrizes_filiais`
+- A Fatura PDF de locacoes desconta o total ja pago no financeiro (`tipo = R`, `pago = S`) do `TOTAL A PAGAR` e exibe a lista de pagamentos/parcelas com vencimento/data de pagamento.
 
 ### Parcela Avulsa
 
@@ -348,12 +359,16 @@ POST /api/locacoes/{id}/caucao/devolver       → Registrar devolucao do caucao 
 | `locacoes.devolucao` | Registrar devolucao do veiculo (A→F) |
 | `locacoes.imprimir` | Imprimir documentos |
 
+Atendentes devem possuir `locacoes.editar` e `locacoes.devolucao` para alterar
+dados operacionais, substituir veiculo e registrar devolucao/fechamento da
+locacao. Essas permissoes nao liberam cancelamento/exclusao.
+
 ## Metodos do Model Principal (Locacao.php)
 
 | Metodo | Descricao |
 |--------|-----------|
-| `listarPaginado(...)` | Lista com paginacao, busca e filtro de status |
-| `buscarPorId($id)` | Busca com dados completos (cliente, veiculo ativo) |
+| `listarPaginado(...)` | Lista com paginacao, busca e filtro de status; exibe veiculo ativo ou ultimo vinculado se fechada |
+| `buscarPorId($id)` | Busca com dados completos (cliente, veiculo ativo ou ultimo vinculado) |
 | `buscarPorCodigo($codigo)` | Busca por codigo unico |
 | `criar($dados)` | Cria locacao com codigo auto-gerado |
 | `atualizar($id, $dados)` | Atualiza dados da locacao |
@@ -368,6 +383,7 @@ POST /api/locacoes/{id}/caucao/devolver       → Registrar devolucao do caucao 
 |--------|-----------|
 | `listarPorLocacao($id)` | Lista historico de veiculos |
 | `buscarAtivo($id)` | Retorna veiculo ativo (data_entrada IS NULL) |
+| `buscarAtualOuUltimo($id)` | Retorna veiculo ativo ou, se nao houver, o ultimo vinculado |
 | `adicionar($dados)` | Vincula veiculo a locacao |
 | `devolver($id, $dados)` | Registra devolucao com calculos (km, combustivel) |
 | `substituir($idAntigo, $dadosSaida, $dadosNovo, $manterValores)` | Substitui veiculo |

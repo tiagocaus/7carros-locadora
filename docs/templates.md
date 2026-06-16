@@ -62,6 +62,8 @@ Sistema para gerenciar templates de mensagens enviadas por email, WhatsApp e SMS
 | `overdue_notice` | billing | email, whatsapp, sms | Aviso de atraso |
 | `cnh_expiring` | reminder | email, whatsapp | CNH próxima do vencimento |
 
+`payment_reminder` deve receber `fatura.link_boleto` quando a origem for parcela de contrato, pois o fluxo cria/reutiliza `pagamentos_links` antes de enfileirar a mensagem.
+
 ## Estrutura de Dados
 
 ### Tabela `message_template_types`

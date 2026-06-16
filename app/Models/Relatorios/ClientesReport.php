@@ -39,11 +39,11 @@ class ClientesReport extends BaseReportModel
         array $filialParams,
         string $filialId = ''
     ): array {
-        $query = $this->qb
+        $queryLocacoes = $this->qb
             ->table('locacoes', 'l')
             ->selectRaw("
                 l.id_cliente,
-                l.cliente_nome,
+                COALESCE(NULLIF(l.cliente_nome, ''), cl.nome_rsocial, '-') AS cliente_nome,
                 cl.cpf_cnpj,
                 cl.tipo AS cliente_tipo,
                 COUNT(*) AS total_locacoes,
@@ -52,24 +52,78 @@ class ClientesReport extends BaseReportModel
                 COALESCE(SUM(l.total_pagar), 0) AS faturamento_total,
                 COALESCE(SUM(l.dias), 0) AS dias_total
             ")
-            ->leftJoin('clientes', 'cl', 'l.id_cliente', '=', 'cl.id')
+            ->leftJoinRaw('clientes', 'cl', 'cl.id = l.id_cliente AND cl.chave = l.chave')
             ->whereRaw('l.data_saida BETWEEN ? AND ?', [$dataInicio . ' 00:00:00', $dataFim . ' 23:59:59'])
-            ->groupBy(['l.id_cliente', 'l.cliente_nome', 'cl.cpf_cnpj', 'cl.tipo'])
-            ->orderByRaw('faturamento_total DESC');
+            ->groupBy(['l.id_cliente', 'l.cliente_nome', 'cl.nome_rsocial', 'cl.cpf_cnpj', 'cl.tipo']);
 
-        $this->applyFilial($query, $filialWhere, $filialParams, $filialId, 'id_matriz_filial_retirada', 'l');
+        $this->applyFilial($queryLocacoes, $filialWhere, $filialParams, $filialId, 'id_matriz_filial_retirada', 'l');
+        $rowsLocacoes = $queryLocacoes->get();
 
-        $rows = $query->get();
+        $queryContratos = $this->qb
+            ->table('contratos', 'c')
+            ->selectRaw("
+                c.id_cliente,
+                COALESCE(cl.nome_rsocial, '-') AS cliente_nome,
+                cl.cpf_cnpj,
+                cl.tipo AS cliente_tipo,
+                COUNT(*) AS total_locacoes,
+                MIN(c.data_ini) AS primeira_locacao,
+                MAX(c.data_ini) AS ultima_locacao,
+                COALESCE(SUM(c.total_pagar), 0) AS faturamento_total,
+                COALESCE(SUM(GREATEST(DATEDIFF(COALESCE(c.data_fim, c.data_ini), c.data_ini) + 1, 1)), 0) AS dias_total
+            ")
+            ->leftJoinRaw('clientes', 'cl', 'cl.id = c.id_cliente AND cl.chave = c.chave')
+            ->whereRaw('c.data_ini BETWEEN ? AND ?', [$dataInicio . ' 00:00:00', $dataFim . ' 23:59:59'])
+            ->groupBy(['c.id_cliente', 'cl.nome_rsocial', 'cl.cpf_cnpj', 'cl.tipo']);
+
+        $this->applyFilial($queryContratos, $filialWhere, $filialParams, $filialId, 'id_matriz_filial_retirada', 'c');
+
+        $agrupado = [];
+        foreach (array_merge($rowsLocacoes, $queryContratos->get()) as $r) {
+            $idCliente = !empty($r['id_cliente']) ? (int) $r['id_cliente'] : 0;
+            $nomeCliente = trim((string) ($r['cliente_nome'] ?? ''));
+            $key = $idCliente > 0 ? 'id:' . $idCliente : 'nome:' . strtolower($nomeCliente);
+
+            if (!isset($agrupado[$key])) {
+                $agrupado[$key] = [
+                    'id_cliente' => $idCliente > 0 ? $idCliente : null,
+                    'cliente' => $nomeCliente !== '' ? $nomeCliente : '-',
+                    'cpf_cnpj' => $r['cpf_cnpj'] ?? '',
+                    'tipo' => $r['cliente_tipo'] ?? '',
+                    'total_locacoes' => 0,
+                    'primeira_locacao' => null,
+                    'ultima_locacao' => null,
+                    'faturamento_total' => 0.0,
+                    'dias_total' => 0.0,
+                ];
+            }
+
+            $agrupado[$key]['total_locacoes'] += (int) $r['total_locacoes'];
+            $agrupado[$key]['faturamento_total'] += (float) $r['faturamento_total'];
+            $agrupado[$key]['dias_total'] += (float) $r['dias_total'];
+
+            if (!empty($r['primeira_locacao']) && (
+                empty($agrupado[$key]['primeira_locacao']) || $r['primeira_locacao'] < $agrupado[$key]['primeira_locacao']
+            )) {
+                $agrupado[$key]['primeira_locacao'] = $r['primeira_locacao'];
+            }
+
+            if (!empty($r['ultima_locacao']) && (
+                empty($agrupado[$key]['ultima_locacao']) || $r['ultima_locacao'] > $agrupado[$key]['ultima_locacao']
+            )) {
+                $agrupado[$key]['ultima_locacao'] = $r['ultima_locacao'];
+            }
+        }
 
         $details = array_map(function ($r) {
             $qtd = (int) $r['total_locacoes'];
             $fat = (float) $r['faturamento_total'];
-            $dias = (int) $r['dias_total'];
+            $dias = (float) $r['dias_total'];
             return [
-                'id_cliente' => $r['id_cliente'] ? (int) $r['id_cliente'] : null,
-                'cliente' => $r['cliente_nome'] ?: '-',
-                'cpf_cnpj' => $r['cpf_cnpj'] ?? '',
-                'tipo' => $r['cliente_tipo'] ?? '',
+                'id_cliente' => $r['id_cliente'],
+                'cliente' => $r['cliente'],
+                'cpf_cnpj' => $r['cpf_cnpj'],
+                'tipo' => $r['tipo'],
                 'total_locacoes' => $qtd,
                 'primeira_locacao' => $r['primeira_locacao'],
                 'ultima_locacao' => $r['ultima_locacao'],
@@ -77,7 +131,9 @@ class ClientesReport extends BaseReportModel
                 'ticket_medio' => $this->safeDivide($fat, $qtd, 2),
                 'dias_medio' => $this->safeDivide($dias, $qtd, 1),
             ];
-        }, $rows);
+        }, array_values($agrupado));
+
+        usort($details, fn($a, $b) => $b['faturamento_total'] <=> $a['faturamento_total']);
 
         $totals = [
             'qtd_clientes' => count($details),

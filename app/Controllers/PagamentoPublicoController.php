@@ -404,124 +404,181 @@ class PagamentoPublicoController
      */
     public function webhook(Request $request, string $gatewayCode): void
     {
+        $gatewayCode = strtolower($gatewayCode);
         $payload = $request->all();
         $headers = $this->getHeaders();
 
-        // Log do webhook recebido
-        error_log("[Webhook] Gateway: {$gatewayCode} - Payload: " . json_encode($payload));
+        error_log("[Webhook] Recebido gateway={$gatewayCode} keys=" . implode(',', array_keys($payload)));
 
-        if (!GatewayFactory::exists($gatewayCode)) {
-            Response::json(['error' => 'Gateway desconhecido'], 400);
-            return;
-        }
-
-        // Buscar o gateway ativo pelo código (pode haver múltiplos, processar para cada um)
-        $transacaoModel = new FinanceiroTransacao();
-        $gatewayModel = new GatewayPagamento();
-
-        // Primeiro, tentar identificar a transação pelo external_id
-        $gatewayInstance = GatewayFactory::create($gatewayCode, [], false);
-        $parsedPayload = $gatewayInstance->parseWebhookPayload($payload);
-
-        $externalId = $parsedPayload['external_id'] ?? '';
-
-        if (empty($externalId)) {
-            Response::json(['error' => 'external_id não encontrado no payload'], 400);
-            return;
-        }
-
-        // Buscar transação original
-        $transacao = $transacaoModel->buscarPorExternalId($externalId);
-
-        if (!$transacao) {
-            // Transação não encontrada, mas retornar OK para não reenviar
-            Response::json(['success' => true, 'message' => 'Transação não encontrada']);
-            return;
-        }
-
-        // Buscar gateway com credenciais
-        $gatewayConfig = null;
-        if (!empty($transacao['id_gateway'])) {
-            $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais($transacao['id_gateway']);
-        }
-
-        // Se não encontrou pelo id_gateway, buscar pelo chave e código
-        if (!$gatewayConfig) {
-            $gatewayConfig = $gatewayModel->buscarPorChaveECodigo($transacao['chave'], $gatewayCode);
-        }
-
-        if (!$gatewayConfig) {
-            Response::json(['error' => 'Gateway não configurado'], 400);
-            return;
-        }
-
-        // Criar instância com credenciais
-        $gateway = GatewayFactory::create(
-            $gatewayConfig['gateway_code'],
-            $gatewayConfig['credentials'] ?? [],
-            $gatewayConfig['ambiente'] === 'sandbox',
-            $gatewayConfig['id']
-        );
-
-        // Validar assinatura
-        if (!$gateway->validateWebhookSignature($payload, $headers)) {
-            Response::json(['error' => 'Assinatura inválida'], 401);
-            return;
-        }
-
-        // Verificar idempotência
-        $event = $parsedPayload['event'] ?? 'unknown';
-        if ($transacaoModel->webhookJaProcessado($externalId, $event)) {
-            Response::json(['success' => true, 'message' => 'Webhook já processado']);
-            return;
-        }
-
-        // Registrar webhook
-        $transacaoModel->registrarWebhook(
-            $transacao['chave'],
-            $gatewayCode,
-            $externalId,
-            $event,
-            $parsedPayload['status'] ?? '',
-            $payload
-        );
-
-        // Atualizar status da transação
-        $newStatus = $parsedPayload['status'] ?? '';
-        $paidAt = null;
-
-        if ($newStatus === 'paid') {
-            $paidAt = $parsedPayload['paid_at'] ?? date('Y-m-d H:i:s');
-        }
-
-        $transacaoModel->atualizarPorExternalId($externalId, $newStatus, $paidAt);
-
-        // Se foi pago, atualizar link e financeiro
-        if ($newStatus === 'paid' && !empty($transacao['id_financeiro'])) {
-            // Buscar link associado ao financeiro
-            $linkModel = new PagamentoLink();
-            $link = $linkModel->buscarPorFinanceiro($transacao['id_financeiro']);
-
-            if ($link && $link['status'] === 'pending') {
-                $linkModel->marcarComoPago(
-                    $link['id'],
-                    $transacao['id'],
-                    null,
-                    null
-                );
+        try {
+            if (!GatewayFactory::exists($gatewayCode)) {
+                Response::json(['error' => 'Gateway desconhecido'], 400);
+                return;
             }
 
-            // Marcar financeiro como pago
-            $this->marcarFinanceiroPago($transacao['id_financeiro'], $transacao['id']);
+            // Buscar o gateway ativo pelo código (pode haver múltiplos, processar para cada um)
+            $transacaoModel = new FinanceiroTransacao();
+            $gatewayModel = new GatewayPagamento();
 
-            // Se o link esta vinculado a uma locacao (reserva com pagamento antecipado),
-            // efetiva a reserva e dispara confirmacao ao cliente
-            if ($link && !empty($link['id_locacao'])) {
-                $this->efetivarReservaAposPagamento((int) $link['id_locacao']);
+            // Primeiro, tentar identificar a transação pelo external_id
+            $gatewayInstance = GatewayFactory::create($gatewayCode, [], false);
+            $parsedPayload = $gatewayInstance->parseWebhookPayload($payload);
+
+            $externalId = $parsedPayload['external_id'] ?? '';
+
+            if (empty($externalId)) {
+                error_log("[Webhook] external_id ausente gateway={$gatewayCode} event=" . ($parsedPayload['event'] ?? 'unknown'));
+                Response::json(['error' => 'external_id não encontrado no payload'], 400);
+                return;
             }
-        }
 
-        Response::json(['success' => true]);
+            // Buscar transação original
+            $transacao = $transacaoModel->buscarPorExternalId($externalId);
+
+            if (!$transacao) {
+                error_log("[Webhook] Transacao nao encontrada gateway={$gatewayCode} external_id={$externalId}");
+                // Transação não encontrada, mas retornar OK para não reenviar
+                Response::json(['success' => true, 'message' => 'Transação não encontrada']);
+                return;
+            }
+
+            // Buscar gateway com credenciais
+            $gatewayConfig = null;
+            if (!empty($transacao['id_gateway'])) {
+                $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais($transacao['id_gateway']);
+            }
+
+            // Se não encontrou pelo id_gateway, buscar pelo chave e código
+            if (!$gatewayConfig) {
+                $gatewayConfig = $gatewayModel->buscarPorChaveECodigo($transacao['chave'], $gatewayCode);
+            }
+
+            if (!$gatewayConfig) {
+                Response::json(['error' => 'Gateway não configurado'], 400);
+                return;
+            }
+
+            // Criar instância com credenciais
+            $gateway = GatewayFactory::create(
+                $gatewayConfig['gateway_code'],
+                $gatewayConfig['credentials'] ?? [],
+                $gatewayConfig['ambiente'] === 'sandbox',
+                $gatewayConfig['id']
+            );
+
+            // Validar assinatura
+            if (!$gateway->validateWebhookSignature($payload, $headers)) {
+                Response::json(['error' => 'Assinatura inválida'], 401);
+                return;
+            }
+
+            // Verificar idempotência
+            $event = $parsedPayload['event'] ?? 'unknown';
+            if ($transacaoModel->webhookJaProcessado($externalId, $event)) {
+                Response::json(['success' => true, 'message' => 'Webhook já processado']);
+                return;
+            }
+
+            // Registrar webhook
+            $transacaoModel->registrarWebhook(
+                $transacao['chave'],
+                $gatewayCode,
+                $externalId,
+                $event,
+                $parsedPayload['status'] ?? '',
+                $payload
+            );
+
+            // Atualizar status da transação
+            $newStatus = $parsedPayload['status'] ?? '';
+            $paidAt = null;
+
+            if ($newStatus === 'paid') {
+                $paidAt = $parsedPayload['paid_at'] ?? date('Y-m-d H:i:s');
+            }
+
+            $transacaoModel->atualizarPorExternalId($externalId, $newStatus, $paidAt);
+
+            // Se foi pago, atualizar link e financeiro
+            if ($newStatus === 'paid' && !empty($transacao['id_financeiro'])) {
+                // Buscar link associado ao financeiro
+                $linkModel = new PagamentoLink();
+                $link = $linkModel->buscarPorFinanceiro($transacao['id_financeiro']);
+
+                if ($link && $link['status'] === 'pending') {
+                    $linkModel->marcarComoPago(
+                        $link['id'],
+                        $transacao['id'],
+                        null,
+                        null
+                    );
+                }
+
+                // Marcar financeiro como pago
+                $this->marcarFinanceiroPago($transacao['id_financeiro'], $transacao['id']);
+
+                // Se o link esta vinculado a uma locacao (reserva com pagamento antecipado),
+                // efetiva a reserva e dispara confirmacao ao cliente
+                if ($link && !empty($link['id_locacao'])) {
+                    $this->efetivarReservaAposPagamento((int) $link['id_locacao']);
+                }
+            }
+
+            Response::json(['success' => true]);
+        } catch (\Throwable $e) {
+            error_log("[Webhook] Erro gateway={$gatewayCode}: " . $e->getMessage());
+            Response::json(['success' => false, 'message' => 'Erro ao processar webhook'], 500);
+        }
+    }
+
+    public function webhookAsaas(Request $request): void
+    {
+        $this->webhook($request, 'asaas');
+    }
+
+    public function webhookStripe(Request $request): void
+    {
+        $this->webhook($request, 'stripe');
+    }
+
+    public function webhookSquare(Request $request): void
+    {
+        $this->webhook($request, 'square');
+    }
+
+    public function webhookCora(Request $request): void
+    {
+        $this->webhook($request, 'cora');
+    }
+
+    public function webhookEfipay(Request $request): void
+    {
+        $this->webhook($request, 'efipay');
+    }
+
+    public function webhookInter(Request $request): void
+    {
+        $this->webhook($request, 'inter');
+    }
+
+    public function webhookBradesco(Request $request): void
+    {
+        $this->webhook($request, 'bradesco');
+    }
+
+    public function webhookItau(Request $request): void
+    {
+        $this->webhook($request, 'itau');
+    }
+
+    public function webhookBancard(Request $request): void
+    {
+        $this->webhook($request, 'bancard');
+    }
+
+    public function webhookPagopar(Request $request): void
+    {
+        $this->webhook($request, 'pagopar');
     }
 
     /**

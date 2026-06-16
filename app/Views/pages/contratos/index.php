@@ -198,8 +198,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 const sequencia = c.sequencia || '-';
                 const codigo = escapeHtml(c.codigo || '-');
                 const cliente = escapeHtml(c.cliente_nome || '-');
-                const veiculo = escapeHtml(c.veiculo_ativo || '-');
-                const qtdVeiculos = parseInt(c.qtd_veiculos_ativos) || 0;
+                const veiculo = escapeHtml(c.veiculo_resumo || c.veiculo_ativo || '-');
+                const qtdVeiculos = parseInt(c.qtd_veiculos) || parseInt(c.qtd_veiculos_ativos) || 0;
+                const qtdVeiculosAtivos = parseInt(c.qtd_veiculos_ativos) || 0;
                 const dataIni = formatarData(c.data_ini);
 
                 // Determinar data final (renovacao ou fim)
@@ -255,7 +256,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 tableRows += `
                 <tr class="border-b border-slate-200 hover:bg-slate-50">
                     <td class="table-cell px-2 text-center">
-                        ${canRegistrarOdometro && c.status === 'A' && qtdVeiculos > 0 ? `
+                        ${canRegistrarOdometro && c.status === 'A' && qtdVeiculosAtivos > 0 ? `
                             <button title="${i18n.btnOdometer}" class="btn-icon text-cyan-600 hover:text-cyan-800 btn-odometro" data-id="${c.id}"><i class="fas fa-gauge-high"></i></button>
                         ` : `
                             <button title="${canRegistrarOdometro ? i18n.btnOdometerDisabled : i18n.btnOdometerNoPermission}" class="btn-icon text-slate-300 cursor-not-allowed" disabled><i class="fas fa-gauge-high"></i></button>

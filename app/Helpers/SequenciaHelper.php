@@ -15,6 +15,8 @@ use App\Core\Database;
  */
 class SequenciaHelper
 {
+    private const TIPOS_VALIDOS = ['locacoes', 'contratos', 'financeiro'];
+
     /**
      * Obtem conexao mysqli singleton para uso no QueryBuilder
      */
@@ -53,10 +55,32 @@ class SequenciaHelper
      */
     public static function proximaSequencia(string $chave, int $idMatrizFilial, string $tipo): int
     {
+        return self::proximasSequencias($chave, $idMatrizFilial, $tipo, 1)[0];
+    }
+
+    /**
+     * Reserva multiplos numeros sequenciais de forma atomica (thread-safe).
+     *
+     * Usa um unico lock em matrizes_filiais para reduzir contencao quando
+     * fluxos geram muitas parcelas financeiras de uma vez.
+     *
+     * @param string $chave Identificador do tenant
+     * @param int $idMatrizFilial ID da matriz/filial
+     * @param string $tipo Tipo: 'locacoes' | 'contratos' | 'financeiro'
+     * @param int $quantidade Quantidade de numeros a reservar
+     * @return array<int,int> Sequencias reservadas em ordem crescente
+     * @throws \RuntimeException Se matriz/filial nao for encontrada
+     * @throws \InvalidArgumentException Se tipo ou quantidade forem invalidos
+     */
+    public static function proximasSequencias(string $chave, int $idMatrizFilial, string $tipo, int $quantidade): array
+    {
         // Validar tipo
-        $tiposValidos = ['locacoes', 'contratos', 'financeiro'];
-        if (!in_array($tipo, $tiposValidos, true)) {
-            throw new \InvalidArgumentException("Tipo de sequencia invalido: {$tipo}. Tipos validos: " . implode(', ', $tiposValidos));
+        if (!in_array($tipo, self::TIPOS_VALIDOS, true)) {
+            throw new \InvalidArgumentException("Tipo de sequencia invalido: {$tipo}. Tipos validos: " . implode(', ', self::TIPOS_VALIDOS));
+        }
+
+        if ($quantidade < 1) {
+            throw new \InvalidArgumentException('Quantidade de sequencias deve ser maior que zero');
         }
 
         $coluna = "sequencia_{$tipo}";
@@ -77,17 +101,20 @@ class SequenciaHelper
                 throw new \RuntimeException("Matriz/Filial nao encontrada: id={$idMatrizFilial}, chave={$chave}");
             }
 
-            $proximoNumero = (int) ($result[$coluna] ?? 0) + 1;
+            $sequenciaAtual = (int) ($result[$coluna] ?? 0);
+            $primeiroNumero = $sequenciaAtual + 1;
+            $ultimoNumero = $sequenciaAtual + $quantidade;
 
             // Incrementar contador na tabela
             $qb->table('matrizes_filiais')
                 ->withoutChave()
                 ->where('id', '=', $idMatrizFilial)
-                ->update([$coluna => $proximoNumero]);
+                ->where('chave', '=', $chave)
+                ->update([$coluna => $ultimoNumero]);
 
             $qb->commit();
 
-            return $proximoNumero;
+            return range($primeiroNumero, $ultimoNumero);
         } catch (\Exception $e) {
             $qb->rollback();
             throw $e;
@@ -104,8 +131,7 @@ class SequenciaHelper
      */
     public static function sequenciaAtual(string $chave, int $idMatrizFilial, string $tipo): int
     {
-        $tiposValidos = ['locacoes', 'contratos', 'financeiro'];
-        if (!in_array($tipo, $tiposValidos, true)) {
+        if (!in_array($tipo, self::TIPOS_VALIDOS, true)) {
             throw new \InvalidArgumentException("Tipo de sequencia invalido: {$tipo}");
         }
 

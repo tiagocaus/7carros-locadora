@@ -43,6 +43,68 @@ class LocacoesController
         return t('modules.locacoes.api.' . $key, $replace);
     }
 
+    private function mensagemErroBanco(\Throwable $e, string $contexto): string
+    {
+        if (str_contains($e->getMessage(), 'Lock wait timeout exceeded')) {
+            return "{$contexto}: o sistema esta processando outra geracao financeira no momento. Tente novamente em instantes.";
+        }
+
+        return "{$contexto}: " . $e->getMessage();
+    }
+
+    /**
+     * Mapeia o valor base do plano para a coluna correta em locacoes_veiculos.
+     *
+     * - KL: diaria_valor -> valor_plano_km_livre
+     * - DI/KP: diaria_valor -> valor_plano_km_pago
+     * - KMC: diaria_valor -> valor_plano_km_controlado
+     */
+    private function mapearValoresPlanoVeiculo(array $dados, array $fallback = []): array
+    {
+        $plano = $dados['plano'] ?? $fallback['plano'] ?? 'KL';
+        $diariaValor = $dados['diaria_valor'] ?? null;
+
+        if (($diariaValor === null || $diariaValor === '') && $plano === 'KMC') {
+            $diariaValor = $dados['km_controlado_valor']
+                ?? $fallback['valor_plano_km_controlado']
+                ?? $fallback['km_controlado_valor']
+                ?? null;
+        }
+
+        if (($diariaValor === null || $diariaValor === '') && $plano === 'KL') {
+            $diariaValor = $fallback['valor_plano_km_livre']
+                ?? $fallback['km_livre_valor']
+                ?? null;
+        }
+
+        if (($diariaValor === null || $diariaValor === '') && in_array($plano, ['DI', 'KP'], true)) {
+            $diariaValor = $fallback['valor_plano_km_pago']
+                ?? null;
+        }
+
+        $diariaValor = $diariaValor ?? 0;
+        $valores = [
+            'valor_plano_km_pago' => '0',
+            'valor_plano_km_livre' => '0',
+            'valor_plano_km_controlado' => '0',
+        ];
+
+        switch ($plano) {
+            case 'KL':
+                $valores['valor_plano_km_livre'] = $diariaValor;
+                break;
+            case 'DI':
+            case 'KP':
+                $valores['valor_plano_km_pago'] = $diariaValor;
+                break;
+            case 'KMC':
+                $valores['valor_plano_km_controlado'] = $diariaValor;
+                break;
+        }
+
+        return $valores;
+    }
+
     private function calcularDiasComTolerancia(string $dataSaida, string $dataChegada, int $minutosTolerancia = 0): int
     {
         $saidaTimestamp = strtotime($dataSaida);
@@ -325,23 +387,7 @@ class LocacoesController
 
                 // Mapear diaria_valor para o campo correto conforme o plano
                 $plano = $dados['plano'] ?? 'KL';
-                $diariaValor = $dados['diaria_valor'] ?? 0;
-                $valorPlanoKmPago = 0;
-                $valorPlanoKmLivre = 0;
-                $valorPlanoKmControlado = $dados['km_controlado_valor'] ?? 0;
-
-                switch ($plano) {
-                    case 'KL':
-                        $valorPlanoKmLivre = $diariaValor;
-                        break;
-                    case 'DI':
-                    case 'KP':
-                        $valorPlanoKmPago = $diariaValor;
-                        break;
-                    case 'KMC':
-                        // km_controlado_valor ja atribuido acima
-                        break;
-                }
+                $valoresPlano = $this->mapearValoresPlanoVeiculo($dados);
 
                 $veiculoModel->adicionar([
                     'chave' => $chave,
@@ -350,9 +396,9 @@ class LocacoesController
                     'id_grupo' => $temGrupo ? (int) $dados['id_grupo'] : null,
                     'data_saida' => $dados['data_saida'],
                     'plano' => $plano,
-                    'valor_plano_km_pago' => $valorPlanoKmPago,
-                    'valor_plano_km_livre' => $valorPlanoKmLivre,
-                    'valor_plano_km_controlado' => $valorPlanoKmControlado,
+                    'valor_plano_km_pago' => $valoresPlano['valor_plano_km_pago'],
+                    'valor_plano_km_livre' => $valoresPlano['valor_plano_km_livre'],
+                    'valor_plano_km_controlado' => $valoresPlano['valor_plano_km_controlado'],
                     'km_franquia' => $dados['km_controlado_franquia'] ?? null,
                     'valor_km_excedente' => $dados['km_valor'] ?? 0,
                     'minutos_tolerancia' => $dados['minuto_tolerancia'] ?? 0,
@@ -653,37 +699,14 @@ class LocacoesController
             $veiculoModel = new LocacaoVeiculo();
 
             // Mapear diaria_valor para o campo correto conforme o plano
-            $planoUpdate = $dados['plano'] ?? $locacao['plano'] ?? 'KL';
-            $diariaValorUpdate = $dados['diaria_valor'] ?? null;
-
-            $valorPagoUpdate = null;
-            $valorLivreUpdate = null;
-            $valorControladoUpdate = $dados['km_controlado_valor'] ?? null;
-
-            if ($diariaValorUpdate !== null) {
-                switch ($planoUpdate) {
-                    case 'KL':
-                        $valorLivreUpdate = $diariaValorUpdate;
-                        $valorPagoUpdate = '0';
-                        break;
-                    case 'DI':
-                    case 'KP':
-                        $valorPagoUpdate = $diariaValorUpdate;
-                        $valorLivreUpdate = '0';
-                        break;
-                    case 'KMC':
-                        $valorPagoUpdate = '0';
-                        $valorLivreUpdate = '0';
-                        break;
-                }
-            }
+            $valoresPlanoUpdate = $this->mapearValoresPlanoVeiculo($dados, $locacao);
 
             $dadosVeiculo = [
                 'id_grupo' => !empty($dados['id_grupo']) ? (int) $dados['id_grupo'] : null,
                 'plano' => $dados['plano'] ?? null,
-                'valor_plano_km_pago' => $valorPagoUpdate,
-                'valor_plano_km_livre' => $valorLivreUpdate,
-                'valor_plano_km_controlado' => $valorControladoUpdate,
+                'valor_plano_km_pago' => $valoresPlanoUpdate['valor_plano_km_pago'],
+                'valor_plano_km_livre' => $valoresPlanoUpdate['valor_plano_km_livre'],
+                'valor_plano_km_controlado' => $valoresPlanoUpdate['valor_plano_km_controlado'],
                 'km_franquia' => $dados['km_controlado_franquia'] ?? null,
                 'valor_km_excedente' => $dados['km_valor'] ?? null,
                 'minutos_tolerancia' => $dados['minuto_tolerancia'] ?? null,
@@ -1372,7 +1395,7 @@ class LocacoesController
         } catch (\InvalidArgumentException $e) {
             Response::json(['success' => false, 'message' => $e->getMessage()], 400);
         } catch (\Exception $e) {
-            Response::json(['success' => false, 'message' => $this->apiMessage('installments_generate_error', ['message' => $e->getMessage()])], 500);
+            Response::json(['success' => false, 'message' => $this->mensagemErroBanco($e, 'Erro ao gerar parcelas')], 500);
         }
     }
 
@@ -1709,6 +1732,10 @@ class LocacoesController
             $multas = (new Multa())->listarParaFaturaLocacao($id);
             $totalMultas = array_reduce($multas, fn($total, $multa) => $total + (float) ($multa['valor'] ?? 0), 0.0);
 
+            // Buscar parcelas/recebimentos da locacao para a fatura
+            $parcelasFinanceiras = $locacaoModel->listarParcelas($id, true);
+            $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id, true);
+
             // Buscar assinatura da locacao
             $assinaturaModel = new Assinatura();
             $assinatura = $assinaturaModel->buscarPorLocacao($id);
@@ -1758,7 +1785,7 @@ class LocacoesController
                 : '';
 
             // Output buffering para gerar HTML (NUNCA usar Template::render para PDF)
-            extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
+            extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'parcelasFinanceiras', 'resumoFinanceiro', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
             ob_start();
             $viewPath = __DIR__ . '/../Views/pages/locacoes/imprimir/' . $tipo . '.php';
             include $viewPath;
@@ -2318,6 +2345,10 @@ class LocacoesController
         $multas = (new Multa())->listarParaFaturaLocacao($id);
         $totalMultas = array_reduce($multas, fn($total, $multa) => $total + (float) ($multa['valor'] ?? 0), 0.0);
 
+        // Buscar parcelas/recebimentos da locacao para a fatura
+        $parcelasFinanceiras = $locacaoModel->listarParcelas($id, true);
+        $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id, true);
+
         // Buscar assinatura
         $assinaturaModel = new Assinatura();
         $assinatura = $assinaturaModel->buscarPorLocacao($id);
@@ -2358,7 +2389,7 @@ class LocacoesController
             ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
             : '';
 
-        extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
+        extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'parcelasFinanceiras', 'resumoFinanceiro', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
 
         ob_start();
         $viewPath = __DIR__ . '/../Views/pages/locacoes/imprimir/' . $tipo . '.php';

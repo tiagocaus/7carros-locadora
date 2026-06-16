@@ -124,6 +124,7 @@ $router->post('/webhook/asaas', [PagamentoPublicoController::class, 'webhookAsaa
 $router->post('/webhook/stripe', [PagamentoPublicoController::class, 'webhookStripe'], ['rate_limit']);
 $router->post('/webhook/square', [PagamentoPublicoController::class, 'webhookSquare'], ['rate_limit']);
 $router->post('/webhook/cora', [PagamentoPublicoController::class, 'webhookCora'], ['rate_limit']);
+$router->post('/webhook/efipay', [PagamentoPublicoController::class, 'webhookEfipay'], ['rate_limit']);
 $router->post('/webhook/inter', [PagamentoPublicoController::class, 'webhookInter'], ['rate_limit']);
 $router->post('/webhook/bradesco', [PagamentoPublicoController::class, 'webhookBradesco'], ['rate_limit']);
 $router->post('/webhook/itau', [PagamentoPublicoController::class, 'webhookItau'], ['rate_limit']);
@@ -323,6 +324,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/matrizes-filiais/salvar', [MatrizFilialController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/matrizes-filiais/{id}/atualizar', [MatrizFilialController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/matrizes-filiais/{id}/excluir', [MatrizFilialController::class, 'destroy'], ['csrf', 'rate_limit']);
+    $router->post('/matrizes-filiais/{id}/desativar', [MatrizFilialController::class, 'desativar'], ['csrf', 'rate_limit']);
 
     // API Locale (Internacionalização)
     $router->post('/api/locale/set', [LocaleController::class, 'set'], ['api_csrf', 'rate_limit', 'throttle']);
@@ -649,6 +651,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/veiculos/salvar', [VeiculosController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/veiculos/{id}/atualizar', [VeiculosController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/veiculos/{id}/excluir', [VeiculosController::class, 'destroy'], ['csrf', 'rate_limit']);
+    $router->post('/veiculos/{id}/desativar', [VeiculosController::class, 'desativar'], ['csrf', 'rate_limit']);
 
     // API Encargos do Veiculo
     $router->get('/api/veiculos/{id}/encargos', [VeiculosController::class, 'listarEncargos'], ['api_csrf', 'rate_limit', 'throttle']);

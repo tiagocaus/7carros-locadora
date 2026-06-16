@@ -81,7 +81,9 @@ class Manutencao extends Model
                 $q->where('m.os', 'LIKE', $searchTerm)
                   ->orWhere('m.motivo', 'LIKE', $searchTerm)
                   ->orWhere('v.placa', 'LIKE', $searchTerm)
-                  ->orWhere('v.modelo', 'LIKE', $searchTerm);
+                  ->orWhere('v.marca', 'LIKE', $searchTerm)
+                  ->orWhere('v.modelo', 'LIKE', $searchTerm)
+                  ->orWhere('o.empresa', 'LIKE', $searchTerm);
             });
         }
 
@@ -110,7 +112,8 @@ class Manutencao extends Model
     ): int {
         $query = $this->qb
             ->table('manutencoes', 'm')
-            ->leftJoin('veiculos', 'v', 'm.id_veiculo', '=', 'v.id');
+            ->leftJoin('veiculos', 'v', 'm.id_veiculo', '=', 'v.id')
+            ->leftJoin('oficinas', 'o', 'm.id_oficina', '=', 'o.id');
 
         if (!empty($search)) {
             $searchTerm = '%' . $search . '%';
@@ -118,7 +121,9 @@ class Manutencao extends Model
                 $q->where('m.os', 'LIKE', $searchTerm)
                   ->orWhere('m.motivo', 'LIKE', $searchTerm)
                   ->orWhere('v.placa', 'LIKE', $searchTerm)
-                  ->orWhere('v.modelo', 'LIKE', $searchTerm);
+                  ->orWhere('v.marca', 'LIKE', $searchTerm)
+                  ->orWhere('v.modelo', 'LIKE', $searchTerm)
+                  ->orWhere('o.empresa', 'LIKE', $searchTerm);
             });
         }
 

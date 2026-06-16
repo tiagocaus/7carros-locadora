@@ -220,7 +220,7 @@
                         <label for="km_controlado_franquia" class="form-label-group"><?= t('modules.locacoes.plans.km_franchise') ?></label>
                         <input type="number" id="km_controlado_franquia" name="km_controlado_franquia" class="form-input-group-field" value="0">
                     </div>
-                    <div class="md:col-span-2 form-input-group plano-kmc-field hidden">
+                    <div class="hidden">
                         <label for="km_controlado_valor" class="form-label-group"><?= t('modules.locacoes.plans.value_km_excess') ?></label>
                         <div class="relative">
                             <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
@@ -1125,7 +1125,17 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const campo = MAPA_DIARIA_POR_PLANO[plano] || 'valor_plano_km_livre';
             const valor = parseFloat(valoresGrupoAtuais[campo] || 0);
             el.value = valor.toFixed(2).replace('.', ',');
+            sincronizarValorKmControlado();
             atualizarResumo();
+        }
+
+        function sincronizarValorKmControlado() {
+            const plano = document.getElementById('plano')?.value || 'KL';
+            const diaria = document.getElementById('diaria_valor');
+            const kmControlado = document.getElementById('km_controlado_valor');
+            if (plano === 'KMC' && diaria && kmControlado) {
+                kmControlado.value = diaria.value || '0,00';
+            }
         }
 
         function atualizarCamposPlano() {
@@ -1140,6 +1150,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
 
         document.getElementById('plano')?.addEventListener('change', atualizarCamposPlano);
+        document.getElementById('diaria_valor')?.addEventListener('input', sincronizarValorKmControlado);
 
         // ===== AUTO-FILL VEICULO (odometro + combustivel) =====
 
@@ -2049,6 +2060,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('formLocacao')?.addEventListener('submit', async function(e) {
             e.preventDefault();
 
+            sincronizarValorKmControlado();
             const form = new FormData(this);
             const dados = Object.fromEntries(form.entries());
 

@@ -26,6 +26,7 @@
                     <th class="table-header hidden md:table-cell"><?= t('modules.matrizes_filiais.table.company_name') ?></th>
                     <th class="table-header hidden lg:table-cell"><?= t('modules.matrizes_filiais.table.cpf_cnpj') ?></th>
                     <th class="table-header hidden xl:table-cell"><?= t('modules.matrizes_filiais.table.city_state') ?></th>
+                    <th class="table-header hidden md:table-cell"><?= t('modules.matrizes_filiais.table.status') ?></th>
                     <th class="table-header px-2 w-32 text-center"><?= t('modules.matrizes_filiais.table.actions') ?></th>
                 </tr>
             </thead>
@@ -67,6 +68,8 @@
             noRecords: '<?= addslashes(t('modules.matrizes_filiais.messages.no_records')) ?>',
             typeParent: '<?= addslashes(t('modules.matrizes_filiais.type_options.parent')) ?>',
             typeBranch: '<?= addslashes(t('modules.matrizes_filiais.type_options.branch')) ?>',
+            statusActive: '<?= addslashes(t('modules.matrizes_filiais.status_options.active')) ?>',
+            statusInactive: '<?= addslashes(t('modules.matrizes_filiais.status_options.inactive')) ?>',
             actionView: '<?= addslashes(t('modules.matrizes_filiais.actions.view')) ?>',
             actionEdit: '<?= addslashes(t('modules.matrizes_filiais.actions.edit')) ?>',
             actionDelete: '<?= addslashes(t('modules.matrizes_filiais.actions.delete')) ?>',
@@ -74,6 +77,11 @@
             idNotFound: '<?= addslashes(t('modules.matrizes_filiais.messages.id_not_found')) ?>',
             recordType: '<?= addslashes(t('modules.matrizes_filiais.record_type')) ?>',
             deleteError: '<?= addslashes(t('modules.matrizes_filiais.messages.delete_error')) ?>',
+            deleteHasLinksTitle: <?= json_encode(t('modules.matrizes_filiais.messages.delete_has_links_title')) ?>,
+            deleteHasLinksConfirm: <?= json_encode(t('modules.matrizes_filiais.messages.delete_has_links_confirm')) ?>,
+            deactivateButton: <?= json_encode(t('modules.matrizes_filiais.messages.deactivate_button')) ?>,
+            deactivated: <?= json_encode(t('modules.matrizes_filiais.messages.deactivated')) ?>,
+            deactivateError: <?= json_encode(t('modules.matrizes_filiais.messages.deactivate_error')) ?>,
             showingPagination: '<?= addslashes(t('modules.matrizes_filiais.pagination.showing')) ?>',
         };
 
@@ -81,6 +89,7 @@
         let perPage = 10;
         let searchTerm = '';
         let searchTimeout = null;
+        let pendingDeactivateId = null;
 
         // Navegar para adicionar (com verificação de limite do plano)
         document.getElementById('btnAdicionar')?.addEventListener('click', async function() {
@@ -132,7 +141,7 @@
             if (!tbody) return;
             tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="table-cell text-center text-red-600">
+                <td colspan="7" class="table-cell text-center text-red-600">
                     <i class="fas fa-exclamation-triangle mr-2"></i>${mensagem}
                 </td>
             </tr>
@@ -146,7 +155,7 @@
             if (registros.length === 0) {
                 tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="table-cell text-center text-slate-500">
+                    <td colspan="7" class="table-cell text-center text-slate-500">
                         <i class="fas fa-inbox mr-2"></i>${i18n.noRecords}
                     </td>
                 </tr>
@@ -162,6 +171,10 @@
                 const nomeFantasia = item.nome_fantasia || '-';
                 const cpfCnpj = item.cpf_cnpj || '-';
                 const cidadeUf = item.cidade && item.estado ? `${item.cidade}/${item.estado}` : '-';
+                const ativo = (item.status || 'A') === 'A';
+                const status = ativo
+                    ? `<span class="px-2 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800">${i18n.statusActive}</span>`
+                    : `<span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-200 text-slate-700">${i18n.statusInactive}</span>`;
                 const nomeEscapado = nomeFantasia.replace(/"/g, '&quot;');
 
                 tableRows += `
@@ -171,6 +184,7 @@
                     <td class="table-cell hidden md:table-cell">${razaoSocial}</td>
                     <td class="table-cell hidden lg:table-cell">${cpfCnpj}</td>
                     <td class="table-cell hidden xl:table-cell">${cidadeUf}</td>
+                    <td class="table-cell hidden md:table-cell">${status}</td>
                     <td class="table-cell px-2 w-32 text-right">
                         <button title="${i18n.actionView}" class="btn-icon text-sky-600 hover:text-sky-800 btn-view" data-id="${id}"><i class="fas fa-eye"></i></button>
                         <button title="${i18n.actionEdit}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${id}"><i class="fas fa-edit"></i></button>
@@ -331,8 +345,48 @@
             if (event.data && event.data.action === 'confirmDelete') {
                 const id = event.data.recordId;
                 excluirRegistro(id);
+            } else if (event.data && event.data.action === 'genericConfirmed' && pendingDeactivateId) {
+                const id = pendingDeactivateId;
+                pendingDeactivateId = null;
+                desativarRegistro(id);
+            } else if (event.data && event.data.action === 'genericModalClosed') {
+                pendingDeactivateId = null;
             }
         });
+
+        function mostrarAlerta(mensagem) {
+            if (window.parent !== window) {
+                window.parent.postMessage({ action: 'openAlert', message: mensagem }, '*');
+                return;
+            }
+
+            console.warn(mensagem);
+        }
+
+        function formatarVinculos(vinculos) {
+            if (!vinculos) return [];
+            if (Array.isArray(vinculos)) return vinculos;
+
+            return Object.entries(vinculos).map(([label, total]) => `${total} ${label}`);
+        }
+
+        function abrirConfirmacaoDesativacao(id, vinculos) {
+            const links = formatarVinculos(vinculos);
+            const message = i18n.deleteHasLinksConfirm.replace(':links', links.join('\n'));
+            pendingDeactivateId = id;
+
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    action: 'openGenericConfirmModal',
+                    title: i18n.deleteHasLinksTitle,
+                    message: message,
+                    confirmText: i18n.deactivateButton
+                }, '*');
+                return;
+            }
+
+            mostrarAlerta(message);
+        }
 
         async function excluirRegistro(id) {
             try {
@@ -340,13 +394,31 @@
 
                 if (result.success) {
                     carregarDados(currentPage, perPage, searchTerm);
+                } else if (result.pode_desativar) {
+                    abrirConfirmacaoDesativacao(id, result.vinculos);
                 } else {
                     console.error('Erro ao excluir:', result.message);
-                    mostrarMensagemErro(i18n.deleteError.replace(':message', result.message));
+                    mostrarAlerta(i18n.deleteError.replace(':message', result.message || ''));
                 }
             } catch (error) {
                 console.error('Erro ao excluir:', error);
-                mostrarMensagemErro(i18n.serverError);
+                mostrarAlerta(i18n.serverError);
+            }
+        }
+
+        async function desativarRegistro(id) {
+            try {
+                const result = await API.post(`/matrizes-filiais/${id}/desativar`);
+
+                if (result.success) {
+                    mostrarAlerta(result.message || i18n.deactivated);
+                    carregarDados(currentPage, perPage, searchTerm);
+                } else {
+                    mostrarAlerta(result.message || i18n.deactivateError);
+                }
+            } catch (error) {
+                console.error('Erro ao desativar:', error);
+                mostrarAlerta(i18n.deactivateError);
             }
         }
     })();

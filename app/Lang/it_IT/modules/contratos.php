@@ -598,6 +598,7 @@ return [
         'resolve_error' => 'Errore nella risoluzione della differenza',
         'add_installment_error' => 'Errore nell\'aggiunta della rata',
         'installments_generated_save' => 'Rate generate! Vuoi salvare adesso?',
+        'installment_charges_queued' => 'Rate salvate e solleciti di pagamento messi in coda per l\'invio.',
         'prompt_due_date' => 'Data di scadenza (AAAA-MM-GG):',
         'prompt_installment_value' => 'Valore della rata:',
         'view_in_financial' => 'Vedi nel Finanziario',

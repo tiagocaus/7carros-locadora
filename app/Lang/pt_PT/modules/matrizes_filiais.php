@@ -44,6 +44,7 @@ return [
     ],
     'fields' => [
         'type' => 'Tipo',
+        'status' => 'Estado',
         'trade_name' => 'Nome Comercial',
         'company_name' => 'Razão Social',
         'cpf_cnpj' => 'NIF/NIPC',
@@ -109,6 +110,11 @@ return [
         'parent' => 'Matriz',
         'branch' => 'Filial',
     ],
+
+    'status_options' => [
+        'active' => 'Ativa',
+        'inactive' => 'Inativa',
+    ],
     'contact' => [
         'emails_title' => 'E-mails',
         'phones_title' => 'Telefones',
@@ -170,6 +176,7 @@ return [
         'company_name' => 'Razão Social',
         'cpf_cnpj' => 'NIF/NIPC',
         'city_state' => 'Cidade/Distrito',
+        'status' => 'Estado',
         'actions' => 'Ações',
     ],
     'actions' => [
@@ -183,6 +190,11 @@ return [
         'server_error' => 'Erro ao ligar ao servidor',
         'no_records' => 'Nenhum registo encontrado',
         'delete_error' => 'Erro ao eliminar: :message',
+        'delete_has_links_title' => 'Matriz/filial com vínculos',
+        'delete_has_links_confirm' => "Não é possível eliminar esta matriz/filial porque existem vínculos:\n\n:links\n\nDeseja desativá-la?",
+        'deactivate_button' => 'Desativar matriz/filial',
+        'deactivated' => 'Matriz/filial desativada com sucesso',
+        'deactivate_error' => 'Erro ao desativar matriz/filial',
         'save_error' => 'Erro ao guardar: :message',
         'id_not_found' => 'Erro: ID não encontrado',
         'format_not_supported' => 'Formato não suportado. Use apenas JPEG, PNG ou WebP.',

@@ -55,7 +55,6 @@ return [
 
     // Mensagens do CRON
     'cron' => [
-        'disabled' => 'Manutenção preventiva desativada via ENV',
         'processing_tenant' => 'A processar tenant: :chave',
         'os_generated' => 'OS :código gerada para veículo :placa',
         'finished' => 'Finalizado: :tenants tenants | :veículos veículos | :os OS geradas',
@@ -137,6 +136,7 @@ return [
         'product' => 'Produto',
         'qty' => 'Qtd',
         'unit_value' => 'Valor Unit.',
+        'discount' => 'Desconto',
         'total_value' => 'Valor Total',
         'action' => 'Ação',
         'description' => 'Descrição',
@@ -220,6 +220,7 @@ return [
         'provide_description' => 'Informe a descrição ou selecione um produto',
         'product_out_of_stock' => 'Produto sem stock disponível.',
         'stock_insufficient' => 'So há :qty disponível(is). Quantidade ajustada.',
+        'discount_exceeds_subtotal' => 'Desconto não pode ser maior que o subtotal do item.',
         'select_at_least_one' => 'Selecione pelo menos um item',
         'entry_created' => 'Lançamento criado com sucesso',
         'generic_error' => 'Erro',

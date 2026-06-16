@@ -12,7 +12,7 @@ use App\Crons\Jobs\BaseJob;
  * Exemplo de uso:
  *   $scheduler = new Scheduler();
  *   $scheduler->job(new ProcessMessageQueueJob())->everyMinute();
- *   $scheduler->job(new CheckPreventiveMaintenanceJob())->dailyAt('00:00');
+ *   $scheduler->job(new CheckPreventiveMaintenanceJob())->dailyAt('00:05');
  *   $summary = $scheduler->run();
  */
 class Scheduler
@@ -81,7 +81,7 @@ class Scheduler
 
             try {
                 $result = $job->run();
-                $this->results[] = [
+                $entry = [
                     'job' => $job->getName(),
                     'job_id' => $jobId,
                     'success' => $result['success'] ?? false,
@@ -91,6 +91,8 @@ class Scheduler
                     'logs' => $result['logs'] ?? [],
                     'schedule' => $scheduledJob->getExpression(),
                 ];
+                $this->results[] = $entry;
+                $this->recordDailySummary($entry);
 
                 $status = $result['success'] ? '✓ SUCESSO' : '✗ FALHOU';
                 echo "Status: {$status}\n";
@@ -102,7 +104,7 @@ class Scheduler
                 $executed++;
 
             } catch (\Exception $e) {
-                $this->results[] = [
+                $entry = [
                     'job' => $job->getName(),
                     'job_id' => $jobId,
                     'success' => false,
@@ -112,6 +114,8 @@ class Scheduler
                     'logs' => [],
                     'schedule' => $scheduledJob->getExpression(),
                 ];
+                $this->results[] = $entry;
+                $this->recordDailySummary($entry);
 
                 echo "✗ ERRO FATAL: {$e->getMessage()}\n";
                 $executed++;
@@ -330,6 +334,18 @@ class Scheduler
     public function getResults(): array
     {
         return $this->results;
+    }
+
+    /**
+     * Registra resultado no resumo diario sem interromper a execucao do CRON.
+     */
+    private function recordDailySummary(array $entry): void
+    {
+        try {
+            (new DailyCronSummaryStore())->record($entry);
+        } catch (\Throwable $e) {
+            echo "[WARNING] Falha ao registrar resumo diario: {$e->getMessage()}\n";
+        }
     }
 
     /**

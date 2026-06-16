@@ -31,9 +31,44 @@ class TaxaServico extends Model
     ): array {
         $query = $this->qb
             ->table('taxaseservicos', 't')
-            ->selectRaw('t.*, GROUP_CONCAT(DISTINCT mf.nome_fantasia ORDER BY mf.nome_fantasia SEPARATOR ", ") as filiais_nomes')
+            ->selectRaw("
+                t.id,
+                t.chave,
+                t.id_matriz_filial,
+                t.nome,
+                t.base_calculo,
+                t.tipo_valor,
+                CASE
+                    WHEN t.tipo_valor = 'MON'
+                    THEN COALESCE(
+                        CAST(
+                            SUBSTRING_INDEX(
+                                GROUP_CONCAT(
+                                    CASE WHEN tsvf.valor > 0 THEN tsvf.valor END
+                                    ORDER BY tsvf.id_matriz_filial
+                                    SEPARATOR ','
+                                ),
+                                ',',
+                                1
+                            ) AS DECIMAL(10,2)
+                        ),
+                        t.valor
+                    )
+                    ELSE t.valor
+                END AS valor,
+                t.aplicar,
+                t.onde_usar,
+                t.created_at,
+                t.updated_at,
+                GROUP_CONCAT(DISTINCT mf.nome_fantasia ORDER BY mf.nome_fantasia SEPARATOR ', ') as filiais_nomes
+            ")
             ->leftJoin('taxaseservicos_filiais', 'tsf', 't.id', '=', 'tsf.id_taxaservico')
             ->leftJoin('matrizes_filiais', 'mf', 'tsf.id_matriz_filial', '=', 'mf.id')
+            ->leftJoinRaw(
+                'taxaseservicos_valores_filiais',
+                'tsvf',
+                'tsvf.id_taxaservico = t.id AND tsvf.id_matriz_filial = tsf.id_matriz_filial AND tsvf.chave = t.chave'
+            )
             ->groupBy('t.id');
 
         // Filtro de filiais (N:N)

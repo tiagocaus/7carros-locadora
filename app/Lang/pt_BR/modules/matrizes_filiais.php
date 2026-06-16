@@ -59,6 +59,7 @@ return [
     // Campos
     'fields' => [
         'type' => 'Tipo',
+        'status' => 'Status',
         'trade_name' => 'Nome Fantasia',
         'company_name' => 'Razão Social',
         'cpf_cnpj' => 'CPF/CNPJ',
@@ -137,6 +138,11 @@ return [
         'branch' => 'Filial',
     ],
 
+    'status_options' => [
+        'active' => 'Ativa',
+        'inactive' => 'Inativa',
+    ],
+
     // Contato
     'contact' => [
         'emails_title' => 'E-mails',
@@ -213,6 +219,7 @@ return [
         'company_name' => 'Razão Social',
         'cpf_cnpj' => 'CPF/CNPJ',
         'city_state' => 'Cidade/UF',
+        'status' => 'Status',
         'actions' => 'Ações',
     ],
 
@@ -230,6 +237,11 @@ return [
         'server_error' => 'Erro ao conectar com o servidor',
         'no_records' => 'Nenhum registro encontrado',
         'delete_error' => 'Erro ao excluir: :message',
+        'delete_has_links_title' => 'Matriz/Filial com vínculos',
+        'delete_has_links_confirm' => "Não é possível excluir esta matriz/filial porque existem vínculos:\n\n:links\n\nDeseja desativá-la?",
+        'deactivate_button' => 'Desativar matriz/filial',
+        'deactivated' => 'Matriz/Filial desativada com sucesso',
+        'deactivate_error' => 'Erro ao desativar matriz/filial',
         'save_error' => 'Erro ao salvar: :message',
         'id_not_found' => 'Erro: ID não encontrado',
         'format_not_supported' => 'Formato não suportado. Use apenas JPEG, PNG ou WebP.',

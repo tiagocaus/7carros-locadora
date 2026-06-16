@@ -312,11 +312,15 @@
                         <!-- Container formulário manual (Asaas e outros) -->
                         <div id="manualCardContainer" style="display: none;">
                             <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                                <div class="md:col-span-3 form-input-group">
+                                <div class="md:col-span-4 form-input-group">
                                     <label for="cartaoTitular" class="form-label-group">{{ t('modules.clientes.credit_cards.card_holder') }}</label>
                                     <input type="text" id="cartaoTitular" class="form-input-group-field" placeholder="{{ t('modules.clientes.credit_cards.card_holder') }}">
                                 </div>
-                                <div class="md:col-span-3 form-input-group">
+                                <div class="md:col-span-4 form-input-group">
+                                    <label for="cartaoCpf" class="form-label-group">{{ t('modules.clientes.credit_cards.card_holder_document') }}</label>
+                                    <input type="text" id="cartaoCpf" class="form-input-group-field" maxlength="18" placeholder="{{ t('modules.clientes.credit_cards.card_holder_document_placeholder') }}" inputmode="numeric">
+                                </div>
+                                <div class="md:col-span-4 form-input-group">
                                     <label for="cartaoNumero" class="form-label-group">{{ t('modules.clientes.credit_cards.card_number') }}</label>
                                     <input type="text" id="cartaoNumero" class="form-input-group-field" maxlength="19" placeholder="0000 0000 0000 0000" inputmode="numeric">
                                 </div>
@@ -654,6 +658,7 @@
             fillCardExpiry: '<?= t("modules.clientes.messages.fill_card_expiry") ?>',
             fillCardCvv: '<?= t("modules.clientes.messages.fill_card_cvv") ?>',
             fillCardGateway: '<?= t("modules.clientes.messages.fill_card_gateway") ?>',
+            fillCardHolderDocument: '<?= t("modules.clientes.messages.fill_card_holder_document") ?>',
             tooltipDeactivateCard: '<?= t("modules.clientes.tooltips.deactivate_card") ?>',
             tooltipSetDefaultCard: '<?= t("modules.clientes.tooltips.set_default_card") ?>',
             noGateways: '<?= t("modules.clientes.credit_cards.no_gateways") ?>',
@@ -1950,6 +1955,10 @@
                 e.target.value = e.target.value.replace(/\D/g, '').substring(0, 4);
             });
 
+            document.getElementById('cartaoCpf')?.addEventListener('input', function(e) {
+                e.target.value = formatarDocumentoCartao(e.target.value);
+            });
+
             // Evento do select de gateway
             document.getElementById('cartaoGatewaySelect')?.addEventListener('change', function() {
                 selecionarGateway(this.value);
@@ -1969,10 +1978,39 @@
             document.getElementById('stripeCardContainer').style.display = 'none';
             document.getElementById('manualCardContainer').style.display = 'none';
             document.getElementById('cartaoTitular') && (document.getElementById('cartaoTitular').value = '');
+            document.getElementById('cartaoCpf') && (document.getElementById('cartaoCpf').value = '');
             document.getElementById('cartaoNumero') && (document.getElementById('cartaoNumero').value = '');
             document.getElementById('cartaoValidade') && (document.getElementById('cartaoValidade').value = '');
             document.getElementById('cartaoCVV') && (document.getElementById('cartaoCVV').value = '');
             gatewayAtual = null;
+        }
+
+        function somenteDigitosCartao(value) {
+            return (value || '').replace(/\D/g, '');
+        }
+
+        function formatarDocumentoCartao(value) {
+            const digits = somenteDigitosCartao(value).substring(0, 14);
+            if (digits.length <= 11) {
+                return digits
+                    .replace(/(\d{3})(\d)/, '$1.$2')
+                    .replace(/(\d{3})(\d)/, '$1.$2')
+                    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            }
+
+            return digits
+                .replace(/^(\d{2})(\d)/, '$1.$2')
+                .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+                .replace(/\.(\d{3})(\d)/, '.$1/$2')
+                .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+        }
+
+        function preencherDocumentoCartaoDoCliente() {
+            const input = document.getElementById('cartaoCpf');
+            if (!input || input.value.trim()) return;
+
+            const documentoCliente = document.getElementById('clienteCPF')?.value || '';
+            input.value = formatarDocumentoCartao(documentoCliente);
         }
 
         async function carregarGatewaysCartao() {
@@ -2012,6 +2050,7 @@
                 inicializarStripe(gatewayAtual.publishable_key);
             } else {
                 manualContainer.style.display = '';
+                preencherDocumentoCartaoDoCliente();
             }
         }
 
@@ -2115,11 +2154,16 @@
             if (tokenizandoCartao || !gatewayAtual) return;
 
             const holder = document.getElementById('cartaoTitular').value.trim();
+            const cpf = somenteDigitosCartao(document.getElementById('cartaoCpf')?.value || '');
             const number = document.getElementById('cartaoNumero').value.replace(/\s/g, '');
             const expiry = document.getElementById('cartaoValidade').value.trim();
             const cvv = document.getElementById('cartaoCVV').value.trim();
 
             if (!holder) { mostrarAlerta(i18n.fillCardHolder); return; }
+            if (gatewayAtual.gateway_code === 'asaas' && ![11, 14].includes(cpf.length)) {
+                mostrarAlerta(i18n.fillCardHolderDocument);
+                return;
+            }
             if (!number || number.length < 13) { mostrarAlerta(i18n.fillCardNumber); return; }
             if (!expiry || !/^\d{2}\/\d{2}$/.test(expiry)) { mostrarAlerta(i18n.fillCardExpiry); return; }
             if (!cvv || cvv.length < 3) { mostrarAlerta(i18n.fillCardCvv); return; }
@@ -2133,6 +2177,10 @@
                 const result = await API.post('/api/clientes/' + registroId + '/cartoes/tokenizar', {
                     gateway_id: gatewayAtual.id,
                     holder: holder,
+                    cpf: cpf,
+                    cpf_cnpj: cpf,
+                    documento_titular: cpf,
+                    holder_document: cpf,
                     number: number,
                     expiry_month: expiryMonth,
                     expiry_year: '20' + expiryYear,

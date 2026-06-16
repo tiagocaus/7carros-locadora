@@ -722,7 +722,8 @@ class VeiculosController
                 Response::json([
                     'success' => false,
                     'message' => 'Nao e possivel excluir o veiculo pois existem vinculos',
-                    'vinculos' => $verificacao['detalhes']
+                    'vinculos' => $verificacao['detalhes'],
+                    'pode_desativar' => true
                 ], 422);
                 return;
             }
@@ -742,6 +743,68 @@ class VeiculosController
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao excluir veiculo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Desativa um veiculo marcando disponibilidade como Excluido.
+     *
+     * POST /veiculos/{id}/desativar
+     */
+    public function desativar(Request $request, int $id): void
+    {
+        try {
+            if (!Auth::can('veiculos.excluir')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para desativar veiculos'
+                ], 403);
+                return;
+            }
+
+            $model = new Veiculo();
+            $veiculo = $model->buscarPorId($id);
+
+            if (!$veiculo) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Veiculo nao encontrado'
+                ], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if ($veiculo['chave'] !== $chave) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao pode desativar este veiculo'
+                ], 403);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($veiculo['id_matriz_filial'])) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem acesso a este veiculo'
+                ], 403);
+                return;
+            }
+
+            $model->atualizarDisponibilidade($id, 'E');
+
+            AuditLogService::registrar(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", desativou veiculo [{$veiculo['placa']} - {$veiculo['marca']} {$veiculo['modelo']}]"
+            );
+
+            Response::json([
+                'success' => true,
+                'message' => 'Veiculo desativado com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao desativar veiculo: ' . $e->getMessage()
             ], 500);
         }
     }

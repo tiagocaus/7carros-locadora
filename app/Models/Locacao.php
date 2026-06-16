@@ -62,7 +62,10 @@ class Locacao extends Model
             ->selectSubquery(function ($q) {
                 $q->table('locacoes_veiculos', 'lv')
                   ->selectRaw("(SELECT CONCAT(v.placa, ' - ', v.modelo) FROM veiculos v WHERE v.id = lv.id_veiculo)")
-                  ->whereRaw('lv.id_locacao = l.id AND lv.data_entrada IS NULL')
+                  ->whereRaw('lv.id_locacao = l.id AND lv.chave = l.chave AND lv.id_veiculo IS NOT NULL')
+                  ->orderByRaw('CASE WHEN lv.data_entrada IS NULL THEN 0 ELSE 1 END')
+                  ->orderByDesc('lv.data_saida')
+                  ->orderByDesc('lv.id')
                   ->limit(1);
             }, 'veiculo_info')
             ->selectSubquery(function ($q) {
@@ -83,7 +86,24 @@ class Locacao extends Model
                 $q->where('l.codigo', 'LIKE', $searchTerm)
                   ->orWhere('cl.nome_rsocial', 'LIKE', $searchTerm)
                   ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm)
-                  ->orWhere('l.cliente_nome', 'LIKE', $searchTerm);
+                  ->orWhere('l.cliente_nome', 'LIKE', $searchTerm)
+                  ->orWhereRaw(
+                      "EXISTS (
+                          SELECT 1
+                          FROM locacoes_veiculos lv_busca
+                          INNER JOIN veiculos v_busca
+                              ON v_busca.id = lv_busca.id_veiculo
+                              AND v_busca.chave = lv_busca.chave
+                          WHERE lv_busca.id_locacao = l.id
+                            AND lv_busca.chave = l.chave
+                            AND (
+                                v_busca.placa LIKE ?
+                                OR v_busca.modelo LIKE ?
+                                OR v_busca.marca LIKE ?
+                            )
+                      )",
+                      [$searchTerm, $searchTerm, $searchTerm]
+                  );
             });
         }
 
@@ -128,7 +148,24 @@ class Locacao extends Model
                 $q->where('l.codigo', 'LIKE', $searchTerm)
                   ->orWhere('cl.nome_rsocial', 'LIKE', $searchTerm)
                   ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm)
-                  ->orWhere('l.cliente_nome', 'LIKE', $searchTerm);
+                  ->orWhere('l.cliente_nome', 'LIKE', $searchTerm)
+                  ->orWhereRaw(
+                      "EXISTS (
+                          SELECT 1
+                          FROM locacoes_veiculos lv_busca
+                          INNER JOIN veiculos v_busca
+                              ON v_busca.id = lv_busca.id_veiculo
+                              AND v_busca.chave = lv_busca.chave
+                          WHERE lv_busca.id_locacao = l.id
+                            AND lv_busca.chave = l.chave
+                            AND (
+                                v_busca.placa LIKE ?
+                                OR v_busca.modelo LIKE ?
+                                OR v_busca.marca LIKE ?
+                            )
+                      )",
+                      [$searchTerm, $searchTerm, $searchTerm]
+                  );
             });
         }
 
@@ -794,6 +831,9 @@ class Locacao extends Model
         $idVeiculoAtivo = $veiculoAtivo ? (int) $veiculoAtivo['id_veiculo'] : null;
 
         $idMatrizFilial = (int) ($locacao['id_matriz_filial_retirada'] ?? 0);
+        $sequencias = $idMatrizFilial > 0
+            ? \App\Helpers\SequenciaHelper::proximasSequencias($chave, $idMatrizFilial, 'financeiro', $quantidade)
+            : [];
 
         for ($i = 0; $i < $quantidade; $i++) {
             $valor = $valorParcela;
@@ -806,10 +846,7 @@ class Locacao extends Model
 
             $numParcela = $proximaParcela + $i;
 
-            // Gerar sequencia atomica do financeiro para esta parcela
-            $sequencia = $idMatrizFilial > 0
-                ? \App\Helpers\SequenciaHelper::proximaSequencia($chave, $idMatrizFilial, 'financeiro')
-                : null;
+            $sequencia = $sequencias[$i] ?? null;
 
             $ids[] = $financeiroModel->criar([
                 'chave' => $chave,
@@ -919,12 +956,13 @@ class Locacao extends Model
      * @param int $locacaoId ID da locacao
      * @return array Lista de parcelas
      */
-    public function listarParcelas(int $locacaoId): array
+    public function listarParcelas(int $locacaoId, bool $apenasReceitas = false): array
     {
-        return $this->qb
+        $query = $this->qb
             ->table('financeiro', 'f')
             ->select([
                 'f.id',
+                'f.tipo',
                 'f.parcela',
                 'f.total_parcelas',
                 'f.descricao',
@@ -940,7 +978,13 @@ class Locacao extends Model
             ])
             ->leftJoin('contas_bancarias', 'ct', 'f.id_conta', '=', 'ct.id')
             ->leftJoin('formas_pagamento', 'fp', 'f.id_forma_pagamento', '=', 'fp.id')
-            ->where('f.id_locacao', '=', $locacaoId)
+            ->where('f.id_locacao', '=', $locacaoId);
+
+        if ($apenasReceitas) {
+            $query->where('f.tipo', '=', 'R');
+        }
+
+        return $query
             ->orderBy('f.parcela', 'ASC')
             ->get();
     }
@@ -1087,7 +1131,7 @@ class Locacao extends Model
      * @param int $locacaoId ID da locacao
      * @return array Totais financeiros
      */
-    public function resumoFinanceiro(int $locacaoId): array
+    public function resumoFinanceiro(int $locacaoId, bool $apenasReceitas = false): array
     {
         $locacao = $this->qb
             ->table('locacoes')
@@ -1095,7 +1139,7 @@ class Locacao extends Model
             ->where('id', '=', $locacaoId)
             ->first();
 
-        $totais = $this->qb
+        $queryTotais = $this->qb
             ->table('financeiro')
             ->selectRaw('
                 COUNT(*) AS total_parcelas,
@@ -1104,8 +1148,13 @@ class Locacao extends Model
                 SUM(CASE WHEN pago = "N" THEN valor_total ELSE 0 END) AS total_pendente,
                 SUM(CASE WHEN pago = "N" AND data_venci < CURDATE() THEN valor_total ELSE 0 END) AS total_atrasado
             ')
-            ->where('id_locacao', '=', $locacaoId)
-            ->first();
+            ->where('id_locacao', '=', $locacaoId);
+
+        if ($apenasReceitas) {
+            $queryTotais->where('tipo', '=', 'R');
+        }
+
+        $totais = $queryTotais->first();
 
         $totalPagar = (float) ($locacao['total_pagar'] ?? 0);
 
@@ -1174,8 +1223,8 @@ class Locacao extends Model
     /**
      * Operacoes do dia para o dashboard.
      *
-     * Retorna contadores de saidas hoje, devolucoes hoje e locacoes em atraso.
-     * Usa intervalos abertos (>= inicio, <= fim) para aproveitar indices em data_saida/data_chegada.
+     * Retorna contadores de saidas hoje, devolucoes previstas hoje e locacoes em atraso.
+     * Usa intervalos do dia para aproveitar indices em data_saida/data_prevista.
      */
     public function dashboardOperations(string $chave): array
     {
@@ -1191,9 +1240,10 @@ class Locacao extends Model
 
         $returns = (int) $this->qb
             ->table('locacoes')
-            ->where('status', '=', 'F')
-            ->where('data_chegada', '>=', $inicioDia)
-            ->where('data_chegada', '<=', $fimDia)
+            ->where('status', '=', 'A')
+            ->whereNull('data_chegada')
+            ->where('data_prevista', '>=', $inicioDia)
+            ->where('data_prevista', '<=', $fimDia)
             ->count();
 
         $overdue = (int) $this->qb

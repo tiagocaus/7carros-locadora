@@ -42,6 +42,15 @@ class ContratosController
 {
     private array $tmpFiles = [];
 
+    private function mensagemErroBanco(\Throwable $e, string $contexto): string
+    {
+        if (str_contains($e->getMessage(), 'Lock wait timeout exceeded')) {
+            return "{$contexto}: o sistema esta processando outra geracao financeira no momento. Tente novamente em instantes.";
+        }
+
+        return "{$contexto}: " . $e->getMessage();
+    }
+
     /**
      * Renderiza a pagina de listagem de contratos
      *
@@ -982,6 +991,14 @@ class ContratosController
     public function devolver(Request $request, int $id): void
     {
         try {
+            if (!Auth::can('contratos.devolver')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Sem permissao para registrar devolucao'
+                ], 403);
+                return;
+            }
+
             $contratoModel = new Contrato();
             $contrato = $contratoModel->buscarPorId($id);
 
@@ -1176,6 +1193,14 @@ class ContratosController
     public function substituir(Request $request, int $id): void
     {
         try {
+            if (!Auth::can('contratos.substituir')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Sem permissao para substituir veiculo'
+                ], 403);
+                return;
+            }
+
             $contratoModel = new Contrato();
             $contrato = $contratoModel->buscarPorId($id);
 
@@ -1407,6 +1432,14 @@ class ContratosController
     public function adicionarVeiculo(Request $request, int $id): void
     {
         try {
+            if (!Auth::can('contratos.editar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Sem permissao para adicionar veiculo ao contrato'
+                ], 403);
+                return;
+            }
+
             $contratoModel = new Contrato();
             $contrato = $contratoModel->buscarPorId($id);
 
@@ -2612,7 +2645,7 @@ class ContratosController
     /**
      * Enfileira cobrancas das parcelas criadas por canal selecionado.
      */
-    private function enfileirarCobrancasRegularizacao(array $idsParcelas, array $canais, array $contrato): array
+    private function enfileirarCobrancasParcelas(array $idsParcelas, array $canais, array $contrato): array
     {
         $resultado = [];
         if (!array_filter($canais)) {
@@ -2700,6 +2733,14 @@ class ContratosController
     }
 
     /**
+     * Compatibilidade com o fluxo de regularizacao de renovacao.
+     */
+    private function enfileirarCobrancasRegularizacao(array $idsParcelas, array $canais, array $contrato): array
+    {
+        return $this->enfileirarCobrancasParcelas($idsParcelas, $canais, $contrato);
+    }
+
+    /**
      * Gera preview ou salva parcelas do contrato
      *
      * POST /api/contratos/{id}/gerar-parcelas
@@ -2776,6 +2817,24 @@ class ContratosController
 
             // Salvar parcelas
             $ids = $contratoModel->salvarParcelasContrato($id, $parcelasParaSalvar, $chave);
+            $enviosCobranca = [];
+
+            if (!empty($dados['from_creation']) && !empty($ids)) {
+                try {
+                    $enviosCobranca = $this->enfileirarCobrancasParcelas($ids, [
+                        'email' => true,
+                        'whatsapp' => true,
+                        'sms' => true,
+                    ], $contrato);
+                } catch (\Exception $e) {
+                    $enviosCobranca[] = [
+                        'parcela_id' => null,
+                        'canal' => 'all',
+                        'success' => false,
+                        'message' => $e->getMessage(),
+                    ];
+                }
+            }
 
             // Log de auditoria (skip quando parcelas geradas durante criacao do contrato — ja registrado no log principal)
             if (empty($dados['from_creation'])) {
@@ -2789,13 +2848,14 @@ class ContratosController
                 'message' => count($ids) . ' parcela(s) gerada(s) com sucesso',
                 'data' => [
                     'ids' => $ids,
-                    'parcelas_removidas' => $removidas
+                    'parcelas_removidas' => $removidas,
+                    'envios_cobranca' => $enviosCobranca
                 ]
             ]);
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,
-                'message' => 'Erro ao gerar parcelas: ' . $e->getMessage()
+                'message' => $this->mensagemErroBanco($e, 'Erro ao gerar parcelas')
             ], 500);
         }
     }

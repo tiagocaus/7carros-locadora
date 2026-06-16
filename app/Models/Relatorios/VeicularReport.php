@@ -50,11 +50,13 @@ class VeicularReport extends BaseReportModel
         // Totalizadores
         $totalManutencoes = count($details);
         $custoTotal = 0.0;
+        $descontoTotal = 0.0;
         $diasParadosTotal = 0;
         $kmRodadoTotal = 0;
 
         foreach ($details as $row) {
             $custoTotal += (float) $row['valor'];
+            $descontoTotal += (float) ($row['desconto'] ?? 0);
             $diasParadosTotal += (int) $row['dias_parado'];
             // Para custo/km usamos diferença entre odo_retorno e odo_enviado quando ambos existem
             if (!empty($row['_km_diff'])) {
@@ -75,6 +77,7 @@ class VeicularReport extends BaseReportModel
             'totals' => [
                 'total_manutencoes' => $totalManutencoes,
                 'custo_total' => round($custoTotal, 2),
+                'desconto_total' => round($descontoTotal, 2),
                 'custo_medio' => $custoMedio,
                 'dias_parados_total' => $diasParadosTotal,
                 'custo_por_km' => $custoPorKm,
@@ -119,6 +122,11 @@ class VeicularReport extends BaseReportModel
                 'v.modelo',
             ])
             ->selectRaw('o.empresa AS oficina_nome')
+            ->selectSubquery(function ($q) {
+                $q->table('manutencoes_itens', 'mi')
+                    ->selectRaw('COALESCE(SUM(mi.desconto), 0)')
+                    ->whereRaw('mi.id_manutencao = m.id');
+            }, 'desconto_total')
             ->leftJoin('veiculos', 'v', 'm.id_veiculo', '=', 'v.id')
             ->leftJoin('oficinas', 'o', 'm.id_oficina', '=', 'o.id')
             ->whereRaw('COALESCE(m.data_enviado, m.created_at) >= ?', [$dataInicio . ' 00:00:00'])
@@ -170,6 +178,7 @@ class VeicularReport extends BaseReportModel
                 'data_saida' => $r['data_retorno'],
                 'dias_parado' => $diasParado,
                 'valor' => round((float) ($r['total_servicos'] ?? 0), 2),
+                'desconto' => round((float) ($r['desconto_total'] ?? 0), 2),
                 'pago' => round((float) ($r['total_pago'] ?? 0), 2),
                 'pendente' => round((float) ($r['total_pendente'] ?? 0), 2),
                 'km' => $r['odo_enviado'] ?? '',

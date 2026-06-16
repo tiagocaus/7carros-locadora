@@ -52,8 +52,9 @@ class Checklist extends Model
 
         if (!empty($search)) {
             $query->whereRaw(
-                '(c.codigo LIKE ? OR cm.nome LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ?)',
+                '(c.codigo LIKE ? OR cm.nome LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ? OR v.marca LIKE ?)',
                 [
+                    '%' . $search . '%',
                     '%' . $search . '%',
                     '%' . $search . '%',
                     '%' . $search . '%',
@@ -94,8 +95,9 @@ class Checklist extends Model
 
         if (!empty($search)) {
             $query->whereRaw(
-                '(c.codigo LIKE ? OR cm.nome LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ?)',
+                '(c.codigo LIKE ? OR cm.nome LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ? OR v.marca LIKE ?)',
                 [
+                    '%' . $search . '%',
                     '%' . $search . '%',
                     '%' . $search . '%',
                     '%' . $search . '%',

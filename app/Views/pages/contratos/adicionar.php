@@ -759,6 +759,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'resolveError' => t('modules.contratos.messages.resolve_error'),
         'addInstallmentError' => t('modules.contratos.messages.add_installment_error'),
         'installmentsGeneratedSave' => t('modules.contratos.messages.installments_generated_save'),
+        'installmentChargesQueued' => t('modules.contratos.messages.installment_charges_queued'),
         'promptDueDate' => t('modules.contratos.messages.prompt_due_date'),
         'promptInstallmentValue' => t('modules.contratos.messages.prompt_installment_value'),
         'viewInFinancial' => t('modules.contratos.messages.view_in_financial'),

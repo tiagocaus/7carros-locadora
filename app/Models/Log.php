@@ -58,9 +58,6 @@ class Log extends Model
     /**
      * Conta total de logs (com filtro de busca opcional)
      *
-     * Nota: busca por nome de usuário removida do COUNT para performance
-     * (mantida na listagem que já faz JOIN)
-     *
      * @param string|null $search Termo de busca (opcional)
      * @return int Total de logs
      */
@@ -74,6 +71,7 @@ class Log extends Model
 
         $query = $this->qb
             ->table('logs', 'l')
+            ->leftJoinRaw('funcionarios', 'f', 'l.id_funcionario = f.id AND l.chave = f.chave')
             ->withoutChave()
             ->where('l.chave', '=', $chave);
 
@@ -81,6 +79,7 @@ class Log extends Model
             $searchTerm = "%{$search}%";
             $query->whereNested(function ($q) use ($searchTerm) {
                 $q->where('l.mensagem', 'LIKE', $searchTerm)
+                  ->orWhere('f.nome', 'LIKE', $searchTerm)
                   ->orWhere('l.ip', 'LIKE', $searchTerm);
             });
         }

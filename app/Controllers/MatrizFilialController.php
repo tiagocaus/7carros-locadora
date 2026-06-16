@@ -178,6 +178,10 @@ class MatrizFilialController
 
             $dados = $this->mapearDados($request);
 
+            if (($dados['status'] ?? 'A') === 'I') {
+                $dados['status'] = 'A';
+            }
+
             // Processar upload de logo usando FileHelper
             $logoBase64 = $request->input('logo_base64', '');
             if (!empty($logoBase64)) {
@@ -276,6 +280,18 @@ class MatrizFilialController
             }
 
             $dados = $this->mapearDados($request);
+
+            if (
+                ($registroExistente['status'] ?? 'A') === 'A'
+                && ($dados['status'] ?? 'A') === 'I'
+                && $model->contarAtivas($registroExistente['chave']) <= 1
+            ) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Não é possível desativar a última matriz/filial ativa'
+                ], 422);
+                return;
+            }
 
             // Processar upload de logo usando FileHelper
             $logoBase64 = $request->input('logo_base64', '');
@@ -410,7 +426,8 @@ class MatrizFilialController
                 Response::json([
                     'success' => false,
                     'message' => 'Não é possível excluir esta matriz/filial pois existem registros vinculados.',
-                    'vinculos' => $verificacao['detalhes']
+                    'vinculos' => $verificacao['detalhes'],
+                    'pode_desativar' => true
                 ], 422);
                 return;
             }
@@ -435,6 +452,67 @@ class MatrizFilialController
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao excluir matriz/filial: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Desativa uma matriz/filial com historico vinculado.
+     *
+     * POST /matrizes-filiais/{id}/desativar
+     */
+    public function desativar(Request $request, int $id): void
+    {
+        try {
+            if (!Auth::can('matrizes_filiais.excluir')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Você não tem permissão para desativar matrizes/filiais'
+                ], 403);
+                return;
+            }
+
+            $model = new MatrizFilial();
+            $registro = $model->buscarPorId($id);
+
+            if (!$registro) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Matriz/Filial não encontrada'
+                ], 404);
+                return;
+            }
+
+            if (($registro['status'] ?? 'A') === 'I') {
+                Response::json([
+                    'success' => true,
+                    'message' => 'Matriz/Filial já está inativa'
+                ]);
+                return;
+            }
+
+            if ($model->contarAtivas($registro['chave']) <= 1) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Não é possível desativar a última matriz/filial ativa'
+                ], 422);
+                return;
+            }
+
+            $model->desativar($id);
+
+            AuditLogService::registrar(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", desativou matriz/filial [{$registro['nome_fantasia']}]"
+            );
+
+            Response::json([
+                'success' => true,
+                'message' => 'Matriz/Filial desativada com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao desativar matriz/filial: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -683,6 +761,7 @@ class MatrizFilialController
         return [
             // Dados básicos
             'tipo' => $request->input('tipo'),
+            'status' => in_array($request->input('status'), ['A', 'I'], true) ? $request->input('status') : 'A',
             'razao_social' => $request->input('razao_social'),
             'nome_fantasia' => $request->input('nome_fantasia'),
             'cpf_cnpj' => $request->input('cpf_cnpj'),

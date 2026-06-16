@@ -100,9 +100,9 @@ class ManutencoesController
 
             // Formatar valores
             foreach ($manutencoes as &$m) {
-                $m['total_servicos_formatted'] = number_format((float) $m['total_servicos'], 2, ',', '.');
-                $m['total_pago_formatted'] = number_format((float) $m['total_pago'], 2, ',', '.');
-                $m['total_pendente_formatted'] = number_format((float) $m['total_pendente'], 2, ',', '.');
+                $m['total_servicos_formatted'] = currency_format((float) $m['total_servicos']);
+                $m['total_pago_formatted'] = currency_format((float) $m['total_pago']);
+                $m['total_pendente_formatted'] = currency_format((float) $m['total_pendente']);
                 $m['data_enviado_formatted'] = $m['data_enviado'] ? date('d/m/Y H:i', strtotime($m['data_enviado'])) : '';
                 $m['data_retorno_formatted'] = $m['data_retorno'] ? date('d/m/Y H:i', strtotime($m['data_retorno'])) : '';
 
@@ -168,15 +168,16 @@ class ManutencoesController
             }
 
             // Formatar valores
-            $manutencao['total_servicos_formatted'] = number_format((float) $manutencao['total_servicos'], 2, ',', '.');
-            $manutencao['total_pago_formatted'] = number_format((float) $manutencao['total_pago'], 2, ',', '.');
-            $manutencao['total_pendente_formatted'] = number_format((float) $manutencao['total_pendente'], 2, ',', '.');
+            $manutencao['total_servicos_formatted'] = currency_format((float) $manutencao['total_servicos']);
+            $manutencao['total_pago_formatted'] = currency_format((float) $manutencao['total_pago']);
+            $manutencao['total_pendente_formatted'] = currency_format((float) $manutencao['total_pendente']);
 
             // Formatar itens
             if (!empty($manutencao['itens'])) {
                 foreach ($manutencao['itens'] as &$item) {
-                    $item['valor_unitario_formatted'] = number_format((float) $item['valor_unitario'], 2, ',', '.');
-                    $item['valor_total_formatted'] = number_format((float) $item['valor_total'], 2, ',', '.');
+                    $item['valor_unitario_formatted'] = currency_format((float) $item['valor_unitario']);
+                    $item['desconto_formatted'] = currency_format((float) ($item['desconto'] ?? 0));
+                    $item['valor_total_formatted'] = currency_format((float) $item['valor_total']);
                 }
             }
 
@@ -589,8 +590,9 @@ class ManutencoesController
 
             // Formatar valores
             foreach ($itens as &$item) {
-                $item['valor_unitario_formatted'] = number_format((float) $item['valor_unitario'], 2, ',', '.');
-                $item['valor_total_formatted'] = number_format((float) $item['valor_total'], 2, ',', '.');
+                $item['valor_unitario_formatted'] = currency_format((float) $item['valor_unitario']);
+                $item['desconto_formatted'] = currency_format((float) ($item['desconto'] ?? 0));
+                $item['valor_total_formatted'] = currency_format((float) $item['valor_total']);
             }
 
             Response::json(['success' => true, 'data' => $itens]);
@@ -617,8 +619,9 @@ class ManutencoesController
 
             // Formatar valores
             foreach ($itens as &$item) {
-                $item['valor_unitario_formatted'] = number_format((float) $item['valor_unitario'], 2, ',', '.');
-                $item['valor_total_formatted'] = number_format((float) $item['valor_total'], 2, ',', '.');
+                $item['valor_unitario_formatted'] = currency_format((float) $item['valor_unitario']);
+                $item['desconto_formatted'] = currency_format((float) ($item['desconto'] ?? 0));
+                $item['valor_total_formatted'] = currency_format((float) $item['valor_total']);
             }
 
             Response::json(['success' => true, 'data' => $itens]);

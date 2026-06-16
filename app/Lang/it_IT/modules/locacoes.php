@@ -317,6 +317,7 @@ return [
     ],
     'installments' => [
         'title' => 'Rate',
+        'payments' => 'Pagamenti',
         'generate' => 'Genera Rate',
         'add' => 'Aggiungi',
         'generate_auto' => 'Genera Rate Automaticamente',

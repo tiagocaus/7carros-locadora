@@ -217,10 +217,7 @@ class MultasController
                 'data' => ['id' => $id]
             ]);
         } catch (\Exception $e) {
-            Response::json([
-                'success' => false,
-                'message' => 'Erro ao registrar multa: ' . $e->getMessage()
-            ], 500);
+            $this->responderErroOperacaoMulta($e, 'registrar');
         }
     }
 
@@ -298,11 +295,47 @@ class MultasController
                 'message' => $e->getMessage()
             ], 400);
         } catch (\Exception $e) {
+            $this->responderErroOperacaoMulta($e, 'atualizar');
+        }
+    }
+
+    /**
+     * Responde erros de operacoes de multa sem expor mensagens tecnicas do banco.
+     */
+    private function responderErroOperacaoMulta(\Throwable $e, string $acao): void
+    {
+        error_log("[Multas] Erro ao {$acao} multa: " . $e->getMessage());
+
+        if ($this->isErroConcorrenciaBanco($e)) {
             Response::json([
                 'success' => false,
-                'message' => 'Erro ao atualizar multa: ' . $e->getMessage()
-            ], 500);
+                'message' => 'O sistema está processando outra operação financeira. Aguarde alguns segundos e tente salvar novamente.'
+            ], 409);
+            return;
         }
+
+        $mensagem = $acao === 'registrar'
+            ? 'Erro ao registrar multa. Tente novamente em instantes.'
+            : 'Erro ao atualizar multa. Tente novamente em instantes.';
+
+        Response::json([
+            'success' => false,
+            'message' => $mensagem
+        ], 500);
+    }
+
+    /**
+     * Identifica erros transitorios de lock/deadlock do MySQL.
+     */
+    private function isErroConcorrenciaBanco(\Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'lock wait timeout')
+            || str_contains($message, 'deadlock found')
+            || str_contains($message, 'try restarting transaction')
+            || str_contains($message, '1205')
+            || str_contains($message, '1213');
     }
 
     /**

@@ -43,7 +43,7 @@ class MatrizFilial extends Model
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['id', 'chave', 'logo', 'tipo', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale']);
+            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale']);
 
         if (!empty($where)) {
             $query->whereRaw($where, $params);
@@ -94,6 +94,10 @@ class MatrizFilial extends Model
         // Definir tipo padrão se não fornecido
         if (!isset($dados['tipo'])) {
             $dados['tipo'] = 'M'; // Matriz
+        }
+
+        if (!isset($dados['status'])) {
+            $dados['status'] = 'A';
         }
 
         // Definir valores padrão para configurações
@@ -168,7 +172,8 @@ class MatrizFilial extends Model
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['id', 'razao_social AS text', 'razao_social AS nome', 'nome_fantasia', 'currency_code', 'locale']);
+            ->select(['id', 'razao_social AS text', 'razao_social AS nome', 'nome_fantasia', 'currency_code', 'locale'])
+            ->where('status', '=', 'A');
 
         // Aplicar filtro de filiais permitidas
         if (!empty($filialWhere) && $filialWhere !== '1=1') {
@@ -202,7 +207,7 @@ class MatrizFilial extends Model
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['id', 'chave', 'logo', 'tipo', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale']);
+            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale']);
 
         if (!empty($search)) {
             $searchTerm = "%{$search}%";
@@ -342,45 +347,82 @@ class MatrizFilial extends Model
     public function verificarVinculos(int $id): array
     {
         $vinculos = [];
-        $temVinculos = false;
 
-        // Verificar clientes vinculados
-        $countClientes = $this->qb
-            ->table('clientes')
-            ->where('id_matriz_filial', '=', $id)
-            ->count();
+        $checks = [
+            ['table' => 'clientes', 'column' => 'id_matriz_filial', 'label' => 'cliente(s)'],
+            ['table' => 'funcionarios', 'column' => 'id_matriz_filial', 'label' => 'funcionario(s)'],
+            ['table' => 'funcionarios_filiais', 'column' => 'id_matriz_filial', 'label' => 'vinculo(s) de funcionario/filial'],
+            ['table' => 'veiculos', 'column' => 'id_matriz_filial', 'label' => 'veiculo(s)'],
+            ['table' => 'veiculos', 'column' => 'id_matriz_filial_localizacao', 'label' => 'localizacao(oes) atual(is) de veiculo'],
+            ['table' => 'locacoes', 'column' => 'id_matriz_filial_retirada', 'label' => 'locacao(oes) com retirada'],
+            ['table' => 'locacoes', 'column' => 'id_matriz_filial_devolucao', 'label' => 'locacao(oes) com devolucao'],
+            ['table' => 'contratos', 'column' => 'id_matriz_filial_retirada', 'label' => 'contrato(s)'],
+            ['table' => 'financeiro', 'column' => 'id_matriz_filial', 'label' => 'lancamento(s) financeiro(s)'],
+            ['table' => 'promissorias', 'column' => 'id_matriz_filial', 'label' => 'promissoria(s)'],
+            ['table' => 'manutencoes', 'column' => 'id_matriz_filial', 'label' => 'manutencao(oes)'],
+            ['table' => 'multas', 'column' => 'id_matriz_filial', 'label' => 'multa(s)'],
+            ['table' => 'estoque', 'column' => 'id_matriz_filial', 'label' => 'item(ns) de estoque'],
+            ['table' => 'comissoes_funcionarios', 'column' => 'id_matriz_filial', 'label' => 'comissao(oes) de funcionario'],
+            ['table' => 'metas_funcionarios', 'column' => 'id_matriz_filial', 'label' => 'meta(s) de funcionario'],
+            ['table' => 'taxaseservicos', 'column' => 'id_matriz_filial', 'label' => 'taxa(s)/servico(s)'],
+            ['table' => 'taxaseservicos_filiais', 'column' => 'id_matriz_filial', 'label' => 'configuracao(oes) de taxa/servico'],
+            ['table' => 'taxaseservicos_valores_filiais', 'column' => 'id_matriz_filial', 'label' => 'valor(es) de taxa/servico por filial'],
+            ['table' => 'formas_pagamento_filiais', 'column' => 'id_matriz_filial', 'label' => 'forma(s) de pagamento por filial'],
+            ['table' => 'formas_gateway', 'column' => 'id_matriz_filial', 'label' => 'gateway(s) em forma de pagamento'],
+            ['table' => 'gateways_filiais', 'column' => 'id_matriz_filial', 'label' => 'gateway(s) por filial'],
+            ['table' => 'sms_filiais', 'column' => 'id_matriz_filial', 'label' => 'conexao(oes) SMS por filial'],
+            ['table' => 'smtp_filiais', 'column' => 'id_matriz_filial', 'label' => 'conexao(oes) SMTP por filial'],
+            ['table' => 'whatsapp_filiais', 'column' => 'id_matriz_filial', 'label' => 'conexao(oes) WhatsApp por filial'],
+            ['table' => 'grupos_precos_filiais', 'column' => 'id_matriz_filial', 'label' => 'preco(s) de grupo por filial'],
+            ['table' => 'grupos_precos_dias_filiais', 'column' => 'id_matriz_filial', 'label' => 'preco(s) diario(s) de grupo por filial'],
+            ['table' => 'promocoes_filiais', 'column' => 'id_matriz_filial', 'label' => 'promocao(oes) por filial'],
+            ['table' => 'promocoes_valores_filiais', 'column' => 'id_matriz_filial', 'label' => 'valor(es) de promocao por filial'],
+            ['table' => 'nfse', 'column' => 'id_matriz_filial', 'label' => 'nota(s) fiscal(is) de servico'],
+            ['table' => 'nfse_configuracoes', 'column' => 'id_matriz_filial', 'label' => 'configuracao(oes) NFS-e'],
+            ['table' => 'horarios_funcionamento', 'column' => 'matriz_filial_id', 'label' => 'horario(s) de funcionamento'],
+            ['table' => 'horarios_excecoes', 'column' => 'matriz_filial_id', 'label' => 'excecao(oes) de horario'],
+            ['table' => 'matrizes_filiais_locais', 'column' => 'id_matriz_filial', 'label' => 'local(is) de atendimento'],
+        ];
 
-        if ($countClientes > 0) {
-            $vinculos['clientes'] = $countClientes;
-            $temVinculos = true;
-        }
+        foreach ($checks as $check) {
+            $total = $this->qb
+                ->table($check['table'])
+                ->where($check['column'], '=', $id)
+                ->count();
 
-        // Verificar funcionários vinculados
-        $countFuncionarios = $this->qb
-            ->table('funcionarios')
-            ->where('id_matriz_filial', '=', $id)
-            ->count();
-
-        if ($countFuncionarios > 0) {
-            $vinculos['funcionarios'] = $countFuncionarios;
-            $temVinculos = true;
-        }
-
-        // Verificar veículos vinculados
-        $countVeiculos = $this->qb
-            ->table('veiculos')
-            ->where('id_matriz_filial', '=', $id)
-            ->count();
-
-        if ($countVeiculos > 0) {
-            $vinculos['veiculos'] = $countVeiculos;
-            $temVinculos = true;
+            if ($total > 0) {
+                $vinculos[$check['label']] = $total;
+            }
         }
 
         return [
-            'temVinculos' => $temVinculos,
+            'temVinculos' => !empty($vinculos),
             'detalhes' => $vinculos
         ];
+    }
+
+    public function contarAtivas(string $chave): int
+    {
+        return $this->qb
+            ->table('matrizes_filiais')
+            ->where('status', '=', 'A')
+            ->count();
+    }
+
+    public function desativar(int $id): int
+    {
+        return $this->qb
+            ->table('matrizes_filiais')
+            ->where('id', '=', $id)
+            ->update(['status' => 'I']);
+    }
+
+    public function ativar(int $id): int
+    {
+        return $this->qb
+            ->table('matrizes_filiais')
+            ->where('id', '=', $id)
+            ->update(['status' => 'A']);
     }
 
     /**
@@ -441,7 +483,8 @@ class MatrizFilial extends Model
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['id', 'razao_social', 'nome_fantasia']);
+            ->select(['id', 'razao_social', 'nome_fantasia'])
+            ->where('status', '=', 'A');
 
         if (!empty($where) && $where !== '1=1') {
             $query->whereRaw($where, $params);

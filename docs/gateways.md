@@ -206,7 +206,9 @@ POST /pagar/{codigo}/salvar-cartao                     # Salva cartao tokenizado
 POST /webhook/{gateway_code}    # Recebe notificacoes de cada gateway
 ```
 
-Rotas individuais por gateway: `/webhook/asaas`, `/webhook/stripe`, `/webhook/square`, etc.
+Rotas individuais por gateway: `/webhook/asaas`, `/webhook/stripe`, `/webhook/square`, `/webhook/cora`, `/webhook/efipay`, `/webhook/inter`, `/webhook/bradesco`, `/webhook/itau`, `/webhook/bancard`, `/webhook/pagopar`.
+
+No controller, cada rota individual deve ter um wrapper (`webhookAsaas`, `webhookStripe`, etc.) chamando o handler generico `PagamentoPublicoController::webhook($request, $gatewayCode)`. Isso evita erro 500 por metodo inexistente e centraliza idempotencia, validacao de assinatura e atualizacao de transacao.
 
 ### Protegidas (requer autenticacao)
 

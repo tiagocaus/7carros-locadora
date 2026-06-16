@@ -137,7 +137,7 @@ O formulario possui 9 abas:
 - Lista de veiculos adicionados ao contrato
 - Campos por veiculo:
   - Grupo e Veiculo (filtros cascata)
-  - Plano: KL (Km Livre), KMC (Km Controlado), KC (Km Cobrado)
+  - Plano: KL (Km Livre), KMC (Km Controlado), KP (Km Pago/Cobrado)
   - Valores do plano (podem ser editados com permissao especial)
   - Seguros (veiculo e terceiros)
   - Odometro e combustivel/carga de entrada
@@ -165,6 +165,8 @@ O formulario possui 9 abas:
 - Desconto e primeiro pagamento
 - Calculo automatico de totais
 - O `id_comando_parcela` selecionado e persistido na tabela `contratos` para uso na renovacao automatica
+- Ao salvar muitas parcelas, as sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` para evitar locks repetidos em `matrizes_filiais`
+- Ao criar um contrato novo com parcelas geradas, o backend cria/reutiliza links em `pagamentos_links` e enfileira cobrancas `payment_reminder` para email, WhatsApp e SMS. Falhas por canal nao impedem a criacao do contrato nem das parcelas.
 
 ### Aba 8: Observacoes
 - Campo de texto livre
@@ -173,6 +175,14 @@ O formulario possui 9 abas:
 - Resumo de valores agrupado ou detalhado
 - Taxas e servicos adicionais
 - Total a pagar
+
+## Listagem de Contratos
+
+- A coluna Veiculo exibe um resumo do primeiro veiculo vinculado ao contrato no formato `PLACA - MODELO`.
+- Em contratos ativos, o resumo prioriza veiculos ainda ativos (`contratos_veiculos.data_entrada IS NULL`).
+- Em contratos finalizados, quando todos os veiculos ja foram devolvidos, o resumo usa o historico de `contratos_veiculos` para evitar exibir `-`.
+- Quando houver mais de um veiculo vinculado, a listagem mostra o primeiro veiculo e o sufixo `(+N)`, onde `N` representa a quantidade de veiculos adicionais alem do primeiro.
+- O atalho de registro de odometro permanece disponivel apenas para contratos ativos com veiculo ativo.
 
 ## Sistema de Assinatura Digital
 
@@ -231,6 +241,11 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 | `contratos.assinatura` | Gerenciar assinatura digital |
 | `contratos.imprimir` | Imprimir documentos |
 
+Atendentes devem possuir `contratos.editar`, `contratos.devolver` e
+`contratos.substituir` para adicionar veiculo ao contrato, devolver veiculos,
+substituir veiculos e fechar contrato. Essas permissoes nao liberam exclusao nem
+edicao especial de valores.
+
 ## Status do Contrato
 
 - `A` = Ativo (contrato em andamento)
@@ -249,7 +264,15 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 
 - `KL` = Km Livre (valor fixo independente da km rodada)
 - `KMC` = Km Controlado (franquia + excedente)
-- `KC` = Km Cobrado (valor por km rodado, antigo DI)
+- `KP` = Km Pago/Cobrado (valor por km rodado, antigo DI)
+
+### Valores por Plano em `contratos_veiculos`
+
+- `KL` persiste o valor principal em `valor_plano_km_livre`.
+- `KMC` persiste o valor principal em `valor_plano_km_controlado`.
+- `KP` persiste o valor principal em `valor_plano_km_pago`.
+- Ao salvar/adicionar/substituir veiculo, os campos de valores de outros planos sao zerados para evitar reaproveitamento de valor antigo oculto na interface.
+- `valor_km_excedente` e `km_franquia` permanecem independentes e sao usados nos calculos de km controlado/pago conforme a devolucao ou substituicao.
 
 ## Autorenovacao
 

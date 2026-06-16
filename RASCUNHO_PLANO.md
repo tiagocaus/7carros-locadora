@@ -18,6 +18,8 @@
 - Gerar fatura para seguradora.
 - Importar clientes e veículos por planilha
 - Na no dasboard não está mostrando chegada pensente.
+- Colocar opção para imprimir o contrato ou locação em nome da seguradora.
+- Colocar opção de pagamento parcial na tela do financeiro.
 
 ----
 ### A FAZER

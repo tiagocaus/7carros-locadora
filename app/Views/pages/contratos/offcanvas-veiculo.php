@@ -538,6 +538,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         // Buscar nome do grupo
         const grupoData = gruposDisponiveis.find(g => g.id == grupoId);
 
+        const valorKmPago = Currency.parse(document.getElementById('valor_diaria').value || '0');
+        const valorKmControlado = Currency.parse(document.getElementById('valor_km_controlado').value || '0');
+        const valorKmLivre = Currency.parse(document.getElementById('valor_km_livre').value || '0');
+
         const dados = {
             id_veiculo: veiculoId,
             id_grupo: grupoId,
@@ -546,9 +550,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             modelo: [veiculoData.marca, veiculoData.modelo].filter(Boolean).join(' '),
             tipo_combustivel: veiculoData.tipo_combustivel || '',
             plano: plano,
-            valor_plano_km_pago: Currency.parse(document.getElementById('valor_diaria').value || '0'),
-            valor_plano_km_controlado: Currency.parse(document.getElementById('valor_km_controlado').value || '0'),
-            valor_plano_km_livre: Currency.parse(document.getElementById('valor_km_livre').value || '0'),
+            valor_plano_km_pago: plano === 'KP' ? valorKmPago : 0,
+            valor_plano_km_controlado: plano === 'KMC' ? valorKmControlado : 0,
+            valor_plano_km_livre: plano === 'KL' ? valorKmLivre : 0,
             valor_km_excedente: Currency.parse(document.getElementById('valor_km_excedente').value || document.getElementById('valor_km_diaria').value || '0'),
             km_franquia: parseInt(document.getElementById('km_franquia').value || '0'),
             odometro_saida: parseInt(inputOdometro.value || '0'),

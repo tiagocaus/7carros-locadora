@@ -140,7 +140,16 @@ class AsaasGateway extends AbstractPaymentGateway
             // Preparar dados do cliente se não tiver customer_id
             $customerId = $data['customer_id'] ?? null;
             if (empty($customerId) && !empty($data['customer_document'])) {
-                $customerId = $this->findOrCreateCustomer($data);
+                $customerResult = $this->findOrCreateCustomer($data);
+                if (!$customerResult['success']) {
+                    return [
+                        'success' => false,
+                        'message' => $customerResult['message'] ?? 'Não foi possível criar/localizar o cliente no Asaas.',
+                        'raw' => $customerResult['raw'] ?? null,
+                    ];
+                }
+
+                $customerId = $customerResult['customer_id'] ?? null;
             }
 
             if (empty($customerId)) {
@@ -346,6 +355,7 @@ class AsaasGateway extends AbstractPaymentGateway
 
         // Asaas envia o token no header
         $receivedToken = $headers['asaas-access-token']
+            ?? $headers['ASAAS-ACCESS-TOKEN']
             ?? $headers['Asaas-Access-Token']
             ?? $headers['HTTP_ASAAS_ACCESS_TOKEN']
             ?? '';
@@ -426,19 +436,41 @@ class AsaasGateway extends AbstractPaymentGateway
     /**
      * Busca ou cria cliente no Asaas
      */
-    private function findOrCreateCustomer(array $data): ?string
+    private function findOrCreateCustomer(array $data): array
     {
         if ($this->client === null) {
-            return null;
+            return [
+                'success' => false,
+                'message' => 'Cliente Asaas não inicializado. Verifique as credenciais.',
+            ];
         }
 
         $document = $this->sanitizeDocument($data['customer_document'] ?? '');
+        if ($document === '') {
+            return [
+                'success' => false,
+                'message' => 'É necessário informar o CPF/CNPJ do titular para tokenizar o cartão',
+            ];
+        }
 
         try {
             // Tenta encontrar cliente existente pelo CPF/CNPJ
             $existing = $this->client->Cliente()->getAll(['cpfCnpj' => $document]);
             if (!empty($existing->data[0]->id)) {
-                return $existing->data[0]->id;
+                return [
+                    'success' => true,
+                    'customer_id' => $existing->data[0]->id,
+                    'raw' => $existing,
+                ];
+            }
+
+            $existingError = $this->extractAsaasMessage($existing);
+            if ($existingError !== null) {
+                return [
+                    'success' => false,
+                    'message' => $existingError,
+                    'raw' => $existing,
+                ];
             }
 
             // Cria novo cliente
@@ -456,10 +488,56 @@ class AsaasGateway extends AbstractPaymentGateway
             }
 
             $newCustomer = $this->client->Cliente()->create($customerData);
-            return $newCustomer->id ?? null;
+            if (!empty($newCustomer->id)) {
+                return [
+                    'success' => true,
+                    'customer_id' => $newCustomer->id,
+                    'raw' => $newCustomer,
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => $this->extractAsaasMessage($newCustomer) ?? 'Não foi possível criar/localizar o cliente no Asaas.',
+                'raw' => $newCustomer,
+            ];
         } catch (\Exception $e) {
-            return null;
+            return [
+                'success' => false,
+                'message' => 'Erro ao criar/localizar cliente no Asaas: ' . $e->getMessage(),
+            ];
         }
+    }
+
+    /**
+     * Extrai mensagem de erro de respostas do SDK Asaas.
+     */
+    private function extractAsaasMessage(mixed $response): ?string
+    {
+        if (is_array($response)) {
+            if (!empty($response['error'])) {
+                return is_string($response['error']) ? $response['error'] : json_encode($response['error']);
+            }
+            if (!empty($response['errors'][0]['description'])) {
+                return $response['errors'][0]['description'];
+            }
+        }
+
+        if (is_object($response)) {
+            if (!empty($response->error)) {
+                if (is_string($response->error)) {
+                    return $response->error;
+                }
+                if (is_array($response->error) && !empty($response->error[0]->description)) {
+                    return $response->error[0]->description;
+                }
+            }
+            if (!empty($response->errors) && is_array($response->errors) && !empty($response->errors[0]->description)) {
+                return $response->errors[0]->description;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -497,16 +575,28 @@ class AsaasGateway extends AbstractPaymentGateway
             // Buscar ou criar cliente no Asaas
             $customerId = $cardData['customer_id'] ?? null;
             if (empty($customerId) && !empty($cardData['cpf'])) {
-                $customerId = $this->findOrCreateCustomer([
+                $customerResult = $this->findOrCreateCustomer([
                     'customer_document' => $cardData['cpf'],
                     'customer_name' => $cardData['holder'],
+                    'customer_email' => $cardData['email'] ?? '',
+                    'customer_phone' => $cardData['phone'] ?? '',
                 ]);
+
+                if (!$customerResult['success']) {
+                    return [
+                        'success' => false,
+                        'message' => $customerResult['message'] ?? 'Não foi possível criar/localizar o cliente no Asaas.',
+                        'raw' => $customerResult['raw'] ?? null,
+                    ];
+                }
+
+                $customerId = $customerResult['customer_id'] ?? null;
             }
 
             if (empty($customerId)) {
                 return [
                     'success' => false,
-                    'message' => 'É necessário informar o CPF do titular para tokenizar o cartão',
+                    'message' => 'É necessário informar o CPF/CNPJ do titular para tokenizar o cartão',
                 ];
             }
 
@@ -528,7 +618,7 @@ class AsaasGateway extends AbstractPaymentGateway
                     'cpfCnpj' => $this->sanitizeDocument($cardData['cpf'] ?? ''),
                     'email' => $cardData['email'] ?? null,
                     'phone' => $this->sanitizePhone($cardData['phone'] ?? ''),
-                    'postalCode' => $cardData['postal_code'] ?? null,
+                    'postalCode' => $this->sanitizeDocument($cardData['postal_code'] ?? ''),
                     'addressNumber' => $cardData['address_number'] ?? null,
                 ],
             ];

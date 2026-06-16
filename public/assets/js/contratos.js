@@ -314,7 +314,7 @@
                     }, '*');
                     return;
                 }
-                veiculos[index] = dados;
+                veiculos[index] = normalizarValoresPlanoVeiculo(dados);
             } else {
                 // Modo adicionar: verificar se ja foi adicionado
                 if (veiculos.some(v => String(v.id_veiculo) === String(dados.id_veiculo))) {
@@ -324,7 +324,7 @@
                     }, '*');
                     return;
                 }
-                veiculos.push(dados);
+                veiculos.push(normalizarValoresPlanoVeiculo(dados));
             }
             renderizarVeiculos();
             atualizarTotais();
@@ -581,7 +581,7 @@
     // ===== VEICULOS =====
 
     function adicionarVeiculoNaLista(dados) {
-        veiculos.push(dados);
+        veiculos.push(normalizarValoresPlanoVeiculo(dados));
         renderizarVeiculos();
     }
 
@@ -684,6 +684,18 @@
                 valor = 0;
         }
         return parseFloat(valor) || 0;
+    }
+
+    function normalizarValoresPlanoVeiculo(veiculo) {
+        const normalizado = { ...veiculo };
+        const plano = String(normalizado.plano || 'KL').toUpperCase();
+
+        normalizado.plano = plano === 'KC' ? 'KP' : plano;
+        normalizado.valor_plano_km_livre = normalizado.plano === 'KL' ? (parseFloat(normalizado.valor_plano_km_livre) || 0) : 0;
+        normalizado.valor_plano_km_controlado = normalizado.plano === 'KMC' ? (parseFloat(normalizado.valor_plano_km_controlado) || 0) : 0;
+        normalizado.valor_plano_km_pago = normalizado.plano === 'KP' ? (parseFloat(normalizado.valor_plano_km_pago) || 0) : 0;
+
+        return normalizado;
     }
 
     // ===== PESSOAS (Condutor/Fiador/Avalista/Testemunha) =====
@@ -2070,7 +2082,7 @@
             dados.primeiro_pagamento = Currency.parse(dados.primeiro_pagamento || '0');
 
             // Veiculos
-            dados.veiculos = veiculos.map(v => ({
+            dados.veiculos = veiculos.map(v => normalizarValoresPlanoVeiculo({
                 id_veiculo: v.id_veiculo,
                 id_grupo: v.id_grupo,
                 plano: v.plano,
@@ -2300,11 +2312,17 @@
             });
 
             if (result.success) {
+                const enviosCobranca = result.data?.envios_cobranca || [];
+                const enviosOk = enviosCobranca.filter(envio => envio && envio.success).length;
+                const message = enviosOk > 0
+                    ? (i18n.installmentChargesQueued || 'Parcelas salvas e cobranças enfileiradas para envio.')
+                    : result.message;
+
                 if (window.parent !== window) {
                     window.parent.postMessage({
                         action: 'showToast',
                         type: 'success',
-                        message: result.message
+                        message: message
                     }, '*');
                 }
                 await carregarParcelasContrato();

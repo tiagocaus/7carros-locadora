@@ -97,8 +97,9 @@ project-root/
    ↓
 4. Registra jobs com suas frequências:
    - ProcessMessageQueueJob -> everyMinute()
-   - CheckPreventiveMaintenanceJob -> dailyAt('00:00')
-   - RotateAuthorizationHoldsJob -> dailyAt('06:30')
+   - CheckPreventiveMaintenanceJob -> dailyAt('00:05')
+   - RotateAuthorizationHoldsJob -> dailyAt('03:00')
+   - SendDailyCronSummaryJob -> dailyAt('04:30')
    ↓
 5. Scheduler verifica cada job:
    - isDue()? Verifica se é hora de executar (expressão cron)
@@ -209,9 +210,9 @@ $scheduler = new \App\Crons\Scheduler();
 $scheduler->job(new ProcessMessageQueueJob())
           ->everyMinute();
 
-// Diariamente às 00:00
+// Diariamente às 00:05
 $scheduler->job(new CheckPreventiveMaintenanceJob())
-          ->dailyAt('00:00');
+          ->dailyAt('00:05');
 
 // Diariamente às 08:00 (apenas dias de semana)
 $scheduler->job(new SendDailyReportJob())
@@ -240,8 +241,8 @@ O Scheduler salva o estado de execução em `storage/cron/schedule-state.json`:
     "next_run": "2025-12-18 10:01:00"
   },
   "App\\Crons\\Jobs\\CheckPreventiveMaintenanceJob": {
-    "last_run": "2025-12-18 00:00:00",
-    "next_run": "2025-12-19 00:00:00"
+    "last_run": "2025-12-18 00:05:00",
+    "next_run": "2025-12-19 00:05:00"
   }
 }
 ```
@@ -266,6 +267,26 @@ Isso evita que o mesmo job seja executado múltiplas vezes no mesmo minuto, mesm
 - `QUEUE_MAX_MESSAGES_PER_RUN` - Máximo de mensagens por execução (padrão: 50)
 - `QUEUE_MAX_ATTEMPTS` - Tentativas máximas (padrão: 3)
 - `QUEUE_CONSUME_TIMEOUT` - Timeout em segundos (padrão: 30)
+
+---
+
+### Jobs Diários e Resumo
+
+Os jobs executados uma vez por dia ficam distribuídos na madrugada:
+
+| Horário | Job |
+|---------|-----|
+| `00:05` | `CheckPreventiveMaintenanceJob` |
+| `01:00` | `CleanupOldRecordingsJob` |
+| `01:10` | `RenovarContratosJob` |
+| `02:00` | `GerarEncargosFinanceiroJob` |
+| `03:00` | `RotateAuthorizationHoldsJob` |
+| `03:30` | `SerproAutoConsultaJob` |
+| `04:30` | `SendDailyCronSummaryJob` |
+
+O `Scheduler` registra o resultado dos jobs diários em `storage/cron/daily-summary/YYYY-MM-DD.json`.
+O `SendDailyCronSummaryJob` envia um email único para `APP_COMPANY_EMAIL` com status, duração, mensagem e contadores de cada job diário.
+Jobs recorrentes por minuto, 5 minutos ou 30 minutos não entram nesse resumo.
 
 ---
 
@@ -399,7 +420,7 @@ $scheduler->job(new \App\Crons\Jobs\ProcessMessageQueueJob())
           ->everyMinute();
 
 $scheduler->job(new \App\Crons\Jobs\CheckPreventiveMaintenanceJob())
-          ->dailyAt('00:00');
+          ->dailyAt('00:05');
 
 // ↓ ADICIONAR NOVO JOB AQUI ↓
 $scheduler->job(new \App\Crons\Jobs\NomeDoJob())
@@ -412,7 +433,7 @@ $summary = $scheduler->run();
 **Frequências mais comuns:**
 - `->everyMinute()` - Tarefas críticas/frequentes (fila de mensagens)
 - `->hourly()` - Tarefas horárias (sincronizações)
-- `->dailyAt('00:00')` - Tarefas diárias (relatórios, verificações)
+- `->dailyAt('00:05')` - Tarefas diárias (relatórios, verificações)
 - `->weeklyOn(1, '03:00')` - Tarefas semanais (limpeza, backups)
 
 ### Passo 3: Testar Manualmente
@@ -470,7 +491,7 @@ Com o Scheduler, você **não precisa de múltiplas entradas no crontab**. Basta
 ```php
 // No cron.php - defina as frequências aqui:
 $scheduler->job(new ProcessMessageQueueJob())->everyMinute();
-$scheduler->job(new CheckMaintenanceJob())->dailyAt('00:00');
+$scheduler->job(new CheckMaintenanceJob())->dailyAt('00:05');
 $scheduler->job(new SendReportsJob())->dailyAt('08:00');
 $scheduler->job(new CleanupLogsJob())->weeklyOn(0, '03:00');
 $scheduler->job(new BackupJob())->monthlyOn(1, '02:00');

@@ -71,7 +71,7 @@
                 </div>
 
                 <!-- Grid: CPF/CNPJ + Inscricoes -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                     <div class="form-input-group">
                         <label for="cpf_cnpj" class="form-label-group"><?= t('modules.matrizes_filiais.fields.cpf_cnpj') ?></label>
                         <input type="text" id="cpf_cnpj" name="cpf_cnpj" class="form-input-group-field">
@@ -85,6 +85,14 @@
                     <div class="form-input-group">
                         <label for="inscricao_estadual" class="form-label-group"><?= t('modules.matrizes_filiais.fields.state_registration') ?></label>
                         <input type="text" id="inscricao_estadual" name="inscricao_estadual" class="form-input-group-field">
+                    </div>
+
+                    <div class="form-input-group">
+                        <label for="status" class="form-label-group"><?= t('modules.matrizes_filiais.fields.status') ?> *</label>
+                        <select id="status" name="status" class="form-input-group-field" required>
+                            <option value="A"><?= t('modules.matrizes_filiais.status_options.active') ?></option>
+                            <option value="I"><?= t('modules.matrizes_filiais.status_options.inactive') ?></option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -921,6 +929,7 @@
         function preencherFormulario(data) {
             // Dados basicos
             if (data.tipo) document.getElementById('tipo').value = data.tipo;
+            if (data.status) document.getElementById('status').value = data.status;
             if (data.razao_social) document.getElementById('razao_social').value = data.razao_social;
             if (data.nome_fantasia) document.getElementById('nome_fantasia').value = data.nome_fantasia;
             if (data.cpf_cnpj) document.getElementById('cpf_cnpj').value = data.cpf_cnpj;

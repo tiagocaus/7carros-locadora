@@ -110,8 +110,8 @@ class PlanoDeContas extends Model
             $searchTerm = "%{$search}%";
             $query->whereNested(function ($q) use ($searchTerm, $locale) {
                 $q->where('hierarquia', 'LIKE', $searchTerm)
-                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')) COLLATE utf8mb4_unicode_ci LIKE ?", [$searchTerm])
-                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) COLLATE utf8mb4_unicode_ci LIKE ?", [$searchTerm]);
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')) LIKE ?", [$searchTerm])
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) LIKE ?", [$searchTerm]);
             });
         }
 
@@ -147,8 +147,8 @@ class PlanoDeContas extends Model
             $searchTerm = "%{$search}%";
             $query->whereNested(function ($q) use ($searchTerm, $locale) {
                 $q->where('hierarquia', 'LIKE', $searchTerm)
-                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')) COLLATE utf8mb4_unicode_ci LIKE ?", [$searchTerm])
-                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) COLLATE utf8mb4_unicode_ci LIKE ?", [$searchTerm]);
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')) LIKE ?", [$searchTerm])
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) LIKE ?", [$searchTerm]);
             });
         }
 
@@ -211,8 +211,8 @@ class PlanoDeContas extends Model
             ->select(['id', 'hierarquia', 'descricao_i18n', 'tipo'])
             ->whereNested(function ($q) use ($searchTerm, $locale) {
                 $q->where('hierarquia', 'LIKE', $searchTerm)
-                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')) COLLATE utf8mb4_unicode_ci LIKE ?", [$searchTerm])
-                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) COLLATE utf8mb4_unicode_ci LIKE ?", [$searchTerm]);
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')) LIKE ?", [$searchTerm])
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) LIKE ?", [$searchTerm]);
             });
 
         if (!empty($tipo)) {
@@ -356,8 +356,8 @@ class PlanoDeContas extends Model
             $searchTerm = "%{$search}%";
             $query->whereNested(function ($q) use ($searchTerm, $locale) {
                 $q->where('hierarquia', 'LIKE', $searchTerm)
-                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')) COLLATE utf8mb4_unicode_ci LIKE ?", [$searchTerm])
-                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) COLLATE utf8mb4_unicode_ci LIKE ?", [$searchTerm]);
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')) LIKE ?", [$searchTerm])
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) LIKE ?", [$searchTerm]);
             });
         }
 

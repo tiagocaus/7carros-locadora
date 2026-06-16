@@ -284,6 +284,16 @@
                         temValor = true;
                     }
 
+                    // Desconto
+                    if (item.desconto) {
+                        if (window.Currency) {
+                            itemFormatado[this._i18n('fields.discount')] = Currency.format(item.desconto, true);
+                        } else {
+                            itemFormatado[this._i18n('fields.discount')] = parseFloat(item.desconto).toFixed(2).replace('.', ',');
+                        }
+                        temValor = true;
+                    }
+
                     // Valor Total
                     if (item.valor_total) {
                         if (window.Currency) {
@@ -309,13 +319,14 @@
                 if (tbody) {
                     tbody.querySelectorAll('tr[data-index]').forEach(tr => {
                         const cells = tr.querySelectorAll('td');
-                        if (cells.length >= 5) {
+                        if (cells.length >= 6) {
                             itens.push({
                                 [this._i18n('fields.description')]: cells[0].textContent.trim(),
                                 [this._i18n('fields.qty')]: cells[1].textContent.trim(),
                                 [this._i18n('fields.unit_value')]: cells[2].textContent.trim(),
-                                [this._i18n('fields.total_value')]: cells[3].textContent.trim(),
-                                [this._i18n('fields.status')]: cells[4].textContent.trim()
+                                [this._i18n('fields.discount')]: cells[3].textContent.trim(),
+                                [this._i18n('fields.total_value')]: cells[4].textContent.trim(),
+                                [this._i18n('fields.status')]: cells[5].textContent.trim()
                             });
                         }
                     });
