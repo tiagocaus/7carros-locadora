@@ -49,12 +49,12 @@ class NFSeAPINacional implements NFSeAPIInterface
 
     public function cancelar(string $xml, string $chaveAcesso, string $certPath, string $keyPath, int $ambiente): array
     {
-        $url = $this->getBaseUrl($ambiente) . '/nfse/' . urlencode($chaveAcesso) . '/cancelar';
+        $url = $this->getBaseUrl($ambiente) . '/nfse/' . urlencode($chaveAcesso) . '/eventos';
 
         $xmlNacional = new NFSeXMLNacional();
         $gzipB64 = $xmlNacional->prepararParaEnvio($xml);
 
-        $payload = json_encode(['pedidoCancelamentoXmlGZipB64' => $gzipB64]);
+        $payload = json_encode(['pedidoRegistroEventoXmlGZipB64' => $gzipB64]);
 
         return $this->request('POST', $url, $certPath, $keyPath, $payload, [
             'Content-Type: application/json',

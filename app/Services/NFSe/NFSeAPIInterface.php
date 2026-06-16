@@ -5,7 +5,7 @@ namespace App\Services\NFSe;
 /**
  * Interface para comunicacao com APIs de NFS-e
  *
- * Implementada por NFSeAPINacional (REST) e NFSeAPIAbrasf (SOAP).
+ * Implementada por NFSeAPINacional (REST) e NFSeAPIBetha (SOAP).
  */
 interface NFSeAPIInterface
 {

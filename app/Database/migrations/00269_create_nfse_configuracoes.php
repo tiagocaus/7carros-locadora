@@ -4,7 +4,7 @@
  * Migration 00269: Criar tabela nfse_configuracoes
  *
  * Armazena configuracoes de NFS-e por empresa/filial.
- * Suporta modelos Nacional (SEFIN) e ABRASF (Municipal).
+ * Suporta modelos Nacional (SEFIN) e Betha Cloud.
  */
 
 use App\Database\Migration;
@@ -31,7 +31,7 @@ return new class extends Migration
                 -- Configuracao Geral
                 ativo CHAR(1) NOT NULL DEFAULT 'N' COMMENT 'Emissao de NFS-e ativa (S/N)',
                 ambiente TINYINT(1) NOT NULL DEFAULT 2 COMMENT '1=Producao, 2=Homologacao',
-                tipo_emissao VARCHAR(20) NOT NULL DEFAULT 'nacional' COMMENT 'nacional ou abrasf',
+                tipo_emissao VARCHAR(20) NOT NULL DEFAULT 'nacional' COMMENT 'nacional ou betha',
                 serie VARCHAR(10) NULL COMMENT 'Serie da DPS/RPS',
                 numero_atual INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Ultimo numero de NFS-e emitido (Nacional)',
                 emissao_auto CHAR(1) NOT NULL DEFAULT 'N' COMMENT 'Emitir automaticamente ao confirmar pagamento (S/N)',
@@ -50,12 +50,6 @@ return new class extends Migration
                 aliquota_iss DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'Aliquota de ISS municipal (%)',
                 exigibilidade_iss TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Tipo de exigibilidade do ISS',
                 incentivo_fiscal CHAR(1) NOT NULL DEFAULT 'N' COMMENT 'Possui incentivo fiscal (S/N)',
-
-                -- Campos especificos ABRASF
-                abrasf_item_lista_servico VARCHAR(10) DEFAULT '' COMMENT 'Item da lista de servico ABRASF',
-                abrasf_codigo_cnae VARCHAR(10) DEFAULT '' COMMENT 'Codigo CNAE da atividade economica',
-                abrasf_codigo_trib_municipio VARCHAR(20) DEFAULT '' COMMENT 'Codigo de tributacao do municipio',
-                abrasf_numero_rps INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Contador independente de RPS para ABRASF',
 
                 -- Auditoria
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

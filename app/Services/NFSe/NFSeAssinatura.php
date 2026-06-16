@@ -9,7 +9,7 @@ use DOMElement;
  * Assinatura Digital XML (XMLDSIG)
  *
  * Assina XML para NFS-e usando enveloped-signature com canonicalizacao C14N.
- * Suporta SHA256 (Nacional) e SHA1 (ABRASF).
+ * Suporta SHA256 para DPS Nacional e Betha.
  */
 class NFSeAssinatura
 {
@@ -20,7 +20,8 @@ class NFSeAssinatura
      * @param string $certPath Caminho do certificado PEM
      * @param string $keyPath Caminho da chave privada PEM
      * @param string $tagToSign Tag do elemento a assinar (ex: 'infDPS', 'InfDeclaracaoPrestacaoServico')
-     * @param string $algoritmo 'sha256' (Nacional) ou 'sha1' (ABRASF)
+     * @param string $algoritmo Algoritmo de assinatura ('sha256' por padrao)
+     * @param string $idAttribute Nome do atributo de ID ('Id' ou 'id')
      * @return array ['sucesso' => bool, 'xml' => string, 'mensagem' => string]
      */
     public function assinar(
@@ -28,7 +29,8 @@ class NFSeAssinatura
         string $certPath,
         string $keyPath,
         string $tagToSign,
-        string $algoritmo = 'sha256'
+        string $algoritmo = 'sha256',
+        string $idAttribute = 'Id'
     ): array {
         try {
             // Carregar chave privada
@@ -63,9 +65,9 @@ class NFSeAssinatura
                 return ['sucesso' => false, 'xml' => '', 'mensagem' => "Tag '{$tagToSign}' não encontrada no XML."];
             }
 
-            $id = $node->getAttribute('Id');
+            $id = $node->getAttribute($idAttribute);
             if (empty($id)) {
-                return ['sucesso' => false, 'xml' => '', 'mensagem' => "Atributo 'Id' não encontrado na tag '{$tagToSign}'."];
+                return ['sucesso' => false, 'xml' => '', 'mensagem' => "Atributo '{$idAttribute}' não encontrado na tag '{$tagToSign}'."];
             }
 
             // Definir algoritmos

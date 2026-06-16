@@ -66,7 +66,7 @@ return new class extends Migration
 
                 -- Controle
                 status ENUM('pendente','processando','autorizada','rejeitada','cancelada') NOT NULL DEFAULT 'pendente',
-                tipo_emissao VARCHAR(20) NOT NULL DEFAULT 'nacional' COMMENT 'nacional ou abrasf',
+                tipo_emissao VARCHAR(20) NOT NULL DEFAULT 'nacional' COMMENT 'nacional ou betha',
                 motivo_rejeicao TEXT NULL COMMENT 'Motivo da rejeicao pela SEFIN',
                 xml_envio LONGTEXT NULL COMMENT 'XML/DPS enviado para SEFIN',
                 xml_retorno LONGTEXT NULL COMMENT 'XML de retorno da SEFIN',

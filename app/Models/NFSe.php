@@ -259,6 +259,21 @@ class NFSe extends Model
     }
 
     /**
+     * Atualiza NFS-e que foi recepcionada e segue em processamento.
+     */
+    public function atualizarProcessando(int $id, array $dados): int
+    {
+        return $this->qb
+            ->table('nfse')
+            ->where('id', '=', $id)
+            ->update([
+                'status' => 'processando',
+                'protocolo' => $dados['protocolo'] ?? null,
+                'xml_retorno' => $dados['xml_retorno'] ?? null,
+            ]);
+    }
+
+    /**
      * Atualiza NFS-e apos cancelamento
      */
     public function atualizarCancelada(int $id, string $motivo): int
@@ -327,6 +342,24 @@ class NFSe extends Model
             ->update(['xml_envio' => $xml]);
     }
 
+    /**
+     * Atualiza dados principais antes de reenviar XML regenerado.
+     */
+    public function atualizarParaReenvio(int $id, array $dados): int
+    {
+        return $this->qb
+            ->table('nfse')
+            ->where('id', '=', $id)
+            ->update([
+                'numero' => $dados['numero'] ?? null,
+                'serie' => $dados['serie'] ?? null,
+                'xml_envio' => $dados['xml_envio'] ?? null,
+                'status' => 'processando',
+                'motivo_rejeicao' => null,
+                'codigo_rejeicao' => null,
+            ]);
+    }
+
     // ==========================================
     // METODOS PARA CRON (cross-tenant)
     // ==========================================
@@ -363,6 +396,23 @@ class NFSe extends Model
             ->where('status', '=', 'rejeitada')
             ->whereRaw('tentativas_envio < 3')
             ->whereIn('codigo_rejeicao', $codigos)
+            ->orderBy('created_at', 'ASC')
+            ->limit($limite)
+            ->get();
+    }
+
+    /**
+     * Busca NFS-e Betha em processamento para consulta de protocolo.
+     */
+    public function buscarBethaProcessando(int $limite = 20): array
+    {
+        return $this->qb
+            ->table('nfse')
+            ->withoutChave()
+            ->where('tipo_emissao', '=', 'betha')
+            ->where('status', '=', 'processando')
+            ->whereNotNull('protocolo')
+            ->whereRaw('created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)')
             ->orderBy('created_at', 'ASC')
             ->limit($limite)
             ->get();

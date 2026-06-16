@@ -299,7 +299,11 @@
         const cpfCnpj = n.tomador_cpf_cnpj || '';
         const dataEmissao = n.created_at ? n.created_at.substring(0, 10).split('-').reverse().join('/') : '-';
         const valor = formatarMoeda(parseFloat(n.valor_servicos || 0));
-        const tipo = n.tipo_emissao === 'abrasf' ? 'ABRASF' : 'Nacional';
+        const tiposEmissao = {
+            nacional: 'Nacional',
+            betha: 'Betha'
+        };
+        const tipo = tiposEmissao[n.tipo_emissao] || n.tipo_emissao || '-';
         const statusBadge = getStatusBadge(n.status);
 
         const acoes = getAcoes(n);

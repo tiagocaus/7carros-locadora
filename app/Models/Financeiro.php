@@ -282,11 +282,15 @@ class Financeiro extends Model
             ->select([
                 'f.*',
                 'c.nome_rsocial AS cliente_nome',
+                'c.cpf_cnpj AS cliente_cpf_cnpj',
+                'c.email AS cliente_email',
                 'fo.nome_rsocial AS fornecedor_nome',
                 'pc.descricao_i18n AS plano_conta_descricao_i18n',
                 'pc.hierarquia AS plano_conta_hierarquia',
                 'fp.nome AS forma_pagamento_descricao',
                 'mf.nome_fantasia AS filial_nome',
+                'mf.razao_social AS filial_razao_social',
+                'mf.cpf_cnpj AS filial_cnpj',
                 'ct.nome AS conta_descricao',
                 'func.nome AS funcionario_nome'
             ])

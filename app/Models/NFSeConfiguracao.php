@@ -61,11 +61,7 @@ class NFSeConfiguracao extends Model
             'exigibilidade_iss' => (int) ($dados['exigibilidade_iss'] ?? 1),
             'enviar_im' => $dados['enviar_im'] ?? 'N',
             'incentivo_fiscal' => $dados['incentivo_fiscal'] ?? 'N',
-            'abrasf_item_lista_servico' => $dados['abrasf_item_lista_servico'] ?? '',
-            'abrasf_codigo_cnae' => $dados['abrasf_codigo_cnae'] ?? '',
-            'abrasf_codigo_trib_municipio' => $dados['abrasf_codigo_trib_municipio'] ?? '',
             'numero_atual' => (int) ($dados['numero_atual'] ?? 0),
-            'abrasf_numero_rps' => (int) ($dados['abrasf_numero_rps'] ?? 0),
         ];
 
         if ($existing) {
@@ -118,20 +114,27 @@ class NFSeConfiguracao extends Model
     /**
      * Proximo numero sequencial (atomico)
      *
-     * @param string $tipo 'nacional' ou 'abrasf'
+     * @param string $tipo 'nacional' ou 'betha'
      * @return int Proximo numero
      */
-    public function proximoNumero(int $idMatrizFilial, string $tipo = 'nacional'): int
+    public function proximoNumero(int $idMatrizFilial, string $tipo = 'nacional', ?string $chave = null): int
     {
-        $campo = $tipo === 'abrasf' ? 'abrasf_numero_rps' : 'numero_atual';
+        $campo = 'numero_atual';
 
         $mysqli = $this->getMysqli();
 
         // UPDATE atomico para evitar numeros duplicados em concorrencia
-        $stmt = $mysqli->prepare(
-            "UPDATE nfse_configuracoes SET {$campo} = {$campo} + 1 WHERE id_matriz_filial = ?"
-        );
-        $stmt->bind_param('i', $idMatrizFilial);
+        if ($chave !== null) {
+            $stmt = $mysqli->prepare(
+                "UPDATE nfse_configuracoes SET {$campo} = {$campo} + 1 WHERE id_matriz_filial = ? AND chave = ?"
+            );
+            $stmt->bind_param('is', $idMatrizFilial, $chave);
+        } else {
+            $stmt = $mysqli->prepare(
+                "UPDATE nfse_configuracoes SET {$campo} = {$campo} + 1 WHERE id_matriz_filial = ?"
+            );
+            $stmt->bind_param('i', $idMatrizFilial);
+        }
         $stmt->execute();
         $stmt->close();
 

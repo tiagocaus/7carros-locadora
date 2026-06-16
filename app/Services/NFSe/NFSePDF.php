@@ -102,6 +102,13 @@ class NFSePDF
         $valorISS = number_format((float) ($d['valor_iss'] ?? 0), 2, ',', '.');
         $valorIBS = number_format((float) ($d['valor_ibs'] ?? 0), 2, ',', '.');
         $valorCBS = number_format((float) ($d['valor_cbs'] ?? 0), 2, ',', '.');
+        $itensNaoTributaveis = [];
+        if (!empty($d['itens_nao_tributaveis'])) {
+            $decoded = is_string($d['itens_nao_tributaveis'])
+                ? json_decode($d['itens_nao_tributaveis'], true)
+                : $d['itens_nao_tributaveis'];
+            $itensNaoTributaveis = is_array($decoded) ? $decoded : [];
+        }
 
         $html = '
         <style>
@@ -189,6 +196,14 @@ class NFSePDF
         $html .= '<tr><td width="50%"><span class="label">Valor dos Serviços</span></td><td>R$ ' . $valorServicos . '</td></tr>';
         if ((float) ($d['valor_deducoes'] ?? 0) > 0) {
             $html .= '<tr><td><span class="label">(-) Deduções</span></td><td>R$ ' . $valorDeducoes . '</td></tr>';
+            foreach ($itensNaoTributaveis as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $descricaoItem = htmlspecialchars((string) ($item['descricao'] ?? 'Item não tributável'));
+                $valorItem = number_format((float) ($item['valor'] ?? 0), 2, ',', '.');
+                $html .= '<tr><td style="padding-left:18px"><span class="label">Item não tributável</span><br>' . $descricaoItem . '</td><td>R$ ' . $valorItem . '</td></tr>';
+            }
         }
         $html .= '<tr class="total"><td><span class="label">Base de Cálculo</span></td><td>R$ ' . $baseCalculo . '</td></tr>';
         if ((float) ($d['valor_iss'] ?? 0) > 0) {

@@ -1,235 +1,306 @@
 # NFS-e (Nota Fiscal de Servico Eletronica)
 
-Modulo de emissao de NFS-e integrado ao sistema financeiro da locadora.
+Documento oficial do modulo NFS-e no sistema novo.
+
+O legado `NFSE_IMPLEMENTACAO.md` pode ser usado como referencia historica, mas nao deve ser copiado diretamente. A implementacao atual deve seguir este documento, a arquitetura MVC do sistema e as regras de multi-tenancy do QueryBuilder.
 
 ---
 
 ## Visao Geral
 
-O modulo suporta dois modelos de emissao via Strategy Pattern:
-- **Nacional (SEFIN)**: REST + mTLS, XML DPS, SHA256
-- **ABRASF (Municipal)**: SOAP 1.1, XML RPS v2.04, SHA1
+O modulo emite NFS-e por filial a partir de configuracoes em `nfse_configuracoes`.
 
-Fluxo de status: `pendente` -> `processando` -> `autorizada` | `rejeitada` -> `cancelada`
+Tipos de emissao suportados:
+
+| tipo_emissao | Modelo | Protocolo | XML | Assinatura | Fluxo |
+|--------------|--------|-----------|-----|------------|-------|
+| `nacional` | Sistema Nacional SEFIN | REST + mTLS | DPS | SHA256 | Sincrono |
+| `betha` | Betha Cloud DPS | SOAP 1.1 + mTLS | DPS Betha | SHA256 | Assincrono |
+
+Nao use fallback entre emissores. Se `tipo_emissao` nao for suportado, o sistema deve falhar com erro claro.
+
+Fluxo de status:
+
+```
+pendente -> processando -> autorizada
+                       \-> rejeitada
+autorizada -> cancelada
+```
+
+Betha usa `processando` enquanto aguarda consulta do protocolo.
 
 ---
 
-## Estrutura de Arquivos
+## Arquitetura
+
+Arquivos principais:
 
 ```
-app/
-├── Controllers/NFSeController.php        # 19 metodos (views, API, acoes, config)
-├── Models/
-│   ├── NFSe.php                          # CRUD + queries paginadas + CRON
-│   ├── NFSeConfiguracao.php              # Config por filial, proximoNumero atomico
-│   └── NFSeEvento.php                    # Log de eventos
-├── Services/NFSe/
-│   ├── NFSeService.php                   # Orquestrador principal
-│   ├── NFSeErros.php                     # 70+ codigos de erro mapeados
-│   ├── NFSeCertificado.php               # Upload/validacao PFX, extracao PEM
-│   ├── NFSeAssinatura.php                # XMLDSIG (SHA256/SHA1)
-│   ├── NFSePDF.php                       # DANFSE via PdfHelper::saveToFile()
-│   ├── NFSeXMLInterface.php              # Interface XML
-│   ├── NFSeAPIInterface.php              # Interface API
-│   ├── Nacional/
-│   │   ├── NFSeXMLNacional.php           # XML DPS, gzip+base64, MAIUSCULO
-│   │   └── NFSeAPINacional.php           # REST mTLS via cURL
-│   └── ABRASF/
-│       ├── NFSeXMLAbrasf.php             # XML RPS v2.04
-│       └── NFSeAPIAbrasf.php             # SOAP 1.1 via cURL
-├── Views/pages/nfse/
-│   ├── index.php                         # Listagem com filtros e estatisticas
-│   ├── emitir.php                        # Formulario de emissao
-│   ├── visualizar.php                    # Detalhes + timeline eventos
-│   ├── cancelar.php                      # Cancelamento com motivo
-│   └── configuracoes.php                 # Config certificado/tributacao/ABRASF
-├── Crons/Jobs/
-│   ├── NFSeEmitirAutoJob.php             # Emissao automatica (50/exec, 5min)
-│   ├── NFSeReenviarJob.php               # Reenvio rejeitadas (20/exec, 5min)
-│   └── NFSeEnviarEmailJob.php            # Envio email PDF (30/exec, 5min)
-├── Database/migrations/
-│   ├── 00269_create_nfse_configuracoes.php
-│   ├── 00270_create_nfse.php
-│   ├── 00271_create_nfse_eventos.php
-│   └── 00272_create_nfse_permissions.php
-└── lang/{pt_BR,en_US,es_ES,it_IT,pt_PT}/modules/nfse.php
+app/Controllers/NFSeController.php
+app/Models/NFSe.php
+app/Models/NFSeConfiguracao.php
+app/Models/NFSeEvento.php
+app/Services/NFSe/NFSeService.php
+app/Services/NFSe/NFSeAssinatura.php
+app/Services/NFSe/NFSeCertificado.php
+app/Services/NFSe/Nacional/NFSeXMLNacional.php
+app/Services/NFSe/Nacional/NFSeAPINacional.php
+app/Services/NFSe/Betha/NFSeXMLBetha.php
+app/Services/NFSe/Betha/NFSeAPIBetha.php
+app/Crons/Jobs/NFSeEmitirAutoJob.php
+app/Crons/Jobs/NFSeReenviarJob.php
+app/Crons/Jobs/NFSeConsultarBethaJob.php
+app/Crons/Jobs/NFSeEnviarEmailJob.php
+```
+
+Regras:
+
+- `NFSeService` e o unico orquestrador de emissao, consulta, cancelamento e reenvio.
+- Cada emissor deve ter XML/API proprios.
+- Nacional e Betha nao podem compartilhar parser de retorno.
+- `NFSeAssinatura::assinar()` deve receber o atributo de ID correto:
+  - Nacional: `Id`
+  - Betha: `id`
+- Acesso ao banco deve respeitar multi-tenancy. Em CRUD normal, nunca use `withoutChave()`.
+- CRONs cross-tenant podem usar `withoutChave()`, definindo `$_SESSION['chave']` antes de chamar services.
+
+---
+
+## Configuracao por Filial
+
+A configuracao fica na aba NFS-e da tela de Matriz/Filial.
+
+Tabela: `nfse_configuracoes`
+
+Chave unica: `(chave, id_matriz_filial)`.
+
+Campos principais:
+
+| Campo | Uso |
+|-------|-----|
+| `tipo_emissao` | `nacional` ou `betha` |
+| `ambiente` | `1=Producao`, `2=Homologacao` |
+| `serie` | Serie DPS/RPS |
+| `numero_atual` | Contador Nacional/Betha |
+| `codigo_municipio` | Codigo IBGE de 7 digitos do prestador |
+| `codigo_servico` | NBS/codigo de servico conforme emissor |
+| `regime_tributario` | `1=Simples ME/EPP`, `4=MEI`, `2=Lucro Presumido`, `3=Lucro Real` |
+| `reg_apuracao_sn` | Regime de apuracao do Simples, quando aplicavel |
+| `trib_issqn` | Tributacao ISSQN |
+| `enviar_im` | Envia IM no DPS Nacional/Betha somente quando necessario |
+| `certificado_arquivo` | Arquivo PFX/P12 |
+| `certificado_senha` | Senha criptografada |
+
+`codigo_municipio` deve ter 7 digitos. Valores com 8 digitos geralmente sao CEP e devem ser corrigidos antes de emitir.
+
+---
+
+## Nacional SEFIN
+
+Usado quando `tipo_emissao = nacional`.
+
+API:
+
+| Operacao | Endpoint |
+|----------|----------|
+| Emitir | `POST /nfse` |
+| Consultar | `GET /nfse/{chave}` |
+| Cancelar | `POST /nfse/{chave}/eventos` |
+
+Bases:
+
+- Producao: `https://sefin.nfse.gov.br/SefinNacional`
+- Homologacao: `https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional`
+
+Regras de XML:
+
+- Namespace: `http://www.sped.fazenda.gov.br/nfse`
+- Root: `<DPS versao="1.00">`
+- Elemento assinado: `infDPS`
+- Atributo de ID: `Id`
+- Assinatura: SHA256
+- Envio: XML assinado compactado em GZip/Base64 no campo `dpsXmlGZipB64`
+- Cancelamento: evento `101101` em `pedidoRegistroEventoXmlGZipB64`
+
+Mapeamento Simples Nacional:
+
+| regime_tributario | opSimpNac | regApTribSN |
+|-------------------|-----------|-------------|
+| `1` Simples ME/EPP | `3` | Enviar |
+| `4` MEI | `2` | Nao enviar |
+| `2` Lucro Presumido | `1` | Nao enviar |
+| `3` Lucro Real | `1` | Nao enviar |
+
+IM no DPS:
+
+- Enviar `<IM>` somente quando `enviar_im = S` e a filial tiver IM preenchida.
+- Padrao recomendado: `enviar_im = N`.
+- Ative apenas quando o cadastro do CNPJ no municipio exigir IM no DPS.
+
+ID da DPS:
+
+```
+DPS + cMun(7) + tpInsc(1) + nInsc(14) + serie(5) + nDPS(15)
+```
+
+Exemplo:
+
+```
+DPS5300108212345678000199DPS00000000000000123
 ```
 
 ---
 
-## Tabelas
+## Betha Cloud
 
-### `nfse_configuracoes`
-Config por filial. UNIQUE (chave, id_matriz_filial).
+Usado quando `tipo_emissao = betha`.
 
-| Campo | Descricao |
-|-------|-----------|
-| tipo_emissao | 1=Nacional, 2=ABRASF |
-| ambiente | 1=Producao, 2=Homologacao |
-| certificado_arquivo | Nome do PFX/P12 em storage/certificates/ |
-| certificado_senha | Encrypted via encrypt() |
-| numero_atual | Proximo numero (atomico via UPDATE+1) |
-| emissao_auto | S/N - emissao automatica para pagamentos |
-| enviar_email | S/N - envio automatico de email |
-| Campos ABRASF | codigo_municipio, codigo_servico, aliquota_iss, etc. |
+API:
 
-### `nfse`
-Tabela principal. 10 indexes.
+- Endpoint: `https://nota-eletronica.betha.cloud/dps/ws`
+- WSDL de referencia: `https://nota-eletronica.betha.cloud/dps/ws/service.wsdl`
+- SOAP 1.1 + mTLS
 
-| Campo | Descricao |
-|-------|-----------|
-| id_financeiro | FK para financeiro (nullable) |
-| id_matriz_filial | FK para matrizes_filiais |
-| status | ENUM: pendente, processando, autorizada, rejeitada, cancelada |
-| dados prestador | cnpj, razao_social, inscricao_municipal |
-| dados tomador | nome, cpf_cnpj, email, endereco |
-| dados servico | descricao, codigo_servico, valor_servico |
-| tributos | iss, pis, cofins, ir, csll, inss, ibs, cbs |
-| xml_envio/retorno | XML completo |
-| pdf_url | URL do DANFSE gerado |
-| tentativas_envio | Contador para reenvio (max 3) |
+Operacoes:
 
-### `nfse_eventos`
-Log de auditoria com FK CASCADE para nfse.
+| Operacao SOAP | Uso |
+|---------------|-----|
+| `RecepcionarDps` | Envia DPS e retorna protocolo |
+| `ConsultarStatusDps` | Consulta protocolo ate autorizar/rejeitar |
+| `RecepcionarEventoCancelamento` | Cancela NFS-e Betha |
 
----
+Regras de XML:
 
-## Permissoes
+- Namespace: `http://www.betha.com.br/e-nota-dps`
+- Root: `<DPS versao="1.00">`
+- Elemento assinado: `infDPS`
+- Atributo de ID: `id` minusculo
+- Assinatura: SHA256
+- Texto do servico em maiusculo
+- Resposta pode vir com prefixo `ns2:`; parsers devem usar namespace, nao string fixa.
 
-| Permissao | Descricao |
-|-----------|-----------|
-| nfse.visualizar | Ver listagem e detalhes |
-| nfse.criar | Emitir e reenviar NFS-e |
-| nfse.excluir | Cancelar NFS-e |
-| nfse.configurar | Acessar configuracoes |
+Fluxo:
+
+1. Gerar DPS Betha.
+2. Assinar `infDPS` usando atributo `id`.
+3. Enviar via `RecepcionarDps`.
+4. Salvar `protocolo` e deixar NFS-e como `processando`.
+5. `NFSeConsultarBethaJob` consulta `ConsultarStatusDps`.
+6. Quando autorizado, atualizar `chave_acesso`, `numero`, `codigo_verificacao` e `xml_retorno`.
+
+Numeracao:
+
+- Usa `numero_atual`.
+- Numero e reservado no envio, pois DPS recepcionada nao deve reutilizar o mesmo ID.
 
 ---
 
-## Rotas
+## Reenvio
 
-### Views (iframe)
-```
-GET /pages/nfse                    -> view (listagem)
-GET /pages/nfse/emitir             -> viewEmitir (?id_financeiro=)
-GET /pages/nfse/{id}/visualizar    -> viewVisualizar
-GET /pages/nfse/{id}/cancelar      -> viewCancelar
-GET /pages/nfse/configuracoes      -> viewConfiguracoes
-```
+Para NFS-e rejeitada:
 
-### API (leitura)
-```
-GET /api/nfse                      -> index (paginado + filtros)
-GET /api/nfse/estatisticas         -> estatisticas
-GET /api/nfse/configuracoes        -> getConfiguracoes
-GET /api/nfse/{id}                 -> show
-GET /api/nfse/{id}/eventos         -> eventos
-```
-
-### Acoes (escrita)
-```
-POST /nfse/emitir                  -> emitir
-POST /nfse/{id}/cancelar           -> cancelar
-POST /nfse/{id}/consultar          -> consultar
-POST /nfse/{id}/reenviar           -> reenviar
-POST /nfse/{id}/email              -> enviarEmail
-GET  /nfse/{id}/pdf                -> downloadPdf
-```
-
-### Configuracoes
-```
-POST /nfse/configuracoes/salvar              -> salvarConfiguracoes
-POST /nfse/configuracoes/certificado         -> uploadCertificado
-POST /nfse/configuracoes/certificado/remover -> removerCertificado
-POST /nfse/configuracoes/testar-conexao      -> testarConexao
-```
+- Maximo de 3 tentativas.
+- Se houver `id_financeiro`, regenerar XML com os dados atuais antes de reenviar.
+- Se nao houver `id_financeiro`, reaproveitar o XML salvo como fallback.
+- Em Betha, regenerar evita erro de DPS ja recepcionada com mesmo ID.
 
 ---
 
-## Strategy Pattern
+## Emissao Manual pelo Financeiro
 
-O `NFSeService` roteia para a implementacao correta via `match()`:
+A tela `GET /pages/nfse/emitir?id_financeiro={id}` emite NFS-e a partir de uma receita paga do modulo financeiro.
 
-```php
-match ((int) $config['tipo_emissao']) {
-    1 => new NFSeXMLNacional(),   // + NFSeAPINacional
-    2 => new NFSeXMLAbrasf(),     // + NFSeAPIAbrasf
-};
-```
+Regras da tela:
 
-**Nacional (tipo_emissao=1)**:
-- XML DPS com namespace SPED, ID 45 chars
-- Textos convertidos para MAIUSCULO
-- Conteudo compactado com gzip+base64
-- REST API com mTLS (certificado digital)
-- Assinatura SHA256
+- Carregar `financeiro` com seus `financeiro_itens`.
+- Exibir Prestador e Tomador lado a lado em desktop e empilhados no mobile.
+- Exibir os itens do lancamento com checkbox `Trib.?`.
+- Todos os itens financeiros iniciam marcados como tributaveis.
+- Quando o usuario desmarca um item, ele passa a compor `itens_nao_tributaveis`.
+- O botao `Adicionar item nao tributavel` adiciona uma linha manual ja nao tributavel.
+- `valor_deducoes` deve ser a soma dos itens nao tributaveis.
+- `base_calculo` deve ser `valor_servicos - valor_deducoes`, nunca negativa.
+- O email editado na tela prevalece sobre o email cadastrado do cliente apenas para essa emissao.
+- Ausencia de configuracao NFS-e ou certificado nao deve redirecionar para a listagem. A tela deve permanecer aberta, mostrar aviso especifico e bloquear somente o botao de emissao.
 
-**ABRASF (tipo_emissao=2)**:
-- XML RPS v2.04 com namespace ABRASF
-- SOAP 1.1 via cURL (nao SoapClient)
-- Assinatura SHA1
+Persistencia:
 
----
+| Campo `nfse` | Origem |
+|--------------|--------|
+| `valor_servicos` | `financeiro.valor_total` |
+| `valor_deducoes` | Soma dos itens nao tributaveis |
+| `itens_nao_tributaveis` | JSON `[{descricao, valor}]` dos itens desmarcados/manuais |
+| `base_calculo` | `valor_servicos - valor_deducoes` |
 
-## Certificado Digital
-
-- Upload PFX via `NFSeCertificado::upload()`
-- Armazenado em `storage/certificates/`
-- Nome padrao: `{chave}_{id_matriz_filial}_{timestamp}.{extensao}`
-- Senha encrypted no BD via `encrypt()`
-- Extracao PEM temporaria em `/tmp/` para cURL mTLS
-- Cleanup em `finally` blocks
-- Validacao: formato, senha, validade, permissao 0600
+Nao crie tabela separada para itens nao tributaveis sem necessidade fiscal nova. O campo JSON atual preserva o historico da emissao e ja atende ao fluxo manual.
 
 ---
 
 ## CRON Jobs
 
 | Job | Frequencia | Limite | Descricao |
-|-----|-----------|--------|-----------|
-| NFSeEmitirAutoJob | 5min | 50/exec | Emite NFS-e para pagamentos confirmados |
-| NFSeReenviarJob | 5min | 20/exec | Reenvia rejeitadas com tentativas < 3 |
-| NFSeEnviarEmailJob | 5min | 30/exec | Envia PDF por email (configs com enviar_email=S) |
-
-Todos usam `withoutChave()` + definem `$_SESSION['chave']` antes de chamar Services.
-
----
-
-## Integracao com Financeiro
-
-- Botao "Emitir NFS-e" na listagem de financeiro (condicional: pago + receita + sem NFS-e)
-- Subquery `tem_nfse` no `Financeiro::listarPaginado()` conta NFS-e nao-canceladas
-- Menu NFS-e no submenu Financeiro do navbar (condicionado a `nfse.visualizar`)
+|-----|------------|--------|-----------|
+| `NFSeEmitirAutoJob` | 5min | 50 | Emite NFS-e de pagamentos confirmados |
+| `NFSeReenviarJob` | 5min | 20 | Reenvia rejeitadas recuperaveis |
+| `NFSeConsultarBethaJob` | 5min | 20 | Consulta protocolos Betha em processamento |
+| `NFSeEnviarEmailJob` | 5min | 30 | Envia PDF por email |
 
 ---
 
-## Tributos
+## Rotas
 
-| Tributo | Descricao |
-|---------|-----------|
-| ISS | Imposto sobre servicos (aliquota configuravel) |
-| PIS | 0.65% |
-| COFINS | 3.00% |
-| IR | 1.50% |
-| CSLL | 1.00% |
-| INSS | 0.00% (default) |
-| IBS | 0.10% (novo, transicao 2026) |
-| CBS | 0.90% (novo, transicao 2026) |
+Views:
+
+```
+GET /pages/nfse
+GET /pages/nfse/emitir
+GET /pages/nfse/{id}/visualizar
+GET /pages/nfse/{id}/cancelar
+GET /pages/nfse/configuracoes -> redireciona para /pages/matrizes-filiais
+```
+
+API:
+
+```
+GET  /api/nfse
+GET  /api/nfse/estatisticas
+GET  /api/nfse/configuracoes
+GET  /api/nfse/{id}
+GET  /api/nfse/{id}/eventos
+POST /nfse/emitir
+POST /nfse/{id}/cancelar
+POST /nfse/{id}/consultar
+POST /nfse/{id}/reenviar
+POST /nfse/{id}/email
+GET  /nfse/{id}/pdf
+GET  /nfse/{id}/xml/{tipo}
+POST /nfse/configuracoes/salvar
+POST /nfse/configuracoes/certificado
+POST /nfse/configuracoes/certificado/remover
+POST /nfse/configuracoes/testar-conexao
+```
 
 ---
 
-## Erros e Recuperacao
+## Checklist de Desenvolvimento
 
-`NFSeErros::isRecuperavel()` classifica erros:
-- **Recuperaveis**: timeout, conexao recusada, servico indisponivel -> reenvio automatico
-- **Nao recuperaveis**: CNPJ invalido, certificado expirado, duplicidade -> requer correcao manual
+Antes de alterar NFS-e:
+
+1. Ler `docs/querybuilder.md`.
+2. Ler `docs/architecture.md`.
+3. Ler este documento.
+4. Confirmar se a alteracao e especifica de Nacional ou Betha.
+5. Nao alterar XML/API de outro emissor sem necessidade.
+6. Validar `php -l` nos arquivos alterados.
+7. Para testes com envio real, usar homologacao e somente tenant `chave = 1111111111111`, salvo aprovacao explicita.
 
 ---
 
-## Checklist de Deploy
+## Deploy
 
-1. Rodar migrations: `php migrate.php`
-2. Configurar certificado digital por filial
-3. Testar conexao em homologacao (ambiente=2)
-4. Emitir NFS-e de teste com chave 1111111111111
-5. Validar PDF gerado e envio de email
-6. Mudar para producao (ambiente=1) quando pronto
+1. Enviar arquivos PHP, views, idiomas, cron e docs alterados.
+2. Garantir que `cron.php` esteja agendado.
+3. Confirmar que `NFSeConsultarBethaJob` esta executando.
+4. Validar configuracao de filial com `tipo_emissao = betha`.
+5. Testar conexao com certificado.
+6. Emitir primeiro em homologacao quando possivel.

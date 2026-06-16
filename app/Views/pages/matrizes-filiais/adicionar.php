@@ -525,7 +525,7 @@
                             <label class="form-label-group"><?= t('modules.nfse.config.tipo_emissao') ?></label>
                             <select name="tipo_emissao" id="inputTipoEmissao" class="form-input-group-field">
                                 <option value="nacional"><?= t('modules.nfse.tipo_emissao.nacional') ?></option>
-                                <option value="abrasf"><?= t('modules.nfse.tipo_emissao.abrasf') ?></option>
+                                <option value="betha"><?= t('modules.nfse.tipo_emissao.betha') ?></option>
                             </select>
                         </div>
                         <div class="md:col-span-3 form-input-group">
@@ -571,8 +571,16 @@
                             <label class="form-label-group"><?= t('modules.nfse.config.regime_tributario') ?></label>
                             <select name="regime_tributario" id="inputRegimeTributario" class="form-input-group-field">
                                 <option value="1"><?= t('modules.nfse.config.regime_simples') ?></option>
+                                <option value="4"><?= t('modules.nfse.config.regime_mei') ?></option>
                                 <option value="2"><?= t('modules.nfse.config.regime_presumido') ?></option>
                                 <option value="3"><?= t('modules.nfse.config.regime_real') ?></option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-4 form-input-group" id="fieldRegApuracaoSN">
+                            <label class="form-label-group"><?= t('modules.nfse.config.reg_apuracao_sn') ?></label>
+                            <select name="reg_apuracao_sn" id="inputRegApuracaoSN" class="form-input-group-field">
+                                <option value="1"><?= t('modules.nfse.config.reg_apuracao_sn_1') ?></option>
+                                <option value="2"><?= t('modules.nfse.config.reg_apuracao_sn_2') ?></option>
                             </select>
                         </div>
                         <div class="md:col-span-12 form-input-group">
@@ -583,8 +591,8 @@
                             <label class="form-label-group"><?= t('modules.nfse.config.trib_issqn') ?></label>
                             <select name="trib_issqn" id="inputTribISSQN" class="form-input-group-field">
                                 <option value="1"><?= t('modules.nfse.config.trib_normal') ?></option>
-                                <option value="2"><?= t('modules.nfse.config.trib_fixo') ?></option>
-                                <option value="3"><?= t('modules.nfse.config.trib_isento') ?></option>
+                                <option value="2"><?= t('modules.nfse.config.trib_imunidade') ?></option>
+                                <option value="3"><?= t('modules.nfse.config.trib_exportacao') ?></option>
                                 <option value="4"><?= t('modules.nfse.config.trib_nao_incide') ?></option>
                             </select>
                         </div>
@@ -614,33 +622,12 @@
                                 <label for="inputIncentivoFiscal" class="ml-2 text-sm text-slate-700 cursor-pointer"><?= t('modules.matrizes_filiais.nfse_ui.activate') ?></label>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Campos ABRASF -->
-                <div class="form-section mb-6" id="sectionAbrasf">
-                    <h3 class="form-section-title">
-                        <i class="fas fa-building mr-2"></i><?= t('modules.nfse.config.section_abrasf') ?>
-                    </h3>
-                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 mb-4">
-                        <i class="fas fa-info-circle mr-1"></i><?= t('modules.nfse.config.abrasf_hint') ?>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div class="md:col-span-4 form-input-group">
-                            <label class="form-label-group"><?= t('modules.nfse.config.abrasf_item_lista') ?> <span class="text-red-500">*</span></label>
-                            <input type="text" name="abrasf_item_lista_servico" id="inputAbrasfItemLista" class="form-input-group-field" placeholder="11.02" maxlength="10">
-                        </div>
-                        <div class="md:col-span-4 form-input-group">
-                            <label class="form-label-group"><?= t('modules.nfse.config.abrasf_cnae') ?> <span class="text-red-500">*</span></label>
-                            <input type="text" name="abrasf_codigo_cnae" id="inputAbrasfCNAE" class="form-input-group-field" placeholder="7711000" maxlength="10">
-                        </div>
-                        <div class="md:col-span-4 form-input-group">
-                            <label class="form-label-group"><?= t('modules.nfse.config.abrasf_trib_municipio') ?></label>
-                            <input type="text" name="abrasf_codigo_trib_municipio" id="inputAbrasfTribMunicipio" class="form-input-group-field" maxlength="20">
-                        </div>
-                        <div class="md:col-span-4 form-input-group">
-                            <label class="form-label-group"><?= t('modules.nfse.config.abrasf_numero_rps') ?></label>
-                            <input type="number" name="abrasf_numero_rps" id="inputAbrasfNumeroRps" class="form-input-group-field" min="0" placeholder="0">
+                        <div class="md:col-span-3 form-input-group" id="fieldEnviarIM">
+                            <label class="form-label-group"><?= t('modules.nfse.config.enviar_im') ?> <?= aviso(t('modules.nfse.config.enviar_im_hint')) ?></label>
+                            <div class="flex items-center mt-1">
+                                <input type="checkbox" name="enviar_im" value="S" id="inputEnviarIM" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded">
+                                <label for="inputEnviarIM" class="ml-2 text-sm text-slate-700 cursor-pointer"><?= t('modules.matrizes_filiais.nfse_ui.activate') ?></label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1890,7 +1877,6 @@
 
             const formCert = document.getElementById('formCertificado');
             const formConfig = document.getElementById('formConfiguracoes');
-            const sectionAbrasf = document.getElementById('sectionAbrasf');
             const inputTipoEmissao = document.getElementById('inputTipoEmissao');
 
             if (editMode && registroId) {
@@ -1901,7 +1887,8 @@
             }
 
             // Event listeners NFS-e
-            inputTipoEmissao.addEventListener('change', nfseToggleAbrasf);
+            inputTipoEmissao.addEventListener('change', nfseToggleDpsFields);
+            document.getElementById('inputRegimeTributario').addEventListener('change', nfseToggleDpsFields);
             formCert.addEventListener('submit', nfseUploadCertificado);
             formConfig.addEventListener('submit', nfseSalvarConfiguracoes);
             document.getElementById('btnTestarConexao').addEventListener('click', nfseTestarConexao);
@@ -1943,7 +1930,7 @@
                 // Campos gerais
                 document.getElementById('inputAtivo').checked = config.ativo === 'S';
                 document.getElementById('inputAmbiente').value = config.ambiente || '2';
-                document.getElementById('inputTipoEmissao').value = config.tipo_emissao || 'nacional';
+                document.getElementById('inputTipoEmissao').value = ['nacional', 'betha'].includes(config.tipo_emissao) ? config.tipo_emissao : 'nacional';
                 document.getElementById('inputSerie').value = config.serie || '';
                 document.getElementById('inputNumeroAtual').value = config.numero_atual || 0;
                 document.getElementById('inputEmissaoAuto').checked = config.emissao_auto === 'S';
@@ -1954,25 +1941,21 @@
                 document.getElementById('inputCodigoServico').value = config.codigo_servico || '';
                 document.getElementById('inputDescricaoServico').value = config.descricao_servico || '';
                 document.getElementById('inputRegimeTributario').value = config.regime_tributario || '1';
+                document.getElementById('inputRegApuracaoSN').value = config.reg_apuracao_sn || '1';
                 document.getElementById('inputTribISSQN').value = config.trib_issqn || '4';
                 document.getElementById('inputAliquotaISS').value = config.aliquota_iss || '';
                 document.getElementById('inputExigibilidadeISS').value = config.exigibilidade_iss || '1';
                 document.getElementById('inputIncentivoFiscal').checked = config.incentivo_fiscal === 'S';
+                document.getElementById('inputEnviarIM').checked = config.enviar_im === 'S';
 
-                // ABRASF
-                document.getElementById('inputAbrasfItemLista').value = config.abrasf_item_lista_servico || '';
-                document.getElementById('inputAbrasfCNAE').value = config.abrasf_codigo_cnae || '';
-                document.getElementById('inputAbrasfTribMunicipio').value = config.abrasf_codigo_trib_municipio || '';
-                document.getElementById('inputAbrasfNumeroRps').value = config.abrasf_numero_rps || 0;
-
-                nfseToggleAbrasf();
+                nfseToggleDpsFields();
             }
 
             function nfseLimparFormulario() {
                 formConfig.reset();
                 document.getElementById('certNaoConfigurado').classList.remove('hidden');
                 document.getElementById('certConfigurado').classList.add('hidden');
-                nfseToggleAbrasf();
+                nfseToggleDpsFields();
             }
 
             function nfseAtualizarInfoCertificado(config) {
@@ -2000,10 +1983,12 @@
                 }
             }
 
-            function nfseToggleAbrasf() {
-                const isAbrasf = inputTipoEmissao.value === 'abrasf';
-                sectionAbrasf.style.display = isAbrasf ? 'block' : 'none';
-                document.getElementById('fieldNumeroAtual').style.display = isAbrasf ? 'none' : 'block';
+            function nfseToggleDpsFields() {
+                const isDps = inputTipoEmissao.value === 'nacional' || inputTipoEmissao.value === 'betha';
+                const isSimples = document.getElementById('inputRegimeTributario').value === '1';
+                document.getElementById('fieldNumeroAtual').style.display = 'block';
+                document.getElementById('fieldEnviarIM').style.display = isDps ? 'block' : 'none';
+                document.getElementById('fieldRegApuracaoSN').style.display = isDps && isSimples ? 'block' : 'none';
             }
 
             async function nfseUploadCertificado(e) {
@@ -2068,14 +2053,12 @@
                     codigo_servico: document.getElementById('inputCodigoServico').value,
                     descricao_servico: document.getElementById('inputDescricaoServico').value,
                     regime_tributario: document.getElementById('inputRegimeTributario').value,
+                    reg_apuracao_sn: document.getElementById('inputRegApuracaoSN').value,
                     trib_issqn: document.getElementById('inputTribISSQN').value,
                     aliquota_iss: document.getElementById('inputAliquotaISS').value,
                     exigibilidade_iss: document.getElementById('inputExigibilidadeISS').value,
                     incentivo_fiscal: document.getElementById('inputIncentivoFiscal').checked ? 'S' : 'N',
-                    abrasf_item_lista_servico: document.getElementById('inputAbrasfItemLista').value,
-                    abrasf_codigo_cnae: document.getElementById('inputAbrasfCNAE').value,
-                    abrasf_codigo_trib_municipio: document.getElementById('inputAbrasfTribMunicipio').value,
-                    abrasf_numero_rps: document.getElementById('inputAbrasfNumeroRps').value,
+                    enviar_im: document.getElementById('inputEnviarIM').checked ? 'S' : 'N',
                 };
 
                 try {

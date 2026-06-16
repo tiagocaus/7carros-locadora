@@ -15,40 +15,52 @@
         @csrf
         <input type="hidden" name="id_financeiro" id="inputIdFinanceiro">
 
-        <!-- Dados do Prestador (readonly) -->
         <div class="form-section mb-6">
-            <h3 class="form-section-title">
-                <i class="fas fa-building mr-2"></i><?= t('modules.nfse.sections.prestador') ?>
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div class="md:col-span-8 form-input-group">
-                    <label class="form-label-group"><?= t('modules.nfse.fields.prestador') ?></label>
-                    <input type="text" id="prestadorNome" class="form-input-group-field bg-slate-50" readonly>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Dados do Prestador (readonly) -->
+                <div>
+                    <h3 class="form-section-title">
+                        <i class="fas fa-building mr-2"></i><?= t('modules.nfse.sections.prestador') ?>
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div class="md:col-span-8 form-input-group">
+                            <label class="form-label-group"><?= t('modules.nfse.fields.prestador') ?></label>
+                            <input type="text" id="prestadorNome" class="form-input-group-field bg-slate-50" readonly>
+                        </div>
+                        <div class="md:col-span-4 form-input-group">
+                            <label class="form-label-group">CNPJ</label>
+                            <input type="text" id="prestadorCnpj" class="form-input-group-field bg-slate-50" readonly>
+                        </div>
+                        <div class="md:col-span-6 form-input-group">
+                            <label class="form-label-group"><?= t('modules.nfse.fields.tipo_emissao') ?></label>
+                            <input type="text" id="tipoEmissao" class="form-input-group-field bg-slate-50" readonly>
+                        </div>
+                        <div class="md:col-span-6 form-input-group">
+                            <label class="form-label-group"><?= t('modules.nfse.fields.ambiente') ?></label>
+                            <input type="text" id="ambienteEmissao" class="form-input-group-field bg-slate-50" readonly>
+                        </div>
+                    </div>
                 </div>
-                <div class="md:col-span-4 form-input-group">
-                    <label class="form-label-group">CNPJ</label>
-                    <input type="text" id="prestadorCnpj" class="form-input-group-field bg-slate-50" readonly>
-                </div>
-            </div>
-        </div>
 
-        <!-- Dados do Tomador -->
-        <div class="form-section mb-6">
-            <h3 class="form-section-title">
-                <i class="fas fa-user mr-2"></i><?= t('modules.nfse.sections.tomador') ?>
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div class="md:col-span-6 form-input-group">
-                    <label class="form-label-group"><?= t('modules.nfse.fields.tomador_nome') ?></label>
-                    <input type="text" name="tomador_nome" id="tomadorNome" class="form-input-group-field bg-slate-50" readonly>
-                </div>
-                <div class="md:col-span-3 form-input-group">
-                    <label class="form-label-group"><?= t('modules.nfse.fields.tomador_cpf_cnpj') ?></label>
-                    <input type="text" name="tomador_cpf_cnpj" id="tomadorCpfCnpj" class="form-input-group-field bg-slate-50" readonly>
-                </div>
-                <div class="md:col-span-3 form-input-group">
-                    <label class="form-label-group"><?= t('modules.nfse.fields.tomador_email') ?></label>
-                    <input type="email" name="tomador_email" id="tomadorEmail" class="form-input-group-field">
+                <!-- Dados do Tomador -->
+                <div>
+                    <h3 class="form-section-title">
+                        <i class="fas fa-user mr-2"></i><?= t('modules.nfse.sections.tomador') ?>
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div class="md:col-span-7 form-input-group">
+                            <label class="form-label-group"><?= t('modules.nfse.fields.tomador_nome') ?></label>
+                            <input type="text" name="tomador_nome" id="tomadorNome" class="form-input-group-field bg-slate-50" readonly>
+                        </div>
+                        <div class="md:col-span-5 form-input-group">
+                            <label class="form-label-group"><?= t('modules.nfse.fields.tomador_cpf_cnpj') ?></label>
+                            <input type="text" name="tomador_cpf_cnpj" id="tomadorCpfCnpj" class="form-input-group-field bg-slate-50" readonly>
+                        </div>
+                        <div class="md:col-span-12 form-input-group">
+                            <label class="form-label-group"><?= t('modules.nfse.fields.tomador_email') ?></label>
+                            <input type="email" name="tomador_email" id="tomadorEmail" class="form-input-group-field">
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -66,6 +78,36 @@
             </div>
         </div>
 
+        <!-- Itens do Lancamento -->
+        <div class="form-section mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                <h3 class="form-section-title mb-0">
+                    <i class="fas fa-list mr-2"></i>Itens do Lançamento
+                </h3>
+                <button type="button" id="btnAdicionarItemNaoTributavel" class="btn-secondary py-2 px-3 rounded-md text-sm font-medium">
+                    <i class="fas fa-plus mr-2"></i>Adicionar item não tributável
+                </button>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-3 py-2 text-center w-24">Trib.?</th>
+                            <th class="px-3 py-2 text-left">Descrição</th>
+                            <th class="px-3 py-2 text-right w-40">Valor</th>
+                            <th class="px-3 py-2 text-center w-12"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyItensLancamento" class="divide-y divide-slate-200">
+                        <tr>
+                            <td colspan="4" class="px-3 py-4 text-center text-slate-500">Carregando itens...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Valores -->
         <div class="form-section mb-6">
             <h3 class="form-section-title">
@@ -73,17 +115,24 @@
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-3 form-input-group">
-                    <label class="form-label-group"><?= t('modules.nfse.fields.valor_servicos') ?></label>
+                    <label class="form-label-group">Valor total da NFS-e</label>
                     <div class="input-group-with-addon">
                         <span class="input-addon-left currency-symbol">R$</span>
                         <input type="text" id="valorServicos" class="form-input-group-field input-moeda pl-12 bg-slate-50" readonly>
                     </div>
                 </div>
                 <div class="md:col-span-3 form-input-group">
-                    <label class="form-label-group"><?= t('modules.nfse.fields.valor_deducoes') ?></label>
+                    <label class="form-label-group">Valor tributável</label>
                     <div class="input-group-with-addon">
                         <span class="input-addon-left currency-symbol">R$</span>
-                        <input type="text" name="valor_deducoes" id="valorDeducoes" class="form-input-group-field input-moeda pl-12" value="0,00">
+                        <input type="text" id="valorTributavel" class="form-input-group-field input-moeda pl-12 bg-slate-50" readonly>
+                    </div>
+                </div>
+                <div class="md:col-span-3 form-input-group">
+                    <label class="form-label-group">Itens não tributáveis</label>
+                    <div class="input-group-with-addon">
+                        <span class="input-addon-left currency-symbol">R$</span>
+                        <input type="text" name="valor_deducoes" id="valorDeducoes" class="form-input-group-field input-moeda pl-12 bg-slate-50" value="0,00" readonly>
                     </div>
                 </div>
                 <div class="md:col-span-3 form-input-group">
@@ -93,7 +142,7 @@
                         <input type="text" id="baseCalculo" class="form-input-group-field pl-12 bg-slate-50" readonly>
                     </div>
                 </div>
-                <div class="md:col-span-3 form-input-group">
+                <div class="md:col-span-12 form-input-group">
                     <label class="flex items-center cursor-pointer mt-6">
                         <input type="checkbox" name="iss_retido" value="S" id="inputIssRetido" class="form-checkbox h-4 w-4 text-blue-600">
                         <span class="ml-2 text-sm text-slate-700"><?= t('modules.nfse.fields.iss_retido') ?></span>
@@ -125,6 +174,10 @@
             <i class="fas fa-exclamation-triangle mr-2"></i><?= t('modules.nfse.messages.homologacao_aviso') ?>
         </div>
 
+        <div id="avisoConfiguracao" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <i class="fas fa-exclamation-circle mr-2"></i><span id="avisoConfiguracaoTexto"></span>
+        </div>
+
         <!-- Botoes -->
         <div class="flex justify-end gap-3 mt-6">
             <button type="button" class="btn-secondary py-2 px-4 rounded-md text-sm" id="btnCancelarForm">
@@ -144,6 +197,7 @@
     let financeiroData = null;
     let configData = null;
     let aliquotaISS = 0;
+    let emissaoBloqueada = false;
 
     // Pegar id_financeiro da URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -166,7 +220,7 @@
         document.getElementById('formEmitir').addEventListener('submit', emitirNfse);
         document.getElementById('btnVoltar').addEventListener('click', voltarParaLista);
         document.getElementById('btnCancelarForm').addEventListener('click', voltarParaLista);
-        document.getElementById('valorDeducoes').addEventListener('change', calcularTributos);
+        document.getElementById('btnAdicionarItemNaoTributavel').addEventListener('click', adicionarItemManualNaoTributavel);
     }
 
     async function carregarDadosFinanceiro(id) {
@@ -180,14 +234,24 @@
             }
             financeiroData = result.data;
 
-            // Carregar config da filial
+            // Carregar config da filial. Ausencia de configuracao nao impede
+            // renderizar o lancamento, apenas bloqueia a emissao.
             const filialId = financeiroData.id_matriz_filial;
-            const configResult = await API.get('/api/nfse/configuracoes', { filial: filialId });
-            configData = configResult.success ? configResult.data : null;
+            try {
+                const configResult = await API.get('/api/nfse/configuracoes', { filial: filialId });
+                configData = configResult.success ? configResult.data : null;
+                if (!configResult.success) {
+                    definirAvisoConfiguracao(configResult.message || 'Não foi possível consultar a configuração de NFS-e desta filial.');
+                }
+            } catch (configError) {
+                configData = null;
+                definirAvisoConfiguracao('Não foi possível consultar a configuração de NFS-e desta filial.');
+            }
 
             preencherDados();
         } catch (e) {
             window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.load_error') ?>' }, '*');
+            voltarParaLista();
         } finally {
             window.pageLoading.done();
         }
@@ -197,7 +261,7 @@
         if (!financeiroData) return;
 
         // Prestador
-        document.getElementById('prestadorNome').value = financeiroData.filial_nome || '';
+        document.getElementById('prestadorNome').value = financeiroData.filial_razao_social || financeiroData.filial_nome || '';
         document.getElementById('prestadorCnpj').value = financeiroData.filial_cnpj || '';
 
         // Tomador
@@ -216,29 +280,130 @@
 
         // Aliquota ISS da config
         aliquotaISS = configData ? parseFloat(configData.aliquota_iss || 0) : 0;
+        document.getElementById('tipoEmissao').value = getTipoEmissaoLabel(configData?.tipo_emissao);
+        document.getElementById('ambienteEmissao').value = parseInt(configData?.ambiente || 2) === 1 ? 'Produção' : 'Homologação';
 
         // Aviso homologacao
         if (configData && parseInt(configData.ambiente) !== 1) {
             document.getElementById('avisoHomologacao').classList.remove('hidden');
         }
 
-        // Config cert
-        if (!configData || !configData.certificado_arquivo) {
-            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.cert_required') ?>' }, '*');
+        atualizarEstadoConfiguracao();
+
+        renderizarItensLancamento();
+        calcularTributos();
+    }
+
+    function renderizarItensLancamento() {
+        const tbody = document.getElementById('tbodyItensLancamento');
+        const itens = Array.isArray(financeiroData?.itens) ? financeiroData.itens : [];
+
+        if (itens.length === 0) {
+            const descricao = financeiroData?.descricao || 'Serviço prestado';
+            const valor = parseFloat(financeiroData?.valor_total || 0);
+            tbody.innerHTML = montarLinhaItem({
+                descricao,
+                valor,
+                tributavel: true,
+                manual: false,
+            });
+        } else {
+            tbody.innerHTML = itens.map(item => montarLinhaItem({
+                descricao: item.descricao || financeiroData?.descricao || 'Serviço prestado',
+                valor: parseFloat(item.valor || 0),
+                tributavel: true,
+                manual: false,
+            })).join('');
         }
 
+        vincularEventosItens();
+    }
+
+    function montarLinhaItem(item) {
+        const descricao = escapeHtml(item.descricao || '');
+        const valor = Number.isFinite(item.valor) ? item.valor : 0;
+
+        if (item.manual) {
+            return `
+                <tr class="nfse-item-row" data-manual="1">
+                    <td class="px-3 py-2 text-center">
+                        <input type="checkbox" class="nfse-item-tributavel form-checkbox h-4 w-4 text-blue-600" disabled>
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="text" class="nfse-item-descricao form-input-group-field text-sm" placeholder="Item não tributável manual">
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="text" class="nfse-item-valor form-input-group-field input-moeda text-sm text-right" value="0,00">
+                    </td>
+                    <td class="px-3 py-2 text-center">
+                        <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-item" title="Remover item">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        return `
+            <tr class="nfse-item-row" data-manual="0">
+                <td class="px-3 py-2 text-center">
+                    <input type="checkbox" class="nfse-item-tributavel form-checkbox h-4 w-4 text-blue-600" checked>
+                </td>
+                <td class="px-3 py-2">
+                    <span class="nfse-item-descricao-text">${descricao}</span>
+                </td>
+                <td class="px-3 py-2 text-right font-medium" data-valor="${valor}">
+                    ${formatarMoeda(valor)}
+                </td>
+                <td class="px-3 py-2"></td>
+            </tr>
+        `;
+    }
+
+    function vincularEventosItens() {
+        document.querySelectorAll('.nfse-item-tributavel').forEach(input => {
+            input.addEventListener('change', calcularTributos);
+        });
+
+        document.querySelectorAll('.nfse-item-valor').forEach(input => {
+            input.addEventListener('input', calcularTributos);
+            input.addEventListener('change', calcularTributos);
+        });
+
+        document.querySelectorAll('.nfse-item-descricao').forEach(input => {
+            input.addEventListener('input', calcularTributos);
+        });
+
+        document.querySelectorAll('.btn-remover-item').forEach(btn => {
+            btn.addEventListener('click', function () {
+                this.closest('tr')?.remove();
+                calcularTributos();
+            });
+        });
+    }
+
+    function adicionarItemManualNaoTributavel() {
+        document.getElementById('tbodyItensLancamento').insertAdjacentHTML('beforeend', montarLinhaItem({
+            descricao: '',
+            valor: 0,
+            tributavel: false,
+            manual: true,
+        }));
+        vincularEventosItens();
         calcularTributos();
     }
 
     function calcularTributos() {
         const valorServicos = parseFloat(financeiroData?.valor_total || 0);
-        const valorDeducoes = parseFromCurrency(document.getElementById('valorDeducoes').value) || 0;
+        const valorDeducoes = calcularTotalNaoTributavel();
         const baseCalculo = valorServicos - valorDeducoes;
 
+        document.getElementById('valorDeducoes').value = formatarMoeda(valorDeducoes).replace('R$ ', '');
+        document.getElementById('valorTributavel').value = formatarMoeda(Math.max(0, baseCalculo)).replace('R$ ', '');
         document.getElementById('baseCalculo').value = formatarMoeda(Math.max(0, baseCalculo)).replace('R$ ', '');
 
         const tribISSQN = configData ? parseInt(configData.trib_issqn || 4) : 4;
-        const valorISS = tribISSQN === 1 ? baseCalculo * (aliquotaISS / 100) : 0;
+        const valorISS = tribISSQN === 1 ? Math.max(0, baseCalculo) * (aliquotaISS / 100) : 0;
         const valorIBS = valorServicos * (0.10 / 100);
         const valorCBS = valorServicos * (0.90 / 100);
 
@@ -247,8 +412,62 @@
         document.getElementById('resumoCBS').textContent = formatarMoeda(valorCBS);
     }
 
+    function calcularTotalNaoTributavel() {
+        return coletarItensNaoTributaveis()
+            .reduce((total, item) => total + item.valor, 0);
+    }
+
+    function coletarItensNaoTributaveis() {
+        const itens = [];
+
+        document.querySelectorAll('.nfse-item-row').forEach(row => {
+            const manual = row.dataset.manual === '1';
+            const tributavelInput = row.querySelector('.nfse-item-tributavel');
+            const tributavel = manual ? false : !!tributavelInput?.checked;
+
+            if (tributavel) {
+                return;
+            }
+
+            const descricao = manual
+                ? (row.querySelector('.nfse-item-descricao')?.value || '').trim()
+                : (row.querySelector('.nfse-item-descricao-text')?.textContent || '').trim();
+            const valor = manual
+                ? (parseFromCurrency(row.querySelector('.nfse-item-valor')?.value || '0') || 0)
+                : parseFloat(row.querySelector('[data-valor]')?.dataset.valor || 0);
+
+            if (descricao || valor > 0) {
+                itens.push({ descricao, valor });
+            }
+        });
+
+        return itens;
+    }
+
+    function validarItensNaoTributaveis(itensNaoTributaveis, valorServicos) {
+        let total = 0;
+        for (const item of itensNaoTributaveis) {
+            if (!item.descricao || item.valor <= 0) {
+                return 'Itens não tributáveis precisam ter descrição e valor maior que zero.';
+            }
+            total += item.valor;
+        }
+
+        if (total > valorServicos) {
+            return 'Itens não tributáveis não podem ultrapassar o valor total da NFS-e.';
+        }
+
+        return '';
+    }
+
     async function emitirNfse(e) {
         e.preventDefault();
+
+        if (emissaoBloqueada) {
+            const message = document.getElementById('avisoConfiguracaoTexto').textContent || 'Configure a NFS-e antes de emitir.';
+            window.parent.postMessage({ action: 'openAlert', message }, '*');
+            return;
+        }
 
         const btn = document.getElementById('btnEmitir');
         const textoOriginal = btn.innerHTML;
@@ -256,9 +475,19 @@
         btn.disabled = true;
 
         try {
+            const itensNaoTributaveis = coletarItensNaoTributaveis();
+            const valorServicos = parseFloat(financeiroData?.valor_total || 0);
+            const erroItens = validarItensNaoTributaveis(itensNaoTributaveis, valorServicos);
+            if (erroItens) {
+                window.parent.postMessage({ action: 'openAlert', message: erroItens }, '*');
+                return;
+            }
+
+            const valorDeducoes = itensNaoTributaveis.reduce((total, item) => total + item.valor, 0);
             const dados = {
                 id_financeiro: idFinanceiro,
-                valor_deducoes: parseFromCurrency(document.getElementById('valorDeducoes').value) || 0,
+                valor_deducoes: valorDeducoes,
+                itens_nao_tributaveis: itensNaoTributaveis,
                 descricao_servico: document.getElementById('inputDescricaoServico').value,
                 iss_retido: document.getElementById('inputIssRetido').checked ? 'S' : 'N',
                 tomador_cpf_cnpj: document.getElementById('tomadorCpfCnpj').value,
@@ -290,6 +519,57 @@
 
     function voltarParaLista() {
         window.parent.postMessage({ action: 'navigate', page: '/pages/nfse' }, '*');
+    }
+
+    function getTipoEmissaoLabel(tipo) {
+        if (tipo === 'betha') return 'Betha Cloud';
+        return 'Nacional';
+    }
+
+    function atualizarEstadoConfiguracao() {
+        if (!configData) {
+            definirAvisoConfiguracao('Configuração de NFS-e não encontrada para esta filial. Configure a NFS-e antes de emitir.');
+            return;
+        }
+
+        if ((configData.ativo || 'N') !== 'S') {
+            definirAvisoConfiguracao('Emissão de NFS-e desativada para esta filial.');
+            return;
+        }
+
+        if (!configData.certificado_arquivo) {
+            definirAvisoConfiguracao('Certificado digital não configurado. Configure o certificado antes de emitir.');
+            return;
+        }
+
+        limparAvisoConfiguracao();
+    }
+
+    function definirAvisoConfiguracao(message) {
+        emissaoBloqueada = true;
+        document.getElementById('avisoConfiguracaoTexto').textContent = message;
+        document.getElementById('avisoConfiguracao').classList.remove('hidden');
+        const btn = document.getElementById('btnEmitir');
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'cursor-not-allowed');
+    }
+
+    function limparAvisoConfiguracao() {
+        emissaoBloqueada = false;
+        document.getElementById('avisoConfiguracaoTexto').textContent = '';
+        document.getElementById('avisoConfiguracao').classList.add('hidden');
+        const btn = document.getElementById('btnEmitir');
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 })();
 </script>

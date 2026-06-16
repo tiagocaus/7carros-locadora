@@ -149,6 +149,11 @@ try {
     $scheduler->job(new \App\Crons\Jobs\NFSeReenviarJob())
               ->everyFiveMinutes();
 
+    // NFS-e - Consulta Betha
+    // Executa a cada 5 minutos para atualizar DPS Betha em processamento
+    $scheduler->job(new \App\Crons\Jobs\NFSeConsultarBethaJob())
+              ->everyFiveMinutes();
+
     // NFS-e - Envio de Email
     // Executa a cada 5 minutos para enviar PDF de NFS-e autorizada por email (max 30/exec)
     $scheduler->job(new \App\Crons\Jobs\NFSeEnviarEmailJob())

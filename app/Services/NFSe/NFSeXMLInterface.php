@@ -5,7 +5,7 @@ namespace App\Services\NFSe;
 /**
  * Interface para geracao de XML de NFS-e
  *
- * Implementada por NFSeXMLNacional (DPS) e NFSeXMLAbrasf (RPS).
+ * Implementada por NFSeXMLNacional (DPS) e NFSeXMLBetha (DPS Betha).
  */
 interface NFSeXMLInterface
 {

@@ -110,10 +110,6 @@ return new class extends Migration
             'exigibilidade_iss',
             'enviar_im',
             'incentivo_fiscal',
-            'abrasf_item_lista_servico',
-            'abrasf_codigo_cnae',
-            'abrasf_codigo_trib_municipio',
-            'abrasf_numero_rps',
             'created_at',
             'updated_at',
         ];
@@ -141,10 +137,6 @@ return new class extends Migration
             $this->mfExpr('nfse_exigibilidade_iss', '1'),
             $this->mfExpr('nfse_enviar_im', "'N'"),
             $this->mfExpr('nfse_incentivo_fiscal', "'N'"),
-            $this->mfExpr('nfse_item_lista_servico', "''"),
-            $this->mfExpr('nfse_codigo_cnae', "''"),
-            $this->mfExpr('nfse_codigo_trib_municipio', "''"),
-            $this->mfExpr('nfse_abrasf_numero_rps', '0'),
             'COALESCE(mf.created_at, NOW())',
             'NOW()',
         ];
@@ -180,11 +172,7 @@ return new class extends Migration
         $this->addColumnIfNotExists('matrizes_filiais', 'nfse_ambiente', 'TINYINT(1)', ['null' => true, 'default' => 2]);
         $this->addColumnIfNotExists('matrizes_filiais', 'nfse_serie', 'VARCHAR(10)', ['null' => true, 'default' => null]);
         $this->addColumnIfNotExists('matrizes_filiais', 'nfse_numero_atual', 'INT', ['unsigned' => true, 'null' => true, 'default' => 0]);
-        $this->addColumnIfNotExists('matrizes_filiais', 'nfse_abrasf_numero_rps', 'INT', ['null' => true, 'default' => 0]);
         $this->addColumnIfNotExists('matrizes_filiais', 'nfse_codigo_servico', 'VARCHAR(20)', ['null' => true, 'default' => '1.1101.11']);
-        $this->addColumnIfNotExists('matrizes_filiais', 'nfse_item_lista_servico', 'VARCHAR(10)', ['null' => true, 'default' => '']);
-        $this->addColumnIfNotExists('matrizes_filiais', 'nfse_codigo_cnae', 'VARCHAR(10)', ['null' => true, 'default' => '']);
-        $this->addColumnIfNotExists('matrizes_filiais', 'nfse_codigo_trib_municipio', 'VARCHAR(20)', ['null' => true, 'default' => '']);
         $this->addColumnIfNotExists('matrizes_filiais', 'nfse_descricao_servico', 'MEDIUMTEXT', ['null' => true]);
         $this->addColumnIfNotExists('matrizes_filiais', 'nfse_aliquota_iss', 'DECIMAL(5,2)', ['null' => true, 'default' => 0.00]);
         $this->addColumnIfNotExists('matrizes_filiais', 'nfse_trib_issqn', 'TINYINT(1)', ['null' => false, 'default' => 4]);
@@ -218,11 +206,7 @@ return new class extends Migration
                 mf.nfse_ambiente = nc.ambiente,
                 mf.nfse_serie = nc.serie,
                 mf.nfse_numero_atual = nc.numero_atual,
-                mf.nfse_abrasf_numero_rps = nc.abrasf_numero_rps,
                 mf.nfse_codigo_servico = nc.codigo_servico,
-                mf.nfse_item_lista_servico = nc.abrasf_item_lista_servico,
-                mf.nfse_codigo_cnae = nc.abrasf_codigo_cnae,
-                mf.nfse_codigo_trib_municipio = nc.abrasf_codigo_trib_municipio,
                 mf.nfse_descricao_servico = nc.descricao_servico,
                 mf.nfse_aliquota_iss = nc.aliquota_iss,
                 mf.nfse_trib_issqn = nc.trib_issqn,

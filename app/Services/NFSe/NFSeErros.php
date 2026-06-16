@@ -268,9 +268,9 @@ class NFSeErros
         // ==========================================
         'E0039' => [
             'mensagem' => 'Município não habilitado no Sistema Nacional NFS-e.',
-            'instrucao' => 'Altere o Tipo de Emissão para "Municipal (ABRASF)" nas configurações.',
+            'instrucao' => 'Verifique se a empresa deve emitir por Betha Cloud ou aguarde a adesão do município ao padrão nacional.',
             'categoria' => 'prestador',
-            'explicacao' => 'O município do prestador ainda não aderiu ao Sistema Nacional de NFS-e. Use o tipo de emissão ABRASF para emitir pelo sistema municipal.',
+            'explicacao' => 'O município do prestador ainda não aderiu ao Sistema Nacional de NFS-e. Use apenas emissores oficialmente suportados no sistema.',
         ],
         'E0120' => [
             'mensagem' => 'Inscrição Municipal não deve ser informada.',
@@ -360,34 +360,6 @@ class NFSeErros
             'explicacao' => 'Combinação de campos incompatível. Verifique: tribISSQN + alíquota, regime tributário + opção Simples Nacional, série cadastrada no portal.',
         ],
 
-        // ==========================================
-        // ERROS ABRASF (ISSNet)
-        // ==========================================
-        'ABRASF_SOAP_ERRO' => [
-            'mensagem' => 'Erro na comunicação com o sistema municipal.',
-            'instrucao' => 'Verifique conexão e tente novamente.',
-            'categoria' => 'conexao',
-        ],
-        'ABRASF_XML_INVALIDO' => [
-            'mensagem' => 'XML do RPS rejeitado pelo sistema municipal.',
-            'instrucao' => 'Verifique dados da empresa, serviço e cliente.',
-            'categoria' => 'xml',
-        ],
-        'ABRASF_AUTENTICACAO' => [
-            'mensagem' => 'Falha na autenticação com o sistema municipal.',
-            'instrucao' => 'Verifique se o certificado está cadastrado no ISSNet.',
-            'categoria' => 'certificado',
-        ],
-        'ABRASF_IM_OBRIGATORIA' => [
-            'mensagem' => 'Inscrição Municipal obrigatória para emissão ABRASF.',
-            'instrucao' => 'Preencha a IM nas configurações da empresa.',
-            'categoria' => 'prestador',
-        ],
-        'ABRASF_CAMPO_OBRIGATORIO' => [
-            'mensagem' => 'Campo obrigatório não preenchido para ABRASF.',
-            'instrucao' => 'Verifique Item Lista Serviço, CNAE e Cód. Tributação Municipal.',
-            'categoria' => 'configuracao',
-        ],
         'E090' => [
             'mensagem' => 'Número do RPS inválido.',
             'instrucao' => 'Verifique "Número RPS Atual" nas configurações e AIDF no ISSNet.',

@@ -505,8 +505,8 @@ class NFSeController
     public function getConfiguracoes(Request $request): void
     {
         try {
-            if (!Auth::can('nfse.configurar')) {
-                Response::json(['success' => false, 'message' => 'Sem permissao para configurar NFS-e'], 403);
+            if (!Auth::can('nfse.configurar') && !Auth::can('nfse.criar')) {
+                Response::json(['success' => false, 'message' => 'Sem permissao para consultar configuracoes de NFS-e'], 403);
                 return;
             }
 
@@ -736,9 +736,11 @@ class NFSeController
 
             try {
                 $tipoEmissao = $config['tipo_emissao'] ?? 'nacional';
-                $api = $tipoEmissao === 'abrasf'
-                    ? new \App\Services\NFSe\ABRASF\NFSeAPIAbrasf()
-                    : new \App\Services\NFSe\Nacional\NFSeAPINacional();
+                $api = match ($tipoEmissao) {
+                    'nacional' => new \App\Services\NFSe\Nacional\NFSeAPINacional(),
+                    'betha' => new \App\Services\NFSe\Betha\NFSeAPIBetha(),
+                    default => throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado: ' . $tipoEmissao),
+                };
 
                 $resultado = $api->testarConexao($pem['certPath'], $pem['keyPath'], (int) ($config['ambiente'] ?? 2));
 

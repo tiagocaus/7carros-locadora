@@ -10,8 +10,8 @@ use App\Models\MatrizFilial;
 use App\Models\Cliente;
 use App\Services\NFSe\Nacional\NFSeXMLNacional;
 use App\Services\NFSe\Nacional\NFSeAPINacional;
-use App\Services\NFSe\ABRASF\NFSeXMLAbrasf;
-use App\Services\NFSe\ABRASF\NFSeAPIAbrasf;
+use App\Services\NFSe\Betha\NFSeXMLBetha;
+use App\Services\NFSe\Betha\NFSeAPIBetha;
 
 /**
  * NFSeService - Orquestrador principal de NFS-e
@@ -19,7 +19,7 @@ use App\Services\NFSe\ABRASF\NFSeAPIAbrasf;
  * Coordena todo o ciclo de vida da NFS-e:
  * emissao, cancelamento, consulta, reenvio e envio por email.
  *
- * Roteia entre Nacional (SEFIN/REST) e ABRASF (Municipal/SOAP)
+ * Roteia entre Nacional (SEFIN/REST) e Betha (SOAP assincrono)
  * baseado na configuracao tipo_emissao da empresa.
  */
 class NFSeService
@@ -83,14 +83,19 @@ class NFSeService
         }
 
         // 5. Montar dados
-        $dados = $this->montarDadosNFSe($financeiro, $config, $chave, $dadosExtras);
+        try {
+            $dados = $this->montarDadosNFSe($financeiro, $config, $chave, $dadosExtras);
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'VALOR_INVALIDO');
+        }
 
         // 6. Rotear por tipo de emissao
         $tipoEmissao = $config['tipo_emissao'] ?? 'nacional';
 
         return match ($tipoEmissao) {
-            'abrasf' => $this->emitirABRASF($dados, $config, $chave),
-            default => $this->emitirNacional($dados, $config, $chave),
+            'nacional' => $this->emitirNacional($dados, $config, $chave),
+            'betha' => $this->emitirBetha($dados, $config, $chave),
+            default => $this->erro('Tipo de emissão NFS-e não suportado: ' . $tipoEmissao, 'CONFIGURACAO_INCOMPLETA'),
         };
     }
 
@@ -118,8 +123,9 @@ class NFSeService
         $tipoEmissao = $nfse['tipo_emissao'] ?? 'nacional';
 
         return match ($tipoEmissao) {
-            'abrasf' => $this->cancelarABRASF($nfse, $motivo, $config, $chave),
-            default => $this->cancelarNacional($nfse, $motivo, $config, $chave),
+            'nacional' => $this->cancelarNacional($nfse, $motivo, $config, $chave),
+            'betha' => $this->cancelarBetha($nfse, $motivo, $config, $chave),
+            default => $this->erro('Tipo de emissão NFS-e não suportado: ' . $tipoEmissao, 'CONFIGURACAO_INCOMPLETA'),
         };
     }
 
@@ -129,7 +135,7 @@ class NFSeService
     public function consultar(int $idNFSe, string $chave): array
     {
         $nfse = $this->nfseModel->buscarPorId($idNFSe);
-        if (!$nfse || empty($nfse['chave_acesso'])) {
+        if (!$nfse || (empty($nfse['chave_acesso']) && empty($nfse['protocolo']))) {
             return $this->erro('NFS-e não encontrada ou sem chave de acesso.', 'NOTA_NAO_ENCONTRADA');
         }
 
@@ -142,7 +148,10 @@ class NFSeService
 
         try {
             $api = $this->resolverAPI($nfse['tipo_emissao'] ?? 'nacional');
-            $resultado = $api->consultar($nfse['chave_acesso'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+            $identificador = ($nfse['tipo_emissao'] ?? 'nacional') === 'betha'
+                ? (string) ($nfse['protocolo'] ?? '')
+                : (string) ($nfse['chave_acesso'] ?? '');
+            $resultado = $api->consultar($identificador, $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
 
             $this->eventoModel->registrar($idNFSe, 'consulta', null, 'Consulta de status realizada', $resultado['resposta'] ?? null);
 
@@ -179,21 +188,44 @@ class NFSeService
             return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
         }
 
-        // Usar o mesmo XML de envio
-        $xml = $nfse['xml_envio'];
-        if (empty($xml)) {
-            return $this->erro('XML de envio não encontrado.', 'XML_INVALIDO');
-        }
-
         $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
 
         try {
-            $api = $this->resolverAPI($nfse['tipo_emissao'] ?? 'nacional');
-            $xmlParser = $this->resolverXML($nfse['tipo_emissao'] ?? 'nacional');
+            $tipoEmissao = $nfse['tipo_emissao'] ?? $config['tipo_emissao'] ?? 'nacional';
+            $xmlParser = $this->resolverXML($tipoEmissao);
 
             // Incrementar tentativas
             $this->nfseModel->incrementarTentativas($idNFSe);
-            $this->nfseModel->atualizarStatus($idNFSe, 'processando');
+
+            if (!empty($nfse['id_financeiro'])) {
+                $financeiroModel = new Financeiro();
+                $financeiro = $financeiroModel->buscarPorId((int) $nfse['id_financeiro']);
+                if (!$financeiro) {
+                    return $this->erro('Lançamento financeiro vinculado à NFS-e não encontrado.', 'VALOR_INVALIDO');
+                }
+
+                $dados = $this->montarDadosNFSe($financeiro, $config, $chave, []);
+                $dados['tipo_emissao'] = $tipoEmissao;
+                $preparado = $this->prepararXMLAssinado($tipoEmissao, $dados, $config, $chave, $pem);
+                if (!$preparado['sucesso']) {
+                    return $this->erro($preparado['mensagem'], $preparado['codigo']);
+                }
+
+                $xml = $preparado['xml'];
+                $api = $preparado['api'];
+                $this->nfseModel->atualizarParaReenvio($idNFSe, [
+                    'numero' => $preparado['numero'],
+                    'serie' => $dados['serie'] ?? null,
+                    'xml_envio' => $xml,
+                ]);
+            } else {
+                $xml = $nfse['xml_envio'];
+                if (empty($xml)) {
+                    return $this->erro('XML de envio não encontrado.', 'XML_INVALIDO');
+                }
+                $api = $this->resolverAPI($tipoEmissao);
+                $this->nfseModel->atualizarStatus($idNFSe, 'processando');
+            }
 
             $resultado = $api->enviar($xml, $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
 
@@ -266,7 +298,7 @@ class NFSeService
         $idMatrizFilial = (int) $config['id_matriz_filial'];
 
         // Proximo numero
-        $numero = $this->configModel->proximoNumero($idMatrizFilial, 'nacional');
+        $numero = $this->configModel->proximoNumero($idMatrizFilial, 'nacional', $chave);
         $dados['numero'] = $numero;
 
         // Criar registro pendente
@@ -307,48 +339,25 @@ class NFSeService
         }
     }
 
-    private function emitirABRASF(array $dados, array $config, string $chave): array
+    private function emitirBetha(array $dados, array $config, string $chave): array
     {
         $idMatrizFilial = (int) $config['id_matriz_filial'];
-
-        // Validar campos ABRASF obrigatorios
-        if (empty($config['abrasf_item_lista_servico']) || empty($config['abrasf_codigo_cnae'])) {
-            return $this->erro('Campos ABRASF obrigatórios não preenchidos.', 'ABRASF_CAMPO_OBRIGATORIO');
+        try {
+            $this->validarDPS($dados);
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'CONFIGURACAO_INCOMPLETA');
         }
 
-        // IM obrigatoria para ABRASF
-        $matrizFilialModel = new MatrizFilial();
-        $empresa = $matrizFilialModel->buscarPorId($idMatrizFilial);
-        if (empty($empresa['inscricao_municipal'])) {
-            return $this->erro('Inscrição Municipal obrigatória para emissão ABRASF.', 'ABRASF_IM_OBRIGATORIA');
-        }
-
-        // Proximo numero RPS
-        $numero = $this->configModel->proximoNumero($idMatrizFilial, 'abrasf');
+        $numero = $this->configModel->proximoNumero($idMatrizFilial, 'betha', $chave);
         $dados['numero'] = $numero;
 
-        // Dados ABRASF extras
-        $dados['abrasf'] = [
-            'item_lista_servico' => $config['abrasf_item_lista_servico'],
-            'codigo_cnae' => $config['abrasf_codigo_cnae'],
-            'codigo_trib_municipio' => $config['abrasf_codigo_trib_municipio'] ?? '',
-            'exigibilidade_iss' => $config['exigibilidade_iss'] ?? '1',
-            'incentivo_fiscal' => $config['incentivo_fiscal'] ?? 'N',
-        ];
-        $dados['prestador']['inscricao_municipal'] = $empresa['inscricao_municipal'];
-
-        // Criar registro pendente
         $idNFSe = $this->criarRegistroNFSe($dados, $config, $chave);
-
-        // Gerar XML
-        $xmlGenerator = new NFSeXMLAbrasf();
+        $xmlGenerator = new NFSeXMLBetha();
         $xml = $xmlGenerator->gerarXML($dados);
-
-        // Assinar (SHA1 para ABRASF)
         $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
 
         try {
-            $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], 'InfDeclaracaoPrestacaoServico', 'sha1');
+            $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], 'infDPS', 'sha256', 'id');
             if (!$assinado['sucesso']) {
                 $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $assinado['mensagem'], 'XML_ASSINATURA');
                 $this->eventoModel->registrar($idNFSe, 'erro', 'XML_ASSINATURA', $assinado['mensagem']);
@@ -356,19 +365,17 @@ class NFSeService
             }
 
             $xmlAssinado = $assinado['xml'];
-
             $this->nfseModel->salvarXmlEnvio($idNFSe, $xmlAssinado);
             $this->nfseModel->atualizarStatus($idNFSe, 'processando');
 
-            // Enviar via SOAP
-            $api = new NFSeAPIAbrasf();
+            $api = new NFSeAPIBetha();
             $resultado = $api->enviar($xmlAssinado, $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
 
             return $this->processarRetornoEmissao($idNFSe, $resultado, $xmlGenerator, $chave);
         } catch (\Throwable $e) {
             $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $e->getMessage(), 'CONN_CURL');
             $this->eventoModel->registrar($idNFSe, 'erro', 'CONN_CURL', $e->getMessage());
-            return $this->erro('Erro na comunicação: ' . $e->getMessage(), 'CONN_CURL');
+            return $this->erro('Erro na comunicação Betha: ' . $e->getMessage(), 'CONN_CURL');
         } finally {
             $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
         }
@@ -385,9 +392,11 @@ class NFSeService
 
         try {
             $xmlGenerator = new NFSeXMLNacional();
-            $xml = $xmlGenerator->gerarXMLCancelamento($nfse['chave_acesso'], $motivo, []);
+            $xml = $xmlGenerator->gerarXMLCancelamento($nfse['chave_acesso'], $motivo, [
+                'ambiente' => $config['ambiente'] ?? 2,
+            ]);
 
-            $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], 'infPedidoCancelamento', 'sha256');
+            $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], 'infPedReg', 'sha256');
             if (!$assinado['sucesso']) {
                 return $this->erro($assinado['mensagem'], 'XML_ASSINATURA');
             }
@@ -414,45 +423,31 @@ class NFSeService
         }
     }
 
-    private function cancelarABRASF(array $nfse, string $motivo, array $config, string $chave): array
+    private function cancelarBetha(array $nfse, string $motivo, array $config, string $chave): array
     {
         $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
         $idNFSe = (int) $nfse['id'];
 
         try {
-            $matrizFilialModel = new MatrizFilial();
-            $empresa = $matrizFilialModel->buscarPorId((int) $nfse['id_matriz_filial']);
+            $xmlGenerator = new NFSeXMLBetha();
+            $xml = $xmlGenerator->gerarXMLCancelamento($nfse['chave_acesso'], $motivo, []);
 
-            $xmlGenerator = new NFSeXMLAbrasf();
-            $xml = $xmlGenerator->gerarXMLCancelamento($nfse['chave_acesso'], $motivo, [
-                'cnpj' => $nfse['prestador_cnpj'],
-                'numero' => $nfse['numero'],
-                'inscricao_municipal' => $empresa['inscricao_municipal'] ?? '',
-                'codigo_municipio' => $config['codigo_municipio'] ?? '',
-            ]);
-
-            $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], 'InfPedidoCancelamento', 'sha1');
-            if (!$assinado['sucesso']) {
-                return $this->erro($assinado['mensagem'], 'XML_ASSINATURA');
-            }
-
-            $api = new NFSeAPIAbrasf();
-            $resultado = $api->cancelar($assinado['xml'], $nfse['chave_acesso'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
-
+            $api = new NFSeAPIBetha();
+            $resultado = $api->cancelar($xml, $nfse['chave_acesso'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
             $retorno = $xmlGenerator->parseRetornoCancelamento($resultado['resposta'] ?? '');
 
-            if ($retorno['sucesso']) {
+            if ($retorno['sucesso'] || ($resultado['sucesso'] ?? false)) {
                 $this->nfseModel->atualizarCancelada($idNFSe, $motivo);
                 $this->eventoModel->registrar($idNFSe, 'cancelamento', null, $motivo, $resultado['resposta'] ?? null);
                 return ['sucesso' => true, 'mensagem' => 'NFS-e cancelada com sucesso.'];
             }
 
-            $erroMsg = $retorno['erros'][0]['mensagem'] ?? 'Erro desconhecido ao cancelar.';
+            $erroMsg = $retorno['erros'][0]['mensagem'] ?? 'Erro desconhecido ao cancelar na Betha.';
             $erroCod = $retorno['erros'][0]['codigo'] ?? 'ERRO_DESCONHECIDO';
             $this->eventoModel->registrar($idNFSe, 'erro', $erroCod, $erroMsg, $resultado['resposta'] ?? null);
             return $this->erro($erroMsg, NFSeErros::mapearErroAPI($erroCod));
         } catch (\Throwable $e) {
-            return $this->erro('Erro no cancelamento: ' . $e->getMessage(), 'CONN_CURL');
+            return $this->erro('Erro no cancelamento Betha: ' . $e->getMessage(), 'CONN_CURL');
         } finally {
             $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
         }
@@ -476,6 +471,24 @@ class NFSeService
         }
 
         $retorno = $xmlParser->parseRetorno($resultado['resposta'] ?? '');
+
+        if (!empty($retorno['processando']) && !empty($retorno['protocolo'])) {
+            $this->nfseModel->atualizarProcessando($idNFSe, [
+                'protocolo' => $retorno['protocolo'],
+                'xml_retorno' => $retorno['xml_retorno'] ?? $resultado['resposta'],
+            ]);
+            $this->eventoModel->registrar($idNFSe, 'emissao', null, 'DPS Betha recepcionada. Aguardando processamento.', $resultado['resposta'] ?? null);
+
+            return [
+                'sucesso' => true,
+                'mensagem' => 'DPS Betha recepcionada. Aguardando processamento.',
+                'dados' => [
+                    'id' => $idNFSe,
+                    'protocolo' => $retorno['protocolo'],
+                    'status' => 'processando',
+                ],
+            ];
+        }
 
         if ($retorno['sucesso']) {
             $this->nfseModel->atualizarAutorizada($idNFSe, [
@@ -536,10 +549,22 @@ class NFSeService
             $cliente = $clienteModel->buscarPorId((int) $financeiro['id_cliente']);
         }
 
+        $itensNaoTributaveis = $this->normalizarItensNaoTributaveis($dadosExtras['itens_nao_tributaveis'] ?? []);
+
         // Calcular valores
         $valorServicos = (float) ($financeiro['valor_total'] ?? 0);
-        $valorDeducoes = (float) ($dadosExtras['valor_deducoes'] ?? 0);
-        $baseCalculo = $valorServicos - $valorDeducoes;
+        $valorDeducoes = !empty($itensNaoTributaveis)
+            ? array_sum(array_column($itensNaoTributaveis, 'valor'))
+            : (float) ($dadosExtras['valor_deducoes'] ?? 0);
+
+        if ($valorDeducoes < 0) {
+            throw new \InvalidArgumentException('Deduções não podem ser negativas.');
+        }
+        if ($valorDeducoes > $valorServicos + 0.01) {
+            throw new \InvalidArgumentException('Itens não tributáveis não podem ultrapassar o valor total da NFS-e.');
+        }
+
+        $baseCalculo = max(0, $valorServicos - $valorDeducoes);
         $tribISSQN = (int) ($config['trib_issqn'] ?? 4);
         $aliquotaISS = (float) ($config['aliquota_iss'] ?? 0);
         $valorISS = $tribISSQN === 1 ? $baseCalculo * ($aliquotaISS / 100) : 0;
@@ -566,11 +591,13 @@ class NFSeService
                 'telefone' => $empresa['celular'] ?? '',
                 'email' => $empresa['email'] ?? '',
                 'regime_tributario' => (int) ($config['regime_tributario'] ?? 1),
+                'reg_apuracao_sn' => (int) ($config['reg_apuracao_sn'] ?? 1),
+                'enviar_im' => $config['enviar_im'] ?? 'N',
             ],
             'tomador' => [
-                'cpf_cnpj' => $cliente['cpf_cnpj'] ?? $dadosExtras['tomador_cpf_cnpj'] ?? '',
-                'nome' => $cliente['nome_rsocial'] ?? $dadosExtras['tomador_nome'] ?? '',
-                'email' => $cliente['email'] ?? $dadosExtras['tomador_email'] ?? '',
+                'cpf_cnpj' => $this->valorPreferencial($dadosExtras['tomador_cpf_cnpj'] ?? '', $cliente['cpf_cnpj'] ?? ''),
+                'nome' => $this->valorPreferencial($dadosExtras['tomador_nome'] ?? '', $cliente['nome_rsocial'] ?? ''),
+                'email' => $this->valorPreferencial($dadosExtras['tomador_email'] ?? '', $cliente['email'] ?? ''),
                 'endereco' => $this->montarEnderecoTomador($cliente),
             ],
             'servico' => [
@@ -590,7 +617,7 @@ class NFSeService
                 'valor_cbs' => $valorCBS,
                 'iss_retido' => $dadosExtras['iss_retido'] ?? 'N',
             ],
-            'itens_nao_tributaveis' => $dadosExtras['itens_nao_tributaveis'] ?? [],
+            'itens_nao_tributaveis' => $itensNaoTributaveis,
         ];
     }
 
@@ -637,6 +664,71 @@ class NFSeService
         ]);
     }
 
+    private function normalizarItensNaoTributaveis(mixed $itens): array
+    {
+        if (is_string($itens)) {
+            $decoded = json_decode($itens, true);
+            $itens = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($itens)) {
+            return [];
+        }
+
+        $normalizados = [];
+        foreach ($itens as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $descricao = trim((string) ($item['descricao'] ?? ''));
+            $valor = $this->parseValorMonetario($item['valor'] ?? 0);
+
+            if ($descricao === '' && $valor <= 0) {
+                continue;
+            }
+            if ($descricao === '' || $valor <= 0) {
+                throw new \InvalidArgumentException('Itens não tributáveis precisam ter descrição e valor maior que zero.');
+            }
+
+            $normalizados[] = [
+                'descricao' => mb_strtoupper($descricao),
+                'valor' => round($valor, 2),
+            ];
+        }
+
+        return $normalizados;
+    }
+
+    private function parseValorMonetario(mixed $valor): float
+    {
+        if (is_int($valor) || is_float($valor)) {
+            return (float) $valor;
+        }
+
+        $valor = trim((string) $valor);
+        if ($valor === '') {
+            return 0.0;
+        }
+        if (is_numeric($valor)) {
+            return (float) $valor;
+        }
+
+        return function_exists('currency_parse')
+            ? (float) currency_parse($valor)
+            : (float) str_replace(',', '.', preg_replace('/[^\d,.-]/', '', $valor));
+    }
+
+    private function valorPreferencial(mixed $preferencial, mixed $fallback): string
+    {
+        $preferencial = trim((string) ($preferencial ?? ''));
+        if ($preferencial !== '') {
+            return $preferencial;
+        }
+
+        return trim((string) ($fallback ?? ''));
+    }
+
     private function montarEnderecoTomador(?array $cliente): array
     {
         if (!$cliente) {
@@ -656,12 +748,111 @@ class NFSeService
 
     private function resolverAPI(string $tipo): NFSeAPIInterface
     {
-        return $tipo === 'abrasf' ? new NFSeAPIAbrasf() : new NFSeAPINacional();
+        return match ($tipo) {
+            'nacional' => new NFSeAPINacional(),
+            'betha' => new NFSeAPIBetha(),
+            default => throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado: ' . $tipo),
+        };
     }
 
     private function resolverXML(string $tipo): NFSeXMLInterface
     {
-        return $tipo === 'abrasf' ? new NFSeXMLAbrasf() : new NFSeXMLNacional();
+        return match ($tipo) {
+            'nacional' => new NFSeXMLNacional(),
+            'betha' => new NFSeXMLBetha(),
+            default => throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado: ' . $tipo),
+        };
+    }
+
+    private function prepararXMLAssinado(string $tipoEmissao, array &$dados, array $config, string $chave, array $pem): array
+    {
+        if (!in_array($tipoEmissao, ['nacional', 'betha'], true)) {
+            return ['sucesso' => false, 'mensagem' => 'Tipo de emissão NFS-e não suportado: ' . $tipoEmissao, 'codigo' => 'CONFIGURACAO_INCOMPLETA'];
+        }
+
+        $idMatrizFilial = (int) $config['id_matriz_filial'];
+        $dados['numero'] = $this->configModel->proximoNumero($idMatrizFilial, $tipoEmissao, $chave);
+
+        try {
+            $this->validarDPS($dados);
+        } catch (\InvalidArgumentException $e) {
+            return ['sucesso' => false, 'mensagem' => $e->getMessage(), 'codigo' => 'CONFIGURACAO_INCOMPLETA'];
+        }
+
+        $xmlGenerator = $this->resolverXML($tipoEmissao);
+        $xml = $xmlGenerator->gerarXML($dados);
+        $tag = 'infDPS';
+        $algoritmo = 'sha256';
+        $idAttribute = $tipoEmissao === 'betha' ? 'id' : 'Id';
+        $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], $tag, $algoritmo, $idAttribute);
+
+        if (!$assinado['sucesso']) {
+            return ['sucesso' => false, 'mensagem' => $assinado['mensagem'], 'codigo' => 'XML_ASSINATURA'];
+        }
+
+        return [
+            'sucesso' => true,
+            'xml' => $assinado['xml'],
+            'api' => $this->resolverAPI($tipoEmissao),
+            'numero' => $dados['numero'],
+        ];
+    }
+
+    public function consultarBethaProcessando(int $idNFSe, string $chave): array
+    {
+        $nfse = $this->nfseModel->buscarPorId($idNFSe);
+        if (!$nfse || ($nfse['tipo_emissao'] ?? '') !== 'betha' || empty($nfse['protocolo'])) {
+            return $this->erro('NFS-e Betha não encontrada ou sem protocolo.', 'NOTA_NAO_ENCONTRADA');
+        }
+
+        $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
+        if (!$config) {
+            return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
+        }
+
+        $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
+
+        try {
+            $api = new NFSeAPIBetha();
+            $xmlParser = new NFSeXMLBetha();
+            $resultado = $api->consultar((string) $nfse['protocolo'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+            $retorno = $xmlParser->parseRetornoStatus($resultado['resposta'] ?? '');
+
+            if ($retorno['sucesso']) {
+                $this->nfseModel->atualizarAutorizada($idNFSe, [
+                    'numero' => $retorno['numero'] ?: $nfse['numero'],
+                    'codigo_verificacao' => $retorno['codigo_verificacao'],
+                    'chave_acesso' => $retorno['chave_acesso'],
+                    'xml_retorno' => $retorno['xml_retorno'] ?? $resultado['resposta'],
+                ]);
+                $this->eventoModel->registrar($idNFSe, 'consulta', null, 'NFS-e Betha autorizada após consulta de protocolo.', $resultado['resposta'] ?? null);
+
+                return ['sucesso' => true, 'mensagem' => 'NFS-e Betha autorizada.', 'dados' => $retorno];
+            }
+
+            if (!empty($retorno['erros'])) {
+                $erro = $retorno['erros'][0];
+                $codigoInterno = NFSeErros::mapearErroAPI($erro['codigo'] ?? 'ERRO_DESCONHECIDO');
+                $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $erro['mensagem'] ?? 'Erro Betha', $codigoInterno);
+                $this->eventoModel->registrar($idNFSe, 'erro', $erro['codigo'] ?? null, $erro['mensagem'] ?? '', $resultado['resposta'] ?? null);
+                return $this->erro($erro['mensagem'] ?? 'Erro Betha', $codigoInterno, $retorno['erros']);
+            }
+
+            $this->eventoModel->registrar($idNFSe, 'consulta', null, 'NFS-e Betha ainda em processamento.', $resultado['resposta'] ?? null);
+            return ['sucesso' => true, 'mensagem' => 'NFS-e Betha ainda em processamento.', 'dados' => $retorno];
+        } catch (\Throwable $e) {
+            return $this->erro('Erro na consulta Betha: ' . $e->getMessage(), 'CONN_CURL');
+        } finally {
+            $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
+        }
+    }
+
+    private function validarDPS(array $dados): void
+    {
+        $codigoMunicipio = preg_replace('/\D/', '', (string) ($dados['municipio_codigo'] ?? ''));
+        if (strlen($codigoMunicipio) !== 7) {
+            throw new \InvalidArgumentException('Código IBGE do município deve ter 7 dígitos.');
+        }
     }
 
     private function gerarCorpoEmail(array $nfse): string

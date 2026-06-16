@@ -265,7 +265,11 @@
         document.getElementById('infoSerie').textContent = n.serie || '-';
         document.getElementById('infoDataEmissao').textContent = n.created_at ? n.created_at.substring(0, 10).split('-').reverse().join('/') : '-';
         document.getElementById('infoCompetencia').textContent = n.data_competencia || '-';
-        document.getElementById('infoTipoEmissao').textContent = n.tipo_emissao === 'abrasf' ? '<?= t('modules.nfse.tipo_emissao.abrasf') ?>' : '<?= t('modules.nfse.tipo_emissao.nacional') ?>';
+        const tiposEmissao = {
+            nacional: '<?= t('modules.nfse.tipo_emissao.nacional') ?>',
+            betha: '<?= t('modules.nfse.tipo_emissao.betha') ?>'
+        };
+        document.getElementById('infoTipoEmissao').textContent = tiposEmissao[n.tipo_emissao] || n.tipo_emissao || '-';
 
         if (n.chave_acesso) {
             document.getElementById('infoChaveAcesso').textContent = n.chave_acesso;

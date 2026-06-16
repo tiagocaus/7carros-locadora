@@ -22,7 +22,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $idDPS = $this->gerarIdDPS($dados);
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
-        $xml .= '<DPS xmlns="' . self::NAMESPACE . '">';
+        $xml .= '<DPS xmlns="' . self::NAMESPACE . '" versao="' . self::VERSAO . '">';
         $xml .= '<infDPS Id="' . $idDPS . '" versao="' . self::VERSAO . '">';
 
         // Identificacao
@@ -39,6 +39,9 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $prest = $dados['prestador'] ?? [];
         $xml .= '<prest>';
         $xml .= '<CNPJ>' . preg_replace('/\D/', '', $prest['cnpj'] ?? '') . '</CNPJ>';
+        if (($prest['enviar_im'] ?? 'N') === 'S' && !empty($prest['inscricao_municipal'])) {
+            $xml .= '<IM>' . preg_replace('/\D/', '', $prest['inscricao_municipal']) . '</IM>';
+        }
         if (!empty($prest['telefone'])) {
             $xml .= '<fone>' . preg_replace('/\D/', '', $prest['telefone']) . '</fone>';
         }
@@ -47,7 +50,10 @@ class NFSeXMLNacional implements NFSeXMLInterface
         }
         $xml .= '<regTrib>';
         $regime = (int) ($prest['regime_tributario'] ?? 1);
-        $xml .= '<opSimpNac>' . ($regime === 1 ? '1' : '2') . '</opSimpNac>';
+        $xml .= '<opSimpNac>' . $this->mapearOpcaoSimples($regime) . '</opSimpNac>';
+        if ($regime === 1) {
+            $xml .= '<regApTribSN>' . (int) ($prest['reg_apuracao_sn'] ?? 1) . '</regApTribSN>';
+        }
         $xml .= '<regEspTrib>0</regEspTrib>';
         $xml .= '</regTrib>';
         $xml .= '</prest>';
@@ -133,13 +139,18 @@ class NFSeXMLNacional implements NFSeXMLInterface
 
     public function gerarXMLCancelamento(string $chaveAcesso, string $motivo, array $dados): string
     {
+        $id = 'PRE' . preg_replace('/\D/', '', $chaveAcesso);
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
-        $xml .= '<pedidoCancelamento xmlns="' . self::NAMESPACE . '">';
-        $xml .= '<infPedidoCancelamento Id="CANCEL_' . htmlspecialchars($chaveAcesso) . '">';
+        $xml .= '<pedRegEvento xmlns="' . self::NAMESPACE . '" versao="1.01">';
+        $xml .= '<infPedReg Id="' . htmlspecialchars($id) . '">';
+        $xml .= '<tpAmb>' . (int) ($dados['ambiente'] ?? 2) . '</tpAmb>';
         $xml .= '<chNFSe>' . htmlspecialchars($chaveAcesso) . '</chNFSe>';
-        $xml .= '<xMotivo>' . mb_strtoupper(htmlspecialchars($motivo)) . '</xMotivo>';
-        $xml .= '</infPedidoCancelamento>';
-        $xml .= '</pedidoCancelamento>';
+        $xml .= '<dhEvento>' . date('Y-m-d\TH:i:sP') . '</dhEvento>';
+        $xml .= '<tpEvento>101101</tpEvento>';
+        $xml .= '<xDescEvento>Cancelamento de NFS-e</xDescEvento>';
+        $xml .= '<detEvento><evCancNFSe><xJust>' . mb_strtoupper(htmlspecialchars($motivo)) . '</xJust></evCancNFSe></detEvento>';
+        $xml .= '</infPedReg>';
+        $xml .= '</pedRegEvento>';
 
         return $xml;
     }
@@ -245,7 +256,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $cnpj = preg_replace('/\D/', '', $dados['prestador']['cnpj'] ?? '');
         $tpInsc = strlen($cnpj) === 14 ? '2' : '1';
         $nInsc = str_pad($cnpj, 14, '0', STR_PAD_LEFT);
-        $serie = str_pad($dados['serie'] ?? 'DPS', 5, '0', STR_PAD_LEFT);
+        $serie = str_pad(substr((string) ($dados['serie'] ?? 'DPS'), 0, 5), 5, '0', STR_PAD_RIGHT);
         $nDPS = str_pad($dados['numero'] ?? '0', 15, '0', STR_PAD_LEFT);
 
         return 'DPS' . $cMun . $tpInsc . $nInsc . $serie . $nDPS;
@@ -271,6 +282,15 @@ class NFSeXMLNacional implements NFSeXMLInterface
             3 => '030101', // Exportacao Servico
             4 => '990101', // Nao Incidencia
             default => '990101',
+        };
+    }
+
+    private function mapearOpcaoSimples(int $regime): string
+    {
+        return match ($regime) {
+            1 => '3',
+            4 => '2',
+            default => '1',
         };
     }
 
