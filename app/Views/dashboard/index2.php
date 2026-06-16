@@ -34,7 +34,29 @@
     </div>
 
     <!-- ============================================================ -->
-    <!-- ZONA A: KPIs Principais (8 cards, 2 linhas de 4) -->
+    <!-- ZONA A: Disponibilidade de Veículos -->
+    <!-- ============================================================ -->
+    <div class="kpi-card mb-6">
+        <div class="flex justify-between items-center mb-2">
+            <h4 class="text-sm font-semibold text-slate-800">{{ t('modules.dashboard.availability.title') }}</h4>
+            <div class="text-xs text-slate-500">{{ t('modules.dashboard.availability.total') }}: <span id="availTotal">{{ $fleetTotal }}</span></div>
+        </div>
+        <div class="availability-bar-container mb-2" id="availBar">
+            <div class="availability-segment" style="width: {{ $pctAvailable }}%; background-color: #66BB6A;" title="{{ t('modules.dashboard.availability.available') }}: {{ $available }}">{{ $available }}</div>
+            <div class="availability-segment" style="width: {{ $pctRented }}%; background-color: #EF5350;" title="{{ t('modules.dashboard.availability.rented') }}: {{ $rented }}">{{ $rented }}</div>
+            <div class="availability-segment" style="width: {{ $pctReserved }}%; background-color: #42A5F5;" title="{{ t('modules.dashboard.availability.reserved') }}: {{ $reserved }}">{{ $reserved }}</div>
+            <div class="availability-segment" style="width: {{ $pctWorkshop }}%; background-color: #FFEE58; color: #5D4037;" title="{{ t('modules.dashboard.availability.workshop') }}: {{ $workshop }}">{{ $workshop }}</div>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-700">
+            <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#66BB6A] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.available') }} (<span id="availAvailable">{{ $available }}</span>)</div>
+            <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#EF5350] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.rented') }} (<span id="availRented">{{ $rented }}</span>)</div>
+            <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#42A5F5] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.reserved') }} (<span id="availReserved">{{ $reserved }}</span>)</div>
+            <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#FFEE58] rounded-full mr-1.5 border border-slate-400"></span>{{ t('modules.dashboard.availability.workshop') }} (<span id="availWorkshop">{{ $workshop }}</span>)</div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ZONA B: KPIs Principais (8 cards, 2 linhas de 4) -->
     <!-- ============================================================ -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <!-- KPI 1: Frota Total -->
@@ -151,60 +173,55 @@
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- ZONA B + E: Frota (2/3) + Alertas (1/3) -->
-    <!-- ============================================================ -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <!-- Coluna Esquerda: Frota + Operações (2/3) -->
-        <div class="lg:col-span-2 space-y-4">
+    @php $canFinanceiro = \App\Core\Auth::can('financeiro.visualizar'); @endphp
+    @if($canFinanceiro)
+        @php
+            $finRevenue = (float) ($financial['revenue'] ?? 0);
+            $finExpenses = (float) ($financial['expenses'] ?? 0);
+            $finBalance = (float) ($financial['balance'] ?? 0);
+            $finMax = max($finRevenue, $finExpenses, 1);
+            $overdueAccounts = $stats['overdue_accounts'] ?? [];
+            $upcomingList = $stats['upcoming_due'] ?? [];
+            $overdueTotal = array_sum(array_column($overdueAccounts, 'valor'));
+            $upcomingTotal = array_sum(array_column($upcomingList, 'valor'));
+        @endphp
+    @endif
 
-            <!-- Barra de disponibilidade -->
-            <div class="kpi-card">
-                <div class="flex justify-between items-center mb-2">
-                    <h4 class="text-sm font-semibold text-slate-800">{{ t('modules.dashboard.availability.title') }}</h4>
-                    <div class="text-xs text-slate-500">{{ t('modules.dashboard.availability.total') }}: <span id="availTotal">{{ $fleetTotal }}</span></div>
-                </div>
-                <div class="availability-bar-container mb-2" id="availBar">
-                    <div class="availability-segment" style="width: {{ $pctAvailable }}%; background-color: #66BB6A;" title="{{ t('modules.dashboard.availability.available') }}: {{ $available }}">{{ $available }}</div>
-                    <div class="availability-segment" style="width: {{ $pctRented }}%; background-color: #EF5350;" title="{{ t('modules.dashboard.availability.rented') }}: {{ $rented }}">{{ $rented }}</div>
-                    <div class="availability-segment" style="width: {{ $pctReserved }}%; background-color: #42A5F5;" title="{{ t('modules.dashboard.availability.reserved') }}: {{ $reserved }}">{{ $reserved }}</div>
-                    <div class="availability-segment" style="width: {{ $pctWorkshop }}%; background-color: #FFEE58; color: #5D4037;" title="{{ t('modules.dashboard.availability.workshop') }}: {{ $workshop }}">{{ $workshop }}</div>
-                </div>
-                <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-700">
-                    <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#66BB6A] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.available') }} (<span id="availAvailable">{{ $available }}</span>)</div>
-                    <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#EF5350] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.rented') }} (<span id="availRented">{{ $rented }}</span>)</div>
-                    <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#42A5F5] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.reserved') }} (<span id="availReserved">{{ $reserved }}</span>)</div>
-                    <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#FFEE58] rounded-full mr-1.5 border border-slate-400"></span>{{ t('modules.dashboard.availability.workshop') }} (<span id="availWorkshop">{{ $workshop }}</span>)</div>
-                </div>
-            </div>
-
-            <!-- Operações do Dia -->
-            <div>
-                <h4 class="text-sm font-semibold text-slate-800 mb-3">{{ t('modules.dashboard.v2.operations.title') }}</h4>
-                <div class="grid grid-cols-3 gap-4">
-                    <!-- Saídas Hoje -->
-                    <div class="ops-card">
-                        <div class="text-emerald-500 mb-1"><i class="fas fa-sign-out-alt fa-lg"></i></div>
-                        <div class="ops-number text-emerald-600" id="opsDepartures">{{ (int) ($operations['departures_today'] ?? 0) }}</div>
-                        <p class="text-xs text-slate-500 mt-1">{{ t('modules.dashboard.v2.operations.departures_today') }}</p>
-                    </div>
-                    <!-- Devoluções Hoje -->
-                    <div class="ops-card">
-                        <div class="text-sky-500 mb-1"><i class="fas fa-sign-in-alt fa-lg"></i></div>
-                        <div class="ops-number text-sky-600" id="opsReturns">{{ (int) ($operations['returns_today'] ?? 0) }}</div>
-                        <p class="text-xs text-slate-500 mt-1">{{ t('modules.dashboard.v2.operations.returns_today') }}</p>
-                    </div>
-                    <!-- Atrasados -->
-                    <div class="ops-card border-red-200 bg-red-50/50">
-                        <div class="text-red-500 mb-1"><i class="fas fa-clock fa-lg"></i></div>
-                        <div class="ops-number text-red-600" id="opsOverdue">{{ (int) ($operations['overdue'] ?? 0) }}</div>
-                        <p class="text-xs text-red-400 mt-1">{{ t('modules.dashboard.v2.operations.overdue_returns') }}</p>
-                    </div>
-                </div>
-            </div>
+    <!-- ZONA C: Abas Operacionais -->
+    <!-- ============================================================ -->
+    <div class="mb-6">
+        <div class="border-b border-slate-300">
+            <nav class="flex space-x-1 -mb-px overflow-x-auto pb-1" id="inicioSubTabsNav">
+                <a href="#" data-subtab-target="#inicioSubTabReservas" class="tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link" aria-current="page">
+                    {{ t('modules.dashboard.tabs.reservations') }}
+                </a>
+                <a href="#" data-subtab-target="#inicioSubTabAlugados" class="tab-inactive-main hover:tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link">
+                    {{ t('modules.dashboard.tabs.rented') }}
+                </a>
+                <a href="#" data-subtab-target="#inicioSubTabDisponiveis" class="tab-inactive-main hover:tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link">
+                    {{ t('modules.dashboard.tabs.available') }}
+                </a>
+                <a href="#" data-subtab-target="#inicioSubTabChegadaPendente" class="tab-inactive-main hover:tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link">
+                    {{ t('modules.dashboard.tabs.pending_arrival') }}
+                </a>
+                <a href="#" data-subtab-target="#inicioSubTabProximasDevolucoes" class="tab-inactive-main hover:tab-active-main whitespace-nowrap py-3 px-4 text-sm subtab-link">
+                    {{ t('modules.dashboard.tabs.upcoming_returns') }}
+                </a>
+            </nav>
         </div>
+        <div id="inicioSubTabContentArea" class="py-5">
+            <div id="inicioSubTabReservas" class="subtab-content" data-dashboard-subtab="reservas"></div>
+            <div id="inicioSubTabAlugados" class="subtab-content hidden" data-dashboard-subtab="alugados"></div>
+            <div id="inicioSubTabDisponiveis" class="subtab-content hidden" data-dashboard-subtab="disponiveis"></div>
+            <div id="inicioSubTabChegadaPendente" class="subtab-content hidden" data-dashboard-subtab="chegada_pendente"></div>
+            <div id="inicioSubTabProximasDevolucoes" class="subtab-content hidden" data-dashboard-subtab="proximas_devolucoes"></div>
+        </div>
+    </div>
 
-        <!-- Coluna Direita: Alertas (1/3) -->
+    <!-- ============================================================ -->
+    <!-- ZONA D: Alertas + Financeiro Operacional -->
+    <!-- ============================================================ -->
+    <div class="grid grid-cols-1 {{ $canFinanceiro ? 'lg:grid-cols-3' : '' }} gap-4 mb-6">
         <div class="kpi-card">
             <div class="flex justify-between items-center mb-3">
                 <h4 class="text-sm font-semibold text-slate-800">
@@ -235,107 +252,67 @@
                 @endif
             </div>
         </div>
-    </div>
 
-    <!-- ============================================================ -->
-    <!-- ZONA C: Reservas Próximas (2/3) + Últimas Reservas (1/3) -->
-    <!-- ============================================================ -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <!-- Tabela Reservas Próximos 7 Dias -->
-        <div class="kpi-card lg:col-span-2">
-            <h4 class="text-sm font-semibold text-slate-800 mb-3">
-                <i class="fas fa-calendar-alt text-sky-500 mr-1"></i>{{ t('modules.dashboard.v2.reservations.upcoming_title') }}
-            </h4>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="text-left text-xs text-slate-500 border-b border-slate-200">
-                            <th class="pb-2 font-medium">#</th>
-                            <th class="pb-2 font-medium">{{ t('modules.dashboard.v2.reservations.code') }}</th>
-                            <th class="pb-2 font-medium">{{ t('modules.dashboard.v2.reservations.client') }}</th>
-                            <th class="pb-2 font-medium">{{ t('modules.dashboard.v2.reservations.vehicle') }}</th>
-                            <th class="pb-2 font-medium">{{ t('modules.dashboard.v2.reservations.date') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reservationsTable">
-                        @php $reservations = $stats['reservations'] ?? []; @endphp
-                        @if(empty($reservations))
-                            <tr><td colspan="5" class="py-4 text-center text-xs text-slate-400">{{ t('common.labels.no_data') }}</td></tr>
-                        @else
-                            @foreach($reservations as $i => $r)
-                                <tr class="{{ $i < count($reservations) - 1 ? 'border-b border-slate-100 ' : '' }}hover:bg-slate-50">
-                                    <td class="py-2 text-slate-400">{{ $i + 1 }}</td>
-                                    <td class="py-2 font-medium text-sky-600">{{ $r['codigo'] }}</td>
-                                    <td class="py-2 text-slate-700">{{ $r['cliente'] }}</td>
-                                    <td class="py-2 text-slate-600">{{ $r['veiculo'] }}</td>
-                                    <td class="py-2 text-slate-600">{{ $r['data'] }}</td>
-                                </tr>
-                            @endforeach
-                        @endif
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Feed Últimas Reservas -->
-        <div class="kpi-card">
-            <h4 class="text-sm font-semibold text-slate-800 mb-3">
-                <i class="fas fa-stream text-violet-500 mr-1"></i>{{ t('modules.dashboard.v2.reservations.latest_title') }}
-            </h4>
-            <div id="latestReservationsFeed" class="max-h-64 overflow-y-auto">
-                @php $latestList = $stats['latest_reservations'] ?? []; @endphp
-                @if(empty($latestList))
-                    <div class="text-xs text-slate-400 text-center py-4">{{ t('common.labels.no_data') }}</div>
-                @else
-                    @foreach($latestList as $r)
-                        @php
-                            $badgeClass = match($r['status'] ?? 'new') {
-                                'confirmed' => 'badge-confirmed',
-                                'cancelled' => 'badge-cancelled',
-                                default => 'badge-new',
-                            };
-                            $badgeLabel = match($r['status'] ?? 'new') {
-                                'confirmed' => t('modules.dashboard.v2.reservations.status_confirmed'),
-                                'cancelled' => t('modules.dashboard.v2.reservations.status_cancelled'),
-                                default => t('modules.dashboard.v2.reservations.status_new'),
-                            };
-                        @endphp
-                        <div class="feed-item">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <span class="text-xs text-slate-400">{{ $r['hora'] }}</span>
-                                    <span class="font-medium text-slate-700 ml-1">{{ $r['codigo'] }}</span>
-                                    <span class="text-slate-500 ml-1">{{ $r['cliente'] }} - {{ $r['veiculo'] }}</span>
-                                </div>
-                                <span class="{{ $badgeClass }}">{{ $badgeLabel }}</span>
+        @if($canFinanceiro)
+            <div class="kpi-card">
+                <h5 class="text-xs font-semibold text-slate-600 mb-3">{{ t('modules.dashboard.v2.financial.top_overdue') }}</h5>
+                <div id="topOverdueList" class="space-y-2">
+                    @if(empty($overdueAccounts))
+                        <div class="text-xs text-slate-400 text-center py-2">{{ t('common.labels.no_data') }}</div>
+                    @else
+                        @foreach($overdueAccounts as $acc)
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-600 truncate mr-2">{{ $acc['cliente'] }}</span>
+                                <span class="font-medium text-red-500 whitespace-nowrap">{{ currency_format((float) $acc['valor']) }}</span>
+                            </div>
+                        @endforeach
+                    @endif
+                    @if(!empty($overdueAccounts))
+                        <div class="border-t border-slate-200 pt-2 mt-1">
+                            <div class="flex justify-between text-xs font-semibold">
+                                <span class="text-slate-700">Total</span>
+                                <span class="text-red-600" id="finOverdueTotal">{{ currency_format($overdueTotal) }}</span>
                             </div>
                         </div>
-                    @endforeach
-                @endif
+                    @endif
+                </div>
             </div>
-        </div>
+
+            <div class="kpi-card">
+                <h5 class="text-xs font-semibold text-slate-600 mb-3">{{ t('modules.dashboard.v2.financial.upcoming_due') }}</h5>
+                <div id="upcomingDueList" class="space-y-2">
+                    @if(empty($upcomingList))
+                        <div class="text-xs text-slate-400 text-center py-2">{{ t('common.labels.no_data') }}</div>
+                    @else
+                        @foreach($upcomingList as $item)
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-600 truncate mr-2">{{ $item['descricao'] }}</span>
+                                <span class="font-medium text-amber-600 whitespace-nowrap">{{ currency_format((float) $item['valor']) }}</span>
+                            </div>
+                        @endforeach
+                    @endif
+                    @if(!empty($upcomingList))
+                        <div class="border-t border-slate-200 pt-2 mt-1">
+                            <div class="flex justify-between text-xs font-semibold">
+                                <span class="text-slate-700">Total</span>
+                                <span class="text-amber-600" id="finUpcomingTotal">{{ currency_format($upcomingTotal) }}</span>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @endif
     </div>
 
     <!-- ============================================================ -->
-    <!-- ZONA D: Resumo Financeiro (visível para quem tem permissão) -->
+    <!-- ZONA E: Resumo Financeiro (visível para quem tem permissão) -->
     <!-- ============================================================ -->
-    @php $canFinanceiro = \App\Core\Auth::can('financeiro.visualizar'); @endphp
     @if($canFinanceiro)
-    @php
-        $finRevenue = (float) ($financial['revenue'] ?? 0);
-        $finExpenses = (float) ($financial['expenses'] ?? 0);
-        $finBalance = (float) ($financial['balance'] ?? 0);
-        $finMax = max($finRevenue, $finExpenses, 1);
-        $overdueAccounts = $stats['overdue_accounts'] ?? [];
-        $upcomingList = $stats['upcoming_due'] ?? [];
-        $overdueTotal = array_sum(array_column($overdueAccounts, 'valor'));
-        $upcomingTotal = array_sum(array_column($upcomingList, 'valor'));
-    @endphp
     <div id="financialSection">
         <h4 class="text-sm font-semibold text-slate-800 mb-3">
             <i class="fas fa-chart-bar text-indigo-500 mr-1"></i>{{ t('modules.dashboard.v2.financial.title') }}
         </h4>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 gap-4 mb-6">
             <!-- Fluxo do Mês -->
             <div class="kpi-card">
                 <h5 class="text-xs font-semibold text-slate-600 mb-3">{{ t('modules.dashboard.v2.financial.cash_flow') }}</h5>
@@ -368,55 +345,6 @@
                 </div>
             </div>
 
-            <!-- Top 5 Vencidas -->
-            <div class="kpi-card">
-                <h5 class="text-xs font-semibold text-slate-600 mb-3">{{ t('modules.dashboard.v2.financial.top_overdue') }}</h5>
-                <div id="topOverdueList" class="space-y-2">
-                    @if(empty($overdueAccounts))
-                        <div class="text-xs text-slate-400 text-center py-2">{{ t('common.labels.no_data') }}</div>
-                    @else
-                        @foreach($overdueAccounts as $acc)
-                            <div class="flex justify-between text-xs">
-                                <span class="text-slate-600 truncate mr-2">{{ $acc['cliente'] }}</span>
-                                <span class="font-medium text-red-500 whitespace-nowrap">{{ currency_format((float) $acc['valor']) }}</span>
-                            </div>
-                        @endforeach
-                    @endif
-                    @if(!empty($overdueAccounts))
-                        <div class="border-t border-slate-200 pt-2 mt-1">
-                            <div class="flex justify-between text-xs font-semibold">
-                                <span class="text-slate-700">Total</span>
-                                <span class="text-red-600" id="finOverdueTotal">{{ currency_format($overdueTotal) }}</span>
-                            </div>
-                        </div>
-                    @endif
-                </div>
-            </div>
-
-            <!-- Vencem em 30 Dias -->
-            <div class="kpi-card">
-                <h5 class="text-xs font-semibold text-slate-600 mb-3">{{ t('modules.dashboard.v2.financial.upcoming_due') }}</h5>
-                <div id="upcomingDueList" class="space-y-2">
-                    @if(empty($upcomingList))
-                        <div class="text-xs text-slate-400 text-center py-2">{{ t('common.labels.no_data') }}</div>
-                    @else
-                        @foreach($upcomingList as $item)
-                            <div class="flex justify-between text-xs">
-                                <span class="text-slate-600 truncate mr-2">{{ $item['descricao'] }}</span>
-                                <span class="font-medium text-amber-600 whitespace-nowrap">{{ currency_format((float) $item['valor']) }}</span>
-                            </div>
-                        @endforeach
-                    @endif
-                    @if(!empty($upcomingList))
-                        <div class="border-t border-slate-200 pt-2 mt-1">
-                            <div class="flex justify-between text-xs font-semibold">
-                                <span class="text-slate-700">Total</span>
-                                <span class="text-amber-600" id="finUpcomingTotal">{{ currency_format($upcomingTotal) }}</span>
-                            </div>
-                        </div>
-                    @endif
-                </div>
-            </div>
         </div>
     </div>
     @endif
@@ -490,58 +418,16 @@
         }
     }
 
-    function updateOperations(ops) {
-        if (!ops) return;
-        const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-        setTxt('opsDepartures', ops.departures_today);
-        setTxt('opsReturns', ops.returns_today);
-        setTxt('opsOverdue', ops.overdue);
-    }
-
-    function updateReservationsTable(reservations) {
-        const tbody = document.getElementById('reservationsTable');
-        if (!tbody || !reservations) return;
-        tbody.innerHTML = reservations.map((r, i) =>
-            '<tr class="' + (i < reservations.length - 1 ? 'border-b border-slate-100 ' : '') + 'hover:bg-slate-50">' +
-                '<td class="py-2 text-slate-400">' + (i + 1) + '</td>' +
-                '<td class="py-2 font-medium text-sky-600">' + escapeHtml(r.codigo) + '</td>' +
-                '<td class="py-2 text-slate-700">' + escapeHtml(r.cliente) + '</td>' +
-                '<td class="py-2 text-slate-600">' + escapeHtml(r.veiculo) + '</td>' +
-                '<td class="py-2 text-slate-600">' + escapeHtml(r.data) + '</td>' +
-            '</tr>'
-        ).join('');
-    }
-
-    function updateLatestFeed(latest) {
-        const feed = document.getElementById('latestReservationsFeed');
-        if (!feed || !latest) return;
-
-        const statusBadge = {
-            'confirmed': '<span class="badge-confirmed">{{ t("modules.dashboard.v2.reservations.status_confirmed") }}</span>',
-            'new': '<span class="badge-new">{{ t("modules.dashboard.v2.reservations.status_new") }}</span>',
-            'cancelled': '<span class="badge-cancelled">{{ t("modules.dashboard.v2.reservations.status_cancelled") }}</span>'
-        };
-
-        feed.innerHTML = latest.map(r =>
-            '<div class="feed-item">' +
-                '<div class="flex justify-between items-start">' +
-                    '<div>' +
-                        '<span class="text-xs text-slate-400">' + escapeHtml(r.hora) + '</span>' +
-                        '<span class="font-medium text-slate-700 ml-1">' + escapeHtml(r.codigo) + '</span>' +
-                        '<span class="text-slate-500 ml-1">' + escapeHtml(r.cliente) + ' - ' + escapeHtml(r.veiculo) + '</span>' +
-                    '</div>' +
-                    (statusBadge[r.status] || '') +
-                '</div>' +
-            '</div>'
-        ).join('');
-    }
-
     function updateAlerts(alerts) {
         const list = document.getElementById('alertsList');
         const countEl = document.getElementById('alertCount');
         if (!list || !alerts) return;
 
         if (countEl) countEl.textContent = alerts.length;
+        if (alerts.length === 0) {
+            list.innerHTML = '<div class="text-xs text-slate-400 text-center py-4">{{ t("common.labels.no_data") }}</div>';
+            return;
+        }
 
         list.innerHTML = alerts.map(a =>
             '<div class="alert-item ' + escapeHtml(a.severity) + '">' +
@@ -587,11 +473,14 @@
                         '<span class="font-medium text-red-500 whitespace-nowrap">R$ ' + o.valor.toLocaleString('pt-BR') + '</span>' +
                     '</div>';
                 }).join('');
-                html += '<div class="border-t border-slate-200 pt-2 mt-1">' +
-                    '<div class="flex justify-between text-xs font-semibold">' +
-                        '<span class="text-slate-700">Total</span>' +
-                        '<span class="text-red-600">R$ ' + total.toLocaleString('pt-BR') + '</span>' +
-                    '</div></div>';
+                html = html || '<div class="text-xs text-slate-400 text-center py-2">{{ t("common.labels.no_data") }}</div>';
+                if (overdue.length > 0) {
+                    html += '<div class="border-t border-slate-200 pt-2 mt-1">' +
+                        '<div class="flex justify-between text-xs font-semibold">' +
+                            '<span class="text-slate-700">Total</span>' +
+                            '<span class="text-red-600">R$ ' + total.toLocaleString('pt-BR') + '</span>' +
+                        '</div></div>';
+                }
                 list.innerHTML = html;
             }
         }
@@ -607,11 +496,14 @@
                         '<span class="font-medium text-amber-600 whitespace-nowrap">R$ ' + u.valor.toLocaleString('pt-BR') + '</span>' +
                     '</div>';
                 }).join('');
-                html += '<div class="border-t border-slate-200 pt-2 mt-1">' +
-                    '<div class="flex justify-between text-xs font-semibold">' +
-                        '<span class="text-slate-700">Total</span>' +
-                        '<span class="text-amber-600">R$ ' + total.toLocaleString('pt-BR') + '</span>' +
-                    '</div></div>';
+                html = html || '<div class="text-xs text-slate-400 text-center py-2">{{ t("common.labels.no_data") }}</div>';
+                if (upcoming.length > 0) {
+                    html += '<div class="border-t border-slate-200 pt-2 mt-1">' +
+                        '<div class="flex justify-between text-xs font-semibold">' +
+                            '<span class="text-slate-700">Total</span>' +
+                            '<span class="text-amber-600">R$ ' + total.toLocaleString('pt-BR') + '</span>' +
+                        '</div></div>';
+                }
                 list.innerHTML = html;
             }
         }
@@ -643,9 +535,6 @@
                 const d = result.data;
                 updateKPIs(d.fleet, d.financial, d.contracts);
                 updateAvailabilityBar(d.fleet);
-                updateOperations(d.operations);
-                updateReservationsTable(d.reservations);
-                updateLatestFeed(d.latest_reservations);
                 updateAlerts(d.alerts);
                 updateFinancial(d.financial, d.overdue_accounts, d.upcoming_due);
                 updateTimestamp(result.timestamp);
