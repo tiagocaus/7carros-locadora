@@ -70,6 +70,7 @@ return [
         'no_records' => 'Nenhuma função registada.',
         'no_permissions' => 'Nenhuma permissão disponível.',
         'not_found' => 'Função não encontrada',
+        'reserved_name' => 'Este nome de função é reservado pelo sistema',
         'save_error' => 'Erro ao guardar função',
         'delete_error' => 'Erro ao eliminar função',
         'process_error' => 'Erro ao processar pedido',

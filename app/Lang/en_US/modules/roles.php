@@ -70,6 +70,7 @@ return [
         'no_records' => 'No roles registered.',
         'no_permissions' => 'No permissions available.',
         'not_found' => 'Role not found',
+        'reserved_name' => 'This role name is reserved by the system',
         'save_error' => 'Error saving role',
         'delete_error' => 'Error deleting role',
         'process_error' => 'Error processing request',

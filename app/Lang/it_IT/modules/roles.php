@@ -70,6 +70,7 @@ return [
         'no_records' => 'Nessun ruolo registrato.',
         'no_permissions' => 'Nessun permesso disponibile.',
         'not_found' => 'Ruolo non trovato',
+        'reserved_name' => 'Questo nome ruolo è riservato dal sistema',
         'save_error' => 'Errore nel salvataggio del ruolo',
         'delete_error' => 'Errore nell\'eliminazione del ruolo',
         'process_error' => 'Errore nell\'elaborazione della richiesta',

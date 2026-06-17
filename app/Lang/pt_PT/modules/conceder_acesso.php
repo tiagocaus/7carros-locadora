@@ -20,6 +20,10 @@ return [
     'warning_text' => 'INFORME POR ESCRITO. NAO PRINT OU FOTO.',
     'confirm_delete_title' => 'Confirmar eliminação',
     'confirm_delete_message' => 'Tem a certeza de que deseja eliminar o utilizador de suporte? Isso revogara imediatamente o acesso da equipa de suporte ao seu sistema.',
+    'support' => [
+        'role_name' => 'Suporte 7Carros',
+        'role_description' => 'Função temporária para acesso do suporte técnico',
+    ],
     'messages' => [
         'load_error' => 'Erro ao carregar estado',
         'server_error' => 'Erro ao ligar ao servidor',

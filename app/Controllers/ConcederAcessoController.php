@@ -117,8 +117,8 @@ class ConcederAcessoController
                 ? (int) $roleSuporte['id']
                 : $this->roleModel->criar(
                     $chave,
-                    Role::SUPPORT_ROLE_NAME,
-                    Role::SUPPORT_ROLE_DESCRIPTION
+                    Role::supportRoleName(),
+                    Role::supportRoleDescription()
                 );
 
             // Busca todas as permissoes do sistema
@@ -131,7 +131,7 @@ class ConcederAcessoController
             // Cria o usuario de suporte herdando o plano do tenant
             $this->funcionarioModel->criar([
                 'chave' => $chave,
-                'nome' => Role::SUPPORT_ROLE_NAME,
+                'nome' => Role::supportRoleName(),
                 'usuario' => $nomeUsuario,
                 'email' => $nomeUsuario . '@suporte.7carros.com',
                 'senha' => $senha,

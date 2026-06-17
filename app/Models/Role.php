@@ -10,12 +10,45 @@ namespace App\Models;
  */
 class Role extends Model
 {
-    public const SUPPORT_ROLE_NAME = 'Suporte 7Carros';
-    public const SUPPORT_ROLE_DESCRIPTION = 'Funcao temporaria para acesso do suporte tecnico';
+    private const SUPPORT_ROLE_NAME_KEY = 'modules.conceder_acesso.support.role_name';
+    private const SUPPORT_ROLE_DESCRIPTION_KEY = 'modules.conceder_acesso.support.role_description';
+
+    public static function supportRoleName(?string $locale = null): string
+    {
+        return t(self::SUPPORT_ROLE_NAME_KEY, [], $locale);
+    }
+
+    public static function supportRoleDescription(?string $locale = null): string
+    {
+        return t(self::SUPPORT_ROLE_DESCRIPTION_KEY, [], $locale);
+    }
+
+    public static function supportRoleNames(): array
+    {
+        $names = [];
+
+        foreach (array_keys(supported_locales()) as $locale) {
+            $name = self::supportRoleName($locale);
+
+            if ($name !== self::SUPPORT_ROLE_NAME_KEY) {
+                $names[] = $name;
+            }
+        }
+
+        return array_values(array_unique($names));
+    }
 
     public static function isSupportRoleName(string $name): bool
     {
-        return strtolower(trim($name)) === strtolower(self::SUPPORT_ROLE_NAME);
+        $normalizedName = strtolower(trim($name));
+
+        foreach (self::supportRoleNames() as $supportName) {
+            if ($normalizedName === strtolower(trim($supportName))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function isSupportRole(?array $role): bool
@@ -46,7 +79,7 @@ class Role extends Model
                 SELECT 1 FROM funcionarios_roles rs WHERE rs.chave = '0' AND rs.name = r.name
             ) THEN 1 ELSE 0 END as is_customization")
             ->withoutChave()
-            ->where('r.name', '!=', self::SUPPORT_ROLE_NAME)
+            ->whereNotIn('r.name', self::supportRoleNames())
             ->whereNested(function ($q) use ($chave) {
                 // Roles de sistema não customizadas pelo tenant
                 $q->whereNested(function ($sub) use ($chave) {
@@ -87,7 +120,7 @@ class Role extends Model
         return $this->qb
             ->table('funcionarios_roles')
             ->select(['id', 'chave', 'name', 'description'])
-            ->where('name', '=', self::SUPPORT_ROLE_NAME)
+            ->whereIn('name', self::supportRoleNames())
             ->first();
     }
 
@@ -242,7 +275,7 @@ class Role extends Model
             ->table('funcionarios_roles')
             ->select(['id', 'name'])
             ->withGlobals()
-            ->where('name', '!=', self::SUPPORT_ROLE_NAME)
+            ->whereNotIn('name', self::supportRoleNames())
             ->orderBy('name', 'ASC')
             ->get();
     }

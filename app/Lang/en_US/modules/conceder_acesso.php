@@ -20,6 +20,10 @@ return [
     'warning_text' => 'SHARE IN WRITING. DO NOT SCREENSHOT OR PHOTO.',
     'confirm_delete_title' => 'Confirm deletion',
     'confirm_delete_message' => 'Are you sure you want to delete the support user? This will immediately revoke the support team\'s access to your system.',
+    'support' => [
+        'role_name' => '7Carros Support',
+        'role_description' => 'Temporary role for technical support access',
+    ],
     'messages' => [
         'load_error' => 'Error loading status',
         'server_error' => 'Error connecting to server',

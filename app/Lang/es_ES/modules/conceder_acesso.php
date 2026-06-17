@@ -20,6 +20,10 @@ return [
     'warning_text' => 'INFORME POR ESCRITO. NO CAPTURA DE PANTALLA NI FOTO.',
     'confirm_delete_title' => 'Confirmar eliminacion',
     'confirm_delete_message' => 'Está seguro de que desea eliminar el usuario de soporte? Esto revocara inmediatamente el acceso del equipo de soporte a su sistema.',
+    'support' => [
+        'role_name' => 'Soporte 7Carros',
+        'role_description' => 'Rol temporal para acceso del soporte técnico',
+    ],
     'messages' => [
         'load_error' => 'Error al cargar estado',
         'server_error' => 'Error al conectar con el servidor',

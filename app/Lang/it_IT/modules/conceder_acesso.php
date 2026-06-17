@@ -20,6 +20,10 @@ return [
     'warning_text' => 'COMUNICA PER ISCRITTO. NON SCREENSHOT O FOTO.',
     'confirm_delete_title' => 'Conferma eliminazione',
     'confirm_delete_message' => 'Sei sicuro di voler eliminare l\'utente di supporto? Questo revochera immediatamente l\'accesso del team di supporto al tuo sistema.',
+    'support' => [
+        'role_name' => 'Supporto 7Carros',
+        'role_description' => 'Ruolo temporaneo per accesso del supporto tecnico',
+    ],
     'messages' => [
         'load_error' => 'Errore durante il caricamento dello stato',
         'server_error' => 'Errore di connessione al server',

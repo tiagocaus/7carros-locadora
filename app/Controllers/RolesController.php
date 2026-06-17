@@ -119,7 +119,7 @@ class RolesController
             if (!$role || Role::isSupportRole($role)) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Função não encontrada'
+                    'message' => t('modules.roles.messages.not_found')
                 ], 404);
                 return;
             }
@@ -181,7 +181,7 @@ class RolesController
                 $role = $this->roleModel->buscarPorId((int) $id, $chave);
 
                 if (!$role || Role::isSupportRole($role)) {
-                    Response::notFound('Função não encontrada');
+                    Response::notFound(t('modules.roles.messages.not_found'));
                     return;
                 }
 
@@ -248,7 +248,7 @@ class RolesController
             if (Role::isSupportRoleName($name)) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Este nome de função é reservado pelo sistema'
+                    'message' => t('modules.roles.messages.reserved_name')
                 ], 400);
                 return;
             }
@@ -332,7 +332,7 @@ class RolesController
             if (!$role || Role::isSupportRole($role)) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Função não encontrada'
+                    'message' => t('modules.roles.messages.not_found')
                 ], 404);
                 return;
             }
@@ -353,7 +353,7 @@ class RolesController
             if (Role::isSupportRoleName($name)) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Este nome de função é reservado pelo sistema'
+                    'message' => t('modules.roles.messages.reserved_name')
                 ], 400);
                 return;
             }
@@ -511,7 +511,7 @@ class RolesController
             if (!$role || Role::isSupportRole($role)) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Função não encontrada'
+                    'message' => t('modules.roles.messages.not_found')
                 ], 404);
                 return;
             }
@@ -615,7 +615,7 @@ class RolesController
             if (!$customRole || $customRole['chave'] !== $chave) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Função não encontrada'
+                    'message' => t('modules.roles.messages.not_found')
                 ], 404);
                 return;
             }
@@ -623,7 +623,7 @@ class RolesController
             if (Role::isSupportRole($customRole)) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Função não encontrada'
+                    'message' => t('modules.roles.messages.not_found')
                 ], 404);
                 return;
             }
