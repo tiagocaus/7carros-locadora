@@ -57,6 +57,7 @@ return [
     'status_options' => [
         'active' => 'Attivo',
         'inactive' => 'Inattivo',
+        'not_configured' => 'Non configurato',
     ],
 
     // Paesi
@@ -121,6 +122,7 @@ return [
         'testing' => 'Test in corso...',
         'copy_url' => 'Copia URL',
         'view_docs' => 'Visualizza documentazione',
+        'configure' => 'Configura',
         'deactivate' => 'Disattiva',
         'activate' => 'Attiva',
     ],

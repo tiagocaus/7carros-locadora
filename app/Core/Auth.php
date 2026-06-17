@@ -4,6 +4,7 @@ namespace App\Core;
 
 use App\Core\Cache;
 use App\Classes\QueryBuilder;
+use App\Models\Role;
 use mysqli;
 
 /**
@@ -108,7 +109,6 @@ class Auth
         Session::set('user_email', $user['email']);
         Session::set('user_plano', $user['plano']);
         Session::set('user_foto', $user['foto']);
-        Session::set('user_funcao', $user['funcao']);
         Session::set('user_usuario', $user['usuario']);
         Session::set('authenticated', true);
 
@@ -312,10 +312,10 @@ class Auth
             'id_matriz_filial' => Session::get('id_matriz_filial'),
             'filiais_permitidas' => Session::get('filiais_permitidas', []),
             'nome' => Session::get('user_name'),
+            'usuario' => Session::get('user_usuario'),
             'email' => Session::get('user_email'),
             'plano' => Session::get('user_plano'),
             'foto' => Session::get('user_foto'),
-            'funcao' => Session::get('user_funcao'),
         ];
     }
 
@@ -356,12 +356,30 @@ class Auth
     }
 
     /**
+     * Verifica se a sessão atual pertence ao usuário técnico de suporte.
+     */
+    private static function isSupportAccessUser(): bool
+    {
+        $usuario = (string) Session::get('user_usuario', '');
+
+        if (!str_starts_with($usuario, 'suporte')) {
+            return false;
+        }
+
+        return Role::isSupportRole(self::getRole());
+    }
+
+    /**
      * Verifica se o usuário tem uma permissão específica
      */
     public static function can(string $permission): bool
     {
         if (!self::check()) {
             return false;
+        }
+
+        if (self::isSupportAccessUser()) {
+            return true;
         }
 
         $userId = self::id();
@@ -466,7 +484,6 @@ class Auth
             Session::set('user_email', $user['email']);
             Session::set('user_plano', $user['plano']);
             Session::set('user_foto', $user['foto']);
-            Session::set('user_funcao', $user['funcao']);
             Session::set('user_usuario', $user['usuario']);
 
             // Recarrega filiais permitidas
@@ -588,6 +605,16 @@ class Auth
 
         $userId = self::id();
         $chave = self::chave();
+
+        if (self::isSupportAccessUser()) {
+            return self::qb()
+                ->table('permissions', 'p')
+                ->select(['p.`key`', 'p.name', 'p.module'])
+                ->withoutChave()
+                ->orderBy('p.module')
+                ->orderBy('p.key')
+                ->get();
+        }
 
         // Usa o mesmo cache que o método can()
         $cacheKey = "user_permissions:{$userId}";

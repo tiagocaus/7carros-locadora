@@ -37,6 +37,8 @@
             currency: <?= json_encode(currency_config()) ?>,
             date: <?= json_encode(date_config()) ?>
         };
+        window.APP_I18N = window.APP_I18N || {};
+        window.APP_I18N.common = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('common'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     </script>
 
     <!-- JavaScript -->

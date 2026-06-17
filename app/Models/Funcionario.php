@@ -23,8 +23,19 @@ class Funcionario extends Model
     public function listar(?string $where = null, array $params = [], ?string $orderBy = 'nome ASC'): array
     {
         $query = $this->qb
-            ->table('funcionarios')
-            ->select(['id', 'nome', 'usuario', 'email', 'status', 'foto', 'funcao', 'id_role']);
+            ->table('funcionarios', 'f')
+            ->select([
+                'f.id',
+                'f.nome',
+                'f.usuario',
+                'f.email',
+                'f.status',
+                'f.foto',
+                'f.id_role',
+                'r.name AS role_name',
+                'r.name AS funcao',
+            ])
+            ->leftJoin('funcionarios_roles', 'r', 'f.id_role', '=', 'r.id');
 
         if (!empty($where)) {
             $query->whereRaw($where, $params);
@@ -46,8 +57,14 @@ class Funcionario extends Model
     public function buscarPorId(int $id): ?array
     {
         return $this->qb
-            ->table('funcionarios')
-            ->where('id', '=', $id)
+            ->table('funcionarios', 'f')
+            ->select([
+                'f.*',
+                'r.name AS role_name',
+                'r.name AS funcao',
+            ])
+            ->leftJoin('funcionarios_roles', 'r', 'f.id_role', '=', 'r.id')
+            ->where('f.id', '=', $id)
             ->first();
     }
 
@@ -122,14 +139,24 @@ class Funcionario extends Model
         $searchTerm = "%{$termo}%";
 
         return $this->qb
-            ->table('funcionarios')
-            ->select(['id', 'nome', 'usuario', 'email', 'status', 'foto', 'funcao'])
+            ->table('funcionarios', 'f')
+            ->select([
+                'f.id',
+                'f.nome',
+                'f.usuario',
+                'f.email',
+                'f.status',
+                'f.foto',
+                'r.name AS role_name',
+                'r.name AS funcao',
+            ])
+            ->leftJoin('funcionarios_roles', 'r', 'f.id_role', '=', 'r.id')
             ->whereNested(function ($q) use ($searchTerm) {
-                $q->where('nome', 'LIKE', $searchTerm)
-                  ->orWhere('email', 'LIKE', $searchTerm)
-                  ->orWhere('usuario', 'LIKE', $searchTerm);
+                $q->where('f.nome', 'LIKE', $searchTerm)
+                  ->orWhere('f.email', 'LIKE', $searchTerm)
+                  ->orWhere('f.usuario', 'LIKE', $searchTerm);
             })
-            ->orderBy('nome', 'ASC')
+            ->orderBy('f.nome', 'ASC')
             ->get();
     }
 
@@ -154,9 +181,9 @@ class Funcionario extends Model
                 'f.email',
                 'f.status',
                 'f.foto',
-                'f.funcao',
                 'f.id_role',
-                'COALESCE(r.name, f.funcao, \'-\') as role_name'
+                'COALESCE(r.name, \'-\') as role_name',
+                'COALESCE(r.name, \'-\') as funcao'
             ])
             ->leftJoin('funcionarios_roles', 'r', 'f.id_role', '=', 'r.id')
             ->withoutChave();

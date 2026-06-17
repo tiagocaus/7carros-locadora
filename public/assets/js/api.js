@@ -10,6 +10,20 @@ const API = {
     _refreshing: null,
     _heartbeatTimer: null,
 
+    t(path, fallback, replace = {}) {
+        const parts = path.split('.');
+        let value = window.APP_I18N?.common || {};
+        for (const part of parts) {
+            if (!value || typeof value !== 'object' || !(part in value)) return fallback;
+            value = value[part];
+        }
+        if (typeof value !== 'string') return fallback;
+        Object.entries(replace).forEach(([key, item]) => {
+            value = value.replaceAll(':' + key, item);
+        });
+        return value;
+    },
+
     /**
      * Obtém o token CSRF da meta tag
      */
@@ -274,7 +288,10 @@ const API = {
                 document.body.classList.add('modal-open');
             } else {
                 // Fallback: alert simples
-                alert('Sua sessão expirou. A página será recarregada.');
+                const message = this.t('session.expired_reload', 'Sua sessão expirou. A página será recarregada.');
+                if (window.parent && typeof window.parent.postMessage === 'function') {
+                    window.parent.postMessage({ action: 'openAlert', message }, '*');
+                }
                 window.location.reload();
             }
         }

@@ -48,6 +48,18 @@ return [
         'payment_received' => 'Pagamento Ricevuto',
         'payment_received_description' => 'Conferma di ricezione del pagamento',
 
+        'signature_request' => 'Richiesta di Firma',
+        'signature_request_description' => 'Inviato al cliente per richiedere la firma digitale',
+        'signature_request_desc' => 'Inviato al cliente per richiedere la firma digitale',
+
+        'pedido_reserva' => 'Richiesta di Prenotazione',
+        'pedido_reserva_description' => 'Inviato quando viene registrata una richiesta di prenotazione',
+        'pedido_reserva_desc' => 'Inviato quando viene registrata una richiesta di prenotazione',
+
+        'confirmacao_reserva' => 'Conferma Prenotazione',
+        'confirmacao_reserva_description' => 'Inviato quando una prenotazione viene confermata',
+        'confirmacao_reserva_desc' => 'Inviato quando una prenotazione viene confermata',
+
         // Altri
         'general_notification' => 'Notifica Generale',
         'general_notification_description' => 'Modello per notifiche varie',

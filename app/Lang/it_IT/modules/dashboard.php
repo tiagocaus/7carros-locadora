@@ -41,6 +41,32 @@ return [
         'tab_content_will_appear' => 'Contenuto della scheda ":tab" apparirà qui.',
     ],
 
+    'subtabs' => [
+        'reservations_empty' => 'Nessuna prenotazione trovata.',
+        'rented_empty' => 'Nessun noleggio aperto trovato.',
+        'available_empty' => 'Nessun veicolo disponibile trovato.',
+        'pending_arrival_empty' => 'Nessun arrivo in sospeso trovato.',
+        'upcoming_returns_empty' => 'Nessuna restituzione prossima trovata.',
+        'departure' => 'Uscita',
+        'expected' => 'Prevista',
+        'loading' => 'Caricamento :title...',
+        'load_error' => 'Non e stato possibile caricare i dati di questa scheda.',
+        'updated' => 'Aggiornato :time',
+        'plate' => 'Targa',
+        'vehicle' => 'Veicolo',
+        'group' => 'Gruppo',
+        'branch' => 'Filiale',
+        'odometer' => 'Contachilometri',
+        'actions' => 'Azioni',
+        'code' => 'Codice',
+        'client' => 'Cliente',
+        'deadline' => 'Scadenza',
+        'open' => 'Apri',
+        'today' => 'Oggi',
+        'tomorrow' => 'Domani',
+        'pending_pickup' => 'Ritiro in sospeso',
+    ],
+
     // Dashboard v2 (Cockpit)
     'v2' => [
         'title' => 'Pannello di Controllo',

@@ -74,10 +74,10 @@
 
             <!-- Valores por filial (so tipo_valor=MON) -->
             <div id="valoresFiliaisSection" class="md:col-span-2 hidden">
-                <h4 class="form-section-title mt-2 mb-2"><i class="fas fa-coins mr-2"></i><?= t('modules.taxas_servicos.sections.values_by_branch', [], 'Valores por filial') ?></h4>
-                <p class="text-sm text-slate-500 mb-4"><?= t('modules.taxas_servicos.descriptions.values_by_branch', [], 'Como e valor monetario fixo, cada filial tem o valor na sua moeda.') ?></p>
+                <h4 class="form-section-title mt-2 mb-2"><i class="fas fa-coins mr-2"></i><?= t('modules.taxas_servicos.sections.values_by_branch') ?></h4>
+                <p class="text-sm text-slate-500 mb-4"><?= t('modules.taxas_servicos.descriptions.values_by_branch') ?></p>
                 <div id="valoresFiliaisTabela" class="space-y-2">
-                    <p class="text-sm text-slate-400 italic"><?= t('modules.taxas_servicos.messages.select_branches_first', [], 'Selecione ao menos uma filial para definir os valores.') ?></p>
+                    <p class="text-sm text-slate-400 italic"><?= t('modules.taxas_servicos.messages.select_branches_first') ?></p>
                 </div>
             </div>
 
@@ -549,7 +549,7 @@
                 .filter(Boolean);
 
             if (participantes.length === 0) {
-                container.innerHTML = '<p class="text-sm text-slate-400 italic"><?= addslashes(t('modules.taxas_servicos.messages.select_branches_first', [], 'Selecione ao menos uma filial para definir os valores.')) ?></p>';
+                container.innerHTML = '<p class="text-sm text-slate-400 italic"><?= addslashes(t('modules.taxas_servicos.messages.select_branches_first')) ?></p>';
                 return;
             }
 

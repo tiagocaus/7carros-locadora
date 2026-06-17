@@ -129,7 +129,7 @@ class LocalizarController
                         'items' => array_map(fn($row) => [
                             'id' => $row['id'],
                             'title' => $row['nome'] ?? '',
-                            'subtitle' => $row['funcao'] ?? $row['email'] ?? '',
+                            'subtitle' => $row['role_name'] ?? $row['email'] ?? '',
                             'page' => '/pages/funcionarios/adicionar?id=' . $row['id'],
                             'tabName' => 'Funcionários',
                             'tabIcon' => 'fas fa-id-badge',

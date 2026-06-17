@@ -184,6 +184,61 @@ return [
         'showing_records' => 'Exibindo :start-:end de :total registros',
     ],
 
+    'chosen' => [
+        'placeholder' => 'Selecione uma opção...',
+        'no_results' => 'Nenhum resultado encontrado',
+        'min_chars' => 'Digite pelo menos {min} letras para buscar...',
+        'loading' => 'Carregando...',
+        'search' => 'Buscar...',
+        'search_options' => 'Buscar opções',
+        'clear_selection' => 'Limpar seleção',
+    ],
+
+    'photo_upload' => [
+        'unsupported_format' => 'Formato não suportado. Use apenas: :types',
+        'image_too_large' => 'A imagem é muito grande. Por favor, selecione uma imagem menor que :maxMBMB.',
+        'camera_not_supported' => 'Seu navegador não suporta acesso à câmera. Use a opção de enviar arquivo.',
+    ],
+
+    'session' => [
+        'expired_reload' => 'Sua sessão expirou. A página será recarregada.',
+    ],
+
+    'auth' => [
+        'login_title' => 'Login - 7Carros Locadora',
+        'rental_system' => 'Sistema de Locadora',
+        'management_system' => '7Carros - Sistema de Gestão de Locadora',
+        'username_email' => 'Usuário ou E-mail',
+        'username_email_placeholder' => 'Digite seu usuário ou e-mail',
+        'password' => 'Senha',
+        'password_placeholder' => 'Digite sua senha',
+        'remember_login' => 'Salvar login',
+        'signing_in' => 'Entrando...',
+        'forgot_password' => 'Redefinir senha',
+        'recovery_message' => 'Digite seu usuario ou e-mail. Se encontrarmos uma conta ativa, enviaremos um link de redefinicao para o e-mail cadastrado.',
+        'email_or_username' => 'E-mail ou Usuário',
+        'email_or_username_placeholder' => 'Digite seu e-mail ou usuário',
+        'send_link' => 'Enviar link',
+        'sending' => 'Enviando...',
+        'identifier_required' => 'Por favor, digite seu e-mail ou usuário.',
+        'reset_request_error' => 'Não foi possível solicitar a redefinição.',
+        'reset_error' => 'Erro ao solicitar redefinição de senha.',
+    ],
+
+    'changelog' => [
+        'subtitle' => 'Acompanhe todas as <strong>novidades e melhorias</strong> da plataforma',
+        'loading_updates' => 'Carregando atualizações...',
+        'loading_more' => 'Carregando mais...',
+        'none_available' => 'Nenhuma atualização disponível.',
+        'load_error' => 'Erro ao carregar atualizações.',
+        'new' => 'Novo',
+        'improved' => 'Aprimorado',
+        'fix' => 'Correção',
+        'version' => 'Versão',
+        'most_recent' => 'Mais Recente',
+        'current' => 'ATUAL',
+    ],
+
     // Dias da semana
     'days' => [
         'sunday' => 'Domingo',

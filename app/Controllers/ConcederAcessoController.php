@@ -111,12 +111,15 @@ class ConcederAcessoController
         $this->roleModel->beginTransaction();
 
         try {
-            // Cria role "Suporte 7Carros" com todas as permissoes
-            $roleId = $this->roleModel->criar(
-                $chave,
-                'Suporte 7Carros',
-                'Funcao temporaria para acesso do suporte tecnico'
-            );
+            // Cria ou reaproveita a role reservada de suporte com todas as permissoes
+            $roleSuporte = $this->roleModel->buscarRoleSuporte($chave);
+            $roleId = $roleSuporte
+                ? (int) $roleSuporte['id']
+                : $this->roleModel->criar(
+                    $chave,
+                    Role::SUPPORT_ROLE_NAME,
+                    Role::SUPPORT_ROLE_DESCRIPTION
+                );
 
             // Busca todas as permissoes do sistema
             $todasPermissoes = $this->permissionModel->listarTodas();
@@ -128,12 +131,11 @@ class ConcederAcessoController
             // Cria o usuario de suporte herdando o plano do tenant
             $this->funcionarioModel->criar([
                 'chave' => $chave,
-                'nome' => 'Suporte 7Carros',
+                'nome' => Role::SUPPORT_ROLE_NAME,
                 'usuario' => $nomeUsuario,
                 'email' => $nomeUsuario . '@suporte.7carros.com',
                 'senha' => $senha,
                 'status' => 'A',
-                'funcao' => 'Suporte Tecnico',
                 'id_role' => $roleId,
                 'plano' => $this->funcionarioModel->getPlanoTenant()
             ]);
@@ -178,8 +180,8 @@ class ConcederAcessoController
         $this->roleModel->beginTransaction();
 
         try {
-            // Busca a role "Suporte 7Carros" do tenant
-            $roleSuporte = $this->roleModel->buscarPorNome('Suporte 7Carros', $chave);
+            // Busca a role reservada de suporte do tenant
+            $roleSuporte = $this->roleModel->buscarRoleSuporte($chave);
 
             // Exclui o funcionario (hard delete para usuario de suporte)
             $this->funcionarioModel->excluirPermanente($usuarioSuporte['id']);

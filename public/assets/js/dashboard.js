@@ -519,48 +519,63 @@ document.addEventListener('DOMContentLoaded', function () {
             closeAllPopups();
         }
     });
+    const dashboardI18n = window.APP_I18N?.dashboard || {};
+    const dashboardT = function(path, fallback, replace) {
+        const parts = path.split('.');
+        let value = dashboardI18n || {};
+        for (const part of parts) {
+            if (!value || typeof value !== 'object' || !(part in value)) return fallback;
+            value = value[part];
+        }
+        if (typeof value !== 'string') return fallback;
+        Object.entries(replace || {}).forEach(([key, item]) => {
+            value = value.replaceAll(':' + key, item);
+        });
+        return value;
+    };
+
     const dashboardSimpleSubtabs = {
         '#inicioSubTabReservas': {
             tab: 'reservas',
-            title: 'Reservas',
+            title: dashboardT('tabs.reservations', 'Reservas'),
             icon: 'fa-calendar-check',
-            empty: 'Nenhuma reserva encontrada.',
+            empty: dashboardT('subtabs.reservations_empty', 'Nenhuma reserva encontrada.'),
             kind: 'locacao',
-            dateLabel: 'Saída',
+            dateLabel: dashboardT('subtabs.departure', 'Saída'),
             filialField: 'filial_retirada'
         },
         '#inicioSubTabAlugados': {
             tab: 'alugados',
-            title: 'Alugados',
+            title: dashboardT('tabs.rented', 'Alugados'),
             icon: 'fa-car-side',
-            empty: 'Nenhuma locação aberta encontrada.',
+            empty: dashboardT('subtabs.rented_empty', 'Nenhuma locação aberta encontrada.'),
             kind: 'locacao',
-            dateLabel: 'Prevista',
+            dateLabel: dashboardT('subtabs.expected', 'Prevista'),
             filialField: 'filial_devolucao'
         },
         '#inicioSubTabDisponiveis': {
             tab: 'disponiveis',
-            title: 'Disponíveis',
+            title: dashboardT('tabs.available', 'Disponíveis'),
             icon: 'fa-car',
-            empty: 'Nenhum veículo disponível encontrado.',
+            empty: dashboardT('subtabs.available_empty', 'Nenhum veículo disponível encontrado.'),
             kind: 'veiculo'
         },
         '#inicioSubTabChegadaPendente': {
             tab: 'chegada_pendente',
-            title: 'Chegada pendente',
+            title: dashboardT('tabs.pending_arrival', 'Chegada pendente'),
             icon: 'fa-clock',
-            empty: 'Nenhuma chegada pendente encontrada.',
+            empty: dashboardT('subtabs.pending_arrival_empty', 'Nenhuma chegada pendente encontrada.'),
             kind: 'locacao',
-            dateLabel: 'Prevista',
+            dateLabel: dashboardT('subtabs.expected', 'Prevista'),
             filialField: 'filial_devolucao'
         },
         '#inicioSubTabProximasDevolucoes': {
             tab: 'proximas_devolucoes',
-            title: 'Próximas Devoluções',
+            title: dashboardT('tabs.upcoming_returns', 'Próximas Devoluções'),
             icon: 'fa-rotate-left',
-            empty: 'Nenhuma devolução próxima encontrada.',
+            empty: dashboardT('subtabs.upcoming_returns_empty', 'Nenhuma devolução próxima encontrada.'),
             kind: 'locacao',
-            dateLabel: 'Prevista',
+            dateLabel: dashboardT('subtabs.expected', 'Prevista'),
             filialField: 'filial_devolucao'
         }
     };
@@ -578,7 +593,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return '<div class="kpi-card min-h-32 flex items-center justify-center">' +
             '<div class="text-sm text-slate-500 flex items-center gap-2">' +
             '<i class="fas fa-spinner fa-spin"></i>' +
-            '<span>Carregando ' + escapeHTML(config.title.toLowerCase()) + '...</span>' +
+            '<span>' + escapeHTML(dashboardT('subtabs.loading', 'Carregando :title...', { title: config.title.toLowerCase() })) + '</span>' +
             '</div>' +
             '</div>';
     }
@@ -596,13 +611,13 @@ document.addEventListener('DOMContentLoaded', function () {
         return '<div class="kpi-card min-h-32">' +
             renderDashboardSubtabHeader(config, '', 0) +
             '<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">' +
-            escapeHTML(message || 'Não foi possível carregar os dados desta aba.') +
+            escapeHTML(message || dashboardT('subtabs.load_error', 'Não foi possível carregar os dados desta aba.')) +
             '</div>' +
             '</div>';
     }
 
     function renderDashboardSubtabHeader(config, updatedAt, count) {
-        const updated = updatedAt ? '<span class="text-xs text-slate-400">Atualizado ' + escapeHTML(updatedAt) + '</span>' : '';
+        const updated = updatedAt ? '<span class="text-xs text-slate-400">' + escapeHTML(dashboardT('subtabs.updated', 'Atualizado :time', { time: updatedAt })) + '</span>' : '';
         return '<div class="flex flex-wrap items-center justify-between gap-2 mb-3 border-b border-slate-100 pb-2">' +
             '<h4 class="text-base font-semibold text-slate-800 flex items-center gap-2">' +
             '<i class="fas ' + config.icon + ' text-slate-400"></i>' +
@@ -614,11 +629,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function getDashboardBadgeClass(label) {
-        if (label === 'Hoje') return 'bg-sky-100 text-sky-700';
-        if (label === 'Amanhã') return 'bg-amber-100 text-amber-700';
-        if (label === 'Retirada pendente') return 'bg-orange-100 text-orange-700';
+        if (label === 'Hoje' || label === dashboardT('subtabs.today', 'Hoje')) return 'bg-sky-100 text-sky-700';
+        if (label === 'Amanhã' || label === dashboardT('subtabs.tomorrow', 'Amanhã')) return 'bg-amber-100 text-amber-700';
+        if (label === 'Retirada pendente' || label === dashboardT('subtabs.pending_pickup', 'Retirada pendente')) return 'bg-orange-100 text-orange-700';
         if (label && label.includes('atraso')) return 'bg-red-100 text-red-700';
-        if (label === 'Disponível') return 'bg-emerald-100 text-emerald-700';
+        if (label === 'Disponível' || label === dashboardT('availability.available', 'Disponível')) return 'bg-emerald-100 text-emerald-700';
         return 'bg-slate-100 text-slate-600';
     }
 
@@ -645,23 +660,23 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderDashboardSubtabHead(config) {
         if (config.kind === 'veiculo') {
             return '<tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">' +
-                '<th class="pb-2 pr-4">Placa</th>' +
-                '<th class="pb-2 pr-4">Veículo</th>' +
-                '<th class="pb-2 pr-4">Grupo</th>' +
-                '<th class="pb-2 pr-4">Filial</th>' +
-                '<th class="pb-2 pr-4">Odômetro</th>' +
-                '<th class="pb-2 text-right">Ações</th>' +
+                '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.plate', 'Placa')) + '</th>' +
+                '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.vehicle', 'Veículo')) + '</th>' +
+                '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.group', 'Grupo')) + '</th>' +
+                '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.branch', 'Filial')) + '</th>' +
+                '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.odometer', 'Odômetro')) + '</th>' +
+                '<th class="pb-2 text-right">' + escapeHTML(dashboardT('subtabs.actions', 'Ações')) + '</th>' +
                 '</tr>';
         }
 
         return '<tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">' +
-            '<th class="pb-2 pr-4">Código</th>' +
-            '<th class="pb-2 pr-4">Veículo</th>' +
-            '<th class="pb-2 pr-4">Cliente</th>' +
+            '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.code', 'Código')) + '</th>' +
+            '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.vehicle', 'Veículo')) + '</th>' +
+            '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.client', 'Cliente')) + '</th>' +
             '<th class="pb-2 pr-4">' + escapeHTML(config.dateLabel) + '</th>' +
-            '<th class="pb-2 pr-4">Filial</th>' +
-            '<th class="pb-2 pr-4">Prazo</th>' +
-            '<th class="pb-2 text-right">Ações</th>' +
+            '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.branch', 'Filial')) + '</th>' +
+            '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.deadline', 'Prazo')) + '</th>' +
+            '<th class="pb-2 text-right">' + escapeHTML(dashboardT('subtabs.actions', 'Ações')) + '</th>' +
             '</tr>';
     }
 
@@ -677,7 +692,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<td class="py-3 pr-4">' + escapeHTML(row[config.filialField] || '-') + '</td>' +
                 '<td class="py-3 pr-4"><span class="text-xs px-2 py-0.5 rounded-full ' + badgeClass + '">' + escapeHTML(row.prazo_label || '-') + '</span></td>' +
                 '<td class="py-3 text-right">' +
-                '<button type="button" class="text-sky-600 hover:text-sky-800 font-medium" data-dashboard-row-action="locacao" data-id="' + escapeHTML(row.id) + '">Abrir</button>' +
+                '<button type="button" class="text-sky-600 hover:text-sky-800 font-medium" data-dashboard-row-action="locacao" data-id="' + escapeHTML(row.id) + '">' + escapeHTML(dashboardT('subtabs.open', 'Abrir')) + '</button>' +
                 '</td>' +
                 '</tr>';
         }).join('');
@@ -693,8 +708,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<td class="py-3 pr-4">' + escapeHTML(row.filial || '-') + '</td>' +
                 '<td class="py-3 pr-4 whitespace-nowrap">' + escapeHTML(row.odometro || '-') + '</td>' +
                 '<td class="py-3 text-right whitespace-nowrap">' +
-                '<span class="text-xs px-2 py-0.5 rounded-full ' + badgeClass + ' mr-3">' + escapeHTML(row.prazo_label || 'Disponível') + '</span>' +
-                '<button type="button" class="text-sky-600 hover:text-sky-800 font-medium" data-dashboard-row-action="veiculo" data-id="' + escapeHTML(row.id) + '">Abrir</button>' +
+                '<span class="text-xs px-2 py-0.5 rounded-full ' + badgeClass + ' mr-3">' + escapeHTML(row.prazo_label || dashboardT('availability.available', 'Disponível')) + '</span>' +
+                '<button type="button" class="text-sky-600 hover:text-sky-800 font-medium" data-dashboard-row-action="veiculo" data-id="' + escapeHTML(row.id) + '">' + escapeHTML(dashboardT('subtabs.open', 'Abrir')) + '</button>' +
                 '</td>' +
                 '</tr>';
         }).join('');

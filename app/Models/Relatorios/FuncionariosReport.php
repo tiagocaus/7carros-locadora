@@ -79,7 +79,7 @@ class FuncionariosReport extends BaseReportModel
 
         foreach ($porFuncionario as $fid => $agg) {
             $nome = $funcionariosInfo[$fid]['nome'] ?? ($fid > 0 ? "Funcionário #{$fid}" : 'Sem funcionário');
-            $funcao = $funcionariosInfo[$fid]['funcao'] ?? '';
+            $funcao = $funcionariosInfo[$fid]['role_name'] ?? '';
             $qtd = $agg['qtd_loc'] + $agg['qtd_cont'];
             $fat = $agg['fat_loc'] + $agg['fat_cont'];
             $ticket = $qtd > 0 ? $fat / $qtd : 0;
@@ -130,7 +130,8 @@ class FuncionariosReport extends BaseReportModel
         if (empty($idsValidos)) return [];
         $rows = $this->qb
             ->table('funcionarios', 'fu')
-            ->select(['fu.id', 'fu.nome', 'fu.funcao', 'fu.status'])
+            ->select(['fu.id', 'fu.nome', 'r.name AS role_name', 'r.name AS funcao', 'fu.status'])
+            ->leftJoin('funcionarios_roles', 'r', 'fu.id_role', '=', 'r.id')
             ->whereIn('fu.id', $idsValidos)
             ->get();
         $map = [];

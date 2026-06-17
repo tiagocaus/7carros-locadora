@@ -95,41 +95,43 @@ class AuthPasswordResetService
     private function buscarFuncionario(string $identifier): ?array
     {
         return $this->qb
-            ->table('funcionarios')
+            ->table('funcionarios', 'f')
             ->withoutChave()
             ->select([
-                'id',
-                'chave',
-                'id_matriz_filial',
-                'nome',
-                'email',
-                'usuario',
-                'status',
-                'funcao',
-                'ui_locale',
+                'f.id',
+                'f.chave',
+                'f.id_matriz_filial',
+                'f.nome',
+                'f.email',
+                'f.usuario',
+                'f.status',
+                'r.name AS role_name',
+                'f.ui_locale',
             ])
-            ->whereRaw('usuario = ? OR email = ?', [$identifier, $identifier])
+            ->leftJoin('funcionarios_roles', 'r', 'f.id_role', '=', 'r.id')
+            ->whereRaw('f.usuario = ? OR f.email = ?', [$identifier, $identifier])
             ->first();
     }
 
     private function buscarFuncionarioPorId(int $id, string $chave): ?array
     {
         return $this->qb
-            ->table('funcionarios')
+            ->table('funcionarios', 'f')
             ->withoutChave()
             ->select([
-                'id',
-                'chave',
-                'id_matriz_filial',
-                'nome',
-                'email',
-                'usuario',
-                'status',
-                'funcao',
-                'ui_locale',
+                'f.id',
+                'f.chave',
+                'f.id_matriz_filial',
+                'f.nome',
+                'f.email',
+                'f.usuario',
+                'f.status',
+                'r.name AS role_name',
+                'f.ui_locale',
             ])
-            ->where('id', '=', $id)
-            ->where('chave', '=', $chave)
+            ->leftJoin('funcionarios_roles', 'r', 'f.id_role', '=', 'r.id')
+            ->where('f.id', '=', $id)
+            ->where('f.chave', '=', $chave)
             ->first();
     }
 
@@ -169,7 +171,7 @@ class AuthPasswordResetService
                 'nome' => $funcionario['nome'] ?? '',
                 'email' => $funcionario['email'] ?? '',
                 'telefone' => '',
-                'cargo' => $funcionario['funcao'] ?? '',
+                'cargo' => $funcionario['role_name'] ?? '',
                 'preferred_locale' => $funcionario['ui_locale'] ?? null,
             ],
             'outros' => [

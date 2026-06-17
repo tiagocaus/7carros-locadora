@@ -8,6 +8,8 @@
 (function () {
     'use strict';
 
+    const chosenI18n = window.APP_I18N?.common?.chosen || {};
+
     function normalizeText(str) {
         return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     }
@@ -19,9 +21,9 @@
                 type: options.type || 'normal', // 'normal' ou 'server-side'
                 minChars: options.minChars || 3, // Mínimo de caracteres para server-side
                 searchUrl: options.searchUrl || null, // URL para busca server-side
-                placeholder: options.placeholder || 'Selecione uma opção...',
-                noResultsText: options.noResultsText || 'Nenhum resultado encontrado',
-                minCharsText: options.minCharsText || 'Digite pelo menos {min} letras para buscar...',
+                placeholder: options.placeholder || chosenI18n.placeholder || 'Selecione uma opção...',
+                noResultsText: options.noResultsText || chosenI18n.no_results || 'Nenhum resultado encontrado',
+                minCharsText: options.minCharsText || chosenI18n.min_chars || 'Digite pelo menos {min} letras para buscar...',
                 allowClear: options.allowClear !== false,
                 ...options
             };
@@ -84,7 +86,7 @@
                 this.clearButton = document.createElement('span');
                 this.clearButton.className = 'chosen-select-clear';
                 this.clearButton.innerHTML = '&times;';
-                this.clearButton.title = 'Limpar seleção';
+                this.clearButton.title = chosenI18n.clear_selection || 'Limpar seleção';
                 this.clearButton.style.display = this.hasSelection() ? 'block' : 'none';
             }
 
@@ -99,8 +101,8 @@
             this.searchInput.type = 'text';
             this.searchInput.placeholder = this.options.type === 'server-side'
                 ? this.options.minCharsText.replace('{min}', this.options.minChars)
-                : 'Buscar...';
-            this.searchInput.setAttribute('aria-label', 'Buscar opções');
+                : (chosenI18n.search || 'Buscar...');
+            this.searchInput.setAttribute('aria-label', chosenI18n.search_options || 'Buscar opções');
             this.searchInput.setAttribute('autocomplete', 'off');
             this.searchInput.setAttribute('autocorrect', 'off');
             this.searchInput.setAttribute('autocapitalize', 'off');
@@ -125,7 +127,7 @@
             this.loading = document.createElement('div');
             this.loading.className = 'chosen-select-loading';
             this.loading.style.display = 'none';
-            this.loading.textContent = 'Carregando...';
+            this.loading.textContent = chosenI18n.loading || 'Carregando...';
 
             // Montar estrutura
             this.dropdown.appendChild(this.searchContainer);

@@ -19,7 +19,7 @@
             <?php if (\App\Core\Auth::can('nfse.configurar')): ?>
             <button data-form-tab-target="#tabNfse" class="form-tab-button"><?= t('modules.matrizes_filiais.tabs.nfse') ?></button>
             <?php endif; ?>
-            <button data-form-tab-target="#tabLocais" class="form-tab-button"><?= t('modules.matrizes_filiais.tabs.locations', [], 'Locais') ?></button>
+            <button data-form-tab-target="#tabLocais" class="form-tab-button"><?= t('modules.matrizes_filiais.tabs.locations') ?></button>
         </nav>
     </div>
 

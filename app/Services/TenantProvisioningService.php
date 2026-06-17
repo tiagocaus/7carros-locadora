@@ -108,7 +108,6 @@ class TenantProvisioningService
                     'email' => $dados['email'],
                     'senha' => password_hash($dados['senha'], PASSWORD_ARGON2ID),
                     'status' => 'A',
-                    'funcao' => 'Proprietário',
                     'plano' => $dados['plano'],
                 ]);
 

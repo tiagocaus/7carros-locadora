@@ -1,5 +1,8 @@
+<?php
+    $htmlLocale = locale_info()['code'] ?? 'pt-BR';
+?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="<?= htmlspecialchars($htmlLocale, ENT_QUOTES, 'UTF-8') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

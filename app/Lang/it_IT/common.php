@@ -184,6 +184,61 @@ return [
         'sending' => 'Invio...',
     ],
 
+    'chosen' => [
+        'placeholder' => 'Seleziona un opzione...',
+        'no_results' => 'Nessun risultato trovato',
+        'min_chars' => 'Digita almeno {min} lettere per cercare...',
+        'loading' => 'Caricamento...',
+        'search' => 'Cerca...',
+        'search_options' => 'Cerca opzioni',
+        'clear_selection' => 'Cancella selezione',
+    ],
+
+    'photo_upload' => [
+        'unsupported_format' => 'Formato non supportato. Usa solo: :types',
+        'image_too_large' => 'L immagine e troppo grande. Seleziona un immagine inferiore a :maxMBMB.',
+        'camera_not_supported' => 'Il browser non supporta l accesso alla fotocamera. Usa l opzione di invio file.',
+    ],
+
+    'session' => [
+        'expired_reload' => 'La sessione e scaduta. La pagina verra ricaricata.',
+    ],
+
+    'auth' => [
+        'login_title' => 'Accesso - 7Carros Locadora',
+        'rental_system' => 'Sistema di Noleggio',
+        'management_system' => '7Carros - Sistema di Gestione Noleggi',
+        'username_email' => 'Utente o E-mail',
+        'username_email_placeholder' => 'Inserisci utente o e-mail',
+        'password' => 'Password',
+        'password_placeholder' => 'Inserisci la password',
+        'remember_login' => 'Salva accesso',
+        'signing_in' => 'Accesso in corso...',
+        'forgot_password' => 'Reimposta password',
+        'recovery_message' => 'Inserisci utente o e-mail. Se troviamo un account attivo, invieremo un link di reimpostazione all e-mail registrata.',
+        'email_or_username' => 'E-mail o Utente',
+        'email_or_username_placeholder' => 'Inserisci e-mail o utente',
+        'send_link' => 'Invia link',
+        'sending' => 'Invio...',
+        'identifier_required' => 'Inserisci e-mail o utente.',
+        'reset_request_error' => 'Non e stato possibile richiedere la reimpostazione.',
+        'reset_error' => 'Errore durante la richiesta di reimpostazione password.',
+    ],
+
+    'changelog' => [
+        'subtitle' => 'Segui tutte le <strong>novita e migliorie</strong> della piattaforma',
+        'loading_updates' => 'Caricamento aggiornamenti...',
+        'loading_more' => 'Caricamento altri...',
+        'none_available' => 'Nessun aggiornamento disponibile.',
+        'load_error' => 'Errore durante il caricamento degli aggiornamenti.',
+        'new' => 'Nuovo',
+        'improved' => 'Migliorato',
+        'fix' => 'Correzione',
+        'version' => 'Versione',
+        'most_recent' => 'Piu recente',
+        'current' => 'ATTUALE',
+    ],
+
     // Giorni della settimana
     'days' => [
         'sunday' => 'Domenica',

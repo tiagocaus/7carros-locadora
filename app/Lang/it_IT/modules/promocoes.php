@@ -13,6 +13,7 @@ return [
     // Sezioni
     'sections' => [
         'promotion_data' => 'Dati della Promozione',
+        'values_by_branch' => 'Valore dello sconto per filiale',
     ],
 
     // Campi
@@ -33,6 +34,10 @@ return [
         'validity' => 'Data limite per l\'utilizzo della promozione. Lasciare vuoto per nessuna scadenza.',
         'minimum_days' => 'Numero minimo di giorni di noleggio affinché la promozione sia valida.',
         'where_to_show' => 'Seleziona dove sara disponibile questa promozione.',
+    ],
+
+    'descriptions' => [
+        'values_by_branch' => 'Poiche e uno sconto fisso in denaro, ogni filiale ha il proprio valore nella sua valuta.',
     ],
 
     // Opzioni tipo
@@ -105,6 +110,7 @@ return [
         'save_error' => 'Errore durante il salvataggio',
         'created' => 'Promozione creata con successo!',
         'updated' => 'Promozione aggiornata con successo!',
+        'select_branches_first' => 'Seleziona almeno una filiale partecipante per definire i valori.',
     ],
 
     // Paginazione

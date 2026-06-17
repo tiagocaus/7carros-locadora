@@ -100,7 +100,8 @@ class Localizar extends Model
         return $this->qb
             ->table('funcionarios', 'f')
             ->withoutChave()
-            ->select(['f.id', 'f.nome', 'f.email', 'f.funcao'])
+            ->select(['f.id', 'f.nome', 'f.email', 'r.name AS role_name', 'r.name AS funcao'])
+            ->leftJoin('funcionarios_roles', 'r', 'f.id_role', '=', 'r.id')
             ->where('f.chave', '=', $chave)
             ->where('f.usuario', 'NOT LIKE', 'suporte%')
             ->whereNested(function ($q) use ($searchTerm) {

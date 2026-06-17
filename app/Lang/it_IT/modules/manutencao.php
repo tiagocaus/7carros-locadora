@@ -56,14 +56,14 @@ return [
     // Messaggi del CRON
     'cron' => [
         'processing_tenant' => 'Elaborazione tenant: :chave',
-        'os_generated' => 'OdL :codigo generato per veicolo :placa',
-        'finished' => 'Completato: :tenants tenants | :veiculos veicoli | :os OdL generati',
-        'result' => 'Elaborati :tenants tenants, :veiculos veicoli, :os OdL generati',
+        'os_generated' => 'OdL :código generato per veicolo :placa',
+        'finished' => 'Completato: :tenants tenants | :veículos veicoli | :os OdL generati',
+        'result' => 'Elaborati :tenants tenants, :veículos veicoli, :os OdL generati',
     ],
 
     // Log di audit
     'audit' => [
-        'os_created' => 'Sistema ha generato manutenzione preventiva per veicolo [:placa] - OdL [:codigo]',
+        'os_created' => 'Sistema ha generato manutenzione preventiva per veicolo [:placa] - OdL [:código]',
     ],
 
     // Campi OdL generato
@@ -75,7 +75,7 @@ return [
     // Notifiche (per veicolo - dettagliate)
     'notifications' => [
         'email_subject' => 'Manutenzione Preventiva - Targa :placa',
-        'email_body' => "Veicolo: :placa\nContachilometri Attuale: :odometro km\n\nElementi di manutenzione in scadenza:\n:itens\n\nUn Ordine di Lavoro è stato creato automaticamente.",
+        'email_body' => "Veicolo: :placa\nContachilometri Attuale: :odômetro km\n\nElementi di manutenzione in scadenza:\n:itens\n\nUn Ordine di Lavoro è stato creato automaticamente.",
         'whatsapp_title' => '*Manutenzione Preventiva*',
         'whatsapp_body' => "Veicolo: :placa\nElementi: :itens\n\nOdL creato automaticamente nel sistema.",
     ],

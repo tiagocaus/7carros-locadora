@@ -13,6 +13,7 @@ return [
     // Schede
     'tabs' => [
         'group_data' => 'Dati del Gruppo',
+        'values_by_branch' => 'Valori per filiale',
         'prices_by_days' => 'Prezzi per Giorni',
     ],
 
@@ -133,6 +134,11 @@ return [
         'save_server_error' => 'Errore nel salvataggio del gruppo',
         'created' => 'Gruppo creato con successo!',
         'updated' => 'Gruppo aggiornato con successo!',
+    ],
+
+    'buttons' => [
+        'save_branch_values' => 'Salva valori di questa filiale',
+        'save_branch_prices' => 'Salva prezzi di questa filiale',
     ],
 
     // Paginazione

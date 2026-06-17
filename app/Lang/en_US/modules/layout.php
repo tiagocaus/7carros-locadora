@@ -4,6 +4,7 @@ $base = require __DIR__ . '/../../pt_BR/modules/layout.php';
 $map = [
     'Dashboard - 7Carros Locadora' => 'Dashboard - 7Carros Rental',
     'Usuário' => 'User',
+    'Função' => 'Function',
     'Empresa' => 'Company',
     'Plano' => 'Plan',
     'Gravações de Tela' => 'Screen Recordings',

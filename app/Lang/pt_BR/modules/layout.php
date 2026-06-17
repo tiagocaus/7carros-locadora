@@ -4,6 +4,7 @@ return [
     'app_title' => 'Dashboard - 7Carros Locadora',
     'footer' => [
         'user' => 'Usuário',
+        'job_function' => 'Função',
         'company' => 'Empresa',
         'plan' => 'Plano',
         'screen_recordings' => 'Gravações de Tela',

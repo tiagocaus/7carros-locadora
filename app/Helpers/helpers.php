@@ -899,6 +899,16 @@ if (!function_exists('t')) {
     }
 }
 
+if (!function_exists('__')) {
+    /**
+     * Alias curto para t(), mantido para compatibilidade com testes e views.
+     */
+    function __(string $key, array $replace = [], ?string $locale = null): string
+    {
+        return t($key, $replace, $locale);
+    }
+}
+
 if (!function_exists('t_choice')) {
     /**
      * Traduz uma chave com pluralização

@@ -240,6 +240,7 @@ return [
         'data_hora_atual' => 'Data e Ora Attuale',
         'link_portal_cliente' => 'Link del Portale Cliente',
         'link_contrato' => 'Link del Contratto',
+        'link_assinatura' => 'Link di Firma',
         'link_fatura' => 'Link della Fattura',
         'link_checklist' => 'Link del Checklist',
         'codigo_verificacao' => 'Codice di Verifica',

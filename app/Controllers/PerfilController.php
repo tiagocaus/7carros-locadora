@@ -7,7 +7,6 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
 use App\Models\Funcionario;
-use App\Models\Role;
 use App\Models\MatrizFilial;
 use App\Helpers\FileHelper;
 use App\Services\AuditLogService;
@@ -57,14 +56,7 @@ class PerfilController
                 ? FileHelper::url($funcionario['foto'], Auth::chave())
                 : '';
 
-            // Buscar nome da role se existir
-            if (!empty($funcionario['id_role'])) {
-                $roleModel = new Role();
-                $role = $roleModel->buscarPorId($funcionario['id_role'], Auth::chave());
-                $funcionario['role_nome'] = $role['name'] ?? '';
-            } else {
-                $funcionario['role_nome'] = $funcionario['funcao'] ?? '';
-            }
+            $funcionario['role_nome'] = $funcionario['role_name'] ?? '';
 
             // Buscar nome da filial se existir
             if (!empty($funcionario['id_matriz_filial'])) {

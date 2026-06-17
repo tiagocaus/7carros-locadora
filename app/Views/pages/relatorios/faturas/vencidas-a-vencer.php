@@ -29,9 +29,9 @@
             </select>
         </div>
         <div class="flex-1 min-w-[220px] max-w-[320px]">
-            <label for="filterCliente" class="block text-xs text-slate-500 mb-1">Cliente</label>
-            <select id="filterCliente" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/clientes/buscar" data-chosen-placeholder="Todos os clientes">
-                <option value="">Todos os clientes</option>
+            <label for="filterCliente" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.client') ?></label>
+            <select id="filterCliente" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/clientes/buscar" data-chosen-placeholder="<?= htmlspecialchars(t('modules.relatorios.common.all_clients') ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <option value=""><?= t('modules.relatorios.common.all_clients') ?></option>
             </select>
         </div>
         <div class="flex items-end gap-2">

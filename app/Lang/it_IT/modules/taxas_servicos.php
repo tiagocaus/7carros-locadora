@@ -13,6 +13,7 @@ return [
     // Sezioni
     'sections' => [
         'fee_data' => 'Dati della Tassa/Servizio',
+        'values_by_branch' => 'Valori per filiale',
     ],
 
     // Campi
@@ -30,6 +31,10 @@ return [
     'tooltips' => [
         'auto_apply' => 'Quando attivo, la tassa verrà aggiunta automaticamente ai nuovi contratti.',
         'where_to_use' => 'Seleziona dove sarà disponibile questa tassa.',
+    ],
+
+    'descriptions' => [
+        'values_by_branch' => 'Poiche e un valore monetario fisso, ogni filiale ha il valore nella propria valuta.',
     ],
 
     // Opzioni base di calcolo
@@ -107,6 +112,7 @@ return [
         'save_error' => 'Errore nel salvataggio',
         'created' => 'Tassa/servizio creato con successo!',
         'updated' => 'Tassa/servizio aggiornato con successo!',
+        'select_branches_first' => 'Seleziona almeno una filiale per definire i valori.',
     ],
 
     // Paginazione

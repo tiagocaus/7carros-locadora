@@ -10,6 +10,19 @@ namespace App\Models;
  */
 class Role extends Model
 {
+    public const SUPPORT_ROLE_NAME = 'Suporte 7Carros';
+    public const SUPPORT_ROLE_DESCRIPTION = 'Funcao temporaria para acesso do suporte tecnico';
+
+    public static function isSupportRoleName(string $name): bool
+    {
+        return strtolower(trim($name)) === strtolower(self::SUPPORT_ROLE_NAME);
+    }
+
+    public static function isSupportRole(?array $role): bool
+    {
+        return $role !== null && isset($role['name']) && self::isSupportRoleName($role['name']);
+    }
+
     /**
      * Lista todas as roles visíveis para o tenant
      *
@@ -33,6 +46,7 @@ class Role extends Model
                 SELECT 1 FROM funcionarios_roles rs WHERE rs.chave = '0' AND rs.name = r.name
             ) THEN 1 ELSE 0 END as is_customization")
             ->withoutChave()
+            ->where('r.name', '!=', self::SUPPORT_ROLE_NAME)
             ->whereNested(function ($q) use ($chave) {
                 // Roles de sistema não customizadas pelo tenant
                 $q->whereNested(function ($sub) use ($chave) {
@@ -62,6 +76,18 @@ class Role extends Model
                 $q->where('chave', '=', $chave)
                   ->orWhere('chave', '=', '0');
             })
+            ->first();
+    }
+
+    /**
+     * Busca a role reservada de suporte no tenant
+     */
+    public function buscarRoleSuporte(string $chave): ?array
+    {
+        return $this->qb
+            ->table('funcionarios_roles')
+            ->select(['id', 'chave', 'name', 'description'])
+            ->where('name', '=', self::SUPPORT_ROLE_NAME)
             ->first();
     }
 
@@ -216,6 +242,7 @@ class Role extends Model
             ->table('funcionarios_roles')
             ->select(['id', 'name'])
             ->withGlobals()
+            ->where('name', '!=', self::SUPPORT_ROLE_NAME)
             ->orderBy('name', 'ASC')
             ->get();
     }

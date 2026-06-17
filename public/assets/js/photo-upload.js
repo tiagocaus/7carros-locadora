@@ -44,9 +44,30 @@ window.PhotoUpload = (function() {
 
     // Verificar se está em iframe
     const isInIframe = window.parent !== window;
+    const photoI18n = window.APP_I18N?.common?.photo_upload || {};
 
     // Listener global de mensagens (configurado uma vez)
     let messageListenerConfigured = false;
+
+    function t(key, fallback, replace = {}) {
+        let value = photoI18n[key] || fallback;
+        Object.entries(replace).forEach(([name, item]) => {
+            value = value.replaceAll(':' + name, item);
+        });
+        return value;
+    }
+
+    function showAlert(message) {
+        if (isInIframe) {
+            window.parent.postMessage({ action: 'openAlert', message }, '*');
+            return;
+        }
+        if (window.parent && typeof window.parent.postMessage === 'function') {
+            window.parent.postMessage({ action: 'openAlert', message }, '*');
+            return;
+        }
+        console.warn(message);
+    }
 
     /**
      * Configura o listener global de mensagens do parent
@@ -90,14 +111,14 @@ window.PhotoUpload = (function() {
         // Validar tipo
         if (!config.acceptedTypes.includes(file.type)) {
             const tipos = config.acceptedTypes.map(t => t.split('/')[1].toUpperCase()).join(', ');
-            alert(`Formato não suportado. Use apenas: ${tipos}`);
+            showAlert(t('unsupported_format', 'Formato não suportado. Use apenas: :types', { types: tipos }));
             return false;
         }
 
         // Validar tamanho
         if (file.size > config.maxSize) {
             const maxMB = Math.round(config.maxSize / 1024 / 1024);
-            alert(`A imagem é muito grande. Por favor, selecione uma imagem menor que ${maxMB}MB.`);
+            showAlert(t('image_too_large', 'A imagem é muito grande. Por favor, selecione uma imagem menor que :maxMBMB.', { maxMB }));
             return false;
         }
 
@@ -176,7 +197,7 @@ window.PhotoUpload = (function() {
         } else {
             // Lógica local de câmera (se necessário)
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert('Seu navegador não suporta acesso à câmera. Use a opção de enviar arquivo.');
+                showAlert(t('camera_not_supported', 'Seu navegador não suporta acesso à câmera. Use a opção de enviar arquivo.'));
                 return;
             }
             // Implementação local omitida - usar modais globais do parent

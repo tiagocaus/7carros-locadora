@@ -41,6 +41,32 @@ return [
         'tab_content_will_appear' => 'Conteúdo da sub-aba ":tab" aparecerá aqui.',
     ],
 
+    'subtabs' => [
+        'reservations_empty' => 'Nenhuma reserva encontrada.',
+        'rented_empty' => 'Nenhuma locação aberta encontrada.',
+        'available_empty' => 'Nenhum veículo disponível encontrado.',
+        'pending_arrival_empty' => 'Nenhuma chegada pendente encontrada.',
+        'upcoming_returns_empty' => 'Nenhuma devolução próxima encontrada.',
+        'departure' => 'Saída',
+        'expected' => 'Prevista',
+        'loading' => 'Carregando :title...',
+        'load_error' => 'Não foi possível carregar os dados desta aba.',
+        'updated' => 'Atualizado :time',
+        'plate' => 'Placa',
+        'vehicle' => 'Veículo',
+        'group' => 'Grupo',
+        'branch' => 'Filial',
+        'odometer' => 'Odômetro',
+        'actions' => 'Ações',
+        'code' => 'Código',
+        'client' => 'Cliente',
+        'deadline' => 'Prazo',
+        'open' => 'Abrir',
+        'today' => 'Hoje',
+        'tomorrow' => 'Amanhã',
+        'pending_pickup' => 'Retirada pendente',
+    ],
+
     // Dashboard v2 (Cockpit)
     'v2' => [
         'title' => 'Painel de Controle',

@@ -24,7 +24,7 @@
                     <i class="fas fa-info-circle mr-2"></i><?= t('modules.grupos.tabs.group_data') ?>
                 </button>
                 <button type="button" data-form-tab-target="#tabValoresFilial" class="form-tab-button" id="btnTabValores" disabled>
-                    <i class="fas fa-coins mr-2"></i><?= t('modules.grupos.tabs.values_by_branch', [], 'Valores por filial') ?>
+                    <i class="fas fa-coins mr-2"></i><?= t('modules.grupos.tabs.values_by_branch') ?>
                 </button>
                 <button type="button" data-form-tab-target="#tabPrecos" class="form-tab-button" id="btnTabPrecos" disabled>
                     <i class="fas fa-chart-line mr-2"></i><?= t('modules.grupos.tabs.prices_by_days') ?>
@@ -133,7 +133,7 @@
                 </nav>
             </div>
 
-            <p id="filiaisLoadingValores" class="text-sm text-slate-500 italic"><?= t('common.loading', [], 'Carregando...') ?></p>
+            <p id="filiaisLoadingValores" class="text-sm text-slate-500 italic"><?= t('common.labels.loading') ?></p>
 
             <div id="valoresFilialContent" class="hidden">
 
@@ -268,7 +268,7 @@
                 <!-- Botoes Aba 2 -->
                 <div class="flex justify-end space-x-3 mt-6">
                     <button type="button" id="btnSalvarValoresFilial" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center">
-                        <i class="fas fa-save mr-2"></i><?= t('modules.grupos.buttons.save_branch_values', [], 'Salvar valores desta filial') ?>
+                        <i class="fas fa-save mr-2"></i><?= t('modules.grupos.buttons.save_branch_values') ?>
                     </button>
                 </div>
             </div><!-- Fim valoresFilialContent -->
@@ -285,7 +285,7 @@
                 </nav>
             </div>
 
-            <p id="filiaisLoadingPrecos" class="text-sm text-slate-500 italic"><?= t('common.loading', [], 'Carregando...') ?></p>
+            <p id="filiaisLoadingPrecos" class="text-sm text-slate-500 italic"><?= t('common.labels.loading') ?></p>
 
             <div id="precosFilialContent" class="hidden">
                 <div class="form-section">
@@ -296,7 +296,7 @@
                     <div class="border-b border-slate-200 mb-4">
                         <nav class="flex space-x-4" aria-label="Tabs">
                             <button type="button" class="tab-btn active" data-tab="diaria">
-                                <?= t('modules.grupos.price_tabs.km_paid', [], 'Diária') ?>
+                                <?= t('modules.grupos.price_tabs.km_paid') ?>
                             </button>
                             <button type="button" class="tab-btn" data-tab="km_controlado">
                                 <?= t('modules.grupos.price_tabs.km_controlled') ?>
@@ -331,7 +331,7 @@
 
                 <div class="flex justify-end space-x-3 mt-6">
                     <button type="button" id="btnSalvarPrecosFilial" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center">
-                        <i class="fas fa-save mr-2"></i><?= t('modules.grupos.buttons.save_branch_prices', [], 'Salvar preços desta filial') ?>
+                        <i class="fas fa-save mr-2"></i><?= t('modules.grupos.buttons.save_branch_prices') ?>
                     </button>
                 </div>
             </div><!-- Fim precosFilialContent -->

@@ -1,6 +1,6 @@
 @extends('layouts.auth')
 
-@section('title', 'Login - 7Carros Locadora')
+@section('title', t('common.auth.login_title'))
 
 @section('content')
 <div class="login-container">
@@ -11,7 +11,7 @@
                 <span class="gradient-text">Changelog</span>
             </h2>
             <p class="changelog-subtitle">
-                Acompanhe todas as <strong>novidades e melhorias</strong> da plataforma
+                <?= t('common.changelog.subtitle') ?>
             </p>
         </div>
 
@@ -19,7 +19,7 @@
             <!-- Carregando -->
             <div class="changelog-loading" id="changelogLoading">
                 <i class="fas fa-spinner fa-spin"></i>
-                <span>Carregando atualizações...</span>
+                <span><?= t('common.changelog.loading_updates') ?></span>
             </div>
         </div>
     </div>
@@ -28,7 +28,7 @@
     <div class="login-section">
         <div class="login-logo">
             <h1>7Carros</h1>
-            <p>Sistema de Locadora</p>
+            <p><?= t('common.auth.rental_system') ?></p>
         </div>
 
         @if($error)
@@ -49,7 +49,7 @@
             @csrf
 
             <div class="form-group">
-                <label for="username" class="form-label">Usuário ou E-mail</label>
+                <label for="username" class="form-label"><?= t('common.auth.username_email') ?></label>
                 <div class="input-icon-wrapper">
                     <i class="fas fa-user input-icon"></i>
                     <input
@@ -57,7 +57,7 @@
                         id="username"
                         name="username"
                         class="form-input"
-                        placeholder="Digite seu usuário ou e-mail"
+                        placeholder="<?= t('common.auth.username_email_placeholder') ?>"
                         value="{{ old('username') }}"
                         required
                         autocomplete="username">
@@ -68,7 +68,7 @@
             </div>
 
             <div class="form-group">
-                <label for="password" class="form-label">Senha</label>
+                <label for="password" class="form-label"><?= t('common.auth.password') ?></label>
                 <div class="input-icon-wrapper">
                     <i class="fas fa-lock input-icon"></i>
                     <input
@@ -76,7 +76,7 @@
                         id="password"
                         name="password"
                         class="form-input"
-                        placeholder="Digite sua senha"
+                        placeholder="<?= t('common.auth.password_placeholder') ?>"
                         required
                         autocomplete="current-password">
                 </div>
@@ -87,20 +87,20 @@
 
             <div class="form-checkbox-wrapper">
                 <input type="checkbox" id="remember" name="remember" class="form-checkbox">
-                <label for="remember" class="form-checkbox-label">Salvar login</label>
+                <label for="remember" class="form-checkbox-label"><?= t('common.auth.remember_login') ?></label>
             </div>
 
             <button type="submit" class="btn-login" id="loginButton">
-                <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+                <i class="fas fa-sign-in-alt mr-2"></i><?= t('common.buttons.login') ?>
             </button>
 
             <div class="forgot-password-link">
-                <a href="#" id="forgotPasswordLink">Redefinir senha</a>
+                <a href="#" id="forgotPasswordLink"><?= t('common.auth.forgot_password') ?></a>
             </div>
         </form>
 
         <div class="login-footer">
-            <p>7Carros - Sistema de Gestão de Locadora</p>
+            <p><?= t('common.auth.management_system') ?></p>
         </div>
     </div>
 </div>
@@ -108,23 +108,23 @@
 <!-- Modal de recuperação de senha -->
 <div id="forgotPasswordModal" class="modal-overlay" style="display: none;">
     <div class="modal-box">
-        <h3 class="modal-title">Redefinir senha</h3>
-        <p class="modal-message">Digite seu usuario ou e-mail. Se encontrarmos uma conta ativa, enviaremos um link de redefinicao para o e-mail cadastrado.</p>
+        <h3 class="modal-title"><?= t('common.auth.forgot_password') ?></h3>
+        <p class="modal-message"><?= t('common.auth.recovery_message') ?></p>
 
         <div class="form-group">
-            <label for="recoveryEmail" class="form-label">E-mail ou Usuário</label>
+            <label for="recoveryEmail" class="form-label"><?= t('common.auth.email_or_username') ?></label>
             <div class="input-icon-wrapper">
                 <i class="fas fa-envelope input-icon"></i>
-                <input type="text" id="recoveryEmail" class="form-input" placeholder="Digite seu e-mail ou usuário" autocomplete="username">
+                <input type="text" id="recoveryEmail" class="form-input" placeholder="<?= t('common.auth.email_or_username_placeholder') ?>" autocomplete="username">
             </div>
             <div class="error-message" id="recoveryError"></div>
             <div class="success-message" id="recoverySuccess"></div>
         </div>
 
         <div class="modal-actions">
-            <button type="button" class="btn-modal btn-modal-secondary" id="cancelRecoveryButton">Cancelar</button>
+            <button type="button" class="btn-modal btn-modal-secondary" id="cancelRecoveryButton"><?= t('common.buttons.cancel') ?></button>
             <button type="button" class="btn-modal btn-modal-primary" id="sendRecoveryButton">
-                <i class="fas fa-paper-plane mr-2"></i>Enviar link
+                <i class="fas fa-paper-plane mr-2"></i><?= t('common.auth.send_link') ?>
             </button>
         </div>
     </div>
@@ -133,15 +133,33 @@
 
 @section('scripts')
 <script>
+const loginI18n = <?= json_encode([
+    'loadingMore' => t('common.changelog.loading_more'),
+    'noneAvailable' => t('common.changelog.none_available'),
+    'loadError' => t('common.changelog.load_error'),
+    'new' => t('common.changelog.new'),
+    'improved' => t('common.changelog.improved'),
+    'fix' => t('common.changelog.fix'),
+    'version' => t('common.changelog.version'),
+    'mostRecent' => t('common.changelog.most_recent'),
+    'current' => t('common.changelog.current'),
+    'identifierRequired' => t('common.auth.identifier_required'),
+    'sending' => t('common.auth.sending'),
+    'resetRequestError' => t('common.auth.reset_request_error'),
+    'resetError' => t('common.auth.reset_error'),
+    'sendLink' => t('common.auth.send_link'),
+    'signingIn' => t('common.auth.signing_in'),
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+
 document.addEventListener('DOMContentLoaded', function () {
     // Carregar changelog do banco de dados com scroll infinito
     const changelogContent = document.getElementById('changelogContent');
     const changelogLoading = document.getElementById('changelogLoading');
 
     const tipoConfig = {
-        'N': { label: 'Novo', icon: 'fa-plus-circle', class: 'tipo-novo' },
-        'A': { label: 'Aprimorado', icon: 'fa-arrow-up', class: 'tipo-aprimorado' },
-        'C': { label: 'Correção', icon: 'fa-wrench', class: 'tipo-correcao' }
+        'N': { label: loginI18n.new, icon: 'fa-plus-circle', class: 'tipo-novo' },
+        'A': { label: loginI18n.improved, icon: 'fa-arrow-up', class: 'tipo-aprimorado' },
+        'C': { label: loginI18n.fix, icon: 'fa-wrench', class: 'tipo-correcao' }
     };
 
     // Estado da paginação
@@ -164,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const loadingMore = document.createElement('div');
             loadingMore.id = 'loadingMore';
             loadingMore.className = 'changelog-loading-more';
-            loadingMore.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando mais...';
+            loadingMore.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + loginI18n.loadingMore;
             changelogContent.appendChild(loadingMore);
         }
 
@@ -184,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 changelogContent.innerHTML = `
                     <div class="changelog-empty">
                         <i class="fas fa-info-circle"></i>
-                        <span>Nenhuma atualização disponível.</span>
+                        <span>${escapeHtml(loginI18n.noneAvailable)}</span>
                     </div>
                 `;
             }
@@ -197,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 changelogContent.innerHTML = `
                     <div class="changelog-empty">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <span>Erro ao carregar atualizações.</span>
+                        <span>${escapeHtml(loginI18n.loadError)}</span>
                     </div>
                 `;
             }
@@ -238,11 +256,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                         <div class="changelog-info">
                             <h3 class="changelog-version">
-                                Versão ${escapeHtml(versao.versao)}${isDestaque ? ' - Mais Recente' : ''}
+                                ${escapeHtml(loginI18n.version)} ${escapeHtml(versao.versao)}${isDestaque ? ' - ' + escapeHtml(loginI18n.mostRecent) : ''}
                             </h3>
                             <p class="changelog-date">${formatarData(versao.data)}</p>
                         </div>
-                        ${isDestaque ? '<span class="changelog-badge">ATUAL</span>' : ''}
+                        ${isDestaque ? '<span class="changelog-badge">' + escapeHtml(loginI18n.current) + '</span>' : ''}
                     </div>
 
                     <div class="changelog-items">
@@ -339,14 +357,14 @@ document.addEventListener('DOMContentLoaded', function () {
         successDiv.classList.remove('show');
 
         if (!email) {
-            errorDiv.textContent = 'Por favor, digite seu e-mail ou usuário.';
+            errorDiv.textContent = loginI18n.identifierRequired;
             errorDiv.classList.add('show');
             emailInput.focus();
             return;
         }
 
         sendRecoveryButton.disabled = true;
-        sendRecoveryButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...';
+        sendRecoveryButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + loginI18n.sending;
 
         try {
             const response = await fetch('/auth/redefinir-senha', {
@@ -361,18 +379,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const result = await response.json();
             if (!response.ok || !result.success) {
-                throw new Error(result.message || 'Não foi possível solicitar a redefinição.');
+                throw new Error(result.message || loginI18n.resetRequestError);
             }
 
             successDiv.textContent = result.message;
             successDiv.classList.add('show');
             emailInput.value = '';
         } catch (error) {
-            errorDiv.textContent = error.message || 'Erro ao solicitar redefinição de senha.';
+            errorDiv.textContent = error.message || loginI18n.resetError;
             errorDiv.classList.add('show');
         } finally {
             sendRecoveryButton.disabled = false;
-            sendRecoveryButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Enviar link';
+            sendRecoveryButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>' + loginI18n.sendLink;
         }
     });
 
@@ -382,7 +400,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     loginForm.addEventListener('submit', function () {
         loginButton.disabled = true;
-        loginButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Entrando...';
+        loginButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + loginI18n.signingIn;
     });
 });
 </script>

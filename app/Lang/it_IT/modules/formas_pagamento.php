@@ -84,7 +84,7 @@ return [
         'active' => 'Attivo',
         'inactive' => 'Inattivo',
         'no_name' => 'Senza nome',
-        'in_days' => 'in :daysg',
+        'in_days' => 'in :daysd',
     ],
 
     // Dropdown
@@ -149,7 +149,7 @@ return [
         // Campi
         'fields' => [
             'command' => 'Comando',
-            'command_hint' => 'Esempi di utilizzo:<br><br> <b>0</b> - Pagamento in un\'unica soluzione. <br><br> <b>15</b> - Pagamento tra 15 giorni. <br><br> <b>1-12</b> - Genera rata mensile da 1 a 12 rate. <br><br> <b>7/14/21/28</b> - In questo esempio vengono generate 4 rate con le scadenze stabilite. <br><br> <b>Dom, Seg, Ter, Qua, Qui, Sex, Sab</b> - Indica quale giorno della settimana sarà la scadenza. <br><br> <b>d5, d10, d15, ...</b> - Quale giorno del mese sarà la scadenza.<br><br> <b>w36</b> - Verranno create 36 rate settimanali.<br><br> <b>w36-Seg</b> - Verranno create 36 rate settimanali con scadenza ogni Lunedì.',
+            'command_hint' => 'Esempi di utilizzo:<br><br> <b>0</b> - Pagamento in un\'unica soluzione. <br><br> <b>15</b> - Pagamento tra 15 giorni. <br><br> <b>1-12</b> - Genera rata mensile da 1 a 12 rate. <br><br> <b>7/14/21/28</b> - In questo esempio vengono generate 4 rate con le scadenze stabilite. <br><br> <b>Dom, Lun, Mar, Mer, Gio, Ven, Sab</b> - Indica quale giorno della settimana sarà la scadenza. <br><br> <b>d5, d10, d15, ...</b> - Quale giorno del mese sarà la scadenza.<br><br> <b>w36</b> - Verranno create 36 rate settimanali.<br><br> <b>w36-Lun</b> - Verranno create 36 rate settimanali con scadenza ogni lunedì.',
             'description' => 'Descrizione',
             'active' => 'Attivo',
         ],

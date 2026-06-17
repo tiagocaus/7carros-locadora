@@ -36,6 +36,11 @@
         use App\Core\Auth;
         $user = Auth::user();
         $empresa = Auth::empresa();
+        $role = $user ? Auth::getRole() : null;
+        $footerFuncao = trim((string)($role['name'] ?? ''));
+        if ($footerFuncao === '') {
+            $footerFuncao = 'N/A';
+        }
     @endphp
 
     @include('partials.navbar', ['user' => $user, 'notifications' => $notifications ?? []])
@@ -69,7 +74,9 @@
     <footer class="footer-bar p-2 text-center md:flex md:justify-between md:items-center">
         <div class="flex flex-wrap justify-center md:justify-start gap-x-2 text-xs">
             @if($user)
-                <span>[ <?= t('modules.layout.footer.user') ?>: {{ $user['nome'] }} ]</span>
+                <span>[ <?= t('modules.layout.footer.user') ?>: {{ $user['nome'] }}@if(!empty($user['usuario'])) ({{ $user['usuario'] }})@endif ]</span>
+                <span>-</span>
+                <span>[ <?= t('modules.layout.footer.job_function') ?>: {{ $footerFuncao }} ]</span>
                 @if($empresa)
                     <span>-</span>
                     <span>[ <?= t('modules.layout.footer.company') ?>: {{ $empresa['nome_fantasia'] ?? 'N/A' }} ]</span>
@@ -972,6 +979,9 @@
     <script>
         window.APP_CONFIG = window.APP_CONFIG || {};
         window.APP_CONFIG.currency = <?= json_encode(currency_config()) ?>;
+        window.APP_I18N = window.APP_I18N || {};
+        window.APP_I18N.common = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('common'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        window.APP_I18N.dashboard = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.dashboard'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.layoutI18n = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.layout'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.layoutLocale = <?= json_encode(current_locale()) ?>;
     </script>

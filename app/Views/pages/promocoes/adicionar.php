@@ -120,15 +120,15 @@
         <div id="valoresFiliaisSection" class="form-section mb-6 hidden">
             <h3 class="form-section-title">
                 <i class="fas fa-coins mr-2"></i>
-                <?= t('modules.promocoes.sections.values_by_branch', [], 'Valor do desconto por filial') ?>
+                <?= t('modules.promocoes.sections.values_by_branch') ?>
             </h3>
             <p class="text-sm text-slate-500 mb-4">
-                <?= t('modules.promocoes.descriptions.values_by_branch', [], 'Como e desconto fixo em dinheiro, cada filial tem seu valor na sua moeda.') ?>
+                <?= t('modules.promocoes.descriptions.values_by_branch') ?>
             </p>
 
             <div id="valoresFiliaisTabela" class="space-y-2">
                 <p id="valoresFiliaisVazio" class="text-sm text-slate-400 italic">
-                    <?= t('modules.promocoes.messages.select_branches_first', [], 'Selecione ao menos uma filial participante para definir os valores.') ?>
+                    <?= t('modules.promocoes.messages.select_branches_first') ?>
                 </p>
             </div>
         </div>
@@ -468,7 +468,7 @@
 
             if (filiaisParticipantes.length === 0) {
                 container.innerHTML = '<p class="text-sm text-slate-400 italic">' +
-                    '<?= addslashes(t('modules.promocoes.messages.select_branches_first', [], 'Selecione ao menos uma filial participante para definir os valores.')) ?>' +
+                    '<?= addslashes(t('modules.promocoes.messages.select_branches_first')) ?>' +
                     '</p>';
                 return;
             }

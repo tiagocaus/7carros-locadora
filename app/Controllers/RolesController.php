@@ -113,6 +113,17 @@ class RolesController
                 return;
             }
 
+            $chave = Auth::chave();
+            $role = $this->roleModel->buscarPorId($id, $chave);
+
+            if (!$role || Role::isSupportRole($role)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Função não encontrada'
+                ], 404);
+                return;
+            }
+
             $permissions = $this->permissionModel->listarPorRole($id);
 
             Response::json([
@@ -169,7 +180,7 @@ class RolesController
                 // Buscar role (do tenant OU de sistema chave='0')
                 $role = $this->roleModel->buscarPorId((int) $id, $chave);
 
-                if (!$role) {
+                if (!$role || Role::isSupportRole($role)) {
                     Response::notFound('Função não encontrada');
                     return;
                 }
@@ -230,6 +241,14 @@ class RolesController
                 Response::json([
                     'success' => false,
                     'message' => 'O nome da função é obrigatório'
+                ], 400);
+                return;
+            }
+
+            if (Role::isSupportRoleName($name)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Este nome de função é reservado pelo sistema'
                 ], 400);
                 return;
             }
@@ -310,7 +329,7 @@ class RolesController
             // Verificar se a role existe (do tenant OU de sistema)
             $role = $this->roleModel->buscarPorId($id, $chave);
 
-            if (!$role) {
+            if (!$role || Role::isSupportRole($role)) {
                 Response::json([
                     'success' => false,
                     'message' => 'Função não encontrada'
@@ -327,6 +346,14 @@ class RolesController
                 Response::json([
                     'success' => false,
                     'message' => 'O nome da função é obrigatório'
+                ], 400);
+                return;
+            }
+
+            if (Role::isSupportRoleName($name)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Este nome de função é reservado pelo sistema'
                 ], 400);
                 return;
             }
@@ -481,7 +508,7 @@ class RolesController
             // Verificar se a role existe
             $role = $this->roleModel->buscarPorIdSemRestricao($id);
 
-            if (!$role) {
+            if (!$role || Role::isSupportRole($role)) {
                 Response::json([
                     'success' => false,
                     'message' => 'Função não encontrada'
@@ -586,6 +613,14 @@ class RolesController
             $customRole = $this->roleModel->buscarPorId($id, $chave);
 
             if (!$customRole || $customRole['chave'] !== $chave) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Função não encontrada'
+                ], 404);
+                return;
+            }
+
+            if (Role::isSupportRole($customRole)) {
                 Response::json([
                     'success' => false,
                     'message' => 'Função não encontrada'
