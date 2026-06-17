@@ -330,6 +330,10 @@ Percentual aplicado por dia de atraso.
 - Atraso: 10 dias
 - Juros aplicados: R$ 0,33 (0,033% x 10 dias)
 
+### Aplicacao no Financeiro
+
+O cron `CalculateOverdueFeesJob` usa `multa` e `juros_por_dia` da forma de pagamento vinculada ao lancamento financeiro para recalcular receitas vencidas e pendentes. Lançamentos pagos, despesas, sem forma vinculada ou com ambos os campos zerados nao recebem encargos automaticos.
+
 ---
 
 ## API Endpoints

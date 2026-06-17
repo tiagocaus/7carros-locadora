@@ -120,6 +120,16 @@ $router->get('/verificar/fatura/{token}', [FinanceiroController::class, 'verific
 $router->get('/verificar/multa/{token}', [MultasController::class, 'verificarPublico'], ['rate_limit']);
 
 // Webhooks de gateways de pagamento (não requer autenticação, sem CSRF)
+$router->get('/webhook/asaas', [PagamentoPublicoController::class, 'webhookAsaasInfo'], ['rate_limit']);
+$router->get('/webhook/stripe', [PagamentoPublicoController::class, 'webhookStripeInfo'], ['rate_limit']);
+$router->get('/webhook/square', [PagamentoPublicoController::class, 'webhookSquareInfo'], ['rate_limit']);
+$router->get('/webhook/cora', [PagamentoPublicoController::class, 'webhookCoraInfo'], ['rate_limit']);
+$router->get('/webhook/efipay', [PagamentoPublicoController::class, 'webhookEfipayInfo'], ['rate_limit']);
+$router->get('/webhook/inter', [PagamentoPublicoController::class, 'webhookInterInfo'], ['rate_limit']);
+$router->get('/webhook/bradesco', [PagamentoPublicoController::class, 'webhookBradescoInfo'], ['rate_limit']);
+$router->get('/webhook/itau', [PagamentoPublicoController::class, 'webhookItauInfo'], ['rate_limit']);
+$router->get('/webhook/bancard', [PagamentoPublicoController::class, 'webhookBancardInfo'], ['rate_limit']);
+$router->get('/webhook/pagopar', [PagamentoPublicoController::class, 'webhookPagoparInfo'], ['rate_limit']);
 $router->post('/webhook/asaas', [PagamentoPublicoController::class, 'webhookAsaas'], ['rate_limit']);
 $router->post('/webhook/stripe', [PagamentoPublicoController::class, 'webhookStripe'], ['rate_limit']);
 $router->post('/webhook/square', [PagamentoPublicoController::class, 'webhookSquare'], ['rate_limit']);

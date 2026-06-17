@@ -145,7 +145,7 @@ class CoraGateway extends AbstractPaymentGateway
             $payload = [
                 'amount' => $this->toCents((float) $data['value']),
                 'description' => $data['description'] ?? 'Pagamento',
-                'due_date' => $data['due_date'] ?? date('Y-m-d', strtotime('+3 days')),
+                'due_date' => $this->resolveDueDate($data['due_date'] ?? null),
             ];
 
             if (!empty($payer)) {

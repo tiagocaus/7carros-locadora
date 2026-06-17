@@ -267,6 +267,23 @@ $locacao->gerarParcelas($locacaoId, [
 - Parcelamentos grandes reservam sequencias financeiras em lote via `SequenciaHelper::proximasSequencias()` para evitar locks repetidos em `matrizes_filiais`
 - A Fatura PDF de locacoes desconta o total ja pago no financeiro (`tipo = R`, `pago = S`) do `TOTAL A PAGAR` e exibe a lista de pagamentos/parcelas com vencimento/data de pagamento.
 
+### Devolucao antecipada com credito
+
+Ao fechar uma locacao aberta (`A -> F`), o sistema recalcula o total final com base
+nos dados de devolucao informados na tela. Se o saldo financeiro efetivo ja lancado
+for maior que esse total final (ex: locacao criada para 2 dias e devolvida com 1
+dia), a tela pergunta se deve criar uma fatura de devolucao.
+
+- O credito de devolucao e um lancamento `financeiro.tipo = D`, vinculado a
+  `id_locacao`, com plano de contas `3.4.1.22` (Devolucao/Reembolso de locacao).
+- A parcela/receita original permanece intacta para auditoria, inclusive quando
+  ja estiver paga.
+- O fechamento so prossegue apos confirmacao explicita do usuario.
+- Se o saldo financeiro efetivo for menor que o total final, o fechamento continua
+  bloqueado ate que uma parcela complementar seja lancada.
+- Caucao/devolucao de caucao nao entra nesse calculo; somente creditos no plano
+  `3.4.1.22` compensam receitas da locacao.
+
 ### Parcela Avulsa
 
 ```php
@@ -281,16 +298,22 @@ $locacao->adicionarParcela($locacaoId, [
 
 ```php
 $resumo = $locacao->resumoFinanceiro($locacaoId);
-// Retorna: total_locacao, total_lancado, total_pago, total_pendente, total_atrasado, diferenca
+// Retorna: total_locacao, total_lancado, total_receitas, total_credito_devolucao,
+// total_pago, total_pendente, total_atrasado, diferenca
 ```
 
 Na tela de locacao:
 
 - `Total a pagar`: total final da locacao/fatura, incluindo diarias, taxas, descontos e encargos de devolucao
-- `Total lancado`: soma das parcelas/lancamentos financeiros da locacao
+- `Total lancado`: saldo financeiro efetivo da locacao (receitas menos creditos de devolucao)
+- `Valor reembolsado`: total de creditos de devolucao (`financeiro.tipo = D`, plano `3.4.1.22`) vinculados a locacao
 - `Diferenca`: total final simulado menos total lancado; indica quanto ainda precisa ser lancado no financeiro
 - `Valor pago`: soma das parcelas ja pagas
 - `Saldo a pagar`: total final simulado menos valor pago; indica quanto ainda falta receber
+
+Na fatura PDF da locacao, o valor reembolsado aparece nos totais quando existir
+credito de devolucao e reduz o `TOTAL A PAGAR`, sem misturar esse lancamento na
+lista de pagamentos recebidos.
 
 ### Metodos Financeiros
 
@@ -302,6 +325,7 @@ Na tela de locacao:
 | `atualizarParcela($id, $idParcela, $dados)` | Atualiza parcela pendente |
 | `removerParcela($id, $idParcela)` | Remove parcela pendente |
 | `resumoFinanceiro($id)` | Totais: pago, pendente, atrasado, diferenca |
+| `criarCreditoDevolucao($id, $valor, $chave)` | Cria fatura de devolucao/reembolso para excesso financeiro |
 
 ## API Endpoints
 

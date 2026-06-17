@@ -10,7 +10,43 @@
     <p class="text-sm text-slate-500 mb-3"><?= t('modules.relatorios.faturas.por_veiculo.description') ?></p>
 
     <!-- Filtros -->
-    @include('pages.relatorios._partials.filters')
+    <div class="flex flex-wrap gap-3 mb-4 p-3 bg-slate-50 rounded-lg items-end">
+        <div class="flex-1 min-w-[150px] max-w-[200px]">
+            <label for="filterDataInicio" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.date_start') ?></label>
+            <input type="date" id="filterDataInicio" class="form-input-focus w-full text-sm">
+        </div>
+        <div class="flex-1 min-w-[150px] max-w-[200px]">
+            <label for="filterDataFim" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.date_end') ?></label>
+            <input type="date" id="filterDataFim" class="form-input-focus w-full text-sm">
+        </div>
+        <div class="flex-1 min-w-[180px] max-w-[250px]">
+            <label for="filterFilial" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.branch') ?></label>
+            <select id="filterFilial" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/matrizes-filiais/buscar" data-chosen-placeholder="<?= htmlspecialchars(t('modules.relatorios.common.all_branches') ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <option value=""><?= t('modules.relatorios.common.all_branches') ?></option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[170px] max-w-[220px]">
+            <label for="filterModo" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.faturas.por_veiculo.filter_modo') ?></label>
+            <select id="filterModo" class="form-input-focus w-full text-sm">
+                <option value="agrupado"><?= t('modules.relatorios.faturas.por_veiculo.modo_agrupado') ?></option>
+                <option value="individualizado"><?= t('modules.relatorios.faturas.por_veiculo.modo_individualizado') ?></option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[220px] max-w-[320px]">
+            <label for="filterVeiculo" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.faturas.por_veiculo.filter_veiculo') ?></label>
+            <select id="filterVeiculo" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/veiculos/buscar" data-chosen-placeholder="<?= htmlspecialchars(t('modules.relatorios.faturas.por_veiculo.all_vehicles') ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <option value=""><?= t('modules.relatorios.faturas.por_veiculo.all_vehicles') ?></option>
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button id="btnAplicar" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
+                <i class="fas fa-search mr-2"></i><?= t('modules.relatorios.common.apply') ?>
+            </button>
+            <button id="btnLimpar" class="text-sm text-slate-500 hover:text-slate-700 px-3 py-2" title="<?= t('modules.relatorios.common.clear') ?>">
+                <i class="fas fa-times mr-1"></i><?= t('modules.relatorios.common.clear') ?>
+            </button>
+        </div>
+    </div>
 
     <!-- Exportacao -->
     @include('pages.relatorios._partials.export-buttons')
@@ -29,16 +65,7 @@
     <!-- Tabela -->
     <div id="reportTableContainer" class="bg-white shadow-md rounded-lg overflow-x-auto" style="display: none;">
         <table class="w-full min-w-full divide-y divide-slate-200">
-            <thead class="table-header-custom">
-                <tr>
-                    <th class="table-header"><?= t('modules.relatorios.faturas.por_veiculo.col_veiculo') ?></th>
-                    <th class="table-header text-center"><?= t('modules.relatorios.faturas.por_veiculo.col_total_faturas') ?></th>
-                    <th class="table-header text-right"><?= t('modules.relatorios.faturas.por_veiculo.col_valor_total') ?></th>
-                    <th class="table-header text-right"><?= t('modules.relatorios.faturas.por_veiculo.col_pagas') ?></th>
-                    <th class="table-header text-right"><?= t('modules.relatorios.faturas.por_veiculo.col_pendentes') ?></th>
-                    <th class="table-header text-right"><?= t('modules.relatorios.faturas.por_veiculo.col_vencidas') ?></th>
-                </tr>
-            </thead>
+            <thead id="reportTableHead" class="table-header-custom"></thead>
             <tbody id="reportTableBody" class="bg-white divide-y divide-slate-200"></tbody>
         </table>
     </div>
@@ -53,6 +80,24 @@
     const API_URL = '/api/relatorios/faturas/por-veiculo';
     const PDF_URL = '/relatorios/faturas/por-veiculo/pdf';
     let chartInstance = null;
+    let modoAtual = 'agrupado';
+
+    const labels = {
+        vehicle: '<?= t("modules.relatorios.faturas.por_veiculo.col_veiculo") ?>',
+        invoices: '<?= t("modules.relatorios.faturas.por_veiculo.col_total_faturas") ?>',
+        total: '<?= t("modules.relatorios.faturas.por_veiculo.col_valor_total") ?>',
+        paid: '<?= t("modules.relatorios.faturas.por_veiculo.col_pagas") ?>',
+        pending: '<?= t("modules.relatorios.faturas.por_veiculo.col_pendentes") ?>',
+        overdue: '<?= t("modules.relatorios.faturas.por_veiculo.col_vencidas") ?>',
+        invoice: '<?= t("modules.relatorios.faturas.por_veiculo.col_fatura") ?>',
+        client: '<?= t("modules.relatorios.faturas.por_veiculo.col_cliente") ?>',
+        description: '<?= t("modules.relatorios.faturas.por_veiculo.col_descricao") ?>',
+        dueDate: '<?= t("modules.relatorios.faturas.por_veiculo.col_vencimento") ?>',
+        status: '<?= t("modules.relatorios.faturas.por_veiculo.col_status") ?>',
+        statusPaid: '<?= t("modules.relatorios.faturas.por_veiculo.status_pago") ?>',
+        statusPending: '<?= t("modules.relatorios.faturas.por_veiculo.status_pendente") ?>',
+        statusOverdue: '<?= t("modules.relatorios.faturas.por_veiculo.status_vencida") ?>',
+    };
 
     const totalsConfig = [
         { key: 'total_faturas', label: '<?= t("modules.relatorios.faturas.por_veiculo.total_faturas") ?>', icon: 'fa-file-invoice-dollar', format: 'number' },
@@ -77,6 +122,8 @@
             data_inicio: document.getElementById('filterDataInicio').value,
             data_fim: document.getElementById('filterDataFim').value,
             filial: document.getElementById('filterFilial').value,
+            modo: document.getElementById('filterModo').value,
+            veiculo: document.getElementById('filterVeiculo').value,
         });
         ReportUtils.exportPdf(`${PDF_URL}?${params.toString()}`, '<?= t("modules.relatorios.faturas.por_veiculo.title") ?>');
     }
@@ -89,7 +136,10 @@
                 data_inicio: document.getElementById('filterDataInicio').value,
                 data_fim: document.getElementById('filterDataFim').value,
                 filial: document.getElementById('filterFilial').value,
+                modo: document.getElementById('filterModo').value,
+                veiculo: document.getElementById('filterVeiculo').value,
             };
+            modoAtual = params.modo === 'individualizado' ? 'individualizado' : 'agrupado';
 
             const result = await API.get(API_URL, params);
             if (!result.success) {
@@ -151,7 +201,32 @@
             return;
         }
         container.style.display = 'block';
+        renderTableHeader();
         const cf = (v) => Currency.format(v, true);
+
+        if (modoAtual === 'individualizado') {
+            tbody.innerHTML = lista.map(row => {
+                const placa = row.placa || '-';
+                const veiculo = row.veiculo || '';
+                const ano = row.ano ? ` <span class="text-slate-400 text-xs">(${row.ano})</span>` : '';
+                const parcela = row.parcela_label && row.parcela_label !== '-' ? ` <span class="text-slate-400 text-xs">(${row.parcela_label})</span>` : '';
+                return `<tr class="hover:bg-slate-50">
+                    <td class="table-cell">
+                        <span class="font-medium">${placa}</span>
+                        <span class="text-slate-500 text-xs ml-2">${veiculo}${ano}</span>
+                    </td>
+                    <td class="table-cell">
+                        <span class="font-medium">${row.codigo || '-'}</span>${parcela}
+                    </td>
+                    <td class="table-cell">${row.cliente || '-'}</td>
+                    <td class="table-cell text-slate-600 text-sm">${row.descricao || '-'}</td>
+                    <td class="table-cell text-center">${row.data_venci ? DateHelper.format(row.data_venci) : '-'}</td>
+                    <td class="table-cell text-right font-semibold">${cf(row.valor_total)}</td>
+                    <td class="table-cell text-center">${statusBadge(row.status)}</td>
+                </tr>`;
+            }).join('');
+            return;
+        }
 
         tbody.innerHTML = lista.map(row => {
             const placa = row.placa || '-';
@@ -171,9 +246,48 @@
         }).join('');
     }
 
+    function renderTableHeader() {
+        const thead = document.getElementById('reportTableHead');
+        if (modoAtual === 'individualizado') {
+            thead.innerHTML = `<tr>
+                <th class="table-header">${labels.vehicle}</th>
+                <th class="table-header">${labels.invoice}</th>
+                <th class="table-header">${labels.client}</th>
+                <th class="table-header">${labels.description}</th>
+                <th class="table-header text-center">${labels.dueDate}</th>
+                <th class="table-header text-right">${labels.total}</th>
+                <th class="table-header text-center">${labels.status}</th>
+            </tr>`;
+            return;
+        }
+
+        thead.innerHTML = `<tr>
+            <th class="table-header">${labels.vehicle}</th>
+            <th class="table-header text-center">${labels.invoices}</th>
+            <th class="table-header text-right">${labels.total}</th>
+            <th class="table-header text-right">${labels.paid}</th>
+            <th class="table-header text-right">${labels.pending}</th>
+            <th class="table-header text-right">${labels.overdue}</th>
+        </tr>`;
+    }
+
+    function statusBadge(status) {
+        if (status === 'pago') {
+            return `<span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">${labels.statusPaid}</span>`;
+        }
+        if (status === 'vencida') {
+            return `<span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">${labels.statusOverdue}</span>`;
+        }
+        return `<span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">${labels.statusPending}</span>`;
+    }
+
     function limparFiltros() {
         ReportUtils.setDefaultPeriod();
         document.getElementById('filterFilial').value = '';
+        document.getElementById('filterModo').value = 'agrupado';
+        document.getElementById('filterVeiculo').value = '';
+        document.getElementById('filterFilial')?.chosenSelect?.clear();
+        document.getElementById('filterVeiculo')?.chosenSelect?.clear();
         ReportUtils.hideContent();
     }
 

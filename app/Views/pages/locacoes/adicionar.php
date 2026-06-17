@@ -813,7 +813,7 @@
                 </div>
 
                 <!-- Resumo financeiro -->
-                <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3" id="resumoFinanceiroParcelas">
+                <div class="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3" id="resumoFinanceiroParcelas">
                     <div class="bg-slate-50 rounded-md p-3 text-center">
                         <span class="text-xs text-slate-500 block"><?= t('modules.locacoes.installments.total_launched') ?></span>
                         <span class="text-lg font-semibold" id="rfTotalLancado">R$ 0,00</span>
@@ -825,6 +825,10 @@
                     <div class="bg-yellow-50 rounded-md p-3 text-center">
                         <span class="text-xs text-yellow-600 block"><?= t('modules.locacoes.installments.total_pending') ?></span>
                         <span class="text-lg font-semibold text-yellow-600" id="rfTotalPendente">R$ 0,00</span>
+                    </div>
+                    <div class="bg-rose-50 rounded-md p-3 text-center">
+                        <span class="text-xs text-rose-600 block"><?= t('modules.locacoes.installments.total_refunded') ?></span>
+                        <span class="text-lg font-semibold text-rose-600" id="rfTotalReembolsado">R$ 0,00</span>
                     </div>
                     <div class="bg-blue-50 rounded-md p-3 text-center">
                         <span class="text-xs text-blue-600 block"><?= t('modules.locacoes.installments.difference') ?></span>
@@ -997,6 +1001,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             'financialSummaryUnavailable' => t('modules.locacoes.form.financial_summary_unavailable'),
             'registerFinancialInstallments' => t('modules.locacoes.form.register_financial_installments'),
             'installmentsTotalMismatch' => t('modules.locacoes.form.installments_total_mismatch'),
+            'returnRefundTitle' => t('modules.locacoes.form.return_refund_title'),
+            'returnRefundMessage' => t('modules.locacoes.form.return_refund_message'),
+            'returnRefundConfirm' => t('modules.locacoes.form.return_refund_confirm'),
             'saveBeforeHold' => t('modules.locacoes.form.save_before_hold'),
             'holdCreateError' => t('modules.locacoes.form.hold_create_error'),
             'holdReleaseError' => t('modules.locacoes.form.hold_release_error'),
@@ -1045,6 +1052,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 'fuel' => t('modules.locacoes.summary.fuel'),
                 'totals' => t('modules.locacoes.summary.totals'),
                 'amountPaid' => t('modules.locacoes.summary.amount_paid'),
+                'amountRefunded' => t('modules.locacoes.summary.amount_refunded'),
                 'balanceDue' => t('modules.locacoes.summary.balance_due'),
             ],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
@@ -1619,6 +1627,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         let taxasDisponiveis = [];
         let taxaSelecionadaAtual = null;
         let totalPagoFinanceiro = 0;
+        let totalReembolsadoFinanceiro = 0;
 
         // Carregar cache de todas as taxas disponiveis
         async function carregarTaxasDisponiveis() {
@@ -2035,7 +2044,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 <td colspan="4" class="px-4 py-2 text-right text-green-600">${i18n.summary.amountPaid}</td>
                 <td class="px-4 py-2 text-right font-medium text-green-600">${fmtCurrency(totalPagoFinanceiro)}</td>
             </tr>`;
-            const saldoPagar = Math.max(0, (totalLocacao - desconto) - totalPagoFinanceiro);
+            if (totalReembolsadoFinanceiro > 0) {
+                html += `<tr class="border-b border-slate-200">
+                    <td colspan="4" class="px-4 py-2 text-right text-rose-600">${i18n.summary.amountRefunded}</td>
+                    <td class="px-4 py-2 text-right font-medium text-rose-600">${fmtCurrency(totalReembolsadoFinanceiro)}</td>
+                </tr>`;
+            }
+            const saldoPagar = Math.max(0, (totalLocacao - desconto) - totalPagoFinanceiro - totalReembolsadoFinanceiro);
             html += `<tr class="bg-orange-50">
                 <td colspan="4" class="px-4 py-3 text-right font-semibold text-slate-700">${i18n.summary.balanceDue}</td>
                 <td class="px-4 py-3 text-right font-bold text-xl text-orange-600">${fmtCurrency(saldoPagar)}</td>
@@ -2109,7 +2124,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
                 if (totalParcelas <= 0) {
                     pendencias.push(i18n.registerFinancialInstallments);
-                } else if (Math.abs(diferenca) > 0.009) {
+                } else if (diferenca > 0.009) {
                     pendencias.push(i18n.installmentsTotalMismatch
                         .replace(':launched', fmtCurrency(totalLancado))
                         .replace(':expected', fmtCurrency(totalPagar)));
@@ -2123,6 +2138,52 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
 
         // ===== SUBMIT =====
+
+        let devolucaoCreditoPendente = null;
+
+        async function enviarLocacao(dados) {
+            const btnSalvar = document.getElementById('btnSalvar');
+            btnSalvar.disabled = true;
+            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + i18n.saving;
+
+            try {
+                const url = isEditing ? `/locacoes/${locacaoData.id}/atualizar` : '/locacoes/salvar';
+                const result = await API.post(url, dados);
+
+                if (result.success) {
+                    window.parent.postMessage({
+                        action: 'openAlert',
+                        message: isEditing ? i18n.updated : i18n.created
+                    }, '*');
+
+                    if (dados.status === 'F') {
+                        navegarPara('/pages/locacoes');
+                        return;
+                    }
+
+                    if (!isEditing && result.data?.id) {
+                        navegarPara('/pages/locacoes/editar/' + result.data.id);
+                    }
+                } else if (result.code === 'return_refund_required' && result.data?.valor_credito_devolucao) {
+                    devolucaoCreditoPendente = { ...dados, gerar_credito_devolucao: '1' };
+                    window.parent.postMessage({
+                        action: 'openGenericConfirmModal',
+                        title: i18n.returnRefundTitle,
+                        message: i18n.returnRefundMessage
+                            .replace(':amount', fmtCurrency(parseFloat(result.data.valor_credito_devolucao) || 0)),
+                        confirmText: i18n.returnRefundConfirm
+                    }, '*');
+                } else {
+                    window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.saveError }, '*');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                window.parent.postMessage({ action: 'openAlert', message: i18n.saveError }, '*');
+            } finally {
+                btnSalvar.disabled = false;
+                btnSalvar.innerHTML = '<i class="fas fa-save mr-2"></i>' + <?= $jsT('common.buttons.save') ?>;
+            }
+        }
 
         document.getElementById('formLocacao')?.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -2200,40 +2261,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 }
             }
 
-            try {
-                const btnSalvar = document.getElementById('btnSalvar');
-                btnSalvar.disabled = true;
-                btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + i18n.saving;
-
-                const url = isEditing ? `/locacoes/${locacaoData.id}/atualizar` : '/locacoes/salvar';
-                const result = await API.post(url, dados);
-
-                if (result.success) {
-                    window.parent.postMessage({
-                        action: 'openAlert',
-                        message: isEditing ? i18n.updated : i18n.created
-                    }, '*');
-
-                    if (dados.status === 'F') {
-                        navegarPara('/pages/locacoes');
-                        return;
-                    }
-
-                    if (!isEditing && result.data?.id) {
-                        navegarPara('/pages/locacoes/editar/' + result.data.id);
-                    }
-                } else {
-                    window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.saveError }, '*');
-                }
-
-                btnSalvar.disabled = false;
-                btnSalvar.innerHTML = '<i class="fas fa-save mr-2"></i>' + <?= $jsT('common.buttons.save') ?>;
-            } catch (error) {
-                console.error('Erro:', error);
-                window.parent.postMessage({ action: 'openAlert', message: i18n.saveError }, '*');
-                document.getElementById('btnSalvar').disabled = false;
-                document.getElementById('btnSalvar').innerHTML = '<i class="fas fa-save mr-2"></i>' + <?= $jsT('common.buttons.save') ?>;
-            }
+            await enviarLocacao(dados);
         });
 
         function coletarPessoas(containerId) {
@@ -3144,11 +3172,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     const totalSimulado = calcularTotalPagarFormulario();
                     const totalLancado = parseFloat(r.total_lancado) || 0;
                     const totalPago = parseFloat(r.total_pago) || 0;
+                    const totalReembolsado = parseFloat(r.total_credito_devolucao) || 0;
                     const diferencaSimulada = Math.max(0, Math.round((totalSimulado - totalLancado) * 100) / 100);
                     totalPagoFinanceiro = totalPago;
+                    totalReembolsadoFinanceiro = totalReembolsado;
                     document.getElementById('rfTotalLancado').textContent = fmtCurrency(parseFloat(r.total_lancado) || 0);
                     document.getElementById('rfTotalPago').textContent = fmtCurrency(parseFloat(r.total_pago) || 0);
                     document.getElementById('rfTotalPendente').textContent = fmtCurrency(parseFloat(r.total_pendente) || 0);
+                    document.getElementById('rfTotalReembolsado').textContent = fmtCurrency(totalReembolsado);
                     document.getElementById('rfDiferenca').textContent = fmtCurrency(diferencaSimulada);
                     atualizarResumo();
                 }
@@ -3251,6 +3282,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         // Listener para resposta do modal de confirmacao generico
         window.addEventListener('message', async function(event) {
             if (!event.data || event.data.action !== 'genericConfirmed') return;
+            if (devolucaoCreditoPendente) {
+                const dados = devolucaoCreditoPendente;
+                devolucaoCreditoPendente = null;
+                await enviarLocacao(dados);
+                return;
+            }
+
             if (!parcelaAcaoPendente) return;
 
             const { id, tipo } = parcelaAcaoPendente;
@@ -3270,6 +3308,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             } catch (e) {
                 console.error('Erro na acao da parcela:', e);
             }
+        });
+
+        window.addEventListener('message', function(event) {
+            if (!event.data || event.data.action !== 'genericModalClosed') return;
+            devolucaoCreditoPendente = null;
         });
 
         // Carregar contas e formas de pagamento nos selects de parcelas

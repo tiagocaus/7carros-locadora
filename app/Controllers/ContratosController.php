@@ -2064,6 +2064,10 @@ class ContratosController
         }
 
         $fornecedorData = $this->resolverFornecedorDocumento($veiculo);
+        $parcelasFinanceiras = [];
+        if (!empty($contrato['id'])) {
+            $parcelasFinanceiras = (new Contrato())->listarParcelasContrato((int) $contrato['id']);
+        }
 
         return [
             'cliente' => [
@@ -2151,6 +2155,7 @@ class ContratosController
                 ],
                 'veiculos' => $contrato['veiculos'] ?? [],
                 'taxas' => $contrato['taxas'] ?? [],
+                'parcelas' => $parcelasFinanceiras,
                 'condutores' => !empty($contrato['condutor_adicional']) ? (json_decode($contrato['condutor_adicional'], true) ?: []) : [],
                 'fiadores' => !empty($contrato['array_fiadores']) ? (json_decode($contrato['array_fiadores'], true) ?: []) : [],
                 'avalistas' => !empty($contrato['array_avalistas']) ? (json_decode($contrato['array_avalistas'], true) ?: []) : [],

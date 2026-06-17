@@ -1470,13 +1470,27 @@ Este documento especifica o comportamento e as informações que cada relatório
 
 **Objetivo**: Faturas associadas a cada veículo.
 
+**Filtros**:
+- Período
+- Filial
+- Visualização: Agrupado por veículo ou Individualizado
+- Veículo: Todos ou um veículo específico
+
 **Informações a exibir**:
+
+**Visualização agrupada**:
 
 | Veículo | Total Faturas | Valor Total | Pagas | Pendentes | Vencidas |
 |---------|---------------|-------------|-------|-----------|----------|
 | | | | | | |
 
-**Detalhamento**: Lista de faturas por veículo selecionado
+**Visualização individualizada**:
+
+| Veículo | Fatura | Cliente | Descrição | Vencimento | Valor Total | Status |
+|---------|--------|---------|-----------|------------|-------------|--------|
+| | | | | | | |
+
+**Detalhamento**: O filtro de veículo permite restringir a visão agrupada ou individualizada a um veículo específico.
 
 ---
 

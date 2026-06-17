@@ -57,28 +57,32 @@
 @endsection
 
 @section('scripts')
+<?php
+$jsonFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+$jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
+?>
 <script>
 (function () {
     const i18n = {
-        noClients: '<?= t("modules.clientes.messages.no_clients") ?>',
-        noName: '<?= t("modules.clientes.messages.no_name") ?>',
-        thisClient: '<?= t("modules.clientes.messages.this_client") ?>',
-        loadError: '<?= t("modules.clientes.messages.load_error") ?>',
-        connectionError: '<?= t("modules.clientes.messages.connection_error") ?>',
-        idNotFound: '<?= t("modules.clientes.messages.id_not_found") ?>',
-        deleteError: '<?= t("modules.clientes.messages.delete_error") ?>',
-        deleteBlockedTitle: '<?= t("modules.clientes.messages.delete_blocked_title") ?>',
-        confirmDeleteTitle: '<?= t("modules.clientes.messages.confirm_delete_title") ?>',
-        confirmDeleteMessage: '<?= t("modules.clientes.messages.confirm_delete_message") ?>',
-        confirmText: '<?= t("modules.clientes.messages.confirm_text") ?>',
-        confirmInputPlaceholder: '<?= t("modules.clientes.messages.confirm_input_placeholder") ?>',
-        thisRecord: '<?= t("modules.clientes.messages.this_record") ?>',
-        tooltipView: '<?= t("modules.clientes.tooltips.view") ?>',
-        tooltipEdit: '<?= t("modules.clientes.tooltips.edit") ?>',
-        tooltipDelete: '<?= t("modules.clientes.tooltips.delete") ?>',
-        showing: '<?= t("common.labels.showing") ?>',
-        of: '<?= t("common.labels.of") ?>',
-        records: '<?= t("common.labels.records") ?>',
+        noClients: <?= $jsText(t("modules.clientes.messages.no_clients")) ?>,
+        noName: <?= $jsText(t("modules.clientes.messages.no_name")) ?>,
+        thisClient: <?= $jsText(t("modules.clientes.messages.this_client")) ?>,
+        loadError: <?= $jsText(t("modules.clientes.messages.load_error")) ?>,
+        connectionError: <?= $jsText(t("modules.clientes.messages.connection_error")) ?>,
+        idNotFound: <?= $jsText(t("modules.clientes.messages.id_not_found")) ?>,
+        deleteError: <?= $jsText(t("modules.clientes.messages.delete_error")) ?>,
+        deleteBlockedTitle: <?= $jsText(t("modules.clientes.messages.delete_blocked_title")) ?>,
+        confirmDeleteTitle: <?= $jsText(t("modules.clientes.messages.confirm_delete_title")) ?>,
+        confirmDeleteMessage: <?= $jsText(t("modules.clientes.messages.confirm_delete_message")) ?>,
+        confirmText: <?= $jsText(t("modules.clientes.messages.confirm_text")) ?>,
+        confirmInputPlaceholder: <?= $jsText(t("modules.clientes.messages.confirm_input_placeholder")) ?>,
+        thisRecord: <?= $jsText(t("modules.clientes.messages.this_record")) ?>,
+        tooltipView: <?= $jsText(t("modules.clientes.tooltips.view")) ?>,
+        tooltipEdit: <?= $jsText(t("modules.clientes.tooltips.edit")) ?>,
+        tooltipDelete: <?= $jsText(t("modules.clientes.tooltips.delete")) ?>,
+        showing: <?= $jsText(t("common.labels.showing")) ?>,
+        of: <?= $jsText(t("common.labels.of")) ?>,
+        records: <?= $jsText(t("common.labels.records")) ?>,
     };
 
     // Estado da paginacao

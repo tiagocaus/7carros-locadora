@@ -3,6 +3,18 @@
 @section('title', 'Pagamento - ' . ($link['empresa_nome'] ?? '7Carros'))
 
 @section('content')
+<?php
+$hojePagamento = date('Y-m-d');
+$vencimentoFinanceiro = $link['financeiro_vencimento'] ?? null;
+$vencimentoGateway = $hojePagamento;
+if (!empty($vencimentoFinanceiro)) {
+    $timestampVencimento = strtotime($vencimentoFinanceiro);
+    if ($timestampVencimento !== false) {
+        $vencimentoNormalizado = date('Y-m-d', $timestampVencimento);
+        $vencimentoGateway = $vencimentoNormalizado < $hojePagamento ? $hojePagamento : $vencimentoNormalizado;
+    }
+}
+?>
 <!-- Header com logo da empresa -->
 <div class="text-center mb-6">
     @if(!empty($link['empresa_logo']))
@@ -83,7 +95,7 @@
                         </div>
                         <div class="flex-1">
                             <p class="font-semibold text-slate-800">Boleto Bancario</p>
-                            <p class="text-sm text-slate-500">Vencimento em 3 dias</p>
+                            <p class="text-sm text-slate-500">Vencimento: <?= date('d/m/Y', strtotime($vencimentoGateway)) ?></p>
                         </div>
                         <i class="fas fa-chevron-right text-slate-400"></i>
                     </div>

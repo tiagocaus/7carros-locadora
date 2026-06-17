@@ -141,6 +141,31 @@ class PagamentoLink extends Model
     }
 
     /**
+     * Busca link por ID em fluxo público de webhook.
+     *
+     * Usado para reconciliar externalReference do gateway (ex: link_123)
+     * quando a transação externa ainda não foi localizada localmente.
+     *
+     * @param int $id
+     * @return array<string, mixed>|null
+     */
+    public function buscarPublicoPorId(int $id): ?array
+    {
+        return $this->qb
+            ->table('pagamentos_links', 'pl')
+            ->select([
+                'pl.*',
+                'f.descricao AS financeiro_descricao',
+                'c.nome_rsocial AS cliente_nome',
+            ])
+            ->leftJoin('financeiro', 'f', 'pl.id_financeiro', '=', 'f.id')
+            ->leftJoin('clientes', 'c', 'pl.id_cliente', '=', 'c.id')
+            ->withoutChave()
+            ->where('pl.id', '=', $id)
+            ->first();
+    }
+
+    /**
      * Lista links do tenant
      *
      * @param int $page

@@ -159,6 +159,11 @@ try {
     $scheduler->job(new \App\Crons\Jobs\NFSeEnviarEmailJob())
               ->everyFiveMinutes();
 
+    // Financeiro - Juros e Multa de Lancamentos Vencidos
+    // Executa a cada 15 minutos para recalcular encargos conforme a forma de pagamento
+    $scheduler->job(new \App\Crons\Jobs\CalculateOverdueFeesJob())
+              ->everyFifteenMinutes();
+
     // Rotacao de Authorization Holds (Bloqueio)
     // Executa diariamente as 03:00 - rotaciona holds que expiram em 2 dias e marca expirados
     $scheduler->job(new \App\Crons\Jobs\RotateAuthorizationHoldsJob())
@@ -172,9 +177,6 @@ try {
     // ========================================
     // Exemplos de outros jobs (descomentar quando necessário)
     // ========================================
-    // $scheduler->job(new \App\Crons\Jobs\CalculateOverdueFeesJob())
-    //           ->hourly();
-    //
     // $scheduler->job(new \App\Crons\Jobs\SendBirthdayEmailsJob())
     //           ->dailyAt('08:00');
     //

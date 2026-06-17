@@ -50,7 +50,7 @@ class BradescoGateway extends AbstractPaymentGateway
             $billingType = strtoupper($data['billing_type']);
             $payload = [
                 'valor' => (float) $data['value'],
-                'vencimento' => $data['due_date'] ?? date('Y-m-d', strtotime('+3 days')),
+                'vencimento' => $this->resolveDueDate($data['due_date'] ?? null),
             ];
 
             if (!empty($data['customer_document'])) {

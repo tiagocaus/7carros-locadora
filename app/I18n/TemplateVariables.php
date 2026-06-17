@@ -461,6 +461,12 @@ class TemplateVariables
                 'label_key' => 'variables.contrato.parcelas_tabela',
                 'example' => '<table style="width:100%; border-collapse:collapse; border:1px solid #ddd;"><thead><tr style="background:#f5f5f5;"><th style="padding:8px; border:1px solid #ddd; text-align:center;">Parcela</th><th style="padding:8px; border:1px solid #ddd; text-align:center;">Vencimento</th><th style="padding:8px; border:1px solid #ddd; text-align:right;">Valor</th><th style="padding:8px; border:1px solid #ddd; text-align:center;">Status</th></tr></thead><tbody><tr><td style="padding:8px; border:1px solid #ddd; text-align:center;">1/12</td><td style="padding:8px; border:1px solid #ddd; text-align:center;">15/01/2024</td><td style="padding:8px; border:1px solid #ddd; text-align:right;">R$ 500,00</td><td style="padding:8px; border:1px solid #ddd; text-align:center;">Pago</td></tr></tbody></table>'
             ],
+            'valor.parcela' => [
+                'key' => 'contrato.valor.parcela',
+                'type' => 'computed',
+                'label_key' => 'variables.contrato.valor_parcela',
+                'example' => 'R$ 500,00'
+            ],
             'total_parcelas' => [
                 'key' => 'contrato.total_parcelas',
                 'type' => 'text',
@@ -1547,6 +1553,9 @@ class TemplateVariables
             case 'contrato.parcelas_tabela':
                 return self::buildContratoParcelasTabela($context['contrato']['parcelas'] ?? [], $locale, $context);
 
+            case 'contrato.valor.parcela':
+                return self::buildContratoValorParcela($context['contrato']['parcelas'] ?? [], $locale, $context);
+
             case 'contrato.condutores':
                 return self::buildContratoCondutoresTexto($context['contrato']['condutores'] ?? [], $locale);
 
@@ -2021,6 +2030,60 @@ class TemplateVariables
 
         $html .= '</tbody></table>';
         return $html;
+    }
+
+    /**
+     * Retorna o valor mais comum entre as parcelas do contrato.
+     */
+    private static function buildContratoValorParcela(array $parcelas, string $locale, array $context = []): ?string
+    {
+        if (empty($parcelas)) {
+            return null;
+        }
+
+        $grupos = [];
+        $ordem = 0;
+
+        foreach ($parcelas as $parcela) {
+            $valor = (float) ($parcela['valor_total'] ?? $parcela['valor_subtotal'] ?? 0);
+            if ($valor <= 0) {
+                continue;
+            }
+
+            $valor = round($valor, 2);
+            $chave = number_format($valor, 2, '.', '');
+
+            if (!isset($grupos[$chave])) {
+                $grupos[$chave] = [
+                    'valor' => $valor,
+                    'quantidade' => 0,
+                    'ordem' => $ordem,
+                ];
+            }
+
+            $grupos[$chave]['quantidade']++;
+            $ordem++;
+        }
+
+        if (empty($grupos)) {
+            return null;
+        }
+
+        $selecionado = null;
+        foreach ($grupos as $grupo) {
+            if (
+                $selecionado === null
+                || $grupo['quantidade'] > $selecionado['quantidade']
+                || (
+                    $grupo['quantidade'] === $selecionado['quantidade']
+                    && $grupo['ordem'] < $selecionado['ordem']
+                )
+            ) {
+                $selecionado = $grupo;
+            }
+        }
+
+        return self::formatCurrency((float) $selecionado['valor'], $locale, $context);
     }
 
     /**

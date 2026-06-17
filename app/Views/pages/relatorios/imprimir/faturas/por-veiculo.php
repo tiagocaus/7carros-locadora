@@ -30,43 +30,91 @@
         </tr>
     </table>
 
-    <?php $lista = $details['lista'] ?? []; ?>
+    <?php
+    $lista = $details['lista'] ?? [];
+    $modo = ($details['modo'] ?? 'agrupado') === 'individualizado' ? 'individualizado' : 'agrupado';
+    $statusLabel = static function (string $status): string {
+        if ($status === 'pago') return t('modules.relatorios.faturas.por_veiculo.status_pago');
+        if ($status === 'vencida') return t('modules.relatorios.faturas.por_veiculo.status_vencida');
+        return t('modules.relatorios.faturas.por_veiculo.status_pendente');
+    };
+    ?>
 
     <?php if (empty($lista)): ?>
         <p style="font-size: 9pt; color: #64748b; padding: 10px;">
             <?= t('modules.relatorios.common.no_data') ?>
         </p>
     <?php else: ?>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th><?= t('modules.relatorios.faturas.por_veiculo.col_veiculo') ?></th>
-                <th class="center"><?= t('modules.relatorios.faturas.por_veiculo.col_total_faturas') ?></th>
-                <th class="right"><?= t('modules.relatorios.faturas.por_veiculo.col_valor_total') ?></th>
-                <th class="right"><?= t('modules.relatorios.faturas.por_veiculo.col_pagas') ?></th>
-                <th class="right"><?= t('modules.relatorios.faturas.por_veiculo.col_pendentes') ?></th>
-                <th class="right"><?= t('modules.relatorios.faturas.por_veiculo.col_vencidas') ?></th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($lista as $row): ?>
-            <tr>
-                <td>
-                    <strong><?= htmlspecialchars($row['placa'] ?? '-') ?></strong>
-                    <span style="color:#64748b; font-size:8pt;">
-                        <?= htmlspecialchars($row['veiculo'] ?? '') ?>
-                        <?= !empty($row['ano']) ? ' (' . htmlspecialchars((string) $row['ano']) . ')' : '' ?>
-                    </span>
-                </td>
-                <td class="center"><?= number_format($row['total_faturas'] ?? 0, 0, ',', '.') ?></td>
-                <td class="right" style="font-weight:bold;"><?= currency_format($row['valor_total'] ?? 0) ?></td>
-                <td class="right" style="color:#16a34a;"><?= currency_format($row['total_pago'] ?? 0) ?></td>
-                <td class="right" style="color:#ca8a04;"><?= currency_format($row['total_pendente'] ?? 0) ?></td>
-                <td class="right" style="color:#b91c1c;"><?= currency_format($row['total_vencido'] ?? 0) ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+        <?php if ($modo === 'individualizado'): ?>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th><?= t('modules.relatorios.faturas.por_veiculo.col_veiculo') ?></th>
+                    <th><?= t('modules.relatorios.faturas.por_veiculo.col_fatura') ?></th>
+                    <th><?= t('modules.relatorios.faturas.por_veiculo.col_cliente') ?></th>
+                    <th><?= t('modules.relatorios.faturas.por_veiculo.col_descricao') ?></th>
+                    <th class="center"><?= t('modules.relatorios.faturas.por_veiculo.col_vencimento') ?></th>
+                    <th class="right"><?= t('modules.relatorios.faturas.por_veiculo.col_valor_total') ?></th>
+                    <th class="center"><?= t('modules.relatorios.faturas.por_veiculo.col_status') ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($lista as $row): ?>
+                <tr>
+                    <td>
+                        <strong><?= htmlspecialchars($row['placa'] ?? '-') ?></strong>
+                        <span style="color:#64748b; font-size:8pt;">
+                            <?= htmlspecialchars($row['veiculo'] ?? '') ?>
+                            <?= !empty($row['ano']) ? ' (' . htmlspecialchars((string) $row['ano']) . ')' : '' ?>
+                        </span>
+                    </td>
+                    <td>
+                        <strong><?= htmlspecialchars($row['codigo'] ?? '-') ?></strong>
+                        <?php if (!empty($row['parcela_label']) && $row['parcela_label'] !== '-'): ?>
+                            <span style="color:#64748b; font-size:8pt;">(<?= htmlspecialchars($row['parcela_label']) ?>)</span>
+                        <?php endif; ?>
+                    </td>
+                    <td><?= htmlspecialchars($row['cliente'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($row['descricao'] ?? '-') ?></td>
+                    <td class="center"><?= !empty($row['data_venci']) ? format_date($row['data_venci']) : '-' ?></td>
+                    <td class="right" style="font-weight:bold;"><?= currency_format($row['valor_total'] ?? 0) ?></td>
+                    <td class="center"><?= htmlspecialchars($statusLabel((string) ($row['status'] ?? 'pendente'))) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th><?= t('modules.relatorios.faturas.por_veiculo.col_veiculo') ?></th>
+                    <th class="center"><?= t('modules.relatorios.faturas.por_veiculo.col_total_faturas') ?></th>
+                    <th class="right"><?= t('modules.relatorios.faturas.por_veiculo.col_valor_total') ?></th>
+                    <th class="right"><?= t('modules.relatorios.faturas.por_veiculo.col_pagas') ?></th>
+                    <th class="right"><?= t('modules.relatorios.faturas.por_veiculo.col_pendentes') ?></th>
+                    <th class="right"><?= t('modules.relatorios.faturas.por_veiculo.col_vencidas') ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($lista as $row): ?>
+                <tr>
+                    <td>
+                        <strong><?= htmlspecialchars($row['placa'] ?? '-') ?></strong>
+                        <span style="color:#64748b; font-size:8pt;">
+                            <?= htmlspecialchars($row['veiculo'] ?? '') ?>
+                            <?= !empty($row['ano']) ? ' (' . htmlspecialchars((string) $row['ano']) . ')' : '' ?>
+                        </span>
+                    </td>
+                    <td class="center"><?= number_format($row['total_faturas'] ?? 0, 0, ',', '.') ?></td>
+                    <td class="right" style="font-weight:bold;"><?= currency_format($row['valor_total'] ?? 0) ?></td>
+                    <td class="right" style="color:#16a34a;"><?= currency_format($row['total_pago'] ?? 0) ?></td>
+                    <td class="right" style="color:#ca8a04;"><?= currency_format($row['total_pendente'] ?? 0) ?></td>
+                    <td class="right" style="color:#b91c1c;"><?= currency_format($row['total_vencido'] ?? 0) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
     <?php endif; ?>
 
     <?php include __DIR__ . '/../kpis/_footer.php'; ?>

@@ -296,7 +296,8 @@ $_formatarVeiculoFatura = static function(array $item): string {
     $parcelasFinanceirasPdf = is_array($parcelasFinanceiras ?? null) ? $parcelasFinanceiras : [];
     $resumoFinanceiroPdf = is_array($resumoFinanceiro ?? null) ? $resumoFinanceiro : [];
     $totalPagoPdf = (float) ($resumoFinanceiroPdf['total_pago'] ?? 0);
-    $totalAPagarPdf = max(0, $totalGeralPdf - $totalPagoPdf);
+    $totalReembolsadoPdf = (float) ($resumoFinanceiroPdf['total_credito_devolucao'] ?? 0);
+    $totalAPagarPdf = max(0, $totalGeralPdf - $totalPagoPdf - $totalReembolsadoPdf);
 ?>
 <div class="totals">
     <table class="totals-table" cellpadding="0" cellspacing="0">
@@ -322,6 +323,12 @@ $_formatarVeiculoFatura = static function(array $item): string {
         <tr>
             <td class="label-col"><?= t('modules.locacoes.installments.total_paid') ?></td>
             <td class="value-col" style="color: #07803a;">- <?= currency_format($totalPagoPdf) ?></td>
+        </tr>
+        <?php endif; ?>
+        <?php if ($totalReembolsadoPdf > 0): ?>
+        <tr>
+            <td class="label-col"><?= t('modules.locacoes.pdf.total_refunded_label') ?></td>
+            <td class="value-col" style="color: #be123c;">- <?= currency_format($totalReembolsadoPdf) ?></td>
         </tr>
         <?php endif; ?>
         <tr class="total-row">

@@ -286,13 +286,13 @@ Os jobs executados uma vez por dia ficam distribuídos na madrugada:
 
 O `Scheduler` registra o resultado dos jobs diários em `storage/cron/daily-summary/YYYY-MM-DD.json`.
 O `SendDailyCronSummaryJob` envia um email único para `APP_COMPANY_EMAIL` com status, duração, mensagem e contadores de cada job diário.
-Jobs recorrentes por minuto, 5 minutos ou 30 minutos não entram nesse resumo.
+Jobs recorrentes por minuto, 5, 15 ou 30 minutos não entram nesse resumo.
 
 ---
 
 ### 2. CalculateOverdueFeesJob
 
-**Descrição**: Calcula multas e juros para transações financeiras vencidas
+**Descrição**: Calcula juros e multa para lançamentos financeiros vencidos
 
 **Arquivo**: `app/Crons/Jobs/CalculateOverdueFeesJob.php`
 
@@ -300,47 +300,44 @@ Jobs recorrentes por minuto, 5 minutos ou 30 minutos não entram nesse resumo.
 
 **Lógica**:
 
-1. Busca transações elegíveis:
-   - `status IN ('pending', 'overdue')`
-   - `due_date < hoje`
-   - `payment_method_id IS NOT NULL`
+1. Busca lançamentos elegíveis:
+   - `financeiro.tipo = 'R'`
+   - `financeiro.pago = 'N'`
+   - `financeiro.data_venci < CURDATE()`
+   - `financeiro.valor_subtotal > 0`
+   - `financeiro.id_forma_pagamento` vinculado a uma `formas_pagamento` do mesmo tenant
+   - `formas_pagamento.multa > 0` ou `formas_pagamento.juros_por_dia > 0`
 
-2. Para cada transação:
-   - **Multa (penalty)**: Calculada UMA VEZ quando vence
-     - Se `penalty = NULL`: `penalty = amount * (late_fee_percentage / 100)`
-     - Se `penalty != NULL`: NÃO recalcula
+2. Atualiza em lote os valores calculados:
+   - **Multa**: `financeiro.valor_subtotal * (formas_pagamento.multa / 100)`
+   - **Juros**: `financeiro.valor_subtotal * (formas_pagamento.juros_por_dia / 100) * DATEDIFF(CURDATE(), financeiro.data_venci)`
+   - **Total**: `valor_subtotal + juros + multa - desconto`
 
-   - **Juros (interest)**: Calculados DIARIAMENTE
-     - `interest = amount * (daily_interest_rate / 100) * days_overdue`
-     - SEMPRE recalcula (cresce diariamente)
-
-3. Atualiza status para `'overdue'`
-
-4. Salva no banco de dados
+3. Recalcula enquanto o lançamento estiver vencido e pendente. Lançamentos pagos, despesas, sem vencimento válido, sem forma de pagamento ou com forma sem encargos não são alterados.
 
 **Configuração de Taxas**:
 
-As taxas vêm da tabela `payment_methods`:
-- `late_fee_percentage` - Multa percentual (ex: 2.00 = 2%)
-- `daily_interest_rate` - Juros por dia (ex: 0.033 = ~1%/mês)
+As taxas vêm da tabela `formas_pagamento`:
+- `multa` - Percentual de multa por atraso (ex: 2.00 = 2%)
+- `juros_por_dia` - Percentual de juros por dia de atraso (ex: 0.033 = ~1% ao mês)
 
 **Exemplo**:
 
 ```
-Transação:
-- amount: R$ 1.000,00
-- due_date: 2025-10-15
-- payment_method: Boleto Bancário
+Lançamento:
+- valor_subtotal: R$ 1.000,00
+- data_venci: 2025-10-15
+- forma de pagamento: Boleto Bancário
 
 Forma de Pagamento (Boleto):
-- late_fee_percentage: 2.00 (2%)
-- daily_interest_rate: 0.033 (~1% ao mês)
+- multa: 2.00 (2%)
+- juros_por_dia: 0.033 (~1% ao mês)
 
 Hoje: 2025-10-25 (10 dias de atraso)
 
 Cálculo:
-- penalty = 1000 * (2.00 / 100) = R$ 20,00 (aplicado UMA VEZ)
-- interest = 1000 * (0.033 / 100) * 10 = R$ 3,30 (recalculado DIARIAMENTE)
+- multa = 1000 * (2.00 / 100) = R$ 20,00
+- juros = 1000 * (0.033 / 100) * 10 = R$ 3,30
 
 Total a pagar: R$ 1.023,30
 ```

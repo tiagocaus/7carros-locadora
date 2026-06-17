@@ -217,6 +217,8 @@ class PagamentoPublicoController
                 $gatewayId
             );
 
+            $dueDate = $this->resolveGatewayDueDate($link['financeiro_vencimento'] ?? null);
+
             // Preparar dados da cobrança
             $chargeData = [
                 'chave' => $link['chave'],
@@ -225,7 +227,7 @@ class PagamentoPublicoController
                 'billing_type' => $metodo,
                 'description' => $link['descricao'] ?? $link['financeiro_descricao'] ?? 'Pagamento',
                 'external_reference' => "link_{$link['id']}",
-                'due_date' => date('Y-m-d', strtotime('+3 days')),
+                'due_date' => $dueDate,
             ];
 
             // Dados do cliente
@@ -269,6 +271,7 @@ class PagamentoPublicoController
                     'barcode' => $result['barcode'] ?? null,
                     'boleto_url' => $result['boleto_url'] ?? null,
                     'expires_at' => $result['expires_at'] ?? null,
+                    'due_date' => $dueDate,
                     'metodo' => $metodo,
                 ]
             ]);
@@ -279,6 +282,23 @@ class PagamentoPublicoController
                 'message' => 'Erro ao processar pagamento: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function resolveGatewayDueDate(?string $financeiroVencimento): string
+    {
+        $hoje = date('Y-m-d');
+
+        if (empty($financeiroVencimento)) {
+            return $hoje;
+        }
+
+        $timestamp = strtotime($financeiroVencimento);
+        if ($timestamp === false) {
+            return $hoje;
+        }
+
+        $vencimento = date('Y-m-d', $timestamp);
+        return $vencimento < $hoje ? $hoje : $vencimento;
     }
 
     /**
@@ -405,10 +425,8 @@ class PagamentoPublicoController
     public function webhook(Request $request, string $gatewayCode): void
     {
         $gatewayCode = strtolower($gatewayCode);
-        $payload = $request->all();
+        $payload = $this->getWebhookPayload($request);
         $headers = $this->getHeaders();
-
-        error_log("[Webhook] Recebido gateway={$gatewayCode} keys=" . implode(',', array_keys($payload)));
 
         try {
             if (!GatewayFactory::exists($gatewayCode)) {
@@ -425,25 +443,77 @@ class PagamentoPublicoController
             $parsedPayload = $gatewayInstance->parseWebhookPayload($payload);
 
             $externalId = $parsedPayload['external_id'] ?? '';
+            $event = $parsedPayload['event'] ?? 'unknown';
+
+            error_log(sprintf(
+                '[Webhook] Recebido gateway=%s event=%s external_id=%s reference=%s keys=%s',
+                $gatewayCode,
+                $event,
+                $externalId ?: '-',
+                $parsedPayload['external_reference'] ?? '-',
+                implode(',', array_keys($payload))
+            ));
 
             if (empty($externalId)) {
-                error_log("[Webhook] external_id ausente gateway={$gatewayCode} event=" . ($parsedPayload['event'] ?? 'unknown'));
+                error_log("[Webhook] external_id ausente gateway={$gatewayCode} event={$event}");
+
+                if ($this->isAsaasWebhook($gatewayCode, $payload)) {
+                    Response::json(['success' => true, 'ignored' => true, 'message' => 'Webhook sem cobrança processável']);
+                    return;
+                }
+
                 Response::json(['error' => 'external_id não encontrado no payload'], 400);
                 return;
             }
 
             // Buscar transação original
             $transacao = $transacaoModel->buscarPorExternalId($externalId);
+            $gatewayConfig = null;
+            $gateway = null;
+
+            if (!$transacao && $this->isAsaasWebhook($gatewayCode, $payload)) {
+                $link = $this->buscarLinkPorExternalReference($parsedPayload['external_reference'] ?? null);
+
+                if ($link) {
+                    $gatewayConfig = $gatewayModel->buscarPorChaveECodigo($link['chave'], $gatewayCode);
+
+                    if (!$gatewayConfig) {
+                        error_log("[Webhook] Gateway Asaas nao configurado para chave={$link['chave']} external_id={$externalId}");
+                        Response::json(['success' => true, 'pending' => true, 'message' => 'Gateway não configurado']);
+                        return;
+                    }
+
+                    $gateway = GatewayFactory::create(
+                        $gatewayConfig['gateway_code'],
+                        $gatewayConfig['credentials'] ?? [],
+                        $gatewayConfig['ambiente'] === 'sandbox',
+                        $gatewayConfig['id']
+                    );
+
+                    if (!$gateway->validateWebhookSignature($payload, $headers)) {
+                        Response::json(['error' => 'Assinatura inválida'], 401);
+                        return;
+                    }
+
+                    $transacao = $this->criarTransacaoAsaasPeloWebhook(
+                        $transacaoModel,
+                        $gatewayConfig,
+                        $link,
+                        $externalId,
+                        $parsedPayload,
+                        $payload
+                    );
+                }
+            }
 
             if (!$transacao) {
                 error_log("[Webhook] Transacao nao encontrada gateway={$gatewayCode} external_id={$externalId}");
                 // Transação não encontrada, mas retornar OK para não reenviar
-                Response::json(['success' => true, 'message' => 'Transação não encontrada']);
+                Response::json(['success' => true, 'ignored' => true, 'message' => 'Transação não encontrada']);
                 return;
             }
 
             // Buscar gateway com credenciais
-            $gatewayConfig = null;
             if (!empty($transacao['id_gateway'])) {
                 $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais($transacao['id_gateway']);
             }
@@ -454,17 +524,25 @@ class PagamentoPublicoController
             }
 
             if (!$gatewayConfig) {
+                if ($this->isAsaasWebhook($gatewayCode, $payload)) {
+                    error_log("[Webhook] Gateway nao configurado gateway={$gatewayCode} chave=" . ($transacao['chave'] ?? '-'));
+                    Response::json(['success' => true, 'pending' => true, 'message' => 'Gateway não configurado']);
+                    return;
+                }
+
                 Response::json(['error' => 'Gateway não configurado'], 400);
                 return;
             }
 
             // Criar instância com credenciais
-            $gateway = GatewayFactory::create(
-                $gatewayConfig['gateway_code'],
-                $gatewayConfig['credentials'] ?? [],
-                $gatewayConfig['ambiente'] === 'sandbox',
-                $gatewayConfig['id']
-            );
+            if (!$gateway) {
+                $gateway = GatewayFactory::create(
+                    $gatewayConfig['gateway_code'],
+                    $gatewayConfig['credentials'] ?? [],
+                    $gatewayConfig['ambiente'] === 'sandbox',
+                    $gatewayConfig['id']
+                );
+            }
 
             // Validar assinatura
             if (!$gateway->validateWebhookSignature($payload, $headers)) {
@@ -473,7 +551,6 @@ class PagamentoPublicoController
             }
 
             // Verificar idempotência
-            $event = $parsedPayload['event'] ?? 'unknown';
             if ($transacaoModel->webhookJaProcessado($externalId, $event)) {
                 Response::json(['success' => true, 'message' => 'Webhook já processado']);
                 return;
@@ -531,9 +608,93 @@ class PagamentoPublicoController
         }
     }
 
+    /**
+     * Obtém payload do webhook mesmo quando o Content-Type não foi detectado como JSON.
+     */
+    private function getWebhookPayload(Request $request): array
+    {
+        $payload = $request->all();
+
+        if (!empty($payload) && (isset($payload['event']) || isset($payload['payment']))) {
+            return $payload;
+        }
+
+        $rawBody = file_get_contents('php://input') ?: '';
+        if ($rawBody === '') {
+            return $payload;
+        }
+
+        $decoded = json_decode($rawBody, true);
+        return is_array($decoded) ? $decoded : $payload;
+    }
+
+    private function isAsaasWebhook(string $gatewayCode, array $payload): bool
+    {
+        return $gatewayCode === 'asaas' && isset($payload['event']);
+    }
+
+    private function buscarLinkPorExternalReference(?string $externalReference): ?array
+    {
+        if (empty($externalReference) || !preg_match('/^link_(\d+)$/', $externalReference, $matches)) {
+            return null;
+        }
+
+        $linkModel = new PagamentoLink();
+        return $linkModel->buscarPublicoPorId((int) $matches[1]);
+    }
+
+    /**
+     * Recria a transação local quando o Asaas envia externalReference antes de
+     * encontrarmos o registro original por payment.id.
+     *
+     * @param array<string, mixed> $gatewayConfig
+     * @param array<string, mixed> $link
+     * @param array<string, mixed> $parsedPayload
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function criarTransacaoAsaasPeloWebhook(
+        FinanceiroTransacao $transacaoModel,
+        array $gatewayConfig,
+        array $link,
+        string $externalId,
+        array $parsedPayload,
+        array $payload
+    ): array {
+        $idTransacao = $transacaoModel->criar([
+            'chave' => $link['chave'],
+            'id_financeiro' => $link['id_financeiro'] ?? null,
+            'id_gateway' => $gatewayConfig['id'] ?? null,
+            'gateway' => 'asaas',
+            'external_id' => $externalId,
+            'type' => 'charge',
+            'payment_method' => strtolower((string) ($parsedPayload['billing_type'] ?? '')),
+            'status' => $parsedPayload['status'] ?? 'pending',
+            'amount' => $parsedPayload['amount'] ?? ($link['valor'] ?? null),
+            'net_amount' => $parsedPayload['net_amount'] ?? null,
+            'payment_url' => $parsedPayload['payment_url'] ?? null,
+            'barcode' => $parsedPayload['barcode'] ?? null,
+            'expires_at' => $parsedPayload['due_date'] ?? null,
+            'payload' => json_encode($payload),
+        ]);
+
+        return $transacaoModel->buscarPorId($idTransacao) ?? [
+            'id' => $idTransacao,
+            'chave' => $link['chave'],
+            'id_financeiro' => $link['id_financeiro'] ?? null,
+            'id_gateway' => $gatewayConfig['id'] ?? null,
+            'external_id' => $externalId,
+        ];
+    }
+
     public function webhookAsaas(Request $request): void
     {
         $this->webhook($request, 'asaas');
+    }
+
+    public function webhookAsaasInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('asaas');
     }
 
     public function webhookStripe(Request $request): void
@@ -541,9 +702,19 @@ class PagamentoPublicoController
         $this->webhook($request, 'stripe');
     }
 
+    public function webhookStripeInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('stripe');
+    }
+
     public function webhookSquare(Request $request): void
     {
         $this->webhook($request, 'square');
+    }
+
+    public function webhookSquareInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('square');
     }
 
     public function webhookCora(Request $request): void
@@ -551,9 +722,19 @@ class PagamentoPublicoController
         $this->webhook($request, 'cora');
     }
 
+    public function webhookCoraInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('cora');
+    }
+
     public function webhookEfipay(Request $request): void
     {
         $this->webhook($request, 'efipay');
+    }
+
+    public function webhookEfipayInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('efipay');
     }
 
     public function webhookInter(Request $request): void
@@ -561,9 +742,19 @@ class PagamentoPublicoController
         $this->webhook($request, 'inter');
     }
 
+    public function webhookInterInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('inter');
+    }
+
     public function webhookBradesco(Request $request): void
     {
         $this->webhook($request, 'bradesco');
+    }
+
+    public function webhookBradescoInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('bradesco');
     }
 
     public function webhookItau(Request $request): void
@@ -571,14 +762,71 @@ class PagamentoPublicoController
         $this->webhook($request, 'itau');
     }
 
+    public function webhookItauInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('itau');
+    }
+
     public function webhookBancard(Request $request): void
     {
         $this->webhook($request, 'bancard');
     }
 
+    public function webhookBancardInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('bancard');
+    }
+
     public function webhookPagopar(Request $request): void
     {
         $this->webhook($request, 'pagopar');
+    }
+
+    public function webhookPagoparInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('pagopar');
+    }
+
+    /**
+     * Exibe diagnóstico seguro quando a URL do webhook é aberta no navegador.
+     */
+    private function renderWebhookInfo(string $gatewayCode): void
+    {
+        $gatewayCode = strtolower($gatewayCode);
+
+        if (!GatewayFactory::exists($gatewayCode)) {
+            Response::html('Gateway desconhecido', 404);
+            return;
+        }
+
+        $gatewayName = htmlspecialchars($gatewayCode, ENT_QUOTES, 'UTF-8');
+        $endpoint = htmlspecialchars('/webhook/' . $gatewayCode, ENT_QUOTES, 'UTF-8');
+
+        Response::html(
+            '<!doctype html>'
+            . '<html lang="pt-BR">'
+            . '<head>'
+            . '<meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            . '<title>Webhook ativo</title>'
+            . '<style>'
+            . 'body{font-family:Arial,sans-serif;margin:0;background:#f8fafc;color:#111827;}'
+            . 'main{max-width:720px;margin:64px auto;padding:32px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;}'
+            . 'h1{font-size:24px;margin:0 0 16px;}'
+            . 'p{font-size:16px;line-height:1.5;margin:0 0 12px;}'
+            . 'code{background:#f3f4f6;border-radius:4px;padding:2px 6px;}'
+            . '</style>'
+            . '</head>'
+            . '<body>'
+            . '<main>'
+            . '<h1>Webhook ' . $gatewayName . ' ativo</h1>'
+            . '<p>Este endpoint esta disponivel para receber notificacoes do gateway.</p>'
+            . '<p>Eventos reais devem ser enviados por <strong>POST</strong> para <code>' . $endpoint . '</code>.</p>'
+            . '<p>Esta pagina aparece apenas como diagnostico ao abrir a URL pelo navegador.</p>'
+            . '</main>'
+            . '</body>'
+            . '</html>'
+        );
     }
 
     /**

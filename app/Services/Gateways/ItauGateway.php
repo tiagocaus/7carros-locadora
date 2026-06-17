@@ -57,7 +57,7 @@ class ItauGateway extends AbstractPaymentGateway
                     'tipo_boleto' => 'a vista',
                     'codigo_carteira' => '109',
                     'valor_total_titulo' => number_format((float) $data['value'], 2, '.', ''),
-                    'data_vencimento' => date('Y-m-d', strtotime($data['due_date'] ?? '+3 days')),
+                    'data_vencimento' => $this->resolveDueDate($data['due_date'] ?? null),
                 ],
             ];
 

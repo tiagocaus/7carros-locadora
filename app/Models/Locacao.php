@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\Auditable;
 use App\Traits\DetectsCrossTenant;
 use App\Helpers\FilialHelper;
+use App\Helpers\SequenciaHelper;
 
 /**
  * Model Locacao
@@ -24,6 +25,8 @@ use App\Helpers\FilialHelper;
  */
 class Locacao extends Model
 {
+    public const PLANO_CONTA_DEVOLUCAO_LOCACAO = '3.4.1.22';
+
     use Auditable;
     use DetectsCrossTenant;
 
@@ -1136,6 +1139,79 @@ class Locacao extends Model
     }
 
     /**
+     * Cria lancamento financeiro de devolucao/reembolso por diferenca na locacao.
+     */
+    public function criarCreditoDevolucao(int $locacaoId, float $valor, string $chave): int
+    {
+        $valor = round($valor, 2);
+        if ($valor <= 0) {
+            throw new \InvalidArgumentException('Valor de devolucao deve ser maior que zero');
+        }
+
+        $locacao = $this->buscarPorId($locacaoId);
+        if (!$locacao) {
+            throw new \InvalidArgumentException('Locação não encontrada');
+        }
+
+        $planoModel = new PlanoDeContas();
+        $planoDevolucao = $planoModel->buscarPorHierarquia(self::PLANO_CONTA_DEVOLUCAO_LOCACAO);
+        if (!$planoDevolucao) {
+            throw new \InvalidArgumentException('Plano de contas de devolução de locação não encontrado');
+        }
+
+        $idMatrizFilial = (int) ($locacao['id_matriz_filial_retirada'] ?? 0);
+        if ($idMatrizFilial <= 0) {
+            throw new \InvalidArgumentException('Matriz/filial da locacao nao encontrada para gerar sequencia financeira');
+        }
+
+        $sequencia = SequenciaHelper::proximaSequencia($chave, $idMatrizFilial, 'financeiro');
+        $financeiroModel = new Financeiro();
+
+        return $financeiroModel->criar([
+            'chave' => $chave,
+            'sequencia' => $sequencia,
+            'id_locacao' => $locacaoId,
+            'id_veiculo' => $locacao['id_veiculo'] ?? null,
+            'id_cliente' => $locacao['id_cliente'] ?? null,
+            'id_matriz_filial' => $idMatrizFilial,
+            'id_conta' => $locacao['id_conta'] ?? null,
+            'id_forma_pagamento' => $locacao['id_forma_pagamento'] ?? null,
+            'id_plano_de_conta' => (int) $planoDevolucao['id'],
+            'tipo' => 'D',
+            'pago' => 'N',
+            'parcela' => 1,
+            'total_parcelas' => 1,
+            'descricao' => 'Devolucao/Reembolso - Locacao ' . ($locacao['codigo'] ?? $locacaoId),
+            'data_criada' => date('Y-m-d'),
+            'data_venci' => date('Y-m-d'),
+            'valor_subtotal' => $valor,
+        ]);
+    }
+
+    /**
+     * Registra devolucao e, opcionalmente, cria credito financeiro na mesma transacao.
+     */
+    public function registrarDevolucaoComCredito(int $id, array $dados, float $valorCredito, string $chave): int
+    {
+        $mysqli = $this->getMysqli();
+        $mysqli->begin_transaction();
+
+        try {
+            if (round($valorCredito, 2) > 0) {
+                $this->criarCreditoDevolucao($id, $valorCredito, $chave);
+            }
+
+            $resultado = $this->registrarDevolucao($id, $dados);
+            $mysqli->commit();
+
+            return $resultado;
+        } catch (\Throwable $e) {
+            $mysqli->rollback();
+            throw $e;
+        }
+    }
+
+    /**
      * Resumo financeiro da locacao
      *
      * @param int $locacaoId ID da locacao
@@ -1150,32 +1226,39 @@ class Locacao extends Model
             ->first();
 
         $queryTotais = $this->qb
-            ->table('financeiro')
+            ->table('financeiro', 'f')
             ->selectRaw('
-                COUNT(*) AS total_parcelas,
-                SUM(valor_total) AS total_lancado,
-                SUM(CASE WHEN pago = "S" THEN valor_total ELSE 0 END) AS total_pago,
-                SUM(CASE WHEN pago = "N" THEN valor_total ELSE 0 END) AS total_pendente,
-                SUM(CASE WHEN pago = "N" AND data_venci < CURDATE() THEN valor_total ELSE 0 END) AS total_atrasado
+                SUM(CASE WHEN f.tipo = "R" THEN 1 ELSE 0 END) AS total_parcelas,
+                SUM(CASE WHEN f.tipo = "R" THEN f.valor_total ELSE 0 END) AS total_receitas,
+                SUM(CASE WHEN f.tipo = "D" AND pc.hierarquia = "' . self::PLANO_CONTA_DEVOLUCAO_LOCACAO . '" THEN f.valor_total ELSE 0 END) AS total_credito_devolucao,
+                SUM(CASE WHEN f.tipo = "R" AND f.pago = "S" THEN f.valor_total ELSE 0 END) AS total_pago,
+                SUM(CASE WHEN f.tipo = "R" AND f.pago = "N" THEN f.valor_total ELSE 0 END) AS total_pendente,
+                SUM(CASE WHEN f.tipo = "R" AND f.pago = "N" AND f.data_venci < CURDATE() THEN f.valor_total ELSE 0 END) AS total_atrasado
             ')
-            ->where('id_locacao', '=', $locacaoId);
+            ->leftJoin('planos_de_contas', 'pc', 'f.id_plano_de_conta', '=', 'pc.id')
+            ->where('f.id_locacao', '=', $locacaoId);
 
         if ($apenasReceitas) {
-            $queryTotais->where('tipo', '=', 'R');
+            $queryTotais->where('f.tipo', '=', 'R');
         }
 
         $totais = $queryTotais->first();
 
         $totalPagar = (float) ($locacao['total_pagar'] ?? 0);
+        $totalReceitas = (float) ($totais['total_receitas'] ?? 0);
+        $totalCreditoDevolucao = (float) ($totais['total_credito_devolucao'] ?? 0);
+        $totalLancado = round($totalReceitas - $totalCreditoDevolucao, 2);
 
         return [
             'total_locacao' => $totalPagar,
-            'total_lancado' => (float) ($totais['total_lancado'] ?? 0),
+            'total_lancado' => $totalLancado,
+            'total_receitas' => $totalReceitas,
+            'total_credito_devolucao' => $totalCreditoDevolucao,
             'total_pago' => (float) ($totais['total_pago'] ?? 0),
             'total_pendente' => (float) ($totais['total_pendente'] ?? 0),
             'total_atrasado' => (float) ($totais['total_atrasado'] ?? 0),
             'total_parcelas' => (int) ($totais['total_parcelas'] ?? 0),
-            'diferenca' => $totalPagar - (float) ($totais['total_lancado'] ?? 0),
+            'diferenca' => round($totalPagar - $totalLancado, 2),
         ];
     }
 

@@ -98,6 +98,9 @@ class FaturasController extends BaseRelatorioController
 
             if (!$this->validateFilialAccess($filters['filial'])) return;
 
+            $modo = $this->normalizarModoPorVeiculo($request->query('modo', 'agrupado'));
+            $veiculoId = $this->normalizarVeiculoId($request->query('veiculo', ''));
+
             [$filialWhere, $filialParams] = $this->getFilialFilter();
 
             $model = new FaturasReport();
@@ -106,7 +109,9 @@ class FaturasController extends BaseRelatorioController
                 $filters['data_fim'],
                 $filialWhere,
                 $filialParams,
-                $filters['filial']
+                $filters['filial'],
+                $modo,
+                $veiculoId
             );
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
@@ -124,10 +129,19 @@ class FaturasController extends BaseRelatorioController
         $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
         if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
 
+        $modo = $this->normalizarModoPorVeiculo($request->query('modo', 'agrupado'));
+        $veiculoId = $this->normalizarVeiculoId($request->query('veiculo', ''));
+
         [$filialWhere, $filialParams] = $this->getFilialFilter();
         $model = new FaturasReport();
         $result = $model->faturasPorVeiculo(
-            $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams, $filters['filial']
+            $filters['data_inicio'],
+            $filters['data_fim'],
+            $filialWhere,
+            $filialParams,
+            $filters['filial'],
+            $modo,
+            $veiculoId
         );
 
         $this->renderPdfPeriodo(
@@ -246,6 +260,22 @@ class FaturasController extends BaseRelatorioController
         }
 
         return $clienteId;
+    }
+
+    private function normalizarVeiculoId(mixed $veiculoId): string
+    {
+        $veiculoId = trim((string) $veiculoId);
+
+        if ($veiculoId === '' || !ctype_digit($veiculoId) || (int) $veiculoId <= 0) {
+            return '';
+        }
+
+        return $veiculoId;
+    }
+
+    private function normalizarModoPorVeiculo(mixed $modo): string
+    {
+        return (string) $modo === 'individualizado' ? 'individualizado' : 'agrupado';
     }
 
     /**

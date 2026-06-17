@@ -255,8 +255,17 @@ class FaturasReport extends BaseReportModel
         string $dataFim,
         string $filialWhere,
         array $filialParams,
-        string $filialId = ''
+        string $filialId = '',
+        string $modo = 'agrupado',
+        string $veiculoId = ''
     ): array {
+        $modo = $modo === 'individualizado' ? 'individualizado' : 'agrupado';
+        $veiculoId = ($veiculoId !== '' && ctype_digit($veiculoId) && (int) $veiculoId > 0) ? $veiculoId : '';
+
+        if ($modo === 'individualizado') {
+            return $this->faturasPorVeiculoIndividualizado($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $veiculoId);
+        }
+
         // --- Lista agregada por veiculo ---
         $query = $this->qb
             ->table('financeiro', 'f')
@@ -279,6 +288,10 @@ class FaturasReport extends BaseReportModel
             ->orderByRaw('valor_total DESC');
 
         $this->applyFilialFilter($query, $filialWhere, $filialParams, $filialId);
+
+        if ($veiculoId !== '') {
+            $query->whereRaw('f.id_veiculo = ?', [(int) $veiculoId]);
+        }
 
         $rows = $query->get();
 
@@ -316,10 +329,104 @@ class FaturasReport extends BaseReportModel
 
         return [
             'totals' => $totals,
-            'details' => ['lista' => $details],
+            'details' => [
+                'modo' => 'agrupado',
+                'lista' => $details,
+            ],
             'chart' => [
                 'labels' => $chartLabels,
                 'data' => $chartData,
+            ],
+        ];
+    }
+
+    private function faturasPorVeiculoIndividualizado(
+        string $dataInicio,
+        string $dataFim,
+        string $filialWhere,
+        array $filialParams,
+        string $filialId = '',
+        string $veiculoId = ''
+    ): array {
+        $query = $this->qb
+            ->table('financeiro', 'f')
+            ->selectRaw("
+                f.id,
+                f.codigo,
+                f.sequencia,
+                f.parcela,
+                f.total_parcelas,
+                f.descricao,
+                f.data_venci,
+                f.data_pago,
+                f.pago,
+                f.valor_total,
+                v.id AS id_veiculo,
+                v.placa,
+                v.marca,
+                v.modelo,
+                v.ano,
+                cl.nome_rsocial AS cliente_nome
+            ")
+            ->innerJoin('veiculos', 'v', 'f.id_veiculo', '=', 'v.id')
+            ->leftJoin('clientes', 'cl', 'f.id_cliente', '=', 'cl.id')
+            ->whereRaw('f.tipo = ?', ['R'])
+            ->whereRaw('f.data_criada BETWEEN ? AND ?', [$dataInicio, $dataFim])
+            ->orderByRaw('f.data_venci ASC, f.id ASC');
+
+        $this->applyFilialFilter($query, $filialWhere, $filialParams, $filialId);
+
+        if ($veiculoId !== '') {
+            $query->whereRaw('f.id_veiculo = ?', [(int) $veiculoId]);
+        }
+
+        $rows = $query->get();
+
+        $details = array_map(function ($row) {
+            return [
+                'id' => (int) $row['id'],
+                'codigo' => $row['codigo'] ?: ('#' . $row['sequencia']),
+                'parcela_label' => ((int) ($row['total_parcelas'] ?? 1)) > 1
+                    ? (($row['parcela'] ?? 1) . '/' . ($row['total_parcelas'] ?? 1))
+                    : '-',
+                'id_veiculo' => (int) $row['id_veiculo'],
+                'placa' => $row['placa'] ?? '-',
+                'veiculo' => trim(($row['marca'] ?? '') . ' ' . ($row['modelo'] ?? '')),
+                'ano' => $row['ano'] ?? null,
+                'cliente' => $row['cliente_nome'] ?? '-',
+                'descricao' => $row['descricao'] ?? '',
+                'data_venci' => $row['data_venci'],
+                'data_pago' => $row['data_pago'],
+                'valor_total' => (float) $row['valor_total'],
+                'status' => $this->statusConta($row['pago'] ?? null, $row['data_venci'] ?? null),
+            ];
+        }, $rows);
+
+        $totals = [
+            'total_faturas' => count($details),
+            'valor_total' => (float) array_sum(array_column($details, 'valor_total')),
+            'total_pago' => (float) array_sum(array_map(fn($r) => $r['status'] === 'pago' ? $r['valor_total'] : 0, $details)),
+            'total_pendente' => (float) array_sum(array_map(fn($r) => $r['status'] === 'pendente' ? $r['valor_total'] : 0, $details)),
+            'total_vencido' => (float) array_sum(array_map(fn($r) => $r['status'] === 'vencida' ? $r['valor_total'] : 0, $details)),
+        ];
+
+        $valorPorVeiculo = [];
+        foreach ($details as $row) {
+            $label = $row['placa'] . ' - ' . $row['veiculo'];
+            $valorPorVeiculo[$label] = ($valorPorVeiculo[$label] ?? 0) + $row['valor_total'];
+        }
+        arsort($valorPorVeiculo);
+        $top = array_slice($valorPorVeiculo, 0, 10, true);
+
+        return [
+            'totals' => $totals,
+            'details' => [
+                'modo' => 'individualizado',
+                'lista' => $details,
+            ],
+            'chart' => [
+                'labels' => array_keys($top),
+                'data' => array_values($top),
             ],
         ];
     }

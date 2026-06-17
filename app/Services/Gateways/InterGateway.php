@@ -163,7 +163,7 @@ class InterGateway extends AbstractPaymentGateway
      */
     private function createPixCharge(array $data, string $token): array
     {
-        $vencimento = date('Y-m-d', strtotime('+3 days'));
+        $vencimento = $this->resolveDueDate($data['due_date'] ?? null);
 
         $payload = [
             'seuNumero' => substr(preg_replace('/[^a-zA-Z0-9]/', '', uniqid('pix', true)), 0, 15),
@@ -256,7 +256,7 @@ class InterGateway extends AbstractPaymentGateway
      */
     private function createBoletoCharge(array $data, string $token): array
     {
-        $vencimento = $data['due_date'] ?? date('Y-m-d', strtotime('+3 days'));
+        $vencimento = $this->resolveDueDate($data['due_date'] ?? null);
 
         $payload = [
             'seuNumero' => $data['external_reference'] ?? uniqid(),

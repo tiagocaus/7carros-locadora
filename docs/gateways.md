@@ -203,12 +203,21 @@ POST /pagar/{codigo}/salvar-cartao                     # Salva cartao tokenizado
 ### Webhooks (sem autenticacao, sem CSRF)
 
 ```
+GET  /webhook/{gateway_code}    # Diagnostico para abertura no navegador
 POST /webhook/{gateway_code}    # Recebe notificacoes de cada gateway
 ```
 
 Rotas individuais por gateway: `/webhook/asaas`, `/webhook/stripe`, `/webhook/square`, `/webhook/cora`, `/webhook/efipay`, `/webhook/inter`, `/webhook/bradesco`, `/webhook/itau`, `/webhook/bancard`, `/webhook/pagopar`.
 
-No controller, cada rota individual deve ter um wrapper (`webhookAsaas`, `webhookStripe`, etc.) chamando o handler generico `PagamentoPublicoController::webhook($request, $gatewayCode)`. Isso evita erro 500 por metodo inexistente e centraliza idempotencia, validacao de assinatura e atualizacao de transacao.
+No controller, cada rota individual `POST` deve ter um wrapper (`webhookAsaas`, `webhookStripe`, etc.) chamando o handler generico `PagamentoPublicoController::webhook($request, $gatewayCode)`. Isso evita erro 500 por metodo inexistente e centraliza idempotencia, validacao de assinatura e atualizacao de transacao.
+
+As rotas `GET` existem apenas para diagnostico quando a URL e aberta no navegador. Elas devem retornar uma mensagem informando que o endpoint esta ativo e que eventos reais precisam usar `POST`; nao devem processar payload, validar assinatura, atualizar transacoes ou acessar dados de tenant.
+
+#### Asaas
+
+O Asaas envia eventos de cobranca por `POST` em JSON, com `event` no topo e os dados da cobranca em `payment`. O processamento deve usar `payment.id` como identificador externo da cobranca e `payment.externalReference` como fallback para reconciliar links publicos criados pelo sistema (`link_{id}`).
+
+O endpoint deve responder `200` rapidamente para payloads validos recebidos do Asaas, mesmo quando o evento for apenas informativo ou quando a transacao local ainda nao puder ser reconciliada. Erros `400` devem ser evitados nesses casos para nao interromper a fila de webhooks no Asaas. Token/assinatura invalida continua retornando erro de autenticacao quando houver token configurado.
 
 ### Protegidas (requer autenticacao)
 
@@ -245,6 +254,16 @@ POST /api/gateways-pagamento/{id}/testar    # Testar conexao
 13. Atualiza transacao e marca link como pago
 14. Atualiza financeiro (pago='S') e dispara comissao investidor
 ```
+
+### Vencimento da cobranca no gateway
+
+A data enviada ao gateway deve respeitar o vencimento real da fatura:
+
+- Se `financeiro.data_venci` for hoje ou uma data futura, enviar essa mesma data como `due_date`
+- Se `financeiro.data_venci` estiver vencida, enviar a data de hoje
+- Se a data estiver ausente ou invalida, usar a data de hoje
+
+Gateways nao devem aplicar fallback proprio como `+3 dias` ou `+1 dia`; a normalizacao deve ser feita pelo fluxo de pagamento publico e pelo helper comum dos gateways.
 
 ---
 

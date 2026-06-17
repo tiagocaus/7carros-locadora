@@ -856,6 +856,7 @@ class LocacoesController
                 $totalParcelasFinanceiro = (int) ($resumoFinanceiro['total_parcelas'] ?? 0);
                 $totalLancadoFinanceiro = (float) ($resumoFinanceiro['total_lancado'] ?? 0);
                 $diferencaFinanceira = round($totalPagarUpdate - $totalLancadoFinanceiro, 2);
+                $valorCreditoDevolucao = $diferencaFinanceira < -0.009 ? abs($diferencaFinanceira) : 0.0;
 
                 if ($totalParcelasFinanceiro <= 0) {
                     Response::json([
@@ -865,7 +866,7 @@ class LocacoesController
                     return;
                 }
 
-                if (abs($diferencaFinanceira) > 0.009) {
+                if ($diferencaFinanceira > 0.009) {
                     Response::json([
                         'success' => false,
                         'message' => $this->apiMessage('financial_installments_total_mismatch')
@@ -873,7 +874,21 @@ class LocacoesController
                     return;
                 }
 
-                $locacaoModel->registrarDevolucao($id, [
+                if ($valorCreditoDevolucao > 0 && empty($dados['gerar_credito_devolucao'])) {
+                    Response::json([
+                        'success' => false,
+                        'code' => 'return_refund_required',
+                        'message' => $this->apiMessage('return_refund_required'),
+                        'data' => [
+                            'valor_credito_devolucao' => $valorCreditoDevolucao,
+                            'total_lancado' => $totalLancadoFinanceiro,
+                            'total_pagar' => $totalPagarUpdate,
+                        ],
+                    ], 409);
+                    return;
+                }
+
+                $dadosDevolucao = [
                     'data_chegada' => $dados['data_chegada'] ?? date('Y-m-d H:i:s'),
                     'odometro_fim' => $dados['odometro_fim'] ?? 0,
                     'combustivel_fim' => $dados['combustivel_fim'] ?? null,
@@ -882,11 +897,19 @@ class LocacoesController
                     'total_fatura' => $totalFaturaUpdate,
                     'total_pagar' => $totalPagarUpdate,
                     'obs' => $dados['obs'] ?? null,
-                ]);
+                ];
+
+                $locacaoModel->registrarDevolucaoComCredito($id, $dadosDevolucao, $valorCreditoDevolucao, $chave);
 
                 AuditLogService::registrar(
                     ($_SESSION['user_name'] ?? 'Sistema') . ", registrou devolucao da locacao [{$locacao['codigo']}]"
                 );
+
+                if ($valorCreditoDevolucao > 0) {
+                    AuditLogService::registrar(
+                        ($_SESSION['user_name'] ?? 'Sistema') . ", gerou credito de devolucao de R$ " . number_format($valorCreditoDevolucao, 2, ',', '.') . " para locacao [{$locacao['codigo']}]"
+                    );
+                }
             }
 
             // Log de auditoria com campos alterados
@@ -1761,7 +1784,7 @@ class LocacoesController
 
             // Buscar parcelas/recebimentos da locacao para a fatura
             $parcelasFinanceiras = $locacaoModel->listarParcelas($id, true);
-            $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id, true);
+            $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id);
 
             // Buscar assinatura da locacao
             $assinaturaModel = new Assinatura();
@@ -2443,7 +2466,7 @@ class LocacoesController
 
         // Buscar parcelas/recebimentos da locacao para a fatura
         $parcelasFinanceiras = $locacaoModel->listarParcelas($id, true);
-        $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id, true);
+        $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id);
 
         // Buscar assinatura
         $assinaturaModel = new Assinatura();

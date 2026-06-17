@@ -371,6 +371,14 @@ Na criacao de um contrato novo, quando o front envia parcelas para `/api/contrat
 
 O modulo financeiro suporta parcelamento de lancamentos. A criacao de parcelas eh feita atomicamente junto com o lancamento principal via `POST /financeiro/salvar`.
 
+### Vencimento em links de pagamento
+
+Links publicos de pagamento usam `financeiro.data_venci` como fonte de verdade para gerar cobrancas em gateways. Ao processar pagamento online, a cobranca externa deve manter o vencimento original quando ele for hoje ou futuro. Se a fatura ja estiver vencida, a cobranca externa deve ser criada com vencimento na data de hoje.
+
+### Juros e multa de parcelas vencidas
+
+O cron `CalculateOverdueFeesJob` recalcula automaticamente `juros`, `multa` e `valor_total` de receitas pendentes vencidas. A fonte da regra eh a forma de pagamento vinculada ao lancamento (`financeiro.id_forma_pagamento`): `formas_pagamento.multa` define o percentual unico de multa e `formas_pagamento.juros_por_dia` define o percentual diario de juros.
+
 ### Estrutura de Dados
 
 ```
@@ -440,9 +448,25 @@ Bloqueio e Caucao sao conceitos distintos com planos de contas separados:
 | 1.1.6 | Caucao | A | Grupo (deposito de garantia real) |
 | 1.1.6.01 | Caucao entrada | A | Recebimento do deposito (tipo R) |
 | 1.1.6.02 | Caucao saida | A | Devolucao do deposito (tipo D) |
+| 3.4.1.22 | Devolucao/Reembolso de locacao | D | Credito ao cliente por devolucao antecipada ou reducao do total final da locacao |
 
 **Bloqueio** = authorization hold no cartao via Stripe. NAO gera lancamento financeiro. Registrado em `locacoes_bloqueios`.
 **Caucao** = deposito real. Gera lancamento financeiro com plano 1.1.6.01 (entrada) e 1.1.6.02 (saida na devolucao).
+
+### Devolucao/Reembolso de Locacao
+
+Quando uma locacao e fechada com total final menor que as receitas ja lancadas,
+o modulo de locacoes pode criar uma fatura de devolucao:
+
+- `financeiro.tipo = D`
+- `financeiro.id_locacao` preenchido
+- `financeiro.id_cliente` preenchido
+- `financeiro.id_plano_de_conta` apontando para a hierarquia `3.4.1.22`
+- `pago = N` por padrao, para posterior baixa no financeiro
+
+Esse lancamento compensa o saldo financeiro efetivo da locacao, mas nao altera nem
+remove a receita original. Devolucoes de caucao continuam usando `1.1.6.02` e nao
+devem ser tratadas como credito de diaria/taxa de locacao.
 
 ## Migracao de Dados Legados
 

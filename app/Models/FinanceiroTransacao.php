@@ -113,6 +113,7 @@ class FinanceiroTransacao extends Model
             ->table('financeiro_transacoes')
             ->withoutChave()
             ->where('external_id', '=', $externalId)
+            ->where('type', '!=', 'webhook')
             ->update($dados);
     }
 
@@ -140,12 +141,14 @@ class FinanceiroTransacao extends Model
             ->table('financeiro_transacoes')
             ->withoutChave()
             ->where('external_id', '=', $externalId)
+            ->where('type', '!=', 'webhook')
             ->update(['webhook_received_at' => date('Y-m-d H:i:s')]);
 
         // Criar registro do webhook
         return $this->qb
             ->table('financeiro_transacoes')
-            ->insertWithoutChave([
+            ->withoutChave()
+            ->insert([
                 'chave' => $chave,
                 'gateway' => $gateway,
                 'external_id' => $externalId,

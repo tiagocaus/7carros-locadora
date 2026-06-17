@@ -222,6 +222,21 @@ $map = [
     'Valor Médio' => 'Valore Medio',
     'Taxa' => 'Tassa',
     'Participação' => 'Quota',
+    'Visualização' => 'Visualizzazione',
+    'Agrupado por veículo' => 'Raggruppato per veicolo',
+    'Individualizado' => 'Dettagliato',
+    'Todos os veículos' => 'Tutti i veicoli',
+    'Faturas associadas a cada veículo no período, com agregados de pagas, pendentes e vencidas.' => 'Fatture associate a ogni veicolo nel periodo, con riepiloghi di pagate, in sospeso e scadute.',
+    'Top 10 veículos por valor' => 'Top 10 veicoli per valore',
+    'Total de Faturas' => 'Totale Fatture',
+    'Total Pago' => 'Totale Pagato',
+    'Total Pendente' => 'Totale in Sospeso',
+    'Total Vencido' => 'Totale Scaduto',
+    'Faturas por Veículo' => 'Fatture per Veicolo',
+    'Faturas' => 'Fatture',
+    'Vencimento' => 'Scadenza',
+    'Vencida' => 'Scaduta',
+    'Vencidas' => 'Scadute',
 ];
 
 uksort($map, static fn($a, $b) => strlen($b) <=> strlen($a));

@@ -70,7 +70,7 @@ return [
         'server_error' => 'Erro ao conectar com o servidor',
         'delete_error' => 'Erro ao excluir registro',
         'this_record' => 'este checklist',
-        'mobile_only' => 'Esta funcionalidade está disponível apenas em celulares e tablets.',
+        'mobile_only' => 'Para realizar o checklist, acesse este sistema pelo navegador de um celular ou tablet.',
     ],
 
     // Paginação

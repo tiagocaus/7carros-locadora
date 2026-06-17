@@ -88,13 +88,14 @@ A filtragem ocorre via `array_filter` sobre o resultado de `listarParaSelect()`.
 
 ## Variáveis dinâmicas (placeholders)
 
-O conteúdo do documento aceita placeholders `{{cliente.nome}}`, `{{empresa.cnpj}}`, etc. Nos três fluxos, antes do PDF o `App\I18n\TemplateRenderer` substitui os placeholders: contratos/locações montam o contexto nos respectivos controllers; multas usam `MultasController::buildDocumentoContextMulta()` em `imprimir` e em `enviarMulta`.
+O conteúdo do documento aceita placeholders `{{cliente.nome}}`, `{{empresa.cnpj}}`, `{{contrato.valor.parcela}}`, etc. Nos três fluxos, antes do PDF o `App\I18n\TemplateRenderer` substitui os placeholders: contratos/locações montam o contexto nos respectivos controllers; multas usam `MultasController::buildDocumentoContextMulta()` em `imprimir` e em `enviarMulta`.
 
 Variável especial para contratos com múltiplos veículos:
 
 | Variável | Uso |
 |---|---|
 | `{{contrato.veiculos_anexo}}` | Tabela HTML completa para anexo contratual, com identificação do veículo, fornecedor/investidor, plano, valores, seguros, odômetro e combustível/carga de saída |
+| `{{contrato.valor.parcela}}` | Valor mais comum entre as parcelas financeiras do contrato, formatado como moeda. Em empate, usa o primeiro valor encontrado na ordem das parcelas |
 
 O modelo padrão global de contrato usa `{{contrato.veiculos_anexo}}` em vez de `{{contrato.veiculos_tabela}}`, porque o anexo é mais completo para contratos com múltiplos veículos e veículos de terceiros/investidores.
 

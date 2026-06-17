@@ -10,6 +10,7 @@ namespace App\I18n;
  * Suporta:
  * - Variáveis simples: {{cliente.nome}}
  * - Variáveis computadas: {{cliente.endereco_completo}}
+ * - Variáveis com subníveis: {{contrato.valor.parcela}}
  * - Formatação automática por tipo (currency, date, phone, document)
  * - Fallback para locale padrão
  *
@@ -24,9 +25,9 @@ namespace App\I18n;
 class TemplateRenderer
 {
     /**
-     * Padrão regex para encontrar variáveis {{entidade.campo}}
+     * Padrão regex para encontrar variáveis {{entidade.campo}} e {{entidade.campo.subcampo}}
      */
-    private const VARIABLE_PATTERN = '/\{\{([a-z_]+)\.([a-z_]+)\}\}/i';
+    private const VARIABLE_PATTERN = '/\{\{([a-z_]+)\.([a-z_]+(?:\.[a-z_]+)*)\}\}/i';
 
     /**
      * Locale atual para formatação

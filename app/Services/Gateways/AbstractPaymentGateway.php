@@ -139,6 +139,29 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
     }
 
     /**
+     * Normaliza a data de vencimento enviada ao gateway.
+     *
+     * A fatura mantém seu vencimento real quando ainda está em aberto; se já
+     * venceu ou a data veio inválida, a cobrança externa vence hoje.
+     */
+    protected function resolveDueDate(?string $dueDate = null): string
+    {
+        $today = date('Y-m-d');
+
+        if (empty($dueDate)) {
+            return $today;
+        }
+
+        $timestamp = strtotime($dueDate);
+        if ($timestamp === false) {
+            return $today;
+        }
+
+        $normalized = date('Y-m-d', $timestamp);
+        return $normalized < $today ? $today : $normalized;
+    }
+
+    /**
      * Converte centavos para valor decimal
      *
      * @param int $cents Valor em centavos

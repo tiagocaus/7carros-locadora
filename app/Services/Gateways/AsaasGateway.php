@@ -166,7 +166,7 @@ class AsaasGateway extends AbstractPaymentGateway
                 'customer' => $customerId,
                 'billingType' => $billingType,
                 'value' => (float) $data['value'],
-                'dueDate' => $data['due_date'] ?? date('Y-m-d', strtotime('+1 day')),
+                'dueDate' => $this->resolveDueDate($data['due_date'] ?? null),
             ];
 
             if (!empty($data['description'])) {
@@ -229,7 +229,7 @@ class AsaasGateway extends AbstractPaymentGateway
                 $result->invoiceUrl ?? null,
                 $pixCode,
                 $result->bankSlipUrl ?? null,
-                $result->dueDate ?? null
+                $this->normalizeAsaasDateTime($result->dueDate ?? null)
             );
 
             return [
@@ -272,7 +272,7 @@ class AsaasGateway extends AbstractPaymentGateway
             return [
                 'success' => true,
                 'status' => $this->mapStatus($result->status ?? ''),
-                'paid_at' => $result->paymentDate ?? null,
+                'paid_at' => $this->normalizeAsaasDateTime($result->paymentDate ?? null),
                 'raw' => $result,
             ];
         } catch (\Exception $e) {
@@ -369,12 +369,30 @@ class AsaasGateway extends AbstractPaymentGateway
     public function parseWebhookPayload(array $payload): array
     {
         $payment = $payload['payment'] ?? [];
+        $status = (string) ($payment['status'] ?? '');
+        $paymentDate = $this->normalizeAsaasDateTime($payment['paymentDate'] ?? null);
+        $confirmedDate = $this->normalizeAsaasDateTime($payment['confirmedDate'] ?? null);
+        $clientPaymentDate = $this->normalizeAsaasDateTime($payment['clientPaymentDate'] ?? null);
 
         return [
             'event' => $payload['event'] ?? 'unknown',
+            'event_id' => $payload['id'] ?? null,
             'external_id' => $payment['id'] ?? '',
-            'status' => $this->mapStatus($payment['status'] ?? ''),
-            'paid_at' => $payment['paymentDate'] ?? null,
+            'payment_id' => $payment['id'] ?? null,
+            'external_reference' => $payment['externalReference'] ?? null,
+            'status' => $this->mapStatus($status),
+            'gateway_status' => $status,
+            'billing_type' => $payment['billingType'] ?? null,
+            'amount' => isset($payment['value']) ? (float) $payment['value'] : null,
+            'net_amount' => isset($payment['netValue']) ? (float) $payment['netValue'] : null,
+            'due_date' => $this->normalizeAsaasDateTime($payment['dueDate'] ?? null),
+            'payment_date' => $paymentDate,
+            'confirmed_date' => $confirmedDate,
+            'client_payment_date' => $clientPaymentDate,
+            'paid_at' => $paymentDate ?? $clientPaymentDate ?? $confirmedDate,
+            'payment_url' => $payment['invoiceUrl'] ?? null,
+            'boleto_url' => $payment['bankSlipUrl'] ?? $payment['boletoUrl'] ?? null,
+            'barcode' => $payment['nossoNumero'] ?? null,
             'raw' => $payload,
         ];
     }
@@ -418,6 +436,42 @@ class AsaasGateway extends AbstractPaymentGateway
         return $this->sandbox
             ? 'https://sandbox.asaas.com/api/v3'
             : 'https://api.asaas.com/api/v3';
+    }
+
+    /**
+     * Converte datas do Asaas para formato aceito por colunas DATETIME.
+     */
+    private function normalizeAsaasDateTime(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        $formats = [
+            '!d/m/Y H:i:s',
+            '!d/m/Y H:i',
+            '!d/m/Y',
+            '!Y-m-d H:i:s',
+            '!Y-m-d H:i',
+            '!Y-m-d',
+        ];
+
+        foreach ($formats as $format) {
+            $date = \DateTimeImmutable::createFromFormat($format, $value);
+            $errors = \DateTimeImmutable::getLastErrors();
+
+            if ($date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))) {
+                return $date->format('Y-m-d H:i:s');
+            }
+        }
+
+        $timestamp = strtotime($value);
+        return $timestamp === false ? null : date('Y-m-d H:i:s', $timestamp);
     }
 
     /**

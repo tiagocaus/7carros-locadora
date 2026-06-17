@@ -302,7 +302,7 @@ class EfipayGateway extends AbstractPaymentGateway
             $paymentBody = [
                 'payment' => [
                     'banking_billet' => [
-                        'expire_at' => $data['due_date'] ?? date('Y-m-d', strtotime('+3 days')),
+                        'expire_at' => $this->resolveDueDate($data['due_date'] ?? null),
                         'customer' => $this->buildCustomerData($data),
                     ],
                 ],
@@ -333,7 +333,7 @@ class EfipayGateway extends AbstractPaymentGateway
                 $paymentResult['data']['link'] ?? null,
                 null,
                 $paymentResult['data']['barcode'] ?? null,
-                $data['due_date'] ?? date('Y-m-d', strtotime('+3 days'))
+                $this->resolveDueDate($data['due_date'] ?? null)
             );
 
             return [
