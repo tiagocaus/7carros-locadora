@@ -207,6 +207,7 @@ return [
             'manage' => 'Gestisci',
             'query' => 'Consulta',
             'event' => 'Evento',
+            'indication' => 'Indicazione',
         ],
 
         'origin' => [
@@ -411,6 +412,7 @@ return [
             'prices_title' => 'Prezzi per Operazione',
             'query' => 'Consulta:',
             'event' => 'Evento:',
+            'indication' => 'Indicazione:',
         ],
 
         'buttons' => [
@@ -433,6 +435,7 @@ return [
             'type_all' => 'Tipo: Tutti',
             'type_queries' => 'Consulte',
             'type_events' => 'Eventi',
+            'type_indications' => 'Indicazioni',
             'type_pix' => 'Ricarica PIX',
             'type_card' => 'Ricarica Carta',
             'until' => 'fino a',
@@ -455,6 +458,7 @@ return [
         'badges' => [
             'query' => 'Consulta',
             'event' => 'Evento',
+            'indication' => 'Indicazione',
             'pix' => 'PIX',
             'card' => 'Carta',
             'confirmed' => 'Confermato',

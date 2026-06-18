@@ -297,7 +297,8 @@ CREATE TABLE serpro_transacoes (
                             'recarga_cartao',
                             'recarga_manual',       -- ajuste manual admin
                             'consulta',
-                            'evento'
+                            'evento',
+                            'indicacao'
                         ) NOT NULL,
 
     -- Valores detalhados (para auditoria interna da 7Carros)
@@ -530,6 +531,7 @@ SERPRO_WEBHOOK_SECRET=                        # token para validar webhooks rece
 # ============================
 SERPRO_PRECO_CONSULTA=0.43                    # preco atual da faixa vigente (consulta)
 SERPRO_PRECO_EVENTO=1.07                      # preco atual da faixa vigente (evento)
+SERPRO_PRECO_INDICACAO=1.07                   # preco configurado para indicacao de condutor
 SERPRO_MARKUP_PERCENT=10                      # % adicionado ao preco SERPRO
 
 # ============================
@@ -786,6 +788,7 @@ Metodos:
 ├── creditar(chave, tipo, valor, extId)    → Credita saldo + registra transacao
 ├── calcularPrecoConsulta()                → ENV SERPRO_PRECO_CONSULTA * (1 + MARKUP/100)
 ├── calcularPrecoEvento()                  → ENV SERPRO_PRECO_EVENTO * (1 + MARKUP/100)
+├── calcularPrecoIndicacao()               → ENV SERPRO_PRECO_INDICACAO * (1 + MARKUP/100)
 ├── verificarAutoRecarga(chave)            → Se saldo < limite, cobra Stripe automaticamente
 ├── gerarRecargaPix(chave, valor)          → InterGateway gera QR Code PIX
 ├── gerarRecargaStripe(chave, valor)       → StripeGateway cria PaymentIntent

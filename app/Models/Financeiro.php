@@ -468,6 +468,9 @@ class Financeiro extends Model
             // Salvar itens se enviados
             if (!empty($dados['itens']) && is_array($dados['itens'])) {
                 (new FinanceiroItem())->salvarTodos($id, $chave, $dados['itens']);
+                if ($totalParcelas === 0) {
+                    $this->recalcularTotal($id);
+                }
             }
 
             // Criar parcelas se enviadas
@@ -687,6 +690,243 @@ class Financeiro extends Model
             ]);
 
         return $valorTotal;
+    }
+
+    /**
+     * Registra baixa parcial desdobrando o lancamento em pago + diferenca pendente.
+     *
+     * @return array{id_original:int,id_diferenca:int,valor_original:float,valor_pago:float,valor_diferenca:float}
+     */
+    public function baixarParcial(int $id, float $valorPago, string $dataPago, string $dataVenciDiferenca, string $chave): array
+    {
+        $mysqli = $this->getMysqli();
+        $mysqli->begin_transaction();
+
+        try {
+            $stmt = $mysqli->prepare('SELECT * FROM financeiro WHERE id = ? AND chave = ? FOR UPDATE');
+            $stmt->bind_param('is', $id, $chave);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $lancamento = $result->fetch_assoc();
+            $stmt->close();
+
+            if (!$lancamento) {
+                throw new \InvalidArgumentException('Lancamento nao encontrado');
+            }
+
+            if (($lancamento['pago'] ?? 'N') === 'S') {
+                throw new \InvalidArgumentException('Lancamento ja esta pago');
+            }
+
+            $valorOriginal = round((float) ($lancamento['valor_total'] ?? 0), 2);
+            $valorPago = round($valorPago, 2);
+
+            if ($valorOriginal <= 0) {
+                throw new \InvalidArgumentException('Lancamento sem valor para baixa parcial');
+            }
+
+            if ($valorPago <= 0 || $valorPago >= $valorOriginal) {
+                throw new \InvalidArgumentException('Valor pago deve ser maior que zero e menor que o valor total');
+            }
+
+            if (!$this->dataValida($dataPago) || !$this->dataValida($dataVenciDiferenca)) {
+                throw new \InvalidArgumentException('Data invalida para baixa parcial');
+            }
+
+            $valorDiferenca = round($valorOriginal - $valorPago, 2);
+            $itensOriginais = (new FinanceiroItem())->listarPorFinanceiro($id);
+            $itensPago = [];
+            $itensDiferenca = [];
+
+            if (!empty($itensOriginais)) {
+                $itensPago = $this->ratearItensPorValor($itensOriginais, $valorPago);
+                $itensDiferenca = $this->ratearItensPorValor($itensOriginais, $valorDiferenca);
+            }
+
+            $valorTaxaOriginal = round((float) ($lancamento['valor_taxa'] ?? 0), 2);
+            [$valorTaxaPago, $valorTaxaDiferenca] = $this->dividirValorProporcional($valorTaxaOriginal, $valorPago / $valorOriginal);
+
+            $this->qb
+                ->table('financeiro')
+                ->where('id', '=', $id)
+                ->update([
+                    'pago' => 'S',
+                    'data_pago' => $dataPago,
+                    'valor_subtotal' => $valorPago,
+                    'juros' => 0,
+                    'multa' => 0,
+                    'desconto' => 0,
+                    'valor_total' => $valorPago,
+                    'valor_taxa' => $valorTaxaPago,
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+
+            if (!empty($itensPago)) {
+                (new FinanceiroItem())->salvarTodos($id, $chave, $itensPago);
+                $this->recalcularTotal($id);
+            }
+
+            $descricaoBase = trim((string) ($lancamento['descricao'] ?? ''));
+            $descricaoDiferenca = 'Diferenca de pagamento parcial';
+            if ($descricaoBase !== '') {
+                $descricaoDiferenca .= ' - ' . $descricaoBase;
+            }
+
+            $dadosDiferenca = [
+                'chave' => $chave,
+                'sequencia' => $this->gerarSequenciaFinanceiro($lancamento),
+                'id_matriz_filial' => $lancamento['id_matriz_filial'] ?? null,
+                'id_cliente' => $lancamento['id_cliente'] ?? null,
+                'id_fornecedor' => $lancamento['id_fornecedor'] ?? null,
+                'id_funcionario' => $lancamento['id_funcionario'] ?? null,
+                'id_conta' => $lancamento['id_conta'] ?? null,
+                'id_forma_pagamento' => $lancamento['id_forma_pagamento'] ?? null,
+                'id_plano_de_conta' => $lancamento['id_plano_de_conta'] ?? null,
+                'id_promissoria' => $lancamento['id_promissoria'] ?? null,
+                'id_multa' => $lancamento['id_multa'] ?? null,
+                'id_oficina' => $lancamento['id_oficina'] ?? null,
+                'tipo' => $lancamento['tipo'] ?? 'D',
+                'pago' => 'N',
+                'parcela' => 0,
+                'total_parcelas' => 0,
+                'documento' => $lancamento['documento'] ?? null,
+                'descricao' => mb_substr($descricaoDiferenca, 0, 5000),
+                'data_criada' => date('Y-m-d'),
+                'data_venci' => $dataVenciDiferenca,
+                'data_pago' => null,
+                'valor_subtotal' => $valorDiferenca,
+                'juros' => 0,
+                'multa' => 0,
+                'desconto' => 0,
+                'valor_total' => $valorDiferenca,
+                'valor_taxa' => $valorTaxaDiferenca,
+                'taxa_percentual_snapshot' => $lancamento['taxa_percentual_snapshot'] ?? null,
+                'taxa_fixa_snapshot' => $lancamento['taxa_fixa_snapshot'] ?? null,
+                'taxa_fixa_parcela_snapshot' => $lancamento['taxa_fixa_parcela_snapshot'] ?? null,
+                'id_contrato' => $lancamento['id_contrato'] ?? null,
+                'id_locacao' => $lancamento['id_locacao'] ?? null,
+                'id_veiculo' => $lancamento['id_veiculo'] ?? null,
+            ];
+
+            $idDiferenca = $this->criar($dadosDiferenca);
+
+            if (!empty($itensDiferenca)) {
+                (new FinanceiroItem())->salvarTodos($idDiferenca, $chave, $itensDiferenca);
+                $this->recalcularTotal($idDiferenca);
+            }
+
+            $this->qb
+                ->table('pagamentos_links')
+                ->where('id_financeiro', '=', $id)
+                ->where('status', '=', 'pending')
+                ->update([
+                    'status' => 'cancelled',
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+
+            $mysqli->commit();
+
+            return [
+                'id_original' => $id,
+                'id_diferenca' => $idDiferenca,
+                'valor_original' => $valorOriginal,
+                'valor_pago' => $valorPago,
+                'valor_diferenca' => $valorDiferenca,
+            ];
+        } catch (\Throwable $e) {
+            $mysqli->rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Divide itens existentes proporcionalmente para compor um novo total.
+     */
+    private function ratearItensPorValor(array $itens, float $total): array
+    {
+        $total = round($total, 2);
+        if ($total <= 0) {
+            return [];
+        }
+
+        $somaOriginal = 0.0;
+        foreach ($itens as $item) {
+            $somaOriginal += max(0, (float) ($item['valor'] ?? 0));
+        }
+
+        if ($somaOriginal <= 0) {
+            return [[
+                'id_veiculo' => null,
+                'id_plano_de_conta' => null,
+                'descricao' => 'Pagamento parcial',
+                'valor' => $total,
+            ]];
+        }
+
+        $rateados = [];
+        $restante = $total;
+        $itensComValor = array_values(array_filter($itens, fn($item) => (float) ($item['valor'] ?? 0) > 0));
+        $ultimoIndex = count($itensComValor) - 1;
+
+        foreach ($itensComValor as $index => $item) {
+            $valorItem = (float) ($item['valor'] ?? 0);
+            $valorRateado = $index === $ultimoIndex
+                ? $restante
+                : round($total * ($valorItem / $somaOriginal), 2);
+
+            $valorRateado = round(max(0, $valorRateado), 2);
+            $restante = round($restante - $valorRateado, 2);
+
+            if ($valorRateado <= 0) {
+                continue;
+            }
+
+            $rateados[] = [
+                'id_veiculo' => $item['id_veiculo'] ?? null,
+                'id_plano_de_conta' => $item['id_plano_de_conta'] ?? null,
+                'descricao' => $item['descricao'] ?? null,
+                'valor' => $valorRateado,
+            ];
+        }
+
+        return $rateados;
+    }
+
+    /**
+     * Divide um valor em duas partes mantendo fechamento de centavos.
+     *
+     * @return array{0:float,1:float}
+     */
+    private function dividirValorProporcional(float $valor, float $proporcao): array
+    {
+        $valor = round($valor, 2);
+        if ($valor <= 0) {
+            return [0.0, 0.0];
+        }
+
+        $primeiraParte = round($valor * $proporcao, 2);
+        $segundaParte = round($valor - $primeiraParte, 2);
+
+        return [$primeiraParte, $segundaParte];
+    }
+
+    private function gerarSequenciaFinanceiro(array $lancamento): ?int
+    {
+        if (empty($lancamento['id_matriz_filial'])) {
+            return null;
+        }
+
+        return \App\Helpers\SequenciaHelper::proximaSequencia(
+            $lancamento['chave'],
+            (int) $lancamento['id_matriz_filial'],
+            'financeiro'
+        );
+    }
+
+    private function dataValida(string $data): bool
+    {
+        $dt = \DateTime::createFromFormat('Y-m-d', $data);
+        return $dt instanceof \DateTime && $dt->format('Y-m-d') === $data;
     }
 
     /**

@@ -470,6 +470,9 @@ class FinanceiroController
             // Atualizar itens se enviados
             if (isset($dados['itens']) && is_array($dados['itens'])) {
                 $financeiroItemModel->salvarTodos($id, $chave, $dados['itens']);
+                if (count($dados['itens']) > 0) {
+                    $financeiroModel->recalcularTotal($id);
+                }
             }
 
             // Registrar log de conversao se lancamento nao tinha itens e agora tem
@@ -496,6 +499,105 @@ class FinanceiroController
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao atualizar lancamento: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Registra baixa parcial criando uma nova fatura com a diferenca.
+     *
+     * POST /financeiro/{id}/baixa-parcial
+     */
+    public function baixaParcial(Request $request, int $id): void
+    {
+        try {
+            if (!Auth::can('financeiro.editar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para editar lancamentos'
+                ], 403);
+                return;
+            }
+
+            $financeiroModel = new Financeiro();
+            $lancamento = $financeiroModel->buscarPorId($id);
+
+            if (!$lancamento) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Lancamento nao encontrado'
+                ], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if ($lancamento['chave'] !== $chave) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Lancamento nao encontrado'
+                ], 404);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($lancamento['id_matriz_filial'] ?? null)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para editar este lancamento'
+                ], 403);
+                return;
+            }
+
+            $dados = $request->all();
+            $valorPago = currency_parse($dados['valor_pago'] ?? 0);
+            $dataPago = $dados['data_pago'] ?? date('Y-m-d');
+            $dataVenciDiferenca = $dados['data_venci_diferenca'] ?? ($lancamento['data_venci'] ?? date('Y-m-d'));
+
+            $resultado = $financeiroModel->baixarParcial(
+                $id,
+                $valorPago,
+                $dataPago,
+                $dataVenciDiferenca,
+                $chave
+            );
+
+            if (
+                ($lancamento['tipo'] ?? '') === 'R' &&
+                (!empty($lancamento['id_locacao']) || !empty($lancamento['id_contrato']))
+            ) {
+                try {
+                    $comissaoService = new ComissaoInvestidorService();
+                    $comissaoService->processarComissaoPorFinanceiro($id);
+                } catch (\Exception $e) {
+                    error_log("[Comissao] Erro no hook de baixa parcial: " . $e->getMessage());
+                }
+            }
+
+            $nomeUsuario = $_SESSION['user_name'] ?? 'Sistema';
+            AuditLogService::registrarComCampos(
+                "{$nomeUsuario}, registrou baixa parcial no lancamento financeiro [#{$id}] e criou a diferenca [#{$resultado['id_diferenca']}]",
+                [
+                    AuditLogService::campo('Valor Original', currency_format($resultado['valor_original'], true), null),
+                    AuditLogService::campo('Valor Pago', null, currency_format($resultado['valor_pago'], true)),
+                    AuditLogService::campo('Diferenca Criada', null, currency_format($resultado['valor_diferenca'], true)),
+                    AuditLogService::campo('Data do Pagamento', null, format_date($dataPago)),
+                    AuditLogService::campo('Vencimento da Diferenca', null, format_date($dataVenciDiferenca)),
+                ]
+            );
+
+            Response::json([
+                'success' => true,
+                'message' => 'Baixa parcial registrada com sucesso',
+                'data' => $resultado
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => $this->mensagemErroBanco($e, 'Erro ao registrar baixa parcial')
             ], 500);
         }
     }

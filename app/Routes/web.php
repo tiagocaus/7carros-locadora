@@ -602,6 +602,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     // API Saldo Consultas
     $router->get('/api/multas-online/saldo', [SerproSaldoController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/multas-online/transacoes', [SerproSaldoController::class, 'transacoes'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/multas-online/transacoes/{id}/pix', [SerproSaldoController::class, 'pixRecarga'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Recargas Saldo
     $router->post('/multas-online/saldo/recarregar-pix', [SerproSaldoController::class, 'recarregarPix'], ['csrf', 'rate_limit']);
@@ -721,6 +722,8 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/manutencoes/salvar', [ManutencoesController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/manutencoes/{id}/atualizar', [ManutencoesController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/manutencoes/{id}/excluir', [ManutencoesController::class, 'destroy'], ['csrf', 'rate_limit']);
+    $router->post('/manutencoes/{id}/itens/salvar', [ManutencoesController::class, 'salvarItem'], ['csrf', 'rate_limit']);
+    $router->post('/manutencoes/{id}/itens/{itemId}/excluir', [ManutencoesController::class, 'excluirItem'], ['csrf', 'rate_limit']);
 
     // Acoes de Manutencoes
     $router->post('/manutencoes/{id}/abrir', [ManutencoesController::class, 'abrir'], ['csrf', 'rate_limit']);
@@ -743,6 +746,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     // CRUD Financeiro
     $router->post('/financeiro/salvar', [FinanceiroController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/financeiro/{id}/atualizar', [FinanceiroController::class, 'update'], ['csrf', 'rate_limit']);
+    $router->post('/financeiro/{id}/baixa-parcial', [FinanceiroController::class, 'baixaParcial'], ['csrf', 'rate_limit']);
     $router->post('/financeiro/{id}/excluir', [FinanceiroController::class, 'destroy'], ['csrf', 'rate_limit']);
 
     // Parcelamento Financeiro

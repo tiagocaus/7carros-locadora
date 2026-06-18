@@ -693,6 +693,7 @@ class Manutencao extends Model
             $financeiroItemModel->criar([
                 'chave' => $manutencao['chave'],
                 'id_financeiro' => $idFinanceiro,
+                'id_veiculo' => $manutencao['id_veiculo'] ?? null,
                 'descricao' => $item['descricao'],
                 'valor' => $item['valor_total']
             ]);
@@ -741,6 +742,9 @@ class Manutencao extends Model
 
         // Verificar se algum item ja esta pago
         foreach ($itens as $item) {
+            if ((int) $item['id_manutencao'] !== $id || $item['chave'] !== $manutencao['chave']) {
+                throw new \InvalidArgumentException('Um ou mais itens nao pertencem a esta manutencao');
+            }
             if ($item['pago'] === 'S') {
                 throw new \InvalidArgumentException('Um ou mais itens ja estao pagos');
             }
@@ -763,6 +767,8 @@ class Manutencao extends Model
             'tipo' => 'D',
             'id_matriz_filial' => $manutencao['id_matriz_filial'],
             'id_fornecedor' => null, // Oficina nao e fornecedor
+            'id_oficina' => $manutencao['id_oficina'] ?? null,
+            'id_veiculo' => $manutencao['id_veiculo'] ?? null,
             'id_forma_pagamento' => $dadosFinanceiro['id_forma_pagamento'] ?? null,
             'id_conta' => $dadosFinanceiro['id_conta'] ?? null,
             'descricao' => "Manutencao OS #{$manutencao['os']} - Fechamento Parcial",
@@ -777,6 +783,7 @@ class Manutencao extends Model
             $financeiroItemModel->criar([
                 'chave' => $manutencao['chave'],
                 'id_financeiro' => $idFinanceiro,
+                'id_veiculo' => $manutencao['id_veiculo'] ?? null,
                 'descricao' => $item['descricao'],
                 'valor' => $item['valor_total']
             ]);
@@ -838,6 +845,8 @@ class Manutencao extends Model
                 'tipo' => $financeiroPai['tipo'],
                 'id_matriz_filial' => $financeiroPai['id_matriz_filial'],
                 'id_fornecedor' => $financeiroPai['id_fornecedor'],
+                'id_oficina' => $financeiroPai['id_oficina'] ?? null,
+                'id_veiculo' => $financeiroPai['id_veiculo'] ?? null,
                 'id_forma_pagamento' => $financeiroPai['id_forma_pagamento'],
                 'id_conta' => $financeiroPai['id_conta'],
                 'descricao' => $financeiroPai['descricao'],

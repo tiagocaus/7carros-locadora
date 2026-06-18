@@ -10,6 +10,7 @@ use App\Models\SerproSaldo;
 use App\Models\SerproTransacao;
 use App\Models\SerproConfiguracao;
 use App\Services\SerproSaldoService;
+use App\Services\Gateways\InterGateway;
 
 /**
  * Controller de saldo de consultas online
@@ -59,11 +60,13 @@ class SerproSaldoController
                     'precos' => [
                         'consulta' => $saldoService->getPrecoConsulta(),
                         'evento' => $saldoService->getPrecoEvento(),
+                        'indicacao' => $saldoService->getPrecoIndicacao(),
                         'markup' => $saldoService->getMarkupPercent(),
                     ],
                     'resumo' => [
                         'total_consultas' => (int) ($resumoGastos['total_consultas'] ?? 0),
                         'total_eventos' => (int) ($resumoGastos['total_eventos'] ?? 0),
+                        'total_indicacoes' => (int) ($resumoGastos['total_indicacoes'] ?? 0),
                         'total_gasto' => (float) ($resumoGastos['total_gasto'] ?? 0),
                         'total_recarregado' => (float) ($resumoGastos['total_recarregado'] ?? 0),
                     ],
@@ -115,6 +118,77 @@ class SerproSaldoController
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao listar transacoes: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Recupera dados de QR Code de uma recarga PIX pendente
+     *
+     * GET /api/multas-online/transacoes/{id}/pix
+     */
+    public function pixRecarga(Request $request, int $id): void
+    {
+        try {
+            $model = new SerproTransacao();
+            $transacao = $model->buscarPixRecargaPorId($id);
+
+            if (!$transacao) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Recarga PIX não encontrada.',
+                ], 404);
+                return;
+            }
+
+            if ($transacao['status'] !== 'pendente') {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Esta recarga PIX não está pendente.',
+                ], 422);
+                return;
+            }
+
+            $pixCode = $transacao['pix_code'] ?? null;
+            $pixQrcode = $transacao['pix_qrcode'] ?? null;
+
+            if ((empty($pixCode) || empty($pixQrcode)) && !empty($transacao['external_id'])) {
+                $interGateway = $this->criarInterGateway();
+                $pixData = $interGateway->getPixPaymentData($transacao['external_id']);
+
+                if (!empty($pixData['success'])) {
+                    $pixCode = $pixData['pix_code'] ?? $pixCode;
+                    $pixQrcode = $pixData['pix_qrcode'] ?? $pixQrcode;
+
+                    if (!empty($pixCode)) {
+                        $model->atualizarDadosPix($id, $pixCode, $pixQrcode);
+                    }
+                }
+            }
+
+            if (empty($pixCode)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Código PIX não disponível. Gere uma nova recarga.',
+                ], 422);
+                return;
+            }
+
+            Response::json([
+                'success' => true,
+                'data' => [
+                    'transacao_id' => (int) $transacao['id'],
+                    'pix_code' => $pixCode,
+                    'pix_qrcode' => $pixQrcode,
+                    'external_id' => $transacao['external_id'] ?? null,
+                    'valor' => (float) $transacao['valor_total'],
+                    'created_at' => $transacao['created_at'] ?? null,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao recuperar PIX: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -216,7 +290,8 @@ class SerproSaldoController
                 'pix',
                 null,
                 $resultado['pix_code'] ?? null,
-                $resultado['pix_qrcode'] ?? null
+                $resultado['pix_qrcode'] ?? null,
+                $resultado['pix_txid'] ?? null
             );
 
             Response::json([
@@ -502,5 +577,33 @@ class SerproSaldoController
                 'message' => 'Erro ao atualizar auto-recarga: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Instancia gateway Inter com credenciais globais da recarga SERPRO.
+     */
+    private function criarInterGateway(): InterGateway
+    {
+        $certPath = env('INTER_CERT_PATH', '');
+        $keyPath = env('INTER_KEY_PATH', '');
+
+        if ($certPath && !str_starts_with($certPath, '/')) {
+            $certPath = APP_ROOT . '/' . $certPath;
+        }
+        if ($keyPath && !str_starts_with($keyPath, '/')) {
+            $keyPath = APP_ROOT . '/' . $keyPath;
+        }
+
+        return new InterGateway(
+            [
+                'client_id' => env('INTER_CLIENT_ID', ''),
+                'client_secret' => env('INTER_CLIENT_SECRET', ''),
+                'certificate_path' => $certPath,
+                'private_key_path' => $keyPath,
+                'pix_key' => env('INTER_PIX_KEY', ''),
+                'conta_corrente' => env('INTER_CONTA_CORRENTE', ''),
+            ],
+            env('INTER_AMBIENTE', 'sandbox') === 'sandbox'
+        );
     }
 }

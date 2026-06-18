@@ -1299,14 +1299,33 @@ class Contrato extends Model
         $veiculoAtivo = $contratoVeiculoModel->buscarAtivo($contratoId);
         $idVeiculoAtivo = $veiculoAtivo ? (int) $veiculoAtivo['id_veiculo'] : null;
         $idMatrizFilial = (int) ($contrato['id_matriz_filial_retirada'] ?? 0);
-        $sequencias = $idMatrizFilial > 0 && count($parcelas) > 0
-            ? \App\Helpers\SequenciaHelper::proximasSequencias($chave, $idMatrizFilial, 'financeiro', count($parcelas))
+
+        $parcelasParaCriar = [];
+        foreach ($parcelas as $index => $parcela) {
+            $existente = $this->buscarParcelaContratoEquivalente($contratoId, $parcela);
+            if ($existente) {
+                if ($idPrimeiraParcela === null && empty($parcelasParaCriar)) {
+                    $idPrimeiraParcela = (int) $existente['id'];
+                }
+                continue;
+            }
+
+            $parcelasParaCriar[] = [
+                'index' => $index,
+                'dados' => $parcela,
+            ];
+        }
+
+        $sequencias = $idMatrizFilial > 0 && count($parcelasParaCriar) > 0
+            ? \App\Helpers\SequenciaHelper::proximasSequencias($chave, $idMatrizFilial, 'financeiro', count($parcelasParaCriar))
             : [];
 
-        foreach ($parcelas as $index => $parcela) {
+        foreach ($parcelasParaCriar as $index => $item) {
+            $parcela = $item['dados'];
             $dados = [
                 'chave' => $chave,
                 'sequencia' => $sequencias[$index] ?? null,
+                'codigo' => $contrato['codigo'] ?? null,
                 'id_contrato' => $contratoId,
                 'id_veiculo' => $idVeiculoAtivo,
                 'id_cliente' => $contrato['id_cliente'],
@@ -1334,6 +1353,32 @@ class Contrato extends Model
         }
 
         return $ids;
+    }
+
+    /**
+     * Busca parcela financeira ja existente para a mesma competencia do contrato.
+     *
+     * A comparacao por contrato + vencimento + valor evita recriar como pendente
+     * uma cobranca que ja foi migrada ou gerada anteriormente, inclusive se paga.
+     */
+    private function buscarParcelaContratoEquivalente(int $contratoId, array $parcela): ?array
+    {
+        $dataVenci = $parcela['data_venci'] ?? null;
+        $valor = (float) ($parcela['valor_total'] ?? $parcela['valor_subtotal'] ?? $parcela['valor'] ?? 0);
+
+        if (empty($dataVenci) || abs($valor) < 0.01) {
+            return null;
+        }
+
+        return $this->qb
+            ->table('financeiro')
+            ->select(['id', 'pago', 'data_pago', 'codigo', 'data_venci', 'valor_total'])
+            ->where('id_contrato', '=', $contratoId)
+            ->where('data_venci', '=', $dataVenci)
+            ->whereRaw('ABS(COALESCE(valor_total, valor_subtotal, 0) - ?) < 0.01', [$valor])
+            ->orderByRaw("CASE WHEN pago = 'S' THEN 0 ELSE 1 END")
+            ->orderBy('id', 'ASC')
+            ->first();
     }
 
     /**

@@ -290,6 +290,67 @@ $financeiro->atualizar($idFinanceiro, [
 ]);
 ```
 
+### Pagamento parcial (baixa parcial)
+
+O financeiro v1 nao possui tabela de baixas manuais nem status persistido de
+`parcial`. Para manter os relatorios e integracoes coerentes com o modelo atual
+(`financeiro.pago = S/N`), o pagamento parcial eh feito por **desdobramento da
+fatura**.
+
+Exemplo:
+
+```
+Fatura original pendente: R$ 500,00
+Valor recebido:           R$ 200,00
+Diferenca criada:         R$ 300,00
+```
+
+Resultado:
+
+```
+#123  Fatura original     R$ 200,00  pago = S
+#456  Diferenca do #123   R$ 300,00  pago = N
+```
+
+Endpoint:
+
+```
+POST /financeiro/{id}/baixa-parcial
+Body: {
+  valor_pago: 200.00,
+  data_pago: "2026-06-18",
+  data_venci_diferenca: "2026-07-18"
+}
+Response: {
+  success: true,
+  data: {
+    id_original: 123,
+    id_diferenca: 456,
+    valor_original: 500.00,
+    valor_pago: 200.00,
+    valor_diferenca: 300.00
+  }
+}
+Permissao: financeiro.editar
+```
+
+Regras:
+
+- Aceita somente lancamentos pendentes (`pago = N`).
+- `valor_pago` deve ser maior que zero e menor que `valor_total`.
+- A operacao ocorre em transacao atomica.
+- O lancamento original eh marcado como pago pelo valor recebido.
+- Um novo lancamento pendente eh criado para a diferenca, mantendo cliente,
+  fornecedor/funcionario, conta, forma de pagamento, plano de contas, filial,
+  contrato/locacao e veiculo quando existirem.
+- Se houver itens em `financeiro_itens`, os itens sao rateados
+  proporcionalmente entre o lancamento pago e a diferenca; o ultimo item absorve
+  eventuais centavos.
+- Links publicos de pagamento pendentes do lancamento original sao cancelados
+  para evitar cobranca do valor antigo.
+- Comissao de investidor, quando aplicavel, deve considerar somente a parte
+  efetivamente marcada como paga.
+
 ## Arquivos do Modulo
 
 ```

@@ -82,7 +82,7 @@ class SerproTransacao extends Model
     }
 
     /**
-     * Cria transacao de debito (consulta ou evento)
+     * Cria transacao de debito (consulta, evento ou indicacao)
      */
     public function criarDebito(
         string $tipo,
@@ -123,7 +123,8 @@ class SerproTransacao extends Model
         ?string $paymentMethod = null,
         ?string $paymentUrl = null,
         ?string $pixCode = null,
-        ?string $pixQrcode = null
+        ?string $pixQrcode = null,
+        ?string $referencia = null
     ): int {
         $saldo = (new SerproSaldo())->getSaldo();
 
@@ -138,6 +139,7 @@ class SerproTransacao extends Model
                 'saldo_anterior' => $saldo,
                 'saldo_posterior' => $saldo,
                 'descricao' => $descricao,
+                'referencia' => $referencia,
                 'external_id' => $externalId,
                 'payment_method' => $paymentMethod,
                 'payment_url' => $paymentUrl,
@@ -178,6 +180,22 @@ class SerproTransacao extends Model
     }
 
     /**
+     * Busca recarga PIX por codigoSolicitacao ou txid do Banco Inter.
+     */
+    public function buscarRecargaPixPorIdentificador(string $identificador): ?array
+    {
+        return $this->qb
+            ->table('serpro_transacoes')
+            ->withoutChave()
+            ->where('tipo', '=', 'recarga_pix')
+            ->whereNested(function ($q) use ($identificador) {
+                $q->where('external_id', '=', $identificador)
+                  ->orWhere('referencia', '=', $identificador);
+            })
+            ->first();
+    }
+
+    /**
      * Busca transacao por ID
      */
     public function buscarPorId(int $id): ?array
@@ -186,6 +204,44 @@ class SerproTransacao extends Model
             ->table('serpro_transacoes')
             ->where('id', '=', $id)
             ->first();
+    }
+
+    /**
+     * Busca dados de PIX de uma recarga do tenant atual
+     */
+    public function buscarPixRecargaPorId(int $id): ?array
+    {
+        return $this->qb
+            ->table('serpro_transacoes')
+            ->select([
+                'id',
+                'tipo',
+                'valor_total',
+                'external_id',
+                'payment_method',
+                'pix_code',
+                'pix_qrcode',
+                'status',
+                'created_at',
+            ])
+            ->where('id', '=', $id)
+            ->where('tipo', '=', 'recarga_pix')
+            ->first();
+    }
+
+    /**
+     * Atualiza os dados de PIX de uma recarga do tenant atual
+     */
+    public function atualizarDadosPix(int $id, string $pixCode, ?string $pixQrcode = null): int
+    {
+        return $this->qb
+            ->table('serpro_transacoes')
+            ->where('id', '=', $id)
+            ->where('tipo', '=', 'recarga_pix')
+            ->update([
+                'pix_code' => $pixCode,
+                'pix_qrcode' => $pixQrcode,
+            ]);
     }
 
     /**
@@ -212,7 +268,8 @@ class SerproTransacao extends Model
             ->selectRaw("
                 COUNT(CASE WHEN tipo = 'consulta' AND status = 'confirmado' THEN 1 END) AS total_consultas,
                 COUNT(CASE WHEN tipo = 'evento' AND status = 'confirmado' THEN 1 END) AS total_eventos,
-                COALESCE(SUM(CASE WHEN tipo IN ('consulta', 'evento') AND status = 'confirmado' THEN valor_total ELSE 0 END), 0) AS total_gasto,
+                COUNT(CASE WHEN tipo = 'indicacao' AND status = 'confirmado' THEN 1 END) AS total_indicacoes,
+                COALESCE(SUM(CASE WHEN tipo IN ('consulta', 'evento', 'indicacao') AND status = 'confirmado' THEN valor_total ELSE 0 END), 0) AS total_gasto,
                 COALESCE(SUM(CASE WHEN tipo LIKE 'recarga_%' AND status = 'confirmado' THEN valor_total ELSE 0 END), 0) AS total_recarregado
             ")
             ->first();
@@ -220,6 +277,7 @@ class SerproTransacao extends Model
         return $resultado ?: [
             'total_consultas' => 0,
             'total_eventos' => 0,
+            'total_indicacoes' => 0,
             'total_gasto' => 0,
             'total_recarregado' => 0,
         ];

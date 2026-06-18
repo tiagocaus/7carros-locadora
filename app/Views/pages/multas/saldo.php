@@ -52,6 +52,10 @@
                     <span class="text-slate-600"><?= t('modules.multas.saldo.cards.event') ?></span>
                     <span class="font-medium" id="precoEvento">-</span>
                 </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600"><?= t('modules.multas.saldo.cards.indication') ?></span>
+                    <span class="font-medium" id="precoIndicacao">-</span>
+                </div>
             </div>
         </div>
     </div>
@@ -106,6 +110,7 @@
             <option value=""><?= t('modules.multas.saldo.filters.type_all') ?></option>
             <option value="consulta"><?= t('modules.multas.saldo.filters.type_queries') ?></option>
             <option value="evento"><?= t('modules.multas.saldo.filters.type_events') ?></option>
+            <option value="indicacao"><?= t('modules.multas.saldo.filters.type_indications') ?></option>
             <option value="recarga_pix"><?= t('modules.multas.saldo.filters.type_pix') ?></option>
             <option value="recarga_cartao"><?= t('modules.multas.saldo.filters.type_card') ?></option>
         </select>
@@ -125,6 +130,7 @@
                     <th class="table-header text-right"><?= t('modules.multas.saldo.table.value') ?></th>
                     <th class="table-header text-right hidden md:table-cell"><?= t('modules.multas.saldo.table.balance') ?></th>
                     <th class="table-header text-center"><?= t('modules.multas.saldo.table.status') ?></th>
+                    <th class="table-header text-center">Ações</th>
                 </tr>
             </thead>
             <tbody id="transacoesTableBody" class="bg-white divide-y divide-slate-200">
@@ -158,6 +164,7 @@
         paginationShowing: '<?= t('modules.multas.saldo.pagination.showing') ?>',
         badgeQuery: '<?= t('modules.multas.saldo.badges.query') ?>',
         badgeEvent: '<?= t('modules.multas.saldo.badges.event') ?>',
+        badgeIndication: '<?= t('modules.multas.saldo.badges.indication') ?>',
         badgePix: '<?= t('modules.multas.saldo.badges.pix') ?>',
         badgeCard: '<?= t('modules.multas.saldo.badges.card') ?>',
         badgeConfirmed: '<?= t('modules.multas.saldo.badges.confirmed') ?>',
@@ -167,6 +174,8 @@
         serverError: '<?= t('modules.multas.messages.server_error') ?>',
         autoRechargeUpdated: '<?= t('modules.multas.saldo.messages.auto_recharge_updated') ?>',
         saveError: '<?= t('modules.multas.saldo.messages.save_error') ?>',
+        viewPix: 'Ver PIX',
+        pixUnavailable: 'Não foi possível reabrir este PIX.',
     };
 
     let currentPage = 1;
@@ -195,12 +204,13 @@
             // Resumo
             document.getElementById('totalGasto').textContent = Currency.format(saldoData.resumo.total_gasto);
             document.getElementById('totalConsultasEventos').textContent =
-                saldoData.resumo.total_consultas + ' consultas, ' + saldoData.resumo.total_eventos + ' eventos';
+                saldoData.resumo.total_consultas + ' consultas, ' + saldoData.resumo.total_eventos + ' eventos, ' + saldoData.resumo.total_indicacoes + ' indicações';
             document.getElementById('totalRecarregado').textContent = Currency.format(saldoData.resumo.total_recarregado);
 
             // Precos
             document.getElementById('precoConsulta').textContent = Currency.format(saldoData.precos.consulta);
             document.getElementById('precoEvento').textContent = Currency.format(saldoData.precos.evento);
+            document.getElementById('precoIndicacao').textContent = Currency.format(saldoData.precos.indicacao);
             // Auto-recarga
             const toggle = document.getElementById('toggleAutoRecarga');
             toggle.checked = saldoData.auto_recarga_ativo === 1;
@@ -246,17 +256,18 @@
     }
 
     function mostrarLoading() {
-        tbody.innerHTML = '<tr><td colspan="6" class="table-cell text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i>' + i18n.loading + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="table-cell text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i>' + i18n.loading + '</td></tr>';
     }
 
     function mostrarErro(msg) {
-        tbody.innerHTML = '<tr><td colspan="6" class="table-cell text-center text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>' + escapeHtml(msg) + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="table-cell text-center text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>' + escapeHtml(msg) + '</td></tr>';
     }
 
     function getTipoBadge(tipo) {
         const badges = {
             'consulta': '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700"><i class="fas fa-search mr-1"></i>' + i18n.badgeQuery + '</span>',
             'evento': '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700"><i class="fas fa-bell mr-1"></i>' + i18n.badgeEvent + '</span>',
+            'indicacao': '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-cyan-100 text-cyan-700"><i class="fas fa-user-check mr-1"></i>' + i18n.badgeIndication + '</span>',
             'recarga_pix': '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700"><i class="fas fa-qrcode mr-1"></i>' + i18n.badgePix + '</span>',
             'recarga_cartao': '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"><i class="fas fa-credit-card mr-1"></i>' + i18n.badgeCard + '</span>',
         };
@@ -293,7 +304,7 @@
 
     function renderTransacoes(dados) {
         if (!dados || dados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="table-cell text-center text-slate-500"><i class="fas fa-inbox mr-2"></i>' + i18n.noTransactions + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="table-cell text-center text-slate-500"><i class="fas fa-inbox mr-2"></i>' + i18n.noTransactions + '</td></tr>';
             return;
         }
 
@@ -303,6 +314,7 @@
             const valorClass = recarga ? 'text-green-600' : 'text-red-500';
             const valorPrefix = recarga ? '+' : '-';
             const valorFormatado = Currency.format(item.valor_total || 0);
+            const acoes = getAcoesTransacao(item);
 
             rows += `
             <tr class="border-b border-slate-200 hover:bg-slate-50">
@@ -312,10 +324,23 @@
                 <td class="table-cell text-right font-medium ${valorClass}">${valorPrefix}${valorFormatado}</td>
                 <td class="table-cell text-right hidden md:table-cell text-sm text-slate-500">${item.saldo_posterior != null ? Currency.format(item.saldo_posterior) : '-'}</td>
                 <td class="table-cell text-center">${getStatusBadge(item.status)}</td>
+                <td class="table-cell text-center">${acoes}</td>
             </tr>`;
         });
 
         tbody.innerHTML = rows;
+    }
+
+    function getAcoesTransacao(item) {
+        if (item.tipo === 'recarga_pix' && item.status === 'pendente') {
+            return `
+                <button type="button" onclick="reabrirPixRecarga(${Number(item.id)})" class="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50" title="${i18n.viewPix}">
+                    <i class="fas fa-qrcode mr-1"></i>${i18n.viewPix}
+                </button>
+            `;
+        }
+
+        return '<span class="text-xs text-slate-300">-</span>';
     }
 
     function atualizarInfoRegistros(pagination) {
@@ -371,6 +396,33 @@
             stripePublicKey: '<?= env("STRIPE_PUBLIC_KEY", "") ?>'
         }, '*');
     }
+
+    window.reabrirPixRecarga = async function(id) {
+        try {
+            const result = await API.get(`/api/multas-online/transacoes/${id}/pix`);
+
+            if (result.success && result.data) {
+                window.parent.postMessage({
+                    action: 'openPixDataModal',
+                    pix_code: result.data.pix_code,
+                    pix_qrcode: result.data.pix_qrcode,
+                    valor: result.data.valor,
+                    external_id: result.data.external_id
+                }, '*');
+                return;
+            }
+
+            window.parent.postMessage({
+                action: 'openAlert',
+                message: result.message || i18n.pixUnavailable
+            }, '*');
+        } catch (error) {
+            window.parent.postMessage({
+                action: 'openAlert',
+                message: error.message || i18n.pixUnavailable
+            }, '*');
+        }
+    };
 
     // =================================================================
     // AUTO-RECARGA

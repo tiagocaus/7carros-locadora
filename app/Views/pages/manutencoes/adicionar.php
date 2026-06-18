@@ -976,7 +976,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         tr.querySelector('.item-total').textContent = Currency.format(total, true);
     }
 
-    function confirmarItem(tr) {
+    async function confirmarItem(tr) {
         const select = tr.querySelector('.item-produto');
         const descricao = tr.querySelector('.item-descricao')?.value?.trim() || '';
         let qtd = parseQtd(tr.querySelector('.item-qtd')?.value || 0);
@@ -1010,7 +1010,7 @@ window.manutencoesAuditI18n = <?= json_encode([
             return;
         }
 
-        itensData.push({
+        const item = {
             id_estoque: select.value || null,
             descricao: descricao || selectedOption?.textContent || '',
             estoque_unidade: unidade,
@@ -1019,16 +1019,50 @@ window.manutencoesAuditI18n = <?= json_encode([
             desconto: desconto,
             valor_total: subtotal - desconto,
             pago: 'N'
-        });
+        };
+
+        const idManutencao = document.getElementById('registroId').value;
+        if (idManutencao) {
+            try {
+                const result = await API.post('/manutencoes/' + idManutencao + '/itens/salvar', item);
+                if (!result.success) {
+                    toast.error(result.message || i18n.genericError);
+                    return;
+                }
+                itensData.push(result.data);
+                await carregarItensPendentes(idManutencao);
+            } catch (error) {
+                toast.error(error.message || i18n.genericError);
+                return;
+            }
+        } else {
+            itensData.push(item);
+        }
 
         renderItens();
     }
 
-    window.removerItem = function(index) {
+    window.removerItem = async function(index) {
         if (itensData[index].pago === 'S') {
             toast.error(i18n.cannotRemovePaid);
             return;
         }
+
+        const idManutencao = document.getElementById('registroId').value;
+        if (idManutencao && itensData[index].id) {
+            try {
+                const result = await API.post('/manutencoes/' + idManutencao + '/itens/' + itensData[index].id + '/excluir', {});
+                if (!result.success) {
+                    toast.error(result.message || i18n.genericError);
+                    return;
+                }
+                await carregarItensPendentes(idManutencao);
+            } catch (error) {
+                toast.error(error.message || i18n.genericError);
+                return;
+            }
+        }
+
         itensData.splice(index, 1);
         renderItens();
     };
@@ -1205,7 +1239,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         return !invalido;
     }
 
-    function salvarEdicaoItem(index, tr) {
+    async function salvarEdicaoItem(index, tr) {
         const descricao = tr.querySelector('.item-descricao')?.value?.trim() || '';
         const selectEstoque = tr.querySelector('.item-estoque');
         const idEstoque = selectEstoque?.value || null;
@@ -1237,9 +1271,34 @@ window.manutencoesAuditI18n = <?= json_encode([
             return;
         }
 
-        // Salvar TODAS as linhas em edicao antes de re-renderizar
-        if (!salvarTodasEdicoesAbertas()) {
-            return;
+        const unidade = tr.dataset.unidade || 'UN';
+        const item = {
+            ...itensData[index],
+            id_estoque: idEstoque,
+            descricao: descricao,
+            estoque_unidade: unidade,
+            quantidade: qtd,
+            valor_unitario: valor,
+            desconto: desconto,
+            valor_total: (qtd * valor) - desconto
+        };
+
+        const idManutencao = document.getElementById('registroId').value;
+        if (idManutencao && item.id) {
+            try {
+                const result = await API.post('/manutencoes/' + idManutencao + '/itens/salvar', item);
+                if (!result.success) {
+                    toast.error(result.message || i18n.genericError);
+                    return;
+                }
+                itensData[index] = result.data;
+                await carregarItensPendentes(idManutencao);
+            } catch (error) {
+                toast.error(error.message || i18n.genericError);
+                return;
+            }
+        } else {
+            itensData[index] = item;
         }
 
         renderItens();

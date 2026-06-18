@@ -111,6 +111,7 @@
                     <select id="pago" name="pago" class="form-input-group-field">
                         <option value="N"><?= t('common.labels.no') ?></option>
                         <option value="S"><?= t('common.labels.yes') ?></option>
+                        <option value="P"><?= t('modules.financeiro.status.partial_paid') ?></option>
                     </select>
                 </div>
 
@@ -118,6 +119,55 @@
                 <div class="form-input-group hidden" id="dataPagoContainer">
                     <label for="dataPago" class="form-label-group"><?= t('modules.financeiro.fields.payment_date') ?></label>
                     <input type="date" id="dataPago" name="data_pago" class="form-input-group-field">
+                </div>
+            </div>
+
+            <div id="pagamentoParcialContainer" class="hidden mt-5 border border-amber-200 bg-amber-50 rounded-md p-4">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                    <div>
+                        <h4 class="text-sm font-semibold text-amber-900">
+                            <i class="fas fa-hand-holding-dollar mr-2"></i><?= t('modules.financeiro.sections.partial_payment') ?>
+                        </h4>
+                        <p class="text-xs text-amber-800 mt-1"><?= t('modules.financeiro.messages.partial_difference_hint') ?></p>
+                    </div>
+                    <span class="text-xs font-medium text-amber-700 bg-amber-100 border border-amber-200 rounded px-2 py-1"><?= t('modules.financeiro.buttons.create_difference') ?></span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="form-input-group">
+                        <label for="valorOriginalParcial" class="form-label-group"><?= t('modules.financeiro.fields.original_invoice_value') ?></label>
+                        <div class="relative">
+                            <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
+                            <input type="text" id="valorOriginalParcial" class="form-input-group-field pl-10 bg-slate-100 input-moeda" value="0,00" disabled>
+                        </div>
+                    </div>
+
+                    <div class="form-input-group">
+                        <label for="valorPagoParcial" class="form-label-group"><?= t('modules.financeiro.fields.amount_received') ?></label>
+                        <div class="relative">
+                            <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
+                            <input type="text" id="valorPagoParcial" class="form-input-group-field pl-10 input-moeda" value="0,00">
+                        </div>
+                    </div>
+
+                    <div class="form-input-group">
+                        <label for="valorDiferencaParcial" class="form-label-group"><?= t('modules.financeiro.fields.difference_to_create') ?></label>
+                        <div class="relative">
+                            <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
+                            <input type="text" id="valorDiferencaParcial" class="form-input-group-field pl-10 bg-slate-100 input-moeda" value="0,00" disabled>
+                        </div>
+                    </div>
+
+                    <div class="form-input-group">
+                        <label for="dataVenciDiferenca" class="form-label-group"><?= t('modules.financeiro.fields.difference_due_date') ?></label>
+                        <input type="date" id="dataVenciDiferenca" class="form-input-group-field">
+                    </div>
+                </div>
+
+                <div class="flex justify-end mt-4">
+                    <button type="button" id="btnCriarDiferenca" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
+                        <i class="fas fa-plus mr-2"></i><?= t('modules.financeiro.buttons.create_difference') ?>
+                    </button>
                 </div>
             </div>
         </div>
@@ -483,6 +533,13 @@
         fillAtLeastOneLink: '<?= t("modules.financeiro.messages.fill_at_least_one_link") ?>',
         informValueOrItem: '<?= t("modules.financeiro.messages.inform_value_or_item") ?>',
         paymentDateRequired: '<?= t("modules.financeiro.messages.payment_date_required") ?>',
+        saveBeforePartial: '<?= t("modules.financeiro.messages.save_before_partial") ?>',
+        partialValueInvalid: '<?= t("modules.financeiro.messages.partial_value_invalid") ?>',
+        partialPaymentDateRequired: '<?= t("modules.financeiro.messages.partial_payment_date_required") ?>',
+        partialDifferenceDueRequired: '<?= t("modules.financeiro.messages.partial_difference_due_required") ?>',
+        partialSuccess: '<?= t("modules.financeiro.messages.partial_success") ?>',
+        partialError: '<?= t("modules.financeiro.messages.partial_error") ?>',
+        partialUseButton: '<?= t("modules.financeiro.messages.partial_use_button") ?>',
         select: '<?= t("common.labels.select") ?>',
         edit: '<?= t("common.buttons.edit") ?>',
     };
@@ -492,6 +549,8 @@
     let financeiroId = null;
     let itemIndex = 0;
     let valorSubtotalOriginal = 0;      // Guarda valor_subtotal original para conversao
+    let valorTotalOriginal = 0;         // Guarda valor_total original para baixa parcial
+    let pagoOriginal = 'N';             // Status original do lancamento carregado
     let itemPrincipalConvertido = false; // Flag para evitar criar multiplos itens automaticos
     let lancamentoTinhaItens = false;    // Flag para saber se lancamento ja tinha itens
 
@@ -659,7 +718,8 @@
             selectFormaPagamento.dispatchEvent(new Event('change'));
         }
 
-        document.getElementById('pago').value = dados.pago || 'N';
+        pagoOriginal = dados.pago || 'N';
+        document.getElementById('pago').value = pagoOriginal;
         if (dados.pago === 'S') {
             document.getElementById('dataPagoContainer').classList.remove('hidden');
             document.getElementById('dataPago').value = dados.data_pago || '';
@@ -671,6 +731,9 @@
         document.getElementById('juros').value = formatarMoedaInput(dados.juros || 0);
         document.getElementById('multa').value = formatarMoedaInput(dados.multa || 0);
         document.getElementById('desconto').value = formatarMoedaInput(dados.desconto || 0);
+        valorTotalOriginal = parseFloat(dados.valor_total || 0);
+        document.getElementById('valorOriginalParcial').value = formatarMoedaInput(valorTotalOriginal);
+        document.getElementById('dataVenciDiferenca').value = dados.data_venci || '';
 
         // Guardar valor_subtotal original para possivel conversao em item
         valorSubtotalOriginal = parseFloat(dados.valor_subtotal) || 0;
@@ -685,6 +748,8 @@
 
         // Atualizar valor principal e total
         atualizarValorSubtotal();
+        atualizarVisibilidadePagamentoParcial();
+        calcularDiferencaParcial();
     }
 
     // ===== EVENTOS =====
@@ -697,7 +762,7 @@
         // Pago mudou
         document.getElementById('pago')?.addEventListener('change', function() {
             const container = document.getElementById('dataPagoContainer');
-            if (this.value === 'S') {
+            if (this.value === 'S' || this.value === 'P') {
                 container.classList.remove('hidden');
                 // Se não tiver data preenchida, usar data de hoje
                 const dataPago = document.getElementById('dataPago');
@@ -708,7 +773,11 @@
             } else {
                 container.classList.add('hidden');
             }
+            atualizarVisibilidadePagamentoParcial();
         });
+
+        document.getElementById('valorPagoParcial')?.addEventListener('input', calcularDiferencaParcial);
+        document.getElementById('btnCriarDiferenca')?.addEventListener('click', criarDiferencaPagamentoParcial);
 
         // Adicionar item
         document.getElementById('btnAdicionarItem')?.addEventListener('click', () => adicionarItem());
@@ -1271,6 +1340,74 @@
         return Currency.format(parseFloat(valor) || 0, false);
     }
 
+    // ===== PAGAMENTO PARCIAL =====
+
+    function atualizarVisibilidadePagamentoParcial() {
+        const container = document.getElementById('pagamentoParcialContainer');
+        const pago = document.getElementById('pago')?.value || 'N';
+
+        if (isEditMode && pagoOriginal !== 'S' && pago === 'P') {
+            container?.classList.remove('hidden');
+            calcularDiferencaParcial();
+        } else {
+            container?.classList.add('hidden');
+        }
+    }
+
+    function calcularDiferencaParcial() {
+        const valorPago = parseMoeda(document.getElementById('valorPagoParcial')?.value || '0');
+        const diferenca = Math.max(0, valorTotalOriginal - valorPago);
+        const inputDiferenca = document.getElementById('valorDiferencaParcial');
+
+        if (inputDiferenca) {
+            inputDiferenca.value = formatarMoedaInput(diferenca);
+        }
+    }
+
+    async function criarDiferencaPagamentoParcial() {
+        if (!isEditMode || !financeiroId) {
+            Toast.warning(i18n.saveBeforePartial);
+            return;
+        }
+
+        const valorPago = parseMoeda(document.getElementById('valorPagoParcial')?.value || '0');
+        const dataPago = document.getElementById('dataPago')?.value || '';
+        const dataVenciDiferenca = document.getElementById('dataVenciDiferenca')?.value || '';
+
+        if (valorPago <= 0 || valorPago >= valorTotalOriginal) {
+            Toast.warning(i18n.partialValueInvalid);
+            return;
+        }
+
+        if (!dataPago) {
+            Toast.warning(i18n.partialPaymentDateRequired);
+            return;
+        }
+
+        if (!dataVenciDiferenca) {
+            Toast.warning(i18n.partialDifferenceDueRequired);
+            return;
+        }
+
+        try {
+            const result = await API.post(`/financeiro/${financeiroId}/baixa-parcial`, {
+                valor_pago: valorPago,
+                data_pago: dataPago,
+                data_venci_diferenca: dataVenciDiferenca
+            });
+
+            if (result.success) {
+                Toast.success(result.message || i18n.partialSuccess);
+                navegarPara('/pages/financeiro');
+            } else {
+                Toast.error(result.message || i18n.partialError);
+            }
+        } catch (e) {
+            console.error('Erro ao registrar baixa parcial:', e);
+            Toast.error(i18n.partialError);
+        }
+    }
+
     // ===== VALIDACAO =====
 
     function validarFormulario() {
@@ -1313,6 +1450,10 @@
         // Validar data de pagamento (obrigatoria se pago = 'S')
         const pago = document.getElementById('pago')?.value || 'N';
         const dataPago = document.getElementById('dataPago')?.value || '';
+
+        if (pago === 'P') {
+            erros.push(i18n.partialUseButton);
+        }
 
         if (pago === 'S' && !dataPago) {
             erros.push(i18n.paymentDateRequired);

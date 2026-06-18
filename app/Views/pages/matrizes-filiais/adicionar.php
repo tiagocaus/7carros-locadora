@@ -2002,7 +2002,7 @@
                 const formData = new FormData(formCert);
 
                 try {
-                    const result = await API.upload('/nfse/configuracoes/certificado', formData);
+                    const result = await API.postForm('/nfse/configuracoes/certificado', formData);
                     if (result.success) {
                         window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.cert_uploaded') ?>' }, '*');
                         nfseCarregarConfiguracoes(registroId);

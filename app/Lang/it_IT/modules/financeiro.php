@@ -38,6 +38,10 @@ return [
         'first_installment_date' => 'Data 1ª Rata',
         'interval' => 'Intervallo',
         'interval_type' => 'Tipo di Intervallo',
+        'original_invoice_value' => 'Valore originale della fattura',
+        'amount_received' => 'Valore ricevuto',
+        'difference_to_create' => 'Differenza da creare',
+        'difference_due_date' => 'Scadenza della differenza',
     ],
 
     // Sezioni
@@ -51,6 +55,7 @@ return [
         'generate_installments' => 'Genera Rate',
         'installments_preview' => 'Anteprima delle Rate',
         'installments_list' => 'Rate della Registrazione',
+        'partial_payment' => 'Pagamento parziale',
     ],
 
     // Schede
@@ -91,6 +96,7 @@ return [
     // Stato
     'status' => [
         'paid' => 'Pagato',
+        'partial_paid' => 'Pagamento parziale',
         'pending' => 'In sospeso',
         'due_in' => 'Scade in :days',
         'due_today' => 'Scade oggi',
@@ -116,6 +122,7 @@ return [
         'payment_link' => 'Link di Pagamento',
         'print_send' => 'Stampa / Invia Fattura',
         'remove_item' => 'Rimuovi voce',
+        'create_difference' => 'Crea differenza',
     ],
 
     'print' => [
@@ -193,6 +200,14 @@ return [
         'installments_deleted' => ':count rata/e eliminata/e',
         'installments_delete_error' => "Errore durante l'eliminazione delle rate",
         'payment_link_error' => 'Errore durante la generazione del link di pagamento',
+        'partial_difference_hint' => 'La differenza verrà creata come una nuova fattura in sospeso.',
+        'save_before_partial' => 'Salvare la registrazione prima di registrare un pagamento parziale',
+        'partial_value_invalid' => 'Indicare un valore ricevuto maggiore di zero e minore del valore totale',
+        'partial_payment_date_required' => 'Indicare la data del pagamento',
+        'partial_difference_due_required' => 'Indicare la scadenza della differenza',
+        'partial_success' => 'Pagamento parziale registrato con successo',
+        'partial_error' => 'Errore durante la registrazione del pagamento parziale',
+        'partial_use_button' => 'Usare il pulsante Crea differenza per registrare un pagamento parziale',
         // Validazione
         'required_field' => 'Campo obbligatorio: :field',
         'fill_at_least_one_link' => 'Compilare almeno uno: Cliente, Fornitore o Dipendente',

@@ -43,17 +43,29 @@ class SerproWebhookController
             $processados = 0;
 
             foreach ($pixArray as $pix) {
-                $txid = $pix['txid'] ?? '';
+                $identificadores = array_values(array_unique(array_filter([
+                    $pix['codigoSolicitacao'] ?? null,
+                    $pix['cobranca']['codigoSolicitacao'] ?? null,
+                    $pix['txid'] ?? null,
+                ])));
 
-                if (empty($txid)) {
+                if (empty($identificadores)) {
                     continue;
                 }
 
-                $resultado = $saldoService->confirmarRecargaPorExternalId($txid);
+                $resultado = null;
+                $identificadorConfirmado = '';
+                foreach ($identificadores as $identificador) {
+                    $resultado = $saldoService->confirmarRecargaPixPorIdentificador((string) $identificador);
+                    if ($resultado !== null) {
+                        $identificadorConfirmado = (string) $identificador;
+                        break;
+                    }
+                }
 
                 if ($resultado !== null) {
                     $processados++;
-                    error_log("[SerproWebhook] PIX confirmado - txid: {$txid}, saldo: {$resultado['saldo_posterior']}");
+                    error_log("[SerproWebhook] PIX confirmado - identificador: {$identificadorConfirmado}, saldo: {$resultado['saldo_posterior']}");
                 }
             }
 

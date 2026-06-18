@@ -803,7 +803,7 @@ if (!empty($vencimentoFinanceiro)) {
 
                     ${data.pix_qrcode ? `
                         <div class="qrcode-container mb-4">
-                            <img src="data:image/png;base64,${data.pix_qrcode}" alt="QR Code PIX" class="w-48 h-48 mx-auto">
+                            <img src="${getQrCodeImageSrc(data.pix_qrcode)}" alt="QR Code PIX" class="w-48 h-48 mx-auto">
                         </div>
                     ` : ''}
 
@@ -880,6 +880,16 @@ if (!empty($vencimentoFinanceiro)) {
         }
 
         resultDiv.innerHTML = html;
+    }
+
+    function getQrCodeImageSrc(qrCode) {
+        if (!qrCode) {
+            return '';
+        }
+
+        return qrCode.startsWith('data:')
+            ? qrCode
+            : `data:image/png;base64,${qrCode}`;
     }
 
     window.copiarCodigo = function(codigo) {

@@ -630,14 +630,15 @@ class VeicularReport extends BaseReportModel
                 'lv.odometro_entrada',
                 'l.id AS id_locacao',
                 'l.codigo',
-                'l.cliente_nome',
                 'l.id_cliente',
                 'l.total_fatura',
             ])
             ->selectRaw("'L' AS origem")
+            ->selectRaw("COALESCE(NULLIF(l.cliente_nome, ''), cl.nome_rsocial, '-') AS cliente_nome")
             ->selectRaw('v.placa, v.marca, v.modelo')
             ->selectRaw('g.nome AS grupo_nome')
             ->innerJoin('locacoes', 'l', 'lv.id_locacao', '=', 'l.id')
+            ->leftJoinRaw('clientes', 'cl', 'cl.id = l.id_cliente AND cl.chave = l.chave')
             ->leftJoin('veiculos', 'v', 'lv.id_veiculo', '=', 'v.id')
             ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
             ->whereIn('l.status', ['A', 'F'])
@@ -668,14 +669,15 @@ class VeicularReport extends BaseReportModel
                 'cv.odometro_entrada',
                 'c.id AS id_contrato',
                 'c.codigo',
-                'c.cliente_nome',
                 'c.id_cliente',
                 'c.total_fatura',
             ])
             ->selectRaw("'C' AS origem")
+            ->selectRaw("COALESCE(cl.nome_rsocial, '-') AS cliente_nome")
             ->selectRaw('v.placa, v.marca, v.modelo')
             ->selectRaw('g.nome AS grupo_nome')
             ->innerJoin('contratos', 'c', 'cv.id_contrato', '=', 'c.id')
+            ->leftJoinRaw('clientes', 'cl', 'cl.id = c.id_cliente AND cl.chave = c.chave')
             ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
             ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
             ->whereIn('c.status', ['A', 'F'])

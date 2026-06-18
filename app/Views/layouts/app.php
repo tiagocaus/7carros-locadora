@@ -1802,6 +1802,8 @@
                 openConsultaLoteModal(event.data, event.source);
             } else if (event.data && event.data.action === 'openPixModal') {
                 openPixModal(event.data, event.source);
+            } else if (event.data && event.data.action === 'openPixDataModal') {
+                openPixDataModal(event.data, event.source);
             } else if (event.data && event.data.action === 'openCartaoModal') {
                 openCartaoModal(event.data, event.source);
             } else if (event.data && event.data.action === 'openIndicacaoModal') {
@@ -2187,6 +2189,25 @@
             document.getElementById('pixFormContainer').classList.remove('hidden');
             document.getElementById('pixLoadingContainer').classList.add('hidden');
             document.getElementById('pixQrcodeContainer').classList.add('hidden');
+            _openModal('pixModal');
+        };
+
+        window.openPixDataModal = function(data, source) {
+            _multasModalSource = source;
+            document.getElementById('pixFormContainer').classList.add('hidden');
+            document.getElementById('pixLoadingContainer').classList.add('hidden');
+            document.getElementById('pixQrcodeContainer').classList.remove('hidden');
+
+            const img = document.getElementById('pixQrcodeImg');
+            if (data.pix_qrcode) {
+                img.src = data.pix_qrcode.startsWith('data:')
+                    ? data.pix_qrcode
+                    : 'data:image/png;base64,' + data.pix_qrcode;
+            } else {
+                img.removeAttribute('src');
+            }
+
+            document.getElementById('pixCodeText').value = data.pix_code || '';
             _openModal('pixModal');
         };
 

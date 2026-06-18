@@ -38,6 +38,10 @@ return [
         'first_installment_date' => 'Fecha 1ª Cuota',
         'interval' => 'Intervalo',
         'interval_type' => 'Tipo de Intervalo',
+        'original_invoice_value' => 'Valor original de la factura',
+        'amount_received' => 'Valor recibido',
+        'difference_to_create' => 'Diferencia a crear',
+        'difference_due_date' => 'Vencimiento de la diferencia',
     ],
 
     // Seções
@@ -51,6 +55,7 @@ return [
         'generate_installments' => 'Generar Cuotas',
         'installments_preview' => 'Vista Previa de las Cuotas',
         'installments_list' => 'Cuotas del Movimiento',
+        'partial_payment' => 'Pago parcial',
     ],
 
     // Abas
@@ -85,6 +90,7 @@ return [
     // Status
     'status' => [
         'paid' => 'Pagado',
+        'partial_paid' => 'Pago parcial',
         'pending' => 'Pendiente',
         'due_in' => 'Vence en :days',
         'due_today' => 'Vence hoy',
@@ -110,6 +116,7 @@ return [
         'payment_link' => 'Enlace de Pago',
         'print_send' => 'Imprimir / Enviar Factura',
         'remove_item' => 'Eliminar elemento',
+        'create_difference' => 'Crear diferencia',
     ],
 
     'print' => [
@@ -187,6 +194,14 @@ return [
         'installments_deleted' => ':count cuota(s) eliminada(s)',
         'installments_delete_error' => 'Error al eliminar cuotas',
         'payment_link_error' => 'Error al generar enlace de pago',
+        'partial_difference_hint' => 'La diferencia se creará como una nueva factura pendiente.',
+        'save_before_partial' => 'Guarde el movimiento antes de registrar un pago parcial',
+        'partial_value_invalid' => 'Informe un valor recibido mayor que cero y menor que el valor total',
+        'partial_payment_date_required' => 'Informe la fecha de pago',
+        'partial_difference_due_required' => 'Informe el vencimiento de la diferencia',
+        'partial_success' => 'Pago parcial registrado con éxito',
+        'partial_error' => 'Error al registrar pago parcial',
+        'partial_use_button' => 'Use el botón Crear diferencia para registrar un pago parcial',
         // Validação
         'required_field' => 'Campo obligatorio: :field',
         'fill_at_least_one_link' => 'Rellene al menos uno: Cliente, Proveedor o Empleado',

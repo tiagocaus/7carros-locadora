@@ -207,6 +207,7 @@ return [
             'manage' => 'Manage',
             'query' => 'Query',
             'event' => 'Event',
+            'indication' => 'Nomination',
         ],
 
         'origin' => [
@@ -411,6 +412,7 @@ return [
             'prices_title' => 'Prices per Operation',
             'query' => 'Query:',
             'event' => 'Event:',
+            'indication' => 'Nomination:',
         ],
 
         'buttons' => [
@@ -433,6 +435,7 @@ return [
             'type_all' => 'Type: All',
             'type_queries' => 'Queries',
             'type_events' => 'Events',
+            'type_indications' => 'Nominations',
             'type_pix' => 'PIX Recharge',
             'type_card' => 'Card Recharge',
             'until' => 'until',
@@ -455,6 +458,7 @@ return [
         'badges' => [
             'query' => 'Query',
             'event' => 'Event',
+            'indication' => 'Nomination',
             'pix' => 'PIX',
             'card' => 'Card',
             'confirmed' => 'Confirmed',

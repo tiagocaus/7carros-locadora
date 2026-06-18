@@ -630,6 +630,127 @@ class ManutencoesController
         }
     }
 
+    /**
+     * Salva um item individual da manutencao.
+     *
+     * POST /manutencoes/{id}/itens/salvar
+     */
+    public function salvarItem(Request $request, int $id): void
+    {
+        try {
+            if (!Auth::can('manutencoes.editar')) {
+                Response::json(['success' => false, 'message' => 'Sem permissao'], 403);
+                return;
+            }
+
+            $manutencao = $this->buscarManutencaoAutorizada($id);
+            if (!$manutencao) {
+                return;
+            }
+
+            $dados = $request->all();
+            $itemModel = new ManutencaoItem();
+
+            if (!empty($dados['id'])) {
+                $itemAtual = $itemModel->buscarPorId((int) $dados['id']);
+                if (!$itemAtual || (int) $itemAtual['id_manutencao'] !== $id || $itemAtual['chave'] !== Auth::chave()) {
+                    Response::json(['success' => false, 'message' => 'Item nao encontrado'], 404);
+                    return;
+                }
+                if ($itemAtual['pago'] === 'S') {
+                    Response::json(['success' => false, 'message' => 'Nao e possivel alterar itens ja pagos'], 400);
+                    return;
+                }
+
+                $itemModel->atualizar((int) $dados['id'], $dados);
+                $itemId = (int) $dados['id'];
+            } else {
+                $dados['id_manutencao'] = $id;
+                $dados['chave'] = Auth::chave();
+                $itemId = $itemModel->criar($dados);
+            }
+
+            $item = $itemModel->buscarPorId($itemId);
+            if (!$item) {
+                Response::json(['success' => false, 'message' => 'Item nao encontrado apos salvar'], 500);
+                return;
+            }
+            $this->formatarItemManutencao($item);
+
+            Response::json([
+                'success' => true,
+                'message' => 'Item salvo com sucesso',
+                'data' => $item,
+            ]);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Exclui um item individual da manutencao.
+     *
+     * POST /manutencoes/{id}/itens/{itemId}/excluir
+     */
+    public function excluirItem(Request $request, int $id, int $itemId): void
+    {
+        try {
+            if (!Auth::can('manutencoes.editar')) {
+                Response::json(['success' => false, 'message' => 'Sem permissao'], 403);
+                return;
+            }
+
+            $manutencao = $this->buscarManutencaoAutorizada($id);
+            if (!$manutencao) {
+                return;
+            }
+
+            $itemModel = new ManutencaoItem();
+            $item = $itemModel->buscarPorId($itemId);
+            if (!$item || (int) $item['id_manutencao'] !== $id || $item['chave'] !== Auth::chave()) {
+                Response::json(['success' => false, 'message' => 'Item nao encontrado'], 404);
+                return;
+            }
+            if ($item['pago'] === 'S') {
+                Response::json(['success' => false, 'message' => 'Nao e possivel excluir itens ja pagos'], 400);
+                return;
+            }
+
+            $itemModel->deletar($itemId);
+            Response::json(['success' => true, 'message' => 'Item excluido com sucesso']);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    private function buscarManutencaoAutorizada(int $id): ?array
+    {
+        $model = new Manutencao();
+        $manutencao = $model->buscarPorId($id);
+
+        if (!$manutencao || $manutencao['chave'] !== Auth::chave()) {
+            if ($manutencao && $manutencao['chave'] !== Auth::chave()) {
+                CrossTenantDetectionService::check('manutencoes', $id);
+            }
+            Response::json(['success' => false, 'message' => 'Manutencao nao encontrada'], 404);
+            return null;
+        }
+
+        if (!empty($manutencao['id_matriz_filial']) && !FilialHelper::temAcessoFilial((int) $manutencao['id_matriz_filial'])) {
+            Response::json(['success' => false, 'message' => 'Sem acesso a esta filial'], 403);
+            return null;
+        }
+
+        return $manutencao;
+    }
+
+    private function formatarItemManutencao(array &$item): void
+    {
+        $item['valor_unitario_formatted'] = currency_format((float) $item['valor_unitario']);
+        $item['desconto_formatted'] = currency_format((float) ($item['desconto'] ?? 0));
+        $item['valor_total_formatted'] = currency_format((float) $item['valor_total']);
+    }
+
     // ===== IMPRESSAO =====
 
     /**

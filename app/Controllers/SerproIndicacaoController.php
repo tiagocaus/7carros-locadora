@@ -10,8 +10,10 @@ use App\Models\SerproIndicacao;
 use App\Models\SerproConfiguracao;
 use App\Models\Multa;
 use App\Models\Veiculo;
+use App\Models\MatrizFilial;
 use App\Services\SerproService;
 use App\Services\SerproIndicacaoStatusService;
+use App\Services\SerproSaldoService;
 
 /**
  * Controller de indicacoes por consultas online
@@ -163,15 +165,23 @@ class SerproIndicacaoController
                 return;
             }
 
-            // Buscar CNPJ do tenant
-            $configModel = new SerproConfiguracao();
-            $config = $configModel->buscarPorChave();
+            $config = $this->obterConfiguracaoComCnpj();
 
             if (!$config || empty($config['cnpj_empresa'])) {
                 Response::json([
                     'success' => false,
                     'message' => 'CNPJ da empresa nao configurado. Acesse as configuracoes de consulta online para cadastrar.',
                 ], 422);
+                return;
+            }
+
+            $saldoService = new SerproSaldoService();
+            if (!$saldoService->temSaldoParaIndicacoes(1)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Saldo insuficiente para indicacao. Saldo atual: R$ ' . number_format($saldoService->getSaldo(), 2, ',', '.'),
+                    'saldo_insuficiente' => true,
+                ], 402);
                 return;
             }
 
@@ -219,11 +229,18 @@ class SerproIndicacaoController
                 'status_processamento' => 'indicacao_enviada',
             ]);
 
+            $placaMulta = $multa['veiculo_placa'] ?? '';
+            $debito = $saldoService->debitarIndicacao(
+                "Indicacao de real infrator placa {$placaMulta}",
+                $chaveIndicacao ?: ($placaMulta ?: null)
+            );
+
             Response::json([
                 'success' => true,
                 'data' => [
                     'indicacao_id' => $indicacaoId,
                     'chave_indicacao' => $chaveIndicacao,
+                    'saldo_posterior' => $debito['saldo_posterior'],
                 ],
                 'message' => 'Indicacao de real infrator enviada com sucesso.',
             ]);
@@ -267,15 +284,23 @@ class SerproIndicacaoController
                 }
             }
 
-            // Buscar CNPJ do tenant
-            $configModel = new SerproConfiguracao();
-            $config = $configModel->buscarPorChave();
+            $config = $this->obterConfiguracaoComCnpj();
 
             if (!$config || empty($config['cnpj_empresa'])) {
                 Response::json([
                     'success' => false,
                     'message' => 'CNPJ da empresa nao configurado. Acesse as configuracoes de consulta online para cadastrar.',
                 ], 422);
+                return;
+            }
+
+            $saldoService = new SerproSaldoService();
+            if (!$saldoService->temSaldoParaIndicacoes(1)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Saldo insuficiente para indicacao. Saldo atual: R$ ' . number_format($saldoService->getSaldo(), 2, ',', '.'),
+                    'saldo_insuficiente' => true,
+                ], 402);
                 return;
             }
 
@@ -312,11 +337,17 @@ class SerproIndicacaoController
                 'status_serpro' => 'enviado',
             ]);
 
+            $debito = $saldoService->debitarIndicacao(
+                "Indicacao de principal condutor placa {$placa}",
+                $chaveIndicacao ?: $placa
+            );
+
             Response::json([
                 'success' => true,
                 'data' => [
                     'indicacao_id' => $indicacaoId,
                     'chave_indicacao' => $chaveIndicacao,
+                    'saldo_posterior' => $debito['saldo_posterior'],
                 ],
                 'message' => 'Indicacao de principal condutor enviada com sucesso.',
             ]);
@@ -452,6 +483,68 @@ class SerproIndicacaoController
     // =========================================================================
     // METODOS PRIVADOS
     // =========================================================================
+
+    /**
+     * Busca configuracao SERPRO e tenta preencher CNPJ pelo cadastro da empresa.
+     */
+    private function obterConfiguracaoComCnpj(): ?array
+    {
+        $configModel = new SerproConfiguracao();
+        $config = $configModel->buscarPorChave();
+
+        if ($config && !empty($config['cnpj_empresa'])) {
+            return $config;
+        }
+
+        $resultado = $this->resolverCnpjConsultaOnline();
+        if (!$resultado['success']) {
+            return $config;
+        }
+
+        $configModel->salvar(['cnpj_empresa' => $resultado['cnpj']]);
+
+        return $configModel->buscarPorChave();
+    }
+
+    /**
+     * Retorna o CNPJ que deve ser usado pela Consulta Online.
+     */
+    private function resolverCnpjConsultaOnline(): array
+    {
+        $model = new MatrizFilial();
+        $matriz = $model->buscarMatriz();
+        $cnpjMatriz = preg_replace('/\D/', '', (string) ($matriz['cpf_cnpj'] ?? ''));
+
+        if ($this->cnpjSerproValido($cnpjMatriz)) {
+            return ['success' => true, 'cnpj' => $cnpjMatriz];
+        }
+
+        $empresas = $model->listar(null, [], 'tipo DESC, razao_social ASC');
+        $cnpjsValidos = [];
+
+        foreach ($empresas as $empresa) {
+            $cnpj = preg_replace('/\D/', '', (string) ($empresa['cpf_cnpj'] ?? ''));
+            if ($this->cnpjSerproValido($cnpj)) {
+                $cnpjsValidos[$cnpj] = $empresa;
+            }
+        }
+
+        if (count($cnpjsValidos) === 1) {
+            return ['success' => true, 'cnpj' => array_key_first($cnpjsValidos)];
+        }
+
+        return ['success' => false];
+    }
+
+    /**
+     * Valida formato minimo de CNPJ para envio a SERPRO.
+     */
+    private function cnpjSerproValido(string $cnpj): bool
+    {
+        $cnpj = preg_replace('/\D/', '', $cnpj);
+
+        return strlen($cnpj) === 14 && !preg_match('/^(\d)\1{13}$/', $cnpj);
+    }
 
     /**
      * Exclui indicacao de principal condutor na SERPRO

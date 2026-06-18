@@ -2,6 +2,8 @@
 
 namespace App\Services\Gateways;
 
+use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
+
 /**
  * Gateway de pagamento Banco Inter
  *
@@ -221,33 +223,58 @@ class InterGateway extends AbstractPaymentGateway
             ];
         }
 
+        $codigoSolicitacao = $response['codigoSolicitacao'];
+        $detailResponse = $this->getCobrancaDetalhada($codigoSolicitacao, $token);
+        $pixCode = $detailResponse['pix']['pixCopiaECola'] ?? null;
+        $pixTxid = $detailResponse['pix']['txid'] ?? null;
+        $pixQrcode = $pixCode ? $this->generatePixQrCodeDataUri($pixCode) : null;
+        $barcode = $detailResponse['boleto']['linhaDigitavel'] ?? $response['linhaDigitavel'] ?? null;
+        $boletoUrl = $detailResponse['boleto']['urlBoleto'] ?? $response['urlBoleto'] ?? null;
+
+        if (empty($pixCode)) {
+            return [
+                'success' => false,
+                'message' => 'PIX criado no Banco Inter, mas o código copia e cola não foi retornado na consulta da cobrança.',
+                'http_code' => $detailResponse['_http_code'] ?? 500,
+                'raw' => [
+                    'create' => $response,
+                    'detail' => $detailResponse,
+                ],
+            ];
+        }
+
         $status = 'pending';
+        $rawPayload = [
+            'create' => $response,
+            'detail' => $detailResponse,
+        ];
 
         $transactionId = $this->logTransaction(
             $data['chave'] ?? '',
             $data['id_financeiro'] ?? null,
             'charge',
-            $response['codigoSolicitacao'],
+            $codigoSolicitacao,
             $status,
             (float) $data['value'],
             'pix',
-            $response,
+            $rawPayload,
             null,
-            $response['pixCopiaECola'] ?? null,
-            null,
+            $pixCode,
+            $barcode,
             $vencimento
         );
 
         return [
             'success' => true,
-            'external_id' => $response['codigoSolicitacao'],
+            'external_id' => $codigoSolicitacao,
+            'pix_txid' => $pixTxid,
             'status' => $status,
-            'pix_code' => $response['pixCopiaECola'] ?? null,
-            'pix_qrcode' => null,
-            'barcode' => $response['linhaDigitavel'] ?? null,
-            'boleto_url' => $response['urlBoleto'] ?? null,
+            'pix_code' => $pixCode,
+            'pix_qrcode' => $pixQrcode,
+            'barcode' => $barcode,
+            'boleto_url' => $boletoUrl,
             'transaction_id' => $transactionId,
-            'raw' => $response,
+            'raw' => $rawPayload,
         ];
     }
 
@@ -320,6 +347,51 @@ class InterGateway extends AbstractPaymentGateway
     }
 
     /**
+     * Recupera a cobranca detalhada para obter o pixCopiaECola.
+     */
+    private function getCobrancaDetalhada(string $codigoSolicitacao, string $token): array
+    {
+        $lastResponse = [];
+
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $lastResponse = $this->makeApiRequest(
+                'GET',
+                '/cobranca/v3/cobrancas/' . rawurlencode($codigoSolicitacao),
+                [],
+                $token
+            );
+
+            if (!empty($lastResponse['pix']['pixCopiaECola'])) {
+                return $lastResponse;
+            }
+
+            if ($attempt < 3) {
+                usleep(300000);
+            }
+        }
+
+        return $lastResponse;
+    }
+
+    /**
+     * Gera um QR Code renderizavel no modal a partir do copia e cola PIX.
+     */
+    private function generatePixQrCodeDataUri(string $pixCode): ?string
+    {
+        try {
+            $svg = (string) (new QrCodeGenerator())
+                ->format('svg')
+                ->size(260)
+                ->margin(1)
+                ->generate($pixCode);
+
+            return 'data:image/svg+xml;base64,' . base64_encode($svg);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function getChargeStatus(string $externalId): array
@@ -348,6 +420,46 @@ class InterGateway extends AbstractPaymentGateway
             return [
                 'success' => false,
                 'message' => 'Erro ao consultar: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Recupera dados de pagamento PIX de uma cobranca ja emitida.
+     */
+    public function getPixPaymentData(string $codigoSolicitacao): array
+    {
+        try {
+            $token = $this->getAccessToken();
+            if (!$token) {
+                return ['success' => false, 'message' => 'Não foi possível autenticar'];
+            }
+
+            $detailResponse = $this->getCobrancaDetalhada($codigoSolicitacao, $token);
+            $pixCode = $detailResponse['pix']['pixCopiaECola'] ?? null;
+
+            if (empty($pixCode)) {
+                return [
+                    'success' => false,
+                    'message' => 'Código PIX não disponível para esta cobrança.',
+                    'http_code' => $detailResponse['_http_code'] ?? 500,
+                    'raw' => $detailResponse,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'external_id' => $codigoSolicitacao,
+                'pix_txid' => $detailResponse['pix']['txid'] ?? null,
+                'status' => $this->mapStatus($detailResponse['cobranca']['situacao'] ?? ''),
+                'pix_code' => $pixCode,
+                'pix_qrcode' => $this->generatePixQrCodeDataUri($pixCode),
+                'raw' => $detailResponse,
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erro ao recuperar PIX: ' . $e->getMessage(),
             ];
         }
     }

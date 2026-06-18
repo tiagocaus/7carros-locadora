@@ -38,6 +38,10 @@ return [
         'first_installment_date' => '1st Installment Date',
         'interval' => 'Interval',
         'interval_type' => 'Interval Type',
+        'original_invoice_value' => 'Original invoice amount',
+        'amount_received' => 'Amount received',
+        'difference_to_create' => 'Difference to create',
+        'difference_due_date' => 'Difference due date',
     ],
 
     // Sections
@@ -51,6 +55,7 @@ return [
         'generate_installments' => 'Generate Installments',
         'installments_preview' => 'Installments Preview',
         'installments_list' => 'Entry Installments',
+        'partial_payment' => 'Partial payment',
     ],
 
     // Tabs
@@ -91,6 +96,7 @@ return [
     // Status
     'status' => [
         'paid' => 'Paid',
+        'partial_paid' => 'Partially paid',
         'pending' => 'Pending',
         'due_in' => 'Due in :days',
         'due_today' => 'Due today',
@@ -116,6 +122,7 @@ return [
         'payment_link' => 'Payment Link',
         'print_send' => 'Print / Send Invoice',
         'remove_item' => 'Remove item',
+        'create_difference' => 'Create difference',
     ],
 
     // Invoice print and send
@@ -194,6 +201,14 @@ return [
         'installments_deleted' => ':count installment(s) deleted',
         'installments_delete_error' => 'Error deleting installments',
         'payment_link_error' => 'Error generating payment link',
+        'partial_difference_hint' => 'The difference will be created as a new pending invoice.',
+        'save_before_partial' => 'Save the entry before registering a partial payment',
+        'partial_value_invalid' => 'Enter an amount received greater than zero and less than the total amount',
+        'partial_payment_date_required' => 'Enter the payment date',
+        'partial_difference_due_required' => 'Enter the difference due date',
+        'partial_success' => 'Partial payment registered successfully',
+        'partial_error' => 'Error registering partial payment',
+        'partial_use_button' => 'Use the Create difference button to register a partial payment',
         // Validation
         'required_field' => 'Required field: :field',
         'fill_at_least_one_link' => 'Fill in at least one: Client, Supplier or Employee',

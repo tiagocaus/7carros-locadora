@@ -56,6 +56,17 @@ class SerproSaldoService
     }
 
     /**
+     * Retorna preco de uma indicacao para o tenant (SERPRO + markup)
+     */
+    public function getPrecoIndicacao(): float
+    {
+        $precoSerpro = (float) env('SERPRO_PRECO_INDICACAO', 1.07);
+        $markup = (float) env('SERPRO_MARKUP_PERCENT', 10);
+
+        return round($precoSerpro * (1 + $markup / 100), 2);
+    }
+
+    /**
      * Retorna preco SERPRO puro de uma consulta (sem markup)
      */
     public function getPrecoSerproConsulta(): float
@@ -69,6 +80,14 @@ class SerproSaldoService
     public function getPrecoSerproEvento(): float
     {
         return (float) env('SERPRO_PRECO_EVENTO', 1.07);
+    }
+
+    /**
+     * Retorna preco SERPRO puro de uma indicacao (sem markup)
+     */
+    public function getPrecoSerproIndicacao(): float
+    {
+        return (float) env('SERPRO_PRECO_INDICACAO', 1.07);
     }
 
     /**
@@ -118,6 +137,15 @@ class SerproSaldoService
     }
 
     /**
+     * Verifica se tenant tem saldo para N indicacoes
+     */
+    public function temSaldoParaIndicacoes(int $quantidade = 1): bool
+    {
+        $valorNecessario = $this->getPrecoIndicacao() * $quantidade;
+        return $this->saldoModel->temSaldoSuficiente($valorNecessario);
+    }
+
+    /**
      * Garante que registro de saldo existe para o tenant
      */
     public function inicializarSaldo(): int
@@ -161,6 +189,23 @@ class SerproSaldoService
         $markup = round($precoTotal - $precoSerpro, 4);
 
         return $this->debitar('evento', $precoSerpro, $markup, $precoTotal, $descricao, $referencia);
+    }
+
+    /**
+     * Debita saldo por uma indicacao SERPRO
+     *
+     * @param string $descricao Ex: "Indicacao principal condutor placa ABC1D23"
+     * @param string|null $referencia Ex: "ABC1D23" ou chave da indicacao
+     * @return array ['transacao_id' => int, 'saldo_anterior' => float, 'saldo_posterior' => float]
+     * @throws \RuntimeException Se saldo insuficiente
+     */
+    public function debitarIndicacao(string $descricao, ?string $referencia = null): array
+    {
+        $precoSerpro = $this->getPrecoSerproIndicacao();
+        $precoTotal = $this->getPrecoIndicacao();
+        $markup = round($precoTotal - $precoSerpro, 4);
+
+        return $this->debitar('indicacao', $precoSerpro, $markup, $precoTotal, $descricao, $referencia);
     }
 
     /**
@@ -278,6 +323,24 @@ class SerproSaldoService
 
         if ($transacao['status'] === 'confirmado') {
             return null; // Ja confirmada (idempotencia)
+        }
+
+        return $this->confirmarRecarga((int) $transacao['id'], $chaveOverride ?? $transacao['chave']);
+    }
+
+    /**
+     * Confirma recarga PIX por codigoSolicitacao ou txid do Banco Inter.
+     */
+    public function confirmarRecargaPixPorIdentificador(string $identificador, ?string $chaveOverride = null): ?array
+    {
+        $transacao = $this->transacaoModel->buscarRecargaPixPorIdentificador($identificador);
+
+        if (!$transacao) {
+            return null;
+        }
+
+        if ($transacao['status'] === 'confirmado') {
+            return null;
         }
 
         return $this->confirmarRecarga((int) $transacao['id'], $chaveOverride ?? $transacao['chave']);
