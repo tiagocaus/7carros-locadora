@@ -65,17 +65,17 @@
 <script>
     (function() {
         const i18n = {
-            loading: '<?= addslashes(t("common.labels.loading")) ?>',
-            noRecords: '<?= addslashes(t("modules.logs.no_records")) ?>',
-            loadError: '<?= addslashes(t("modules.logs.messages.load_error")) ?>',
-            serverError: '<?= addslashes(t("modules.logs.messages.server_error")) ?>',
-            detailsTitle: '<?= addslashes(t("modules.logs.details_title")) ?>',
-            emptyValue: '<?= addslashes(t("modules.logs.empty_value")) ?>',
-            unrecognizedFormat: '<?= addslashes(t("modules.logs.unrecognized_format")) ?>',
-            viewDetails: '<?= addslashes(t("modules.logs.view_details")) ?>',
-            noDetails: '<?= addslashes(t("modules.logs.no_details")) ?>',
-            showingPagination: '<?= addslashes(t("modules.logs.pagination.showing")) ?>',
-            showingLazy: '<?= addslashes(t("modules.logs.pagination.showing_lazy")) ?>',
+            loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            noRecords: <?= json_encode(t('modules.logs.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            loadError: <?= json_encode(t('modules.logs.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            serverError: <?= json_encode(t('modules.logs.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            detailsTitle: <?= json_encode(t('modules.logs.details_title'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            emptyValue: <?= json_encode(t('modules.logs.empty_value'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            unrecognizedFormat: <?= json_encode(t('modules.logs.unrecognized_format'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            viewDetails: <?= json_encode(t('modules.logs.view_details'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            noDetails: <?= json_encode(t('modules.logs.no_details'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            showingPagination: <?= json_encode(t('modules.logs.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            showingLazy: <?= json_encode(t('modules.logs.pagination.showing_lazy'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         };
 
         let currentPage = 1;

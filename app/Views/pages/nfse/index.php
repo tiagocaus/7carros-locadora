@@ -117,14 +117,34 @@
 @endsection
 
 @section('scripts')
+<?php
+$jsFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+$i18nNfse = [
+    'loading' => t('common.labels.loading'),
+    'noRecords' => t('modules.nfse.messages.no_records'),
+    'loadError' => t('modules.nfse.messages.load_error'),
+    'paginationShowing' => t('modules.nfse.pagination.showing'),
+    'status' => [
+        'pendente' => t('modules.nfse.status.pendente'),
+        'processando' => t('modules.nfse.status.processando'),
+        'autorizada' => t('modules.nfse.status.autorizada'),
+        'rejeitada' => t('modules.nfse.status.rejeitada'),
+        'cancelada' => t('modules.nfse.status.cancelada'),
+    ],
+    'viewTitle' => t('modules.nfse.view_title'),
+    'downloadPdf' => t('modules.nfse.buttons.download_pdf'),
+    'sendEmail' => t('modules.nfse.buttons.send_email'),
+    'resend' => t('modules.nfse.buttons.resend'),
+    'cancelNfse' => t('modules.nfse.buttons.cancel_nfse'),
+    'emailSuccess' => t('modules.nfse.messages.email_success'),
+    'emailError' => t('modules.nfse.messages.email_error'),
+    'resendSuccess' => t('modules.nfse.messages.resend_success'),
+    'resendError' => t('modules.nfse.messages.resend_error'),
+];
+?>
 <script>
 (function () {
-    const i18n = {
-        loading: '<?= t("common.labels.loading") ?>',
-        noRecords: '<?= t("modules.nfse.messages.no_records") ?>',
-        loadError: '<?= t("modules.nfse.messages.load_error") ?>',
-        paginationShowing: '<?= t("modules.nfse.pagination.showing") ?>',
-    };
+    const i18n = <?= json_encode($i18nNfse, $jsFlags) ?>;
 
     let currentPage = 1;
     let perPage = 10;
@@ -336,11 +356,11 @@
 
     function getStatusBadge(status) {
         const map = {
-            pendente: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: 'fa-clock', label: '<?= t('modules.nfse.status.pendente') ?>' },
-            processando: { bg: 'bg-blue-100', text: 'text-blue-700', icon: 'fa-spinner fa-spin', label: '<?= t('modules.nfse.status.processando') ?>' },
-            autorizada: { bg: 'bg-green-100', text: 'text-green-700', icon: 'fa-check-circle', label: '<?= t('modules.nfse.status.autorizada') ?>' },
-            rejeitada: { bg: 'bg-red-100', text: 'text-red-700', icon: 'fa-times-circle', label: '<?= t('modules.nfse.status.rejeitada') ?>' },
-            cancelada: { bg: 'bg-slate-100', text: 'text-slate-500', icon: 'fa-ban', label: '<?= t('modules.nfse.status.cancelada') ?>' },
+            pendente: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: 'fa-clock', label: i18n.status.pendente },
+            processando: { bg: 'bg-blue-100', text: 'text-blue-700', icon: 'fa-spinner fa-spin', label: i18n.status.processando },
+            autorizada: { bg: 'bg-green-100', text: 'text-green-700', icon: 'fa-check-circle', label: i18n.status.autorizada },
+            rejeitada: { bg: 'bg-red-100', text: 'text-red-700', icon: 'fa-times-circle', label: i18n.status.rejeitada },
+            cancelada: { bg: 'bg-slate-100', text: 'text-slate-500', icon: 'fa-ban', label: i18n.status.cancelada },
         };
         const s = map[status] || map.pendente;
         return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}">
@@ -352,26 +372,26 @@
         let html = '';
 
         // Visualizar (sempre)
-        html += `<button onclick="navegarPara('/pages/nfse/${n.id}/visualizar')" title="<?= t('modules.nfse.view_title') ?>" class="text-blue-600 hover:text-blue-800 p-1"><i class="fas fa-eye"></i></button>`;
+        html += `<button onclick="navegarPara('/pages/nfse/${n.id}/visualizar')" title="${i18n.viewTitle}" class="text-blue-600 hover:text-blue-800 p-1"><i class="fas fa-eye"></i></button>`;
 
         // PDF (autorizada ou cancelada)
         if (n.status === 'autorizada' || n.status === 'cancelada') {
-            html += `<button type="button" data-id="${n.id}" data-numero="${escapeAttr(n.numero || n.id)}" title="<?= t('modules.nfse.buttons.download_pdf') ?>" class="btn-download-pdf-nfse text-purple-600 hover:text-purple-800 p-1"><i class="fas fa-file-pdf"></i></button>`;
+            html += `<button type="button" data-id="${n.id}" data-numero="${escapeAttr(n.numero || n.id)}" title="${i18n.downloadPdf}" class="btn-download-pdf-nfse text-purple-600 hover:text-purple-800 p-1"><i class="fas fa-file-pdf"></i></button>`;
         }
 
         // Email (autorizada)
         if (n.status === 'autorizada') {
-            html += `<button onclick="enviarEmail(${n.id})" title="<?= t('modules.nfse.buttons.send_email') ?>" class="text-green-600 hover:text-green-800 p-1"><i class="fas fa-envelope"></i></button>`;
+            html += `<button onclick="enviarEmail(${n.id})" title="${i18n.sendEmail}" class="text-green-600 hover:text-green-800 p-1"><i class="fas fa-envelope"></i></button>`;
         }
 
         // Reenviar (rejeitada)
         if (n.status === 'rejeitada') {
-            html += `<button onclick="reenviarNfse(${n.id})" title="<?= t('modules.nfse.buttons.resend') ?>" class="text-orange-600 hover:text-orange-800 p-1"><i class="fas fa-redo"></i></button>`;
+            html += `<button onclick="reenviarNfse(${n.id})" title="${i18n.resend}" class="text-orange-600 hover:text-orange-800 p-1"><i class="fas fa-redo"></i></button>`;
         }
 
         // Cancelar (autorizada)
         if (n.status === 'autorizada') {
-            html += `<button onclick="navegarPara('/pages/nfse/${n.id}/cancelar')" title="<?= t('modules.nfse.buttons.cancel_nfse') ?>" class="text-red-600 hover:text-red-800 p-1"><i class="fas fa-ban"></i></button>`;
+            html += `<button onclick="navegarPara('/pages/nfse/${n.id}/cancelar')" title="${i18n.cancelNfse}" class="text-red-600 hover:text-red-800 p-1"><i class="fas fa-ban"></i></button>`;
         }
 
         return html;
@@ -427,23 +447,54 @@
     window.enviarEmail = async function(id) {
         try {
             const result = await API.post(`/nfse/${id}/email`, {});
-            const msg = result.success ? '<?= t('modules.nfse.messages.email_success') ?>' : (result.message || '<?= t('modules.nfse.messages.email_error') ?>');
+            const msg = result.success ? i18n.emailSuccess : (result.message || i18n.emailError);
             window.parent.postMessage({ action: 'openAlert', message: msg }, '*');
         } catch (e) {
-            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.email_error') ?>' }, '*');
+            window.parent.postMessage({ action: 'openAlert', message: i18n.emailError }, '*');
         }
     };
 
     window.reenviarNfse = async function(id) {
         try {
             const result = await API.post(`/nfse/${id}/reenviar`, {});
-            const msg = result.success ? '<?= t('modules.nfse.messages.resend_success') ?>' : (result.message || '<?= t('modules.nfse.messages.resend_error') ?>');
+            const msg = result.success ? i18n.resendSuccess : formatarErroNfse(result, i18n.resendError);
             window.parent.postMessage({ action: 'openAlert', message: msg }, '*');
             if (result.success) { carregarDados(); carregarEstatisticas(); }
         } catch (e) {
-            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.resend_error') ?>' }, '*');
+            if (await confirmarReenvioAutorizado(id)) {
+                window.parent.postMessage({ action: 'openAlert', message: i18n.resendSuccess }, '*');
+                carregarDados();
+                carregarEstatisticas();
+                return;
+            }
+            window.parent.postMessage({ action: 'openAlert', message: i18n.resendError }, '*');
         }
     };
+
+    async function confirmarReenvioAutorizado(id) {
+        try {
+            const result = await API.get(`/api/nfse/${id}`);
+            return result?.success && result?.data?.status === 'autorizada';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function formatarErroNfse(result, fallback) {
+        const errosApi = Array.isArray(result?.erros_api) ? result.erros_api : [];
+        const detalhes = errosApi
+            .map((erro) => {
+                const codigo = erro?.codigo ? `${erro.codigo}: ` : '';
+                return `${codigo}${erro?.mensagem || ''}`.trim();
+            })
+            .filter(Boolean);
+
+        if (detalhes.length > 0) {
+            return detalhes.join('\n');
+        }
+
+        return result?.message || fallback;
+    }
 
     window.baixarPdfNfse = async function(id, numero) {
         try {
@@ -467,7 +518,7 @@
             link.remove();
             setTimeout(() => window.URL.revokeObjectURL(url), 1000);
         } catch (e) {
-            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.load_error') ?>' }, '*');
+            window.parent.postMessage({ action: 'openAlert', message: i18n.loadError }, '*');
         }
     };
 

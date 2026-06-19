@@ -80,19 +80,19 @@
 <script>
 (function () {
     const i18n = {
-        loadError: '<?= addslashes(t("modules.conceder_acesso.messages.load_error")) ?>',
-        serverError: '<?= addslashes(t("modules.conceder_acesso.messages.server_error")) ?>',
-        createError: '<?= addslashes(t("modules.conceder_acesso.messages.create_error")) ?>',
-        createUser: '<?= addslashes(t("modules.conceder_acesso.create_user")) ?>',
-        deleteUser: '<?= addslashes(t("modules.conceder_acesso.delete_user")) ?>',
-        copied: '<?= addslashes(t("modules.conceder_acesso.messages.copied")) ?>',
-        copiedShort: '<?= addslashes(t("modules.conceder_acesso.messages.copied_short")) ?>',
-        deleteError: '<?= addslashes(t("modules.conceder_acesso.messages.delete_error")) ?>',
-        createdAt: '<?= addslashes(t("modules.conceder_acesso.created_at")) ?>',
-        confirmDeleteTitle: '<?= addslashes(t("modules.conceder_acesso.confirm_delete_title")) ?>',
-        confirmDeleteMessage: '<?= addslashes(t("modules.conceder_acesso.confirm_delete_message")) ?>',
-        creating: '<?= addslashes(t("common.labels.creating")) ?>',
-        deleting: '<?= addslashes(t("common.labels.deleting")) ?>',
+        loadError: <?= json_encode(t('modules.conceder_acesso.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        serverError: <?= json_encode(t('modules.conceder_acesso.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        createError: <?= json_encode(t('modules.conceder_acesso.messages.create_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        createUser: <?= json_encode(t('modules.conceder_acesso.create_user'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        deleteUser: <?= json_encode(t('modules.conceder_acesso.delete_user'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        copied: <?= json_encode(t('modules.conceder_acesso.messages.copied'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        copiedShort: <?= json_encode(t('modules.conceder_acesso.messages.copied_short'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        deleteError: <?= json_encode(t('modules.conceder_acesso.messages.delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        createdAt: <?= json_encode(t('modules.conceder_acesso.created_at'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        confirmDeleteTitle: <?= json_encode(t('modules.conceder_acesso.confirm_delete_title'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        confirmDeleteMessage: <?= json_encode(t('modules.conceder_acesso.confirm_delete_message'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        creating: <?= json_encode(t('common.labels.creating'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        deleting: <?= json_encode(t('common.labels.deleting'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     let usuarioAtual = null;
@@ -115,7 +115,7 @@
                 action: 'openGenericConfirmModal',
                 title: i18n.confirmDeleteTitle,
                 message: i18n.confirmDeleteMessage,
-                confirmText: '<?= addslashes(t("common.buttons.delete")) ?>'
+                confirmText: <?= json_encode(t('common.buttons.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
             }, '*');
         });
     }

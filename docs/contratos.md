@@ -283,6 +283,14 @@ edicao especial de valores.
 - `fim` = Contrato encerrado na data final
 - `1x`, `2x`, etc. = Numero de renovacoes permitidas
 
+### Regra de Datas
+
+- `data_ini` e `data_fim` representam o periodo original/contratual e nao devem ser alteradas pela autorenovacao.
+- `data_renovacao` representa a proxima data em que a autorenovacao deve ser executada.
+- Ao renovar, o sistema deve avancar somente `data_renovacao`, usando `contagem` e `dias`.
+- Para geracao financeira, o periodo de cobranca da renovacao e calculado a partir de `data_renovacao` atual ate a nova `data_renovacao`; esse periodo nao deve sobrescrever `data_ini` nem `data_fim`.
+- Se for necessario corrigir historico em que `data_ini`/`data_fim` foram deslocadas por autorenovacao, use `scripts/corrigir-datas-contratos-autorenovacao.php` primeiro em `--dry-run` e aplique apenas apos conferir os candidatos.
+
 ## Auditoria
 
 O sistema usa o trait `Auditable` para registrar automaticamente:

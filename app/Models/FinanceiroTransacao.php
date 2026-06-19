@@ -86,6 +86,56 @@ class FinanceiroTransacao extends Model
     }
 
     /**
+     * Lista cobrancas abertas vinculadas ao lancamento.
+     *
+     * @param int $idFinanceiro
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarCobrancasAbertasPorFinanceiro(int $idFinanceiro): array
+    {
+        return $this->qb
+            ->table('financeiro_transacoes')
+            ->where('id_financeiro', '=', $idFinanceiro)
+            ->where('type', '=', 'charge')
+            ->whereRaw('(status IS NULL OR status NOT IN (?, ?, ?, ?, ?))', ['paid', 'cancelled', 'refunded', 'failed', 'expired'])
+            ->orderBy('created_at', 'DESC')
+            ->get();
+    }
+
+    /**
+     * Atualiza status de uma transacao pelo ID interno.
+     *
+     * @param int $id
+     * @param string $status
+     * @param string|null $paidAt
+     * @param string|null $refundedAt
+     * @return int
+     */
+    public function atualizarStatusPorId(
+        int $id,
+        string $status,
+        ?string $paidAt = null,
+        ?string $refundedAt = null
+    ): int {
+        $dados = [
+            'status' => $status,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        if ($paidAt !== null) {
+            $dados['paid_at'] = $paidAt;
+        }
+        if ($refundedAt !== null) {
+            $dados['refunded_at'] = $refundedAt;
+        }
+
+        return $this->qb
+            ->table('financeiro_transacoes')
+            ->where('id', '=', $id)
+            ->update($dados);
+    }
+
+    /**
      * Atualiza status por external_id
      *
      * @param string $externalId

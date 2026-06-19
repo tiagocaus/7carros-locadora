@@ -74,21 +74,21 @@
 <script>
 (function () {
     const i18n = {
-        loading: '<?= addslashes(t('common.labels.loading')) ?>',
-        loadError: '<?= addslashes(t('modules.estoque.messages.load_error')) ?>',
-        serverError: '<?= addslashes(t('modules.estoque.messages.server_error')) ?>',
-        noRecords: '<?= addslashes(t('modules.estoque.messages.no_records')) ?>',
-        noName: '<?= addslashes(t('modules.estoque.messages.no_name')) ?>',
-        actionEdit: '<?= addslashes(t('common.buttons.edit')) ?>',
-        actionDelete: '<?= addslashes(t('common.buttons.delete')) ?>',
-        actionReactivate: '<?= addslashes(t('modules.estoque.messages.reactivated')) ?>',
-        thisRecord: '<?= addslashes(t('modules.estoque.messages.this_record')) ?>',
-        recordType: '<?= addslashes(t('modules.estoque.record_type')) ?>',
-        deleteError: '<?= addslashes(t('modules.estoque.messages.delete_error')) ?>',
-        reactivateError: '<?= addslashes(t('modules.estoque.messages.reactivate_error')) ?>',
-        showingPagination: '<?= addslashes(t('modules.estoque.pagination.showing')) ?>',
-        statusActive: '<?= addslashes(t('modules.estoque.status.active')) ?>',
-        statusInactive: '<?= addslashes(t('modules.estoque.status.inactive')) ?>',
+        loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadError: <?= json_encode(t('modules.estoque.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        serverError: <?= json_encode(t('modules.estoque.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noRecords: <?= json_encode(t('modules.estoque.messages.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noName: <?= json_encode(t('modules.estoque.messages.no_name'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionEdit: <?= json_encode(t('common.buttons.edit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionDelete: <?= json_encode(t('common.buttons.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionReactivate: <?= json_encode(t('modules.estoque.messages.reactivated'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        thisRecord: <?= json_encode(t('modules.estoque.messages.this_record'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        recordType: <?= json_encode(t('modules.estoque.record_type'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        deleteError: <?= json_encode(t('modules.estoque.messages.delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        reactivateError: <?= json_encode(t('modules.estoque.messages.reactivate_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        showingPagination: <?= json_encode(t('modules.estoque.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        statusActive: <?= json_encode(t('modules.estoque.status.active'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        statusInactive: <?= json_encode(t('modules.estoque.status.inactive'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     // Estado da paginacao

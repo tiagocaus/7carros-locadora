@@ -43,7 +43,7 @@ return [
 
     'subtabs' => [
         'reservations_empty' => 'Nenhuma reserva encontrada.',
-        'rented_empty' => 'Nenhuma locação aberta encontrada.',
+        'rented_empty' => 'Nenhuma locação ou contrato aberto encontrado.',
         'available_empty' => 'Nenhum veículo disponível encontrado.',
         'pending_arrival_empty' => 'Nenhuma chegada pendente encontrada.',
         'upcoming_returns_empty' => 'Nenhuma devolução próxima encontrada.',
@@ -59,12 +59,22 @@ return [
         'odometer' => 'Odômetro',
         'actions' => 'Ações',
         'code' => 'Código',
+        'type' => 'Tipo',
         'client' => 'Cliente',
         'deadline' => 'Prazo',
         'open' => 'Abrir',
+        'rental' => 'Locação',
+        'contract' => 'Contrato',
         'today' => 'Hoje',
         'tomorrow' => 'Amanhã',
         'pending_pickup' => 'Retirada pendente',
+        'available_badge' => 'Disponível',
+        'no_vehicle' => 'Sem veículo',
+        'contract_duration_today' => 'Iniciado hoje',
+        'contract_duration_days' => ':count dia de contrato|:count dias de contrato',
+        'overdue_minutes' => ':countmin atraso|:countmin atraso',
+        'overdue_hours' => ':counth atraso|:counth atraso',
+        'overdue_days' => ':count dia atraso|:count dias atraso',
     ],
 
     // Dashboard v2 (Cockpit)

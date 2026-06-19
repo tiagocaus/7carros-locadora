@@ -47,6 +47,18 @@
         navegarPara('/pages/contratos');
     }
 
+    function abrirLancamentoFinanceiro(idFinanceiro) {
+        if (!idFinanceiro) return;
+
+        const page = `/pages/financeiro/adicionar/${encodeURIComponent(idFinanceiro)}`;
+        if (window.parent !== window && typeof window.parent.openOrSwitchToTab === 'function') {
+            window.parent.openOrSwitchToTab(page, 'Lançamentos', 'fas fa-dollar-sign', `financeiro-${idFinanceiro}`);
+            return;
+        }
+
+        window.location.href = page;
+    }
+
     // ===== INICIALIZACAO =====
 
     async function init() {
@@ -2444,8 +2456,10 @@
                 </td>
                 <td class="px-3 py-2 text-center">${statusHtml}</td>
                 <td class="px-3 py-2 text-center">
-                    ${isPago
-                    ? `<a href="/pages/financeiro/adicionar/${parcela.id}" target="_blank" class="text-blue-600 hover:text-blue-800" title="${i18n.viewInFinancial || 'Ver no Financeiro'}"><i class="fas fa-external-link-alt"></i></a>`
+                    ${isPago && parcela.id
+                    ? `<button type="button" class="text-blue-600 hover:text-blue-800 btn-abrir-financeiro" data-id="${parcela.id}" title="${i18n.viewInFinancial || 'Ver no Financeiro'}"><i class="fas fa-external-link-alt"></i></button>`
+                    : isPago
+                        ? '<span class="text-slate-400">-</span>'
                     : `<button type="button" class="text-red-600 hover:text-red-800 btn-remover-parcela" data-index="${index}" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`
                 }
                 </td>
@@ -2512,6 +2526,12 @@
                     p.total_parcelas = parcelas.length;
                 });
                 renderizarParcelas();
+            });
+        });
+
+        tbody.querySelectorAll('.btn-abrir-financeiro').forEach(btn => {
+            btn.addEventListener('click', function () {
+                abrirLancamentoFinanceiro(this.dataset.id);
             });
         });
 

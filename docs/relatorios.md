@@ -1498,6 +1498,12 @@ Este documento especifica o comportamento e as informações que cada relatório
 
 **Objetivo**: Visão consolidada de contas a pagar e receber.
 
+**Filtros específicos**:
+- Cliente: restringe **Contas a Receber** ao cliente selecionado. Se usado sem fornecedor, o lado de contas a pagar fica vazio para manter o saldo coerente com o subconjunto filtrado.
+- Fornecedor: restringe **Contas a Pagar** ao fornecedor selecionado. Se usado sem cliente, o lado de contas a receber fica vazio.
+- Veículo: restringe contas a pagar e receber pelo veículo associado no cabeçalho (`financeiro.id_veiculo`) ou nos itens (`financeiro_itens.id_veiculo`).
+- Status: todos, pago, pendente ou vencido. Aplica nos dois lados.
+
 **Contas a Receber**:
 
 | Vencimento | Cliente | Descrição | Valor | Status |

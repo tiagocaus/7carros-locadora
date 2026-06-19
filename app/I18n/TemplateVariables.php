@@ -662,6 +662,24 @@ class TemplateVariables
                 'label_key' => 'variables.locacao.bloqueio_data_devolucao',
                 'example' => '25/01/2024'
             ],
+            'caucao_data_devolucao' => [
+                'key' => 'locacao.caucao_data_devolucao',
+                'type' => 'date',
+                'label_key' => 'variables.locacao.caucao_data_devolucao',
+                'example' => '25/01/2024'
+            ],
+            'caucao_prazo_devolucao' => [
+                'key' => 'locacao.caucao_prazo_devolucao',
+                'type' => 'text',
+                'label_key' => 'variables.locacao.caucao_prazo_devolucao',
+                'example' => '5'
+            ],
+            'caucao_data_prevista_devolucao' => [
+                'key' => 'locacao.caucao_data_prevista_devolucao',
+                'type' => 'date',
+                'label_key' => 'variables.locacao.caucao_data_prevista_devolucao',
+                'example' => '25/01/2024'
+            ],
             'fatura_a_pagar' => [
                 'key' => 'locacao.fatura_a_pagar',
                 'type' => 'currency',
@@ -1286,6 +1304,9 @@ class TemplateVariables
         '$lDias' => 'locacao.quantidade_dias',
         '$lCoberturaVeiculo' => 'locacao.cobertura',
         '$lBloqueioDataDevolucao' => 'locacao.bloqueio_data_devolucao',
+        '$lCaucaoDataDevolucao' => 'locacao.caucao_data_devolucao',
+        '$lCaucaoPrazoDevolucao' => 'locacao.caucao_prazo_devolucao',
+        '$lCaucaoDataPrevistaDevolucao' => 'locacao.caucao_data_prevista_devolucao',
         '$lFaturaAPagar' => 'locacao.fatura_a_pagar',
         '$lVeiculoMarca' => 'veiculo.marca',
         '$lVeiculoModelo' => 'veiculo.modelo',

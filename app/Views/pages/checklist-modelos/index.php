@@ -60,21 +60,21 @@
 <script>
     (function() {
         const i18n = {
-            loading: '<?= addslashes(t('common.labels.loading')) ?>',
-            loadError: '<?= addslashes(t('modules.checklist_modelos.messages.load_error')) ?>',
-            serverError: '<?= addslashes(t('modules.checklist_modelos.messages.server_error')) ?>',
-            noRecords: '<?= addslashes(t('modules.checklist_modelos.messages.no_records')) ?>',
-            noName: '<?= addslashes(t('modules.checklist_modelos.messages.no_name')) ?>',
-            typePrinted: '<?= addslashes(t('modules.checklist_modelos.badges.type_printed')) ?>',
-            typeDigital: '<?= addslashes(t('modules.checklist_modelos.badges.type_digital')) ?>',
-            statusActive: '<?= addslashes(t('modules.checklist_modelos.badges.status_active')) ?>',
-            statusInactive: '<?= addslashes(t('modules.checklist_modelos.badges.status_inactive')) ?>',
-            actionEdit: '<?= addslashes(t('common.buttons.edit')) ?>',
-            actionDelete: '<?= addslashes(t('common.buttons.delete')) ?>',
-            thisRecord: '<?= addslashes(t('modules.checklist_modelos.messages.no_name')) ?>',
-            recordType: '<?= addslashes(t('modules.checklist_modelos.record_type')) ?>',
-            deleteError: '<?= addslashes(t('modules.checklist_modelos.messages.delete_error')) ?>',
-            showingPagination: '<?= addslashes(t('modules.checklist_modelos.pagination.showing')) ?>',
+            loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            loadError: <?= json_encode(t('modules.checklist_modelos.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            serverError: <?= json_encode(t('modules.checklist_modelos.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            noRecords: <?= json_encode(t('modules.checklist_modelos.messages.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            noName: <?= json_encode(t('modules.checklist_modelos.messages.no_name'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            typePrinted: <?= json_encode(t('modules.checklist_modelos.badges.type_printed'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            typeDigital: <?= json_encode(t('modules.checklist_modelos.badges.type_digital'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            statusActive: <?= json_encode(t('modules.checklist_modelos.badges.status_active'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            statusInactive: <?= json_encode(t('modules.checklist_modelos.badges.status_inactive'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            actionEdit: <?= json_encode(t('common.buttons.edit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            actionDelete: <?= json_encode(t('common.buttons.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            thisRecord: <?= json_encode(t('modules.checklist_modelos.messages.no_name'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            recordType: <?= json_encode(t('modules.checklist_modelos.record_type'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            deleteError: <?= json_encode(t('modules.checklist_modelos.messages.delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            showingPagination: <?= json_encode(t('modules.checklist_modelos.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         };
 
         let currentPage = 1;
@@ -168,17 +168,24 @@
             dados.forEach(item => {
                 const nome = item.nome || i18n.noName;
                 const nomeEscapado = escapeHtml(nome);
+                const isSistema = item.chave === '0';
+                const origemBadge = isSistema
+                    ? `<span class="inline-flex items-center ml-2 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">Sistema</span>`
+                    : '';
+                const deleteButton = isSistema
+                    ? ''
+                    : `<button title="${i18n.actionDelete}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${item.id}" data-name="${nomeEscapado}"><i class="fas fa-trash"></i></button>`;
 
                 tableRows += `
                 <tr class="border-b border-slate-200 hover:bg-slate-50">
                     <td class="table-cell">
-                        <div class="font-medium">${nomeEscapado}</div>
+                        <div class="font-medium">${nomeEscapado}${origemBadge}</div>
                     </td>
                     <td class="table-cell hidden md:table-cell text-center">${getTipoBadge(item.tipo)}</td>
                     <td class="table-cell hidden sm:table-cell text-center">${getStatusBadge(item.status)}</td>
                     <td class="table-cell px-2 w-32 text-right">
                         <button title="${i18n.actionEdit}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${item.id}"><i class="fas fa-edit"></i></button>
-                        <button title="${i18n.actionDelete}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${item.id}" data-name="${nomeEscapado}"><i class="fas fa-trash"></i></button>
+                        ${deleteButton}
                     </td>
                 </tr>
             `;

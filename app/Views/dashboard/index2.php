@@ -363,9 +363,11 @@
     let dashboardRequestInFlight = false;
     let dashboardRetryAfterUntil = 0;
 
-    function updateTimestamp(ts) {
+    function updateTimestamp() {
         const el = document.getElementById('dashTimestamp');
-        if (el) el.textContent = ts || new Date().toLocaleString('pt-BR');
+        if (el) {
+            el.textContent = new Date().toLocaleString('pt-BR');
+        }
     }
 
     function updateKPIs(fleet, financial, contracts) {
@@ -537,7 +539,7 @@
                 updateAvailabilityBar(d.fleet);
                 updateAlerts(d.alerts);
                 updateFinancial(d.financial, d.overdue_accounts, d.upcoming_due);
-                updateTimestamp(result.timestamp);
+                updateTimestamp();
             }
         } catch (err) {
             console.error('Dashboard refresh error:', err);

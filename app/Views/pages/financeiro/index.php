@@ -101,39 +101,43 @@
 @endsection
 
 @section('scripts')
+<?php
+$jsFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+$i18nFinanceiro = [
+    'loading' => t('common.labels.loading'),
+    'noRecords' => t('modules.financeiro.messages.no_records'),
+    'noDescription' => t('modules.financeiro.messages.no_description'),
+    'loadError' => t('modules.financeiro.messages.load_error'),
+    'connectionError' => t('modules.financeiro.messages.connection_error'),
+    'deleteConfirm' => t('modules.financeiro.messages.delete_confirm'),
+    'deleteError' => t('modules.financeiro.messages.delete_error'),
+    'thisEntry' => t('modules.financeiro.messages.this_entry'),
+    'recordType' => t('modules.financeiro.record_types.entry'),
+    'statusPaid' => t('modules.financeiro.status.paid'),
+    'statusDueIn' => t('modules.financeiro.status.due_in'),
+    'statusDueToday' => t('modules.financeiro.status.due_today'),
+    'statusOverdue' => t('modules.financeiro.status.overdue'),
+    'daySingular' => t('modules.financeiro.status.day_singular'),
+    'daysPlural' => t('modules.financeiro.status.days_plural'),
+    'paymentLink' => t('modules.financeiro.buttons.payment_link'),
+    'printSend' => t('modules.financeiro.buttons.print_send'),
+    'printSendTitle' => t('modules.financeiro.print.title'),
+    'emitNfse' => 'Emitir NFS-e',
+    'resendNfse' => 'Reenviar NFS-e',
+    'viewNfse' => 'Visualizar NFS-e',
+    'resendNfseTitle' => 'Reenviar NFS-e',
+    'resendNfseConfirm' => 'Esta NFS-e foi rejeitada. Deseja reenviar a nota agora?',
+    'resendNfseSuccess' => 'NFS-e reenviada com sucesso.',
+    'resendNfseError' => 'Erro ao reenviar NFS-e.',
+    'edit' => t('common.buttons.edit'),
+    'delete' => t('common.buttons.delete'),
+    'paymentLinkError' => t('modules.financeiro.messages.payment_link_error'),
+    'paginationShowing' => t('modules.financeiro.pagination.showing'),
+];
+?>
 <script>
 (function () {
-    const i18n = {
-        loading: '<?= t("common.labels.loading") ?>',
-        noRecords: '<?= t("modules.financeiro.messages.no_records") ?>',
-        noDescription: '<?= t("modules.financeiro.messages.no_description") ?>',
-        loadError: '<?= t("modules.financeiro.messages.load_error") ?>',
-        connectionError: '<?= t("modules.financeiro.messages.connection_error") ?>',
-        deleteConfirm: '<?= t("modules.financeiro.messages.delete_confirm") ?>',
-        deleteError: '<?= t("modules.financeiro.messages.delete_error") ?>',
-        thisEntry: '<?= t("modules.financeiro.messages.this_entry") ?>',
-        recordType: '<?= t("modules.financeiro.record_types.entry") ?>',
-        statusPaid: '<?= t("modules.financeiro.status.paid") ?>',
-        statusDueIn: '<?= t("modules.financeiro.status.due_in") ?>',
-        statusDueToday: '<?= t("modules.financeiro.status.due_today") ?>',
-        statusOverdue: '<?= t("modules.financeiro.status.overdue") ?>',
-        daySingular: '<?= t("modules.financeiro.status.day_singular") ?>',
-        daysPlural: '<?= t("modules.financeiro.status.days_plural") ?>',
-        paymentLink: '<?= t("modules.financeiro.buttons.payment_link") ?>',
-        printSend: '<?= t("modules.financeiro.buttons.print_send") ?>',
-        printSendTitle: '<?= addslashes(t("modules.financeiro.print.title")) ?>',
-        emitNfse: 'Emitir NFS-e',
-        resendNfse: 'Reenviar NFS-e',
-        viewNfse: 'Visualizar NFS-e',
-        resendNfseTitle: 'Reenviar NFS-e',
-        resendNfseConfirm: 'Esta NFS-e foi rejeitada. Deseja reenviar a nota agora?',
-        resendNfseSuccess: 'NFS-e reenviada com sucesso.',
-        resendNfseError: 'Erro ao reenviar NFS-e.',
-        edit: '<?= t("common.buttons.edit") ?>',
-        delete: '<?= t("common.buttons.delete") ?>',
-        paymentLinkError: '<?= t("modules.financeiro.messages.payment_link_error") ?>',
-        paginationShowing: '<?= t("modules.financeiro.pagination.showing") ?>',
-    };
+    const i18n = <?= json_encode($i18nFinanceiro, $jsFlags) ?>;
 
     // Estado da paginacao
     let currentPage = 1;
@@ -399,10 +403,6 @@
                         recordType: i18n.recordType,
                         confirmType: 'none'
                     }, '*');
-                } else {
-                    if (confirm(i18n.deleteConfirm.replace(':name', name))) {
-                        excluirLancamento(id);
-                    }
                 }
             });
         });
@@ -626,11 +626,11 @@
             if (result.success) {
                 carregarLancamentos(currentPage, perPage, searchTerm);
             } else {
-                alert(result.message || i18n.deleteError);
+                openAlert(result.message || i18n.deleteError);
             }
         } catch (error) {
             console.error('Erro:', error);
-            alert(i18n.deleteError);
+            openAlert(i18n.deleteError);
         }
     }
 
@@ -652,7 +652,21 @@
             }
         } catch (error) {
             console.error('Erro ao reenviar NFS-e:', error);
+            if (await confirmarReenvioNfseAutorizado(id)) {
+                window.parent.postMessage({ action: 'openAlert', message: i18n.resendNfseSuccess }, '*');
+                carregarLancamentos(currentPage, perPage, searchTerm);
+                return;
+            }
             window.parent.postMessage({ action: 'openAlert', message: i18n.resendNfseError }, '*');
+        }
+    }
+
+    async function confirmarReenvioNfseAutorizado(id) {
+        try {
+            const result = await API.get(`/api/nfse/${id}`);
+            return result?.success && result?.data?.status === 'autorizada';
+        } catch (error) {
+            return false;
         }
     }
 

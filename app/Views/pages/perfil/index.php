@@ -166,17 +166,17 @@
 <script>
 (function() {
     const i18n = {
-        saving: '<?= addslashes(t("common.labels.saving")) ?>',
-        saveChanges: '<?= addslashes(t("common.buttons.save_changes")) ?>',
-        changing: '<?= addslashes(t("modules.perfil.password.change_button")) ?>...',
-        changePassword: '<?= addslashes(t("modules.perfil.password.change_button")) ?>',
-        loadError: '<?= addslashes(t("modules.perfil.messages.load_error")) ?>',
-        saveError: '<?= addslashes(t("modules.perfil.messages.save_error")) ?>',
-        saveSuccess: '<?= addslashes(t("modules.perfil.messages.save_success")) ?>',
-        passwordSuccess: '<?= addslashes(t("modules.perfil.messages.password_success")) ?>',
-        passwordError: '<?= addslashes(t("modules.perfil.messages.password_error")) ?>',
-        serverError: '<?= addslashes(t("modules.perfil.messages.server_error")) ?>',
-        cameraError: '<?= addslashes(t("modules.perfil.photo.camera_error")) ?>',
+        saving: <?= json_encode(t('common.labels.saving'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        saveChanges: <?= json_encode(t('common.buttons.save_changes'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        changing: <?= json_encode(t('modules.perfil.password.change_button'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?> + '...',
+        changePassword: <?= json_encode(t('modules.perfil.password.change_button'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadError: <?= json_encode(t('modules.perfil.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        saveError: <?= json_encode(t('modules.perfil.messages.save_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        saveSuccess: <?= json_encode(t('modules.perfil.messages.save_success'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        passwordSuccess: <?= json_encode(t('modules.perfil.messages.password_success'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        passwordError: <?= json_encode(t('modules.perfil.messages.password_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        serverError: <?= json_encode(t('modules.perfil.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        cameraError: <?= json_encode(t('modules.perfil.photo.camera_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     // Variáveis para gerenciamento de foto

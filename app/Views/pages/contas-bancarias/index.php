@@ -64,21 +64,21 @@
 <script>
 (function () {
     const i18n = {
-        loading: '<?= addslashes(t('common.labels.loading')) ?>',
-        loadError: '<?= addslashes(t('modules.contas_bancarias.messages.load_error')) ?>',
-        serverError: '<?= addslashes(t('modules.contas_bancarias.messages.server_error')) ?>',
-        noRecords: '<?= addslashes(t('modules.contas_bancarias.messages.no_records')) ?>',
-        noName: '<?= addslashes(t('modules.contas_bancarias.messages.no_name')) ?>',
-        typeBank: '<?= addslashes(t('modules.contas_bancarias.badges.type_bank')) ?>',
-        typeCash: '<?= addslashes(t('modules.contas_bancarias.badges.type_cash')) ?>',
-        statusActive: '<?= addslashes(t('modules.contas_bancarias.badges.status_active')) ?>',
-        statusInactive: '<?= addslashes(t('modules.contas_bancarias.badges.status_inactive')) ?>',
-        actionEdit: '<?= addslashes(t('common.buttons.edit')) ?>',
-        actionDelete: '<?= addslashes(t('common.buttons.delete')) ?>',
-        thisRecord: '<?= addslashes(t('modules.contas_bancarias.messages.this_record')) ?>',
-        recordType: '<?= addslashes(t('modules.contas_bancarias.record_type')) ?>',
-        deleteError: '<?= addslashes(t('modules.contas_bancarias.messages.delete_error')) ?>',
-        showingPagination: '<?= addslashes(t('modules.contas_bancarias.pagination.showing')) ?>',
+        loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadError: <?= json_encode(t('modules.contas_bancarias.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        serverError: <?= json_encode(t('modules.contas_bancarias.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noRecords: <?= json_encode(t('modules.contas_bancarias.messages.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noName: <?= json_encode(t('modules.contas_bancarias.messages.no_name'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        typeBank: <?= json_encode(t('modules.contas_bancarias.badges.type_bank'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        typeCash: <?= json_encode(t('modules.contas_bancarias.badges.type_cash'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        statusActive: <?= json_encode(t('modules.contas_bancarias.badges.status_active'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        statusInactive: <?= json_encode(t('modules.contas_bancarias.badges.status_inactive'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionEdit: <?= json_encode(t('common.buttons.edit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionDelete: <?= json_encode(t('common.buttons.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        thisRecord: <?= json_encode(t('modules.contas_bancarias.messages.this_record'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        recordType: <?= json_encode(t('modules.contas_bancarias.record_type'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        deleteError: <?= json_encode(t('modules.contas_bancarias.messages.delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        showingPagination: <?= json_encode(t('modules.contas_bancarias.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     // Estado da paginacao

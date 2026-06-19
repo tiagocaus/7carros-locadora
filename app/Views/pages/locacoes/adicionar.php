@@ -207,6 +207,7 @@
                         <div class="relative">
                             <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
                             <input type="text" id="diaria_valor" name="diaria_valor" class="form-input-group-field pl-10 input-moeda" value="0,00">
+                            <input type="hidden" id="diaria_valor_origem" name="diaria_valor_origem" value="<?= isset($locacao) ? 'manual' : 'auto' ?>">
                         </div>
                     </div>
                     <div class="md:col-span-2 form-input-group plano-km-field hidden">
@@ -1125,14 +1126,57 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             'DI':  'valor_plano_km_pago',
             'KP':  'valor_plano_km_pago',
         };
+        const MAPA_PRECO_DIAS_POR_PLANO = {
+            'KL': 'km_livre',
+            'KML': 'km_livre',
+            'KMC': 'km_controlado',
+            'DI': 'diaria',
+            'KP': 'diaria',
+            'DIA': 'diaria',
+        };
 
-        function aplicarValorDiaria() {
+        let diariaValorManual = isEditing;
+
+        function definirOrigemDiaria(origem) {
+            const origemEl = document.getElementById('diaria_valor_origem');
+            if (origemEl) origemEl.value = origem;
+        }
+
+        function obterValorProgressivoDiaria(plano, dias) {
+            const tipoPreco = MAPA_PRECO_DIAS_POR_PLANO[plano] || 'diaria';
+            const faixas = precosDiasGrupoAtuais?.[tipoPreco] || [];
+            let faixaAplicada = null;
+
+            faixas.forEach(faixa => {
+                const inicio = parseInt(faixa.dia_inicio, 10) || 0;
+                const fim = faixa.dia_fim === null || faixa.dia_fim === undefined || faixa.dia_fim === ''
+                    ? Infinity
+                    : (parseInt(faixa.dia_fim, 10) || 0);
+
+                if (dias >= inicio && dias <= fim && (!faixaAplicada || inicio > faixaAplicada.inicio)) {
+                    faixaAplicada = { inicio, valor: parseFloat(faixa.valor || 0) };
+                }
+            });
+
+            return faixaAplicada ? faixaAplicada.valor : null;
+        }
+
+        function aplicarValorDiaria(forcar = false) {
             const el = document.getElementById('diaria_valor');
             if (!el || !valoresGrupoAtuais) return;
+            if (diariaValorManual && !forcar) return;
+
             const plano = document.getElementById('plano')?.value || 'KL';
             const campo = MAPA_DIARIA_POR_PLANO[plano] || 'valor_plano_km_livre';
-            const valor = parseFloat(valoresGrupoAtuais[campo] || 0);
+            const dias = parseInt(document.getElementById('dias')?.value, 10) || 1;
+            const valorProgressivo = obterValorProgressivoDiaria(plano, dias);
+            const valor = valorProgressivo !== null
+                ? valorProgressivo
+                : parseFloat(valoresGrupoAtuais[campo] || 0);
+
             el.value = valor.toFixed(2).replace('.', ',');
+            diariaValorManual = false;
+            definirOrigemDiaria('auto');
             sincronizarValorKmControlado();
             atualizarResumo();
         }
@@ -1154,11 +1198,16 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             kmFields.forEach(el => el.classList.toggle('hidden', plano === 'KL'));
             kmcFields.forEach(el => el.classList.toggle('hidden', plano !== 'KMC'));
 
-            aplicarValorDiaria();
+            diariaValorManual = false;
+            aplicarValorDiaria(true);
         }
 
         document.getElementById('plano')?.addEventListener('change', atualizarCamposPlano);
-        document.getElementById('diaria_valor')?.addEventListener('input', sincronizarValorKmControlado);
+        document.getElementById('diaria_valor')?.addEventListener('input', () => {
+            diariaValorManual = true;
+            definirOrigemDiaria('manual');
+            sincronizarValorKmControlado();
+        });
 
         // ===== AUTO-FILL VEICULO (odometro + combustivel) =====
 
@@ -1193,6 +1242,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         // Cache por grupo+filial — multi-moeda, cada filial tem sua tabela
         let valoresGrupoCache = {};
         let valoresGrupoAtuais = null;
+        let precosDiasGrupoAtuais = {};
 
         async function carregarValoresGrupo(grupoId) {
             const filialId = document.getElementById('id_matriz_filial_retirada')?.value;
@@ -1208,8 +1258,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 if (filialId) {
                     const res = await API.get(`/api/grupos/${grupoId}/precos-filial/${filialId}`);
                     if (res.success && res.data?.valores) {
-                        valoresGrupoCache[cacheKey] = res.data.valores;
-                        preencherValoresGrupo(res.data.valores);
+                        valoresGrupoCache[cacheKey] = res.data;
+                        preencherValoresGrupo(res.data);
                         return;
                     }
                 }
@@ -1224,8 +1274,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }
         }
 
-        function preencherValoresGrupo(valores) {
+        function preencherValoresGrupo(payload) {
+            const valores = payload?.valores || payload || {};
             valoresGrupoAtuais = valores;
+            precosDiasGrupoAtuais = payload?.precos_dias || {};
 
             const setCurrency = (id, val) => {
                 const el = document.getElementById(id);
@@ -1253,7 +1305,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             setCurrency('valor_km_retorno', valores.valor_km_retorno);
             setCurrency('valor_condutor_adicional', valores.valor_condutor_adicional);
 
-            aplicarValorDiaria();
+            aplicarValorDiaria(true);
         }
 
         function garantirVeiculoAtualNoSelect(selectVeiculo) {
@@ -1454,9 +1506,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
 
         function removerTaxaKmRetorno() {
-            const idx = taxas.findIndex(t => t._auto_km_retorno === true);
-            if (idx !== -1) {
-                taxas.splice(idx, 1);
+            const totalAntes = taxas.length;
+            for (let i = taxas.length - 1; i >= 0; i--) {
+                const taxa = taxas[i];
+                if (taxa._auto_km_retorno === true || String(taxa.nome || '').startsWith('Km Retorno')) {
+                    taxas.splice(i, 1);
+                }
+            }
+            if (taxas.length !== totalAntes) {
                 renderTaxas();
             }
         }
@@ -1750,16 +1807,49 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
 
         function calcularValorCombustivelDevolucao() {
+            const deficit = calcularDeficitCombustivelDevolucao();
+            return deficit.fracoes * deficit.valorPorFracao;
+        }
+
+        function calcularDeficitCombustivelDevolucao() {
             const status = document.getElementById('locacaoStatus')?.value || 'R';
-            if (status !== 'F') return 0;
+            if (status !== 'F') return { fracoes: 0, valorPorFracao: 0 };
 
             const combIni = parseInt(document.getElementById('combustivel_ini')?.value);
             const combFim = parseInt(document.getElementById('combustivel_fim')?.value);
             const valorPorFracao = parseFloat(locacaoData?.veiculo_valor_por_fracao) || 0;
 
-            if (isNaN(combIni) || isNaN(combFim) || valorPorFracao <= 0) return 0;
+            if (isNaN(combIni) || isNaN(combFim)) return { fracoes: 0, valorPorFracao };
 
-            return Math.max(0, combIni - combFim) * valorPorFracao;
+            return {
+                fracoes: Math.max(0, combIni - combFim),
+                valorPorFracao
+            };
+        }
+
+        function calcularKmExcedenteDevolucao() {
+            const status = document.getElementById('locacaoStatus')?.value || 'R';
+            const plano = document.getElementById('plano')?.value || 'KL';
+            if (status !== 'F' || plano !== 'KMC') {
+                return { kmRodados: 0, kmPermitido: 0, kmExcedente: 0, valorUnitario: 0, valorTotal: 0 };
+            }
+
+            const odometroIni = parseInt(String(document.getElementById('odometro_ini')?.value || '0').replace(/\D/g, ''), 10) || 0;
+            const odometroFim = parseInt(String(document.getElementById('odometro_fim')?.value || '0').replace(/\D/g, ''), 10) || 0;
+            const kmRodados = odometroFim > odometroIni ? odometroFim - odometroIni : 0;
+            const franquia = parseInt(document.getElementById('km_controlado_franquia')?.value, 10) || 0;
+            const dias = parseInt(document.getElementById('dias')?.value, 10) || 1;
+            const kmPermitido = franquia * dias;
+            const kmExcedente = Math.max(0, kmRodados - kmPermitido);
+            const valorUnitario = parseCurrency(document.getElementById('km_valor')?.value);
+
+            return {
+                kmRodados,
+                kmPermitido,
+                kmExcedente,
+                valorUnitario,
+                valorTotal: kmExcedente * valorUnitario
+            };
         }
 
         function calcularTotalPagarFormulario() {
@@ -1772,8 +1862,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const qtdCondutores = document.getElementById('listaCondutores')?.querySelectorAll('.pessoa-card').length || 0;
             const valorCondutorUnit = parseCurrency(document.getElementById('valor_condutor_adicional')?.value);
             const valorCombustivel = calcularValorCombustivelDevolucao();
+            const valorKmExcedente = calcularKmExcedenteDevolucao().valorTotal;
 
-            return Math.max(0, valorTotalLocacao + totalTaxas + (qtdCondutores * valorCondutorUnit) + valorCombustivel - desconto);
+            return Math.max(0, valorTotalLocacao + totalTaxas + (qtdCondutores * valorCondutorUnit) + valorKmExcedente + valorCombustivel - desconto);
         }
 
         // Calcula valor total de uma taxa conforme base_calculo e tipo_valor
@@ -2008,19 +2099,32 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 });
             }
 
-            const valorCombustivelDevolucao = calcularValorCombustivelDevolucao();
-            if (valorCombustivelDevolucao > 0) {
-                const combIni = parseInt(document.getElementById('combustivel_ini')?.value) || 0;
-                const combFim = parseInt(document.getElementById('combustivel_fim')?.value) || 0;
-                const diferencaFracoes = Math.max(0, combIni - combFim);
-                const valorPorFracao = parseFloat(locacaoData?.veiculo_valor_por_fracao) || 0;
+            const kmExcedenteDevolucao = calcularKmExcedenteDevolucao();
+            const deficitCombustivel = calcularDeficitCombustivelDevolucao();
+            const valorCombustivelDevolucao = deficitCombustivel.fracoes * deficitCombustivel.valorPorFracao;
+            const mostrarSecaoDevolucao = kmExcedenteDevolucao.kmExcedente > 0 || deficitCombustivel.fracoes > 0;
 
+            if (mostrarSecaoDevolucao) {
                 html += `<tr class="bg-slate-100"><td colspan="5" class="px-4 py-2 font-semibold text-slate-700 uppercase text-xs">${i18n.summary.returnSection}</td></tr>`;
+            }
+
+            if (kmExcedenteDevolucao.kmExcedente > 0) {
+                html += `<tr class="border-b border-slate-100">
+                    <td class="px-4 py-2"><?= t('modules.locacoes.return_page.km_excess') ?></td>
+                    <td class="px-4 py-2 text-center">${Km.format(kmExcedenteDevolucao.kmExcedente)}</td>
+                    <td class="px-4 py-2 text-center">-</td>
+                    <td class="px-4 py-2 text-right">${fmtCurrency(kmExcedenteDevolucao.valorUnitario)}</td>
+                    <td class="px-4 py-2 text-right font-medium">${fmtCurrency(kmExcedenteDevolucao.valorTotal)}</td>
+                </tr>`;
+                totalLocacao += kmExcedenteDevolucao.valorTotal;
+            }
+
+            if (deficitCombustivel.fracoes > 0) {
                 html += `<tr class="border-b border-slate-100">
                     <td class="px-4 py-2">${i18n.summary.fuel}</td>
-                    <td class="px-4 py-2 text-center">${diferencaFracoes}</td>
+                    <td class="px-4 py-2 text-center">${deficitCombustivel.fracoes}</td>
                     <td class="px-4 py-2 text-center">-</td>
-                    <td class="px-4 py-2 text-right">${fmtCurrency(valorPorFracao)}</td>
+                    <td class="px-4 py-2 text-right">${fmtCurrency(deficitCombustivel.valorPorFracao)}</td>
                     <td class="px-4 py-2 text-right font-medium">${fmtCurrency(valorCombustivelDevolucao)}</td>
                 </tr>`;
                 totalLocacao += valorCombustivelDevolucao;
@@ -2092,7 +2196,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 if (caucaoValor > 0) {
                     const tipoLabels = i18n.paymentTypes;
                     const tipoLabel = tipoLabels[caucaoTipo] || caucaoTipo;
-                    const prazoLabel = caucaoPrazo ? caucaoPrazo + ' ' + <?= $jsT('modules.locacoes.summary_section.days') ?> : '';
+                    const prazoLabel = caucaoPrazo !== '' ? caucaoPrazo + ' ' + <?= $jsT('modules.locacoes.summary_section.days') ?> : '';
                     html += `<tr class="border-b border-slate-200">
                         <td colspan="4" class="px-4 py-2">
                             <i class="fas fa-shield-alt text-slate-400 mr-1"></i> <?= t('modules.locacoes.sections.deposit') ?>
@@ -2191,6 +2295,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             sincronizarValorKmControlado();
             const form = new FormData(this);
             const dados = Object.fromEntries(form.entries());
+            dados.km_controlado_franquia = String(parseInt(dados.km_controlado_franquia || '0', 10) || 0);
 
             // datetime-local já envia formato ISO (YYYY-MM-DDTHH:MM)
 
@@ -2483,7 +2588,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 'diaria_valor': locacaoData.diaria_valor || locacaoData.km_livre_valor,
                 'km_valor': locacaoData.km_valor,
                 'km_controlado_valor': locacaoData.km_controlado_valor,
-                'km_controlado_franquia': locacaoData.km_controlado_franquia,
                 'seguro_carro_valor': locacaoData.seguro_carro_valor,
                 'cobertura_carro_valor': locacaoData.cobertura_carro_valor,
                 'seguro_terceiros_valor': locacaoData.seguro_terceiros_valor,
@@ -2501,9 +2605,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     el.value = parseFloat(valor).toFixed(2).replace('.', ',');
                 }
             });
+            diariaValorManual = true;
+            definirOrigemDiaria('manual');
 
             // Campos numericos (nao monetarios)
             if (locacaoData.minuto_tolerancia) document.getElementById('minuto_tolerancia').value = locacaoData.minuto_tolerancia;
+            if (locacaoData.km_controlado_franquia !== null && locacaoData.km_controlado_franquia !== undefined) {
+                document.getElementById('km_controlado_franquia').value = parseInt(locacaoData.km_controlado_franquia, 10) || 0;
+            }
 
             // Seguros
             if (locacaoData.seguro_carro === 'S') document.getElementById('seguro_carro').checked = true;
@@ -2516,7 +2625,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     document.getElementById('caucaoCartaoArea')?.classList.remove('hidden');
                 }
             }
-            if (locacaoData.caucao_prazo_devolucao) document.getElementById('caucao_prazo_devolucao').value = locacaoData.caucao_prazo_devolucao;
+            if (locacaoData.caucao_prazo_devolucao !== null && locacaoData.caucao_prazo_devolucao !== undefined) {
+                document.getElementById('caucao_prazo_devolucao').value = locacaoData.caucao_prazo_devolucao;
+            }
             setChosen('id_conta_caucao', locacaoData.id_conta_caucao, locacaoData.conta_caucao_descricao);
 
             // Bloqueio (hold) - carregar status se existir (authorized, captured, released, etc)
@@ -2589,6 +2700,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                             });
                         });
                         renderTaxas();
+                        await verificarKmRetorno();
                     }
                 } catch (e) {
                     console.error('Erro ao carregar taxas:', e);
@@ -2605,8 +2717,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             carregarResumoFinanceiro();
         }
 
-        ['diaria_valor', 'valor_desconto', 'valor_condutor_adicional'].forEach(id => {
+        ['diaria_valor', 'valor_desconto', 'valor_condutor_adicional', 'km_valor', 'km_controlado_franquia'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', () => {
+                calcularDevolucao();
                 atualizarResumo();
                 carregarResumoFinanceiro();
             });
@@ -2618,18 +2731,28 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('valor_km_retorno')?.addEventListener('change', verificarKmRetorno);
         document.getElementById('seguro_carro')?.addEventListener('change', atualizarResumoETaxas);
         document.getElementById('seguro_terceiros')?.addEventListener('change', atualizarResumoETaxas);
-        document.getElementById('dias')?.addEventListener('change', atualizarResumoETaxas);
+        document.getElementById('dias')?.addEventListener('change', () => {
+            aplicarValorDiaria();
+            calcularDevolucao();
+            atualizarResumoETaxas();
+        });
         document.getElementById('data_saida')?.addEventListener('change', () => {
             calcularDias();
+            aplicarValorDiaria();
             atualizarResumoETaxas();
             if (isStatusReserva()) carregarGrupos();
         });
         document.getElementById('data_prevista')?.addEventListener('change', () => {
             calcularDias();
+            aplicarValorDiaria();
             atualizarResumoETaxas();
             if (isStatusReserva()) carregarGrupos();
         });
-        document.getElementById('minuto_tolerancia')?.addEventListener('change', () => { calcularDias(); atualizarResumoETaxas(); });
+        document.getElementById('minuto_tolerancia')?.addEventListener('change', () => {
+            calcularDias();
+            aplicarValorDiaria();
+            atualizarResumoETaxas();
+        });
 
         // ===== ABAS =====
 
@@ -3113,15 +3236,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const kmRodados = odometroFim > odometroIni ? odometroFim - odometroIni : 0;
             document.getElementById('km_rodados').value = Km.format(kmRodados);
 
-            // Km excedente (apenas para plano KMC)
-            const plano = document.getElementById('plano')?.value || 'KL';
-            let kmExcedente = 0;
-            if (plano === 'KMC') {
-                const franquia = parseInt(document.getElementById('km_controlado_franquia')?.value) || 0;
-                const dias = parseInt(document.getElementById('dias')?.value) || 1;
-                const kmPermitido = franquia * dias;
-                kmExcedente = Math.max(0, kmRodados - kmPermitido);
-            }
+            const kmExcedente = calcularKmExcedenteDevolucao().kmExcedente;
             document.getElementById('km_excedente').value = Km.format(kmExcedente);
 
             // Combustivel usado

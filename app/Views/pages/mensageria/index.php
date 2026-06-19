@@ -72,101 +72,101 @@
 <script>
 (function () {
     const i18n = {
-        loading: '<?= addslashes(t("common.labels.loading")) ?>',
-        noRecords: '<?= addslashes(t("modules.mensageria.table.no_records")) ?>',
-        loadErrorBranches: '<?= addslashes(t("modules.mensageria.table.load_error_branches")) ?>',
-        none: '<?= addslashes(t("modules.mensageria.common.none")) ?>',
-        selectBranch: '<?= addslashes(t("modules.mensageria.common.select_branch")) ?>',
-        showingPagination: '<?= addslashes(t("modules.mensageria.pagination.showing")) ?>',
+        loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noRecords: <?= json_encode(t('modules.mensageria.table.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadErrorBranches: <?= json_encode(t('modules.mensageria.table.load_error_branches'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        none: <?= json_encode(t('modules.mensageria.common.none'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        selectBranch: <?= json_encode(t('modules.mensageria.common.select_branch'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        showingPagination: <?= json_encode(t('modules.mensageria.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         // Status badges
-        connected: '<?= addslashes(t("modules.mensageria.status.connected")) ?>',
-        connecting: '<?= addslashes(t("modules.mensageria.status.connecting")) ?>',
-        disconnected: '<?= addslashes(t("modules.mensageria.status.disconnected")) ?>',
-        validated: '<?= addslashes(t("modules.mensageria.status.validated")) ?>',
-        pending: '<?= addslashes(t("modules.mensageria.status.pending")) ?>',
-        invalid: '<?= addslashes(t("modules.mensageria.status.invalid")) ?>',
-        unknown: '<?= addslashes(t("modules.mensageria.status.unknown")) ?>',
+        connected: <?= json_encode(t('modules.mensageria.status.connected'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        connecting: <?= json_encode(t('modules.mensageria.status.connecting'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        disconnected: <?= json_encode(t('modules.mensageria.status.disconnected'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        validated: <?= json_encode(t('modules.mensageria.status.validated'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        pending: <?= json_encode(t('modules.mensageria.status.pending'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        invalid: <?= json_encode(t('modules.mensageria.status.invalid'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        unknown: <?= json_encode(t('modules.mensageria.status.unknown'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         // Action titles
-        actionTest: '<?= addslashes(t("modules.mensageria.actions.test")) ?>',
-        actionRestart: '<?= addslashes(t("modules.mensageria.actions.restart")) ?>',
-        actionDisconnect: '<?= addslashes(t("modules.mensageria.actions.disconnect")) ?>',
-        actionConnect: '<?= addslashes(t("modules.mensageria.actions.connect")) ?>',
-        actionRecreate: '<?= addslashes(t("modules.mensageria.actions.recreate")) ?>',
-        actionEdit: '<?= addslashes(t("common.buttons.edit")) ?>',
-        actionDelete: '<?= addslashes(t("common.buttons.delete")) ?>',
-        actionTestSms: '<?= addslashes(t("modules.mensageria.actions.test_sms")) ?>',
-        actionCheckBalance: '<?= addslashes(t("modules.mensageria.actions.check_balance")) ?>',
-        actionValidateCredentials: '<?= addslashes(t("modules.mensageria.actions.validate_credentials")) ?>',
-        actionTestEmail: '<?= addslashes(t("modules.mensageria.actions.test_email")) ?>',
-        actionValidateConnection: '<?= addslashes(t("modules.mensageria.actions.validate_connection")) ?>',
+        actionTest: <?= json_encode(t('modules.mensageria.actions.test'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionRestart: <?= json_encode(t('modules.mensageria.actions.restart'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionDisconnect: <?= json_encode(t('modules.mensageria.actions.disconnect'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionConnect: <?= json_encode(t('modules.mensageria.actions.connect'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionRecreate: <?= json_encode(t('modules.mensageria.actions.recreate'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionEdit: <?= json_encode(t('common.buttons.edit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionDelete: <?= json_encode(t('common.buttons.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionTestSms: <?= json_encode(t('modules.mensageria.actions.test_sms'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionCheckBalance: <?= json_encode(t('modules.mensageria.actions.check_balance'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionValidateCredentials: <?= json_encode(t('modules.mensageria.actions.validate_credentials'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionTestEmail: <?= json_encode(t('modules.mensageria.actions.test_email'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionValidateConnection: <?= json_encode(t('modules.mensageria.actions.validate_connection'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         // Offcanvas titles
-        newWhatsapp: '<?= addslashes(t("modules.mensageria.offcanvas.new_whatsapp")) ?>',
-        editWhatsapp: '<?= addslashes(t("modules.mensageria.offcanvas.edit_whatsapp")) ?>',
-        connectWhatsapp: '<?= addslashes(t("modules.mensageria.offcanvas.connect_whatsapp")) ?>',
-        testWhatsapp: '<?= addslashes(t("modules.mensageria.offcanvas.test_whatsapp")) ?>',
-        newSms: '<?= addslashes(t("modules.mensageria.offcanvas.new_sms")) ?>',
-        editSms: '<?= addslashes(t("modules.mensageria.offcanvas.edit_sms")) ?>',
-        testSms: '<?= addslashes(t("modules.mensageria.offcanvas.test_sms")) ?>',
-        newSmtp: '<?= addslashes(t("modules.mensageria.offcanvas.new_smtp")) ?>',
-        editSmtp: '<?= addslashes(t("modules.mensageria.offcanvas.edit_smtp")) ?>',
-        testSmtp: '<?= addslashes(t("modules.mensageria.offcanvas.test_smtp")) ?>',
+        newWhatsapp: <?= json_encode(t('modules.mensageria.offcanvas.new_whatsapp'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        editWhatsapp: <?= json_encode(t('modules.mensageria.offcanvas.edit_whatsapp'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        connectWhatsapp: <?= json_encode(t('modules.mensageria.offcanvas.connect_whatsapp'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        testWhatsapp: <?= json_encode(t('modules.mensageria.offcanvas.test_whatsapp'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        newSms: <?= json_encode(t('modules.mensageria.offcanvas.new_sms'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        editSms: <?= json_encode(t('modules.mensageria.offcanvas.edit_sms'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        testSms: <?= json_encode(t('modules.mensageria.offcanvas.test_sms'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        newSmtp: <?= json_encode(t('modules.mensageria.offcanvas.new_smtp'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        editSmtp: <?= json_encode(t('modules.mensageria.offcanvas.edit_smtp'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        testSmtp: <?= json_encode(t('modules.mensageria.offcanvas.test_smtp'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         // Confirms
-        confirmDelete: '<?= addslashes(t("modules.mensageria.confirms.delete")) ?>',
-        confirmDisconnect: '<?= addslashes(t("modules.mensageria.confirms.disconnect")) ?>',
-        confirmRestart: '<?= addslashes(t("modules.mensageria.confirms.restart")) ?>',
+        confirmDelete: <?= json_encode(t('modules.mensageria.confirms.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        confirmDisconnect: <?= json_encode(t('modules.mensageria.confirms.disconnect'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        confirmRestart: <?= json_encode(t('modules.mensageria.confirms.restart'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         // Messages
-        smtpValidated: '<?= addslashes(t("modules.mensageria.messages.smtp_validated")) ?>',
-        smtpValidationFailed: '<?= addslashes(t("modules.mensageria.messages.smtp_validation_failed")) ?>',
-        smtpValidateError: '<?= addslashes(t("modules.mensageria.messages.smtp_validate_error")) ?>',
-        smtpDeleted: '<?= addslashes(t("modules.mensageria.messages.smtp_deleted")) ?>',
-        smtpDeleteError: '<?= addslashes(t("modules.mensageria.messages.smtp_delete_error")) ?>',
-        smtpCreated: '<?= addslashes(t("modules.mensageria.messages.smtp_created")) ?>',
-        smtpCreateError: '<?= addslashes(t("modules.mensageria.messages.smtp_create_error")) ?>',
-        smtpUpdated: '<?= addslashes(t("modules.mensageria.messages.smtp_updated")) ?>',
-        smtpUpdateError: '<?= addslashes(t("modules.mensageria.messages.smtp_update_error")) ?>',
-        whatsappCreatedShort: '<?= addslashes(t("modules.mensageria.messages.whatsapp_created_short")) ?>',
-        whatsappCreateError: '<?= addslashes(t("modules.mensageria.messages.whatsapp_create_error")) ?>',
-        whatsappUpdated: '<?= addslashes(t("modules.mensageria.messages.whatsapp_updated")) ?>',
-        whatsappUpdateError: '<?= addslashes(t("modules.mensageria.messages.whatsapp_update_error")) ?>',
-        whatsappDeleted: '<?= addslashes(t("modules.mensageria.messages.whatsapp_deleted")) ?>',
-        whatsappDeleteError: '<?= addslashes(t("modules.mensageria.messages.whatsapp_delete_error")) ?>',
-        whatsappDisconnected: '<?= addslashes(t("modules.mensageria.messages.whatsapp_disconnected")) ?>',
-        whatsappDisconnectError: '<?= addslashes(t("modules.mensageria.messages.whatsapp_disconnect_error")) ?>',
-        whatsappRestarted: '<?= addslashes(t("modules.mensageria.messages.whatsapp_restarted")) ?>',
-        whatsappRestartError: '<?= addslashes(t("modules.mensageria.messages.whatsapp_restart_error")) ?>',
-        whatsappRecreated: '<?= addslashes(t("modules.mensageria.messages.whatsapp_recreated")) ?>',
-        whatsappRecreateError: '<?= addslashes(t("modules.mensageria.messages.whatsapp_recreate_error")) ?>',
-        smsCreated: '<?= addslashes(t("modules.mensageria.messages.sms_created")) ?>',
-        smsCreateError: '<?= addslashes(t("modules.mensageria.messages.sms_create_error")) ?>',
-        smsUpdated: '<?= addslashes(t("modules.mensageria.messages.sms_updated")) ?>',
-        smsUpdateError: '<?= addslashes(t("modules.mensageria.messages.sms_update_error")) ?>',
-        smsDeleted: '<?= addslashes(t("modules.mensageria.messages.sms_deleted")) ?>',
-        smsDeleteError: '<?= addslashes(t("modules.mensageria.messages.sms_delete_error")) ?>',
-        smsValidated: '<?= addslashes(t("modules.mensageria.messages.sms_validated")) ?>',
-        smsValidationFailed: '<?= addslashes(t("modules.mensageria.messages.sms_validation_failed")) ?>',
-        smsValidateError: '<?= addslashes(t("modules.mensageria.messages.sms_validate_error")) ?>',
-        smsBalance: '<?= addslashes(t("modules.mensageria.messages.sms_balance")) ?>',
-        smsBalanceError: '<?= addslashes(t("modules.mensageria.messages.sms_balance_error")) ?>',
-        testSuccess: '<?= addslashes(t("modules.mensageria.messages.test_success")) ?>',
-        testError: '<?= addslashes(t("modules.mensageria.messages.test_error")) ?>',
-        provideEmail: '<?= addslashes(t("modules.mensageria.messages.provide_email")) ?>',
-        sendingEmail: '<?= addslashes(t("modules.mensageria.messages.sending_email")) ?>',
-        emailSuccess: '<?= addslashes(t("modules.mensageria.messages.email_test_success")) ?>',
-        emailError: '<?= addslashes(t("modules.mensageria.messages.email_test_send_error")) ?>',
-        providePhone: '<?= addslashes(t("modules.mensageria.messages.provide_phone")) ?>',
-        sendingSms: '<?= addslashes(t("modules.mensageria.messages.sending_sms")) ?>',
-        smsTestSuccess: '<?= addslashes(t("modules.mensageria.messages.sms_test_success")) ?>',
-        smsTestError: '<?= addslashes(t("modules.mensageria.messages.sms_test_send_error")) ?>',
+        smtpValidated: <?= json_encode(t('modules.mensageria.messages.smtp_validated'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smtpValidationFailed: <?= json_encode(t('modules.mensageria.messages.smtp_validation_failed'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smtpValidateError: <?= json_encode(t('modules.mensageria.messages.smtp_validate_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smtpDeleted: <?= json_encode(t('modules.mensageria.messages.smtp_deleted'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smtpDeleteError: <?= json_encode(t('modules.mensageria.messages.smtp_delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smtpCreated: <?= json_encode(t('modules.mensageria.messages.smtp_created'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smtpCreateError: <?= json_encode(t('modules.mensageria.messages.smtp_create_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smtpUpdated: <?= json_encode(t('modules.mensageria.messages.smtp_updated'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smtpUpdateError: <?= json_encode(t('modules.mensageria.messages.smtp_update_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappCreatedShort: <?= json_encode(t('modules.mensageria.messages.whatsapp_created_short'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappCreateError: <?= json_encode(t('modules.mensageria.messages.whatsapp_create_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappUpdated: <?= json_encode(t('modules.mensageria.messages.whatsapp_updated'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappUpdateError: <?= json_encode(t('modules.mensageria.messages.whatsapp_update_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappDeleted: <?= json_encode(t('modules.mensageria.messages.whatsapp_deleted'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappDeleteError: <?= json_encode(t('modules.mensageria.messages.whatsapp_delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappDisconnected: <?= json_encode(t('modules.mensageria.messages.whatsapp_disconnected'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappDisconnectError: <?= json_encode(t('modules.mensageria.messages.whatsapp_disconnect_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappRestarted: <?= json_encode(t('modules.mensageria.messages.whatsapp_restarted'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappRestartError: <?= json_encode(t('modules.mensageria.messages.whatsapp_restart_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappRecreated: <?= json_encode(t('modules.mensageria.messages.whatsapp_recreated'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        whatsappRecreateError: <?= json_encode(t('modules.mensageria.messages.whatsapp_recreate_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsCreated: <?= json_encode(t('modules.mensageria.messages.sms_created'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsCreateError: <?= json_encode(t('modules.mensageria.messages.sms_create_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsUpdated: <?= json_encode(t('modules.mensageria.messages.sms_updated'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsUpdateError: <?= json_encode(t('modules.mensageria.messages.sms_update_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsDeleted: <?= json_encode(t('modules.mensageria.messages.sms_deleted'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsDeleteError: <?= json_encode(t('modules.mensageria.messages.sms_delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsValidated: <?= json_encode(t('modules.mensageria.messages.sms_validated'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsValidationFailed: <?= json_encode(t('modules.mensageria.messages.sms_validation_failed'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsValidateError: <?= json_encode(t('modules.mensageria.messages.sms_validate_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsBalance: <?= json_encode(t('modules.mensageria.messages.sms_balance'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsBalanceError: <?= json_encode(t('modules.mensageria.messages.sms_balance_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        testSuccess: <?= json_encode(t('modules.mensageria.messages.test_success'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        testError: <?= json_encode(t('modules.mensageria.messages.test_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        provideEmail: <?= json_encode(t('modules.mensageria.messages.provide_email'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        sendingEmail: <?= json_encode(t('modules.mensageria.messages.sending_email'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        emailSuccess: <?= json_encode(t('modules.mensageria.messages.email_test_success'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        emailError: <?= json_encode(t('modules.mensageria.messages.email_test_send_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        providePhone: <?= json_encode(t('modules.mensageria.messages.provide_phone'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        sendingSms: <?= json_encode(t('modules.mensageria.messages.sending_sms'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsTestSuccess: <?= json_encode(t('modules.mensageria.messages.sms_test_success'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsTestError: <?= json_encode(t('modules.mensageria.messages.sms_test_send_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         // SMTP handler
-        passwordHintCustom: '<?= addslashes(t("modules.mensageria.smtp.password_hint_custom")) ?>',
-        passwordHintDefault: '<?= addslashes(t("modules.mensageria.smtp.password_hint_default")) ?>',
-        smtpCreateValidate: '<?= addslashes(t("modules.mensageria.smtp.create_validate")) ?>',
-        createWhatsapp: '<?= addslashes(t("modules.mensageria.whatsapp.create_connection")) ?>',
-        smsCreateValidate: '<?= addslashes(t("modules.mensageria.sms.create_validate")) ?>',
-        validating: '<?= addslashes(t("common.labels.validating")) ?>',
-        creating: '<?= addslashes(t("common.labels.creating")) ?>',
-        sending: '<?= addslashes(t("common.labels.sending")) ?>',
-        serverError: '<?= addslashes(t("modules.mensageria.messages.server_error")) ?>',
+        passwordHintCustom: <?= json_encode(t('modules.mensageria.smtp.password_hint_custom'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        passwordHintDefault: <?= json_encode(t('modules.mensageria.smtp.password_hint_default'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smtpCreateValidate: <?= json_encode(t('modules.mensageria.smtp.create_validate'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        createWhatsapp: <?= json_encode(t('modules.mensageria.whatsapp.create_connection'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        smsCreateValidate: <?= json_encode(t('modules.mensageria.sms.create_validate'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        validating: <?= json_encode(t('common.labels.validating'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        creating: <?= json_encode(t('common.labels.creating'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        sending: <?= json_encode(t('common.labels.sending'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        serverError: <?= json_encode(t('modules.mensageria.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     // Estado
@@ -933,9 +933,16 @@
         }
     }
 
-    async function desconectar(id) {
-        if (!confirm(i18n.confirmDisconnect)) return;
+    function desconectar(id) {
+        window._pendingMensageriaAction = { type: 'disconnect', id };
+        window.parent.postMessage({
+            action: 'openGenericConfirmModal',
+            title: i18n.actionDisconnect,
+            message: i18n.confirmDisconnect
+        }, '*');
+    }
 
+    async function executarDesconectar(id) {
         try {
             const result = await API.post(`/whatsapp/${id}/disconnect`);
 
@@ -950,9 +957,16 @@
         }
     }
 
-    async function reiniciarConexao(id) {
-        if (!confirm(i18n.confirmRestart)) return;
+    function reiniciarConexao(id) {
+        window._pendingMensageriaAction = { type: 'restart', id };
+        window.parent.postMessage({
+            action: 'openGenericConfirmModal',
+            title: i18n.actionRestart,
+            message: i18n.confirmRestart
+        }, '*');
+    }
 
+    async function executarReiniciarConexao(id) {
         const btnRestart = tbody.querySelector(`.btn-restart[data-id="${id}"]`);
         if (btnRestart) {
             btnRestart.disabled = true;
@@ -1459,7 +1473,16 @@
             return;
         }
 
-        if (event.data.action === 'confirmDelete') {
+        if (event.data.action === 'genericConfirmed' && window._pendingMensageriaAction) {
+            const pending = window._pendingMensageriaAction;
+            window._pendingMensageriaAction = null;
+
+            if (pending.type === 'disconnect') {
+                executarDesconectar(pending.id);
+            } else if (pending.type === 'restart') {
+                executarReiniciarConexao(pending.id);
+            }
+        } else if (event.data.action === 'confirmDelete') {
             if (event.data.recordType === 'whatsapp') {
                 excluirConexaoWhatsApp(event.data.recordId);
             } else if (event.data.recordType === 'sms') {

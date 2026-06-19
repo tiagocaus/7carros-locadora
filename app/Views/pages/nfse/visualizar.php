@@ -395,13 +395,43 @@
     window.reenviarNfse = async function(id) {
         try {
             const result = await API.post(`/nfse/${id}/reenviar`, {});
-            const msg = result.success ? '<?= t('modules.nfse.messages.resend_success') ?>' : (result.message || '<?= t('modules.nfse.messages.resend_error') ?>');
+            const msg = result.success ? '<?= t('modules.nfse.messages.resend_success') ?>' : formatarErroNfse(result, '<?= t('modules.nfse.messages.resend_error') ?>');
             window.parent.postMessage({ action: 'openAlert', message: msg }, '*');
             if (result.success) { location.reload(); }
         } catch (e) {
+            if (await confirmarReenvioAutorizado(id)) {
+                window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.resend_success') ?>' }, '*');
+                location.reload();
+                return;
+            }
             window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.resend_error') ?>' }, '*');
         }
     };
+
+    async function confirmarReenvioAutorizado(id) {
+        try {
+            const result = await API.get(`/api/nfse/${id}`);
+            return result?.success && result?.data?.status === 'autorizada';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function formatarErroNfse(result, fallback) {
+        const errosApi = Array.isArray(result?.erros_api) ? result.erros_api : [];
+        const detalhes = errosApi
+            .map((erro) => {
+                const codigo = erro?.codigo ? `${erro.codigo}: ` : '';
+                return `${codigo}${erro?.mensagem || ''}`.trim();
+            })
+            .filter(Boolean);
+
+        if (detalhes.length > 0) {
+            return detalhes.join('\n');
+        }
+
+        return result?.message || fallback;
+    }
 
     window.baixarPdfNfse = async function(id, numero) {
         try {

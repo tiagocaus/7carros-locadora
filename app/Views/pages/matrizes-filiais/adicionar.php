@@ -95,6 +95,7 @@
                         </select>
                     </div>
                 </div>
+
             </div>
 
             <!-- Secao: Endereco -->
@@ -529,8 +530,8 @@
                             </select>
                         </div>
                         <div class="md:col-span-3 form-input-group">
-                            <label class="form-label-group"><?= t('modules.nfse.config.serie') ?></label>
-                            <input type="text" name="serie" id="inputSerie" class="form-input-group-field" placeholder="DPS" maxlength="10">
+                            <label class="form-label-group"><?= t('modules.nfse.config.serie') ?> <span class="text-red-500">*</span></label>
+                            <input type="text" name="serie" id="inputSerie" class="form-input-group-field" placeholder="1" maxlength="10" required>
                         </div>
                         <div class="md:col-span-3 form-input-group" id="fieldNumeroAtual">
                             <label class="form-label-group"><?= t('modules.nfse.config.numero_atual') ?></label>
@@ -2045,13 +2046,18 @@
 
             async function nfseSalvarConfiguracoes(e) {
                 e.preventDefault();
+                const serie = document.getElementById('inputSerie').value.trim();
+                if (document.getElementById('inputAtivo').checked && !serie) {
+                    window.parent.postMessage({ action: 'openAlert', message: 'Informe a série da NFS-e antes de ativar a emissão.' }, '*');
+                    return;
+                }
 
                 const dados = {
                     id_matriz_filial: registroId,
                     ativo: document.getElementById('inputAtivo').checked ? 'S' : 'N',
                     ambiente: document.getElementById('inputAmbiente').value,
                     tipo_emissao: document.getElementById('inputTipoEmissao').value,
-                    serie: document.getElementById('inputSerie').value,
+                    serie: serie,
                     numero_atual: document.getElementById('inputNumeroAtual').value,
                     emissao_auto: document.getElementById('inputEmissaoAuto').checked ? 'S' : 'N',
                     enviar_email: document.getElementById('inputEnviarEmail').checked ? 'S' : 'N',

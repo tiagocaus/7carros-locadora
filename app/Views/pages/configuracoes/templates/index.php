@@ -110,15 +110,15 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const i18n = {
-        loading: '<?= addslashes(t('modules.configuracoes.messages.loading')) ?>',
-        loadError: '<?= addslashes(t('modules.configuracoes.messages.load_error')) ?>',
-        noTemplates: '<?= addslashes(t('modules.configuracoes.messages.no_templates')) ?>',
-        customized: '<?= addslashes(t('modules.configuracoes.labels.customized')) ?>',
-        actionEdit: '<?= addslashes(t('common.buttons.edit')) ?>',
-        catOnboarding: '<?= addslashes(t('modules.configuracoes.category_labels.onboarding')) ?>',
-        catRental: '<?= addslashes(t('modules.configuracoes.category_labels.rental')) ?>',
-        catReminder: '<?= addslashes(t('modules.configuracoes.category_labels.reminder')) ?>',
-        catBilling: '<?= addslashes(t('modules.configuracoes.category_labels.billing')) ?>',
+        loading: <?= json_encode(t('modules.configuracoes.messages.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadError: <?= json_encode(t('modules.configuracoes.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noTemplates: <?= json_encode(t('modules.configuracoes.messages.no_templates'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        customized: <?= json_encode(t('modules.configuracoes.labels.customized'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionEdit: <?= json_encode(t('common.buttons.edit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        catOnboarding: <?= json_encode(t('modules.configuracoes.category_labels.onboarding'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        catRental: <?= json_encode(t('modules.configuracoes.category_labels.rental'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        catReminder: <?= json_encode(t('modules.configuracoes.category_labels.reminder'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        catBilling: <?= json_encode(t('modules.configuracoes.category_labels.billing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     const container = document.getElementById('templatesContainer');

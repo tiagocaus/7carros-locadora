@@ -59,15 +59,15 @@
 <script>
 (function () {
     const i18n = {
-        loading: '<?= addslashes(t("common.labels.loading")) ?>',
-        noRecords: '<?= addslashes(t("modules.veiculos_acessorios.messages.no_records")) ?>',
-        noName: '<?= addslashes(t("modules.veiculos_acessorios.messages.no_name")) ?>',
-        loadError: '<?= addslashes(t("modules.veiculos_acessorios.messages.load_error")) ?>',
-        serverError: '<?= addslashes(t("modules.veiculos_acessorios.messages.server_error")) ?>',
-        deleteError: '<?= addslashes(t("modules.veiculos_acessorios.messages.delete_error")) ?>',
-        showingPagination: '<?= addslashes(t("modules.veiculos_acessorios.pagination.showing")) ?>',
-        actionEdit: '<?= addslashes(t("common.buttons.edit")) ?>',
-        actionDelete: '<?= addslashes(t("common.buttons.delete")) ?>',
+        loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noRecords: <?= json_encode(t('modules.veiculos_acessorios.messages.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noName: <?= json_encode(t('modules.veiculos_acessorios.messages.no_name'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadError: <?= json_encode(t('modules.veiculos_acessorios.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        serverError: <?= json_encode(t('modules.veiculos_acessorios.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        deleteError: <?= json_encode(t('modules.veiculos_acessorios.messages.delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        showingPagination: <?= json_encode(t('modules.veiculos_acessorios.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionEdit: <?= json_encode(t('common.buttons.edit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionDelete: <?= json_encode(t('common.buttons.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     // Estado da paginacao

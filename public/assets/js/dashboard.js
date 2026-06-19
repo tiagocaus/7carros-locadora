@@ -548,10 +548,11 @@ document.addEventListener('DOMContentLoaded', function () {
             tab: 'alugados',
             title: dashboardT('tabs.rented', 'Alugados'),
             icon: 'fa-car-side',
-            empty: dashboardT('subtabs.rented_empty', 'Nenhuma locação aberta encontrada.'),
+            empty: dashboardT('subtabs.rented_empty', 'Nenhuma locação ou contrato aberto encontrado.'),
             kind: 'locacao',
             dateLabel: dashboardT('subtabs.expected', 'Prevista'),
-            filialField: 'filial_devolucao'
+            filialField: 'filial_devolucao',
+            showType: true
         },
         '#inicioSubTabDisponiveis': {
             tab: 'disponiveis',
@@ -628,13 +629,24 @@ document.addEventListener('DOMContentLoaded', function () {
             '</div>';
     }
 
-    function getDashboardBadgeClass(label) {
+    function getDashboardBadgeClass(type, label) {
+        if (type === 'today') return 'bg-sky-100 text-sky-700';
+        if (type === 'tomorrow') return 'bg-amber-100 text-amber-700';
+        if (type === 'pending_pickup') return 'bg-orange-100 text-orange-700';
+        if (type === 'overdue') return 'bg-red-100 text-red-700';
+        if (type === 'available') return 'bg-emerald-100 text-emerald-700';
         if (label === 'Hoje' || label === dashboardT('subtabs.today', 'Hoje')) return 'bg-sky-100 text-sky-700';
         if (label === 'Amanhã' || label === dashboardT('subtabs.tomorrow', 'Amanhã')) return 'bg-amber-100 text-amber-700';
         if (label === 'Retirada pendente' || label === dashboardT('subtabs.pending_pickup', 'Retirada pendente')) return 'bg-orange-100 text-orange-700';
-        if (label && label.includes('atraso')) return 'bg-red-100 text-red-700';
-        if (label === 'Disponível' || label === dashboardT('availability.available', 'Disponível')) return 'bg-emerald-100 text-emerald-700';
+        if (label && (label.includes('atraso') || label.includes('ritardo'))) return 'bg-red-100 text-red-700';
+        if (label === 'Disponível' || label === dashboardT('subtabs.available_badge', 'Disponível') || label === dashboardT('availability.available', 'Disponível')) return 'bg-emerald-100 text-emerald-700';
         return 'bg-slate-100 text-slate-600';
+    }
+
+    function getDashboardTypeBadgeClass(type) {
+        if (type === 'contrato') return 'bg-violet-100 text-violet-700';
+        if (type === 'locacao') return 'bg-sky-100 text-sky-700';
+        return 'bg-slate-100 text-slate-700';
     }
 
     function renderDashboardSubtab(config, rows, updatedAt) {
@@ -671,6 +683,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         return '<tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">' +
             '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.code', 'Código')) + '</th>' +
+            (config.showType ? '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.type', 'Tipo')) + '</th>' : '') +
             '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.vehicle', 'Veículo')) + '</th>' +
             '<th class="pb-2 pr-4">' + escapeHTML(dashboardT('subtabs.client', 'Cliente')) + '</th>' +
             '<th class="pb-2 pr-4">' + escapeHTML(config.dateLabel) + '</th>' +
@@ -683,16 +696,19 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderDashboardLocacoesRows(rows, config) {
         return rows.map(row => {
             const vehicleLabel = row.placa ? row.veiculo + ' (' + row.placa + ')' : row.veiculo;
-            const badgeClass = getDashboardBadgeClass(row.prazo_label);
+            const badgeClass = getDashboardBadgeClass(row.prazo_tipo, row.prazo_label);
+            const action = row.action || 'locacao';
+            const typeBadgeClass = getDashboardTypeBadgeClass(row.tipo || action);
             return '<tr class="text-slate-700">' +
                 '<td class="py-3 pr-4 font-medium text-slate-800">' + escapeHTML(row.codigo || '-') + '</td>' +
+                (config.showType ? '<td class="py-3 pr-4 whitespace-nowrap"><span class="text-xs px-2 py-0.5 rounded-full ' + typeBadgeClass + '">' + escapeHTML(row.tipo_label || '-') + '</span></td>' : '') +
                 '<td class="py-3 pr-4">' + escapeHTML(vehicleLabel || '-') + '</td>' +
                 '<td class="py-3 pr-4">' + escapeHTML(row.cliente || '-') + '</td>' +
                 '<td class="py-3 pr-4 whitespace-nowrap">' + escapeHTML(row.data_referencia || '-') + '</td>' +
                 '<td class="py-3 pr-4">' + escapeHTML(row[config.filialField] || '-') + '</td>' +
                 '<td class="py-3 pr-4"><span class="text-xs px-2 py-0.5 rounded-full ' + badgeClass + '">' + escapeHTML(row.prazo_label || '-') + '</span></td>' +
                 '<td class="py-3 text-right">' +
-                '<button type="button" class="text-sky-600 hover:text-sky-800 font-medium" data-dashboard-row-action="locacao" data-id="' + escapeHTML(row.id) + '">' + escapeHTML(dashboardT('subtabs.open', 'Abrir')) + '</button>' +
+                '<button type="button" class="text-sky-600 hover:text-sky-800 font-medium" data-dashboard-row-action="' + escapeHTML(action) + '" data-id="' + escapeHTML(row.id) + '">' + escapeHTML(dashboardT('subtabs.open', 'Abrir')) + '</button>' +
                 '</td>' +
                 '</tr>';
         }).join('');
@@ -700,7 +716,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function renderDashboardVehiclesRows(rows) {
         return rows.map(row => {
-            const badgeClass = getDashboardBadgeClass(row.prazo_label);
+            const badgeClass = getDashboardBadgeClass(row.prazo_tipo, row.prazo_label);
             return '<tr class="text-slate-700">' +
                 '<td class="py-3 pr-4 font-medium text-slate-800 whitespace-nowrap">' + escapeHTML(row.placa || '-') + '</td>' +
                 '<td class="py-3 pr-4">' + escapeHTML(row.veiculo || '-') + '</td>' +
@@ -708,7 +724,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<td class="py-3 pr-4">' + escapeHTML(row.filial || '-') + '</td>' +
                 '<td class="py-3 pr-4 whitespace-nowrap">' + escapeHTML(row.odometro || '-') + '</td>' +
                 '<td class="py-3 text-right whitespace-nowrap">' +
-                '<span class="text-xs px-2 py-0.5 rounded-full ' + badgeClass + ' mr-3">' + escapeHTML(row.prazo_label || dashboardT('availability.available', 'Disponível')) + '</span>' +
+                '<span class="text-xs px-2 py-0.5 rounded-full ' + badgeClass + ' mr-3">' + escapeHTML(row.prazo_label || dashboardT('subtabs.available_badge', 'Disponível')) + '</span>' +
                 '<button type="button" class="text-sky-600 hover:text-sky-800 font-medium" data-dashboard-row-action="veiculo" data-id="' + escapeHTML(row.id) + '">' + escapeHTML(dashboardT('subtabs.open', 'Abrir')) + '</button>' +
                 '</td>' +
                 '</tr>';
@@ -949,6 +965,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (type === 'locacao') {
                 openOrSwitchToTab('/pages/locacoes/editar/' + id, 'Locação #' + id, 'fas fa-key', 'locacao-' + id);
+            } else if (type === 'contrato') {
+                openOrSwitchToTab('/pages/contratos/editar/' + id, 'Contrato #' + id, 'fas fa-file-signature', 'contrato-' + id);
             } else if (type === 'veiculo') {
                 openOrSwitchToTab('/pages/veiculos/' + id + '/editar', 'Veículo #' + id, 'fas fa-car', 'veiculo-' + id);
             }

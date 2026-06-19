@@ -9,6 +9,39 @@
  *   $_faturaStandalone (bool) - true: usa htmlpagefooter do mPDF; false: assinatura inline
  */
 $_faturaStandalone = $_faturaStandalone ?? false;
+$_formatarCombustivelContratoFatura = static function($nivel, array $item): string {
+    if ($nivel === null || $nivel === '') {
+        return '-';
+    }
+
+    $labels = [
+        8 => t('modules.contratos.fuel_levels.full'),
+        7 => '7/8',
+        6 => '3/4',
+        5 => '5/8',
+        4 => '1/2',
+        3 => '3/8',
+        2 => '1/4',
+        1 => '1/8',
+        0 => t('modules.contratos.fuel_levels.reserve'),
+    ];
+
+    if (($item['veiculo_tipo_combustivel'] ?? '') === 'HE') {
+        $labels = [
+            8 => '100%',
+            7 => '87%',
+            6 => '75%',
+            5 => '62%',
+            4 => '50%',
+            3 => '37%',
+            2 => '25%',
+            1 => '12%',
+            0 => '0%',
+        ];
+    }
+
+    return $labels[(int) $nivel] ?? '-';
+};
 ?>
 
 <!-- HEADER -->
@@ -151,13 +184,15 @@ $_faturaStandalone = $_faturaStandalone ?? false;
     <table class="data-table">
         <thead>
             <tr>
-                <th style="width: 24%;"><?= t('modules.contratos.pdf.vehicle_header') ?></th>
-                <th style="width: 9%;"><?= t('modules.contratos.pdf.plate_header') ?></th>
-                <th style="width: 13%;"><?= t('modules.contratos.pdf.group_header') ?></th>
-                <th style="width: 11%;"><?= t('modules.contratos.pdf.plan_header') ?></th>
-                <th style="width: 11%;" class="text-right"><?= t('modules.contratos.pdf.vehicle_insurance_header') ?></th>
-                <th style="width: 11%;" class="text-right"><?= t('modules.contratos.pdf.third_party_insurance_header') ?></th>
-                <th style="width: 11%;" class="text-right"><?= t('modules.contratos.pdf.value_per_day_header') ?></th>
+                <th style="width: 18%;"><?= t('modules.contratos.pdf.vehicle_header') ?></th>
+                <th style="width: 8%;"><?= t('modules.contratos.pdf.plate_header') ?></th>
+                <th style="width: 10%;"><?= t('modules.contratos.pdf.group_header') ?></th>
+                <th style="width: 9%;"><?= t('modules.contratos.pdf.plan_header') ?></th>
+                <th style="width: 9%;"><?= t('modules.contratos.return_page.fuel_out') ?></th>
+                <th style="width: 9%;"><?= t('modules.contratos.return_page.fuel_arrival') ?></th>
+                <th style="width: 9%;" class="text-right"><?= t('modules.contratos.pdf.vehicle_insurance_header') ?></th>
+                <th style="width: 9%;" class="text-right"><?= t('modules.contratos.pdf.third_party_insurance_header') ?></th>
+                <th style="width: 9%;" class="text-right"><?= t('modules.contratos.pdf.value_per_day_header') ?></th>
                 <th style="width: 10%;" class="text-right"><?= t('modules.contratos.pdf.total_per_day_header') ?></th>
             </tr>
         </thead>
@@ -190,6 +225,8 @@ $_faturaStandalone = $_faturaStandalone ?? false;
                 <td><?= htmlspecialchars($v['veiculo_placa'] ?? '-') ?></td>
                 <td><?= htmlspecialchars($v['grupo_nome'] ?? '-') ?></td>
                 <td><?= $planoNome ?></td>
+                <td><?= $_formatarCombustivelContratoFatura($v['combustivel_saida'] ?? null, $v) ?></td>
+                <td><?= $_formatarCombustivelContratoFatura($v['combustivel_entrada'] ?? null, $v) ?></td>
                 <td class="text-right"><?= $segVeic > 0 ? currency_format($segVeic) : '-' ?></td>
                 <td class="text-right"><?= $segTerc > 0 ? currency_format($segTerc) : '-' ?></td>
                 <td class="text-right"><?= currency_format($valorPlano) ?></td>
@@ -197,7 +234,7 @@ $_faturaStandalone = $_faturaStandalone ?? false;
             </tr>
             <?php if ($mostrarInfoKmFranquia): ?>
             <tr class="km-franquia-row">
-                <td colspan="8" class="km-franquia-info">
+                <td colspan="10" class="km-franquia-info">
                     <?= htmlspecialchars(t('modules.contratos.pdf.km_allowance_info', [
                         'franquia' => number_format($kmFranquia, 0, ',', '.') . 'km',
                         'unidade' => t('modules.contratos.pdf.km_allowance_unit_counting'),

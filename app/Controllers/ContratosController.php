@@ -12,11 +12,10 @@ use App\Models\ContratoOdometro;
 use App\Models\ContratoTaxaServico;
 use App\Models\Grupo;
 use App\Models\Veiculo;
+use App\Models\VeiculoDisponibilidadeSync;
 use App\Models\MatrizFilial;
 use App\Models\FormaPagamento;
 use App\Models\TaxaServico;
-use App\Models\Financeiro;
-use App\Models\PagamentoLink;
 use App\Models\ContatoEmail;
 use App\Models\ContatoTelefone;
 use App\Helpers\FilialHelper;
@@ -31,6 +30,7 @@ use App\Models\Sms;
 use App\Config\Planos;
 use App\I18n\TemplateRenderer;
 use App\Services\AuditLogService;
+use App\Services\InvoiceBatchNotificationService;
 use App\Core\Database;
 use App\Helpers\FileHelper;
 use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
@@ -526,7 +526,7 @@ class ContratosController
             // Adicionar veiculos se enviados
             if (!empty($dados['veiculos']) && is_array($dados['veiculos'])) {
                 $veiculoModel = new ContratoVeiculo();
-                $veiculoModelGeral = new Veiculo();
+                $disponibilidadeSync = new VeiculoDisponibilidadeSync();
                 foreach ($dados['veiculos'] as $veiculo) {
                     if (empty($veiculo['id_veiculo'])) {
                         continue;
@@ -536,7 +536,7 @@ class ContratosController
                     $veiculoModel->adicionar($veiculo);
 
                     // Marcar veiculo como locado
-                    $veiculoModelGeral->atualizarDisponibilidade((int) $veiculo['id_veiculo'], 'L');
+                    $disponibilidadeSync->marcarLocado((int) $veiculo['id_veiculo']);
                 }
             }
 
@@ -731,7 +731,7 @@ class ContratosController
                         $veiculoModel->adicionar($veiculo);
 
                         // Marcar veiculo como locado
-                        $veiculoModelGeral->atualizarDisponibilidade($idVeiculo, 'L');
+                        (new VeiculoDisponibilidadeSync())->marcarLocado($idVeiculo);
 
                         // Log de auditoria
                         $infoVeiculo = $veiculoModelGeral->buscarPorId($idVeiculo);
@@ -1074,7 +1074,18 @@ class ContratosController
                     continue;
                 }
 
-                $odometroEntrada = (int) ($vData['odometro_entrada'] ?? 0);
+                $odometroEntrada = $this->normalizarOdometroContrato($vData['odometro_entrada'] ?? 0);
+                $odometroMinimo = max(
+                    (int) ($veiculoContrato['odometro_saida'] ?? 0),
+                    (int) ($veiculoContrato['veiculo_odometro'] ?? 0)
+                );
+                if ($odometroEntrada > 0 && $odometroEntrada < $odometroMinimo) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Odometro de devolucao nao pode ser menor que ' . number_format($odometroMinimo, 0, '', '.') . ' km'
+                    ], 422);
+                    return;
+                }
                 $combustivelEntrada = isset($vData['combustivel_entrada']) && $vData['combustivel_entrada'] !== '' && $vData['combustivel_entrada'] !== null
                     ? (int) $vData['combustivel_entrada']
                     : null;
@@ -1082,11 +1093,12 @@ class ContratosController
 
                 // 1. Registrar devolucao
                 $veiculoModel->devolver($idCv, $odometroEntrada, $combustivelEntrada, $observacao);
+                $veiculoModelGeral->atualizarOdometro((int) $veiculoContrato['id_veiculo'], $odometroEntrada);
 
                 // 2. Atualizar disponibilidade do veiculo
                 $acaoVeiculo = $vData['acao_veiculo'] ?? 'disponivel';
                 $statusVeiculo = $acaoVeiculo === 'criar_os' ? 'M' : 'D';
-                $veiculoModelGeral->atualizarDisponibilidade((int) $veiculoContrato['id_veiculo'], $statusVeiculo);
+                (new VeiculoDisponibilidadeSync())->liberarSeSemVinculoAtivo((int) $veiculoContrato['id_veiculo'], $statusVeiculo);
 
                 // 3. Calcular e criar taxas (mesmo padrao de substituir)
                 $placa = $veiculoContrato['veiculo_placa'] ?? '';
@@ -1278,9 +1290,22 @@ class ContratosController
                 return;
             }
 
+            $odometroEntradaAntigo = $this->normalizarOdometroContrato($dados['odometro_entrada'] ?? 0);
+            $odometroMinimoAntigo = max(
+                (int) ($veiculoAntigo['odometro_saida'] ?? 0),
+                (int) ($veiculoAntigo['veiculo_odometro'] ?? 0)
+            );
+            if ($odometroEntradaAntigo > 0 && $odometroEntradaAntigo < $odometroMinimoAntigo) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Odometro de devolucao nao pode ser menor que ' . number_format($odometroMinimoAntigo, 0, '', '.') . ' km'
+                ], 422);
+                return;
+            }
+
             // Preparar dados de devolucao (veiculo antigo entra na empresa)
             $dadosSaida = [
-                'odometro_entrada' => $dados['odometro_entrada'] ?? null,
+                'odometro_entrada' => $odometroEntradaAntigo,
                 'combustivel_entrada' => $dados['combustivel_entrada'] ?? null,
                 'motivo_saida' => $dados['motivo_saida'] ?? 'Substituicao de veiculo'
             ];
@@ -1317,10 +1342,12 @@ class ContratosController
 
             // Definir status do veiculo antigo conforme acao escolhida
             $veiculoModelGeral = new Veiculo();
+            $disponibilidadeSync = new VeiculoDisponibilidadeSync();
             $acaoVeiculo = $dados['acao_veiculo'] ?? 'disponivel';
             $statusVeiculoAntigo = $acaoVeiculo === 'criar_os' ? 'M' : 'D';
-            $veiculoModelGeral->atualizarDisponibilidade((int) $veiculoAntigo['id_veiculo'], $statusVeiculoAntigo);
-            $veiculoModelGeral->atualizarDisponibilidade((int) $dados['id_veiculo_novo'], 'L');
+            $veiculoModelGeral->atualizarOdometro((int) $veiculoAntigo['id_veiculo'], $odometroEntradaAntigo);
+            $disponibilidadeSync->liberarSeSemVinculoAtivo((int) $veiculoAntigo['id_veiculo'], $statusVeiculoAntigo);
+            $disponibilidadeSync->marcarLocado((int) $dados['id_veiculo_novo']);
 
             // --- Calcular diferencas financeiras e criar taxas ---
             $chave = Auth::chave();
@@ -1496,7 +1523,7 @@ class ContratosController
 
             // Marcar veiculo como locado
             $veiculoModelGeral = new Veiculo();
-            $veiculoModelGeral->atualizarDisponibilidade((int) $dados['id_veiculo'], 'L');
+            (new VeiculoDisponibilidadeSync())->marcarLocado((int) $dados['id_veiculo']);
 
             // Log de auditoria
             $infoVeiculo = $veiculoModelGeral->buscarPorId((int) $dados['id_veiculo']);
@@ -1738,7 +1765,8 @@ class ContratosController
             $diagramaPath = null;
             $checklistModeloQuestoes = [];
             if ($this->tipoIncluiChecklist($tipo)) {
-                $checklistInfo = $this->prepararDadosChecklist($contrato, $veiculoAtivo, $chave);
+                $idChecklistDigital = (int) $request->query('id_checklist_digital', 0);
+                $checklistInfo = $this->prepararDadosChecklist($contrato, $veiculoAtivo, $chave, $idChecklistDigital);
                 $checklistData = $checklistInfo['data'];
                 $checklistDigital = $checklistInfo['digital'];
                 $diagramaPath = $checklistInfo['diagramaPath'];
@@ -1756,6 +1784,7 @@ class ContratosController
 
             // Logo da empresa e QR code para verificacao
             $logoPath = PdfHelper::resolveImagePath($empresa['logo'] ?? null, $chave);
+            $empresaAssinaturaPath = PdfHelper::resolveImagePath($empresa['assinatura'] ?? null, $empresa['chave'] ?? $chave);
             $qrPath = $this->gerarQrCodePath($contrato['codigo']);
             $assinaturaPath = !empty($assinatura['arquivo'])
                 ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
@@ -1763,7 +1792,7 @@ class ContratosController
 
             // Output buffering para gerar HTML (NUNCA usar Template::render para PDF)
             $veiculo = $veiculoAtivo;
-            extract(compact('contrato', 'empresa', 'veiculo', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
+            extract(compact('contrato', 'empresa', 'veiculo', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
             ob_start();
             $viewPath = __DIR__ . '/../Views/pages/contratos/imprimir/' . $tipo . '.php';
             include $viewPath;
@@ -1847,13 +1876,13 @@ class ContratosController
         $planoCodigo = $user['plano'] ?? 'G';
         $planoInfo = Planos::getPlano($planoCodigo);
 
-        // Verificar se existe checklist digital vinculado ao contrato
-        $temChecklistDigital = false;
+        // Buscar checklists digitais vinculados ao contrato
+        $checklistsDigitais = [];
         if (in_array($planoCodigo, ['P3', 'P4'], true)) {
             $checklistModel = new Checklist();
-            $checklistVinculado = $checklistModel->buscarPorCodigo($contrato['codigo']);
-            $temChecklistDigital = !empty($checklistVinculado);
+            $checklistsDigitais = $checklistModel->listarFinalizadosPorContrato((int) $contrato['id']);
         }
+        $temChecklistDigital = !empty($checklistsDigitais);
 
         // Buscar modelos de checklist impresso (tipo=1)
         $checklistModeloModel = new ChecklistModelo();
@@ -1878,6 +1907,7 @@ class ContratosController
             'contrato' => $contrato,
             'documentos' => array_values($documentos),
             'checklistModelos' => $checklistModelos,
+            'checklistsDigitais' => $checklistsDigitais,
             'temChecklistDigital' => $temChecklistDigital,
             'temEmail' => $temEmail,
             'temWhatsapp' => $temWhatsapp,
@@ -1891,7 +1921,7 @@ class ContratosController
      * Envia contrato por canal de mensageria (email, whatsapp, sms)
      *
      * POST /contratos/{id}/enviar
-     * Body JSON: { tipo, canal, id_documento }
+     * Body JSON: { tipo, canal, id_documento, id_checklist_modelo, id_checklist_digital }
      */
     public function enviarContrato(Request $request, int $id): void
     {
@@ -1901,6 +1931,7 @@ class ContratosController
             $canal = $data['canal'] ?? 'email';
             $idDocumento = (int) ($data['id_documento'] ?? 0);
             $idChecklistModelo = (int) ($data['id_checklist_modelo'] ?? 0);
+            $idChecklistDigital = (int) ($data['id_checklist_digital'] ?? 0);
 
             if (!in_array($canal, ['email', 'whatsapp', 'sms'], true)) {
                 Response::json(['success' => false, 'message' => 'Canal invalido'], 422);
@@ -1933,7 +1964,7 @@ class ContratosController
             ]);
 
             // Gerar PDF como string
-            $pdfContent = $this->gerarPdfString($id, $tipo, $idDocumento, $idChecklistModelo);
+            $pdfContent = $this->gerarPdfString($id, $tipo, $idDocumento, $idChecklistModelo, $idChecklistDigital);
 
             // Salvar em arquivo temporario
             $filename = 'contrato_' . $contrato['codigo'] . '_' . time() . '.pdf';
@@ -2238,56 +2269,19 @@ class ContratosController
     /**
      * Prepara dados do checklist baseado no plano do tenant
      */
-    private function prepararDadosChecklist(array $contrato, ?array $veiculo, string $chave): array
+    private function prepararDadosChecklist(array $contrato, ?array $veiculo, string $chave, int $idChecklistDigital = 0): array
     {
         $planoCodigo = Auth::user()['plano'] ?? 'G';
 
-        // P3/P4: tentar usar checklist digital
-        if (in_array($planoCodigo, ['P3', 'P4'], true)) {
+        // P3/P4: usar checklist digital somente quando selecionado na impressao.
+        if ($idChecklistDigital > 0 && in_array($planoCodigo, ['P3', 'P4'], true)) {
             $checklistModel = new Checklist();
-            $checklistRef = $checklistModel->buscarPorContratoFK((int) $contrato['id'], $chave)
-                ?? $checklistModel->buscarPorCodigo($contrato['codigo']);
-
-            if ($checklistRef) {
-                $checklistCompleto = $checklistModel->buscarPorId($checklistRef['id']);
-                if ($checklistCompleto) {
-                    $momento = $checklistCompleto['momento'] ?? 'S';
-                    $par = $checklistModel->buscarPar($checklistCompleto);
-
-                    if ($momento === 'C') {
-                        $regSaida = $par;
-                        $regChegada = $checklistCompleto;
-                    } else {
-                        $regSaida = $checklistCompleto;
-                        $regChegada = $par;
-                    }
-
-                    $base = $regSaida ?? $regChegada;
-                    $vistoriaSaida = $regSaida ? $this->carregarFotosVistoria(
-                        json_decode($regSaida['vistoria'] ?? $regSaida['vistoria_saida'] ?? '[]', true) ?: [], $chave
-                    ) : [];
-                    $vistoriaChegada = $regChegada ? $this->carregarFotosVistoria(
-                        json_decode($regChegada['vistoria'] ?? $regChegada['vistoria_saida'] ?? '[]', true) ?: [], $chave
-                    ) : [];
-
-                    $base['obs'] = $regSaida['obs_unica'] ?? $regSaida['obs'] ?? '';
-                    $base['obs_chegada'] = $regChegada['obs_unica'] ?? $regChegada['obs'] ?? '';
-                    $base['data_saida'] = $regSaida['data_checklist'] ?? $regSaida['data_saida'] ?? null;
-                    $base['data_chegada'] = $regChegada['data_checklist'] ?? $regChegada['data_saida'] ?? null;
-
-                    return [
-                        'digital' => true,
-                        'data' => [
-                            'checklist' => $base,
-                            'questoesSaida' => $regSaida ? (json_decode($regSaida['questoes'] ?? $regSaida['questoes_saida'] ?? '[]', true) ?: []) : [],
-                            'questoesChegada' => $regChegada ? (json_decode($regChegada['questoes'] ?? $regChegada['questoes_saida'] ?? '[]', true) ?: []) : [],
-                            'vistoriaSaida' => $vistoriaSaida,
-                            'vistoriaChegada' => $vistoriaChegada,
-                        ],
-                        'diagramaPath' => null,
-                    ];
-                }
+            $checklistCompleto = $checklistModel->buscarPorId($idChecklistDigital);
+            if (!$checklistCompleto || (int) ($checklistCompleto['id_contrato'] ?? 0) !== (int) $contrato['id']) {
+                throw new \InvalidArgumentException('Checklist digital nao encontrado para este contrato');
             }
+
+            return $this->montarChecklistDigitalParaImpressao($checklistModel, $checklistCompleto, $chave);
         }
 
         // Checklist impresso: usar diagrama do veiculo
@@ -2306,10 +2300,57 @@ class ContratosController
         ];
     }
 
+    private function montarChecklistDigitalParaImpressao(Checklist $checklistModel, array $checklistCompleto, string $chave): array
+    {
+        $momento = $checklistCompleto['momento'] ?? 'S';
+        $par = $checklistModel->buscarPar($checklistCompleto);
+
+        if ($momento === 'C') {
+            $regSaida = $par;
+            $regChegada = $checklistCompleto;
+        } else {
+            $regSaida = $checklistCompleto;
+            $regChegada = $par;
+        }
+
+        $base = $regSaida ?? $regChegada;
+        $vistoriaSaida = $regSaida ? $this->carregarFotosVistoria(
+            json_decode($regSaida['vistoria'] ?? $regSaida['vistoria_saida'] ?? '[]', true) ?: [],
+            $chave
+        ) : [];
+        $vistoriaChegada = $regChegada ? $this->carregarFotosVistoria(
+            json_decode($regChegada['vistoria'] ?? $regChegada['vistoria_saida'] ?? '[]', true) ?: [],
+            $chave
+        ) : [];
+
+        $base['obs'] = $regSaida['obs_unica'] ?? $regSaida['obs'] ?? '';
+        $base['obs_chegada'] = $regChegada['obs_unica'] ?? $regChegada['obs'] ?? '';
+        $base['data_saida'] = $regSaida['data_checklist'] ?? $regSaida['data_saida'] ?? null;
+        $base['data_chegada'] = $regChegada['data_checklist'] ?? $regChegada['data_saida'] ?? null;
+
+        return [
+            'digital' => true,
+            'data' => [
+                'checklist' => $base,
+                'questoesSaida' => $regSaida ? (json_decode($regSaida['questoes'] ?? $regSaida['questoes_saida'] ?? '[]', true) ?: []) : [],
+                'questoesChegada' => $regChegada ? (json_decode($regChegada['questoes'] ?? $regChegada['questoes_saida'] ?? '[]', true) ?: []) : [],
+                'vistoriaSaida' => $vistoriaSaida,
+                'vistoriaChegada' => $vistoriaChegada,
+            ],
+            'diagramaPath' => null,
+        ];
+    }
+
     /**
      * Gera PDF do contrato como string (para envio por mensageria)
      */
-    private function gerarPdfString(int $id, string $tipo, int $idDocumento = 0, int $idChecklistModelo = 0): string
+    private function gerarPdfString(
+        int $id,
+        string $tipo,
+        int $idDocumento = 0,
+        int $idChecklistModelo = 0,
+        int $idChecklistDigital = 0
+    ): string
     {
         $contratoModel = new Contrato();
         $contrato = $contratoModel->buscarCompleto($id);
@@ -2338,7 +2379,7 @@ class ContratosController
         $diagramaPath = null;
         $checklistModeloQuestoes = [];
         if ($this->tipoIncluiChecklist($tipo)) {
-            $checklistInfo = $this->prepararDadosChecklist($contrato, $veiculoAtivo, $chave);
+            $checklistInfo = $this->prepararDadosChecklist($contrato, $veiculoAtivo, $chave, $idChecklistDigital);
             $checklistData = $checklistInfo['data'];
             $checklistDigital = $checklistInfo['digital'];
             $diagramaPath = $checklistInfo['diagramaPath'];
@@ -2355,13 +2396,14 @@ class ContratosController
 
         // Logo da empresa e QR code para verificacao
         $logoPath = PdfHelper::resolveImagePath($empresa['logo'] ?? null, $chave);
+        $empresaAssinaturaPath = PdfHelper::resolveImagePath($empresa['assinatura'] ?? null, $empresa['chave'] ?? $chave);
         $qrPath = $this->gerarQrCodePath($contrato['codigo']);
         $assinaturaPath = !empty($assinatura['arquivo'])
             ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
             : '';
 
         $veiculo = $veiculoAtivo;
-        extract(compact('contrato', 'empresa', 'veiculo', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
+        extract(compact('contrato', 'empresa', 'veiculo', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
 
         ob_start();
         $viewPath = __DIR__ . '/../Views/pages/contratos/imprimir/' . $tipo . '.php';
@@ -2563,8 +2605,6 @@ class ContratosController
             }
 
             $contratoModel->atualizar($id, [
-                'data_ini' => $regularizacao['nova_data_ini'],
-                'data_fim' => $regularizacao['nova_data_fim'],
                 'data_renovacao' => $regularizacao['nova_data_renovacao'],
             ]);
 
@@ -2577,8 +2617,7 @@ class ContratosController
                 ($_SESSION['user_name'] ?? 'Sistema') . ", regularizou autorrenovacao do contrato [{$contrato['codigo']}]",
                 [
                     AuditLogService::campo('Ciclos aplicados', '0', (string) $regularizacao['ciclos']),
-                    AuditLogService::campo('Data Início', $contrato['data_ini'], $regularizacao['nova_data_ini']),
-                    AuditLogService::campo('Data Fim', $contrato['data_fim'], $regularizacao['nova_data_fim']),
+                    AuditLogService::campo('Período de Cobrança', $regularizacao['periodo_cobranca_ini'], $regularizacao['periodo_cobranca_fim']),
                     AuditLogService::campo('Próxima Renovação', $contrato['data_renovacao'], $regularizacao['nova_data_renovacao']),
                     AuditLogService::campo('Financeiro gerado', 'Nao', $gerarFinanceiro ? 'Sim' : 'Nao'),
                     AuditLogService::campo('Canais cobrança', '-', implode(', ', array_keys(array_filter($canais))) ?: 'Nenhum'),
@@ -2645,8 +2684,8 @@ class ContratosController
             'id_forma_pagamento' => (int) ($contrato['id_forma_pagamento'] ?? 0),
             'id_comando_parcela' => (int) ($contrato['id_comando_parcela'] ?? 0),
             'id_conta' => (int) ($contrato['id_conta'] ?? 0),
-            'primeiro_vencimento' => substr($regularizacao['data_fim_atual'], 0, 10),
-            'data_fim' => substr($regularizacao['nova_data_fim'], 0, 10),
+            'primeiro_vencimento' => $regularizacao['periodo_cobranca_ini'],
+            'data_fim' => $regularizacao['periodo_cobranca_fim'],
             'valor_desconto' => 0,
         ]);
 
@@ -2670,89 +2709,13 @@ class ContratosController
      */
     private function enfileirarCobrancasParcelas(array $idsParcelas, array $canais, array $contrato): array
     {
-        $resultado = [];
-        if (!array_filter($canais)) {
-            return $resultado;
-        }
-
-        $clienteModel = new Cliente();
-        $cliente = $clienteModel->buscarPorIdComContatos((int) ($contrato['id_cliente'] ?? 0));
-        if (!$cliente) {
-            throw new \RuntimeException('Cliente do contrato nao encontrado para envio de cobranca');
-        }
-
-        $email = $cliente['email'] ?? '';
-        $telefone = $cliente['telefone'] ?? $cliente['celular'] ?? '';
-
-        $financeiroModel = new Financeiro();
-        $linkModel = new PagamentoLink();
-
-        foreach ($idsParcelas as $idParcela) {
-            $financeiro = $financeiroModel->buscarPorId((int) $idParcela);
-            if (!$financeiro) {
-                continue;
-            }
-
-            $link = $linkModel->buscarPorFinanceiro((int) $idParcela);
-            if (!$link) {
-                $linkId = $linkModel->criar([
-                    'chave' => Auth::chave(),
-                    'id_financeiro' => (int) $idParcela,
-                    'id_cliente' => $financeiro['id_cliente'] ?? null,
-                    'valor' => $financeiro['valor_total'],
-                    'descricao' => $financeiro['descricao'],
-                    'expires_at' => date('Y-m-d H:i:s', strtotime('+30 days')),
-                ]);
-                $link = $linkModel->buscarPorId($linkId);
-            }
-            $urlPagamento = $link ? $linkModel->getUrl($link['codigo']) : '';
-
-            $context = [
-                'cliente' => [
-                    'nome' => $cliente['nome_rsocial'],
-                    'primeiro_nome' => explode(' ', $cliente['nome_rsocial'])[0],
-                    'email' => $email,
-                    'cpf_cnpj' => $cliente['cpf_cnpj'] ?? '',
-                    'telefone' => $telefone,
-                    'preferred_locale' => $cliente['preferred_locale'] ?? null,
-                ],
-                'empresa' => [
-                    'id' => $contrato['id_matriz_filial_retirada'] ?? null,
-                ],
-                'id_matriz_filial' => $contrato['id_matriz_filial_retirada'] ?? null,
-                'fatura' => [
-                    'numero' => $financeiro['codigo'] ?? $financeiro['sequencia'] ?? $idParcela,
-                    'valor' => $financeiro['valor_total'],
-                    'data_vencimento' => $financeiro['data_venci'],
-                    'descricao' => $financeiro['descricao'] ?? '',
-                    'status' => 'Pendente',
-                    'link_boleto' => $urlPagamento,
-                ],
-            ];
-
-            foreach ($canais as $canal => $ativo) {
-                if (!$ativo) {
-                    continue;
-                }
-                if ($canal === 'email' && empty($email)) {
-                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => false, 'message' => 'Cliente sem email'];
-                    continue;
-                }
-                if (in_array($canal, ['whatsapp', 'sms'], true) && empty($telefone)) {
-                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => false, 'message' => 'Cliente sem telefone'];
-                    continue;
-                }
-
-                try {
-                    $messageId = queue_template_message('payment_reminder', $canal, $context);
-                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => true, 'message_id' => $messageId];
-                } catch (\Exception $e) {
-                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => false, 'message' => $e->getMessage()];
-                }
-            }
-        }
-
-        return $resultado;
+        return (new InvoiceBatchNotificationService())->sendInstallmentBatch($idsParcelas, [
+            'chave' => Auth::chave(),
+            'id_cliente' => (int) ($contrato['id_cliente'] ?? 0),
+            'id_matriz_filial' => (int) ($contrato['id_matriz_filial_retirada'] ?? 0),
+            'canais' => $canais,
+            'origem_label' => !empty($contrato['codigo']) ? 'Contrato #' . $contrato['codigo'] : 'Contrato',
+        ]);
     }
 
     /**

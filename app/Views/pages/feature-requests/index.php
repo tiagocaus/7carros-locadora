@@ -104,20 +104,20 @@
 <script>
 (function () {
     const i18n = {
-        loading: '<?= addslashes(t('common.labels.loading')) ?>',
-        loadError: '<?= addslashes(t('modules.feature_requests.messages.load_error')) ?>',
-        serverError: '<?= addslashes(t('modules.feature_requests.messages.server_error')) ?>',
-        noRecords: '<?= addslashes(t('modules.feature_requests.messages.no_records')) ?>',
-        noTitle: '<?= addslashes(t('modules.feature_requests.messages.no_title')) ?>',
-        otherModule: '<?= addslashes(t('modules.feature_requests.messages.other_module')) ?>',
-        removeVote: '<?= addslashes(t('modules.feature_requests.actions.remove_vote')) ?>',
-        vote: '<?= addslashes(t('modules.feature_requests.actions.vote')) ?>',
-        follow: '<?= addslashes(t('modules.feature_requests.actions.follow')) ?>',
-        unfollow: '<?= addslashes(t('modules.feature_requests.actions.unfollow')) ?>',
-        viewDetails: '<?= addslashes(t('modules.feature_requests.actions.view_details')) ?>',
-        voteError: '<?= addslashes(t('modules.feature_requests.messages.vote_error')) ?>',
-        processError: '<?= addslashes(t('modules.feature_requests.messages.process_error')) ?>',
-        showingPagination: '<?= addslashes(t('modules.feature_requests.pagination.showing')) ?>',
+        loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadError: <?= json_encode(t('modules.feature_requests.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        serverError: <?= json_encode(t('modules.feature_requests.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noRecords: <?= json_encode(t('modules.feature_requests.messages.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noTitle: <?= json_encode(t('modules.feature_requests.messages.no_title'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        otherModule: <?= json_encode(t('modules.feature_requests.messages.other_module'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        removeVote: <?= json_encode(t('modules.feature_requests.actions.remove_vote'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        vote: <?= json_encode(t('modules.feature_requests.actions.vote'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        follow: <?= json_encode(t('modules.feature_requests.actions.follow'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        unfollow: <?= json_encode(t('modules.feature_requests.actions.unfollow'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        viewDetails: <?= json_encode(t('modules.feature_requests.actions.view_details'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        voteError: <?= json_encode(t('modules.feature_requests.messages.vote_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        processError: <?= json_encode(t('modules.feature_requests.messages.process_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        showingPagination: <?= json_encode(t('modules.feature_requests.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     let currentPage = 1;

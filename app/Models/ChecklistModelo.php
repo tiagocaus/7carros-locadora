@@ -26,7 +26,8 @@ class ChecklistModelo extends Model
     ): array {
         $query = $this->qb
             ->table('checklist_modelos')
-            ->select(['id', 'nome', 'tipo', 'status', 'created_at', 'updated_at']);
+            ->withGlobals()
+            ->select(['id', 'chave', 'nome', 'tipo', 'status', 'created_at', 'updated_at']);
 
         // Busca por nome
         if (!empty($search)) {
@@ -34,10 +35,13 @@ class ChecklistModelo extends Model
             $query->where('nome', 'LIKE', $searchTerm);
         }
 
-        return $query
+        $rows = $query
+            ->orderByRaw("CASE WHEN chave = '0' THEN 1 ELSE 0 END")
             ->orderBy('nome', 'ASC')
-            ->paginate($page, $perPage)
             ->get();
+
+        $rows = $this->preferTenantRows($rows);
+        return array_slice($rows, ($page - 1) * $perPage, $perPage);
     }
 
     /**
@@ -50,7 +54,8 @@ class ChecklistModelo extends Model
     {
         $query = $this->qb
             ->table('checklist_modelos')
-            ->selectRaw('COUNT(*) as total');
+            ->withGlobals()
+            ->select(['id', 'chave', 'nome', 'tipo']);
 
         // Busca por nome
         if (!empty($search)) {
@@ -58,7 +63,7 @@ class ChecklistModelo extends Model
             $query->where('nome', 'LIKE', $searchTerm);
         }
 
-        return $query->first()['total'] ?? 0;
+        return count($this->preferTenantRows($query->get()));
     }
 
     /**
@@ -71,6 +76,7 @@ class ChecklistModelo extends Model
     {
         return $this->qb
             ->table('checklist_modelos')
+            ->withGlobals()
             ->where('id', '=', $id)
             ->first();
     }
@@ -107,6 +113,9 @@ class ChecklistModelo extends Model
         $modelo = $this->buscarPorId($id);
         if (!$modelo) {
             throw new \InvalidArgumentException('Modelo de checklist nao encontrado');
+        }
+        if (($modelo['chave'] ?? '') === '0') {
+            throw new \InvalidArgumentException('Modelos do sistema devem ser copiados antes de editar');
         }
 
         $dadosUpdate = [];
@@ -149,6 +158,9 @@ class ChecklistModelo extends Model
         $modelo = $this->buscarPorId($id);
         if (!$modelo) {
             throw new \InvalidArgumentException('Modelo de checklist nao encontrado');
+        }
+        if (($modelo['chave'] ?? '') === '0') {
+            throw new \InvalidArgumentException('Modelos do sistema nao podem ser excluidos');
         }
 
         // Verificar vinculos em checklists
@@ -197,16 +209,36 @@ class ChecklistModelo extends Model
     {
         $query = $this->qb
             ->table('checklist_modelos')
-            ->select(['id', 'nome', 'tipo'])
+            ->withGlobals()
+            ->select(['id', 'chave', 'nome', 'tipo'])
             ->where('status', '=', 'A');
 
         if (!empty($search)) {
             $query->where('nome', 'LIKE', '%' . $search . '%');
         }
 
-        return $query
+        $rows = $query
+            ->orderByRaw("CASE WHEN chave = '0' THEN 1 ELSE 0 END")
             ->orderBy('nome', 'ASC')
-            ->limit(50)
             ->get();
+
+        return array_slice($this->preferTenantRows($rows), 0, 50);
+    }
+
+    /**
+     * Remove duplicidades entre modelos globais e customizados, priorizando tenant.
+     */
+    private function preferTenantRows(array $rows): array
+    {
+        $unique = [];
+
+        foreach ($rows as $row) {
+            $key = (int) ($row['tipo'] ?? 0) . '|' . strtolower(trim((string) ($row['nome'] ?? '')));
+            if (!isset($unique[$key]) || (($unique[$key]['chave'] ?? '0') === '0' && ($row['chave'] ?? '0') !== '0')) {
+                $unique[$key] = $row;
+            }
+        }
+
+        return array_values($unique);
     }
 }

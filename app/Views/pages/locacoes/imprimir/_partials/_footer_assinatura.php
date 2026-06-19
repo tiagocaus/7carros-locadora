@@ -3,7 +3,7 @@
  * Partial: Footer padrao com assinaturas para todas as paginas de impressao de locacoes
  *
  * Variaveis esperadas do controller:
- *   $assinatura, $locacao, $empresa
+ *   $assinatura, $assinaturaPath, $empresaAssinaturaPath, $locacao, $empresa
  */
 ?>
 
@@ -18,7 +18,10 @@
         </td>
         <td class="spacer" style="width: 10%;"></td>
         <td class="assinatura-cell" style="width: 45%; text-align: center; vertical-align: bottom; padding: 0 10px;">
-            <hr class="assinatura-linha" style="border: 0; border-top: 1px solid #333; margin: 70px 0 0 0; padding: 0; width: 100%; height: 0;">
+            <?php if (!empty($empresaAssinaturaPath)): ?>
+            <img src="<?= $empresaAssinaturaPath ?>" alt="<?= htmlspecialchars($empresa['nome_fantasia'] ?? $empresa['razao_social'] ?? t('modules.locacoes.pdf.company_fallback')) ?>" class="assinatura-img" style="max-height: 50px; margin-bottom: 5px; background: #fff;">
+            <?php endif; ?>
+            <hr class="assinatura-linha" style="border: 0; border-top: 1px solid #333; margin: <?= !empty($empresaAssinaturaPath) ? '0' : '70px' ?> 0 0 0; padding: 0; width: 100%; height: 0;">
             <div class="assinatura-nome" style="text-align: center; font-size: 8pt; padding-top: 5px;"><?= htmlspecialchars($empresa['nome_fantasia'] ?? $empresa['razao_social'] ?? t('modules.locacoes.pdf.company_fallback')) ?></div>
         </td>
     </tr>

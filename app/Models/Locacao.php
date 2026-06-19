@@ -93,7 +93,8 @@ class Locacao extends Model
         // Filtro de busca
         if (!empty($search)) {
             $searchTerm = '%' . $search . '%';
-            $query->whereNested(function ($q) use ($searchTerm) {
+            $dataBusca = $this->normalizarDataBusca($search);
+            $query->whereNested(function ($q) use ($searchTerm, $dataBusca) {
                 $q->where('l.codigo', 'LIKE', $searchTerm)
                   ->orWhere('cl.nome_rsocial', 'LIKE', $searchTerm)
                   ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm)
@@ -115,6 +116,15 @@ class Locacao extends Model
                       )",
                       [$searchTerm, $searchTerm, $searchTerm]
                   );
+
+                if ($dataBusca !== null) {
+                    $inicioDia = $dataBusca . ' 00:00:00';
+                    $fimDia = $dataBusca . ' 23:59:59';
+                    $q->orWhereRaw(
+                        '(l.data_saida BETWEEN ? AND ? OR l.data_prevista BETWEEN ? AND ? OR l.data_chegada BETWEEN ? AND ?)',
+                        [$inicioDia, $fimDia, $inicioDia, $fimDia, $inicioDia, $fimDia]
+                    );
+                }
             });
         }
 
@@ -155,7 +165,8 @@ class Locacao extends Model
 
         if (!empty($search)) {
             $searchTerm = '%' . $search . '%';
-            $query->whereNested(function ($q) use ($searchTerm) {
+            $dataBusca = $this->normalizarDataBusca($search);
+            $query->whereNested(function ($q) use ($searchTerm, $dataBusca) {
                 $q->where('l.codigo', 'LIKE', $searchTerm)
                   ->orWhere('cl.nome_rsocial', 'LIKE', $searchTerm)
                   ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm)
@@ -177,6 +188,15 @@ class Locacao extends Model
                       )",
                       [$searchTerm, $searchTerm, $searchTerm]
                   );
+
+                if ($dataBusca !== null) {
+                    $inicioDia = $dataBusca . ' 00:00:00';
+                    $fimDia = $dataBusca . ' 23:59:59';
+                    $q->orWhereRaw(
+                        '(l.data_saida BETWEEN ? AND ? OR l.data_prevista BETWEEN ? AND ? OR l.data_chegada BETWEEN ? AND ?)',
+                        [$inicioDia, $fimDia, $inicioDia, $fimDia, $inicioDia, $fimDia]
+                    );
+                }
             });
         }
 
@@ -257,6 +277,14 @@ class Locacao extends Model
                 'l.*',
                 'cl.nome_rsocial AS cliente_nome_completo',
                 'cl.cpf_cnpj AS cliente_cpf_cnpj',
+                'cl.cep AS cliente_cep',
+                'cl.rua AS cliente_rua',
+                'cl.numero AS cliente_numero',
+                'cl.complemento AS cliente_complemento',
+                'cl.bairro AS cliente_bairro',
+                'cl.cidade AS cliente_cidade',
+                'cl.estado AS cliente_estado',
+                'cl.pais AS cliente_pais',
                 'mf_ret.nome_fantasia AS filial_retirada_nome',
                 'mf_dev.nome_fantasia AS filial_devolucao_nome',
                 'ct.nome AS conta_descricao',
@@ -467,12 +495,12 @@ class Locacao extends Model
                 'id_conta_bloqueio' => !empty($dados['id_conta_bloqueio']) ? (int) $dados['id_conta_bloqueio'] : null,
                 'bloqueio_tipo' => $dados['bloqueio_tipo'] ?? null,
                 'bloqueio_valor' => $this->toDecimal($dados['bloqueio_valor'] ?? 0),
-                'bloqueio_prazo_devolucao' => !empty($dados['bloqueio_prazo_devolucao']) ? (int) $dados['bloqueio_prazo_devolucao'] : null,
+                'bloqueio_prazo_devolucao' => isset($dados['bloqueio_prazo_devolucao']) && $dados['bloqueio_prazo_devolucao'] !== '' ? (int) $dados['bloqueio_prazo_devolucao'] : null,
                 'bloqueio_data_devolucao' => !empty($dados['bloqueio_data_devolucao']) ? $dados['bloqueio_data_devolucao'] : null,
                 'caucao_valor' => $this->toDecimal($dados['caucao_valor'] ?? 0),
                 'caucao_tipo' => $dados['caucao_tipo'] ?? null,
                 'id_conta_caucao' => !empty($dados['id_conta_caucao']) ? (int) $dados['id_conta_caucao'] : null,
-                'caucao_prazo_devolucao' => !empty($dados['caucao_prazo_devolucao']) ? (int) $dados['caucao_prazo_devolucao'] : null,
+                'caucao_prazo_devolucao' => isset($dados['caucao_prazo_devolucao']) && $dados['caucao_prazo_devolucao'] !== '' ? (int) $dados['caucao_prazo_devolucao'] : null,
                 'caucao_data_devolucao' => !empty($dados['caucao_data_devolucao']) ? $dados['caucao_data_devolucao'] : null,
                 'id_cartao_caucao' => !empty($dados['id_cartao_caucao']) ? (int) $dados['id_cartao_caucao'] : null,
                 'id_bloqueio_ativo' => !empty($dados['id_bloqueio_ativo']) ? (int) $dados['id_bloqueio_ativo'] : null,
@@ -536,7 +564,7 @@ class Locacao extends Model
             $dadosUpdate['bloqueio_valor'] = $this->toDecimal($dados['bloqueio_valor']);
         }
         if (isset($dados['bloqueio_prazo_devolucao'])) {
-            $dadosUpdate['bloqueio_prazo_devolucao'] = !empty($dados['bloqueio_prazo_devolucao']) ? (int) $dados['bloqueio_prazo_devolucao'] : null;
+            $dadosUpdate['bloqueio_prazo_devolucao'] = $dados['bloqueio_prazo_devolucao'] !== '' ? (int) $dados['bloqueio_prazo_devolucao'] : null;
         }
 
         // Caucao (deposito de garantia)
@@ -550,7 +578,7 @@ class Locacao extends Model
             $dadosUpdate['id_conta_caucao'] = !empty($dados['id_conta_caucao']) ? (int) $dados['id_conta_caucao'] : null;
         }
         if (isset($dados['caucao_prazo_devolucao'])) {
-            $dadosUpdate['caucao_prazo_devolucao'] = !empty($dados['caucao_prazo_devolucao']) ? (int) $dados['caucao_prazo_devolucao'] : null;
+            $dadosUpdate['caucao_prazo_devolucao'] = $dados['caucao_prazo_devolucao'] !== '' ? (int) $dados['caucao_prazo_devolucao'] : null;
         }
         if (isset($dados['caucao_data_devolucao'])) {
             $dadosUpdate['caucao_data_devolucao'] = $dados['caucao_data_devolucao'];
@@ -629,13 +657,9 @@ class Locacao extends Model
             return 0;
         }
 
-        // Liberar veiculo ativo se locacao nao esta fechada
-        if (!empty($locacao['id_veiculo']) && $locacao['status'] !== 'F') {
-            $this->qb
-                ->table('veiculos')
-                ->where('id', '=', (int) $locacao['id_veiculo'])
-                ->update(['disponibilidade' => 'D']);
-        }
+        $idVeiculoLiberar = (!empty($locacao['id_veiculo']) && $locacao['status'] !== 'F')
+            ? (int) $locacao['id_veiculo']
+            : 0;
 
         // Excluir checklists vinculados e seus arquivos
         $checklistModel = new \App\Models\Checklist();
@@ -648,10 +672,16 @@ class Locacao extends Model
             ->update(['id_locacao' => null]);
 
         // Deletar locacao (CASCADE remove locacoes_veiculos e locacoes_taxaseservicos)
-        return $this->qb
+        $apagados = $this->qb
             ->table('locacoes')
             ->where('id', '=', $id)
             ->delete();
+
+        if ($apagados > 0 && $idVeiculoLiberar > 0) {
+            (new VeiculoDisponibilidadeSync())->liberarSeSemVinculoAtivo($idVeiculoLiberar, 'D', $locacao['chave']);
+        }
+
+        return $apagados;
     }
 
     /**
@@ -686,10 +716,7 @@ class Locacao extends Model
         // Marcar veiculo como locado
         $idVeiculo = $locacao['id_veiculo'] ?? null;
         if ($idVeiculo) {
-            $this->qb
-                ->table('veiculos')
-                ->where('id', '=', (int) $idVeiculo)
-                ->update(['disponibilidade' => 'L']);
+            (new VeiculoDisponibilidadeSync())->marcarLocado((int) $idVeiculo, $locacao['chave']);
         }
 
         // Atualizar locacao
@@ -743,20 +770,23 @@ class Locacao extends Model
         $idLocacaoVeiculo = $locacao['_id_locacao_veiculo'] ?? null;
 
         if ($idLocacaoVeiculo) {
+            $odometroEntrada = (int) ($dados['odometro_fim'] ?? 0);
             $veiculoModel->devolver($idLocacaoVeiculo, [
                 'data_entrada' => $dados['data_chegada'] ?? date('Y-m-d H:i:s'),
-                'odometro_entrada' => (int) ($dados['odometro_fim'] ?? 0),
+                'odometro_entrada' => $odometroEntrada,
                 'combustivel_entrada' => $dados['combustivel_fim'] ?? null,
                 'combustivel_valor' => $dados['combustivel_valor'] ?? null,
+                'dias' => $dados['dias'] ?? $locacao['dias'] ?? 1,
             ]);
+
+            if (!empty($locacao['id_veiculo'])) {
+                (new Veiculo())->atualizarOdometro((int) $locacao['id_veiculo'], $odometroEntrada);
+            }
         }
 
         // Marcar veiculo como disponivel
         if (!empty($locacao['id_veiculo'])) {
-            $this->qb
-                ->table('veiculos')
-                ->where('id', '=', (int) $locacao['id_veiculo'])
-                ->update(['disponibilidade' => 'D']);
+            (new VeiculoDisponibilidadeSync())->liberarSeSemVinculoAtivo((int) $locacao['id_veiculo'], 'D', $locacao['chave']);
         }
 
         // Atualizar locacao
@@ -1263,6 +1293,145 @@ class Locacao extends Model
     }
 
     /**
+     * Calcula os totais exibidos no Resumo da Locacao.
+     *
+     * Para locacoes fechadas, usa o ultimo veiculo do historico porque nao existe
+     * mais veiculo ativo apos a devolucao.
+     */
+    public function calcularTotaisResumo(
+        int $locacaoId,
+        array $dados = [],
+        bool $usarTaxasEnviadas = false,
+        bool $atualizarTaxas = false
+    ): array {
+        $locacao = $this->buscarPorId($locacaoId);
+        if (!$locacao) {
+            throw new \InvalidArgumentException('Locacao nao encontrada');
+        }
+
+        $dias = max(1, (int) ($dados['dias'] ?? $locacao['dias'] ?? 1));
+        $status = $dados['status'] ?? $locacao['status'] ?? 'R';
+
+        $veiculoModel = new LocacaoVeiculo();
+        $veiculo = $status === 'F'
+            ? $veiculoModel->buscarAtualOuUltimo($locacaoId)
+            : $veiculoModel->buscarAtivo($locacaoId);
+
+        if ($status === 'F' && !$veiculo) {
+            throw new \InvalidArgumentException('Locacao fechada sem historico de veiculo para recalcular totais');
+        }
+
+        $valorTotalVeiculos = 0.0;
+        if ($veiculo) {
+            $plano = $dados['plano'] ?? $locacao['plano'] ?? $veiculo['plano'] ?? 'KL';
+            $valorPlano = match ($plano) {
+                'KL' => (float) ($veiculo['valor_plano_km_livre'] ?? 0),
+                'KMC' => (float) ($veiculo['valor_plano_km_controlado'] ?? 0),
+                'DI', 'KP' => (float) ($veiculo['valor_plano_km_pago'] ?? 0),
+                default => 0.0,
+            };
+            $seguroCarro = ($dados['seguro_carro'] ?? ($veiculo['seguro_carro'] ? 'S' : 'N')) === 'S';
+            $seguroTerceiros = ($dados['seguro_terceiros'] ?? ($veiculo['seguro_terceiros'] ? 'S' : 'N')) === 'S';
+            $valorSeguroCarro = $seguroCarro ? currency_parse($dados['seguro_carro_valor'] ?? $veiculo['valor_seguro_carro'] ?? 0) : 0;
+            $valorSeguroTerceiros = $seguroTerceiros ? currency_parse($dados['seguro_terceiros_valor'] ?? $veiculo['valor_seguro_terceiros'] ?? 0) : 0;
+
+            $valorTotalVeiculos = ($valorPlano + $valorSeguroCarro + $valorSeguroTerceiros) * $dias;
+        }
+
+        $taxaModel = new LocacaoTaxaServico();
+        $totalTaxas = 0.0;
+        $taxas = null;
+        if ($usarTaxasEnviadas && isset($dados['taxas'])) {
+            $taxas = is_string($dados['taxas']) ? json_decode($dados['taxas'], true) : $dados['taxas'];
+        }
+        if (is_array($taxas)) {
+            foreach ($taxas as $taxa) {
+                $totalTaxas += $taxaModel->calcularValorTotalTaxa($taxa, $dias, $valorTotalVeiculos);
+            }
+        } else {
+            $taxasPersistidas = $taxaModel->listarPorLocacao($locacaoId);
+            foreach ($taxasPersistidas as $taxa) {
+                $valorTotal = $taxaModel->calcularValorTotalTaxa($taxa, $dias, $valorTotalVeiculos);
+                $totalTaxas += $valorTotal;
+
+                if ($atualizarTaxas && abs($valorTotal - (float) ($taxa['valor_total'] ?? 0)) > 0.009) {
+                    $taxaModel->atualizarTotalCalculado((int) $taxa['id'], $valorTotal);
+                }
+            }
+        }
+
+        $condutores = $dados['condutor_adicional'] ?? $locacao['condutor_adicional'] ?? null;
+        $condutores = is_string($condutores) ? json_decode($condutores, true) : $condutores;
+        $qtdCondutores = is_array($condutores) ? count($condutores) : 0;
+        $valorCondutor = $veiculo ? (float) ($veiculo['valor_condutor_adicional'] ?? 0) : 0;
+
+        $totalKmExcedente = 0.0;
+        $kmExcedente = 0;
+        $valorKmExcedente = 0.0;
+        if ($status === 'F' && $veiculo && ($dados['plano'] ?? $locacao['plano'] ?? $veiculo['plano'] ?? '') === 'KMC') {
+            $odometroSaida = (int) ($dados['odometro_ini'] ?? $veiculo['odometro_saida'] ?? $locacao['odometro_ini'] ?? 0);
+            $odometroEntrada = $this->normalizarOdometroResumo(
+                $dados['odometro_fim'] ?? $veiculo['odometro_entrada'] ?? $locacao['odometro_fim'] ?? 0,
+                true
+            );
+            $odometroUsado = $odometroEntrada > $odometroSaida ? $odometroEntrada - $odometroSaida : 0;
+            $franquiaDiaria = (int) ($dados['km_controlado_franquia'] ?? $veiculo['km_franquia'] ?? 0);
+            $kmPermitido = $franquiaDiaria * $dias;
+            $kmExcedente = max(0, $odometroUsado - $kmPermitido);
+            $valorKmExcedente = currency_parse($dados['km_valor'] ?? $veiculo['valor_km_excedente'] ?? 0);
+            $totalKmExcedente = $kmExcedente * $valorKmExcedente;
+        }
+
+        $totalCombustivel = 0.0;
+        $combustivelUsado = 0;
+        $valorCombustivelUnitario = 0.0;
+        if ($status === 'F' && $veiculo) {
+            $combustivelSaida = isset($veiculo['combustivel_saida']) ? (int) $veiculo['combustivel_saida'] : null;
+            $combustivelEntrada = $dados['combustivel_fim'] ?? $veiculo['combustivel_entrada'] ?? null;
+            $combustivelEntrada = ($combustivelEntrada === '' || $combustivelEntrada === null) ? null : (int) $combustivelEntrada;
+            $valorCombustivelUnitario = (float) ($veiculo['veiculo_valor_por_fracao'] ?? 0);
+            $combustivelUsado = ($combustivelSaida !== null && $combustivelEntrada !== null)
+                ? max(0, $combustivelSaida - $combustivelEntrada)
+                : 0;
+            $totalCombustivel = $combustivelUsado * $valorCombustivelUnitario;
+        }
+
+        $totalFatura = $valorTotalVeiculos + $totalTaxas + ($qtdCondutores * $valorCondutor) + $totalKmExcedente + $totalCombustivel;
+        $desconto = currency_parse($dados['valor_desconto'] ?? $locacao['valor_desconto'] ?? 0);
+
+        return [
+            'total_fatura' => round($totalFatura, 2),
+            'total_pagar' => round(max(0, $totalFatura - $desconto), 2),
+            'total_veiculos' => round($valorTotalVeiculos, 2),
+            'total_taxas' => round($totalTaxas, 2),
+            'total_condutores' => round($qtdCondutores * $valorCondutor, 2),
+            'total_km_excedente' => round($totalKmExcedente, 2),
+            'total_combustivel' => round($totalCombustivel, 2),
+            'km_excedente' => $kmExcedente,
+            'valor_km_excedente' => round($valorKmExcedente, 2),
+            'combustivel_usado' => $combustivelUsado,
+            'valor_combustivel_unitario' => round($valorCombustivelUnitario, 2),
+            'id_locacao_veiculo' => $veiculo['id'] ?? null,
+        ];
+    }
+
+    public function sincronizarTotaisResumo(int $locacaoId, array $dados = [], bool $usarTaxasEnviadas = false): array
+    {
+        $totais = $this->calcularTotaisResumo($locacaoId, $dados, $usarTaxasEnviadas, true);
+
+        $this->qb
+            ->table('locacoes')
+            ->where('id', '=', $locacaoId)
+            ->update([
+                'total_fatura' => $totais['total_fatura'],
+                'total_pagar' => $totais['total_pagar'],
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+        return $totais;
+    }
+
+    /**
      * Atualiza status da locacao
      */
     public function atualizarStatus(int $id, string $status): int
@@ -1311,6 +1480,35 @@ class Locacao extends Model
     private function toDecimal($value): float
     {
         return round(currency_parse($value), 2);
+    }
+
+    private function normalizarDataBusca(string $search): ?string
+    {
+        $search = trim($search);
+        if (!preg_match('/^\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}$/', $search)) {
+            return null;
+        }
+
+        return parse_date($search);
+    }
+
+    private function normalizarOdometroResumo($valor, bool $preferirUltimo = false): int
+    {
+        if (is_int($valor) || is_float($valor)) {
+            return (int) $valor;
+        }
+
+        $texto = trim((string) $valor);
+        if ($texto === '') {
+            return 0;
+        }
+
+        if (preg_match_all('/\d+/', $texto, $matches) && !empty($matches[0])) {
+            $partes = $matches[0];
+            $texto = $preferirUltimo ? end($partes) : reset($partes);
+        }
+
+        return (int) preg_replace('/\D/', '', $texto);
     }
 
     /**
@@ -1575,18 +1773,25 @@ class Locacao extends Model
         $vehicleName = trim(implode(' ', $vehicleParts));
         $plate = trim((string) ($row['placa'] ?? ''));
 
+        $prazo = $this->formatDashboardDueInfo($row[$dateField] ?? null, (string) ($row['status'] ?? ''));
+
         return [
             'id' => (int) ($row['id'] ?? 0),
             'codigo' => (string) ($row['codigo'] ?? ''),
+            'tipo' => 'locacao',
+            'tipo_label' => t('modules.dashboard.subtabs.rental'),
+            'action' => 'locacao',
             'cliente' => (string) ($row['cliente'] ?? ''),
-            'veiculo' => $vehicleName !== '' ? $vehicleName : 'Sem veículo',
+            'veiculo' => $vehicleName !== '' ? $vehicleName : t('modules.dashboard.subtabs.no_vehicle'),
             'placa' => $plate,
             'filial_retirada' => (string) ($row['filial_retirada'] ?? ''),
             'filial_devolucao' => (string) ($row['filial_devolucao'] ?? ''),
             'data_saida' => $this->formatDashboardDateTime($row['data_saida'] ?? null),
             'data_prevista' => $this->formatDashboardDateTime($row['data_prevista'] ?? null),
             'data_referencia' => $this->formatDashboardDateTime($row[$dateField] ?? null),
-            'prazo_label' => $this->formatDashboardDueLabel($row[$dateField] ?? null, (string) ($row['status'] ?? '')),
+            'sort_at' => (string) ($row[$dateField] ?? ''),
+            'prazo_label' => $prazo['label'],
+            'prazo_tipo' => $prazo['tipo'],
         ];
     }
 
@@ -1600,15 +1805,15 @@ class Locacao extends Model
         return $timestamp ? date('d/m/Y H:i', $timestamp) : '';
     }
 
-    private function formatDashboardDueLabel(?string $value, string $status = ''): string
+    private function formatDashboardDueInfo(?string $value, string $status = ''): array
     {
         if (empty($value) || str_starts_with($value, '0000-00-00')) {
-            return '';
+            return ['label' => '', 'tipo' => ''];
         }
 
         $timestamp = strtotime($value);
         if (!$timestamp) {
-            return '';
+            return ['label' => '', 'tipo' => ''];
         }
 
         $now = time();
@@ -1617,34 +1822,55 @@ class Locacao extends Model
 
         if ($timestamp < $now) {
             if ($status === 'R') {
-                return 'Retirada pendente';
+                return [
+                    'label' => t('modules.dashboard.subtabs.pending_pickup'),
+                    'tipo' => 'pending_pickup',
+                ];
             }
 
             $secondsLate = max(60, $now - $timestamp);
 
             if ($secondsLate < 3600) {
                 $minutes = max(1, (int) floor($secondsLate / 60));
-                return $minutes === 1 ? '1min atraso' : $minutes . 'min atraso';
+                return [
+                    'label' => t_choice('modules.dashboard.subtabs.overdue_minutes', $minutes),
+                    'tipo' => 'overdue',
+                ];
             }
 
             if ($secondsLate < 86400) {
                 $hours = max(1, (int) floor($secondsLate / 3600));
-                return $hours === 1 ? '1h atraso' : $hours . 'h atraso';
+                return [
+                    'label' => t_choice('modules.dashboard.subtabs.overdue_hours', $hours),
+                    'tipo' => 'overdue',
+                ];
             }
 
             $days = max(1, (int) floor($secondsLate / 86400));
-            return $days === 1 ? '1 dia atraso' : $days . ' dias atraso';
+            return [
+                'label' => t_choice('modules.dashboard.subtabs.overdue_days', $days),
+                'tipo' => 'overdue',
+            ];
         }
 
         if ($date === $today) {
-            return 'Hoje';
+            return [
+                'label' => t('modules.dashboard.subtabs.today'),
+                'tipo' => 'today',
+            ];
         }
 
         if ($date === date('Y-m-d', strtotime('tomorrow'))) {
-            return 'Amanhã';
+            return [
+                'label' => t('modules.dashboard.subtabs.tomorrow'),
+                'tipo' => 'tomorrow',
+            ];
         }
 
-        return date('d/m', $timestamp);
+        return [
+            'label' => date('d/m', $timestamp),
+            'tipo' => 'date',
+        ];
     }
 
     /**

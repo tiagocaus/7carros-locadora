@@ -213,6 +213,50 @@ class Checklist extends Model
     }
 
     /**
+     * Lista checklists digitais finalizados vinculados a uma locacao.
+     */
+    public function listarFinalizadosPorLocacao(int $idLocacao): array
+    {
+        return $this->listarFinalizadosPorVinculo('id_locacao', $idLocacao);
+    }
+
+    /**
+     * Lista checklists digitais finalizados vinculados a um contrato.
+     */
+    public function listarFinalizadosPorContrato(int $idContrato): array
+    {
+        return $this->listarFinalizadosPorVinculo('id_contrato', $idContrato);
+    }
+
+    private function listarFinalizadosPorVinculo(string $campoVinculo, int $idVinculo): array
+    {
+        if (!in_array($campoVinculo, ['id_locacao', 'id_contrato'], true)) {
+            throw new \InvalidArgumentException('Vinculo de checklist invalido');
+        }
+
+        return $this->qb
+            ->table('checklist', 'c')
+            ->select([
+                'c.id',
+                'c.codigo',
+                'c.momento',
+                'c.data_checklist',
+                'c.id_veiculo',
+                'cm.nome AS modelo_nome',
+                'v.placa',
+                'v.modelo AS veiculo_modelo',
+                'v.marca',
+            ])
+            ->leftJoin('checklist_modelos', 'cm', 'c.id_modelo', '=', 'cm.id')
+            ->leftJoin('veiculos', 'v', 'c.id_veiculo', '=', 'v.id')
+            ->where('c.' . $campoVinculo, '=', $idVinculo)
+            ->where('c.tipo', '=', 'V')
+            ->whereIn('c.status', ['2', '4'])
+            ->orderBy('c.data_checklist', 'DESC')
+            ->get();
+    }
+
+    /**
      * Exclui um checklist
      *
      * @param int $id ID do checklist

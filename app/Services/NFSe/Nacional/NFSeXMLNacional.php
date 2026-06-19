@@ -21,6 +21,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
     public function gerarXML(array $dados): string
     {
         $idDPS = $this->gerarIdDPS($dados);
+        $serie = $this->normalizarSerie($dados['serie'] ?? null);
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<DPS xmlns="' . self::NAMESPACE . '" versao="' . self::VERSAO . '">';
@@ -30,10 +31,11 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $xml .= '<tpAmb>' . ($dados['ambiente'] ?? 2) . '</tpAmb>';
         $xml .= '<dhEmi>' . $this->formatarDataISO($dados['data_emissao'] ?? date('Y-m-d\TH:i:sP')) . '</dhEmi>';
         $xml .= '<verAplic>7Carros v8.3</verAplic>';
-        $xml .= '<serie>' . $this->escapeXml((string) ($dados['serie'] ?? 'DPS')) . '</serie>';
+        $xml .= '<serie>' . $this->escapeXml($serie) . '</serie>';
         $xml .= '<nDPS>' . (int) ($dados['numero'] ?? 0) . '</nDPS>';
         $xml .= '<dCompet>' . $this->escapeXml((string) ($dados['data_competencia'] ?? date('Y-m-d'))) . '</dCompet>';
         $xml .= '<tpEmit>1</tpEmit>';
+        $xml .= '<finNFSe>0</finNFSe>';
         $xml .= '<cLocEmi>' . $this->somenteDigitos((string) ($dados['municipio_codigo'] ?? '')) . '</cLocEmi>';
 
         // Prestador
@@ -171,17 +173,33 @@ class NFSeXMLNacional implements NFSeXMLInterface
         // Tentar JSON primeiro (API Nacional retorna JSON)
         $json = json_decode($resposta, true);
         if ($json !== null) {
-            if (isset($json['chNFSe']) || isset($json['nfse'])) {
+            $xmlNFSe = $this->decodificarXmlGZipB64($json['nfseXmlGZipB64'] ?? null);
+            if ($xmlNFSe !== null) {
+                $resultado['xml_retorno'] = $xmlNFSe;
+                $this->preencherDadosAutorizacaoXml($xmlNFSe, $resultado);
+            }
+
+            $chaveAcesso = $json['chaveAcesso'] ?? $json['chNFSe'] ?? $json['nfse']['chNFSe'] ?? null;
+            if (!empty($chaveAcesso)) {
+                $resultado['chave_acesso'] = $chaveAcesso;
+            }
+
+            if (isset($json['nNFSe']) || isset($json['nfse']['nNFSe'])) {
+                $resultado['numero'] = (int) ($json['nNFSe'] ?? $json['nfse']['nNFSe']);
+            }
+
+            if (isset($json['cVerif']) || isset($json['nfse']['cVerif'])) {
+                $resultado['codigo_verificacao'] = $json['cVerif'] ?? $json['nfse']['cVerif'];
+            }
+
+            if (!empty($resultado['chave_acesso']) || !empty($resultado['numero'])) {
                 $resultado['sucesso'] = true;
-                $resultado['chave_acesso'] = $json['chNFSe'] ?? $json['nfse']['chNFSe'] ?? null;
-                $resultado['numero'] = $json['nNFSe'] ?? $json['nfse']['nNFSe'] ?? null;
-                $resultado['codigo_verificacao'] = $json['cVerif'] ?? $json['nfse']['cVerif'] ?? null;
             } elseif (isset($json['erros']) || isset($json['erro'])) {
                 $erros = $json['erros'] ?? [$json['erro'] ?? []];
                 foreach ($erros as $erro) {
                     $resultado['erros'][] = [
-                        'codigo' => $erro['codigo'] ?? $erro['cod'] ?? 'ERRO_DESCONHECIDO',
-                        'mensagem' => $erro['mensagem'] ?? $erro['msg'] ?? $erro['descricao'] ?? '',
+                        'codigo' => $erro['Codigo'] ?? $erro['codigo'] ?? $erro['cod'] ?? 'ERRO_DESCONHECIDO',
+                        'mensagem' => $erro['Descricao'] ?? $erro['descricao'] ?? $erro['mensagem'] ?? $erro['msg'] ?? '',
                     ];
                 }
             }
@@ -192,6 +210,8 @@ class NFSeXMLNacional implements NFSeXMLInterface
         libxml_use_internal_errors(true);
         $doc = new \DOMDocument();
         if ($doc->loadXML($resposta)) {
+            $this->preencherDadosAutorizacaoXml($resposta, $resultado);
+
             $chNFSe = $doc->getElementsByTagName('chNFSe');
             if ($chNFSe->length > 0) {
                 $resultado['sucesso'] = true;
@@ -211,6 +231,53 @@ class NFSeXMLNacional implements NFSeXMLInterface
         libxml_clear_errors();
 
         return $resultado;
+    }
+
+    private function decodificarXmlGZipB64(mixed $valor): ?string
+    {
+        if (!is_string($valor) || trim($valor) === '') {
+            return null;
+        }
+
+        $binario = base64_decode($valor, true);
+        if ($binario === false) {
+            return null;
+        }
+
+        $xml = gzdecode($binario);
+        return is_string($xml) && trim($xml) !== '' ? $xml : null;
+    }
+
+    private function preencherDadosAutorizacaoXml(string $xml, array &$resultado): void
+    {
+        libxml_use_internal_errors(true);
+        $doc = new \DOMDocument();
+        if (!$doc->loadXML($xml)) {
+            libxml_clear_errors();
+            return;
+        }
+
+        $cStat = $doc->getElementsByTagName('cStat');
+        if ($cStat->length > 0 && trim($cStat->item(0)->nodeValue) === '100') {
+            $resultado['sucesso'] = true;
+        }
+
+        $nNFSe = $doc->getElementsByTagName('nNFSe');
+        if ($nNFSe->length > 0) {
+            $resultado['numero'] = (int) $nNFSe->item(0)->nodeValue;
+        }
+
+        $chNFSe = $doc->getElementsByTagName('chNFSe');
+        if ($chNFSe->length > 0) {
+            $resultado['chave_acesso'] = trim($chNFSe->item(0)->nodeValue);
+        }
+
+        $cVerif = $doc->getElementsByTagName('cVerif');
+        if ($cVerif->length > 0) {
+            $resultado['codigo_verificacao'] = trim($cVerif->item(0)->nodeValue);
+        }
+
+        libxml_clear_errors();
     }
 
     public function parseRetornoCancelamento(string $resposta): array
@@ -258,7 +325,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $cnpj = $this->somenteDigitos((string) ($dados['prestador']['cnpj'] ?? ''));
         $tpInsc = strlen($cnpj) === 14 ? '2' : '1';
         $nInsc = str_pad($cnpj, 14, '0', STR_PAD_LEFT);
-        $serie = str_pad(substr((string) ($dados['serie'] ?? 'DPS'), 0, 5), 5, '0', STR_PAD_RIGHT);
+        $serie = str_pad(substr($this->normalizarSerie($dados['serie'] ?? null), 0, 5), 5, '0', STR_PAD_LEFT);
         $nDPS = str_pad((string) ($dados['numero'] ?? '0'), 15, '0', STR_PAD_LEFT);
 
         return 'DPS' . $cMun . $tpInsc . $nInsc . $serie . $nDPS;
@@ -354,6 +421,12 @@ class NFSeXMLNacional implements NFSeXMLInterface
     private function textoMaiusculo(string $texto): string
     {
         return $this->escapeXml(mb_strtoupper($texto, 'UTF-8'));
+    }
+
+    private function normalizarSerie(mixed $serie): string
+    {
+        $serie = trim((string) ($serie ?? ''));
+        return $serie !== '' ? $serie : 'DPS';
     }
 
     private function escapeXml(string $valor): string

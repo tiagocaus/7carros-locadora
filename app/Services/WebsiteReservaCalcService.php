@@ -44,12 +44,8 @@ class WebsiteReservaCalcService
             return ['total' => 0.0, 'breakdown' => ['erro' => 'sem_preco_grupo_filial']];
         }
 
-        $mapPlano = [
-            'KML' => (float) ($precos['valor_plano_km_livre']      ?? 0),
-            'KMC' => (float) ($precos['valor_plano_km_controlado'] ?? 0),
-            'DIA' => (float) ($precos['valor_plano_km_pago']       ?? 0),
-        ];
-        $valorPlanoDia = (float) ($mapPlano[$plano] ?? 0);
+        $calculoPlano = (new GrupoPrecoPeriodoService())->calcularValorDiaria($grupoId, $filialId, $plano, $dias);
+        $valorPlanoDia = (float) ($calculoPlano['valor'] ?? 0);
         $subtotalPlano = $valorPlanoDia * $dias;
 
         $subtotalSeguros = 0.0;
@@ -101,7 +97,12 @@ class WebsiteReservaCalcService
         return [
             'total' => round($total, 2),
             'breakdown' => [
-                'plano' => ['valor_dia' => $valorPlanoDia, 'dias' => $dias, 'subtotal' => round($subtotalPlano, 2)],
+                'plano' => [
+                    'valor_dia' => $valorPlanoDia,
+                    'dias' => $dias,
+                    'subtotal' => round($subtotalPlano, 2),
+                    'origem' => $calculoPlano['origem'] ?? 'preco_base',
+                ],
                 'seguros' => round($subtotalSeguros, 2),
                 'servicos' => $servicosDetalhe,
                 'subtotal_servicos' => round($subtotalServicos, 2),

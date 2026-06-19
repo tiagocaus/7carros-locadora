@@ -98,7 +98,7 @@ class ChecklistModelosController
             }
 
             $chave = Auth::chave();
-            if ($modelo['chave'] !== $chave) {
+            if ($modelo['chave'] !== $chave && $modelo['chave'] !== '0') {
                 Response::json([
                     'success' => false,
                     'message' => 'Modelo nao encontrado'
@@ -239,7 +239,7 @@ class ChecklistModelosController
             }
 
             $chave = Auth::chave();
-            if ($modelo['chave'] !== $chave) {
+            if ($modelo['chave'] !== $chave && $modelo['chave'] !== '0') {
                 Response::json([
                     'success' => false,
                     'message' => 'Voce nao pode editar este modelo'
@@ -277,7 +277,13 @@ class ChecklistModelosController
                 $dados['vistoria'] = json_encode($vistoria, JSON_UNESCAPED_UNICODE);
             }
 
-            $model->atualizar($id, $dados);
+            $novoId = null;
+            if ($modelo['chave'] === '0') {
+                $dados['chave'] = $chave;
+                $novoId = $model->criar($dados);
+            } else {
+                $model->atualizar($id, $dados);
+            }
 
             AuditLogService::registrar(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", atualizou modelo de checklist [{$modelo['nome']}]"
@@ -285,7 +291,10 @@ class ChecklistModelosController
 
             Response::json([
                 'success' => true,
-                'message' => 'Modelo atualizado com sucesso'
+                'message' => $novoId
+                    ? 'Modelo do sistema copiado para sua empresa e salvo com sucesso'
+                    : 'Modelo atualizado com sucesso',
+                'data' => $novoId ? ['id' => $novoId] : null
             ]);
         } catch (\InvalidArgumentException $e) {
             Response::json([

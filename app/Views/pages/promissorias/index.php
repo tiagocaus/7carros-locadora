@@ -86,33 +86,38 @@
 @endsection
 
 @section('scripts')
+<?php
+$jsFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+$i18nPromissorias = [
+    'loading' => t('common.labels.loading'),
+    'noRecords' => t('modules.promissorias.messages.no_records'),
+    'loadError' => t('modules.promissorias.messages.load_error'),
+    'connectionError' => t('modules.promissorias.messages.connection_error'),
+    'statusPaidOff' => t('modules.promissorias.status.paid_off'),
+    'statusPending' => t('modules.promissorias.status.pending'),
+    'tooltipEdit' => t('modules.promissorias.tooltips.edit'),
+    'tooltipDelete' => t('modules.promissorias.tooltips.delete'),
+    'tooltipPrint' => t('modules.promissorias.tooltips.print'),
+    'tooltipMarkAllPaid' => t('modules.promissorias.tooltips.mark_all_paid'),
+    'statusPaidOffLabel' => t('modules.promissorias.status.paid_off'),
+    'thisPromissory' => t('modules.promissorias.messages.this_promissory'),
+    'confirmDelete' => t('modules.promissorias.messages.confirm_delete'),
+    'deletedSuccess' => t('modules.promissorias.messages.deleted_success'),
+    'deleteError' => t('modules.promissorias.messages.delete_error'),
+    'printTitle' => t('modules.promissorias.messages.print_title'),
+    'markPaidTitle' => t('modules.promissorias.messages.mark_paid_title'),
+    'markPaidConfirm' => t('modules.promissorias.messages.mark_paid_confirm'),
+    'markPaidBtn' => t('modules.promissorias.messages.mark_paid_btn'),
+    'markedPaid' => t('modules.promissorias.messages.marked_paid'),
+    'markPaidError' => t('modules.promissorias.messages.mark_paid_error'),
+    'showing' => t('modules.promissorias.pagination.showing'),
+    'showingEmpty' => t('modules.promissorias.pagination.showing_empty'),
+    'recordType' => t('modules.promissorias.title_singular'),
+];
+?>
 <script>
 (function () {
-    const i18n = {
-        loading: '<?= t("common.labels.loading") ?>',
-        noRecords: '<?= t("modules.promissorias.messages.no_records") ?>',
-        loadError: '<?= t("modules.promissorias.messages.load_error") ?>',
-        connectionError: '<?= t("modules.promissorias.messages.connection_error") ?>',
-        statusPaidOff: '<?= t("modules.promissorias.status.paid_off") ?>',
-        statusPending: '<?= t("modules.promissorias.status.pending") ?>',
-        tooltipEdit: '<?= t("modules.promissorias.tooltips.edit") ?>',
-        tooltipDelete: '<?= t("modules.promissorias.tooltips.delete") ?>',
-        tooltipPrint: '<?= t("modules.promissorias.tooltips.print") ?>',
-        tooltipMarkAllPaid: '<?= t("modules.promissorias.tooltips.mark_all_paid") ?>',
-        statusPaidOffLabel: '<?= t("modules.promissorias.status.paid_off") ?>',
-        thisPromissory: '<?= t("modules.promissorias.messages.this_promissory") ?>',
-        confirmDelete: '<?= t("modules.promissorias.messages.confirm_delete") ?>',
-        deletedSuccess: '<?= t("modules.promissorias.messages.deleted_success") ?>',
-        deleteError: '<?= t("modules.promissorias.messages.delete_error") ?>',
-        printTitle: '<?= t("modules.promissorias.messages.print_title") ?>',
-        markPaidTitle: '<?= t("modules.promissorias.messages.mark_paid_title") ?>',
-        markPaidConfirm: '<?= t("modules.promissorias.messages.mark_paid_confirm") ?>',
-        markPaidBtn: '<?= t("modules.promissorias.messages.mark_paid_btn") ?>',
-        markedPaid: '<?= t("modules.promissorias.messages.marked_paid") ?>',
-        markPaidError: '<?= t("modules.promissorias.messages.mark_paid_error") ?>',
-        showing: '<?= t("modules.promissorias.pagination.showing") ?>',
-        showingEmpty: '<?= t("modules.promissorias.pagination.showing_empty") ?>',
-    };
+    const i18n = <?= json_encode($i18nPromissorias, $jsFlags) ?>;
 
     // Estado da paginacao
     let currentPage = 1;
@@ -366,13 +371,9 @@
                 action: 'openDeleteModal',
                 recordId: codigo,
                 recordName: i18n.thisPromissory,
-                recordType: '<?= t("modules.promissorias.title_singular") ?>',
+                recordType: i18n.recordType,
                 confirmType: 'text'
             }, '*');
-        } else {
-            if (confirm(i18n.confirmDelete)) {
-                confirmarExclusao(codigo);
-            }
         }
     };
 
@@ -415,10 +416,6 @@
                 message: i18n.markPaidConfirm,
                 confirmText: i18n.markPaidBtn
             }, '*');
-        } else {
-            if (confirm(i18n.markPaidConfirm)) {
-                executarMarcarPago(codigo);
-            }
         }
     };
 

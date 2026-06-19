@@ -441,6 +441,21 @@ class Veiculo extends Model
     }
 
     /**
+     * Atualiza apenas o odometro atual do cadastro do veiculo.
+     */
+    public function atualizarOdometro(int $id, int $odometro): int
+    {
+        if ($id <= 0 || $odometro <= 0) {
+            return 0;
+        }
+
+        return $this->qb
+            ->table('veiculos')
+            ->where('id', '=', $id)
+            ->update(['odometro' => $odometro]);
+    }
+
+    /**
      * Exclui um veiculo
      *
      * @param int $id ID do veiculo
@@ -729,7 +744,8 @@ class Veiculo extends Model
                 'ano' => (string) ($row['ano'] ?? ''),
                 'cor' => (string) ($row['cor'] ?? ''),
                 'odometro' => isset($row['odometro']) ? number_format((float) $row['odometro'], 0, ',', '.') . ' km' : '',
-                'prazo_label' => 'Disponível',
+                'prazo_label' => t('modules.dashboard.subtabs.available_badge'),
+                'prazo_tipo' => 'available',
             ];
         }, $query->get());
     }

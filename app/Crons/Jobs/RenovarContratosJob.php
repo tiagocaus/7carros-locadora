@@ -4,12 +4,9 @@ namespace App\Crons\Jobs;
 
 use App\Classes\QueryBuilder;
 use App\Core\Database;
-use App\Models\Cliente;
 use App\Models\Contrato;
-use App\Models\Financeiro;
-use App\Models\FormaPagamento;
-use App\Models\PagamentoLink;
 use App\Services\AuditLogService;
+use App\Services\InvoiceBatchNotificationService;
 use mysqli;
 
 class RenovarContratosJob extends BaseJob
@@ -128,24 +125,23 @@ class RenovarContratosJob extends BaseJob
         $idsParcelas = [];
         $envios = [];
 
-        // Atualizar datas do contrato
+        // Atualizar somente a proxima data de renovacao.
+        // data_ini/data_fim sao o periodo original do contrato.
         $contratoModel->atualizar($contrato['id'], [
-            'data_ini' => $regularizacao['nova_data_ini'],
-            'data_fim' => $regularizacao['nova_data_fim'],
             'data_renovacao' => $regularizacao['nova_data_renovacao'],
         ]);
 
         // Gerar novas parcelas financeiras
         $idFormaPagamento = (int) ($contrato['id_forma_pagamento'] ?? 0);
         if ($idFormaPagamento > 0) {
-            $primeiroVencimento = substr($regularizacao['data_fim_atual'], 0, 10);
+            $primeiroVencimento = $regularizacao['periodo_cobranca_ini'];
 
             $config = [
                 'id_forma_pagamento' => $idFormaPagamento,
                 'id_comando_parcela' => $contrato['id_comando_parcela'] ?? 0,
                 'id_conta' => $contrato['id_conta'] ?? 0,
                 'primeiro_vencimento' => $primeiroVencimento,
-                'data_fim' => substr($regularizacao['nova_data_fim'], 0, 10),
+                'data_fim' => $regularizacao['periodo_cobranca_fim'],
                 'valor_desconto' => 0,
             ];
 
@@ -172,8 +168,7 @@ class RenovarContratosJob extends BaseJob
             "Sistema, renovação automática do contrato [{$contrato['codigo']}]",
             [
                 AuditLogService::campo('Ciclos aplicados', '0', (string) $regularizacao['ciclos']),
-                AuditLogService::campo('Data Início', $contrato['data_ini'], $regularizacao['nova_data_ini']),
-                AuditLogService::campo('Data Fim', $contrato['data_fim'], $regularizacao['nova_data_fim']),
+                AuditLogService::campo('Período de Cobrança', $regularizacao['periodo_cobranca_ini'], $regularizacao['periodo_cobranca_fim']),
                 AuditLogService::campo('Data Renovação', $contrato['data_renovacao'], $regularizacao['nova_data_renovacao']),
             ]
         );
@@ -186,88 +181,13 @@ class RenovarContratosJob extends BaseJob
      */
     private function enfileirarCobrancasParcelas(array $idsParcelas, array $contrato, string $chave): array
     {
-        $resultado = [];
-        $cliente = !empty($contrato['id_cliente'])
-            ? (new Cliente())->buscarPorIdComContatos((int) $contrato['id_cliente'])
-            : null;
-
-        if (!$cliente) {
-            return [[
-                'parcela_id' => null,
-                'canal' => 'all',
-                'success' => false,
-                'message' => 'Cliente do contrato nao encontrado para envio de cobranca',
-            ]];
-        }
-
-        $email = $cliente['email'] ?? '';
-        $telefone = $cliente['telefone'] ?? $cliente['celular'] ?? '';
-        $financeiroModel = new Financeiro();
-        $linkModel = new PagamentoLink();
-
-        foreach ($idsParcelas as $idParcela) {
-            $financeiro = $financeiroModel->buscarPorId((int) $idParcela);
-            if (!$financeiro) {
-                continue;
-            }
-
-            $link = $linkModel->buscarPorFinanceiro((int) $idParcela);
-            if (!$link) {
-                $linkId = $linkModel->criar([
-                    'chave' => $chave,
-                    'id_financeiro' => (int) $idParcela,
-                    'id_cliente' => $financeiro['id_cliente'] ?? null,
-                    'valor' => $financeiro['valor_total'],
-                    'descricao' => $financeiro['descricao'] ?? 'Cobrança',
-                    'expires_at' => date('Y-m-d H:i:s', strtotime('+30 days')),
-                ]);
-                $link = $linkModel->buscarPorId($linkId);
-            }
-
-            $context = [
-                'cliente' => [
-                    'nome' => $cliente['nome_rsocial'] ?? '',
-                    'primeiro_nome' => explode(' ', trim((string) ($cliente['nome_rsocial'] ?? '')))[0] ?? '',
-                    'email' => $email,
-                    'cpf_cnpj' => $cliente['cpf_cnpj'] ?? '',
-                    'telefone' => $telefone,
-                    'celular' => $telefone,
-                    'preferred_locale' => $cliente['preferred_locale'] ?? null,
-                ],
-                'empresa' => [
-                    'id' => $contrato['id_matriz_filial_retirada'] ?? null,
-                ],
-                'id_matriz_filial' => $contrato['id_matriz_filial_retirada'] ?? null,
-                'fatura' => [
-                    'numero' => $financeiro['codigo'] ?? $financeiro['sequencia'] ?? $idParcela,
-                    'valor' => $financeiro['valor_total'],
-                    'data_vencimento' => $financeiro['data_venci'],
-                    'descricao' => $financeiro['descricao'] ?? '',
-                    'status' => 'Pendente',
-                    'link_boleto' => $link ? $linkModel->getUrl($link['codigo']) : '',
-                ],
-            ];
-
-            foreach (['email', 'whatsapp', 'sms'] as $canal) {
-                if ($canal === 'email' && $email === '') {
-                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => false, 'message' => 'Cliente sem email'];
-                    continue;
-                }
-                if (in_array($canal, ['whatsapp', 'sms'], true) && $telefone === '') {
-                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => false, 'message' => 'Cliente sem telefone'];
-                    continue;
-                }
-
-                try {
-                    $messageId = queue_template_message('payment_reminder', $canal, $context, $chave);
-                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => true, 'message' => "message_id={$messageId}"];
-                } catch (\Throwable $e) {
-                    $resultado[] = ['parcela_id' => $idParcela, 'canal' => $canal, 'success' => false, 'message' => $e->getMessage()];
-                }
-            }
-        }
-
-        return $resultado;
+        return (new InvoiceBatchNotificationService())->sendInstallmentBatch($idsParcelas, [
+            'chave' => $chave,
+            'id_cliente' => (int) ($contrato['id_cliente'] ?? 0),
+            'id_matriz_filial' => (int) ($contrato['id_matriz_filial_retirada'] ?? 0),
+            'canais' => ['email' => true, 'whatsapp' => true, 'sms' => true],
+            'origem_label' => !empty($contrato['codigo']) ? 'Contrato #' . $contrato['codigo'] : 'Contrato',
+        ]);
     }
 
     private function setContextoTenant(string $chave): void

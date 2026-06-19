@@ -64,8 +64,25 @@
 @endsection
 
 @section('scripts')
+<?php
+$jsFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+$i18nPlanosContas = [
+    'errorList' => t('modules.planos_contas.messages.error_list'),
+    'serverError' => t('common.errors.server_error'),
+    'loading' => t('common.labels.loading'),
+    'noRecords' => t('modules.planos_contas.messages.no_records'),
+    'edit' => t('common.buttons.edit'),
+    'delete' => t('common.buttons.delete'),
+    'thisRecord' => t('modules.planos_contas.messages.this_record'),
+    'showing' => t('common.labels.showing'),
+    'of' => t('common.labels.of'),
+    'records' => t('common.labels.records'),
+    'errorDelete' => t('modules.planos_contas.messages.error_delete'),
+];
+?>
 <script>
     (function() {
+        const i18n = <?= json_encode($i18nPlanosContas, $jsFlags) ?>;
         let currentPage = 1;
         let perPage = 10;
         let searchTerm = '';
@@ -104,11 +121,11 @@
                     atualizarPaginacao(result.pagination);
                     atualizarInfoRegistros(result.pagination);
                 } else {
-                    mostrarMensagemErro('<?= t('modules.planos_contas.messages.error_list') ?>: ' + (result.message || ''));
+                    mostrarMensagemErro(i18n.errorList + ': ' + (result.message || ''));
                 }
             } catch (error) {
                 console.error('Erro ao buscar dados:', error);
-                mostrarMensagemErro(error.message || '<?= t('common.errors.server_error') ?>');
+                mostrarMensagemErro(error.message || i18n.serverError);
             }
         }
 
@@ -116,7 +133,7 @@
             tbody.innerHTML = `
             <tr>
                 <td colspan="4" class="table-cell text-center text-slate-500">
-                    <i class="fas fa-spinner fa-spin mr-2"></i><?= t('common.labels.loading') ?>
+                    <i class="fas fa-spinner fa-spin mr-2"></i>${i18n.loading}
                 </td>
             </tr>
         `;
@@ -147,7 +164,7 @@
                 tbody.innerHTML = `
                 <tr>
                     <td colspan="4" class="table-cell text-center text-slate-500">
-                        <i class="fas fa-inbox mr-2"></i><?= t('modules.planos_contas.messages.no_records') ?>
+                        <i class="fas fa-inbox mr-2"></i>${i18n.noRecords}
                     </td>
                 </tr>
             `;
@@ -177,8 +194,8 @@
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tipoClass}">${escapeHtml(tipoLabel)}</span>
                     </td>
                     <td class="table-cell px-2 w-28 text-right">
-                        ${!isSystem ? `<button title="<?= t('common.buttons.edit') ?>" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${item.id}"><i class="fas fa-edit"></i></button>` : ''}
-                        ${!isSystem ? `<button title="<?= t('common.buttons.delete') ?>" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${item.id}" data-name="${escapeHtml(hierarquia + ' - ' + descricao)}"><i class="fas fa-trash"></i></button>` : ''}
+                        ${!isSystem ? `<button title="${i18n.edit}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${item.id}"><i class="fas fa-edit"></i></button>` : ''}
+                        ${!isSystem ? `<button title="${i18n.delete}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${item.id}" data-name="${escapeHtml(hierarquia + ' - ' + descricao)}"><i class="fas fa-trash"></i></button>` : ''}
                     </td>
                 </tr>
             `;
@@ -196,7 +213,7 @@
             tbody.querySelectorAll('.btn-delete').forEach(button => {
                 button.addEventListener('click', function() {
                     const id = this.getAttribute('data-id');
-                    const name = this.getAttribute('data-name') || '<?= t('modules.planos_contas.messages.this_record') ?>';
+                    const name = this.getAttribute('data-name') || i18n.thisRecord;
 
                     if (window.parent !== window) {
                         window.parent.postMessage({
@@ -206,10 +223,6 @@
                             recordType: 'plano_contas',
                             confirmType: 'none'
                         }, '*');
-                    } else {
-                        if (confirm(`<?= t('common.confirmations.delete_record') ?> "${name}"?`)) {
-                            excluirRegistro(id);
-                        }
                     }
                 });
             });
@@ -223,7 +236,7 @@
             const start = total === 0 ? 0 : ((page - 1) * perPage) + 1;
             const end = Math.min(page * perPage, total);
 
-            infoElement.textContent = `<?= t('common.labels.showing') ?> ${start}-${end} <?= t('common.labels.of') ?> ${total} <?= t('common.labels.records') ?>`;
+            infoElement.textContent = `${i18n.showing} ${start}-${end} ${i18n.of} ${total} ${i18n.records}`;
         }
 
         function atualizarPaginacao(pagination) {
@@ -315,11 +328,19 @@
                 if (result.success) {
                     carregarDados(currentPage, perPage, searchTerm, tipoFilter);
                 } else {
-                    alert(result.message || '<?= t('modules.planos_contas.messages.error_delete') ?>');
+                    openAlert(result.message || i18n.errorDelete);
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                alert('<?= t('modules.planos_contas.messages.error_delete') ?>');
+                openAlert(i18n.errorDelete);
+            }
+        }
+
+        function openAlert(message) {
+            if (window.parent !== window) {
+                window.parent.postMessage({ action: 'openAlert', message }, '*');
+            } else {
+                console.error(message);
             }
         }
 

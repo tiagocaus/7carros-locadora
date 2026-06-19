@@ -86,11 +86,28 @@ class DashboardController
         if ($tab === 'disponiveis') {
             [$filialWhere, $filialParams] = FilialHelper::whereFiliais('id_matriz_filial', 'v');
             $data = (new Veiculo())->dashboardAvailableVehicles($chave, $limit, $filialWhere, $filialParams);
+        } elseif ($tab === 'alugados') {
+            [$locacaoFilialWhere, $locacaoFilialParams] = FilialHelper::whereLocacoes('l');
+            $data = $locacaoModel->dashboardSimpleRented($chave, $limit, $locacaoFilialWhere, $locacaoFilialParams);
+
+            if (Auth::can('contratos.visualizar')) {
+                [$contratoFilialWhere, $contratoFilialParams] = FilialHelper::whereContratos('c');
+                $contratos = (new Contrato())->dashboardSimpleRented($chave, $limit, $contratoFilialWhere, $contratoFilialParams);
+                $data = array_merge($data, $contratos);
+            }
+
+            usort($data, static function (array $a, array $b): int {
+                $aTime = strtotime((string) ($a['sort_at'] ?? '')) ?: PHP_INT_MAX;
+                $bTime = strtotime((string) ($b['sort_at'] ?? '')) ?: PHP_INT_MAX;
+
+                return $aTime <=> $bTime;
+            });
+
+            $data = array_slice($data, 0, $limit);
         } else {
             [$filialWhere, $filialParams] = FilialHelper::whereLocacoes('l');
             $data = match ($tab) {
                 'reservas' => $locacaoModel->dashboardSimpleReservations($chave, $limit, $filialWhere, $filialParams),
-                'alugados' => $locacaoModel->dashboardSimpleRented($chave, $limit, $filialWhere, $filialParams),
                 'chegada_pendente' => $locacaoModel->dashboardSimplePendingArrival($chave, $limit, $filialWhere, $filialParams),
                 'proximas_devolucoes' => $locacaoModel->dashboardSimpleUpcomingReturns($chave, $limit, $filialWhere, $filialParams),
             };

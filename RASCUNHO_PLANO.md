@@ -35,3 +35,5 @@ Vou pedir para fazer outra analize. Imadinando que um cliente, de locadora norma
 ### OUTROS
 UPDATE usuarios SET funcao = 'proprietário' WHERE chave_mestre IS NOT NULL AND chave_mestre <> '';
 UPDATE funcionarios SET id_role = 10 WHERE chave_mestre IS NOT NULL AND chave_mestre <> '';
+
+Vi que tem o comando extract, isso condir com o padrão do sistema em usar querybulder?

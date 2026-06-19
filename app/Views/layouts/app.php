@@ -1464,7 +1464,7 @@
             document.getElementById('renovacaoSyncVencida').textContent = formatarDataRenovacaoSync(reg.data_renovacao_atual);
             document.getElementById('renovacaoSyncProxima').textContent = formatarDataRenovacaoSync(reg.nova_data_renovacao);
             document.getElementById('renovacaoSyncCiclos').textContent = (reg.ciclos || 0) + ' ' + layoutT('renewal.cycle') + ' ' + (reg.quantidade || 1) + ' ' + labelContagemRenovacaoSync(reg.contagem, reg.quantidade || 1);
-            document.getElementById('renovacaoSyncPeriodo').textContent = formatarDataRenovacaoSync(reg.nova_data_ini) + ' ' + layoutT('renewal.until') + ' ' + formatarDataRenovacaoSync(reg.nova_data_fim);
+            document.getElementById('renovacaoSyncPeriodo').textContent = formatarDataRenovacaoSync(reg.periodo_cobranca_ini || reg.nova_data_ini) + ' ' + layoutT('renewal.until') + ' ' + formatarDataRenovacaoSync(reg.periodo_cobranca_fim || reg.nova_data_fim);
             document.getElementById('renovacaoSyncComando').textContent = contrato.comando_parcela || layoutT('renewal.no_command');
 
             const gerarFinanceiro = document.getElementById('renovacaoSyncGerarFinanceiro');

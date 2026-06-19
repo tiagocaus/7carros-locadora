@@ -2,6 +2,47 @@
 
 @section('title', t('modules.multas.central.title'))
 
+<?php
+$jsFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+$i18nMultasCentral = [
+    'loading' => t('common.labels.loading'),
+    'noFines' => t('modules.multas.messages.no_records'),
+    'paginationShowing' => t('modules.multas.central.pagination.showing'),
+    'badgeQuery' => t('modules.multas.central.badges.origin_query'),
+    'badgeEvent' => t('modules.multas.central.badges.origin_event'),
+    'badgeManual' => t('modules.multas.central.badges.origin_manual'),
+    'badgePaid' => t('modules.multas.central.badges.paid'),
+    'badgePending' => t('modules.multas.central.badges.pending'),
+    'markPaidTitle' => t('modules.multas.central.confirm.mark_paid_title'),
+    'markPaidMessage' => t('modules.multas.central.confirm.mark_paid_message'),
+    'revertTitle' => t('modules.multas.central.confirm.revert_title'),
+    'revertMessage' => t('modules.multas.central.confirm.revert_message'),
+    'cannotDeletePaid' => t('modules.multas.central.confirm.cannot_delete_paid'),
+    'activateAutoQueryTitle' => t('modules.multas.central.confirm.activate_auto_query_title'),
+    'activateAutoQueryMessage' => t('modules.multas.central.confirm.activate_auto_query_message'),
+    'activateAutoEventsTitle' => t('modules.multas.central.confirm.activate_auto_events_title'),
+    'activateAutoEventsMessage' => t('modules.multas.central.confirm.activate_auto_events_message'),
+    'confirmActivate' => t('modules.multas.central.confirm.confirm_activate'),
+    'fineDeleted' => t('modules.multas.central.toast.fine_deleted'),
+    'fineMarkedPaid' => t('modules.multas.central.toast.fine_marked_paid'),
+    'paymentReverted' => t('modules.multas.central.toast.payment_reverted'),
+    'configError' => t('modules.multas.central.toast.config_error'),
+    'lastQuery' => t('modules.multas.central.automation.last_query'),
+    'rankingNoData' => t('modules.multas.central.ranking.no_data'),
+    'thisRecord' => t('modules.multas.messages.this_record'),
+    'recordType' => t('modules.multas.record_type'),
+    'actionEdit' => t('modules.multas.central.actions.edit'),
+    'actionNominate' => t('modules.multas.central.actions.nominate'),
+    'actionMarkPaid' => t('modules.multas.central.actions.mark_paid'),
+    'actionMarkUnpaid' => t('modules.multas.central.actions.mark_unpaid'),
+    'actionDelete' => t('modules.multas.central.actions.delete'),
+    'actionPrint' => t('modules.multas.central.actions.print'),
+    'printTitle' => t('modules.multas.print.title'),
+];
+$indicacoesTitleJson = htmlspecialchars(json_encode(t('modules.multas.indicacoes.title'), $jsFlags), ENT_QUOTES, 'UTF-8');
+$saldoTitleJson = htmlspecialchars(json_encode(t('modules.multas.saldo.title'), $jsFlags), ENT_QUOTES, 'UTF-8');
+?>
+
 @section('content')
 <div class="pl-1 pr-2 py-0">
     <!-- Header -->
@@ -15,7 +56,7 @@
             <button id="btnNovo" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center whitespace-nowrap">
                 <i class="fas fa-plus mr-2"></i><?= t('modules.multas.central.add_fine') ?>
             </button>
-            <button type="button" onclick="window.parent.openOrSwitchToTab('/pages/multas-online/indicacoes','<?= t('modules.multas.indicacoes.title') ?>','fas fa-user-shield','indicacoes-condutor')" class="bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md text-sm font-medium flex items-center whitespace-nowrap">
+            <button type="button" onclick="window.parent.openOrSwitchToTab('/pages/multas-online/indicacoes',<?= $indicacoesTitleJson ?>,'fas fa-user-shield','indicacoes-condutor')" class="bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md text-sm font-medium flex items-center whitespace-nowrap">
                 <i class="fas fa-user-shield mr-2"></i><?= t('modules.multas.central.nominations.title') ?>
             </button>
             <button id="btnConsultarOnline" class="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-md text-sm font-medium flex items-center">
@@ -65,7 +106,7 @@
                 <h3 class="text-sm font-semibold text-slate-700">
                     <i class="fas fa-wallet mr-1 text-blue-500"></i> <?= t('modules.multas.central.balance.title') ?>
                 </h3>
-                <a href="javascript:void(0)" onclick="window.parent.openOrSwitchToTab('/pages/multas-online/saldo','<?= t('modules.multas.saldo.title') ?>','fas fa-wallet','saldo-consultas')" class="text-xs text-blue-600 hover:underline"><?= t('modules.multas.central.balance.manage') ?></a>
+                <a href="javascript:void(0)" onclick="window.parent.openOrSwitchToTab('/pages/multas-online/saldo',<?= $saldoTitleJson ?>,'fas fa-wallet','saldo-consultas')" class="text-xs text-blue-600 hover:underline"><?= t('modules.multas.central.balance.manage') ?></a>
             </div>
             <div class="text-2xl font-bold text-blue-600" id="saldoAtual">-</div>
             <div class="flex gap-4 mt-2 text-xs text-slate-500">
@@ -101,7 +142,7 @@
                 <h3 class="text-sm font-semibold text-slate-700">
                     <i class="fas fa-user-shield mr-1 text-orange-500"></i> <?= t('modules.multas.central.nominations.title') ?>
                 </h3>
-                <a href="javascript:void(0)" onclick="window.parent.openOrSwitchToTab('/pages/multas-online/indicacoes','<?= t('modules.multas.indicacoes.title') ?>','fas fa-user-shield','indicacoes-condutor')" class="text-xs text-blue-600 hover:underline"><?= t('modules.multas.central.nominations.view_all') ?></a>
+                <a href="javascript:void(0)" onclick="window.parent.openOrSwitchToTab('/pages/multas-online/indicacoes',<?= $indicacoesTitleJson ?>,'fas fa-user-shield','indicacoes-condutor')" class="text-xs text-blue-600 hover:underline"><?= t('modules.multas.central.nominations.view_all') ?></a>
             </div>
             <div class="space-y-1.5">
                 <div class="flex justify-between text-sm">
@@ -251,41 +292,7 @@
 @section('scripts')
 <script>
 (function() {
-    const i18n = {
-        loading: '<?= t('common.labels.loading') ?>',
-        noFines: '<?= t('modules.multas.messages.no_records') ?>',
-        paginationShowing: '<?= t('modules.multas.central.pagination.showing') ?>',
-        badgeQuery: '<?= t('modules.multas.central.badges.origin_query') ?>',
-        badgeEvent: '<?= t('modules.multas.central.badges.origin_event') ?>',
-        badgeManual: '<?= t('modules.multas.central.badges.origin_manual') ?>',
-        badgePaid: '<?= t('modules.multas.central.badges.paid') ?>',
-        badgePending: '<?= t('modules.multas.central.badges.pending') ?>',
-        markPaidTitle: '<?= t('modules.multas.central.confirm.mark_paid_title') ?>',
-        markPaidMessage: '<?= t('modules.multas.central.confirm.mark_paid_message') ?>',
-        revertTitle: '<?= t('modules.multas.central.confirm.revert_title') ?>',
-        revertMessage: '<?= t('modules.multas.central.confirm.revert_message') ?>',
-        cannotDeletePaid: '<?= t('modules.multas.central.confirm.cannot_delete_paid') ?>',
-        activateAutoQueryTitle: '<?= t('modules.multas.central.confirm.activate_auto_query_title') ?>',
-        activateAutoQueryMessage: '<?= t('modules.multas.central.confirm.activate_auto_query_message') ?>',
-        activateAutoEventsTitle: '<?= t('modules.multas.central.confirm.activate_auto_events_title') ?>',
-        activateAutoEventsMessage: '<?= t('modules.multas.central.confirm.activate_auto_events_message') ?>',
-        confirmActivate: '<?= t('modules.multas.central.confirm.confirm_activate') ?>',
-        fineDeleted: '<?= t('modules.multas.central.toast.fine_deleted') ?>',
-        fineMarkedPaid: '<?= t('modules.multas.central.toast.fine_marked_paid') ?>',
-        paymentReverted: '<?= t('modules.multas.central.toast.payment_reverted') ?>',
-        configError: '<?= t('modules.multas.central.toast.config_error') ?>',
-        lastQuery: '<?= t('modules.multas.central.automation.last_query') ?>',
-        rankingNoData: '<?= t('modules.multas.central.ranking.no_data') ?>',
-        thisRecord: '<?= t('modules.multas.messages.this_record') ?>',
-        recordType: '<?= t('modules.multas.record_type') ?>',
-        actionEdit: '<?= t('modules.multas.central.actions.edit') ?>',
-        actionNominate: '<?= t('modules.multas.central.actions.nominate') ?>',
-        actionMarkPaid: '<?= t('modules.multas.central.actions.mark_paid') ?>',
-        actionMarkUnpaid: '<?= t('modules.multas.central.actions.mark_unpaid') ?>',
-        actionDelete: '<?= t('modules.multas.central.actions.delete') ?>',
-        actionPrint: '<?= addslashes(t('modules.multas.central.actions.print')) ?>',
-        printTitle: '<?= addslashes(t('modules.multas.print.title')) ?>',
-    };
+    const i18n = <?= json_encode($i18nMultasCentral, $jsFlags) ?>;
 
     let currentPage = 1;
     let perPage = 15;

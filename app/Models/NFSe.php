@@ -276,6 +276,8 @@ class NFSe extends Model
                 'chave_acesso' => $dados['chave_acesso'] ?? null,
                 'xml_retorno' => $dados['xml_retorno'] ?? null,
                 'data_emissao' => $dados['data_emissao'] ?? date('Y-m-d H:i:s'),
+                'codigo_rejeicao' => null,
+                'motivo_rejeicao' => null,
             ]);
     }
 

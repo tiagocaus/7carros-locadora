@@ -19,6 +19,7 @@ use App\Helpers\PdfHelper;
 use App\Config\Planos;
 use App\Services\AuditLogService;
 use App\Services\ComissaoInvestidorService;
+use App\Services\PagamentoLinkSyncService;
 use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
 
 /**
@@ -439,6 +440,8 @@ class FinanceiroController
             $itensDepois = isset($dados['itens']) && is_array($dados['itens']) ? count($dados['itens']) : 0;
             $valorSubtotalOriginal = floatval($lancamento['valor_subtotal'] ?? 0);
 
+            (new PagamentoLinkSyncService())->invalidarSeDadosAfetamCobranca($id, $chave, $dados);
+
             // Atualizar lancamento com auditoria
             $financeiroModel->atualizarComAuditoria($id, $dados);
 
@@ -551,6 +554,8 @@ class FinanceiroController
             $valorPago = currency_parse($dados['valor_pago'] ?? 0);
             $dataPago = $dados['data_pago'] ?? date('Y-m-d');
             $dataVenciDiferenca = $dados['data_venci_diferenca'] ?? ($lancamento['data_venci'] ?? date('Y-m-d'));
+
+            (new PagamentoLinkSyncService())->invalidarLinksPendentes($id, $chave);
 
             $resultado = $financeiroModel->baixarParcial(
                 $id,
@@ -1003,35 +1008,11 @@ class FinanceiroController
                 return;
             }
 
-            $linkModel = new PagamentoLink();
-
-            // Verificar se ja existe link pendente
-            $linkExistente = $linkModel->buscarPorFinanceiro($id);
-
-            if ($linkExistente) {
-                Response::json([
-                    'success' => true,
-                    'url' => $linkModel->getUrl($linkExistente['codigo'])
-                ]);
-                return;
-            }
-
-            // Criar novo link
-            $linkId = $linkModel->criar([
-                'chave' => $chave,
-                'id_financeiro' => $id,
-                'id_cliente' => $financeiro['id_cliente'] ?? null,
-                'valor' => $financeiro['valor_total'],
-                'descricao' => $financeiro['descricao'],
-                'expires_at' => date('Y-m-d H:i:s', strtotime('+30 days'))
-            ]);
-
-            // Buscar o link criado para obter o codigo
-            $novoLink = $linkModel->buscarPorId($linkId);
+            $link = (new PagamentoLinkSyncService())->obterOuCriarLinkAtualizado($id, $chave);
 
             Response::json([
                 'success' => true,
-                'url' => $linkModel->getUrl($novoLink['codigo'])
+                'url' => $link['url']
             ]);
 
         } catch (\Exception $e) {

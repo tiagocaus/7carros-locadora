@@ -142,23 +142,23 @@
 <script>
 (function () {
     const i18n = {
-        loading: '<?= addslashes(t("common.labels.loading")) ?>',
-        noRecords: '<?= addslashes(t("modules.comissoes_investidores.messages.no_records")) ?>',
-        loadError: '<?= addslashes(t("modules.comissoes_investidores.messages.load_error")) ?>',
-        serverError: '<?= addslashes(t("modules.comissoes_investidores.messages.server_error")) ?>',
-        showingPagination: '<?= addslashes(t("modules.comissoes_investidores.pagination.showing")) ?>',
-        statusPending: '<?= addslashes(t("modules.comissoes_investidores.status_options.pending")) ?>',
-        statusPaid: '<?= addslashes(t("modules.comissoes_investidores.status_options.paid")) ?>',
-        statusCancelled: '<?= addslashes(t("modules.comissoes_investidores.status_options.cancelled")) ?>',
-        typeRental: '<?= addslashes(t("modules.comissoes_investidores.type_options.rental")) ?>',
-        typeContract: '<?= addslashes(t("modules.comissoes_investidores.type_options.contract")) ?>',
-        typeMonthly: '<?= addslashes(t("modules.comissoes_investidores.type_options.monthly")) ?>',
-        actionMarkPaid: '<?= addslashes(t("modules.comissoes_investidores.actions.mark_paid")) ?>',
-        actionCancel: '<?= addslashes(t("modules.comissoes_investidores.actions.cancel")) ?>',
-        confirmPayment: '<?= addslashes(t("modules.comissoes_investidores.messages.confirm_payment")) ?>',
-        paidSuccess: '<?= addslashes(t("modules.comissoes_investidores.messages.paid_success")) ?>',
-        cancelReason: '<?= addslashes(t("modules.comissoes_investidores.messages.cancel_reason")) ?>',
-        cancelledSuccess: '<?= addslashes(t("modules.comissoes_investidores.messages.cancelled_success")) ?>',
+        loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        noRecords: <?= json_encode(t('modules.comissoes_investidores.messages.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadError: <?= json_encode(t('modules.comissoes_investidores.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        serverError: <?= json_encode(t('modules.comissoes_investidores.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        showingPagination: <?= json_encode(t('modules.comissoes_investidores.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        statusPending: <?= json_encode(t('modules.comissoes_investidores.status_options.pending'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        statusPaid: <?= json_encode(t('modules.comissoes_investidores.status_options.paid'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        statusCancelled: <?= json_encode(t('modules.comissoes_investidores.status_options.cancelled'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        typeRental: <?= json_encode(t('modules.comissoes_investidores.type_options.rental'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        typeContract: <?= json_encode(t('modules.comissoes_investidores.type_options.contract'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        typeMonthly: <?= json_encode(t('modules.comissoes_investidores.type_options.monthly'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionMarkPaid: <?= json_encode(t('modules.comissoes_investidores.actions.mark_paid'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionCancel: <?= json_encode(t('modules.comissoes_investidores.actions.cancel'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        confirmPayment: <?= json_encode(t('modules.comissoes_investidores.messages.confirm_payment'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        paidSuccess: <?= json_encode(t('modules.comissoes_investidores.messages.paid_success'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        cancelReason: <?= json_encode(t('modules.comissoes_investidores.messages.cancel_reason'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        cancelledSuccess: <?= json_encode(t('modules.comissoes_investidores.messages.cancelled_success'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     // Estado
@@ -337,7 +337,7 @@
             action: 'openGenericConfirmModal',
             title: i18n.actionMarkPaid,
             message: i18n.confirmPayment,
-            confirmText: '<?= addslashes(t("common.buttons.confirm")) ?>'
+            confirmText: <?= json_encode(t('common.buttons.confirm'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
         }, '*');
     }
 
@@ -363,7 +363,7 @@
             action: 'openInputModal',
             title: i18n.actionCancel,
             message: i18n.cancelReason,
-            confirmText: '<?= addslashes(t("common.buttons.confirm")) ?>'
+            confirmText: <?= json_encode(t('common.buttons.confirm'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
         }, '*');
     }
 

@@ -40,33 +40,37 @@
 @endsection
 
 @section('scripts')
+<?php
+$jsFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+$agendaI18n = [
+    'groups' => t('modules.agenda.resources.groups'),
+    'vehicles' => t('modules.agenda.resources.vehicles'),
+    'general' => t('modules.agenda.resources.general'),
+    'generalSchedule' => t('modules.agenda.resources.general_schedule'),
+    'reservations' => t('modules.agenda.resources.reservations'),
+    'all' => t('modules.agenda.filters.all'),
+    'reservation' => t('modules.agenda.filters.reservation'),
+    'rental' => t('modules.agenda.filters.rental'),
+    'contract' => t('modules.agenda.filters.contract'),
+    'maintenanceOngoing' => t('modules.agenda.filters.maintenance_ongoing'),
+    'maintenanceScheduled' => t('modules.agenda.filters.maintenance_scheduled'),
+    'schedule' => t('modules.agenda.filters.schedule'),
+    'monthNames' => [
+        t('modules.agenda.months.january'), t('modules.agenda.months.february'), t('modules.agenda.months.march'),
+        t('modules.agenda.months.april'), t('modules.agenda.months.may'), t('modules.agenda.months.june'),
+        t('modules.agenda.months.july'), t('modules.agenda.months.august'), t('modules.agenda.months.september'),
+        t('modules.agenda.months.october'), t('modules.agenda.months.november'), t('modules.agenda.months.december'),
+    ],
+    'dayNames' => [
+        t('modules.agenda.days.sun'), t('modules.agenda.days.mon'), t('modules.agenda.days.tue'),
+        t('modules.agenda.days.wed'), t('modules.agenda.days.thu'), t('modules.agenda.days.fri'),
+        t('modules.agenda.days.sat'),
+    ],
+    'loadError' => t('modules.agenda.messages.load_error'),
+];
+?>
 <script>
-    window.AGENDA_I18N = {
-        groups: '<?= t('modules.agenda.resources.groups') ?>',
-        vehicles: '<?= t('modules.agenda.resources.vehicles') ?>',
-        general: '<?= t('modules.agenda.resources.general') ?>',
-        generalSchedule: '<?= t('modules.agenda.resources.general_schedule') ?>',
-        reservations: '<?= t('modules.agenda.resources.reservations') ?>',
-        all: '<?= t('modules.agenda.filters.all') ?>',
-        reservation: '<?= t('modules.agenda.filters.reservation') ?>',
-        rental: '<?= t('modules.agenda.filters.rental') ?>',
-        contract: '<?= t('modules.agenda.filters.contract') ?>',
-        maintenanceOngoing: '<?= t('modules.agenda.filters.maintenance_ongoing') ?>',
-        maintenanceScheduled: '<?= t('modules.agenda.filters.maintenance_scheduled') ?>',
-        schedule: '<?= t('modules.agenda.filters.schedule') ?>',
-        monthNames: <?= json_encode([
-            t('modules.agenda.months.january'), t('modules.agenda.months.february'), t('modules.agenda.months.march'),
-            t('modules.agenda.months.april'), t('modules.agenda.months.may'), t('modules.agenda.months.june'),
-            t('modules.agenda.months.july'), t('modules.agenda.months.august'), t('modules.agenda.months.september'),
-            t('modules.agenda.months.october'), t('modules.agenda.months.november'), t('modules.agenda.months.december'),
-        ]) ?>,
-        dayNames: <?= json_encode([
-            t('modules.agenda.days.sun'), t('modules.agenda.days.mon'), t('modules.agenda.days.tue'),
-            t('modules.agenda.days.wed'), t('modules.agenda.days.thu'), t('modules.agenda.days.fri'),
-            t('modules.agenda.days.sat'),
-        ]) ?>,
-        loadError: '<?= t('modules.agenda.messages.load_error') ?>',
-    };
+    window.AGENDA_I18N = <?= json_encode($agendaI18n, $jsFlags) ?>;
 </script>
 <script src="<?= asset('js/agenda.min.js'); ?>"></script>
 @endsection

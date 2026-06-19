@@ -249,6 +249,14 @@ class LocacaoTaxaServico extends Model
         return $total;
     }
 
+    public function atualizarTotalCalculado(int $id, float $valorTotal): int
+    {
+        return $this->qb
+            ->table('locacoes_taxaseservicos')
+            ->where('id', '=', $id)
+            ->update(['valor_total' => round($valorTotal, 2)]);
+    }
+
     /**
      * Calcula o total de taxas de uma locacao
      *

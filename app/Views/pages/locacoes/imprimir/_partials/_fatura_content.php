@@ -19,6 +19,39 @@ $_formatarOdometroFatura = static function($valor): string {
 
     return number_format((int) $valor, 0, ',', '.') . ' km';
 };
+$_formatarCombustivelFatura = static function($nivel) use (&$locacao): string {
+    if ($nivel === null || $nivel === '') {
+        return '-';
+    }
+
+    $labels = [
+        8 => t('modules.locacoes.fuel_levels.full'),
+        7 => '7/8',
+        6 => '3/4',
+        5 => '5/8',
+        4 => '1/2',
+        3 => '3/8',
+        2 => '1/4',
+        1 => '1/8',
+        0 => t('modules.locacoes.fuel_levels.reserve'),
+    ];
+
+    if (($locacao['veiculo_tipo_combustivel'] ?? '') === 'HE') {
+        $labels = [
+            8 => '100%',
+            7 => '87%',
+            6 => '75%',
+            5 => '62%',
+            4 => '50%',
+            3 => '37%',
+            2 => '25%',
+            1 => '12%',
+            0 => '0%',
+        ];
+    }
+
+    return $labels[(int) $nivel] ?? '-';
+};
 $_formatarDataFatura = static function($valor, bool $comHora = false): string {
     if (empty($valor)) {
         return '-';
@@ -72,16 +105,22 @@ $_formatarVeiculoFatura = static function(array $item): string {
     <div class="section-title"><?= $_faturaDadosTitulo ?></div>
     <table class="data-table">
         <tr>
-            <td style="width: 15%;"><strong><?= t('modules.locacoes.pdf.checkout_label') ?></strong></td>
-            <td style="width: 35%;"><?= !empty($locacao['data_saida']) ? date('d/m/Y H:i', strtotime($locacao['data_saida'])) : '-' ?></td>
-            <td style="width: 15%;"><strong><?= t('modules.locacoes.pdf.expected_return_label') ?></strong></td>
-            <td style="width: 35%;"><?= !empty($locacao['data_prevista']) ? date('d/m/Y H:i', strtotime($locacao['data_prevista'])) : '-' ?></td>
+            <td style="width: 25%;"><strong><?= t('modules.locacoes.pdf.checkout_label') ?></strong></td>
+            <td style="width: 25%;"><?= !empty($locacao['data_saida']) ? date('d/m/Y H:i', strtotime($locacao['data_saida'])) : '-' ?></td>
+            <td style="width: 25%;"><strong><?= t('modules.locacoes.pdf.expected_return_label') ?></strong></td>
+            <td style="width: 25%;"><?= !empty($locacao['data_prevista']) ? date('d/m/Y H:i', strtotime($locacao['data_prevista'])) : '-' ?></td>
         </tr>
         <tr>
             <td><strong><?= t('modules.locacoes.odometer_fuel.odometer_out') ?></strong></td>
             <td><?= $_formatarOdometroFatura($locacao['odometro_ini'] ?? null) ?></td>
             <td><strong><?= t('modules.locacoes.odometer_fuel.odometer_return') ?></strong></td>
             <td><?= $_formatarOdometroFatura($locacao['odometro_fim'] ?? null) ?></td>
+        </tr>
+        <tr>
+            <td><strong><?= t('modules.locacoes.odometer_fuel.fuel_out') ?></strong></td>
+            <td><?= $_formatarCombustivelFatura($locacao['combustivel_ini'] ?? null) ?></td>
+            <td><strong><?= t('modules.locacoes.odometer_fuel.fuel_return') ?></strong></td>
+            <td><?= $_formatarCombustivelFatura($locacao['combustivel_fim'] ?? null) ?></td>
         </tr>
         <tr>
             <td><strong><?= t('modules.locacoes.pdf.days_label') ?></strong></td>
@@ -171,8 +210,9 @@ $_formatarVeiculoFatura = static function(array $item): string {
         ];
     }
 
-    $kmExcedenteFatura = (int) ($locacao['kmlExcedente'] ?? $locacao['km_excedente'] ?? 0);
-    $valorKmExcedenteFatura = (float) ($locacao['km_valor'] ?? 0);
+    $totaisResumoFatura = is_array($totaisResumoFatura ?? null) ? $totaisResumoFatura : [];
+    $kmExcedenteFatura = (int) ($totaisResumoFatura['km_excedente'] ?? $locacao['kmlExcedente'] ?? $locacao['km_excedente'] ?? 0);
+    $valorKmExcedenteFatura = (float) ($totaisResumoFatura['valor_km_excedente'] ?? $locacao['km_valor'] ?? 0);
     if ($kmExcedenteFatura > 0 && $valorKmExcedenteFatura > 0) {
         $linhasFatura[] = [
             'descricao' => t('modules.locacoes.pdf.km_excess_label'),
@@ -182,43 +222,14 @@ $_formatarVeiculoFatura = static function(array $item): string {
         ];
     }
 
-    $fuelLabel = function($nivel) use ($locacao) {
-        $labels = [
-            8 => t('modules.locacoes.fuel_levels.full'),
-            7 => '7/8',
-            6 => '3/4',
-            5 => '5/8',
-            4 => '1/2',
-            3 => '3/8',
-            2 => '1/4',
-            1 => '1/8',
-            0 => t('modules.locacoes.fuel_levels.reserve'),
-        ];
-
-        if (($locacao['veiculo_tipo_combustivel'] ?? '') === 'HE') {
-            $labels = [
-                8 => '100%',
-                7 => '87%',
-                6 => '75%',
-                5 => '62%',
-                4 => '50%',
-                3 => '37%',
-                2 => '25%',
-                1 => '12%',
-                0 => '0%',
-            ];
-        }
-
-        return $labels[(int) $nivel] ?? '-';
-    };
-
-    $combustivelValorFatura = (float) ($locacao['combustivel_valor'] ?? 0);
+    $combustivelValorFatura = (float) ($totaisResumoFatura['total_combustivel'] ?? $locacao['combustivel_valor'] ?? 0);
     if ($combustivelValorFatura > 0) {
-        $combustivelUsado = max(1, (int) ($locacao['combustivel_usado'] ?? 1));
+        $combustivelUsado = max(1, (int) ($totaisResumoFatura['combustivel_usado'] ?? $locacao['combustivel_usado'] ?? 1));
+        $valorCombustivelUnitario = (float) ($totaisResumoFatura['valor_combustivel_unitario'] ?? 0);
         $linhasFatura[] = [
-            'descricao' => t('modules.locacoes.pdf.fuel_charge_label') . ' - ' . $fuelLabel($locacao['combustivel_ini'] ?? null) . ' ' . t('modules.locacoes.pdf.to_label') . ' ' . $fuelLabel($locacao['combustivel_fim'] ?? null),
+            'descricao' => t('modules.locacoes.pdf.fuel_charge_label') . ' - ' . $_formatarCombustivelFatura($locacao['combustivel_ini'] ?? null) . ' ' . t('modules.locacoes.pdf.to_label') . ' ' . $_formatarCombustivelFatura($locacao['combustivel_fim'] ?? null),
             'qtd' => t_choice('modules.locacoes.pdf.fraction_count', $combustivelUsado),
-            'unitario' => $combustivelValorFatura / $combustivelUsado,
+            'unitario' => $valorCombustivelUnitario > 0 ? $valorCombustivelUnitario : $combustivelValorFatura / $combustivelUsado,
             'total' => $combustivelValorFatura,
         ];
     }
@@ -561,8 +572,8 @@ $_formatarVeiculoFatura = static function(array $item): string {
                 <td>
                     <?php if (!empty($locacao['caucao_data_devolucao'])): ?>
                         <?= t('modules.locacoes.deposit.returned') ?> (<?= date('d/m/Y', strtotime($locacao['caucao_data_devolucao'])) ?>)
-                    <?php elseif (!empty($locacao['caucao_prazo_devolucao'])): ?>
-                        <?= t('modules.locacoes.deposit.return_days') ?>: <?= (int) $locacao['caucao_prazo_devolucao'] ?> <?= t('modules.locacoes.summary_section.days') ?>
+                    <?php elseif (isset($locacao['caucao_prazo_devolucao']) && $locacao['caucao_prazo_devolucao'] !== ''): ?>
+                        <?= t('modules.locacoes.deposit.return_days') ?>: <?= (int) $locacao['caucao_prazo_devolucao'] === 0 ? t('modules.locacoes.deposit.return_on_closing') : (int) $locacao['caucao_prazo_devolucao'] . ' ' . t('modules.locacoes.summary_section.days') ?>
                     <?php else: ?>
                         <?= t('modules.locacoes.deposit.pending') ?>
                     <?php endif; ?>

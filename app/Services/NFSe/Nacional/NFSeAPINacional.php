@@ -32,7 +32,7 @@ class NFSeAPINacional implements NFSeAPIInterface
 
         $payload = json_encode(['dpsXmlGZipB64' => $dpsXmlGZipB64]);
 
-        return $this->request('POST', $url, $certPath, $keyPath, $payload, [
+        return $this->request('POST', $url, $certPath, $keyPath, (int) $ambiente, $payload, [
             'Content-Type: application/json',
             'Accept: application/json',
         ]);
@@ -42,7 +42,7 @@ class NFSeAPINacional implements NFSeAPIInterface
     {
         $url = $this->getBaseUrl($ambiente) . '/nfse/' . urlencode($chaveAcesso);
 
-        return $this->request('GET', $url, $certPath, $keyPath, null, [
+        return $this->request('GET', $url, $certPath, $keyPath, (int) $ambiente, null, [
             'Accept: application/json',
         ]);
     }
@@ -56,7 +56,7 @@ class NFSeAPINacional implements NFSeAPIInterface
 
         $payload = json_encode(['pedidoRegistroEventoXmlGZipB64' => $gzipB64]);
 
-        return $this->request('POST', $url, $certPath, $keyPath, $payload, [
+        return $this->request('POST', $url, $certPath, $keyPath, (int) $ambiente, $payload, [
             'Content-Type: application/json',
             'Accept: application/json',
         ]);
@@ -66,25 +66,42 @@ class NFSeAPINacional implements NFSeAPIInterface
     {
         $url = $this->getBaseUrl($ambiente);
 
-        $result = $this->request('GET', $url, $certPath, $keyPath, null, [
+        $result = $this->request('GET', $url, $certPath, $keyPath, (int) $ambiente, null, [
             'Accept: application/json',
         ]);
 
         if ($result['sucesso']) {
-            return ['sucesso' => true, 'mensagem' => 'Conexão com SEFIN Nacional estabelecida com sucesso.'];
+            return [
+                'sucesso' => true,
+                'mensagem' => 'Conexão com SEFIN Nacional estabelecida com sucesso.',
+                'diagnostico' => $result['diagnostico'] ?? [],
+            ];
         }
 
-        return ['sucesso' => false, 'mensagem' => $result['erro'] ?? 'Falha na conexão.'];
+        if (($result['httpCode'] ?? 0) > 0) {
+            return [
+                'sucesso' => true,
+                'mensagem' => 'Conexão com SEFIN Nacional estabelecida.',
+                'diagnostico' => $result['diagnostico'] ?? [],
+            ];
+        }
+
+        return [
+            'sucesso' => false,
+            'mensagem' => $result['erro'] ?? 'Falha na conexão.',
+            'diagnostico' => $result['diagnostico'] ?? [],
+        ];
     }
 
     /**
      * Executa requisicao HTTP com mTLS
      */
-    private function request(string $method, string $url, string $certPath, string $keyPath, ?string $payload, array $headers): array
+    private function request(string $method, string $url, string $certPath, string $keyPath, int $ambiente, ?string $payload, array $headers): array
     {
         $ch = curl_init();
+        $caBundlePath = $this->getCaBundlePath();
 
-        curl_setopt_array($ch, [
+        $curlOptions = [
             CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSLCERT => $certPath,
@@ -94,7 +111,13 @@ class NFSeAPINacional implements NFSeAPIInterface
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
-        ]);
+        ];
+
+        if ($caBundlePath !== null) {
+            $curlOptions[CURLOPT_CAINFO] = $caBundlePath;
+        }
+
+        curl_setopt_array($ch, $curlOptions);
 
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
@@ -111,12 +134,16 @@ class NFSeAPINacional implements NFSeAPIInterface
 
         if ($curlErrno !== 0) {
             $codigoErro = $this->mapearErroCurl($curlErrno);
+            $diagnostico = $this->diagnosticoCurl($url, $ambiente, $curlErrno, $curlError, 0, $caBundlePath !== null);
+
             return [
                 'sucesso' => false,
                 'resposta' => '',
                 'httpCode' => 0,
                 'erro' => NFSeErros::getMensagem($codigoErro),
                 'codigoErro' => $codigoErro,
+                'erroTecnico' => $diagnostico['curl_error'],
+                'diagnostico' => $diagnostico,
             ];
         }
 
@@ -126,6 +153,13 @@ class NFSeAPINacional implements NFSeAPIInterface
             'sucesso' => $sucesso,
             'resposta' => $response ?: '',
             'httpCode' => $httpCode,
+            'diagnostico' => [
+                'emissor' => 'nacional',
+                'ambiente' => $ambiente,
+                'url' => $url,
+                'httpCode' => $httpCode,
+                'caBundleLocal' => $caBundlePath !== null,
+            ],
         ];
     }
 
@@ -141,8 +175,44 @@ class NFSeAPINacional implements NFSeAPIInterface
             CURLE_COULDNT_CONNECT => 'CONN_REFUSED',
             CURLE_SSL_CONNECT_ERROR,
             CURLE_SSL_CERTPROBLEM,
+            CURLE_SSL_CACERT_BADFILE,
             CURLE_SSL_CACERT => 'CONN_SSL',
             default => 'CONN_CURL',
         };
+    }
+
+    private function getCaBundlePath(): ?string
+    {
+        $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 4);
+        $path = $appRoot . '/storage/certificates/certs/cacert.pem';
+
+        return is_readable($path) ? $path : null;
+    }
+
+    private function diagnosticoCurl(string $url, int $ambiente, int $errno, string $error, int $httpCode, bool $caBundleLocal): array
+    {
+        return [
+            'emissor' => 'nacional',
+            'ambiente' => $ambiente,
+            'url' => $url,
+            'httpCode' => $httpCode,
+            'curl_errno' => $errno,
+            'curl_error' => $this->sanitizarErroCurl($error),
+            'categoria' => $this->mapearErroCurl($errno),
+            'caBundleLocal' => $caBundleLocal,
+        ];
+    }
+
+    private function sanitizarErroCurl(string $error): string
+    {
+        $error = trim($error);
+        if ($error === '') {
+            return '';
+        }
+
+        $tmp = preg_quote(sys_get_temp_dir(), '/');
+        $error = preg_replace('/' . $tmp . '\/nfse_(cert|key)_[A-Za-z0-9_.-]+\.pem/', '[arquivo-temporario-pem]', $error) ?? $error;
+
+        return mb_substr($error, 0, 500);
     }
 }

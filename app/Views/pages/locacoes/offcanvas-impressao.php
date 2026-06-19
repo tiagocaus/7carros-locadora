@@ -139,15 +139,40 @@ $printPageTitle = $isReservaConfirmada ? t('modules.locacoes.print.reservation_t
         </div>
     </div>
 
-    <!-- Select de Modelo Checklist Impresso (condicional) -->
+    <!-- Select de Checklist (condicional) -->
     <div id="containerChecklistModelo" class="mb-4 hidden">
         <div class="form-input-group">
-            <label for="selectChecklistModelo" class="form-label-group"><?= t('modules.locacoes.print.select_checklist_model') ?></label>
-            <select id="selectChecklistModelo" class="form-input-group-field">
+            <label for="selectChecklistFonte" class="form-label-group"><?= t('modules.locacoes.print.select_checklist_model') ?></label>
+            <select id="selectChecklistFonte" class="form-input-group-field">
                 <option value="" disabled selected><?= t('modules.locacoes.print.select_checklist_placeholder') ?></option>
+                <?php if (!empty($checklistModelos)): ?>
+                <optgroup label="Modelos impressos">
                 <?php foreach ($checklistModelos as $modelo): ?>
-                <option value="<?= (int) $modelo['id'] ?>"><?= htmlspecialchars($modelo['nome']) ?></option>
+                <option value="modelo:<?= (int) $modelo['id'] ?>">
+                    <?= htmlspecialchars($modelo['nome']) ?><?= ($modelo['chave'] ?? '') === '0' ? ' (Sistema)' : '' ?>
+                </option>
                 <?php endforeach; ?>
+                </optgroup>
+                <?php endif; ?>
+                <?php if (!empty($checklistsDigitais)): ?>
+                <optgroup label="Checklists digitais realizados">
+                <?php foreach ($checklistsDigitais as $checklist): ?>
+                <?php
+                    $momento = ($checklist['momento'] ?? '') === 'C' ? 'Chegada' : 'Saida';
+                    $veiculoLabel = trim(implode(' ', array_filter([
+                        $checklist['placa'] ?? '',
+                        $checklist['marca'] ?? '',
+                        $checklist['veiculo_modelo'] ?? '',
+                    ])));
+                    $dataLabel = !empty($checklist['data_checklist'])
+                        ? date('d/m/Y H:i', strtotime($checklist['data_checklist']))
+                        : '';
+                    $digitalLabel = trim(implode(' - ', array_filter([$momento, $veiculoLabel, $dataLabel])));
+                ?>
+                <option value="digital:<?= (int) $checklist['id'] ?>"><?= htmlspecialchars($digitalLabel) ?></option>
+                <?php endforeach; ?>
+                </optgroup>
+                <?php endif; ?>
             </select>
         </div>
     </div>
@@ -206,7 +231,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const TIPOS_COM_CHECKLIST = ['checklist', 'fatura_checklist', 'fatura_checklist_documento', 'documento_checklist'];
     const containerDoc = document.getElementById('containerDocumento');
     const containerCkModelo = document.getElementById('containerChecklistModelo');
-    const temChecklistDigital = <?= $temChecklistDigital ? 'true' : 'false' ?>;
+    const selectChecklistFonte = document.getElementById('selectChecklistFonte');
+
+    function getChecklistSelecionado() {
+        const value = selectChecklistFonte.value || '';
+        const [tipo, id] = value.split(':');
+        return {
+            tipo: tipo || '',
+            id: id ? parseInt(id, 10) : 0
+        };
+    }
 
     // Atualizar visibilidade dos selects condicionais
     document.querySelectorAll('input[name="tipoImpressao"]').forEach(function(radio) {
@@ -216,7 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 containerDoc.classList.add('hidden');
             }
-            if (TIPOS_COM_CHECKLIST.includes(this.value) && !temChecklistDigital) {
+            if (TIPOS_COM_CHECKLIST.includes(this.value)) {
                 containerCkModelo.classList.remove('hidden');
             } else {
                 containerCkModelo.classList.add('hidden');
@@ -229,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const locacaoId = document.getElementById('locacaoId').value;
         const tipo = document.querySelector('input[name="tipoImpressao"]:checked').value;
         const idDocumento = document.getElementById('selectDocumento').value;
-        const idChecklistModelo = document.getElementById('selectChecklistModelo').value;
+        const checklistSelecionado = getChecklistSelecionado();
         const codigo = document.getElementById('locacaoCodigo').value;
 
         // Validar documento selecionado para tipos que exigem documento
@@ -241,8 +275,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Validar modelo de checklist para tipos impresso
-        if (TIPOS_COM_CHECKLIST.includes(tipo) && !temChecklistDigital && !idChecklistModelo) {
+        // Validar checklist selecionado para tipos com checklist
+        if (TIPOS_COM_CHECKLIST.includes(tipo) && !checklistSelecionado.id) {
             window.parent.postMessage({
                 action: 'openAlert',
                 message: i18n.selectChecklistBeforePdf
@@ -254,8 +288,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (idDocumento) {
             url += '&id_documento=' + idDocumento;
         }
-        if (idChecklistModelo) {
-            url += '&id_checklist_modelo=' + idChecklistModelo;
+        if (checklistSelecionado.id && checklistSelecionado.tipo === 'modelo') {
+            url += '&id_checklist_modelo=' + checklistSelecionado.id;
+        }
+        if (checklistSelecionado.id && checklistSelecionado.tipo === 'digital') {
+            url += '&id_checklist_digital=' + checklistSelecionado.id;
         }
 
         // Abrir PDF no modal fullscreen
@@ -276,7 +313,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const locacaoId = document.getElementById('locacaoId').value;
             const tipo = document.querySelector('input[name="tipoImpressao"]:checked').value;
             const idDocumento = document.getElementById('selectDocumento').value;
-            const idChecklistModelo = document.getElementById('selectChecklistModelo').value;
+            const checklistSelecionado = getChecklistSelecionado();
 
             // Validar documento selecionado para tipos que exigem documento
             if (TIPOS_COM_DOCUMENTO.includes(tipo) && !idDocumento) {
@@ -287,8 +324,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Validar modelo de checklist para tipos impresso
-            if (TIPOS_COM_CHECKLIST.includes(tipo) && !temChecklistDigital && !idChecklistModelo) {
+            // Validar checklist selecionado para tipos com checklist
+            if (TIPOS_COM_CHECKLIST.includes(tipo) && !checklistSelecionado.id) {
                 window.parent.postMessage({
                     action: 'openAlert',
                     message: i18n.selectChecklistBeforeSend
@@ -306,7 +343,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     tipo: tipo,
                     canal: canal,
                     id_documento: idDocumento ? parseInt(idDocumento) : 0,
-                    id_checklist_modelo: idChecklistModelo ? parseInt(idChecklistModelo) : 0
+                    id_checklist_modelo: checklistSelecionado.tipo === 'modelo' ? checklistSelecionado.id : 0,
+                    id_checklist_digital: checklistSelecionado.tipo === 'digital' ? checklistSelecionado.id : 0
                 });
                 window.parent.postMessage({
                     action: 'openAlert',

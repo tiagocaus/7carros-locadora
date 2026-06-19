@@ -3,6 +3,7 @@
 namespace App\Crons\Jobs;
 
 use App\Core\Database;
+use App\Services\PagamentoLinkSyncService;
 use mysqli;
 
 /**
@@ -47,17 +48,21 @@ class CalculateOverdueFeesJob extends BaseJob
             ];
         }
 
-        $atualizados = $this->atualizarEncargos($mysqli);
+        $resultadoAtualizacao = $this->atualizarEncargos($mysqli);
         $mysqli->close();
 
-        $this->log("Lancamentos atualizados: {$atualizados}");
+        $this->limparContextoTenant();
+
+        $this->log("Lancamentos atualizados: {$resultadoAtualizacao['atualizados']}");
 
         return [
-            'success' => true,
-            'message' => "{$atualizados} lancamento(s) vencido(s) atualizado(s)",
+            'success' => empty($resultadoAtualizacao['erros']),
+            'message' => "{$resultadoAtualizacao['atualizados']} lancamento(s) vencido(s) atualizado(s)",
             'data' => [
                 'elegiveis' => $statsAntes['total'],
-                'atualizados' => $atualizados,
+                'atualizados' => $resultadoAtualizacao['atualizados'],
+                'bloqueados_por_gateway' => count($resultadoAtualizacao['erros']),
+                'erros' => $resultadoAtualizacao['erros'],
                 'batch_size' => self::BATCH_SIZE,
             ],
         ];
@@ -103,56 +108,116 @@ class CalculateOverdueFeesJob extends BaseJob
         ];
     }
 
-    private function atualizarEncargos(mysqli $mysqli): int
+    private function atualizarEncargos(mysqli $mysqli): array
     {
         $limit = self::BATCH_SIZE;
         $sql = "
-            UPDATE financeiro f
-            INNER JOIN formas_pagamento fp
-                ON fp.id = f.id_forma_pagamento
-                AND fp.chave = f.chave
-            INNER JOIN (
-                SELECT f2.id
-                FROM financeiro f2
-                INNER JOIN formas_pagamento fp2
-                    ON fp2.id = f2.id_forma_pagamento
-                    AND fp2.chave = f2.chave
-                WHERE f2.tipo = 'R'
-                    AND f2.pago = 'N'
-                    AND f2.data_venci IS NOT NULL
-                    AND f2.data_venci <> '0000-00-00'
-                    AND f2.data_venci < CURDATE()
-                    AND COALESCE(f2.valor_subtotal, 0) > 0
-                    AND (COALESCE(fp2.multa, 0) > 0 OR COALESCE(fp2.juros_por_dia, 0) > 0)
-                    AND (
-                        ABS(COALESCE(f2.multa, 0) - ROUND(f2.valor_subtotal * (COALESCE(fp2.multa, 0) / 100), 2)) > 0.009
-                        OR ABS(COALESCE(f2.juros, 0) - ROUND(f2.valor_subtotal * (COALESCE(fp2.juros_por_dia, 0) / 100) * DATEDIFF(CURDATE(), f2.data_venci), 2)) > 0.009
-                        OR ABS(COALESCE(f2.valor_total, 0) - (
-                            f2.valor_subtotal
-                            + ROUND(f2.valor_subtotal * (COALESCE(fp2.multa, 0) / 100), 2)
-                            + ROUND(f2.valor_subtotal * (COALESCE(fp2.juros_por_dia, 0) / 100) * DATEDIFF(CURDATE(), f2.data_venci), 2)
-                            - COALESCE(f2.desconto, 0)
-                        )) > 0.009
-                    )
-                ORDER BY f2.data_venci ASC, f2.id ASC
-                LIMIT {$limit}
-            ) elegiveis ON elegiveis.id = f.id
-            SET
-                f.multa = ROUND(f.valor_subtotal * (COALESCE(fp.multa, 0) / 100), 2),
-                f.juros = ROUND(f.valor_subtotal * (COALESCE(fp.juros_por_dia, 0) / 100) * DATEDIFF(CURDATE(), f.data_venci), 2),
-                f.valor_total = (
+            SELECT
+                f.id,
+                f.chave,
+                ROUND(f.valor_subtotal * (COALESCE(fp.multa, 0) / 100), 2) AS nova_multa,
+                ROUND(f.valor_subtotal * (COALESCE(fp.juros_por_dia, 0) / 100) * DATEDIFF(CURDATE(), f.data_venci), 2) AS novo_juros,
+                (
                     f.valor_subtotal
                     + ROUND(f.valor_subtotal * (COALESCE(fp.multa, 0) / 100), 2)
                     + ROUND(f.valor_subtotal * (COALESCE(fp.juros_por_dia, 0) / 100) * DATEDIFF(CURDATE(), f.data_venci), 2)
                     - COALESCE(f.desconto, 0)
-                ),
-                f.updated_at = NOW()
+                ) AS novo_valor_total
+            FROM financeiro f
+            INNER JOIN formas_pagamento fp
+                ON fp.id = f.id_forma_pagamento
+                AND fp.chave = f.chave
+            WHERE f.tipo = 'R'
+                AND f.pago = 'N'
+                AND f.data_venci IS NOT NULL
+                AND f.data_venci <> '0000-00-00'
+                AND f.data_venci < CURDATE()
+                AND COALESCE(f.valor_subtotal, 0) > 0
+                AND (COALESCE(fp.multa, 0) > 0 OR COALESCE(fp.juros_por_dia, 0) > 0)
+                AND (
+                    ABS(COALESCE(f.multa, 0) - ROUND(f.valor_subtotal * (COALESCE(fp.multa, 0) / 100), 2)) > 0.009
+                    OR ABS(COALESCE(f.juros, 0) - ROUND(f.valor_subtotal * (COALESCE(fp.juros_por_dia, 0) / 100) * DATEDIFF(CURDATE(), f.data_venci), 2)) > 0.009
+                    OR ABS(COALESCE(f.valor_total, 0) - (
+                        f.valor_subtotal
+                        + ROUND(f.valor_subtotal * (COALESCE(fp.multa, 0) / 100), 2)
+                        + ROUND(f.valor_subtotal * (COALESCE(fp.juros_por_dia, 0) / 100) * DATEDIFF(CURDATE(), f.data_venci), 2)
+                        - COALESCE(f.desconto, 0)
+                    )) > 0.009
+                )
+            ORDER BY f.data_venci ASC, f.id ASC
+            LIMIT {$limit}
         ";
 
-        if (!$mysqli->query($sql)) {
-            throw new \RuntimeException('Erro ao atualizar juros e multa: ' . $mysqli->error);
+        $result = $mysqli->query($sql);
+        if (!$result) {
+            throw new \RuntimeException('Erro ao consultar juros e multa: ' . $mysqli->error);
         }
 
-        return $mysqli->affected_rows;
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $result->free();
+
+        if (empty($rows)) {
+            return ['atualizados' => 0, 'erros' => []];
+        }
+
+        $stmt = $mysqli->prepare("
+            UPDATE financeiro
+            SET multa = ?, juros = ?, valor_total = ?, updated_at = NOW()
+            WHERE id = ? AND chave = ?
+        ");
+
+        if (!$stmt) {
+            throw new \RuntimeException('Erro ao preparar atualizacao de juros e multa: ' . $mysqli->error);
+        }
+
+        $syncService = new PagamentoLinkSyncService();
+        $atualizados = 0;
+        $erros = [];
+
+        foreach ($rows as $row) {
+            $id = (int) $row['id'];
+            $chave = (string) $row['chave'];
+            $multa = (float) $row['nova_multa'];
+            $juros = (float) $row['novo_juros'];
+            $valorTotal = (float) $row['novo_valor_total'];
+
+            try {
+                $this->setContextoTenant($chave);
+                $syncService->invalidarLinksPendentes($id, $chave);
+
+                $stmt->bind_param('dddis', $multa, $juros, $valorTotal, $id, $chave);
+                if (!$stmt->execute()) {
+                    throw new \RuntimeException($stmt->error);
+                }
+
+                $atualizados += $stmt->affected_rows > 0 ? 1 : 0;
+            } catch (\Throwable $e) {
+                $erros[] = [
+                    'id_financeiro' => $id,
+                    'chave' => $chave,
+                    'erro' => $e->getMessage(),
+                ];
+                $this->log("Lancamento #{$id} bloqueado: {$e->getMessage()}", 'ERROR');
+            }
+        }
+
+        $stmt->close();
+
+        return ['atualizados' => $atualizados, 'erros' => $erros];
+    }
+
+    private function setContextoTenant(string $chave): void
+    {
+        $_SESSION['chave'] = $chave;
+        $_SESSION['user_id'] = 0;
+        $_SESSION['user_name'] = 'Sistema';
+    }
+
+    private function limparContextoTenant(): void
+    {
+        unset($_SESSION['chave'], $_SESSION['user_id'], $_SESSION['user_name']);
     }
 }

@@ -524,7 +524,7 @@
                     return;
                 }
 
-                const msg = result.message || '<?= t('modules.nfse.messages.emit_error') ?>';
+                const msg = formatarErroNfse(result, '<?= t('modules.nfse.messages.emit_error') ?>');
                 window.parent.postMessage({ action: 'openAlert', message: msg }, '*');
             }
         } catch (e) {
@@ -533,6 +533,22 @@
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
         }
+    }
+
+    function formatarErroNfse(result, fallback) {
+        const errosApi = Array.isArray(result?.erros_api) ? result.erros_api : [];
+        const detalhes = errosApi
+            .map((erro) => {
+                const codigo = erro?.codigo ? `${erro.codigo}: ` : '';
+                return `${codigo}${erro?.mensagem || ''}`.trim();
+            })
+            .filter(Boolean);
+
+        if (detalhes.length > 0) {
+            return detalhes.join('\n');
+        }
+
+        return result?.message || fallback;
     }
 
     function ehDuplicidadeComNfse(result) {

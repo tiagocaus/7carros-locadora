@@ -291,7 +291,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
     }
 
-    async function carregarVeiculosDoGrupo(grupoId, veiculoIdEditar = null) {
+    async function carregarVeiculosDoGrupo(grupoId, veiculoIdEditar = null, aplicarValoresPadrao = true) {
         if (!grupoId || !filialId) return;
 
         try {
@@ -312,8 +312,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     selectVeiculo.chosenSelect.refresh();
                 }
 
-                // Carregar valores do grupo
-                await carregarValoresGrupo(grupoId);
+                if (aplicarValoresPadrao) {
+                    await carregarValoresGrupo(grupoId);
+                }
             }
         } catch (error) {
             console.error('Erro ao carregar veiculos:', error);
@@ -399,7 +400,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         // Carregar veiculos do grupo e depois selecionar o veiculo
         if (dados.id_grupo) {
-            carregarVeiculosDoGrupo(dados.id_grupo, dados.id_veiculo).then(() => {
+            carregarVeiculosDoGrupo(dados.id_grupo, dados.id_veiculo, false).then(() => {
                 // Se o veiculo atual nao esta na lista (ex: disponibilidade != 'D'), adicionar
                 if (dados.id_veiculo && !veiculosDisponiveis.find(v => v.id == dados.id_veiculo)) {
                     veiculosDisponiveis.push({

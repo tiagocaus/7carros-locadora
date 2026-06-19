@@ -308,6 +308,7 @@ class NFSeController
                 'message' => $resultado['mensagem'] ?? '',
                 'data' => $resultado['dados'] ?? null,
                 'erro' => $resultado['erro'] ?? null,
+                'erros_api' => $resultado['erros_api'] ?? [],
             ], $httpCode);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao emitir NFS-e: ' . $e->getMessage()], 500);
@@ -378,6 +379,8 @@ class NFSeController
                 'success' => $resultado['sucesso'] ?? false,
                 'message' => $resultado['mensagem'] ?? '',
                 'data' => $resultado['dados'] ?? null,
+                'erro' => $resultado['erro'] ?? null,
+                'erros_api' => $resultado['erros_api'] ?? [],
             ], $httpCode);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao consultar NFS-e: ' . $e->getMessage()], 500);
@@ -410,6 +413,8 @@ class NFSeController
                 'success' => $resultado['sucesso'] ?? false,
                 'message' => $resultado['mensagem'] ?? '',
                 'data' => $resultado['dados'] ?? null,
+                'erro' => $resultado['erro'] ?? null,
+                'erros_api' => $resultado['erros_api'] ?? [],
             ], $httpCode);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao reenviar NFS-e: ' . $e->getMessage()], 500);
@@ -612,6 +617,8 @@ class NFSeController
             $configModel->salvar($filialId, Auth::chave(), $dados);
 
             Response::json(['success' => true, 'message' => 'Configuracoes salvas com sucesso']);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao salvar configuracoes: ' . $e->getMessage()], 500);
         }
@@ -769,6 +776,21 @@ class NFSeController
             }
 
             $cert = new NFSeCertificado();
+            $analiseCertificado = $cert->analisar($chave, $config['certificado_arquivo'], $config['certificado_senha']);
+            if (($analiseCertificado['status'] ?? null) !== 'valido') {
+                Response::json([
+                    'success' => false,
+                    'message' => $analiseCertificado['mensagem'] ?? 'Certificado digital inválido.',
+                    'diagnostico' => [
+                        'origem' => 'certificado_local',
+                        'status' => $analiseCertificado['status'] ?? 'desconhecido',
+                        'validade' => $analiseCertificado['validade'] ?? null,
+                        'dias' => $analiseCertificado['dias'] ?? null,
+                    ],
+                ], 422);
+                return;
+            }
+
             $pem = $cert->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
 
             try {
@@ -798,6 +820,7 @@ class NFSeController
                 Response::json([
                     'success' => $resultado['sucesso'] ?? false,
                     'message' => $resultado['mensagem'] ?? '',
+                    'diagnostico' => $this->diagnosticoNFSeSeguro($resultado['diagnostico'] ?? []),
                 ], $httpCode);
             } finally {
                 $cert->limparPEM($pem['certPath'], $pem['keyPath']);
@@ -805,5 +828,26 @@ class NFSeController
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao testar conexao: ' . $e->getMessage()], 500);
         }
+    }
+
+    private function diagnosticoNFSeSeguro(mixed $diagnostico): array
+    {
+        if (!is_array($diagnostico)) {
+            return [];
+        }
+
+        $permitidos = [
+            'emissor',
+            'ambiente',
+            'url',
+            'soapAction',
+            'httpCode',
+            'curl_errno',
+            'curl_error',
+            'categoria',
+            'caBundleLocal',
+        ];
+
+        return array_intersect_key($diagnostico, array_flip($permitidos));
     }
 }

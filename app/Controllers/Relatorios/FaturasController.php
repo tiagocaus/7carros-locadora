@@ -182,6 +182,11 @@ class FaturasController extends BaseRelatorioController
 
             if (!$this->validateFilialAccess($filters['filial'])) return;
 
+            $clienteId = $this->normalizarClienteId($request->query('cliente', ''));
+            $fornecedorId = $this->normalizarFornecedorId($request->query('fornecedor', ''));
+            $veiculoId = $this->normalizarVeiculoId($request->query('veiculo', ''));
+            $status = $this->normalizarStatusConta($request->query('status', ''));
+
             [$filialWhere, $filialParams] = $this->getFilialFilter();
 
             $model = new FaturasReport();
@@ -190,7 +195,11 @@ class FaturasController extends BaseRelatorioController
                 $filters['data_fim'],
                 $filialWhere,
                 $filialParams,
-                $filters['filial']
+                $filters['filial'],
+                $clienteId,
+                $fornecedorId,
+                $veiculoId,
+                $status
             );
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
@@ -208,10 +217,23 @@ class FaturasController extends BaseRelatorioController
         $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
         if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
 
+        $clienteId = $this->normalizarClienteId($request->query('cliente', ''));
+        $fornecedorId = $this->normalizarFornecedorId($request->query('fornecedor', ''));
+        $veiculoId = $this->normalizarVeiculoId($request->query('veiculo', ''));
+        $status = $this->normalizarStatusConta($request->query('status', ''));
+
         [$filialWhere, $filialParams] = $this->getFilialFilter();
         $model = new FaturasReport();
         $result = $model->pagarReceber(
-            $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams, $filters['filial']
+            $filters['data_inicio'],
+            $filters['data_fim'],
+            $filialWhere,
+            $filialParams,
+            $filters['filial'],
+            $clienteId,
+            $fornecedorId,
+            $veiculoId,
+            $status
         );
 
         $this->renderPdfPeriodo(
@@ -271,6 +293,23 @@ class FaturasController extends BaseRelatorioController
         }
 
         return $veiculoId;
+    }
+
+    private function normalizarFornecedorId(mixed $fornecedorId): string
+    {
+        $fornecedorId = trim((string) $fornecedorId);
+
+        if ($fornecedorId === '' || !ctype_digit($fornecedorId) || (int) $fornecedorId <= 0) {
+            return '';
+        }
+
+        return $fornecedorId;
+    }
+
+    private function normalizarStatusConta(mixed $status): string
+    {
+        $status = trim((string) $status);
+        return in_array($status, ['pago', 'pendente', 'vencida'], true) ? $status : '';
     }
 
     private function normalizarModoPorVeiculo(mixed $modo): string

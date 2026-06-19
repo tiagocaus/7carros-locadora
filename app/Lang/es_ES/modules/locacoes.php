@@ -144,6 +144,7 @@ return [
         'value' => 'Valor',
         'account' => 'Cuenta',
         'return_days' => 'Plazo de devolución',
+        'return_on_closing' => 'Al cierre',
         'return_date' => 'Fecha de devolución',
         'card' => 'Tarjeta del cliente',
         'returned' => 'Devuelto',

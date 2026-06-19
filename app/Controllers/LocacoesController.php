@@ -10,6 +10,7 @@ use App\Models\Locacao;
 use App\Models\LocacaoVeiculo;
 use App\Models\LocacaoTaxaServico;
 use App\Models\Veiculo;
+use App\Models\VeiculoDisponibilidadeSync;
 use App\Models\TaxaServico;
 use App\Models\Cliente;
 use App\Models\Fornecedor;
@@ -28,6 +29,7 @@ use App\Config\Planos;
 use App\I18n\TemplateRenderer;
 use App\Core\Database;
 use App\Services\AuditLogService;
+use App\Services\GrupoPrecoPeriodoService;
 use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
 
 /**
@@ -65,6 +67,17 @@ class LocacoesController
     {
         $plano = $dados['plano'] ?? $fallback['plano'] ?? 'KL';
         $diariaValor = $dados['diaria_valor'] ?? null;
+
+        if (($dados['diaria_valor_origem'] ?? 'auto') !== 'manual') {
+            $grupoId = (int) ($dados['id_grupo'] ?? $fallback['id_grupo'] ?? 0);
+            $filialId = (int) ($dados['id_matriz_filial_retirada'] ?? $fallback['id_matriz_filial_retirada'] ?? 0);
+            $dias = max(1, (int) ($dados['dias'] ?? $fallback['dias'] ?? 1));
+
+            if ($grupoId > 0 && $filialId > 0) {
+                $calculo = (new GrupoPrecoPeriodoService())->calcularValorDiaria($grupoId, $filialId, (string) $plano, $dias);
+                $diariaValor = $calculo['valor'];
+            }
+        }
 
         if (($diariaValor === null || $diariaValor === '') && $plano === 'KMC') {
             $diariaValor = $dados['km_controlado_valor']
@@ -416,6 +429,10 @@ class LocacoesController
                     'odometro_saida' => $dados['odometro_ini'] ?? 0,
                     'combustivel_saida' => $dados['combustivel_ini'] ?? null,
                 ]);
+
+                if ($statusLoc === 'A' && $temVeiculo) {
+                    (new VeiculoDisponibilidadeSync())->marcarLocado((int) $dados['id_veiculo']);
+                }
             }
 
             // 3. Sincronizar taxas em locacoes_taxaseservicos
@@ -444,44 +461,12 @@ class LocacoesController
                 $taxaModel->sincronizar($id, $taxas, $chave);
             }
 
-            // 4. Recalcular taxas e totais com valores corretos
-            $dias = max(1, (int) ($dados['dias'] ?? 1));
-            $veiculoSalvo = isset($veiculoModel) ? $veiculoModel->buscarAtivo($id) : null;
-            $totalTaxas = 0;
-            $valorTotalVeiculos = 0;
-
-            if ($veiculoSalvo) {
-                $valorPlanoEfetivo = match($plano ?? 'KL') {
-                    'KL' => (float) ($veiculoSalvo['valor_plano_km_livre'] ?? 0),
-                    'KMC' => (float) ($veiculoSalvo['valor_plano_km_controlado'] ?? 0),
-                    'DI', 'KP' => (float) ($veiculoSalvo['valor_plano_km_pago'] ?? 0),
-                    default => 0,
-                };
-                $segCarroVal = $veiculoSalvo['seguro_carro'] ? (float) ($veiculoSalvo['valor_seguro_carro'] ?? 0) : 0;
-                $segTercVal = $veiculoSalvo['seguro_terceiros'] ? (float) ($veiculoSalvo['valor_seguro_terceiros'] ?? 0) : 0;
-                $valorTotalVeiculos = ($valorPlanoEfetivo + $segCarroVal + $segTercVal) * $dias;
+            // 4. Recalcular taxas e totais com a mesma regra do Resumo da Locacao
+            $dadosTotais = $dados;
+            if (is_array($taxas)) {
+                $dadosTotais['taxas'] = $taxas;
             }
-
-            $taxaModelRecalc = $taxaModel ?? new LocacaoTaxaServico();
-            $totalTaxas = $taxaModelRecalc->recalcularTaxas($id, $dias, $valorTotalVeiculos);
-
-            // Condutor adicional
-            $qtdCondutores = 0;
-            $condutorData = $dados['condutor_adicional'] ?? null;
-            if (!empty($condutorData)) {
-                $condutoresArr = is_string($condutorData) ? json_decode($condutorData, true) : $condutorData;
-                $qtdCondutores = is_array($condutoresArr) ? count($condutoresArr) : 0;
-            }
-            $valorCondutorUnit = $veiculoSalvo ? (float) ($veiculoSalvo['valor_condutor_adicional'] ?? 0) : 0;
-
-            $totalFatura = $valorTotalVeiculos + $totalTaxas + ($qtdCondutores * $valorCondutorUnit);
-            $valorDesconto = (float) str_replace(['.', ','], ['', '.'], $dados['valor_desconto'] ?? '0');
-            $totalPagar = max(0, $totalFatura - $valorDesconto);
-
-            $locacaoModel->atualizar($id, [
-                'total_fatura' => $totalFatura,
-                'total_pagar' => $totalPagar,
-            ]);
+            $locacaoModel->sincronizarTotaisResumo($id, $dadosTotais, is_array($taxas));
 
             // Disparar mensageria para o cliente (rental_confirmation)
             try {
@@ -752,12 +737,20 @@ class LocacoesController
                     $veiculoModel->atualizar($idLocacaoVeiculo, $dadosVeiculo);
                 } elseif ($idLocacaoVeiculo) {
                     // Veiculo mudou - substituir
+                    $idVeiculoAntigo = (int) ($locacao['id_veiculo'] ?? 0);
                     $veiculoModel->substituir($idLocacaoVeiculo, [
                         'motivo_saida' => 'Alteração de veículo na edição',
                     ], array_merge($dadosVeiculo, [
                         'id_veiculo' => (int) $dados['id_veiculo'],
                         'data_saida' => $dados['data_saida'] ?? $locacao['data_saida'],
                     ]), false);
+                    $disponibilidadeSync = new VeiculoDisponibilidadeSync();
+                    if ($idVeiculoAntigo > 0) {
+                        $disponibilidadeSync->liberarSeSemVinculoAtivo($idVeiculoAntigo, 'D');
+                    }
+                    if ($statusNovo === 'A') {
+                        $disponibilidadeSync->marcarLocado((int) $dados['id_veiculo']);
+                    }
                 } else {
                     // Sem veiculo anterior - adicionar novo
                     $veiculoModel->adicionar(array_merge($dadosVeiculo, [
@@ -766,6 +759,9 @@ class LocacoesController
                         'id_veiculo' => (int) $dados['id_veiculo'],
                         'data_saida' => $dados['data_saida'] ?? $locacao['data_saida'],
                     ]));
+                    if ($statusNovo === 'A') {
+                        (new VeiculoDisponibilidadeSync())->marcarLocado((int) $dados['id_veiculo']);
+                    }
                 }
             } elseif (in_array($statusNovo, ['R', 'P'], true) && !empty($dados['id_grupo'])) {
                 $dadosGrupoReserva = array_merge($dadosVeiculo, [
@@ -782,6 +778,10 @@ class LocacoesController
                         'data_saida' => $dados['data_saida'] ?? $locacao['data_saida'],
                     ]));
                 }
+            }
+
+            if ($statusNovo === 'A' && !empty($dados['id_veiculo'])) {
+                (new VeiculoDisponibilidadeSync())->marcarLocado((int) $dados['id_veiculo']);
             }
 
             // 3. Sincronizar taxas em locacoes_taxaseservicos
@@ -893,6 +893,7 @@ class LocacoesController
                     'odometro_fim' => $dados['odometro_fim'] ?? 0,
                     'combustivel_fim' => $dados['combustivel_fim'] ?? null,
                     'combustivel_valor' => $dados['combustivel_valor'] ?? null,
+                    'dias' => $dados['dias'] ?? $locacao['dias'] ?? 1,
                     'id_matriz_filial_devolucao' => $dados['id_matriz_filial_devolucao'] ?? null,
                     'total_fatura' => $totalFaturaUpdate,
                     'total_pagar' => $totalPagarUpdate,
@@ -1275,67 +1276,12 @@ class LocacoesController
 
     private function calcularTotaisLocacao(int $id, array $locacao, array &$dados, bool $usarTaxasEnviadas = false): array
     {
-        $dias = max(1, (int) ($dados['dias'] ?? $locacao['dias'] ?? 1));
-        $status = $dados['status'] ?? $locacao['status'] ?? 'R';
-        $veiculoModel = new LocacaoVeiculo();
-        $veiculoAtual = $veiculoModel->buscarAtivo($id);
-        $valorTotalVeiculos = 0.0;
-
-        if ($veiculoAtual) {
-            $plano = $dados['plano'] ?? $locacao['plano'] ?? 'KL';
-            $valorPlano = match ($plano) {
-                'KL' => (float) ($veiculoAtual['valor_plano_km_livre'] ?? 0),
-                'KMC' => (float) ($veiculoAtual['valor_plano_km_controlado'] ?? 0),
-                'DI', 'KP' => (float) ($veiculoAtual['valor_plano_km_pago'] ?? 0),
-                default => 0.0,
-            };
-            $seguroCarro = ($dados['seguro_carro'] ?? ($veiculoAtual['seguro_carro'] ? 'S' : 'N')) === 'S';
-            $seguroTerceiros = ($dados['seguro_terceiros'] ?? ($veiculoAtual['seguro_terceiros'] ? 'S' : 'N')) === 'S';
-            $valorSeguroCarro = $seguroCarro ? currency_parse($dados['seguro_carro_valor'] ?? $veiculoAtual['valor_seguro_carro'] ?? 0) : 0;
-            $valorSeguroTerceiros = $seguroTerceiros ? currency_parse($dados['seguro_terceiros_valor'] ?? $veiculoAtual['valor_seguro_terceiros'] ?? 0) : 0;
-
-            $valorTotalVeiculos = ($valorPlano + $valorSeguroCarro + $valorSeguroTerceiros) * $dias;
-        }
-
-        $taxaModel = new LocacaoTaxaServico();
-        $totalTaxas = 0.0;
-        $taxas = null;
-        if ($usarTaxasEnviadas && isset($dados['taxas'])) {
-            $taxas = is_string($dados['taxas']) ? json_decode($dados['taxas'], true) : $dados['taxas'];
-        }
-        if (is_array($taxas)) {
-            foreach ($taxas as $taxa) {
-                $totalTaxas += $taxaModel->calcularValorTotalTaxa($taxa, $dias, $valorTotalVeiculos);
-            }
-        } else {
-            $totalTaxas = $taxaModel->recalcularTaxas($id, $dias, $valorTotalVeiculos);
-        }
-
-        $condutores = $dados['condutor_adicional'] ?? $locacao['condutor_adicional'] ?? null;
-        $condutores = is_string($condutores) ? json_decode($condutores, true) : $condutores;
-        $qtdCondutores = is_array($condutores) ? count($condutores) : 0;
-        $valorCondutor = $veiculoAtual ? (float) ($veiculoAtual['valor_condutor_adicional'] ?? 0) : 0;
-
-        $totalCombustivel = 0.0;
-        if ($status === 'F' && $veiculoAtual) {
-            $combustivelSaida = isset($veiculoAtual['combustivel_saida']) ? (int) $veiculoAtual['combustivel_saida'] : null;
-            $combustivelEntrada = isset($dados['combustivel_fim']) && $dados['combustivel_fim'] !== ''
-                ? (int) $dados['combustivel_fim']
-                : null;
-            $valorPorFracao = (float) ($veiculoAtual['veiculo_valor_por_fracao'] ?? 0);
-            $diferencaFracoes = ($combustivelSaida !== null && $combustivelEntrada !== null)
-                ? max(0, $combustivelSaida - $combustivelEntrada)
-                : 0;
-            $totalCombustivel = $diferencaFracoes * $valorPorFracao;
-            $dados['combustivel_valor'] = $totalCombustivel;
-        }
-
-        $totalFatura = $valorTotalVeiculos + $totalTaxas + ($qtdCondutores * $valorCondutor) + $totalCombustivel;
-        $desconto = currency_parse($dados['valor_desconto'] ?? $locacao['valor_desconto'] ?? 0);
+        $totais = (new Locacao())->calcularTotaisResumo($id, $dados, $usarTaxasEnviadas, true);
+        $dados['combustivel_valor'] = $totais['total_combustivel'] ?? 0;
 
         return [
-            'total_fatura' => round($totalFatura, 2),
-            'total_pagar' => round(max(0, $totalFatura - $desconto), 2),
+            'total_fatura' => $totais['total_fatura'],
+            'total_pagar' => $totais['total_pagar'],
         ];
     }
 
@@ -1689,13 +1635,13 @@ class LocacoesController
         $planoCodigo = $user['plano'] ?? 'G';
         $planoInfo = Planos::getPlano($planoCodigo);
 
-        // Verificar se existe checklist digital vinculado a locacao
-        $temChecklistDigital = false;
+        // Buscar checklists digitais vinculados a locacao
+        $checklistsDigitais = [];
         if (in_array($planoCodigo, ['P3', 'P4'], true)) {
             $checklistModel = new Checklist();
-            $checklistVinculado = $checklistModel->buscarPorCodigo($locacao['codigo']);
-            $temChecklistDigital = !empty($checklistVinculado);
+            $checklistsDigitais = $checklistModel->listarFinalizadosPorLocacao((int) $locacao['id']);
         }
+        $temChecklistDigital = !empty($checklistsDigitais);
 
         // Buscar modelos de checklist impresso (tipo=1)
         $checklistModeloModel = new ChecklistModelo();
@@ -1720,6 +1666,7 @@ class LocacoesController
             'locacao' => $locacao,
             'documentos' => array_values($documentos),
             'checklistModelos' => $checklistModelos,
+            'checklistsDigitais' => $checklistsDigitais,
             'temChecklistDigital' => $temChecklistDigital,
             'temEmail' => $temEmail,
             'temWhatsapp' => $temWhatsapp,
@@ -1785,6 +1732,14 @@ class LocacoesController
             // Buscar parcelas/recebimentos da locacao para a fatura
             $parcelasFinanceiras = $locacaoModel->listarParcelas($id, true);
             $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id);
+            $totaisResumoFatura = null;
+            if (($locacao['status'] ?? '') === 'F' && (float) ($locacao['total_fatura'] ?? 0) <= 0) {
+                $totaisResumoFatura = $locacaoModel->calcularTotaisResumo($id);
+                $locacao['total_fatura'] = $totaisResumoFatura['total_fatura'];
+                $locacao['total_pagar'] = $totaisResumoFatura['total_pagar'];
+            } elseif (($locacao['status'] ?? '') === 'F') {
+                $totaisResumoFatura = $locacaoModel->calcularTotaisResumo($id);
+            }
 
             // Buscar assinatura da locacao
             $assinaturaModel = new Assinatura();
@@ -1811,7 +1766,8 @@ class LocacoesController
             $diagramaPath = null;
             $checklistModeloQuestoes = [];
             if ($this->tipoIncluiChecklist($tipo)) {
-                $checklistInfo = $this->prepararDadosChecklist($locacao, $chave);
+                $idChecklistDigital = (int) $request->query('id_checklist_digital', 0);
+                $checklistInfo = $this->prepararDadosChecklist($locacao, $chave, $idChecklistDigital);
                 $checklistData = $checklistInfo['data'];
                 $checklistDigital = $checklistInfo['digital'];
                 $diagramaPath = $checklistInfo['diagramaPath'];
@@ -1829,13 +1785,14 @@ class LocacoesController
 
             // Logo da empresa e QR code para verificacao
             $logoPath = PdfHelper::resolveImagePath($empresa['logo'] ?? null, $chave);
+            $empresaAssinaturaPath = PdfHelper::resolveImagePath($empresa['assinatura'] ?? null, $empresa['chave'] ?? $chave);
             $qrPath = $this->gerarQrCodePath($locacao['codigo']);
             $assinaturaPath = !empty($assinatura['arquivo'])
                 ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
                 : '';
 
             // Output buffering para gerar HTML (NUNCA usar Template::render para PDF)
-            extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
+            extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'totaisResumoFatura', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
             ob_start();
             $viewPath = __DIR__ . '/../Views/pages/locacoes/imprimir/' . $tipo . '.php';
             include $viewPath;
@@ -1896,7 +1853,7 @@ class LocacoesController
      * Envia locacao por canal de mensageria (email, whatsapp, sms)
      *
      * POST /locacoes/{id}/enviar
-     * Body JSON: { tipo, canal, id_documento, id_checklist_modelo }
+     * Body JSON: { tipo, canal, id_documento, id_checklist_modelo, id_checklist_digital }
      */
     public function enviarLocacao(Request $request, int $id): void
     {
@@ -1906,6 +1863,7 @@ class LocacoesController
             $canal = $data['canal'] ?? 'email';
             $idDocumento = (int) ($data['id_documento'] ?? 0);
             $idChecklistModelo = (int) ($data['id_checklist_modelo'] ?? 0);
+            $idChecklistDigital = (int) ($data['id_checklist_digital'] ?? 0);
 
             if (!in_array($canal, ['email', 'whatsapp', 'sms'], true)) {
                 Response::json(['success' => false, 'message' => $this->apiMessage('invalid_channel')], 422);
@@ -1940,7 +1898,7 @@ class LocacoesController
             ]);
 
             // Gerar PDF como string
-            $pdfContent = $this->gerarPdfString($id, $tipo, $idDocumento, $idChecklistModelo);
+            $pdfContent = $this->gerarPdfString($id, $tipo, $idDocumento, $idChecklistModelo, $idChecklistDigital);
             $documentoLabel = $tipo === 'voucher' ? t('modules.locacoes.print.reservation_label') : t('modules.locacoes.print.rental_label');
 
             // Salvar em arquivo temporario
@@ -2111,6 +2069,7 @@ class LocacoesController
         }
 
         $fornecedorData = $this->resolverFornecedorDocumento($veiculo);
+        $caucaoDataPrevistaDevolucao = $this->calcularDataPrevistaDevolucaoCaucao($locacao);
 
         $statusLabel = match($locacao['status'] ?? 'R') {
             'R' => t('modules.locacoes.pdf.status_reservation'),
@@ -2205,7 +2164,10 @@ class LocacoesController
                 'info_plano' => $this->formatarInfoPlanoDocumento($locacao),
                 'cobertura' => $locacao['cobertura_carro_valor'] ?? '',
                 'cobertura_terceiros' => $locacao['cobertura_terceiros_valor'] ?? '',
-                'bloqueio_data_devolucao' => $locacao['bloqueio_data_devolucao'] ?? '',
+                'bloqueio_data_devolucao' => $caucaoDataPrevistaDevolucao,
+                'caucao_data_devolucao' => $this->dataValidaDocumento($locacao['caucao_data_devolucao'] ?? null),
+                'caucao_prazo_devolucao' => $locacao['caucao_prazo_devolucao'] ?? '',
+                'caucao_data_prevista_devolucao' => $caucaoDataPrevistaDevolucao,
                 'condutores' => !empty($locacao['condutor_adicional']) ? (json_decode($locacao['condutor_adicional'], true) ?: []) : [],
                 'fiadores' => !empty($locacao['array_fiadores']) ? (json_decode($locacao['array_fiadores'], true) ?: []) : [],
                 'avalistas' => !empty($locacao['array_avalistas']) ? (json_decode($locacao['array_avalistas'], true) ?: []) : [],
@@ -2226,6 +2188,44 @@ class LocacoesController
             ] : [],
             'fornecedor' => $this->formatarFornecedorDocumento($fornecedorData),
         ];
+    }
+
+    private function calcularDataPrevistaDevolucaoCaucao(array $locacao): string
+    {
+        $dataEfetiva = $this->dataValidaDocumento($locacao['caucao_data_devolucao'] ?? null);
+        if ($dataEfetiva !== '') {
+            return $dataEfetiva;
+        }
+
+        if (isset($locacao['caucao_prazo_devolucao']) && $locacao['caucao_prazo_devolucao'] !== '') {
+            $prazo = (int) $locacao['caucao_prazo_devolucao'];
+            $dataBase = $this->dataValidaDocumento($locacao['data_prevista'] ?? null);
+            if ($dataBase !== '') {
+                try {
+                    return (new \DateTimeImmutable($dataBase))
+                        ->modify("+{$prazo} days")
+                        ->format('Y-m-d');
+                } catch (\Exception $e) {
+                    return '';
+                }
+            }
+        }
+
+        return $this->dataValidaDocumento($locacao['bloqueio_data_devolucao'] ?? null);
+    }
+
+    private function dataValidaDocumento(mixed $data): string
+    {
+        if (!is_string($data) || trim($data) === '') {
+            return '';
+        }
+
+        $data = trim($data);
+        if (str_starts_with($data, '0000-00-00')) {
+            return '';
+        }
+
+        return $data;
     }
 
     /**
@@ -2295,60 +2295,19 @@ class LocacoesController
     /**
      * Prepara dados do checklist baseado no plano do tenant
      */
-    private function prepararDadosChecklist(array $locacao, string $chave): array
+    private function prepararDadosChecklist(array $locacao, string $chave, int $idChecklistDigital = 0): array
     {
         $planoCodigo = Auth::user()['plano'] ?? 'G';
 
-        // P3/P4: tentar usar checklist digital
-        if (in_array($planoCodigo, ['P3', 'P4'], true)) {
+        // P3/P4: usar checklist digital somente quando selecionado na impressao.
+        if ($idChecklistDigital > 0 && in_array($planoCodigo, ['P3', 'P4'], true)) {
             $checklistModel = new Checklist();
-
-            // Buscar checklist por FK id_locacao (novo) ou por codigo (legado)
-            $checklistRef = $checklistModel->buscarPorLocacaoFK((int) $locacao['id'], $chave)
-                ?? $checklistModel->buscarPorCodigo($locacao['codigo']);
-            $regSaida = null;
-            $regChegada = null;
-
-            if ($checklistRef) {
-                $checklistCompleto = $checklistModel->buscarPorId($checklistRef['id']);
-                if ($checklistCompleto) {
-                    $momento = $checklistCompleto['momento'] ?? 'S';
-                    $par = $checklistModel->buscarPar($checklistCompleto);
-
-                    if ($momento === 'C') {
-                        $regSaida = $par;
-                        $regChegada = $checklistCompleto;
-                    } else {
-                        $regSaida = $checklistCompleto;
-                        $regChegada = $par;
-                    }
-
-                    $base = $regSaida ?? $regChegada;
-                    $vistoriaSaida = $regSaida ? $this->carregarFotosVistoria(
-                        json_decode($regSaida['vistoria'] ?? $regSaida['vistoria_saida'] ?? '[]', true) ?: [], $chave
-                    ) : [];
-                    $vistoriaChegada = $regChegada ? $this->carregarFotosVistoria(
-                        json_decode($regChegada['vistoria'] ?? $regChegada['vistoria_saida'] ?? '[]', true) ?: [], $chave
-                    ) : [];
-
-                    $base['obs'] = $regSaida['obs_unica'] ?? $regSaida['obs'] ?? '';
-                    $base['obs_chegada'] = $regChegada['obs_unica'] ?? $regChegada['obs'] ?? '';
-                    $base['data_saida'] = $regSaida['data_checklist'] ?? $regSaida['data_saida'] ?? null;
-                    $base['data_chegada'] = $regChegada['data_checklist'] ?? $regChegada['data_saida'] ?? null;
-
-                    return [
-                        'digital' => true,
-                        'data' => [
-                            'checklist' => $base,
-                            'questoesSaida' => $regSaida ? (json_decode($regSaida['questoes'] ?? $regSaida['questoes_saida'] ?? '[]', true) ?: []) : [],
-                            'questoesChegada' => $regChegada ? (json_decode($regChegada['questoes'] ?? $regChegada['questoes_saida'] ?? '[]', true) ?: []) : [],
-                            'vistoriaSaida' => $vistoriaSaida,
-                            'vistoriaChegada' => $vistoriaChegada,
-                        ],
-                        'diagramaPath' => null,
-                    ];
-                }
+            $checklistCompleto = $checklistModel->buscarPorId($idChecklistDigital);
+            if (!$checklistCompleto || (int) ($checklistCompleto['id_locacao'] ?? 0) !== (int) $locacao['id']) {
+                throw new \InvalidArgumentException('Checklist digital nao encontrado para esta locacao');
             }
+
+            return $this->montarChecklistDigitalParaImpressao($checklistModel, $checklistCompleto, $chave);
         }
 
         // Checklist impresso: usar diagrama do veiculo
@@ -2366,6 +2325,47 @@ class LocacoesController
             'digital' => false,
             'data' => null,
             'diagramaPath' => $diagramaPath,
+        ];
+    }
+
+    private function montarChecklistDigitalParaImpressao(Checklist $checklistModel, array $checklistCompleto, string $chave): array
+    {
+        $momento = $checklistCompleto['momento'] ?? 'S';
+        $par = $checklistModel->buscarPar($checklistCompleto);
+
+        if ($momento === 'C') {
+            $regSaida = $par;
+            $regChegada = $checklistCompleto;
+        } else {
+            $regSaida = $checklistCompleto;
+            $regChegada = $par;
+        }
+
+        $base = $regSaida ?? $regChegada;
+        $vistoriaSaida = $regSaida ? $this->carregarFotosVistoria(
+            json_decode($regSaida['vistoria'] ?? $regSaida['vistoria_saida'] ?? '[]', true) ?: [],
+            $chave
+        ) : [];
+        $vistoriaChegada = $regChegada ? $this->carregarFotosVistoria(
+            json_decode($regChegada['vistoria'] ?? $regChegada['vistoria_saida'] ?? '[]', true) ?: [],
+            $chave
+        ) : [];
+
+        $base['obs'] = $regSaida['obs_unica'] ?? $regSaida['obs'] ?? '';
+        $base['obs_chegada'] = $regChegada['obs_unica'] ?? $regChegada['obs'] ?? '';
+        $base['data_saida'] = $regSaida['data_checklist'] ?? $regSaida['data_saida'] ?? null;
+        $base['data_chegada'] = $regChegada['data_checklist'] ?? $regChegada['data_saida'] ?? null;
+
+        return [
+            'digital' => true,
+            'data' => [
+                'checklist' => $base,
+                'questoesSaida' => $regSaida ? (json_decode($regSaida['questoes'] ?? $regSaida['questoes_saida'] ?? '[]', true) ?: []) : [],
+                'questoesChegada' => $regChegada ? (json_decode($regChegada['questoes'] ?? $regChegada['questoes_saida'] ?? '[]', true) ?: []) : [],
+                'vistoriaSaida' => $vistoriaSaida,
+                'vistoriaChegada' => $vistoriaChegada,
+            ],
+            'diagramaPath' => null,
         ];
     }
 
@@ -2436,7 +2436,13 @@ class LocacoesController
     /**
      * Gera PDF da locacao como string (para envio por mensageria)
      */
-    private function gerarPdfString(int $id, string $tipo, int $idDocumento = 0, int $idChecklistModelo = 0): string
+    private function gerarPdfString(
+        int $id,
+        string $tipo,
+        int $idDocumento = 0,
+        int $idChecklistModelo = 0,
+        int $idChecklistDigital = 0
+    ): string
     {
         $locacaoModel = new Locacao();
         $locacao = $locacaoModel->buscarPorId($id);
@@ -2467,6 +2473,14 @@ class LocacoesController
         // Buscar parcelas/recebimentos da locacao para a fatura
         $parcelasFinanceiras = $locacaoModel->listarParcelas($id, true);
         $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id);
+        $totaisResumoFatura = null;
+        if (($locacao['status'] ?? '') === 'F' && (float) ($locacao['total_fatura'] ?? 0) <= 0) {
+            $totaisResumoFatura = $locacaoModel->calcularTotaisResumo($id);
+            $locacao['total_fatura'] = $totaisResumoFatura['total_fatura'];
+            $locacao['total_pagar'] = $totaisResumoFatura['total_pagar'];
+        } elseif (($locacao['status'] ?? '') === 'F') {
+            $totaisResumoFatura = $locacaoModel->calcularTotaisResumo($id);
+        }
 
         // Buscar assinatura
         $assinaturaModel = new Assinatura();
@@ -2488,7 +2502,7 @@ class LocacoesController
         $diagramaPath = null;
         $checklistModeloQuestoes = [];
         if ($this->tipoIncluiChecklist($tipo)) {
-            $checklistInfo = $this->prepararDadosChecklist($locacao, $chave);
+            $checklistInfo = $this->prepararDadosChecklist($locacao, $chave, $idChecklistDigital);
             $checklistData = $checklistInfo['data'];
             $checklistDigital = $checklistInfo['digital'];
             $diagramaPath = $checklistInfo['diagramaPath'];
@@ -2503,12 +2517,13 @@ class LocacoesController
         }
 
         $logoPath = PdfHelper::resolveImagePath($empresa['logo'] ?? null, $chave);
+        $empresaAssinaturaPath = PdfHelper::resolveImagePath($empresa['assinatura'] ?? null, $empresa['chave'] ?? $chave);
         $qrPath = $this->gerarQrCodePath($locacao['codigo']);
         $assinaturaPath = !empty($assinatura['arquivo'])
             ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
             : '';
 
-        extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'assinatura', 'assinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
+        extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'totaisResumoFatura', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
 
         ob_start();
         $viewPath = __DIR__ . '/../Views/pages/locacoes/imprimir/' . $tipo . '.php';

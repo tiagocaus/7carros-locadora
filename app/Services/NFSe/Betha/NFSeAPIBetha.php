@@ -18,7 +18,7 @@ class NFSeAPIBetha implements NFSeAPIInterface
     public function enviar(string $xml, string $certPath, string $keyPath, int $ambiente): array
     {
         $body = '<RecepcionarDpsEnvio xmlns="http://www.betha.com.br/e-nota-dps">' . $this->semDeclaracaoXml($xml) . '</RecepcionarDpsEnvio>';
-        return $this->soapRequest($body, 'RecepcionarDps', $certPath, $keyPath);
+        return $this->soapRequest($body, 'RecepcionarDps', $certPath, $keyPath, $ambiente);
     }
 
     public function consultar(string $chaveAcesso, string $certPath, string $keyPath, int $ambiente): array
@@ -36,12 +36,12 @@ class NFSeAPIBetha implements NFSeAPIInterface
             . '<tipoIntegracao>' . self::TIPO_INTEGRACAO_EMISSAO . '</tipoIntegracao>'
             . '</ConsultarStatusDpsEnvio>';
 
-        return $this->soapRequest($body, 'ConsultarStatusDps', $certPath, $keyPath);
+        return $this->soapRequest($body, 'ConsultarStatusDps', $certPath, $keyPath, $ambiente);
     }
 
     public function cancelar(string $xml, string $chaveAcesso, string $certPath, string $keyPath, int $ambiente): array
     {
-        return $this->soapRequest($this->semDeclaracaoXml($xml), 'RecepcionarEventoCancelamento', $certPath, $keyPath);
+        return $this->soapRequest($this->semDeclaracaoXml($xml), 'RecepcionarEventoCancelamento', $certPath, $keyPath, $ambiente);
     }
 
     public function testarConexao(string $certPath, string $keyPath, int $ambiente): array
@@ -55,7 +55,8 @@ class NFSeAPIBetha implements NFSeAPIInterface
             '<ConsultarStatusDpsEnvio xmlns="http://www.betha.com.br/e-nota-dps"><tpAmb>' . (int) $ambiente . '</tpAmb><codigoIbge>' . htmlspecialchars($this->somenteDigitos($codigoIbge), ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</codigoIbge><cpfCnpjPrestador>' . htmlspecialchars($this->somenteDigitos($cpfCnpjPrestador), ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</cpfCnpjPrestador><protocolo>0</protocolo><tipoIntegracao>' . self::TIPO_INTEGRACAO_EMISSAO . '</tipoIntegracao></ConsultarStatusDpsEnvio>',
             'ConsultarStatusDps',
             $certPath,
-            $keyPath
+            $keyPath,
+            $ambiente
         );
 
         if (($resultado['httpCode'] ?? 0) > 0) {
@@ -65,7 +66,7 @@ class NFSeAPIBetha implements NFSeAPIInterface
         return ['sucesso' => false, 'mensagem' => $resultado['erro'] ?? 'Falha na conexão com Betha Cloud.'];
     }
 
-    private function soapRequest(string $body, string $action, string $certPath, string $keyPath): array
+    private function soapRequest(string $body, string $action, string $certPath, string $keyPath, int $ambiente): array
     {
         $payload = '<?xml version="1.0" encoding="UTF-8"?>'
             . '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">'
@@ -74,7 +75,8 @@ class NFSeAPIBetha implements NFSeAPIInterface
             . '</soapenv:Envelope>';
 
         $ch = curl_init();
-        curl_setopt_array($ch, [
+        $caBundlePath = $this->getCaBundlePath();
+        $curlOptions = [
             CURLOPT_URL => self::URL,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
@@ -89,7 +91,13 @@ class NFSeAPIBetha implements NFSeAPIInterface
             ],
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
-        ]);
+        ];
+
+        if ($caBundlePath !== null) {
+            $curlOptions[CURLOPT_CAINFO] = $caBundlePath;
+        }
+
+        curl_setopt_array($ch, $curlOptions);
 
         $response = curl_exec($ch);
         $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -99,12 +107,16 @@ class NFSeAPIBetha implements NFSeAPIInterface
 
         if ($curlErrno !== 0) {
             $codigoErro = $this->mapearErroCurl($curlErrno);
+            $diagnostico = $this->diagnosticoCurl($action, $ambiente, $curlErrno, $curlError, 0, $caBundlePath !== null);
+
             return [
                 'sucesso' => false,
                 'resposta' => '',
                 'httpCode' => 0,
                 'erro' => NFSeErros::getMensagem($codigoErro),
                 'codigoErro' => $codigoErro,
+                'erroTecnico' => $diagnostico['curl_error'],
+                'diagnostico' => $diagnostico,
             ];
         }
 
@@ -113,6 +125,14 @@ class NFSeAPIBetha implements NFSeAPIInterface
             'resposta' => $response ?: '',
             'httpCode' => $httpCode,
             'erro' => $httpCode >= 400 ? $curlError : null,
+            'diagnostico' => [
+                'emissor' => 'betha',
+                'ambiente' => $ambiente,
+                'url' => self::URL,
+                'soapAction' => $action,
+                'httpCode' => $httpCode,
+                'caBundleLocal' => $caBundlePath !== null,
+            ],
         ];
     }
 
@@ -133,8 +153,45 @@ class NFSeAPIBetha implements NFSeAPIInterface
             CURLE_COULDNT_CONNECT => 'CONN_REFUSED',
             CURLE_SSL_CONNECT_ERROR,
             CURLE_SSL_CERTPROBLEM,
+            CURLE_SSL_CACERT_BADFILE,
             CURLE_SSL_CACERT => 'CONN_SSL',
             default => 'CONN_CURL',
         };
+    }
+
+    private function getCaBundlePath(): ?string
+    {
+        $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 4);
+        $path = $appRoot . '/storage/certificates/certs/cacert.pem';
+
+        return is_readable($path) ? $path : null;
+    }
+
+    private function diagnosticoCurl(string $action, int $ambiente, int $errno, string $error, int $httpCode, bool $caBundleLocal): array
+    {
+        return [
+            'emissor' => 'betha',
+            'ambiente' => $ambiente,
+            'url' => self::URL,
+            'soapAction' => $action,
+            'httpCode' => $httpCode,
+            'curl_errno' => $errno,
+            'curl_error' => $this->sanitizarErroCurl($error),
+            'categoria' => $this->mapearErroCurl($errno),
+            'caBundleLocal' => $caBundleLocal,
+        ];
+    }
+
+    private function sanitizarErroCurl(string $error): string
+    {
+        $error = trim($error);
+        if ($error === '') {
+            return '';
+        }
+
+        $tmp = preg_quote(sys_get_temp_dir(), '/');
+        $error = preg_replace('/' . $tmp . '\/nfse_(cert|key)_[A-Za-z0-9_.-]+\.pem/', '[arquivo-temporario-pem]', $error) ?? $error;
+
+        return mb_substr($error, 0, 500);
     }
 }

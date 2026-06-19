@@ -337,7 +337,7 @@ class FornecedoresController
     {
         try {
             $chave = Auth::chave();
-            $search = $request->query('search', '');
+            $search = $request->query('search', $request->query('q', ''));
 
             $model = new Fornecedor();
             $fornecedores = $model->listarFornecedoresSelect($chave, $search);

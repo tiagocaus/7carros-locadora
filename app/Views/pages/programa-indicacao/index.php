@@ -61,10 +61,10 @@
 <script>
 (function() {
     const i18n = {
-        loading: '<?= addslashes(t("common.labels.loading")) ?>',
-        copyLink: '<?= addslashes(t("modules.programa_indicacao.copy_link")) ?>',
-        copied: '<?= addslashes(t("modules.programa_indicacao.copied")) ?>',
-        loadError: '<?= addslashes(t("modules.programa_indicacao.load_error")) ?>',
+        loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        copyLink: <?= json_encode(t('modules.programa_indicacao.copy_link'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        copied: <?= json_encode(t('modules.programa_indicacao.copied'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadError: <?= json_encode(t('modules.programa_indicacao.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     window.pageLoading.start();

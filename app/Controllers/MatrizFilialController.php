@@ -108,7 +108,6 @@ class MatrizFilialController
             $registro['logo_url'] = !empty($registro['logo'])
                 ? FileHelper::url($registro['logo'], $registro['chave'])
                 : '';
-
             // Carregar horários de funcionamento
             $horarioModel = new HorarioFuncionamento();
             $registro['horarios_funcionamento'] = $horarioModel->getHorariosFormatados($id);

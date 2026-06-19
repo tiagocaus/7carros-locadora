@@ -29,17 +29,17 @@
 <script>
 (function () {
     const i18n = {
-        noRecords: '<?= addslashes(t("modules.changelog.no_records")) ?>',
-        version: '<?= addslashes(t("modules.changelog.version")) ?>',
-        loadError: '<?= addslashes(t("modules.changelog.messages.load_error")) ?>',
-        loadErrorRetry: '<?= addslashes(t("modules.changelog.messages.load_error_retry")) ?>',
-        unknownError: '<?= addslashes(t("modules.changelog.messages.unknown_error")) ?>',
-        saved: '<?= addslashes(t("modules.changelog.messages.saved")) ?>',
-        deleted: '<?= addslashes(t("modules.changelog.messages.deleted")) ?>',
-        deleteError: '<?= addslashes(t("modules.changelog.messages.delete_error")) ?>',
-        deleteErrorRetry: '<?= addslashes(t("modules.changelog.messages.delete_error_retry")) ?>',
-        actionEdit: '<?= addslashes(t("common.buttons.edit")) ?>',
-        actionDelete: '<?= addslashes(t("common.buttons.delete")) ?>',
+        noRecords: <?= json_encode(t('modules.changelog.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        version: <?= json_encode(t('modules.changelog.version'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadError: <?= json_encode(t('modules.changelog.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        loadErrorRetry: <?= json_encode(t('modules.changelog.messages.load_error_retry'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        unknownError: <?= json_encode(t('modules.changelog.messages.unknown_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        saved: <?= json_encode(t('modules.changelog.messages.saved'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        deleted: <?= json_encode(t('modules.changelog.messages.deleted'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        deleteError: <?= json_encode(t('modules.changelog.messages.delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        deleteErrorRetry: <?= json_encode(t('modules.changelog.messages.delete_error_retry'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionEdit: <?= json_encode(t('common.buttons.edit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        actionDelete: <?= json_encode(t('common.buttons.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
     };
 
     let isAdmin = false;

@@ -43,7 +43,7 @@ return [
 
     'subtabs' => [
         'reservations_empty' => 'Nessuna prenotazione trovata.',
-        'rented_empty' => 'Nessun noleggio aperto trovato.',
+        'rented_empty' => 'Nessun noleggio o contratto aperto trovato.',
         'available_empty' => 'Nessun veicolo disponibile trovato.',
         'pending_arrival_empty' => 'Nessun arrivo in sospeso trovato.',
         'upcoming_returns_empty' => 'Nessuna restituzione prossima trovata.',
@@ -59,12 +59,22 @@ return [
         'odometer' => 'Contachilometri',
         'actions' => 'Azioni',
         'code' => 'Codice',
+        'type' => 'Tipo',
         'client' => 'Cliente',
         'deadline' => 'Scadenza',
         'open' => 'Apri',
+        'rental' => 'Noleggio',
+        'contract' => 'Contratto',
         'today' => 'Oggi',
         'tomorrow' => 'Domani',
         'pending_pickup' => 'Ritiro in sospeso',
+        'available_badge' => 'Disponibile',
+        'no_vehicle' => 'Senza veicolo',
+        'contract_duration_today' => 'Iniziato oggi',
+        'contract_duration_days' => ':count giorno di contratto|:count giorni di contratto',
+        'overdue_minutes' => ':count min di ritardo|:count min di ritardo',
+        'overdue_hours' => ':count h di ritardo|:count h di ritardo',
+        'overdue_days' => ':count giorno di ritardo|:count giorni di ritardo',
     ],
 
     // Dashboard v2 (Cockpit)

@@ -339,6 +339,40 @@ class PagamentoLink extends Model
     }
 
     /**
+     * Lista links pendentes de um lancamento financeiro.
+     *
+     * @param int $idFinanceiro
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarPendentesPorFinanceiro(int $idFinanceiro): array
+    {
+        return $this->qb
+            ->table('pagamentos_links')
+            ->where('id_financeiro', '=', $idFinanceiro)
+            ->where('status', '=', 'pending')
+            ->orderBy('created_at', 'DESC')
+            ->get();
+    }
+
+    /**
+     * Cancela todos os links pendentes de um lancamento financeiro.
+     *
+     * @param int $idFinanceiro
+     * @return int
+     */
+    public function cancelarPendentesPorFinanceiro(int $idFinanceiro): int
+    {
+        return $this->qb
+            ->table('pagamentos_links')
+            ->where('id_financeiro', '=', $idFinanceiro)
+            ->where('status', '=', 'pending')
+            ->update([
+                'status' => 'cancelled',
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+    }
+
+    /**
      * Verifica se já existe link pendente para o financeiro
      *
      * @param int $idFinanceiro

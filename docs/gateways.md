@@ -265,6 +265,31 @@ A data enviada ao gateway deve respeitar o vencimento real da fatura:
 
 Gateways nao devem aplicar fallback proprio como `+3 dias` ou `+1 dia`; a normalizacao deve ser feita pelo fluxo de pagamento publico e pelo helper comum dos gateways.
 
+### Substituicao de cobrancas apos alteracao financeira
+
+Boletos e demais cobrancas externas nao devem ser editados em aberto para refletir
+novo valor do financeiro. O comportamento padrao do sistema e cancelar a cobranca
+antiga e criar uma nova cobranca quando o cliente acessar um link atualizado.
+
+Quando uma receita pendente muda valor, vencimento, cliente, forma de pagamento,
+juros, multa, desconto ou soma dos itens:
+
+1. `PagamentoLinkSyncService` localiza links `pending` e transacoes `charge` abertas.
+2. Para cada transacao com `external_id`, o sistema consulta o status no gateway.
+3. Se a cobranca estiver aberta, chama `PaymentGatewayInterface::cancel($externalId)`.
+4. Se o cancelamento for confirmado, a transacao local e o link antigo ficam `cancelled`.
+5. O proximo `GET /api/financeiro/{id}/link-pagamento` cria um novo link com o valor atual.
+
+Se o gateway retornar `paid`, `received`, `confirmed` ou equivalente, o sistema
+marca a transacao local como paga e nao emite outro link automaticamente. Se o
+gateway estiver indisponivel ou recusar o cancelamento de uma cobranca ainda
+pagavel, a operacao que alteraria a fatura deve ser bloqueada para evitar que o
+cliente pague boleto antigo depois de o valor ter mudado.
+
+Para boleto, "atualizar" significa baixar/cancelar o boleto antigo no gateway e
+emitir nova cobranca. Nao assuma que o gateway permite alterar valor ou vencimento
+do mesmo boleto ja gerado.
+
 ---
 
 ## Seguranca

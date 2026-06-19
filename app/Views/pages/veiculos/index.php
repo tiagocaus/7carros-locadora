@@ -60,6 +60,38 @@
 @endsection
 
 @section('scripts')
+<?php
+$jsFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+$disponibilidadeLabels = [
+    'D' => ['label' => t('modules.veiculos.availability.available'), 'class' => 'bg-green-100 text-green-800'],
+    'L' => ['label' => t('modules.veiculos.availability.rented'), 'class' => 'bg-blue-100 text-blue-800'],
+    'R' => ['label' => t('modules.veiculos.availability.reserved'), 'class' => 'bg-purple-100 text-purple-800'],
+    'O' => ['label' => t('modules.veiculos.availability.in_shop'), 'class' => 'bg-yellow-100 text-yellow-800'],
+    'V' => ['label' => t('modules.veiculos.availability.sold'), 'class' => 'bg-slate-100 text-slate-800'],
+    'AV' => ['label' => t('modules.veiculos.availability.for_sale'), 'class' => 'bg-orange-100 text-orange-800'],
+    'UI' => ['label' => t('modules.veiculos.availability.internal_use'), 'class' => 'bg-cyan-100 text-cyan-800'],
+    'RO' => ['label' => t('modules.veiculos.availability.stolen'), 'class' => 'bg-red-100 text-red-800'],
+    'E' => ['label' => t('modules.veiculos.availability.excluded'), 'class' => 'bg-gray-100 text-gray-800'],
+];
+$i18nVeiculos = [
+    'loading' => t('common.labels.loading'),
+    'noVehicles' => t('modules.veiculos.messages.no_vehicles'),
+    'loadError' => t('modules.veiculos.messages.load_error'),
+    'connectionError' => t('modules.veiculos.messages.connection_error'),
+    'editBtn' => t('common.buttons.edit'),
+    'deleteBtn' => t('common.buttons.delete'),
+    'noPlate' => t('modules.veiculos.messages.no_plate'),
+    'thisVehicle' => t('modules.veiculos.messages.this_vehicle'),
+    'deleteConfirm' => t('modules.veiculos.messages.delete_confirm'),
+    'deleteError' => t('modules.veiculos.messages.delete_error'),
+    'deleteHasLinksTitle' => t('modules.veiculos.messages.delete_has_links_title'),
+    'deleteHasLinksConfirm' => t('modules.veiculos.messages.delete_has_links_confirm'),
+    'deactivateButton' => t('modules.veiculos.messages.deactivate_button'),
+    'deactivated' => t('modules.veiculos.messages.deactivated'),
+    'deactivateError' => t('modules.veiculos.messages.deactivate_error'),
+    'showingTpl' => t('modules.veiculos.pagination.showing'),
+];
+?>
 <script>
 (function () {
     // Estado da paginacao
@@ -72,38 +104,8 @@
     // Elementos
     const tbody = document.getElementById('veiculosTableBody');
 
-    // Labels de disponibilidade
-    const disponibilidadeLabels = {
-        'D':  { label: '<?= t('modules.veiculos.availability.available') ?>', class: 'bg-green-100 text-green-800' },
-        'L':  { label: '<?= t('modules.veiculos.availability.rented') ?>', class: 'bg-blue-100 text-blue-800' },
-        'R':  { label: '<?= t('modules.veiculos.availability.reserved') ?>', class: 'bg-purple-100 text-purple-800' },
-        'O':  { label: '<?= t('modules.veiculos.availability.in_shop') ?>', class: 'bg-yellow-100 text-yellow-800' },
-        'V':  { label: '<?= t('modules.veiculos.availability.sold') ?>', class: 'bg-slate-100 text-slate-800' },
-        'AV': { label: '<?= t('modules.veiculos.availability.for_sale') ?>', class: 'bg-orange-100 text-orange-800' },
-        'UI': { label: '<?= t('modules.veiculos.availability.internal_use') ?>', class: 'bg-cyan-100 text-cyan-800' },
-        'RO': { label: '<?= t('modules.veiculos.availability.stolen') ?>', class: 'bg-red-100 text-red-800' },
-        'E':  { label: '<?= t('modules.veiculos.availability.excluded') ?>', class: 'bg-gray-100 text-gray-800' }
-    };
-
-    // Traducoes JS
-    const i18n = {
-        loading: '<?= t('common.labels.loading') ?>',
-        noVehicles: '<?= t('modules.veiculos.messages.no_vehicles') ?>',
-        loadError: '<?= t('modules.veiculos.messages.load_error') ?>',
-        connectionError: '<?= t('modules.veiculos.messages.connection_error') ?>',
-        editBtn: '<?= t('common.buttons.edit') ?>',
-        deleteBtn: '<?= t('common.buttons.delete') ?>',
-        noPlate: '<?= t('modules.veiculos.messages.no_plate') ?>',
-        thisVehicle: '<?= t('modules.veiculos.messages.this_vehicle') ?>',
-        deleteConfirm: '<?= t('modules.veiculos.messages.delete_confirm') ?>',
-        deleteError: '<?= t('modules.veiculos.messages.delete_error') ?>',
-        deleteHasLinksTitle: <?= json_encode(t('modules.veiculos.messages.delete_has_links_title')) ?>,
-        deleteHasLinksConfirm: <?= json_encode(t('modules.veiculos.messages.delete_has_links_confirm')) ?>,
-        deactivateButton: <?= json_encode(t('modules.veiculos.messages.deactivate_button')) ?>,
-        deactivated: <?= json_encode(t('modules.veiculos.messages.deactivated')) ?>,
-        deactivateError: <?= json_encode(t('modules.veiculos.messages.deactivate_error')) ?>,
-        showingTpl: '<?= t('modules.veiculos.pagination.showing') ?>',
-    };
+    const disponibilidadeLabels = <?= json_encode($disponibilidadeLabels, $jsFlags) ?>;
+    const i18n = <?= json_encode($i18nVeiculos, $jsFlags) ?>;
 
     // ===== NAVEGACAO =====
 

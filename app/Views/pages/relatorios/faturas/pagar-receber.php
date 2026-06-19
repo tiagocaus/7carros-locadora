@@ -10,7 +10,57 @@
     <p class="text-sm text-slate-500 mb-3"><?= t('modules.relatorios.faturas.pagar_receber.description') ?></p>
 
     <!-- Filtros -->
-    @include('pages.relatorios._partials.filters')
+    <div class="flex flex-wrap gap-3 mb-4 p-3 bg-slate-50 rounded-lg items-end">
+        <div class="flex-1 min-w-[150px] max-w-[200px]">
+            <label for="filterDataInicio" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.date_start') ?></label>
+            <input type="date" id="filterDataInicio" class="form-input-focus w-full text-sm">
+        </div>
+        <div class="flex-1 min-w-[150px] max-w-[200px]">
+            <label for="filterDataFim" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.date_end') ?></label>
+            <input type="date" id="filterDataFim" class="form-input-focus w-full text-sm">
+        </div>
+        <div class="flex-1 min-w-[180px] max-w-[250px]">
+            <label for="filterFilial" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.branch') ?></label>
+            <select id="filterFilial" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/matrizes-filiais/buscar" data-chosen-placeholder="<?= htmlspecialchars(t('modules.relatorios.common.all_branches') ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <option value=""><?= t('modules.relatorios.common.all_branches') ?></option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[220px] max-w-[300px]">
+            <label for="filterCliente" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.client') ?></label>
+            <select id="filterCliente" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/clientes/buscar" data-chosen-placeholder="<?= htmlspecialchars(t('modules.relatorios.common.all_clients') ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <option value=""><?= t('modules.relatorios.common.all_clients') ?></option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[220px] max-w-[300px]">
+            <label for="filterFornecedor" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.supplier') ?></label>
+            <select id="filterFornecedor" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/fornecedores/select" data-chosen-placeholder="<?= htmlspecialchars(t('modules.relatorios.common.all_suppliers') ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <option value=""><?= t('modules.relatorios.common.all_suppliers') ?></option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[220px] max-w-[300px]">
+            <label for="filterVeiculo" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.vehicle') ?></label>
+            <select id="filterVeiculo" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/veiculos/buscar" data-chosen-placeholder="<?= htmlspecialchars(t('modules.relatorios.common.all_vehicles') ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <option value=""><?= t('modules.relatorios.common.all_vehicles') ?></option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[150px] max-w-[190px]">
+            <label for="filterStatus" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.status') ?></label>
+            <select id="filterStatus" class="form-input-focus w-full text-sm">
+                <option value=""><?= t('modules.relatorios.common.all_status') ?></option>
+                <option value="pago"><?= t('modules.relatorios.faturas.pagar_receber.status_pago') ?></option>
+                <option value="pendente"><?= t('modules.relatorios.faturas.pagar_receber.status_pendente') ?></option>
+                <option value="vencida"><?= t('modules.relatorios.faturas.pagar_receber.status_vencida') ?></option>
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button id="btnAplicar" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
+                <i class="fas fa-search mr-2"></i><?= t('modules.relatorios.common.apply') ?>
+            </button>
+            <button id="btnLimpar" class="text-sm text-slate-500 hover:text-slate-700 px-3 py-2" title="<?= t('modules.relatorios.common.clear') ?>">
+                <i class="fas fa-times mr-1"></i><?= t('modules.relatorios.common.clear') ?>
+            </button>
+        </div>
+    </div>
 
     <!-- Exportacao -->
     @include('pages.relatorios._partials.export-buttons')
@@ -97,22 +147,31 @@
     }
 
     function exportarPdf() {
-        const params = new URLSearchParams({
+        const url = `${PDF_URL}?${buildParams().toString()}`;
+        const title = '<?= t("modules.relatorios.faturas.pagar_receber.title") ?>';
+        if (window.parent !== window) {
+            window.parent.postMessage({ action: 'openPrintModal', url, title }, '*');
+        } else {
+            window.open(url, '_blank');
+        }
+    }
+
+    function buildParams() {
+        return new URLSearchParams({
             data_inicio: document.getElementById('filterDataInicio').value,
             data_fim: document.getElementById('filterDataFim').value,
             filial: document.getElementById('filterFilial').value,
+            cliente: document.getElementById('filterCliente').value,
+            fornecedor: document.getElementById('filterFornecedor').value,
+            veiculo: document.getElementById('filterVeiculo').value,
+            status: document.getElementById('filterStatus').value,
         });
-        ReportUtils.exportPdf(`${PDF_URL}?${params.toString()}`, '<?= t("modules.relatorios.faturas.pagar_receber.title") ?>');
     }
 
     async function carregarRelatorio() {
         try {
             ReportUtils.showLoading();
-            const params = {
-                data_inicio: document.getElementById('filterDataInicio').value,
-                data_fim: document.getElementById('filterDataFim').value,
-                filial: document.getElementById('filterFilial').value,
-            };
+            const params = Object.fromEntries(buildParams().entries());
 
             const result = await API.get(API_URL, params);
             if (!result.success) {
@@ -199,9 +258,21 @@
 
     function limparFiltros() {
         ReportUtils.setDefaultPeriod();
-        document.getElementById('filterFilial').value = '';
+        ['filterFilial', 'filterCliente', 'filterFornecedor', 'filterVeiculo'].forEach(clearChosen);
+        document.getElementById('filterStatus').value = '';
         ReportUtils.hideContent();
         document.getElementById('reportTableContainer').style.display = 'none';
+    }
+
+    function clearChosen(id) {
+        const select = document.getElementById(id);
+        if (!select) return;
+        if (select.chosenSelect && typeof select.chosenSelect.clear === 'function') {
+            select.chosenSelect.clear();
+            return;
+        }
+        select.value = '';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     init();

@@ -132,6 +132,38 @@ POST /financeiro/{id}/excluir
 Response: { success: true, message: "..." }
 ```
 
+### Link de Pagamento e Alteracoes de Valor
+
+Links publicos de pagamento mantem uma copia do valor em `pagamentos_links.valor`.
+Por isso, sempre que uma receita pendente tiver dados que alterem a cobranca, o
+sistema deve invalidar links/cobrancas pendentes antes de persistir a alteracao.
+
+Campos que disparam a invalidacao quando mudam de fato:
+
+- `valor_subtotal`, `valor_total`, `juros`, `multa`, `desconto`
+- `data_venci`
+- `id_forma_pagamento`
+- `id_cliente`
+- soma dos `itens`
+- `pago` quando altera o status do lancamento
+
+O fluxo usa `PagamentoLinkSyncService` para:
+
+1. localizar links pendentes e transacoes `charge` abertas do lancamento;
+2. cancelar a cobranca externa via gateway quando existir `external_id`;
+3. marcar transacoes e links antigos como `cancelled`;
+4. permitir que um novo link seja gerado com o `financeiro.valor_total` atual.
+
+Se o gateway informar que a cobranca antiga ja foi paga, o sistema nao substitui
+o link silenciosamente. O pagamento deve ser reconciliado pelo fluxo normal de
+status/webhook antes de nova emissao. Se o gateway estiver indisponivel ou recusar
+o cancelamento de uma cobranca ainda pagavel, a alteracao financeira e bloqueada
+para evitar dois boletos/links validos para a mesma fatura.
+
+`GET /api/financeiro/{id}/link-pagamento` reutiliza um link pendente somente se
+ele ainda estiver coerente com o lancamento atual. Caso o valor ou cliente tenha
+mudado, o link antigo e cancelado e um novo link e criado.
+
 ### Parcelas
 
 ```

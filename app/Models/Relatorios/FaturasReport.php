@@ -30,6 +30,45 @@ class FaturasReport extends BaseReportModel
         }
     }
 
+    private function applyFornecedorFilter($query, string $fornecedorId, string $prefix = 'f'): void
+    {
+        if ($fornecedorId !== '') {
+            $query->whereRaw("{$prefix}.id_fornecedor = ?", [(int) $fornecedorId]);
+        }
+    }
+
+    private function applyVeiculoFinanceiroFilter($query, string $veiculoId, string $prefix = 'f'): void
+    {
+        if ($veiculoId === '') {
+            return;
+        }
+
+        $query->whereRaw(
+            "({$prefix}.id_veiculo = ? OR EXISTS (
+                SELECT 1
+                FROM financeiro_itens fi
+                WHERE fi.id_financeiro = {$prefix}.id
+                    AND fi.chave = {$prefix}.chave
+                    AND fi.id_veiculo = ?
+            ))",
+            [(int) $veiculoId, (int) $veiculoId]
+        );
+    }
+
+    private function applyStatusContaFilter($query, string $status, string $prefix = 'f'): void
+    {
+        match ($status) {
+            'pago' => $query->whereRaw("{$prefix}.pago = ?", ['S']),
+            'pendente' => $query
+                ->whereRaw("{$prefix}.pago = ?", ['N'])
+                ->whereRaw("{$prefix}.data_venci >= CURDATE()"),
+            'vencida' => $query
+                ->whereRaw("{$prefix}.pago = ?", ['N'])
+                ->whereRaw("{$prefix}.data_venci < CURDATE()"),
+            default => null,
+        };
+    }
+
     /**
      * 7.1 - Faturas Vencidas / A Vencer.
      *
@@ -444,7 +483,11 @@ class FaturasReport extends BaseReportModel
         string $dataFim,
         string $filialWhere,
         array $filialParams,
-        string $filialId = ''
+        string $filialId = '',
+        string $clienteId = '',
+        string $fornecedorId = '',
+        string $veiculoId = '',
+        string $status = ''
     ): array {
         // --- Lista RECEBER (tipo=R) ---
         $qReceber = $this->qb
@@ -460,6 +503,12 @@ class FaturasReport extends BaseReportModel
             ->whereRaw('f.data_venci BETWEEN ? AND ?', [$dataInicio, $dataFim])
             ->orderByRaw('f.data_venci ASC');
         $this->applyFilialFilter($qReceber, $filialWhere, $filialParams, $filialId);
+        $this->applyClienteFilter($qReceber, $clienteId);
+        $this->applyVeiculoFinanceiroFilter($qReceber, $veiculoId);
+        $this->applyStatusContaFilter($qReceber, $status);
+        if ($fornecedorId !== '' && $clienteId === '') {
+            $qReceber->whereRaw('1 = 0');
+        }
         $rowsReceber = $qReceber->get();
 
         $listaReceber = array_map(fn($r) => $this->mapLinhaContaCliente($r), $rowsReceber);
@@ -478,6 +527,12 @@ class FaturasReport extends BaseReportModel
             ->whereRaw('f.data_venci BETWEEN ? AND ?', [$dataInicio, $dataFim])
             ->orderByRaw('f.data_venci ASC');
         $this->applyFilialFilter($qPagar, $filialWhere, $filialParams, $filialId);
+        $this->applyFornecedorFilter($qPagar, $fornecedorId);
+        $this->applyVeiculoFinanceiroFilter($qPagar, $veiculoId);
+        $this->applyStatusContaFilter($qPagar, $status);
+        if ($clienteId !== '' && $fornecedorId === '') {
+            $qPagar->whereRaw('1 = 0');
+        }
         $rowsPagar = $qPagar->get();
 
         $listaPagar = array_map(fn($r) => $this->mapLinhaContaFornecedor($r), $rowsPagar);
@@ -495,39 +550,8 @@ class FaturasReport extends BaseReportModel
             'qtd_pagar' => count($listaPagar),
         ];
 
-        // --- Chart: fluxo mensal (entradas x saidas) ---
-        $qFluxo = $this->qb
-            ->table('financeiro', 'f')
-            ->selectRaw("
-                DATE_FORMAT(f.data_venci, '%Y-%m') AS mes,
-                f.tipo,
-                COALESCE(SUM(f.valor_total), 0) AS total
-            ")
-            ->whereRaw('f.tipo IN (?, ?)', ['R', 'D'])
-            ->whereRaw('f.data_venci BETWEEN ? AND ?', [$dataInicio, $dataFim])
-            ->groupBy(['mes', 'f.tipo'])
-            ->orderByRaw('mes ASC');
-        $this->applyFilialFilter($qFluxo, $filialWhere, $filialParams, $filialId);
-        $rowsFluxo = $qFluxo->get();
-
-        $meses = [];
-        $entradas = [];
-        $saidas = [];
-        foreach ($rowsFluxo as $r) {
-            if (!in_array($r['mes'], $meses, true)) $meses[] = $r['mes'];
-        }
-        foreach ($meses as $mes) {
-            $entrada = 0.0; $saida = 0.0;
-            foreach ($rowsFluxo as $r) {
-                if ($r['mes'] !== $mes) continue;
-                if ($r['tipo'] === 'R') $entrada = (float) $r['total'];
-                else $saida = (float) $r['total'];
-            }
-            $entradas[] = $entrada;
-            $saidas[] = $saida;
-        }
-
-        $labels = array_map(fn($m) => $this->formatMesLabel($m), $meses);
+        // --- Chart: fluxo mensal coerente com as listas filtradas ---
+        [$labels, $entradas, $saidas] = $this->buildFluxoMensalPagarReceber($listaReceber, $listaPagar);
 
         return [
             'totals' => $totals,
@@ -543,6 +567,43 @@ class FaturasReport extends BaseReportModel
                 ],
             ],
         ];
+    }
+
+    private function buildFluxoMensalPagarReceber(array $listaReceber, array $listaPagar): array
+    {
+        $porMes = [];
+
+        foreach ($listaReceber as $row) {
+            if (empty($row['data_venci'])) {
+                continue;
+            }
+            $mes = substr((string) $row['data_venci'], 0, 7);
+            $porMes[$mes]['entrada'] = ($porMes[$mes]['entrada'] ?? 0) + (float) $row['valor_total'];
+            $porMes[$mes]['saida'] = $porMes[$mes]['saida'] ?? 0;
+        }
+
+        foreach ($listaPagar as $row) {
+            if (empty($row['data_venci'])) {
+                continue;
+            }
+            $mes = substr((string) $row['data_venci'], 0, 7);
+            $porMes[$mes]['entrada'] = $porMes[$mes]['entrada'] ?? 0;
+            $porMes[$mes]['saida'] = ($porMes[$mes]['saida'] ?? 0) + (float) $row['valor_total'];
+        }
+
+        ksort($porMes);
+
+        $labels = [];
+        $entradas = [];
+        $saidas = [];
+
+        foreach ($porMes as $mes => $valores) {
+            $labels[] = $this->formatMesLabel($mes);
+            $entradas[] = (float) ($valores['entrada'] ?? 0);
+            $saidas[] = (float) ($valores['saida'] ?? 0);
+        }
+
+        return [$labels, $entradas, $saidas];
     }
 
     private function mapLinhaContaCliente(array $r): array

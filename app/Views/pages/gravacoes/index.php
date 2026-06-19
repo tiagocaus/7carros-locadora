@@ -64,19 +64,19 @@
 <script>
     (function() {
         const i18n = {
-            loading: '<?= addslashes(t("common.labels.loading")) ?>',
-            noRecords: '<?= addslashes(t("modules.gravacoes.no_records")) ?>',
-            noRecordsHint: '<?= addslashes(t("modules.gravacoes.no_records_hint")) ?>',
-            loadError: '<?= addslashes(t("modules.gravacoes.messages.load_error")) ?>',
-            serverError: '<?= addslashes(t("modules.gravacoes.messages.server_error")) ?>',
-            linkCopied: '<?= addslashes(t("modules.gravacoes.messages.link_copied")) ?>',
-            copyError: '<?= addslashes(t("modules.gravacoes.messages.copy_error")) ?>',
-            deleteError: '<?= addslashes(t("modules.gravacoes.messages.delete_error")) ?>',
-            recordName: '<?= addslashes(t("modules.gravacoes.record_name")) ?>',
-            showingPagination: '<?= addslashes(t("modules.gravacoes.pagination.showing")) ?>',
-            actionWatch: '<?= addslashes(t("modules.gravacoes.actions.watch")) ?>',
-            actionShare: '<?= addslashes(t("modules.gravacoes.actions.share")) ?>',
-            actionDelete: '<?= addslashes(t("modules.gravacoes.actions.delete")) ?>',
+            loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            noRecords: <?= json_encode(t('modules.gravacoes.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            noRecordsHint: <?= json_encode(t('modules.gravacoes.no_records_hint'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            loadError: <?= json_encode(t('modules.gravacoes.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            serverError: <?= json_encode(t('modules.gravacoes.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            linkCopied: <?= json_encode(t('modules.gravacoes.messages.link_copied'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            copyError: <?= json_encode(t('modules.gravacoes.messages.copy_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            deleteError: <?= json_encode(t('modules.gravacoes.messages.delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            recordName: <?= json_encode(t('modules.gravacoes.record_name'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            showingPagination: <?= json_encode(t('modules.gravacoes.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            actionWatch: <?= json_encode(t('modules.gravacoes.actions.watch'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            actionShare: <?= json_encode(t('modules.gravacoes.actions.share'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            actionDelete: <?= json_encode(t('modules.gravacoes.actions.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         };
 
         let currentPage = 1;

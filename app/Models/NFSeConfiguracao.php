@@ -43,12 +43,18 @@ class NFSeConfiguracao extends Model
     public function salvar(int $idMatrizFilial, string $chave, array $dados): int
     {
         $existing = $this->buscarPorMatrizFilial($idMatrizFilial);
+        $ativo = $dados['ativo'] ?? 'N';
+        $serie = trim((string) ($dados['serie'] ?? ''));
+
+        if ($ativo === 'S' && $serie === '') {
+            throw new \InvalidArgumentException('Série da NFS-e é obrigatória quando a emissão está ativa.');
+        }
 
         $campos = [
-            'ativo' => $dados['ativo'] ?? 'N',
+            'ativo' => $ativo,
             'ambiente' => (int) ($dados['ambiente'] ?? 2),
             'tipo_emissao' => $dados['tipo_emissao'] ?? 'nacional',
-            'serie' => $dados['serie'] ?? null,
+            'serie' => $serie !== '' ? $serie : null,
             'emissao_auto' => $dados['emissao_auto'] ?? 'N',
             'enviar_email' => $dados['enviar_email'] ?? 'S',
             'codigo_municipio' => $dados['codigo_municipio'] ?? null,

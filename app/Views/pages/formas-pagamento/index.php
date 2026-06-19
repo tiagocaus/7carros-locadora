@@ -65,27 +65,27 @@
 <script>
     (function() {
         const i18n = {
-            loading: '<?= addslashes(t('common.labels.loading')) ?>',
-            loadError: '<?= addslashes(t('modules.formas_pagamento.messages.load_error')) ?>',
-            serverError: '<?= addslashes(t('modules.formas_pagamento.messages.server_error')) ?>',
-            noRecords: '<?= addslashes(t('modules.formas_pagamento.messages.no_records')) ?>',
-            deleteError: '<?= addslashes(t('modules.formas_pagamento.messages.delete_error')) ?>',
-            thisRecord: '<?= addslashes(t('modules.formas_pagamento.messages.this_record')) ?>',
-            deleteConfirm: '<?= addslashes(t('modules.formas_pagamento.messages.delete_confirm')) ?>',
-            recordType: '<?= addslashes(t('modules.formas_pagamento.record_type')) ?>',
-            noName: '<?= addslashes(t('modules.formas_pagamento.badges.no_name')) ?>',
-            badgeFixed: '<?= addslashes(t('modules.formas_pagamento.badges.fixed')) ?>',
-            badgeFixedInstallment: '<?= addslashes(t('modules.formas_pagamento.badges.fixed_installment')) ?>',
-            badgePercentInstallment: '<?= addslashes(t('modules.formas_pagamento.badges.percent_installment')) ?>',
-            noFees: '<?= addslashes(t('modules.formas_pagamento.badges.no_fees')) ?>',
-            badgeYes: '<?= addslashes(t('modules.formas_pagamento.badges.yes')) ?>',
-            badgeNo: '<?= addslashes(t('modules.formas_pagamento.badges.no')) ?>',
-            badgeActive: '<?= addslashes(t('modules.formas_pagamento.badges.active')) ?>',
-            badgeInactive: '<?= addslashes(t('modules.formas_pagamento.badges.inactive')) ?>',
-            badgeInDays: '<?= addslashes(t('modules.formas_pagamento.badges.in_days')) ?>',
-            actionEdit: '<?= addslashes(t('modules.formas_pagamento.actions.edit')) ?>',
-            actionDelete: '<?= addslashes(t('modules.formas_pagamento.actions.delete')) ?>',
-            showingPagination: '<?= addslashes(t('modules.formas_pagamento.pagination.showing')) ?>',
+            loading: <?= json_encode(t('common.labels.loading'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            loadError: <?= json_encode(t('modules.formas_pagamento.messages.load_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            serverError: <?= json_encode(t('modules.formas_pagamento.messages.server_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            noRecords: <?= json_encode(t('modules.formas_pagamento.messages.no_records'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            deleteError: <?= json_encode(t('modules.formas_pagamento.messages.delete_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            thisRecord: <?= json_encode(t('modules.formas_pagamento.messages.this_record'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            deleteConfirm: <?= json_encode(t('modules.formas_pagamento.messages.delete_confirm'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            recordType: <?= json_encode(t('modules.formas_pagamento.record_type'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            noName: <?= json_encode(t('modules.formas_pagamento.badges.no_name'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            badgeFixed: <?= json_encode(t('modules.formas_pagamento.badges.fixed'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            badgeFixedInstallment: <?= json_encode(t('modules.formas_pagamento.badges.fixed_installment'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            badgePercentInstallment: <?= json_encode(t('modules.formas_pagamento.badges.percent_installment'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            noFees: <?= json_encode(t('modules.formas_pagamento.badges.no_fees'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            badgeYes: <?= json_encode(t('modules.formas_pagamento.badges.yes'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            badgeNo: <?= json_encode(t('modules.formas_pagamento.badges.no'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            badgeActive: <?= json_encode(t('modules.formas_pagamento.badges.active'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            badgeInactive: <?= json_encode(t('modules.formas_pagamento.badges.inactive'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            badgeInDays: <?= json_encode(t('modules.formas_pagamento.badges.in_days'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            actionEdit: <?= json_encode(t('modules.formas_pagamento.actions.edit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            actionDelete: <?= json_encode(t('modules.formas_pagamento.actions.delete'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            showingPagination: <?= json_encode(t('modules.formas_pagamento.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         };
 
         let currentPage = 1;
@@ -236,10 +236,6 @@
                             recordType: i18n.recordType,
                             confirmType: 'none'
                         }, '*');
-                    } else {
-                        if (confirm(i18n.deleteConfirm.replace(':name', name))) {
-                            excluirRegistro(id);
-                        }
                     }
                 });
             });
@@ -352,11 +348,11 @@
                 if (result.success) {
                     carregarDados(currentPage, perPage, searchTerm);
                 } else {
-                    alert(result.message || i18n.deleteError);
+                    openAlert(result.message || i18n.deleteError);
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                alert(i18n.deleteError);
+                openAlert(i18n.deleteError);
             }
         }
 
@@ -373,6 +369,14 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function openAlert(message) {
+            if (window.parent !== window) {
+                window.parent.postMessage({ action: 'openAlert', message }, '*');
+            } else {
+                console.error(message);
+            }
         }
 
         carregarDados(currentPage, perPage, searchTerm);

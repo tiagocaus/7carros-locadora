@@ -292,8 +292,10 @@ class LocacaoVeiculo extends Model
 
         // Calcular km excedente se plano KMC
         $kmExcedente = null;
-        if ($veiculo['plano'] === 'KMC' && $odometroUsado !== null && !empty($veiculo['km_franquia'])) {
-            $kmExcedente = max(0, $odometroUsado - (int) $veiculo['km_franquia']);
+        if ($veiculo['plano'] === 'KMC' && $odometroUsado !== null) {
+            $dias = max(1, (int) ($dadosDevolucao['dias'] ?? 1));
+            $kmPermitido = (int) $veiculo['km_franquia'] * $dias;
+            $kmExcedente = max(0, $odometroUsado - $kmPermitido);
         }
 
         // combustivel_entrada = combustivel na devolucao (veiculo entra na empresa)
@@ -301,8 +303,14 @@ class LocacaoVeiculo extends Model
         $combustivelEntrada = $dadosDevolucao['combustivel_entrada'] ?? null;
         $combustivelSaida = $veiculo['combustivel_saida'];
         $combustivelUsado = ($combustivelEntrada !== null && $combustivelSaida !== null)
-            ? (int) $combustivelSaida - (int) $combustivelEntrada
+            ? max(0, (int) $combustivelSaida - (int) $combustivelEntrada)
             : null;
+        $combustivelValor = null;
+        if (isset($dadosDevolucao['combustivel_valor'])) {
+            $combustivelValor = currency_parse($dadosDevolucao['combustivel_valor']);
+        } elseif ($combustivelUsado !== null && $combustivelUsado > 0) {
+            $combustivelValor = $combustivelUsado * (float) ($veiculo['veiculo_valor_por_fracao'] ?? 0);
+        }
 
         return $this->qb
             ->table('locacoes_veiculos')
@@ -314,9 +322,7 @@ class LocacaoVeiculo extends Model
                 'odometro_usado' => $odometroUsado,
                 'km_excedente' => $kmExcedente,
                 'combustivel_usado' => $combustivelUsado,
-                'combustivel_valor' => isset($dadosDevolucao['combustivel_valor'])
-                    ? currency_parse($dadosDevolucao['combustivel_valor'])
-                    : null,
+                'combustivel_valor' => $combustivelValor,
                 'motivo_saida' => $dadosDevolucao['motivo_saida'] ?? null,
                 'updated_at' => date('Y-m-d H:i:s')
             ]);

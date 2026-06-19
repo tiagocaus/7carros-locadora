@@ -2,6 +2,45 @@
 
 @section('title', t('modules.notificacoes.title'))
 
+<?php
+$jsFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+$i18nNotificacoes = [
+    'all' => t('modules.notificacoes.chips.all'),
+    'manutencao' => t('modules.notificacoes.chips.manutencao'),
+    'tarefa' => t('modules.notificacoes.chips.tarefa'),
+    'fatura' => t('modules.notificacoes.chips.fatura'),
+    'licenciamento' => t('modules.notificacoes.chips.licenciamento'),
+    'cnh' => t('modules.notificacoes.chips.cnh'),
+    'problema' => t('modules.notificacoes.chips.problema'),
+    'loading' => t('common.labels.loading'),
+    'noRecords' => t('modules.notificacoes.no_records'),
+    'loadError' => t('modules.notificacoes.load_error'),
+    'showing' => t('modules.notificacoes.showing'),
+    'receita' => t('modules.notificacoes.fatura.receita'),
+    'despesa' => t('modules.notificacoes.fatura.despesa'),
+    'action_open' => t('common.buttons.edit'),
+    'col_type' => t('modules.notificacoes.cols.type'),
+    'col_desc' => t('modules.notificacoes.cols.description'),
+    'col_detail' => t('modules.notificacoes.cols.detail'),
+    'col_date' => t('modules.notificacoes.cols.date'),
+    'col_actions' => t('common.labels.actions'),
+    'col_os' => t('modules.notificacoes.cols.os'),
+    'col_vehicle' => t('modules.notificacoes.cols.vehicle'),
+    'col_status' => t('modules.notificacoes.cols.status'),
+    'col_seq' => t('modules.notificacoes.cols.seq'),
+    'col_code' => t('modules.notificacoes.cols.code'),
+    'col_party' => t('modules.notificacoes.cols.client_supplier'),
+    'col_value' => t('modules.notificacoes.cols.value'),
+    'col_due' => t('modules.notificacoes.cols.due_date'),
+    'col_charge' => t('modules.notificacoes.cols.charge'),
+    'col_client' => t('modules.notificacoes.cols.client'),
+    'col_doc' => t('modules.notificacoes.cols.doc'),
+    'col_cnh' => t('modules.notificacoes.cols.cnh'),
+    'col_validity' => t('modules.notificacoes.cols.validity'),
+];
+$initialCategoria = $categoria ?? 'all';
+?>
+
 @section('content')
 <div class="pl-1 pr-2 py-0">
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4">
@@ -41,42 +80,8 @@
 @section('scripts')
 <script>
 (function () {
-    const i18n = {
-        all: '<?= t('modules.notificacoes.chips.all') ?>',
-        manutencao: '<?= t('modules.notificacoes.chips.manutencao') ?>',
-        tarefa: '<?= t('modules.notificacoes.chips.tarefa') ?>',
-        fatura: '<?= t('modules.notificacoes.chips.fatura') ?>',
-        licenciamento: '<?= t('modules.notificacoes.chips.licenciamento') ?>',
-        cnh: '<?= t('modules.notificacoes.chips.cnh') ?>',
-        problema: '<?= t('modules.notificacoes.chips.problema') ?>',
-        loading: '<?= t('common.labels.loading') ?>',
-        noRecords: '<?= t('modules.notificacoes.no_records') ?>',
-        loadError: '<?= addslashes(t('modules.notificacoes.load_error')) ?>',
-        showing: '<?= addslashes(t('modules.notificacoes.showing')) ?>',
-        receita: '<?= t('modules.notificacoes.fatura.receita') ?>',
-        despesa: '<?= t('modules.notificacoes.fatura.despesa') ?>',
-        action_open: '<?= t('common.buttons.edit') ?>',
-        col_type: '<?= t('modules.notificacoes.cols.type') ?>',
-        col_desc: '<?= t('modules.notificacoes.cols.description') ?>',
-        col_detail: '<?= t('modules.notificacoes.cols.detail') ?>',
-        col_date: '<?= t('modules.notificacoes.cols.date') ?>',
-        col_actions: '<?= t('common.labels.actions') ?>',
-        col_os: '<?= t('modules.notificacoes.cols.os') ?>',
-        col_vehicle: '<?= t('modules.notificacoes.cols.vehicle') ?>',
-        col_status: '<?= t('modules.notificacoes.cols.status') ?>',
-        col_seq: '<?= t('modules.notificacoes.cols.seq') ?>',
-        col_code: '<?= t('modules.notificacoes.cols.code') ?>',
-        col_party: '<?= t('modules.notificacoes.cols.client_supplier') ?>',
-        col_value: '<?= t('modules.notificacoes.cols.value') ?>',
-        col_due: '<?= t('modules.notificacoes.cols.due_date') ?>',
-        col_charge: '<?= t('modules.notificacoes.cols.charge') ?>',
-        col_client: '<?= t('modules.notificacoes.cols.client') ?>',
-        col_doc: '<?= t('modules.notificacoes.cols.doc') ?>',
-        col_cnh: '<?= t('modules.notificacoes.cols.cnh') ?>',
-        col_validity: '<?= t('modules.notificacoes.cols.validity') ?>',
-    };
-
-    const initialCategoria = '<?= htmlspecialchars($categoria ?? 'all') ?>';
+    const i18n = <?= json_encode($i18nNotificacoes, $jsFlags) ?>;
+    const initialCategoria = <?= json_encode($initialCategoria, $jsFlags) ?>;
     const state = {
         categoria: initialCategoria || 'all',
         page: 1,

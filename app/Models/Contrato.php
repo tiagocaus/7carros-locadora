@@ -144,7 +144,8 @@ class Contrato extends Model
         // Filtro de busca
         if (!empty($search)) {
             $searchTerm = '%' . $search . '%';
-            $query->whereNested(function ($q) use ($searchTerm) {
+            $dataBusca = $this->normalizarDataBusca($search);
+            $query->whereNested(function ($q) use ($searchTerm, $dataBusca) {
                 $q->where('c.codigo', 'LIKE', $searchTerm)
                   ->orWhere('cl.nome_rsocial', 'LIKE', $searchTerm)
                   ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm)
@@ -165,6 +166,15 @@ class Contrato extends Model
                       )",
                       [$searchTerm, $searchTerm, $searchTerm]
                   );
+
+                if ($dataBusca !== null) {
+                    $inicioDia = $dataBusca . ' 00:00:00';
+                    $fimDia = $dataBusca . ' 23:59:59';
+                    $q->orWhereRaw(
+                        '(c.data_ini BETWEEN ? AND ? OR c.data_fim BETWEEN ? AND ? OR c.data_renovacao = ?)',
+                        [$inicioDia, $fimDia, $inicioDia, $fimDia, $dataBusca]
+                    );
+                }
             });
         }
 
@@ -208,7 +218,8 @@ class Contrato extends Model
 
         if (!empty($search)) {
             $searchTerm = '%' . $search . '%';
-            $query->whereNested(function ($q) use ($searchTerm) {
+            $dataBusca = $this->normalizarDataBusca($search);
+            $query->whereNested(function ($q) use ($searchTerm, $dataBusca) {
                 $q->where('c.codigo', 'LIKE', $searchTerm)
                   ->orWhere('cl.nome_rsocial', 'LIKE', $searchTerm)
                   ->orWhere('cl.cpf_cnpj', 'LIKE', $searchTerm)
@@ -229,6 +240,15 @@ class Contrato extends Model
                       )",
                       [$searchTerm, $searchTerm, $searchTerm]
                   );
+
+                if ($dataBusca !== null) {
+                    $inicioDia = $dataBusca . ' 00:00:00';
+                    $fimDia = $dataBusca . ' 23:59:59';
+                    $q->orWhereRaw(
+                        '(c.data_ini BETWEEN ? AND ? OR c.data_fim BETWEEN ? AND ? OR c.data_renovacao = ?)',
+                        [$inicioDia, $fimDia, $inicioDia, $fimDia, $dataBusca]
+                    );
+                }
             });
         }
 
@@ -643,20 +663,13 @@ class Contrato extends Model
             return 0;
         }
 
-        // Liberar veiculos ativos (sem data_entrada) antes de deletar
+        // Guardar veiculos ativos (sem data_entrada) para liberar apos remover os vinculos.
         $veiculosAtivos = $this->qb
             ->table('contratos_veiculos')
             ->select(['id_veiculo'])
             ->where('id_contrato', '=', $id)
             ->whereNull('data_entrada')
             ->get();
-
-        foreach ($veiculosAtivos as $v) {
-            $this->qb
-                ->table('veiculos')
-                ->where('id', '=', $v['id_veiculo'])
-                ->update(['disponibilidade' => 'D']);
-        }
 
         // Excluir checklists vinculados e seus arquivos
         $checklistModel = new \App\Models\Checklist();
@@ -681,10 +694,19 @@ class Contrato extends Model
             ->delete();
 
         // Deletar contrato
-        return $this->qb
+        $apagados = $this->qb
             ->table('contratos')
             ->where('id', '=', $id)
             ->delete();
+
+        if ($apagados > 0) {
+            $disponibilidadeSync = new VeiculoDisponibilidadeSync();
+            foreach ($veiculosAtivos as $v) {
+                $disponibilidadeSync->liberarSeSemVinculoAtivo((int) $v['id_veiculo'], 'D', $contrato['chave']);
+            }
+        }
+
+        return $apagados;
     }
 
     /**
@@ -955,7 +977,11 @@ class Contrato extends Model
 
     /**
      * Calcula a regularizacao de autorenovacao aplicando ciclos de dias + contagem
-     * ate que a proxima renovacao fique a frente da data de referencia.
+     * apenas sobre data_renovacao, ate que a proxima renovacao fique a frente
+     * da data de referencia.
+     *
+     * data_ini e data_fim representam o periodo original do contrato e nao
+     * devem ser deslocadas pela autorenovacao.
      *
      * @param array $contrato Dados do contrato
      * @param string|null $dataReferencia Data base Y-m-d; padrao hoje
@@ -980,19 +1006,15 @@ class Contrato extends Model
         $referencia = new \DateTime($dataReferencia ?? date('Y-m-d'));
         $referencia->setTime(0, 0, 0);
 
-        $dataIni = new \DateTime($contrato['data_ini']);
-        $dataFim = new \DateTime($contrato['data_fim']);
+        $dataIniOriginal = new \DateTime($contrato['data_ini']);
+        $dataFimOriginal = new \DateTime($contrato['data_fim']);
         $dataRenovacao = new \DateTime($contrato['data_renovacao']);
         $dataRenovacao->setTime(0, 0, 0);
 
-        $dataIniOriginal = clone $dataIni;
-        $dataFimOriginal = clone $dataFim;
         $dataRenovacaoOriginal = clone $dataRenovacao;
 
         $ciclos = 0;
         while ($dataRenovacao <= $referencia) {
-            $this->avancarDataPorCiclo($dataIni, $quantidade, $contagem);
-            $this->avancarDataPorCiclo($dataFim, $quantidade, $contagem);
             $this->avancarDataPorCiclo($dataRenovacao, $quantidade, $contagem);
             $ciclos++;
 
@@ -1009,9 +1031,11 @@ class Contrato extends Model
             'data_ini_atual' => $dataIniOriginal->format('Y-m-d H:i:s'),
             'data_fim_atual' => $dataFimOriginal->format('Y-m-d H:i:s'),
             'data_renovacao_atual' => $dataRenovacaoOriginal->format('Y-m-d'),
-            'nova_data_ini' => $dataIni->format('Y-m-d H:i:s'),
-            'nova_data_fim' => $dataFim->format('Y-m-d H:i:s'),
+            'nova_data_ini' => $dataIniOriginal->format('Y-m-d H:i:s'),
+            'nova_data_fim' => $dataFimOriginal->format('Y-m-d H:i:s'),
             'nova_data_renovacao' => $dataRenovacao->format('Y-m-d'),
+            'periodo_cobranca_ini' => $dataRenovacaoOriginal->format('Y-m-d'),
+            'periodo_cobranca_fim' => $dataRenovacao->format('Y-m-d'),
         ];
     }
 
@@ -1617,5 +1641,178 @@ class Contrato extends Model
             'active' => (int) ($row['active'] ?? 0),
             'expiring_soon' => (int) ($row['expiring_soon'] ?? 0),
         ];
+    }
+
+    /**
+     * Contratos ativos exibidos junto das locacoes abertas no dashboard simples.
+     */
+    public function dashboardSimpleRented(
+        string $chave,
+        int $limit = 20,
+        string $filialWhere = '',
+        array $filialParams = []
+    ): array {
+        $query = $this->qb
+            ->table('contratos', 'c')
+            ->select([
+                'c.id',
+                'c.codigo',
+                'c.status',
+                'c.data_ini',
+                'c.data_fim',
+                'cl.nome_rsocial AS cliente',
+                'v.placa',
+                'v.marca',
+                'v.modelo',
+                'mf.nome_fantasia AS filial_retirada',
+            ])
+            ->leftJoinRaw('contratos_veiculos', 'cv', 'cv.id_contrato = c.id AND cv.chave = c.chave AND cv.data_entrada IS NULL')
+            ->leftJoinRaw('veiculos', 'v', 'v.id = cv.id_veiculo AND v.chave = cv.chave')
+            ->leftJoin('clientes', 'cl', 'c.id_cliente', '=', 'cl.id')
+            ->leftJoin('matrizes_filiais', 'mf', 'c.id_matriz_filial_retirada', '=', 'mf.id')
+            ->where('c.status', '=', 'A')
+            ->whereNotNull('cv.id_veiculo')
+            ->orderBy('c.data_fim', 'ASC')
+            ->limit($limit);
+
+        if (!empty($filialWhere)) {
+            $query->whereRaw($filialWhere, $filialParams);
+        }
+
+        return array_map(
+            fn ($row) => $this->formatDashboardSimpleContratoRow($row),
+            $query->get()
+        );
+    }
+
+    /**
+     * Formata um contrato para consumo direto pelo JS do dashboard simples.
+     */
+    private function formatDashboardSimpleContratoRow(array $row): array
+    {
+        $vehicleParts = array_filter([
+            trim((string) ($row['marca'] ?? '')),
+            trim((string) ($row['modelo'] ?? '')),
+        ]);
+        $vehicleName = trim(implode(' ', $vehicleParts));
+        $plate = trim((string) ($row['placa'] ?? ''));
+        $prazo = $this->formatDashboardContractDurationInfo($row['data_ini'] ?? null);
+        $filial = (string) ($row['filial_retirada'] ?? '');
+
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'codigo' => (string) ($row['codigo'] ?? ''),
+            'tipo' => 'contrato',
+            'tipo_label' => t('modules.dashboard.subtabs.contract'),
+            'action' => 'contrato',
+            'cliente' => (string) ($row['cliente'] ?? ''),
+            'veiculo' => $vehicleName !== '' ? $vehicleName : t('modules.dashboard.subtabs.no_vehicle'),
+            'placa' => $plate,
+            'filial_retirada' => $filial,
+            'filial_devolucao' => $filial,
+            'data_saida' => $this->formatDashboardDateTime($row['data_ini'] ?? null),
+            'data_prevista' => $this->formatDashboardDateTime($row['data_fim'] ?? null),
+            'data_referencia' => $this->formatDashboardDateTime($row['data_fim'] ?? null),
+            'sort_at' => (string) ($row['data_fim'] ?? ''),
+            'prazo_label' => $prazo['label'],
+            'prazo_tipo' => $prazo['tipo'],
+        ];
+    }
+
+    private function formatDashboardDateTime(?string $value): string
+    {
+        if (empty($value) || str_starts_with($value, '0000-00-00')) {
+            return '';
+        }
+
+        $timestamp = strtotime($value);
+        return $timestamp ? date('d/m/Y H:i', $timestamp) : '';
+    }
+
+    private function normalizarDataBusca(string $search): ?string
+    {
+        $search = trim($search);
+        if (!preg_match('/^\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}$/', $search)) {
+            return null;
+        }
+
+        return parse_date($search);
+    }
+
+    private function formatDashboardContractDurationInfo(?string $value): array
+    {
+        if (empty($value) || str_starts_with($value, '0000-00-00')) {
+            return ['label' => '', 'tipo' => ''];
+        }
+
+        $timestamp = strtotime($value);
+        if (!$timestamp) {
+            return ['label' => '', 'tipo' => ''];
+        }
+
+        $days = (int) floor(max(0, time() - $timestamp) / 86400);
+        if ($days < 1) {
+            return [
+                'label' => t('modules.dashboard.subtabs.contract_duration_today'),
+                'tipo' => 'contract_duration',
+            ];
+        }
+
+        return [
+            'label' => t_choice('modules.dashboard.subtabs.contract_duration_days', $days),
+            'tipo' => 'contract_duration',
+        ];
+    }
+
+    private function formatDashboardDueInfo(?string $value): array
+    {
+        if (empty($value) || str_starts_with($value, '0000-00-00')) {
+            return ['label' => '', 'tipo' => ''];
+        }
+
+        $timestamp = strtotime($value);
+        if (!$timestamp) {
+            return ['label' => '', 'tipo' => ''];
+        }
+
+        $now = time();
+        $today = date('Y-m-d');
+        $date = date('Y-m-d', $timestamp);
+
+        if ($timestamp < $now) {
+            $secondsLate = max(60, $now - $timestamp);
+
+            if ($secondsLate < 3600) {
+                $minutes = max(1, (int) floor($secondsLate / 60));
+                return [
+                    'label' => t_choice('modules.dashboard.subtabs.overdue_minutes', $minutes),
+                    'tipo' => 'overdue',
+                ];
+            }
+
+            if ($secondsLate < 86400) {
+                $hours = max(1, (int) floor($secondsLate / 3600));
+                return [
+                    'label' => t_choice('modules.dashboard.subtabs.overdue_hours', $hours),
+                    'tipo' => 'overdue',
+                ];
+            }
+
+            $days = max(1, (int) floor($secondsLate / 86400));
+            return [
+                'label' => t_choice('modules.dashboard.subtabs.overdue_days', $days),
+                'tipo' => 'overdue',
+            ];
+        }
+
+        if ($date === $today) {
+            return ['label' => t('modules.dashboard.subtabs.today'), 'tipo' => 'today'];
+        }
+
+        if ($date === date('Y-m-d', strtotime('+1 day'))) {
+            return ['label' => t('modules.dashboard.subtabs.tomorrow'), 'tipo' => 'tomorrow'];
+        }
+
+        return ['label' => date('d/m', $timestamp), 'tipo' => ''];
     }
 }

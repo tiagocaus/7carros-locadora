@@ -288,6 +288,17 @@ O `Scheduler` registra o resultado dos jobs diários em `storage/cron/daily-summ
 O `SendDailyCronSummaryJob` envia um email único para `APP_COMPANY_EMAIL` com status, duração, mensagem e contadores de cada job diário.
 Jobs recorrentes por minuto, 5, 15 ou 30 minutos não entram nesse resumo.
 
+### RenovarContratosJob
+
+**Descrição**: processa contratos ativos com `auto_renovacao = 'auto'` e `data_renovacao <= hoje`.
+
+**Regra crítica de datas**:
+
+- O job deve atualizar somente `contratos.data_renovacao`.
+- O job nunca deve alterar `contratos.data_ini` nem `contratos.data_fim`; esses campos guardam o período original/contratual.
+- O período de cobrança da renovação é calculado temporariamente entre a `data_renovacao` atual e a nova `data_renovacao`.
+- Caso existam contratos antigos com `data_ini`/`data_fim` deslocadas por autorrenovação, a correção deve ser feita pelo script `scripts/corrigir-datas-contratos-autorenovacao.php`, sempre começando por `--dry-run`.
+
 ---
 
 ### 2. CalculateOverdueFeesJob
@@ -313,7 +324,11 @@ Jobs recorrentes por minuto, 5, 15 ou 30 minutos não entram nesse resumo.
    - **Juros**: `financeiro.valor_subtotal * (formas_pagamento.juros_por_dia / 100) * DATEDIFF(CURDATE(), financeiro.data_venci)`
    - **Total**: `valor_subtotal + juros + multa - desconto`
 
-3. Recalcula enquanto o lançamento estiver vencido e pendente. Lançamentos pagos, despesas, sem vencimento válido, sem forma de pagamento ou com forma sem encargos não são alterados.
+3. Antes de persistir os novos encargos, invalida links de pagamento e cobranças externas pendentes do lançamento via `PagamentoLinkSyncService`.
+
+4. Recalcula enquanto o lançamento estiver vencido e pendente. Lançamentos pagos, despesas, sem vencimento válido, sem forma de pagamento ou com forma sem encargos não são alterados.
+
+Se uma cobrança antiga não puder ser cancelada no gateway, o lançamento fica bloqueado nessa execução do job e não tem juros/multa atualizados. Isso evita que um boleto antigo continue pagável enquanto o financeiro já exibe outro valor. O resumo do job informa `bloqueados_por_gateway` e os detalhes em `erros`.
 
 **Configuração de Taxas**:
 
