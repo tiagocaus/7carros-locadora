@@ -691,7 +691,7 @@ class FinanceiroController extends BaseRelatorioController
 
         [$filialWhere, $filialParams] = $this->getFilialFilter();
         $model = new FinanceiroReport();
-        $result = $model->livroCaixa($filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams, $filters['filial'], $request->query('conta', ''), 1, 500);
+        $result = $model->livroCaixa($filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams, $filters['filial'], $request->query('conta', ''), 1, 0);
 
         $this->renderPdf('livro-caixa.php', t('modules.relatorios.financeiro.livro_caixa.title'), t('modules.relatorios.financeiro.livro_caixa.description'), $result['totals'], $result['details'], $filters['data_inicio'], $filters['data_fim']);
     }

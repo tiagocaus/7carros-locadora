@@ -182,7 +182,7 @@ class ContratoVeiculo extends Model
                 'valor_plano_km_pago' => \currency_parse($dados['valor_plano_km_pago'] ?? 0),
                 'valor_plano_km_livre' => \currency_parse($dados['valor_plano_km_livre'] ?? 0),
                 'valor_plano_km_controlado' => \currency_parse($dados['valor_plano_km_controlado'] ?? 0),
-                'km_franquia' => (int) ($dados['km_franquia'] ?? 0),
+                'km_franquia' => $this->parseIntegerInput($dados['km_franquia'] ?? 0),
                 'valor_km_excedente' => \currency_parse($dados['valor_km_excedente'] ?? 0),
                 'minutos_tolerancia' => (int) ($dados['minutos_tolerancia'] ?? 0),
                 'valor_tolerancia' => \currency_parse($dados['valor_tolerancia'] ?? 0),
@@ -194,8 +194,10 @@ class ContratoVeiculo extends Model
                 'seguro_terceiros' => isset($dados['seguro_terceiros']) ? (int) $dados['seguro_terceiros'] : 0,
                 'valor_seguro_terceiros' => \currency_parse($dados['valor_seguro_terceiros'] ?? 0),
                 'cobertura_terceiros' => \currency_parse($dados['cobertura_terceiros'] ?? 0),
-                'odometro_saida' => (int) ($dados['odometro_saida'] ?? 0),
-                'odometro_entrada' => $dados['odometro_entrada'] ?? null,
+                'odometro_saida' => $this->parseIntegerInput($dados['odometro_saida'] ?? 0),
+                'odometro_entrada' => array_key_exists('odometro_entrada', $dados) && $dados['odometro_entrada'] !== null
+                    ? $this->parseIntegerInput($dados['odometro_entrada'])
+                    : null,
                 'combustivel_saida' => $dados['combustivel_saida'] ?? null,
                 'combustivel_entrada' => $dados['combustivel_entrada'] ?? null,
                 'motivo_saida' => $dados['motivo_saida'] ?? null,
@@ -242,7 +244,7 @@ class ContratoVeiculo extends Model
             $dadosUpdate['valor_plano_km_controlado'] = \currency_parse($dados['valor_plano_km_controlado']);
         }
         if (isset($dados['km_franquia'])) {
-            $dadosUpdate['km_franquia'] = (int) $dados['km_franquia'];
+            $dadosUpdate['km_franquia'] = $this->parseIntegerInput($dados['km_franquia']);
         }
         if (isset($dados['valor_km_excedente'])) {
             $dadosUpdate['valor_km_excedente'] = \currency_parse($dados['valor_km_excedente']);
@@ -282,10 +284,10 @@ class ContratoVeiculo extends Model
 
         // Odometro e combustivel
         if (isset($dados['odometro_saida'])) {
-            $dadosUpdate['odometro_saida'] = (int) $dados['odometro_saida'];
+            $dadosUpdate['odometro_saida'] = $this->parseIntegerInput($dados['odometro_saida']);
         }
         if (array_key_exists('odometro_entrada', $dados)) {
-            $dadosUpdate['odometro_entrada'] = $dados['odometro_entrada'] !== null ? (int) $dados['odometro_entrada'] : null;
+            $dadosUpdate['odometro_entrada'] = $dados['odometro_entrada'] !== null ? $this->parseIntegerInput($dados['odometro_entrada']) : null;
         }
         if (array_key_exists('combustivel_saida', $dados)) {
             $dadosUpdate['combustivel_saida'] = $dados['combustivel_saida'];
@@ -415,6 +417,22 @@ class ContratoVeiculo extends Model
         $dados['valor_plano_km_controlado'] = $plano === 'KMC' ? $valorKmControlado : 0;
 
         return $dados;
+    }
+
+    /**
+     * Converte inteiros formatados por mascara (ex: "1.500") para 1500.
+     */
+    private function parseIntegerInput($value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_float($value)) {
+            return (int) $value;
+        }
+
+        return (int) preg_replace('/\D+/', '', (string) $value);
     }
 
     /**

@@ -754,87 +754,87 @@
     <!-- Modal Instrucoes Indicacao -->
     <div id="indicacaoInstrucoesModal" class="modal-overlay">
         <div class="modal-box" style="max-width: 700px; text-align: left; max-height: 90vh; overflow-y: auto;">
-            <h3 class="modal-title"><i class="fas fa-info-circle mr-2"></i><?= t('modules.serpro_indicacoes.instructions.title') ?></h3>
+            <h3 class="modal-title"><i class="fas fa-info-circle mr-2"></i><?= t('modules.online_indicacoes.instructions.title') ?></h3>
             <div class="modal-message" style="margin-bottom: 0;">
                 <div class="space-y-4 text-sm text-slate-700">
 
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h4 class="font-semibold text-blue-800 mb-2"><i class="fas fa-question-circle mr-1"></i> <?= t('modules.serpro_indicacoes.instructions.what_is_title') ?></h4>
-                        <p class="text-blue-700"><?= t('modules.serpro_indicacoes.instructions.what_is_text') ?></p>
+                        <h4 class="font-semibold text-blue-800 mb-2"><i class="fas fa-question-circle mr-1"></i> <?= t('modules.online_indicacoes.instructions.what_is_title') ?></h4>
+                        <p class="text-blue-700"><?= t('modules.online_indicacoes.instructions.what_is_text') ?></p>
                     </div>
 
                     <div class="border border-slate-200 rounded-lg p-4">
-                        <h4 class="font-semibold text-orange-700 mb-2"><i class="fas fa-user-shield mr-1"></i> <?= t('modules.serpro_indicacoes.instructions.real_infrator_title') ?></h4>
-                        <p class="mb-2"><?= t('modules.serpro_indicacoes.instructions.real_infrator_desc') ?></p>
+                        <h4 class="font-semibold text-orange-700 mb-2"><i class="fas fa-user-shield mr-1"></i> <?= t('modules.online_indicacoes.instructions.real_infrator_title') ?></h4>
+                        <p class="mb-2"><?= t('modules.online_indicacoes.instructions.real_infrator_desc') ?></p>
                         <ul class="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                            <li><strong><?= t('modules.serpro_indicacoes.instructions.label_when') ?></strong> <?= t('modules.serpro_indicacoes.instructions.real_infrator_when') ?></li>
-                            <li><strong><?= t('modules.serpro_indicacoes.instructions.label_prereq') ?></strong> <?= t('modules.serpro_indicacoes.instructions.real_infrator_prereq') ?></li>
-                            <li><strong><?= t('modules.serpro_indicacoes.instructions.label_fields') ?></strong> <?= t('modules.serpro_indicacoes.instructions.real_infrator_fields') ?></li>
-                            <li><strong><?= t('modules.serpro_indicacoes.instructions.label_result') ?></strong> <?= t('modules.serpro_indicacoes.instructions.real_infrator_result') ?></li>
+                            <li><strong><?= t('modules.online_indicacoes.instructions.label_when') ?></strong> <?= t('modules.online_indicacoes.instructions.real_infrator_when') ?></li>
+                            <li><strong><?= t('modules.online_indicacoes.instructions.label_prereq') ?></strong> <?= t('modules.online_indicacoes.instructions.real_infrator_prereq') ?></li>
+                            <li><strong><?= t('modules.online_indicacoes.instructions.label_fields') ?></strong> <?= t('modules.online_indicacoes.instructions.real_infrator_fields') ?></li>
+                            <li><strong><?= t('modules.online_indicacoes.instructions.label_result') ?></strong> <?= t('modules.online_indicacoes.instructions.real_infrator_result') ?></li>
                         </ul>
                     </div>
 
                     <div class="border border-slate-200 rounded-lg p-4">
-                        <h4 class="font-semibold text-indigo-700 mb-2"><i class="fas fa-id-card mr-1"></i> <?= t('modules.serpro_indicacoes.instructions.principal_title') ?></h4>
-                        <p class="mb-2"><?= t('modules.serpro_indicacoes.instructions.principal_desc') ?></p>
+                        <h4 class="font-semibold text-indigo-700 mb-2"><i class="fas fa-id-card mr-1"></i> <?= t('modules.online_indicacoes.instructions.principal_title') ?></h4>
+                        <p class="mb-2"><?= t('modules.online_indicacoes.instructions.principal_desc') ?></p>
                         <ul class="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                            <li><strong><?= t('modules.serpro_indicacoes.instructions.label_when') ?></strong> <?= t('modules.serpro_indicacoes.instructions.principal_when') ?></li>
-                            <li><strong><?= t('modules.serpro_indicacoes.instructions.label_advantage') ?></strong> <?= t('modules.serpro_indicacoes.instructions.principal_advantage') ?></li>
-                            <li><strong><?= t('modules.serpro_indicacoes.instructions.label_fields') ?></strong> <?= t('modules.serpro_indicacoes.instructions.principal_fields') ?></li>
-                            <li><strong><?= t('modules.serpro_indicacoes.instructions.label_important') ?></strong> <?= t('modules.serpro_indicacoes.instructions.principal_important') ?></li>
+                            <li><strong><?= t('modules.online_indicacoes.instructions.label_when') ?></strong> <?= t('modules.online_indicacoes.instructions.principal_when') ?></li>
+                            <li><strong><?= t('modules.online_indicacoes.instructions.label_advantage') ?></strong> <?= t('modules.online_indicacoes.instructions.principal_advantage') ?></li>
+                            <li><strong><?= t('modules.online_indicacoes.instructions.label_fields') ?></strong> <?= t('modules.online_indicacoes.instructions.principal_fields') ?></li>
+                            <li><strong><?= t('modules.online_indicacoes.instructions.label_important') ?></strong> <?= t('modules.online_indicacoes.instructions.principal_important') ?></li>
                         </ul>
                     </div>
 
                     <div class="border border-slate-200 rounded-lg p-4">
-                        <h4 class="font-semibold text-slate-800 mb-2"><i class="fas fa-tasks mr-1"></i> <?= t('modules.serpro_indicacoes.instructions.status_title') ?></h4>
+                        <h4 class="font-semibold text-slate-800 mb-2"><i class="fas fa-tasks mr-1"></i> <?= t('modules.online_indicacoes.instructions.status_title') ?></h4>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                             <div class="flex items-center gap-2">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700"><?= t('modules.layout.status.sent') ?></span>
-                                <span class="text-slate-500"><?= t('modules.serpro_indicacoes.instructions.status_enviado') ?></span>
+                                <span class="text-slate-500"><?= t('modules.online_indicacoes.instructions.status_enviado') ?></span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700"><?= t('modules.layout.status.processing') ?></span>
-                                <span class="text-slate-500"><?= t('modules.serpro_indicacoes.instructions.status_processando') ?></span>
+                                <span class="text-slate-500"><?= t('modules.online_indicacoes.instructions.status_processando') ?></span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700"><?= t('modules.layout.status.accepted') ?></span>
-                                <span class="text-slate-500"><?= t('modules.serpro_indicacoes.instructions.status_aceito') ?></span>
+                                <span class="text-slate-500"><?= t('modules.online_indicacoes.instructions.status_aceito') ?></span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700"><?= t('modules.layout.status.rejected') ?></span>
-                                <span class="text-slate-500"><?= t('modules.serpro_indicacoes.instructions.status_rejeitado') ?></span>
+                                <span class="text-slate-500"><?= t('modules.online_indicacoes.instructions.status_rejeitado') ?></span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600"><?= t('modules.layout.status.canceled') ?></span>
-                                <span class="text-slate-500"><?= t('modules.serpro_indicacoes.instructions.status_cancelado') ?></span>
+                                <span class="text-slate-500"><?= t('modules.online_indicacoes.instructions.status_cancelado') ?></span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-500"><?= t('modules.layout.status.expired') ?></span>
-                                <span class="text-slate-500"><?= t('modules.serpro_indicacoes.instructions.status_expirado') ?></span>
+                                <span class="text-slate-500"><?= t('modules.online_indicacoes.instructions.status_expirado') ?></span>
                             </div>
                         </div>
                     </div>
 
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <h4 class="font-semibold text-amber-800 mb-2"><i class="fas fa-exclamation-triangle mr-1"></i> <?= t('modules.serpro_indicacoes.instructions.important_title') ?></h4>
+                        <h4 class="font-semibold text-amber-800 mb-2"><i class="fas fa-exclamation-triangle mr-1"></i> <?= t('modules.online_indicacoes.instructions.important_title') ?></h4>
                         <ul class="list-disc list-inside space-y-1 text-amber-700 ml-2">
-                            <li><?= t('modules.serpro_indicacoes.instructions.important_1') ?></li>
-                            <li><?= t('modules.serpro_indicacoes.instructions.important_2') ?></li>
-                            <li><?= t('modules.serpro_indicacoes.instructions.important_3') ?></li>
-                            <li><?= t('modules.serpro_indicacoes.instructions.important_4') ?></li>
-                            <li><?= t('modules.serpro_indicacoes.instructions.important_5') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.important_1') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.important_2') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.important_3') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.important_4') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.important_5') ?></li>
                         </ul>
                     </div>
 
                     <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                        <h4 class="font-semibold text-slate-800 mb-2"><i class="fas fa-route mr-1"></i> <?= t('modules.serpro_indicacoes.instructions.steps_title') ?></h4>
+                        <h4 class="font-semibold text-slate-800 mb-2"><i class="fas fa-route mr-1"></i> <?= t('modules.online_indicacoes.instructions.steps_title') ?></h4>
                         <ol class="list-decimal list-inside space-y-1 text-slate-600 ml-2">
-                            <li><?= t('modules.serpro_indicacoes.instructions.step_1') ?></li>
-                            <li><?= t('modules.serpro_indicacoes.instructions.step_2') ?></li>
-                            <li><?= t('modules.serpro_indicacoes.instructions.step_3') ?></li>
-                            <li><?= t('modules.serpro_indicacoes.instructions.step_4') ?></li>
-                            <li><?= t('modules.serpro_indicacoes.instructions.step_5') ?></li>
-                            <li><?= t('modules.serpro_indicacoes.instructions.step_6') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.step_1') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.step_2') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.step_3') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.step_4') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.step_5') ?></li>
+                            <li><?= t('modules.online_indicacoes.instructions.step_6') ?></li>
                         </ol>
                     </div>
 

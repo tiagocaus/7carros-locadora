@@ -366,7 +366,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('valor_km_livre').value = valores.valor_plano_km_livre ? Currency.format(valores.valor_plano_km_livre * multiplicador) : '';
         document.getElementById('valor_seguro_carro').value = valores.valor_seguro_carro ? Currency.format(valores.valor_seguro_carro * multiplicador) : '';
         document.getElementById('valor_seguro_terceiros').value = valores.valor_seguro_terceiros ? Currency.format(valores.valor_seguro_terceiros * multiplicador) : '';
-        document.getElementById('km_franquia').value = valores.km_franquia ? (valores.km_franquia * multiplicador) : '';
+        document.getElementById('km_franquia').value = valores.km_franquia ? Km.format(valores.km_franquia * multiplicador) : '';
         // Valores por km - NAO multiplicar
         document.getElementById('valor_km_diaria').value = valores.valor_km_excedente ? Currency.format(valores.valor_km_excedente) : '';
         document.getElementById('valor_km_excedente').value = valores.valor_km_excedente ? Currency.format(valores.valor_km_excedente) : '';
@@ -440,7 +440,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         checkSeguroTerceiros.checked = dados.seguro_terceiros || false;
 
         // Odometro e tanque
-        inputOdometro.value = dados.odometro_saida || '';
+        inputOdometro.value = dados.odometro_saida ? Km.format(dados.odometro_saida) : '';
         atualizarLabelsTanque(dados.tipo_combustivel || '');
         selectTanque.value = dados.combustivel_saida || '';
 
@@ -448,7 +448,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('valor_diaria').value = dados.valor_plano_km_pago ? Currency.format(dados.valor_plano_km_pago) : '';
         document.getElementById('valor_km_diaria').value = dados.valor_km_excedente ? Currency.format(dados.valor_km_excedente) : '';
         document.getElementById('valor_km_controlado').value = dados.valor_plano_km_controlado ? Currency.format(dados.valor_plano_km_controlado) : '';
-        document.getElementById('km_franquia').value = dados.km_franquia || '';
+        document.getElementById('km_franquia').value = dados.km_franquia ? Km.format(dados.km_franquia) : '';
         document.getElementById('valor_km_excedente').value = dados.valor_km_excedente ? Currency.format(dados.valor_km_excedente) : '';
         document.getElementById('valor_km_livre').value = dados.valor_plano_km_livre ? Currency.format(dados.valor_plano_km_livre) : '';
         document.getElementById('valor_seguro_carro').value = dados.valor_seguro_carro ? Currency.format(dados.valor_seguro_carro) : '';
@@ -555,8 +555,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             valor_plano_km_controlado: plano === 'KMC' ? valorKmControlado : 0,
             valor_plano_km_livre: plano === 'KL' ? valorKmLivre : 0,
             valor_km_excedente: Currency.parse(document.getElementById('valor_km_excedente').value || document.getElementById('valor_km_diaria').value || '0'),
-            km_franquia: parseInt(document.getElementById('km_franquia').value || '0'),
-            odometro_saida: parseInt(inputOdometro.value || '0'),
+            km_franquia: Km.parse(document.getElementById('km_franquia').value || '0'),
+            odometro_saida: Km.parse(inputOdometro.value || '0'),
             combustivel_saida: selectTanque.value || null,
             seguro_carro: checkSeguroCarro.checked,
             valor_seguro_carro: Currency.parse(document.getElementById('valor_seguro_carro').value || '0'),

@@ -313,7 +313,8 @@ POST /nfse/configuracoes/testar-conexao
 - O QR Code deve abrir a consulta publica `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave={chave_acesso}`.
 - O link da consulta publica deve aparecer tambem no fim da pagina.
 - O bloco de valores deve exibir aliquota ISS, valor ISS, ISS retido, valor ISS retido e valor liquido.
-- O download regenera o PDF para entregar sempre o layout fiscal atual.
+- O download gera o PDF sob demanda em memoria para entregar sempre o layout fiscal atual, sem persistir arquivo em `storage/uploads`.
+- O envio por email gera arquivo temporario apenas para anexo; o arquivo deve ser removido apos envio bem-sucedido.
 
 ---
 

@@ -15,13 +15,16 @@
     $valorFmt = 'R$ ' . number_format((float) ($lancamento['valor_total'] ?? 0), 2, ',', '.');
     $venciFmt = !empty($lancamento['data_venci']) ? date('d/m/Y', strtotime($lancamento['data_venci'])) : '-';
     $codigoLabel = $lancamento['codigo'] ?? ('#' . ($lancamento['id'] ?? ''));
+    $tipoReceita = $tipoReceita ?? (($lancamento['tipo'] ?? '') === 'R');
+    $contraparte = $contraparte ?? ($tipoReceita ? ($cliente ?? []) : ($fornecedor ?? []));
+    $contraparteNome = $contraparte['nome_rsocial'] ?? ($tipoReceita ? ($lancamento['cliente_nome'] ?? '-') : ($lancamento['fornecedor_nome'] ?? '-'));
 ?>
 <div class="p-4">
     <div class="mb-4">
         <p class="text-sm text-slate-500"><?= t('modules.financeiro.print.entry_label') ?></p>
         <p class="text-lg font-semibold text-slate-800"><?= htmlspecialchars($codigoLabel) ?></p>
         <p class="text-sm text-slate-600"><?= htmlspecialchars($lancamento['descricao'] ?? '-') ?></p>
-        <p class="text-sm text-slate-600 mt-1"><?= htmlspecialchars($cliente['nome_rsocial'] ?? $lancamento['cliente_nome'] ?? '-') ?></p>
+        <p class="text-sm text-slate-600 mt-1"><?= htmlspecialchars($contraparteNome) ?></p>
         <p class="text-sm text-slate-500"><?= t('modules.financeiro.print.value_label') ?>: <span class="font-medium text-slate-700"><?= $valorFmt ?></span></p>
         <p class="text-sm text-slate-500"><?= t('modules.financeiro.print.due_label') ?>: <span class="font-medium text-slate-700"><?= $venciFmt ?></span></p>
     </div>
@@ -72,7 +75,7 @@
     </div>
     <?php else: ?>
     <div class="border-t border-slate-200 pt-4 text-xs text-slate-500">
-        <?= t('modules.financeiro.print.no_channels_available') ?>
+        <?= $tipoReceita ? t('modules.financeiro.print.no_channels_available') : t('modules.financeiro.print.expense_send_unavailable') ?>
     </div>
     <?php endif; ?>
 </div>

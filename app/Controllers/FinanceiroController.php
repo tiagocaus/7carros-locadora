@@ -9,9 +9,9 @@ use App\Views\Template;
 use App\Models\Financeiro;
 use App\Models\FinanceiroItem;
 use App\Models\MatrizFilial;
-use App\Models\PagamentoLink;
 use App\Models\PlanoDeContas;
 use App\Models\Cliente;
+use App\Models\Fornecedor;
 use App\Models\Whatsapp;
 use App\Models\Sms;
 use App\Helpers\FilialHelper;
@@ -1052,18 +1052,25 @@ class FinanceiroController
         $cliente = !empty($lancamento['id_cliente'])
             ? (new Cliente())->buscarPorIdComContatos((int) $lancamento['id_cliente'])
             : null;
+        $fornecedor = !empty($lancamento['id_fornecedor'])
+            ? (new Fornecedor())->buscarPorId((int) $lancamento['id_fornecedor'])
+            : null;
+        $tipoReceita = ($lancamento['tipo'] ?? '') === 'R';
+        $contraparte = $tipoReceita ? ($cliente ?? []) : ($fornecedor ?? []);
 
         $planoCodigo = Auth::user()['plano'] ?? 'G';
         $planoInfo = Planos::getPlano($planoCodigo) ?? [];
 
         $filialId = (int) ($lancamento['id_matriz_filial'] ?? 0);
-        $telefone = trim((string) ($cliente['celular'] ?? $cliente['telefone'] ?? ''));
-        $temEmail = ($planoInfo['smtp'] ?? 0) > 0 && !empty($cliente['email']);
-        $temWhatsapp = ($planoInfo['whatsapp'] ?? 0) > 0
+        $telefone = $tipoReceita ? trim((string) ($cliente['celular'] ?? $cliente['telefone'] ?? '')) : '';
+        $temEmail = $tipoReceita && ($planoInfo['smtp'] ?? 0) > 0 && !empty($cliente['email']);
+        $temWhatsapp = $tipoReceita
+            && ($planoInfo['whatsapp'] ?? 0) > 0
             && $telefone !== ''
             && $filialId > 0
             && (new Whatsapp())->buscarConectadaPorFilial($filialId) !== null;
-        $temSms = ($planoInfo['sms'] ?? 0) > 0
+        $temSms = $tipoReceita
+            && ($planoInfo['sms'] ?? 0) > 0
             && $telefone !== ''
             && $filialId > 0
             && (new Sms())->buscarValidadaPorFilial($filialId) !== null;
@@ -1071,6 +1078,9 @@ class FinanceiroController
         $html = Template::render('pages.financeiro.offcanvas-impressao', [
             'lancamento' => $lancamento,
             'cliente' => $cliente ?? [],
+            'fornecedor' => $fornecedor ?? [],
+            'contraparte' => $contraparte,
+            'tipoReceita' => $tipoReceita,
             'temEmail' => $temEmail,
             'temWhatsapp' => $temWhatsapp,
             'temSms' => $temSms,
@@ -1244,20 +1254,22 @@ class FinanceiroController
         $cliente = !empty($lancamento['id_cliente'])
             ? ((new Cliente())->buscarPorIdComContatos((int) $lancamento['id_cliente']) ?? [])
             : [];
+        $fornecedor = !empty($lancamento['id_fornecedor'])
+            ? ((new Fornecedor())->buscarPorId((int) $lancamento['id_fornecedor']) ?? [])
+            : [];
+        $tipoReceita = ($lancamento['tipo'] ?? '') === 'R';
+        $contraparte = $tipoReceita ? $cliente : $fornecedor;
 
         // Link de pagamento (apenas para receitas em aberto)
         $linkPagamento = null;
         if (($lancamento['tipo'] ?? '') === 'R' && ($lancamento['pago'] ?? 'N') !== 'S') {
-            $linkModel = new PagamentoLink();
-            $link = $linkModel->buscarPorFinanceiro((int) $lancamento['id']);
-            if ($link) {
-                $linkPagamento = $linkModel->getUrl($link['codigo']);
-            }
+            $link = (new PagamentoLinkSyncService())->obterOuCriarLinkAtualizado((int) $lancamento['id'], $chave);
+            $linkPagamento = $link['url'] ?? null;
         }
 
         $qrPath = $this->gerarQrCodePath((int) $lancamento['id']);
 
-        extract(compact('lancamento', 'empresa', 'cliente', 'logoPath', 'linkPagamento', 'qrPath'));
+        extract(compact('lancamento', 'empresa', 'cliente', 'fornecedor', 'contraparte', 'tipoReceita', 'logoPath', 'linkPagamento', 'qrPath'));
         ob_start();
         include __DIR__ . '/../Views/pages/financeiro/imprimir/fatura.php';
         return ob_get_clean();

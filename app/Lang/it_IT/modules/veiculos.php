@@ -61,6 +61,8 @@ return [
         'change_photo' => 'Cambia Foto',
         'brand_model' => 'Marca/Modello',
         'branch_short' => 'Filiale',
+        'search_online' => 'Cerca dati in Consulta Online',
+        'consult_crlv' => 'Consulta CRLV',
     ],
 
     // Sezioni del modulo
@@ -80,6 +82,7 @@ return [
         'vehicle_data' => 'Dati del Veicolo',
         'maintenance_plan' => 'Piano di Manutenzione',
         'maintenances' => 'Manutenzioni',
+        'invoices' => 'Fatture',
     ],
 
     // Scheda Manutenzioni
@@ -96,6 +99,29 @@ return [
         'status_open' => 'Aperta',
         'status_closed' => 'Chiusa',
         'action_print' => 'Stampa OdL',
+    ],
+
+    // Scheda Fatture
+    'invoices' => [
+        'no_records' => 'Nessuna fattura collegata a questo veicolo.',
+        'no_filtered_records' => 'Nessuna fattura per i filtri selezionati.',
+        'load_error' => 'Errore nel caricamento delle fatture',
+        'filter_receivable' => 'Da ricevere',
+        'filter_payable' => 'Da pagare',
+        'receivable' => 'Da ricevere',
+        'payable' => 'Da pagare',
+        'table_type' => 'Tipo',
+        'table_due_date' => 'Scadenza',
+        'table_description' => 'Descrizione',
+        'table_person' => 'Cliente/Fornitore',
+        'table_payment_method' => 'Metodo',
+        'table_origin' => 'Origine',
+        'table_value' => 'Valore',
+        'table_status' => 'Stato',
+        'status_paid' => 'Pagata',
+        'status_overdue' => 'Scaduta',
+        'status_pending' => 'In sospeso',
+        'action_open' => 'Apri fattura',
     ],
 
     // Disponibilità
@@ -224,6 +250,18 @@ return [
         'for_sale_tooltip' => 'Attivando la vendita, il veicolo apparirà sul sito come disponibile per la vendita e non sarà più disponibile per il noleggio o il contratto.',
         'loading_accessories' => 'Caricamento accessori...',
         'plan_limit_reached' => 'Limite di veicoli raggiunto. Il tuo piano (:plano) consente un massimo di :limite veicoli attivi. Per riattivare questo veicolo, rimuovine un altro o aggiorna il tuo piano.',
+        'online_plate_required' => 'Inserisci la targa prima di cercare i dati in Consulta Online.',
+        'online_vehicle_loading' => 'Consultazione dati veicolo...',
+        'online_vehicle_success' => 'Dati del veicolo compilati correttamente.',
+        'online_vehicle_no_data' => 'Consulta Online non ha restituito dati utilizzabili per compilare la registrazione.',
+        'online_vehicle_error' => 'Errore durante la consultazione dei dati del veicolo.',
+        'online_overwrite_title' => 'Sostituisci dati veicolo',
+        'online_overwrite_confirm' => 'Alcuni campi sono già compilati. Vuoi sostituirli con i dati restituiti da Consulta Online?',
+        'online_overwrite_button' => 'Sostituisci dati',
+        'online_crlv_loading' => 'Consultazione CRLV...',
+        'online_crlv_error' => 'Errore durante la consultazione del CRLV.',
+        'online_crlv_no_pdf' => 'Consulta Online ha restituito la consultazione, ma non ha inviato il PDF del CRLV.',
+        'online_crlv_popup_blocked' => 'Il browser ha bloccato l\'apertura del CRLV. Consenti i pop-up per visualizzare il documento.',
     ],
 
     // Paginazione

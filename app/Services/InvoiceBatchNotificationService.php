@@ -6,7 +6,7 @@ use App\Helpers\CurrencyHelper;
 use App\Helpers\DateHelper;
 use App\Models\Cliente;
 use App\Models\Financeiro;
-use App\Models\PagamentoLink;
+use App\Services\PagamentoLinkSyncService;
 
 class InvoiceBatchNotificationService
 {
@@ -60,7 +60,6 @@ class InvoiceBatchNotificationService
     private function carregarFaturas(array $idsParcelas, string $chave): array
     {
         $financeiroModel = new Financeiro();
-        $linkModel = new PagamentoLink();
         $faturas = [];
 
         foreach ($idsParcelas as $idParcela) {
@@ -69,20 +68,8 @@ class InvoiceBatchNotificationService
                 continue;
             }
 
-            $link = $linkModel->buscarPorFinanceiro($idParcela);
-            if (!$link) {
-                $linkId = $linkModel->criar([
-                    'chave' => $chave,
-                    'id_financeiro' => $idParcela,
-                    'id_cliente' => $financeiro['id_cliente'] ?? null,
-                    'valor' => $financeiro['valor_total'],
-                    'descricao' => $financeiro['descricao'] ?? 'Cobranca',
-                    'expires_at' => date('Y-m-d H:i:s', strtotime('+30 days')),
-                ]);
-                $link = $linkModel->buscarPorId($linkId);
-            }
-
-            $financeiro['link_pagamento'] = $link ? $linkModel->getUrl($link['codigo']) : '';
+            $link = (new PagamentoLinkSyncService())->obterOuCriarLinkAtualizado($idParcela, $chave);
+            $financeiro['link_pagamento'] = $link['url'] ?? '';
             $faturas[] = $financeiro;
         }
 

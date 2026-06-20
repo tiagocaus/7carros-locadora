@@ -64,7 +64,8 @@
             <thead class="table-header-custom">
                 <tr>
                     <th class="table-header"><?= t('modules.relatorios.financeiro.livro_caixa.col_data') ?></th>
-                    <th class="table-header"><?= t('modules.relatorios.financeiro.livro_caixa.col_historico') ?></th>
+                    <th class="table-header"><?= t('modules.relatorios.financeiro.livro_caixa.col_pessoa') ?></th>
+                    <th class="table-header w-[360px] max-w-[360px]"><?= t('modules.relatorios.financeiro.livro_caixa.col_descricao') ?></th>
                     <th class="table-header text-right"><?= t('modules.relatorios.financeiro.livro_caixa.col_entrada') ?></th>
                     <th class="table-header text-right"><?= t('modules.relatorios.financeiro.livro_caixa.col_saida') ?></th>
                     <th class="table-header text-right"><?= t('modules.relatorios.financeiro.livro_caixa.col_saldo') ?></th>
@@ -92,6 +93,10 @@
         { key: 'total_saidas', label: '<?= t("modules.relatorios.financeiro.livro_caixa.total_saidas") ?>', icon: 'fa-arrow-down', format: 'currency', color: 'red' },
         { key: 'saldo_final', label: '<?= t("modules.relatorios.financeiro.livro_caixa.saldo_final") ?>', icon: 'fa-balance-scale', format: 'currency' },
     ];
+    const pessoaLabels = {
+        cliente: '<?= t("modules.relatorios.financeiro.livro_caixa.pessoa_cliente") ?>',
+        fornecedor: '<?= t("modules.relatorios.financeiro.livro_caixa.pessoa_fornecedor") ?>',
+    };
 
     async function init() {
         ReportUtils.initFilters();
@@ -149,16 +154,27 @@
 
         container.style.display = 'block';
         const cf = (v) => Currency.format(v, true);
+        const esc = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+        }[char]));
 
         tbody.innerHTML = data.map(row => {
             const entrada = Number(row.entrada || 0);
             const saida = Number(row.saida || 0);
             const saldo = Number(row.saldo || 0);
             const saldoColor = saldo >= 0 ? 'text-green-600' : 'text-red-600';
+            const pessoaLabel = pessoaLabels[row.pessoa_tipo] || '';
+            const pessoa = row.pessoa_nome ? `${pessoaLabel}: ${row.pessoa_nome}` : '-';
+            const descricao = row.descricao || row.historico || '';
 
             return `<tr class="hover:bg-slate-50">
                 <td class="table-cell">${DateHelper.format(row.data)}</td>
-                <td class="table-cell">${row.historico || '-'}</td>
+                <td class="table-cell min-w-[180px] whitespace-nowrap">${esc(pessoa)}</td>
+                <td class="table-cell w-[360px] max-w-[360px] truncate" title="${esc(descricao)}">${esc(descricao || '-')}</td>
                 <td class="table-cell text-right ${entrada > 0 ? 'text-green-600' : ''}">${entrada > 0 ? cf(entrada) : '-'}</td>
                 <td class="table-cell text-right ${saida > 0 ? 'text-red-600' : ''}">${saida > 0 ? cf(saida) : '-'}</td>
                 <td class="table-cell text-right font-medium ${saldoColor}">${cf(saldo)}</td>

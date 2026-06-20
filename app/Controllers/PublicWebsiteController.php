@@ -24,6 +24,7 @@ use App\Models\LocacaoDocumento;
 use App\Helpers\ImageHelper;
 use App\Helpers\FileHelper;
 use App\Services\WebsiteReservaCalcService;
+use App\Services\PagamentoLinkSyncService;
 
 /**
  * Controller para API publica do site — sem auth de sessao
@@ -631,21 +632,11 @@ class PublicWebsiteController
                         'valor_subtotal'  => $totalCalculado,
                     ]);
 
-                $linkModel = new \App\Models\PagamentoLink();
-                $linkId = $linkModel->criar([
-                    'chave'         => $chave,
-                    'id_financeiro' => $idFinanceiro,
-                    'id_locacao'    => $locacaoId,
-                    'id_cliente'    => $clienteIdFinal,
-                    'valor'         => $totalCalculado,
-                    'descricao'     => 'Reserva ' . $codigo,
-                    'expires_at'    => date('Y-m-d H:i:s', strtotime('+48 hours')),
+                $link = (new PagamentoLinkSyncService())->obterOuCriarLinkAtualizado($idFinanceiro, $chave, 2, [
+                    'id_locacao' => $locacaoId,
+                    'descricao' => 'Reserva ' . $codigo,
                 ]);
-                $link = $linkModel->buscarPorId($linkId);
-                if ($link) {
-                    $appUrl = Database::env('APP_URL', 'https://locadora.7carros.com');
-                    $pagamentoUrl = rtrim($appUrl, '/') . '/pagar/' . $link['codigo'];
-                }
+                $pagamentoUrl = $link['url'] ?? null;
             }
 
             $empresaMatriz = $matrizFilial->buscarMatriz();

@@ -135,6 +135,26 @@ class LocacoesController
         return max(1, (int) ceil($minutosCobrados / 1440));
     }
 
+    private function validarVeiculoDisponivelParaSaida(int $veiculoId, string $chave): void
+    {
+        $veiculo = (new Veiculo())->buscarPorId($veiculoId);
+        if (!$veiculo || ($veiculo['chave'] ?? '') !== $chave) {
+            throw new \InvalidArgumentException($this->apiMessage('vehicle_not_found'));
+        }
+
+        if (!FilialHelper::temAcessoFilial($veiculo['id_matriz_filial'] ?? null)) {
+            throw new \InvalidArgumentException($this->apiMessage('vehicle_access_denied'));
+        }
+
+        if (($veiculo['disponibilidade'] ?? '') !== 'D') {
+            throw new \InvalidArgumentException($this->apiMessage('preferred_vehicle_unavailable'));
+        }
+
+        if ((new VeiculoDisponibilidadeSync())->possuiVinculoAtivo($veiculoId, $chave)) {
+            throw new \InvalidArgumentException($this->apiMessage('preferred_vehicle_active_link'));
+        }
+    }
+
     /**
      * Renderiza a pagina de listagem de locacoes
      *
@@ -671,6 +691,19 @@ class LocacoesController
                 return;
             }
 
+            if ($statusAnterior === 'R' && $statusNovo === 'A') {
+                $idVeiculoSaida = !empty($dados['id_veiculo'])
+                    ? (int) $dados['id_veiculo']
+                    : (int) ($locacao['id_veiculo'] ?? 0);
+
+                if ($idVeiculoSaida <= 0) {
+                    Response::json(['success' => false, 'message' => $this->apiMessage('vehicle_required_open_closed')], 400);
+                    return;
+                }
+
+                $this->validarVeiculoDisponivelParaSaida($idVeiculoSaida, $chave);
+            }
+
             if (array_key_exists('odometro_ini', $dados)) {
                 $dados['odometro_ini'] = $this->normalizarOdometro($dados['odometro_ini']);
             }
@@ -732,7 +765,13 @@ class LocacoesController
             $dadosVeiculo = array_filter($dadosVeiculo, fn($v) => $v !== null);
 
             if (!empty($dados['id_veiculo'])) {
-                if ($idLocacaoVeiculo && (int) $dados['id_veiculo'] === (int) $locacao['id_veiculo']) {
+                if ($idLocacaoVeiculo && in_array($statusAnterior, ['R', 'P'], true)) {
+                    // Em reserva, veiculo especifico e apenas preferencia: atualiza o mesmo registro.
+                    $veiculoModel->atualizar($idLocacaoVeiculo, array_merge($dadosVeiculo, [
+                        'id_veiculo' => (int) $dados['id_veiculo'],
+                        'data_saida' => $dados['data_saida'] ?? $locacao['data_saida'],
+                    ]));
+                } elseif ($idLocacaoVeiculo && (int) $dados['id_veiculo'] === (int) $locacao['id_veiculo']) {
                     // Mesmo veiculo - atualizar registro existente
                     $veiculoModel->atualizar($idLocacaoVeiculo, $dadosVeiculo);
                 } elseif ($idLocacaoVeiculo) {
@@ -2070,6 +2109,22 @@ class LocacoesController
 
         $fornecedorData = $this->resolverFornecedorDocumento($veiculo);
         $caucaoDataPrevistaDevolucao = $this->calcularDataPrevistaDevolucaoCaucao($locacao);
+        $dataRetiradaDocumento = $this->dataValidaDocumento($locacao['data_saida'] ?? $locacao['data_retirada'] ?? null);
+        $valorTotalDocumento = $this->primeiroValorDocumento([
+            $locacao['total_pagar'] ?? null,
+            $locacao['valor_total'] ?? null,
+            $locacao['total_fatura'] ?? null,
+        ], 0);
+        $bloqueioValorDocumento = $this->primeiroValorMonetarioPositivoDocumento([
+            $locacao['bloqueio_valor'] ?? null,
+            $locacao['bloqueio_hold_valor'] ?? null,
+            $locacao['valor_bloqueio'] ?? null,
+        ]);
+        $kmSaidaDocumento = $this->primeiroValorDocumento([
+            $locacao['odometro_ini'] ?? null,
+            $locacao['odometro_saida'] ?? null,
+            $locacao['km_saida'] ?? null,
+        ], '');
 
         $statusLabel = match($locacao['status'] ?? 'R') {
             'R' => t('modules.locacoes.pdf.status_reservation'),
@@ -2132,13 +2187,13 @@ class LocacoesController
                 'data_retorno' => $locacao['data_retorno'] ?? '',
                 'hora_saida' => !empty($locacao['data_saida']) ? date('H:i', strtotime($locacao['data_saida'])) : '',
                 'hora_prevista' => !empty($locacao['data_prevista']) ? date('H:i', strtotime($locacao['data_prevista'])) : '',
-                'data_retirada' => $locacao['data_saida'] ?? '',
+                'data_retirada' => $dataRetiradaDocumento,
                 'hora_retirada' => !empty($locacao['data_saida']) ? date('H:i', strtotime($locacao['data_saida'])) : '',
                 'data_devolucao' => $locacao['data_prevista'] ?? '',
                 'hora_devolucao' => !empty($locacao['data_prevista']) ? date('H:i', strtotime($locacao['data_prevista'])) : '',
                 'local_retirada' => $locacao['filial_retirada_nome'] ?? '',
                 'local_devolucao' => $locacao['filial_devolucao_nome'] ?? '',
-                'valor_total' => $locacao['total_pagar'] ?? 0,
+                'valor_total' => $valorTotalDocumento,
                 'valor_fatura' => $locacao['total_fatura'] ?? 0,
                 'valor_diaria' => $locacao['diaria_valor'] ?? 0,
                 'quantidade_dias' => (int) ($locacao['dias'] ?? $locacao['quantidade_dias'] ?? 0),
@@ -2151,14 +2206,14 @@ class LocacoesController
                 'filial_devolucao' => $locacao['filial_devolucao_nome'] ?? '',
                 'total_fatura' => $locacao['total_fatura'] ?? 0,
                 'fatura_a_pagar' => $locacao['total_pagar'] ?? 0,
-                'bloqueio_valor' => $locacao['bloqueio_valor'] ?? $locacao['bloqueio_hold_valor'] ?? 0,
+                'bloqueio_valor' => $bloqueioValorDocumento,
                 'deposito_valor' => $locacao['caucao_valor'] ?? 0,
                 'fatura_paga' => $locacao['fatura_paga'] ?? $locacao['valor_pago'] ?? 0,
                 'grupo' => $locacao['grupo_nome'] ?? '',
                 'grupo_descricao' => $locacao['grupo_descricao'] ?? $locacao['grupo_nome'] ?? '',
                 'tanque_saida' => $locacao['combustivel_ini'] ?? '',
                 'tanque_chegada' => $locacao['combustivel_fim'] ?? '',
-                'km_saida' => $locacao['odometro_ini'] ?? '',
+                'km_saida' => $kmSaidaDocumento,
                 'km_chegada' => $locacao['odometro_fim'] ?? '',
                 'plano' => $locacao['plano'] ?? '',
                 'info_plano' => $this->formatarInfoPlanoDocumento($locacao),
@@ -2188,6 +2243,28 @@ class LocacoesController
             ] : [],
             'fornecedor' => $this->formatarFornecedorDocumento($fornecedorData),
         ];
+    }
+
+    private function primeiroValorDocumento(array $valores, mixed $padrao = ''): mixed
+    {
+        foreach ($valores as $valor) {
+            if ($valor !== null && $valor !== '') {
+                return $valor;
+            }
+        }
+
+        return $padrao;
+    }
+
+    private function primeiroValorMonetarioPositivoDocumento(array $valores): mixed
+    {
+        foreach ($valores as $valor) {
+            if ($valor !== null && $valor !== '' && (float) $valor > 0) {
+                return $valor;
+            }
+        }
+
+        return $this->primeiroValorDocumento($valores, 0);
     }
 
     private function calcularDataPrevistaDevolucaoCaucao(array $locacao): string

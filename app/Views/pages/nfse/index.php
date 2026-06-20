@@ -15,7 +15,7 @@
     </div>
 
     <!-- Cards estatisticas -->
-    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 my-4" id="statsCards">
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 my-4" id="statsCards">
         <div class="bg-white rounded-lg shadow p-3 border-l-4 border-blue-500 cursor-pointer hover:bg-blue-50 transition" data-status="">
             <div class="text-xs text-slate-500"><?= t('modules.nfse.stats.total') ?></div>
             <div class="text-xl font-bold text-blue-600" id="statTotal">0</div>
@@ -23,6 +23,10 @@
         <div class="bg-white rounded-lg shadow p-3 border-l-4 border-green-500 cursor-pointer hover:bg-green-50 transition" data-status="autorizada">
             <div class="text-xs text-slate-500"><?= t('modules.nfse.stats.autorizadas') ?></div>
             <div class="text-xl font-bold text-green-600" id="statAutorizadas">0</div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-3 border-l-4 border-emerald-500">
+            <div class="text-xs text-slate-500"><?= t('modules.nfse.stats.valor_autorizadas') ?></div>
+            <div class="text-base sm:text-lg font-bold leading-tight text-emerald-600 break-words" id="statValorAutorizadas">0,00</div>
         </div>
         <div class="bg-white rounded-lg shadow p-3 border-l-4 border-yellow-500 cursor-pointer hover:bg-yellow-50 transition" data-status="pendente">
             <div class="text-xs text-slate-500"><?= t('modules.nfse.stats.pendentes') ?></div>
@@ -271,6 +275,7 @@ $i18nNfse = [
                 const d = result.data;
                 document.getElementById('statTotal').textContent = d.total || 0;
                 document.getElementById('statAutorizadas').textContent = d.autorizada || 0;
+                document.getElementById('statValorAutorizadas').textContent = Currency.format(parseFloat(d.valor_autorizadas || 0), true);
                 document.getElementById('statPendentes').textContent = (parseInt(d.pendente || 0) + parseInt(d.processando || 0));
                 document.getElementById('statRejeitadas').textContent = d.rejeitada || 0;
                 document.getElementById('statCanceladas').textContent = d.cancelada || 0;
@@ -504,7 +509,7 @@ $i18nNfse = [
             });
 
             if (!response.ok) {
-                throw new Error('download_failed');
+                throw new Error(await extrairMensagemErroDownload(response, i18n.loadError));
             }
 
             const blob = await response.blob();
@@ -518,9 +523,24 @@ $i18nNfse = [
             link.remove();
             setTimeout(() => window.URL.revokeObjectURL(url), 1000);
         } catch (e) {
-            window.parent.postMessage({ action: 'openAlert', message: i18n.loadError }, '*');
+            window.parent.postMessage({ action: 'openAlert', message: e.message || i18n.loadError }, '*');
         }
     };
+
+    async function extrairMensagemErroDownload(response, fallback) {
+        try {
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const result = await response.json();
+                return result.message || fallback;
+            }
+
+            const text = await response.text();
+            return text || fallback;
+        } catch (e) {
+            return fallback;
+        }
+    }
 
     function escapeHtml(text) {
         if (text === null || text === undefined) return '';

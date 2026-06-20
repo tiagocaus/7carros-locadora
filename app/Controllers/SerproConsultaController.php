@@ -64,22 +64,28 @@ class SerproConsultaController
             $resultado = $serpro->consultarInfracoes($placa);
 
             if (!$resultado['success']) {
+                $estorno = $this->estornarDebitoConsulta($saldoService, $debito, $resultado);
+
                 Response::json([
                     'success' => false,
                     'message' => $resultado['error'] ?? 'Erro ao consultar infracoes online',
-                    'saldo_posterior' => $debito['saldo_posterior'],
-                ], 502);
+                    'saldo_posterior' => $estorno['saldo_posterior'] ?? $saldoService->getSaldo(),
+                    'debito_estornado' => $estorno['success'],
+                ], $this->statusHttpConsultaOnline($resultado));
                 return;
             }
 
             // Sincronizar multas no sistema
-            $multasSincronizadas = $this->sincronizarInfracoes($placa, $resultado['data'] ?? []);
+            $infracoes = $resultado['data'] ?? [];
+            $multasSincronizadas = $this->sincronizarInfracoes($placa, $infracoes);
 
             Response::json([
                 'success' => true,
                 'data' => [
-                    'infracoes' => $resultado['data'],
+                    'infracoes' => $infracoes,
                     'multas_sincronizadas' => $multasSincronizadas,
+                    'total_multas' => count($infracoes),
+                    'novas' => $multasSincronizadas,
                     'saldo_posterior' => $debito['saldo_posterior'],
                 ],
                 'message' => 'Consulta realizada com sucesso.',
@@ -142,7 +148,7 @@ class SerproConsultaController
 
                 try {
                     // Debitar por consulta
-                    $saldoService->debitarConsulta("Consulta lote placa {$placa}", $placa);
+                    $debito = $saldoService->debitarConsulta("Consulta lote placa {$placa}", $placa);
 
                     $resultado = $serpro->consultarInfracoes($placa);
 
@@ -156,11 +162,13 @@ class SerproConsultaController
                             'novas' => $sincronizadas,
                         ];
                     } else {
+                        $estorno = $this->estornarDebitoConsulta($saldoService, $debito, $resultado);
                         $erros++;
                         $resultados[] = [
                             'placa' => $placa,
                             'success' => false,
                             'error' => $resultado['error'],
+                            'debito_estornado' => $estorno['success'],
                         ];
                     }
 
@@ -185,6 +193,8 @@ class SerproConsultaController
                 'data' => [
                     'total_veiculos' => $totalVeiculos,
                     'total_infracoes_novas' => $totalInfracoes,
+                    'total_consultadas' => $totalVeiculos,
+                    'total_novas_multas' => $totalInfracoes,
                     'erros' => $erros,
                     'saldo_posterior' => $saldoService->getSaldo(),
                     'detalhes' => $resultados,
@@ -260,6 +270,166 @@ class SerproConsultaController
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao baixar PDF: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Consulta dados cadastrais de um veiculo por placa.
+     *
+     * GET /api/multas-online/veiculo/{placa}
+     */
+    public function dadosVeiculo(Request $request, string $placa): void
+    {
+        try {
+            if (!Auth::can('veiculos.visualizar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para visualizar veiculos',
+                ], 403);
+                return;
+            }
+
+            $placa = $this->normalizarPlaca($placa);
+            if ($placa === '') {
+                Response::json(['success' => false, 'message' => 'Placa obrigatoria'], 422);
+                return;
+            }
+
+            $saldoService = new SerproSaldoService();
+            $preco = $saldoService->getPrecoConsultaDadosVeiculo();
+            if (!$saldoService->temSaldoParaConsultaDadosVeiculo()) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Saldo insuficiente para consultar dados do veiculo. Necessario: R$ ' . number_format($preco, 2, ',', '.') . '. Saldo atual: R$ ' . number_format($saldoService->getSaldo(), 2, ',', '.'),
+                    'saldo_insuficiente' => true,
+                ], 402);
+                return;
+            }
+
+            $serpro = new SerproService();
+            $resultado = $serpro->consultarVeiculoPorPlaca($placa);
+
+            if (!$resultado['success']) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Nao foi possivel consultar os dados do veiculo agora. Tente novamente em alguns instantes.',
+                ]);
+                return;
+            }
+
+            $debito = $saldoService->debitarConsultaDadosVeiculo("Consulta dados veiculo placa {$placa}", $placa);
+
+            Response::json([
+                'success' => true,
+                'data' => [
+                    'veiculo' => $resultado['data'],
+                    'saldo_posterior' => $debito['saldo_posterior'],
+                ],
+                'message' => 'Dados do veiculo consultados com sucesso.',
+            ]);
+        } catch (\RuntimeException $e) {
+            $statusCode = str_contains($e->getMessage(), 'Saldo insuficiente') ? 402 : 500;
+            $message = $statusCode === 402
+                ? $e->getMessage()
+                : 'Nao foi possivel consultar os dados do veiculo agora. Tente novamente em alguns instantes.';
+
+            Response::json([
+                'success' => false,
+                'message' => $message,
+                'saldo_insuficiente' => $statusCode === 402,
+            ], $statusCode);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Nao foi possivel consultar os dados do veiculo agora. Tente novamente em alguns instantes.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Consulta CRLV de um veiculo por placa.
+     *
+     * GET /api/multas-online/crlv/{placa}
+     */
+    public function crlv(Request $request, string $placa): void
+    {
+        try {
+            if (!Auth::can('veiculos.visualizar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para visualizar veiculos',
+                ], 403);
+                return;
+            }
+
+            $placa = $this->normalizarPlaca($placa);
+            if ($placa === '') {
+                Response::json(['success' => false, 'message' => 'Placa obrigatoria'], 422);
+                return;
+            }
+
+            $saldoService = new SerproSaldoService();
+            $preco = $saldoService->getPrecoConsultaCrlv();
+            if (!$saldoService->temSaldoParaConsultaCrlv()) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Saldo insuficiente para consultar CRLV. Necessario: R$ ' . number_format($preco, 2, ',', '.') . '. Saldo atual: R$ ' . number_format($saldoService->getSaldo(), 2, ',', '.'),
+                    'saldo_insuficiente' => true,
+                ], 402);
+                return;
+            }
+
+            $serpro = new SerproService();
+            $resultado = $serpro->consultarCRLV($placa);
+
+            if (!$resultado['success']) {
+                $mensagem = (int) ($resultado['status'] ?? 0) === 404
+                    ? 'CRLV nao encontrado para esta placa. Confira a placa e tente novamente.'
+                    : 'Nao foi possivel consultar o CRLV agora. Tente novamente em alguns instantes.';
+
+                Response::json([
+                    'success' => false,
+                    'message' => $mensagem,
+                ]);
+                return;
+            }
+
+            $pdfBase64 = $this->extrairPdfBase64($resultado['data']);
+            if (!$pdfBase64) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'A Consulta Online retornou a consulta, mas nao enviou o PDF do CRLV.',
+                ]);
+                return;
+            }
+
+            $debito = $saldoService->debitarConsultaCrlv("Consulta CRLV placa {$placa}", $placa);
+
+            Response::json([
+                'success' => true,
+                'data' => [
+                    'placa' => $placa,
+                    'pdf_base64' => $pdfBase64,
+                    'saldo_posterior' => $debito['saldo_posterior'],
+                ],
+                'message' => 'CRLV consultado com sucesso.',
+            ]);
+        } catch (\RuntimeException $e) {
+            $statusCode = str_contains($e->getMessage(), 'Saldo insuficiente') ? 402 : 500;
+            $message = $statusCode === 402
+                ? $e->getMessage()
+                : 'Nao foi possivel consultar o CRLV agora. Tente novamente em alguns instantes.';
+
+            Response::json([
+                'success' => false,
+                'message' => $message,
+                'saldo_insuficiente' => $statusCode === 402,
+            ], $statusCode);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Nao foi possivel consultar o CRLV agora. Tente novamente em alguns instantes.',
             ], 500);
         }
     }
@@ -520,6 +690,93 @@ class SerproConsultaController
     // =========================================================================
     // METODOS PRIVADOS
     // =========================================================================
+
+    private function normalizarPlaca(string $placa): string
+    {
+        return strtoupper(preg_replace('/[^A-Z0-9]/i', '', trim($placa)) ?? '');
+    }
+
+    private function extrairPdfBase64(mixed $data): ?string
+    {
+        if (!is_array($data)) {
+            return null;
+        }
+
+        foreach (['pdf_base64', 'pdfBase64', 'pdf', 'documento', 'raw'] as $key) {
+            if (!empty($data[$key]) && is_string($data[$key])) {
+                return $this->limparDataUriBase64($data[$key]);
+            }
+        }
+
+        foreach ($data as $value) {
+            if (is_array($value)) {
+                $pdf = $this->extrairPdfBase64($value);
+                if ($pdf !== null) {
+                    return $pdf;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function limparDataUriBase64(string $valor): string
+    {
+        if (str_contains($valor, ',')) {
+            [$prefixo, $conteudo] = explode(',', $valor, 2);
+            if (str_contains($prefixo, 'base64')) {
+                return $conteudo;
+            }
+        }
+
+        return $valor;
+    }
+
+    private function statusHttpConsultaOnline(array $resultado): int
+    {
+        $status = (int) ($resultado['status'] ?? 0);
+
+        return match ($status) {
+            401, 403 => 403,
+            404 => 404,
+            429 => 429,
+            default => 502,
+        };
+    }
+
+    private function estornarDebitoConsulta(SerproSaldoService $saldoService, array $debito, array $resultado): array
+    {
+        $transacaoId = (int) ($debito['transacao_id'] ?? 0);
+
+        if ($transacaoId <= 0) {
+            return [
+                'success' => false,
+                'saldo_posterior' => $saldoService->getSaldo(),
+            ];
+        }
+
+        try {
+            $estorno = $saldoService->estornarDebito($transacaoId);
+
+            return [
+                'success' => true,
+                'saldo_posterior' => $estorno['saldo_posterior'] ?? $saldoService->getSaldo(),
+            ];
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                'SerproConsultaController::estornarDebitoConsulta - transacao=%d status_serpro=%s erro="%s" falha_estorno="%s"',
+                $transacaoId,
+                (string) ($resultado['status'] ?? ''),
+                (string) ($resultado['error'] ?? ''),
+                $e->getMessage()
+            ));
+
+            return [
+                'success' => false,
+                'saldo_posterior' => $saldoService->getSaldo(),
+            ];
+        }
+    }
 
     /**
      * Sincroniza infracoes da SERPRO com a tabela de multas local

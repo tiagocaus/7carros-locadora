@@ -324,7 +324,7 @@ Jobs recorrentes por minuto, 5, 15 ou 30 minutos não entram nesse resumo.
    - **Juros**: `financeiro.valor_subtotal * (formas_pagamento.juros_por_dia / 100) * DATEDIFF(CURDATE(), financeiro.data_venci)`
    - **Total**: `valor_subtotal + juros + multa - desconto`
 
-3. Antes de persistir os novos encargos, invalida links de pagamento e cobranças externas pendentes do lançamento via `PagamentoLinkSyncService`.
+3. Antes de persistir os novos encargos, invalida cobranças externas pendentes do lançamento via `PagamentoLinkSyncService`, mantendo o mesmo link publico de pagamento para carregar os valores atualizados.
 
 4. Recalcula enquanto o lançamento estiver vencido e pendente. Lançamentos pagos, despesas, sem vencimento válido, sem forma de pagamento ou com forma sem encargos não são alterados.
 

@@ -80,6 +80,11 @@ $i18nVeiculos = [
     'connectionError' => t('modules.veiculos.messages.connection_error'),
     'editBtn' => t('common.buttons.edit'),
     'deleteBtn' => t('common.buttons.delete'),
+    'consultCrlv' => t('modules.veiculos.fields.consult_crlv'),
+    'crlvLoading' => t('modules.veiculos.messages.online_crlv_loading'),
+    'crlvError' => t('modules.veiculos.messages.online_crlv_error'),
+    'crlvNoPdf' => t('modules.veiculos.messages.online_crlv_no_pdf'),
+    'crlvPopupBlocked' => t('modules.veiculos.messages.online_crlv_popup_blocked'),
     'noPlate' => t('modules.veiculos.messages.no_plate'),
     'thisVehicle' => t('modules.veiculos.messages.this_vehicle'),
     'deleteConfirm' => t('modules.veiculos.messages.delete_confirm'),
@@ -201,7 +206,8 @@ $i18nVeiculos = [
                     <td class="table-cell">
                         <span class="px-2 py-1 text-xs font-medium rounded-full ${dispInfo.class}">${dispInfo.label}</span>
                     </td>
-                    <td class="table-cell px-2 w-32 text-right">
+                    <td class="table-cell px-2 w-36 text-right">
+                        <button title="${i18n.consultCrlv}" class="btn-icon text-sky-600 hover:text-sky-800 btn-crlv" data-placa="${placa}"><i class="fas fa-id-card"></i></button>
                         <button title="${i18n.editBtn}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${v.id}"><i class="fas fa-edit"></i></button>
                         <button title="${i18n.deleteBtn}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${v.id}" data-name="${placa}"><i class="fas fa-trash"></i></button>
                     </td>
@@ -216,6 +222,12 @@ $i18nVeiculos = [
             button.addEventListener('click', function () {
                 const id = this.getAttribute('data-id');
                 navegarPara('/pages/veiculos/' + id + '/editar');
+            });
+        });
+
+        tbody.querySelectorAll('.btn-crlv').forEach(button => {
+            button.addEventListener('click', function () {
+                consultarCrlv(this.getAttribute('data-placa'), this);
             });
         });
 
@@ -234,6 +246,69 @@ $i18nVeiculos = [
                 }, '*');
             });
         });
+    }
+
+    async function consultarCrlv(placa, button) {
+        if (!placa || placa === i18n.noPlate) {
+            mostrarAlerta(i18n.noPlate);
+            return;
+        }
+
+        const originalHtml = button ? button.innerHTML : '';
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+
+        try {
+            const result = await API.get(`/api/multas-online/crlv/${encodeURIComponent(placa)}`);
+            if (!result.success) {
+                mostrarAlerta(result.message || i18n.crlvError);
+                return;
+            }
+
+            const pdfBase64 = result.data?.pdf_base64 || '';
+            if (!pdfBase64) {
+                mostrarAlerta(result.message || i18n.crlvNoPdf);
+                return;
+            }
+
+            abrirPdfBase64(pdfBase64, `crlv-${placa}.pdf`);
+        } catch (error) {
+            console.error('Erro ao consultar CRLV:', error);
+            mostrarAlerta(error.message || i18n.crlvError);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = originalHtml;
+            }
+        }
+    }
+
+    function abrirPdfBase64(pdfBase64, fileName) {
+        const cleanBase64 = String(pdfBase64).includes(',')
+            ? String(pdfBase64).split(',').pop()
+            : String(pdfBase64);
+        const binary = atob(cleanBase64.replace(/\s/g, ''));
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const janela = window.open(url, '_blank');
+        if (!janela) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            mostrarAlerta(i18n.crlvPopupBlocked);
+        }
+
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
 
     // ===== PAGINACAO =====

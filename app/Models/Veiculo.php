@@ -698,6 +698,45 @@ class Veiculo extends Model
     }
 
     /**
+     * Lista veiculos ativos para serem escolhidos como preferencia em reservas.
+     *
+     * Reservas nao bloqueiam disponibilidade operacional; por isso este metodo
+     * inclui veiculos locados/reservados/oficina e exclui apenas estados inativos.
+     */
+    public function listarAtivosParaReserva(?int $grupoId = null, ?int $filialId = null, int $limit = 200): array
+    {
+        $query = $this->qb
+            ->table('veiculos', 'v')
+            ->select([
+                'v.id',
+                'v.placa',
+                'v.modelo',
+                'v.marca',
+                'v.ano',
+                'v.cor',
+                'v.odometro',
+                'v.tanque_fracao',
+                'v.tipo_combustivel',
+                'v.valor_por_fracao',
+                'v.disponibilidade',
+            ])
+            ->whereNotIn('v.disponibilidade', self::DISPONIBILIDADE_INATIVA);
+
+        if (!empty($grupoId)) {
+            $query->where('v.id_grupo', '=', $grupoId);
+        }
+
+        if (!empty($filialId)) {
+            $query->where('v.id_matriz_filial', '=', $filialId);
+        }
+
+        return $query
+            ->orderBy('v.placa', 'ASC')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
      * Veículos disponíveis exibidos nas subtabs do dashboard simples.
      */
     public function dashboardAvailableVehicles(

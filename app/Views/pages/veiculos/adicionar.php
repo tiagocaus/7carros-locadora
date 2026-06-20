@@ -29,6 +29,9 @@
                 <button type="button" data-form-tab-target="#tabManutencoes" class="form-tab-button" id="tabBtnManutencoes" style="display:none">
                     <i class="fas fa-wrench mr-2"></i>{{ t('modules.veiculos.tabs.maintenances') }}
                 </button>
+                <button type="button" data-form-tab-target="#tabFaturas" class="form-tab-button" id="tabBtnFaturas" style="display:none">
+                    <i class="fas fa-file-invoice-dollar mr-2"></i>{{ t('modules.veiculos.tabs.invoices') }}
+                </button>
             </nav>
         </div>
 
@@ -88,7 +91,12 @@
                     <label for="placa" class="form-label-group">
                         {{ t('modules.veiculos.fields.plate') }} <span class="text-red-500">*</span>
                     </label>
-                    <input type="text" id="placa" name="placa" class="form-input-group-field" required maxlength="10" placeholder="{{ t('modules.veiculos.placeholders.plate') }}">
+                    <div class="flex">
+                        <input type="text" id="placa" name="placa" class="form-input-group-field rounded-r-none border-r-0" required maxlength="10" placeholder="{{ t('modules.veiculos.placeholders.plate') }}">
+                        <button type="button" id="btnBuscarDadosOnline" class="flex items-center justify-center w-[31px] p-0 bg-[#87909d] hover:!bg-[#6b7480] active:!bg-[#5a626d] text-white border-0 rounded-none cursor-pointer transition-colors duration-200" title="{{ t('modules.veiculos.fields.search_online') }}">
+                            <i class="fas fa-cloud-arrow-down"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -615,8 +623,50 @@
             </div>
         </div><!-- Fim Aba 3: Manutencoes -->
 
+        <!-- Aba 4: Faturas -->
+        <div id="tabFaturas" class="form-tab-content">
+            <div class="form-section mb-6">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                    <h3 class="form-section-title mb-0"><i class="fas fa-file-invoice-dollar mr-2"></i>{{ t('modules.veiculos.tabs.invoices') }}</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" class="btn-blue py-2 px-3 rounded-md text-sm font-medium fatura-filter active" data-tipo="R">
+                            <i class="fas fa-arrow-down mr-2"></i>{{ t('modules.veiculos.invoices.filter_receivable') }}
+                        </button>
+                        <button type="button" class="btn-blue py-2 px-3 rounded-md text-sm font-medium fatura-filter active" data-tipo="D">
+                            <i class="fas fa-arrow-up mr-2"></i>{{ t('modules.veiculos.invoices.filter_payable') }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white shadow-md rounded-lg overflow-x-auto">
+                    <table class="w-full min-w-full divide-y divide-slate-200">
+                        <thead class="table-header-custom">
+                            <tr>
+                                <th class="table-header w-32">{{ t('modules.veiculos.invoices.table_type') }}</th>
+                                <th class="table-header w-32 text-center">{{ t('modules.veiculos.invoices.table_due_date') }}</th>
+                                <th class="table-header">{{ t('modules.veiculos.invoices.table_description') }}</th>
+                                <th class="table-header hidden md:table-cell">{{ t('modules.veiculos.invoices.table_person') }}</th>
+                                <th class="table-header hidden lg:table-cell">{{ t('modules.veiculos.invoices.table_payment_method') }}</th>
+                                <th class="table-header hidden xl:table-cell">{{ t('modules.veiculos.invoices.table_origin') }}</th>
+                                <th class="table-header w-32 text-right">{{ t('modules.veiculos.invoices.table_value') }}</th>
+                                <th class="table-header w-28 text-center">{{ t('modules.veiculos.invoices.table_status') }}</th>
+                                <th class="table-header px-2 w-16 text-center"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="faturasVeiculoBody" class="bg-white divide-y divide-slate-200">
+                            <tr>
+                                <td colspan="9" class="text-center py-8">
+                                    <i class="fas fa-spinner fa-spin text-2xl text-slate-400"></i>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div><!-- Fim Aba 4: Faturas -->
+
         <!-- Botoes de Acao -->
-        <div class="flex justify-end space-x-3 mt-6 mb-4">
+        <div id="formActions" class="flex justify-end space-x-3 mt-6 mb-4">
             <button type="button" id="btnCancelar" class="btn-secondary py-2 px-6 rounded-md text-sm font-medium">
                 {{ t('common.buttons.cancel') }}
             </button>
@@ -647,6 +697,9 @@
     let planosDisponiveis = [];
     let planoCarregado = null; // Cache do plano selecionado
     let planoIdPendente = null; // Plano aguardando confirmacao
+    let dadosOnlinePendentes = null;
+    let faturasVeiculo = [];
+    let filtrosFaturasVeiculo = { R: true, D: true };
 
     // Traducoes JS
     const i18n = {
@@ -669,6 +722,14 @@
         saveGenericError: '<?= t('modules.veiculos.messages.save_generic_error') ?>',
         saveError: '<?= t('modules.veiculos.messages.save_error') ?>',
         loadDataError: '<?= t('modules.veiculos.messages.load_data_error') ?>',
+        onlinePlateRequired: '<?= t('modules.veiculos.messages.online_plate_required') ?>',
+        onlineVehicleLoading: '<?= t('modules.veiculos.messages.online_vehicle_loading') ?>',
+        onlineVehicleSuccess: '<?= t('modules.veiculos.messages.online_vehicle_success') ?>',
+        onlineVehicleNoData: '<?= t('modules.veiculos.messages.online_vehicle_no_data') ?>',
+        onlineVehicleError: '<?= t('modules.veiculos.messages.online_vehicle_error') ?>',
+        onlineOverwriteTitle: '<?= t('modules.veiculos.messages.online_overwrite_title') ?>',
+        onlineOverwriteConfirm: '<?= t('modules.veiculos.messages.online_overwrite_confirm') ?>',
+        onlineOverwriteButton: '<?= t('modules.veiculos.messages.online_overwrite_button') ?>',
         saving: '<?= t('common.labels.saving') ?>',
         save: '<?= t('common.buttons.save') ?>',
         selectPlaceholder: '<?= t('modules.veiculos.placeholders.select') ?>',
@@ -688,6 +749,16 @@
         mntStatusClosed: '<?= t('modules.veiculos.maintenances.status_closed') ?>',
         mntActionPrint: '<?= t('modules.veiculos.maintenances.action_print') ?>',
         mntPrintTitle: '<?= t('modules.manutencao.print.title') ?>',
+        invLoadError: '<?= t('modules.veiculos.invoices.load_error') ?>',
+        invNoRecords: '<?= t('modules.veiculos.invoices.no_records') ?>',
+        invNoFilteredRecords: '<?= t('modules.veiculos.invoices.no_filtered_records') ?>',
+        invReceivable: '<?= t('modules.veiculos.invoices.receivable') ?>',
+        invPayable: '<?= t('modules.veiculos.invoices.payable') ?>',
+        invPaid: '<?= t('modules.veiculos.invoices.status_paid') ?>',
+        invOverdue: '<?= t('modules.veiculos.invoices.status_overdue') ?>',
+        invPending: '<?= t('modules.veiculos.invoices.status_pending') ?>',
+        invOpen: '<?= t('modules.veiculos.invoices.action_open') ?>',
+        invEntriesTitle: '<?= t('menu.financeiro_menu.entries') ?>',
     };
 
     // Elementos do formulario
@@ -756,7 +827,9 @@
 
             // Exibir aba de manutencoes e carregar dados
             document.getElementById('tabBtnManutencoes').style.display = '';
+            document.getElementById('tabBtnFaturas').style.display = '';
             carregarManutencoesVeiculo(registroId);
+            carregarFaturasVeiculo(registroId);
         }
 
         configurarEventos();
@@ -769,6 +842,157 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    function mostrarAlerta(message) {
+        window.parent.postMessage({
+            action: 'openAlert',
+            message: message
+        }, '*');
+    }
+
+    function normalizarPlaca(placa) {
+        return String(placa || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    }
+
+    function setCampoSeAplicavel(id, valor, sobrescrever) {
+        const el = document.getElementById(id);
+        if (!el || valor === undefined || valor === null || valor === '') return false;
+        if (!sobrescrever && el.value) return false;
+        el.value = valor;
+        el.dispatchEvent(new Event('change'));
+        return true;
+    }
+
+    function separarMarcaModelo(descricao) {
+        const texto = String(descricao || '').trim();
+        if (!texto) return { marca: '', modelo: '' };
+
+        const partes = texto.split('/').map(p => p.trim()).filter(Boolean);
+        if (partes.length >= 2) {
+            return {
+                marca: partes.shift(),
+                modelo: partes.join(' ')
+            };
+        }
+
+        return { marca: '', modelo: texto };
+    }
+
+    function mapearCombustivelOnline(descricao) {
+        const texto = String(descricao || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        if (!texto) return '';
+        if (texto.includes('eletric')) return 'HE';
+        if (texto.includes('hibrid')) return 'HI';
+        if (texto.includes('diesel')) return 'D';
+        if (texto.includes('gas natural') || texto.includes('gnv') || texto === 'gas') return 'GAS';
+        if (texto.includes('alcool') || texto.includes('etanol')) {
+            return texto.includes('gasolina') ? 'GE' : 'E';
+        }
+        if (texto.includes('gasolina')) return 'G';
+        return '';
+    }
+
+    function mapearDadosVeiculoOnline(dados) {
+        const veiculo = dados || {};
+        const marcaModelo = separarMarcaModelo(veiculo.descricaoMarcaModelo || veiculo.marcaModelo || veiculo.modelo || '');
+        const anoFabricacao = veiculo.anoFabricacao || '';
+        const anoModelo = veiculo.anoModelo || '';
+        const ano = anoFabricacao && anoModelo
+            ? `${anoFabricacao}/${anoModelo}`
+            : String(anoModelo || anoFabricacao || '');
+
+        return {
+            placa: normalizarPlaca(veiculo.placa || ''),
+            renavam: veiculo.renavam || '',
+            chassi: veiculo.chassi || '',
+            marca: marcaModelo.marca,
+            modelo: marcaModelo.modelo,
+            ano: ano,
+            cor: veiculo.descricaoCor || veiculo.cor || '',
+            tipo_combustivel: mapearCombustivelOnline(veiculo.descricaoCombustivel || veiculo.combustivel || '')
+        };
+    }
+
+    function camposOnlineComValor(campos) {
+        return Object.entries(campos).filter(([, valor]) => valor !== undefined && valor !== null && valor !== '');
+    }
+
+    function possuiCampoPreenchidoParaOnline(campos) {
+        return camposOnlineComValor(campos).some(([id]) => {
+            if (id === 'placa') return false;
+            const el = document.getElementById(id);
+            return el && el.value;
+        });
+    }
+
+    function aplicarDadosOnline(campos, sobrescrever) {
+        let preenchidos = 0;
+        camposOnlineComValor(campos).forEach(([id, valor]) => {
+            if (setCampoSeAplicavel(id, valor, sobrescrever)) {
+                preenchidos++;
+            }
+        });
+
+        if (preenchidos > 0) {
+            atualizarLabelsCombustivel();
+            mostrarAlerta(i18n.onlineVehicleSuccess);
+        } else {
+            mostrarAlerta(i18n.onlineVehicleNoData);
+        }
+    }
+
+    async function buscarDadosVeiculoOnline() {
+        const placaInput = document.getElementById('placa');
+        const placa = normalizarPlaca(placaInput?.value || '');
+        if (!placa) {
+            mostrarAlerta(i18n.onlinePlateRequired);
+            return;
+        }
+
+        const button = document.getElementById('btnBuscarDadosOnline');
+        const originalHtml = button ? button.innerHTML : '';
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+
+        try {
+            const result = await API.get(`/api/multas-online/veiculo/${encodeURIComponent(placa)}`);
+            if (!result.success) {
+                mostrarAlerta(result.message || i18n.onlineVehicleError);
+                return;
+            }
+
+            const dados = result.data?.veiculo || result.data || {};
+            const campos = mapearDadosVeiculoOnline(dados);
+
+            if (camposOnlineComValor(campos).length === 0) {
+                mostrarAlerta(i18n.onlineVehicleNoData);
+                return;
+            }
+
+            if (possuiCampoPreenchidoParaOnline(campos)) {
+                dadosOnlinePendentes = campos;
+                window.parent.postMessage({
+                    action: 'openGenericConfirmModal',
+                    title: i18n.onlineOverwriteTitle,
+                    message: i18n.onlineOverwriteConfirm,
+                    confirmText: i18n.onlineOverwriteButton
+                }, '*');
+                return;
+            }
+
+            aplicarDadosOnline(campos, false);
+        } catch (error) {
+            console.error('Erro ao consultar dados do veiculo na Consulta Online:', error);
+            mostrarAlerta(error.message || i18n.onlineVehicleError);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = originalHtml;
+            }
+        }
     }
 
     // ===== ACESSORIOS =====
@@ -950,7 +1174,7 @@
     async function recalcularPlanoManutencao() {
         const planoId = document.getElementById('id_plano_manutencao').value;
         if (!planoId) {
-            alert(i18n.selectPlanFirst);
+            mostrarAlerta(i18n.selectPlanFirst);
             return;
         }
         await calcularPlanoManutencao(planoId, true);
@@ -1088,6 +1312,106 @@
         }
     };
 
+    // ===== FATURAS DO VEICULO =====
+
+    async function carregarFaturasVeiculo(idVeiculo) {
+        const tbody = document.getElementById('faturasVeiculoBody');
+        try {
+            const result = await API.get(`/api/veiculos/${idVeiculo}/faturas`);
+
+            if (result.success) {
+                faturasVeiculo = result.data || [];
+                renderFaturasVeiculo();
+            } else {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-red-500"><i class="fas fa-exclamation-circle text-2xl mb-2"></i><p>${i18n.invLoadError}</p></td></tr>`;
+            }
+        } catch (error) {
+            console.error('Erro ao carregar faturas:', error);
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-red-500"><i class="fas fa-exclamation-circle text-2xl mb-2"></i><p>${i18n.invLoadError}</p></td></tr>`;
+        }
+    }
+
+    function renderFaturasVeiculo() {
+        const tbody = document.getElementById('faturasVeiculoBody');
+        if (!tbody) return;
+
+        if (!faturasVeiculo || faturasVeiculo.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-500"><i class="fas fa-file-invoice-dollar text-4xl mb-3 opacity-30"></i><p>${i18n.invNoRecords}</p></td></tr>`;
+            return;
+        }
+
+        const faturasFiltradas = faturasVeiculo.filter(fatura => filtrosFaturasVeiculo[fatura.tipo]);
+        if (faturasFiltradas.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-500"><i class="fas fa-filter text-4xl mb-3 opacity-30"></i><p>${i18n.invNoFilteredRecords}</p></td></tr>`;
+            return;
+        }
+
+        let html = '';
+        faturasFiltradas.forEach(fatura => {
+            const tipoLabel = fatura.tipo === 'R' ? i18n.invReceivable : i18n.invPayable;
+            const tipoClass = fatura.tipo === 'R'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-amber-100 text-amber-700';
+            const pessoa = fatura.tipo === 'R'
+                ? (fatura.cliente_nome || '-')
+                : (fatura.fornecedor_nome || '-');
+            const codigo = fatura.codigo || fatura.documento || (fatura.sequencia ? `#${fatura.sequencia}` : `#${fatura.id}`);
+            const descricao = fatura.descricao || '-';
+
+            let statusLabel = fatura.status_label || i18n.invPending;
+            let statusClass = 'bg-slate-100 text-slate-700';
+            if (fatura.status === 'paid') {
+                statusLabel = i18n.invPaid;
+                statusClass = 'bg-green-100 text-green-700';
+            } else if (fatura.status === 'overdue') {
+                statusLabel = i18n.invOverdue;
+                statusClass = 'bg-red-100 text-red-700';
+            } else if (fatura.status === 'pending') {
+                statusLabel = i18n.invPending;
+                statusClass = 'bg-blue-100 text-blue-700';
+            }
+
+            html += `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="table-cell">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tipoClass}">${tipoLabel}</span>
+                    </td>
+                    <td class="table-cell text-center">${fatura.data_venci_formatted || '-'}</td>
+                    <td class="table-cell">
+                        <div class="font-medium">${escapeHtml(codigo)}</div>
+                        <div class="text-xs text-slate-500">${escapeHtml(descricao)}</div>
+                    </td>
+                    <td class="table-cell hidden md:table-cell">${escapeHtml(pessoa)}</td>
+                    <td class="table-cell hidden lg:table-cell">${escapeHtml(fatura.forma_pagamento_descricao || '-')}</td>
+                    <td class="table-cell hidden xl:table-cell">${escapeHtml(fatura.origem || '-')}</td>
+                    <td class="table-cell text-right font-medium">${fatura.valor_total_formatted || Currency.format(fatura.valor_total, true)}</td>
+                    <td class="table-cell text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusClass}">${statusLabel}</span>
+                    </td>
+                    <td class="table-cell text-center">
+                        <button type="button" onclick="abrirFaturaVeiculo(${fatura.id})" class="btn-icon text-blue-600 hover:text-blue-800" title="${i18n.invOpen}">
+                            <i class="fas fa-external-link-alt"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    window.abrirFaturaVeiculo = function(id) {
+        if (!id) return;
+
+        const page = `/pages/financeiro/adicionar?id=${encodeURIComponent(id)}`;
+        if (window.parent !== window && typeof window.parent.openOrSwitchToTab === 'function') {
+            window.parent.openOrSwitchToTab(page, i18n.invEntriesTitle, 'fas fa-file-invoice-dollar', `financeiro-${id}`);
+            return;
+        }
+
+        navegarPara(page);
+    };
+
     // ===== ABAS =====
 
     function configurarAbas() {
@@ -1104,6 +1428,12 @@
                 button.classList.add('active');
                 const targetId = button.dataset.formTabTarget;
                 document.querySelector(targetId)?.classList.add('active');
+
+                const formActions = document.getElementById('formActions');
+                if (formActions) {
+                    const esconderAcoes = ['#tabManutencoes', '#tabFaturas'].includes(targetId);
+                    formActions.style.display = esconderAcoes ? 'none' : '';
+                }
             });
         });
     }
@@ -1115,7 +1445,7 @@
             const result = await API.get(`/api/veiculos/${id}`);
 
             if (!result.success) {
-                alert(result.message || i18n.loadDataError);
+                mostrarAlerta(result.message || i18n.loadDataError);
                 voltar();
                 return;
             }
@@ -1123,7 +1453,7 @@
             preencherFormulario(result.data);
         } catch (error) {
             console.error('Erro ao carregar dados:', error);
-            alert(i18n.loadDataError);
+            mostrarAlerta(i18n.loadDataError);
             voltar();
         }
     }
@@ -1253,6 +1583,7 @@
         // Botao voltar
         document.getElementById('btnVoltar')?.addEventListener('click', voltar);
         document.getElementById('btnCancelar')?.addEventListener('click', voltar);
+        document.getElementById('btnBuscarDadosOnline')?.addEventListener('click', buscarDadosVeiculoOnline);
 
         // Eventos de foto
         fotoContainer?.addEventListener('click', () => fotoInput.click());
@@ -1263,12 +1594,12 @@
 
             const tiposPermitidos = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
             if (!tiposPermitidos.includes(file.type)) {
-                alert(i18n.invalidImage);
+                mostrarAlerta(i18n.invalidImage);
                 return;
             }
 
             if (file.size > 5 * 1024 * 1024) {
-                alert(i18n.imageTooLarge);
+                mostrarAlerta(i18n.imageTooLarge);
                 return;
             }
 
@@ -1314,6 +1645,18 @@
         // Configurar abas
         configurarAbas();
 
+        document.querySelectorAll('.fatura-filter').forEach(button => {
+            button.addEventListener('click', () => {
+                const tipo = button.dataset.tipo;
+                filtrosFaturasVeiculo[tipo] = !filtrosFaturasVeiculo[tipo];
+                const ativo = filtrosFaturasVeiculo[tipo];
+                button.classList.toggle('active', ativo);
+                button.classList.toggle('btn-blue', ativo);
+                button.classList.toggle('btn-secondary', !ativo);
+                renderFaturasVeiculo();
+            });
+        });
+
         // Configurar mascaras de km do plano
         configurarMascarasKmPlano();
 
@@ -1337,6 +1680,18 @@
 
         // Listener para resposta do modal de confirmacao
         window.addEventListener('message', async function(event) {
+            if (event.data && event.data.action === 'genericConfirmed' && dadosOnlinePendentes) {
+                aplicarDadosOnline(dadosOnlinePendentes, true);
+                dadosOnlinePendentes = null;
+                return;
+            }
+
+            if (event.data && event.data.action === 'genericModalClosed' && dadosOnlinePendentes) {
+                aplicarDadosOnline(dadosOnlinePendentes, false);
+                dadosOnlinePendentes = null;
+                return;
+            }
+
             if (event.data && event.data.action === 'genericConfirmed' && planoIdPendente) {
                 await calcularPlanoManutencao(planoIdPendente, true);
                 planoIdPendente = null;

@@ -9,7 +9,7 @@
         <h2 class="title-section mb-3 sm:mb-0"><?= t('modules.multas.indicacoes.title') ?></h2>
         <div class="flex items-center gap-2">
             <button id="btnInstrucoes" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium flex items-center">
-                <i class="fas fa-info-circle mr-2"></i> <?= t('modules.serpro_indicacoes.instructions.button') ?>
+                <i class="fas fa-info-circle mr-2"></i> <?= t('modules.online_indicacoes.instructions.button') ?>
             </button>
             <button id="btnNovaIndicacao" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center">
                 <i class="fas fa-user-plus mr-2"></i> <?= t('modules.multas.indicacoes.new_nomination') ?>
@@ -200,10 +200,10 @@
                     ${item.cliente_nome ? '<div class="text-xs text-slate-400">' + escapeHtml(item.cliente_nome) + '</div>' : ''}
                 </td>
                 <td class="table-cell hidden md:table-cell text-xs font-mono text-slate-500">${escapeHtml(item.numero_ait || '-')}</td>
-                <td class="table-cell text-center">${getStatusBadge(item.status_serpro)}</td>
+                <td class="table-cell text-center">${getStatusBadge(item.status_online)}</td>
                 <td class="table-cell text-center w-28">
                     <button title="${escapeHtml(i18n.actionCheckStatus)}" class="btn-icon text-blue-600 hover:text-blue-800 btn-status" data-id="${item.id}"><i class="fas fa-sync-alt"></i></button>
-                    ${['enviado','pendente','processando'].includes(item.status_serpro) ? `<button title="${escapeHtml(i18n.actionCancel)}" class="btn-icon text-red-600 hover:text-red-800 btn-cancelar" data-id="${item.id}"><i class="fas fa-times-circle"></i></button>` : ''}
+                    ${['enviado','pendente','processando'].includes(item.status_online) ? `<button title="${escapeHtml(i18n.actionCancel)}" class="btn-icon text-red-600 hover:text-red-800 btn-cancelar" data-id="${item.id}"><i class="fas fa-times-circle"></i></button>` : ''}
                 </td>
             </tr>`;
         });

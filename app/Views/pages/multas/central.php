@@ -213,8 +213,8 @@ $saldoTitleJson = htmlspecialchars(json_encode(t('modules.multas.saldo.title'), 
         <select id="filtroOrigem" class="form-input-focus text-sm w-40">
             <option value=""><?= t('modules.multas.central.filters.origin_all') ?></option>
             <option value="manual"><?= t('modules.multas.central.filters.origin_manual') ?></option>
-            <option value="serpro_consulta"><?= t('modules.multas.central.filters.origin_online') ?></option>
-            <option value="serpro_evento"><?= t('modules.multas.central.filters.origin_event') ?></option>
+            <option value="consulta_online"><?= t('modules.multas.central.filters.origin_online') ?></option>
+            <option value="evento_online"><?= t('modules.multas.central.filters.origin_event') ?></option>
         </select>
         <select id="filtroStatus" class="form-input-focus text-sm w-44">
             <option value=""><?= t('modules.multas.central.filters.status_all') ?></option>
@@ -343,8 +343,8 @@ $saldoTitleJson = htmlspecialchars(json_encode(t('modules.multas.saldo.title'), 
 
             // Origem
             document.getElementById('origemManual').textContent = kpis.origem_manual;
-            document.getElementById('origemConsulta').textContent = kpis.origem_serpro_consulta;
-            document.getElementById('origemEvento').textContent = kpis.origem_serpro_evento;
+            document.getElementById('origemConsulta').textContent = kpis.origem_consulta_online;
+            document.getElementById('origemEvento').textContent = kpis.origem_evento_online;
 
             // Indicacoes
             document.getElementById('statusPendenteIndicacao').textContent = kpis.status_pendente_indicacao;
@@ -413,8 +413,8 @@ $saldoTitleJson = htmlspecialchars(json_encode(t('modules.multas.saldo.title'), 
     }
 
     function getOrigemBadge(origem) {
-        if (origem === 'serpro_consulta') return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">' + i18n.badgeQuery + '</span>';
-        if (origem === 'serpro_evento') return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">' + i18n.badgeEvent + '</span>';
+        if (origem === 'consulta_online') return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">' + i18n.badgeQuery + '</span>';
+        if (origem === 'evento_online') return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">' + i18n.badgeEvent + '</span>';
         return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">' + i18n.badgeManual + '</span>';
     }
 

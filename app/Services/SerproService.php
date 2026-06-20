@@ -35,11 +35,11 @@ class SerproService
         if ($this->ambiente === 'homologacao') {
             $this->baseUrl = $this->envUrl('SERPRO_HOMOLOGACAO_BASE_URL');
             $this->baseUrlTransacional = $this->envUrl('SERPRO_HOMOLOGACAO_BASE_URL_TRANSACIONAL');
-            $this->baseUrlCrlv = $this->envUrl('SERPRO_HOMOLOGACAO_BASE_URL_CRLV');
+            $this->baseUrlCrlv = $this->envUrlCrlv('SERPRO_HOMOLOGACAO_BASE_URL_CRLV');
         } else {
             $this->baseUrl = $this->envUrl('SERPRO_PRODUCAO_BASE_URL');
             $this->baseUrlTransacional = $this->envUrl('SERPRO_PRODUCAO_BASE_URL_TRANSACIONAL');
-            $this->baseUrlCrlv = $this->envUrl('SERPRO_PRODUCAO_BASE_URL_CRLV');
+            $this->baseUrlCrlv = $this->envUrlCrlv('SERPRO_PRODUCAO_BASE_URL_CRLV');
         }
 
         $this->bearerToken = env('SERPRO_BEARER_TOKEN', '');
@@ -645,6 +645,19 @@ class SerproService
         }
 
         return rtrim($value, '/');
+    }
+
+    /**
+     * Le a URL base do modulo CRLV e tolera ENV antiga sem o sufixo /crlv.
+     */
+    private function envUrlCrlv(string $name): string
+    {
+        $value = $this->envUrl($name);
+        if ($value === '') {
+            return $value;
+        }
+
+        return str_ends_with($value, '/crlv') ? $value : $value . '/crlv';
     }
 
     /**

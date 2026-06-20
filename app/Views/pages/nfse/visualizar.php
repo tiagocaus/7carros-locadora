@@ -441,7 +441,7 @@
             });
 
             if (!response.ok) {
-                throw new Error('download_failed');
+                throw new Error(await extrairMensagemErroDownload(response, '<?= t('modules.nfse.messages.load_error') ?>'));
             }
 
             const blob = await response.blob();
@@ -455,9 +455,24 @@
             link.remove();
             setTimeout(() => window.URL.revokeObjectURL(url), 1000);
         } catch (e) {
-            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.load_error') ?>' }, '*');
+            window.parent.postMessage({ action: 'openAlert', message: e.message || '<?= t('modules.nfse.messages.load_error') ?>' }, '*');
         }
     };
+
+    async function extrairMensagemErroDownload(response, fallback) {
+        try {
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const result = await response.json();
+                return result.message || fallback;
+            }
+
+            const text = await response.text();
+            return text || fallback;
+        } catch (e) {
+            return fallback;
+        }
+    }
 
     function voltarParaLista() {
         window.parent.postMessage({ action: 'navigate', page: '/pages/nfse' }, '*');

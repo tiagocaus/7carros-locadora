@@ -17,6 +17,12 @@ class Auth
     private static ?mysqli $mysqli = null;
     private static ?QueryBuilder $qb = null;
 
+    public const ATTEMPT_SUCCESS = 'success';
+    public const ATTEMPT_USER_NOT_FOUND = 'user_not_found';
+    public const ATTEMPT_INVALID_PASSWORD = 'invalid_password';
+    public const ATTEMPT_SUSPENDED = 'suspended';
+    public const ATTEMPT_INACTIVE = 'inactive';
+
     /**
      * Obtém a conexão mysqli (singleton)
      */
@@ -58,6 +64,14 @@ class Auth
      */
     public static function attempt(string $username, string $password, bool $remember = false): bool
     {
+        return self::attemptDetailed($username, $password, $remember)['success'];
+    }
+
+    /**
+     * Tenta autenticar um usuário retornando o motivo da falha.
+     */
+    public static function attemptDetailed(string $username, string $password, bool $remember = false): array
+    {
         // Busca o usuário pelo username ou email (sem filtro de chave - não há sessão ainda)
         $user = self::qb()
             ->withoutChave()
@@ -66,17 +80,29 @@ class Auth
             ->first();
 
         if (!$user) {
-            return false;
+            return [
+                'success' => false,
+                'reason' => self::ATTEMPT_USER_NOT_FOUND,
+                'user' => null,
+            ];
         }
 
         // Verifica a senha
         if (!password_verify($password, $user['senha'])) {
-            return false;
+            return [
+                'success' => false,
+                'reason' => self::ATTEMPT_INVALID_PASSWORD,
+                'user' => $user,
+            ];
         }
 
         // Verifica se o usuário está ativo
         if ($user['status'] !== 'A') {
-            return false;
+            return [
+                'success' => false,
+                'reason' => $user['status'] === 'S' ? self::ATTEMPT_SUSPENDED : self::ATTEMPT_INACTIVE,
+                'user' => $user,
+            ];
         }
 
         // Rehash transparente: migra hashes legados (bcrypt) para Argon2id
@@ -90,7 +116,11 @@ class Auth
         // Cria a sessão do usuário
         self::login($user, $remember);
 
-        return true;
+        return [
+            'success' => true,
+            'reason' => self::ATTEMPT_SUCCESS,
+            'user' => $user,
+        ];
     }
 
     /**

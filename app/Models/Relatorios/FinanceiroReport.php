@@ -698,7 +698,8 @@ class FinanceiroReport extends BaseReportModel
 
         // --- Detalhes paginados ---
         // Para calcular saldo acumulado, precisamos do offset para somar antes
-        $offset = ($page - 1) * $perPage;
+        $semPaginacao = $perPage <= 0;
+        $offset = $semPaginacao ? 0 : ($page - 1) * $perPage;
 
         // Saldo acumulado ate o offset (para iniciar o running total corretamente)
         $saldoAteOffset = $saldoInicial;
@@ -776,10 +777,17 @@ class FinanceiroReport extends BaseReportModel
                 'f.tipo',
                 'f.valor_total',
             ])
+            ->selectRaw('cl.nome_rsocial AS cliente_nome')
+            ->selectRaw('fo.nome_rsocial AS fornecedor_nome')
+            ->leftJoin('clientes', 'cl', 'f.id_cliente', '=', 'cl.id')
+            ->leftJoin('fornecedores', 'fo', 'f.id_fornecedor', '=', 'fo.id')
             ->whereRaw('f.pago = ?', ['S'])
             ->whereRaw('f.data_pago BETWEEN ? AND ?', [$dataInicio, $dataFim])
-            ->orderByRaw('f.data_pago ASC, f.id ASC')
-            ->paginate($page, $perPage);
+            ->orderByRaw('f.data_pago ASC, f.id ASC');
+
+        if (!$semPaginacao) {
+            $queryDetails->paginate($page, $perPage);
+        }
 
         $this->applyFilialFilter($queryDetails, $filialWhere, $filialParams, $filialId);
 
@@ -798,10 +806,17 @@ class FinanceiroReport extends BaseReportModel
             $entrada = $row['tipo'] === 'R' ? $valor : 0;
             $saida = $row['tipo'] === 'D' ? $valor : 0;
             $saldoCorrente += $entrada - $saida;
+            $pessoaTipo = $row['tipo'] === 'R' ? 'cliente' : 'fornecedor';
+            $pessoaNome = $row['tipo'] === 'R'
+                ? ($row['cliente_nome'] ?? '')
+                : ($row['fornecedor_nome'] ?? '');
 
             $details[] = [
                 'id' => (int) $row['id'],
                 'data' => $row['data_pago'],
+                'pessoa_tipo' => $pessoaNome !== '' ? $pessoaTipo : '',
+                'pessoa_nome' => $pessoaNome,
+                'descricao' => $row['descricao'] ?? '',
                 'historico' => $row['descricao'] ?? '',
                 'entrada' => $entrada,
                 'saida' => $saida,

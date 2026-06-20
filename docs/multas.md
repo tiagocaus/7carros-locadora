@@ -38,7 +38,7 @@ Campos principais (schema completo via `DESCRIBE multas`):
 | `foto`, `foto_radar` | imagens (WebP) |
 | `origem` | enum `manual` / `serpro_consulta` / `serpro_evento` |
 | `status_processamento` | enum (`novo`, `pendente_indicacao`, `indicacao_enviada`, etc.) |
-| `na_pdf_path`, `np_pdf_path` | PDFs oficiais do SERPRO (Notificação de Autuação / Penalidade) |
+| `na_pdf_path`, `np_pdf_path` | PDFs oficiais da integração de consultas online (Notificação de Autuação / Penalidade) |
 | `id_financeiro` | fk para parcela financeira gerada quando paga |
 
 ## Model `app/Models/Multa.php`
@@ -117,9 +117,15 @@ Arquivos: `app/Lang/{pt_BR,pt_PT,en_US,es_ES,it_IT}/modules/multas.php`. Seçõe
 - `pdf.*` — strings dentro dos templates PDF (títulos de seção, labels de campos, textos de declaração, parágrafos com placeholders `:client/:plate/:value/:due`)
 - `messages.*` — alerts JS (select_doc_before_pdf, send_success, send_error, etc.)
 
-## Integração SERPRO
+## Integração de Consulta Online
 
 Consultas online, eventos automáticos, indicação de condutor, download de NA/NP. Especificação técnica completa em [`SERPRO_CENTRAL_MULTAS.md`](./SERPRO_CENTRAL_MULTAS.md). Saldo prepago e markup em [`saldo.php`](./SERPRO_CENTRAL_MULTAS.md#saldo).
+
+O front-end nunca deve usar o nome técnico do provedor, nem em textos visíveis nem em
+ids/classes HTML, nomes de variáveis/funções JS renderizadas, valores de `option`,
+atributos `data-*` ou payloads JSON consumidos por telas. Use sempre "Consulta Online",
+"consultas online" ou "sistema de consultas online"; para valores técnicos enviados à
+UI, use aliases como `consulta_online`, `evento_online` e `status_online`.
 
 ## Permissões
 
@@ -130,4 +136,4 @@ Sem permissões dedicadas no sistema de roles atual — qualquer usuário com ac
 - [Documentos](./documentos.md) — modelos com `tipo=3` usados no PDF do tipo "documento"
 - [Geração de PDF](./pdf.md) — `PdfHelper`, output buffering, `resolveImagePath`
 - [Sistema de Mensageria](./messaging.md) — `queue_message()`, fila RabbitMQ
-- [SERPRO Central de Multas](./SERPRO_CENTRAL_MULTAS.md) — integração externa
+- [Central de Multas - integração técnica](./SERPRO_CENTRAL_MULTAS.md) — integração externa

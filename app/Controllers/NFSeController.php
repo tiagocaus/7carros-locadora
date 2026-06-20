@@ -471,45 +471,26 @@ class NFSeController
             }
 
             $pdf = new \App\Services\NFSe\NFSePDF();
-            $pdfUrlAnterior = $nfse['pdf_url'] ?? '';
-            $pdfAnteriorExiste = $pdfUrlAnterior !== '' && file_exists($pdf->getCaminhoCompleto($pdfUrlAnterior));
-
-            // Regenera para entregar sempre o layout fiscal atual (logo, QR Code e ajustes visuais).
-            $pdfResult = $pdf->gerar($nfse);
-            if ($pdfResult['sucesso']) {
-                $nfseModel = new NFSe();
-                $nfseModel->salvarPdfUrl($id, $pdfResult['caminho']);
-
-                if ($pdfUrlAnterior !== '' && $pdfUrlAnterior !== $pdfResult['caminho']) {
-                    $caminhoAnterior = $pdf->getCaminhoCompleto($pdfUrlAnterior);
-                    if (file_exists($caminhoAnterior)) {
-                        @unlink($caminhoAnterior);
-                    }
-                }
-
-                $nfse['pdf_url'] = $pdfResult['caminho'];
-            } elseif (!$pdfAnteriorExiste) {
-                Response::json(['success' => false, 'message' => 'Erro ao gerar PDF'], 500);
-                return;
-            }
-
-            $caminhoCompleto = $pdf->getCaminhoCompleto($nfse['pdf_url']);
-
-            if (!file_exists($caminhoCompleto)) {
-                Response::json(['success' => false, 'message' => 'Arquivo PDF nao encontrado'], 404);
+            $pdfResult = $pdf->gerarConteudo($nfse);
+            if (!$pdfResult['sucesso']) {
+                Response::json([
+                    'success' => false,
+                    'message' => $pdfResult['mensagem'] ?? 'Erro ao gerar PDF da NFS-e.',
+                ], 500);
                 return;
             }
 
             $nomeArquivo = 'nfse_' . ($nfse['numero'] ?? $id) . '.pdf';
             $nomeArquivo = preg_replace('/[^A-Za-z0-9_.-]/', '_', $nomeArquivo);
             $nomeArquivoEncoded = rawurlencode($nomeArquivo);
+            $conteudo = $pdfResult['conteudo'];
 
             header('Content-Type: application/pdf');
             header('Content-Disposition: attachment; filename="' . $nomeArquivo . '"; filename*=UTF-8\'\'' . $nomeArquivoEncoded);
-            header('Content-Length: ' . filesize($caminhoCompleto));
-            readfile($caminhoCompleto);
+            header('Content-Length: ' . strlen($conteudo));
+            echo $conteudo;
             exit;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Response::json(['success' => false, 'message' => 'Erro ao gerar PDF: ' . $e->getMessage()], 500);
         }
     }

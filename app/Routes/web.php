@@ -614,6 +614,8 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/api/multas-online/consultar-infracoes', [SerproConsultaController::class, 'consultarInfracoes'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/multas-online/consultar-lote', [SerproConsultaController::class, 'consultarLote'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/multas-online/pdf/{tipo}', [SerproConsultaController::class, 'downloadPdf'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/multas-online/veiculo/{placa}', [SerproConsultaController::class, 'dadosVeiculo'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/multas-online/crlv/{placa}', [SerproConsultaController::class, 'crlv'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API Configuracao Consultas
     $router->get('/api/multas-online/configuracao', [SerproConsultaController::class, 'getConfiguracao'], ['api_csrf', 'rate_limit', 'throttle']);
@@ -657,6 +659,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/api/veiculos/por-grupo', [VeiculosController::class, 'porGrupo'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/{id}', [VeiculosController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/{id}/manutencoes', [VeiculosController::class, 'manutencoes'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/veiculos/{id}/faturas', [VeiculosController::class, 'faturas'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Veiculos
     $router->post('/veiculos/salvar', [VeiculosController::class, 'store'], ['csrf', 'rate_limit']);

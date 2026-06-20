@@ -28,7 +28,6 @@ Cada lancamento pode conter multiplos itens, permitindo detalhamento por veiculo
 | id_contrato | INT UNSIGNED | FK para contratos (quando origem e contrato) |
 | id_locacao | INT UNSIGNED | FK para locacoes (quando origem e locacao) |
 | id_veiculo | INT UNSIGNED | FK para veiculos (veiculo ativo no momento da criacao) |
-| data_emissao | DATE | Data de emissao |
 | data_venci | DATE | Data de vencimento |
 | data_pago | DATE | Data do pagamento (quando pago) |
 | valor_subtotal | DECIMAL(15,2) | Cache de SUM(financeiro_itens.valor). Mantido automaticamente pelos triggers — nao setar manualmente quando ha itens. Excecao: parcelas filhas (sem itens proprios) recebem o valor diretamente |
@@ -112,6 +111,18 @@ GET /api/financeiro/{id}
 Response: { success: true, data: { ...financeiro, itens: [...] } }
 ```
 
+### Faturas por Veículo
+```
+GET /api/veiculos/{id}/faturas
+Response: { success: true, data: [...faturas] }
+```
+
+Lista faturas a receber (`tipo='R'`) e a pagar (`tipo='D'`) vinculadas ao veículo
+pela coluna `financeiro.id_veiculo` ou por itens em `financeiro_itens.id_veiculo`.
+O endpoint é usado pela aba **Faturas** da tela de edição do veículo e respeita
+tenant e acesso por filial. A listagem usa `data_venci` e `data_pago`; o schema
+atual não possui `data_emissao`.
+
 ### Criar
 ```
 POST /financeiro/salvar
@@ -134,9 +145,10 @@ Response: { success: true, message: "..." }
 
 ### Link de Pagamento e Alteracoes de Valor
 
-Links publicos de pagamento mantem uma copia do valor em `pagamentos_links.valor`.
-Por isso, sempre que uma receita pendente tiver dados que alterem a cobranca, o
-sistema deve invalidar links/cobrancas pendentes antes de persistir a alteracao.
+Links publicos de pagamento sao estaveis: o mesmo `/pagar/{codigo}` deve
+continuar valido enquanto a receita estiver pendente. `pagamentos_links.valor`
+e apenas um snapshot/cache para exibicao e deve ser sincronizado com
+`financeiro.valor_total` antes de exibir ou processar o pagamento.
 
 Campos que disparam a invalidacao quando mudam de fato:
 
@@ -149,20 +161,39 @@ Campos que disparam a invalidacao quando mudam de fato:
 
 O fluxo usa `PagamentoLinkSyncService` para:
 
-1. localizar links pendentes e transacoes `charge` abertas do lancamento;
-2. cancelar a cobranca externa via gateway quando existir `external_id`;
-3. marcar transacoes e links antigos como `cancelled`;
-4. permitir que um novo link seja gerado com o `financeiro.valor_total` atual.
+1. localizar o link publico reaproveitavel do lancamento;
+2. sincronizar valor, cliente, descricao, vencimento do link e status `pending`;
+3. localizar transacoes `charge` abertas do lancamento;
+4. cancelar a cobranca externa via gateway quando existir `external_id` e os
+   dados da fatura tiverem mudado;
+5. manter o mesmo codigo publico para que mensagens ja enviadas continuem
+   abrindo a fatura atualizada.
 
-Se o gateway informar que a cobranca antiga ja foi paga, o sistema nao substitui
-o link silenciosamente. O pagamento deve ser reconciliado pelo fluxo normal de
+Se o gateway informar que a cobranca antiga ja foi paga, o sistema nao cria nova
+cobranca silenciosamente. O pagamento deve ser reconciliado pelo fluxo normal de
 status/webhook antes de nova emissao. Se o gateway estiver indisponivel ou recusar
-o cancelamento de uma cobranca ainda pagavel, a alteracao financeira e bloqueada
-para evitar dois boletos/links validos para a mesma fatura.
+o cancelamento de uma cobranca ainda pagavel, a alteracao financeira ou o novo
+pagamento online e bloqueado para evitar dois boletos/cobrancas validos para a
+mesma fatura.
 
-`GET /api/financeiro/{id}/link-pagamento` reutiliza um link pendente somente se
-ele ainda estiver coerente com o lancamento atual. Caso o valor ou cliente tenha
-mudado, o link antigo e cancelado e um novo link e criado.
+`GET /api/financeiro/{id}/link-pagamento` deve reutilizar o link existente do
+financeiro sempre que a fatura estiver pendente. Caso valor, vencimento, cliente,
+juros, multa, desconto ou itens tenham mudado, o link e atualizado sem trocar o
+codigo publico.
+
+### Impressao de Faturas
+
+```
+GET /pages/financeiro/offcanvas-impressao?id={id}
+GET /financeiro/{id}/imprimir/fatura
+POST /financeiro/{id}/enviar
+```
+
+O PDF de fatura financeira atende receitas (`tipo='R'`) e despesas (`tipo='D'`).
+Receitas exibem os dados do cliente; despesas exibem os dados do fornecedor. O
+envio por e-mail, WhatsApp ou SMS continua restrito a receitas com cliente, pois
+representa envio de cobranca. Despesas podem ser impressas em PDF, mas nao sao
+enviadas ao fornecedor por esse fluxo.
 
 ### Parcelas
 

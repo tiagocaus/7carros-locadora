@@ -4,10 +4,11 @@
  *
  * Variaveis esperadas do controller:
  *   $lancamento (com 'itens' carregados via buscarPorIdComItens)
- *   $empresa, $cliente, $logoPath, $linkPagamento (string|null)
+ *   $empresa, $cliente, $fornecedor, $contraparte, $logoPath, $linkPagamento (string|null)
  */
 
-$tipoReceita = ($lancamento['tipo'] ?? 'D') === 'R';
+$tipoReceita = $tipoReceita ?? (($lancamento['tipo'] ?? 'D') === 'R');
+$contraparte = $contraparte ?? ($tipoReceita ? ($cliente ?? []) : ($fornecedor ?? []));
 $pago = ($lancamento['pago'] ?? 'N') === 'S';
 $codigo = $lancamento['codigo'] ?? '';
 $sequencia = $lancamento['sequencia'] ?? '';
@@ -20,8 +21,13 @@ $money = fn($v) => currency_format((float) $v);
 $endereco = trim(($empresa['rua'] ?? '') . ', ' . ($empresa['num'] ?? '') . ' - ' . ($empresa['bairro'] ?? ''), ' -,');
 $cidadeUf = trim(($empresa['cidade'] ?? '') . '/' . ($empresa['estado'] ?? ''), '/');
 
-$enderecoCli = trim(($cliente['rua'] ?? '') . ', ' . ($cliente['numero'] ?? '') . ' - ' . ($cliente['bairro'] ?? ''), ' -,');
-$cidadeUfCli = trim(($cliente['cidade'] ?? '') . '/' . ($cliente['estado'] ?? ''), '/');
+$contraparteNumero = $contraparte['numero'] ?? $contraparte['num'] ?? '';
+$enderecoContraparte = trim(($contraparte['rua'] ?? '') . ', ' . $contraparteNumero . ' - ' . ($contraparte['bairro'] ?? ''), ' -,');
+$cidadeUfContraparte = trim(($contraparte['cidade'] ?? '') . '/' . ($contraparte['estado'] ?? ''), '/');
+$contraparteNome = $contraparte['nome_rsocial'] ?? ($tipoReceita ? ($lancamento['cliente_nome'] ?? '-') : ($lancamento['fornecedor_nome'] ?? '-'));
+$contraparteDocumento = $contraparte['cpf_cnpj'] ?? ($tipoReceita ? ($lancamento['cliente_cpf_cnpj'] ?? '-') : '-');
+$contraparteTelefone = $contraparte['celular'] ?? $contraparte['telefone'] ?? $contraparte['tel1'] ?? $contraparte['tel2'] ?? '';
+$contraparteLabel = $tipoReceita ? t('modules.financeiro.print_pdf.customer') : t('modules.financeiro.print_pdf.supplier');
 
 if ($pago) {
     $statusLabel = t('modules.financeiro.print_pdf.status_paid');
@@ -123,30 +129,30 @@ $documentCode = $codigo ?: '#' . ($lancamento['id'] ?? '');
     </tr>
 </table>
 
-<!-- Cliente / Sacado -->
+<!-- Cliente/Fornecedor -->
 <div class="section">
-    <div class="section-title"><?= t('modules.financeiro.print_pdf.customer') ?></div>
+    <div class="section-title"><?= $contraparteLabel ?></div>
     <table class="kv" cellpadding="0" cellspacing="0">
         <tr>
             <td class="label" style="width:12%"><?= t('modules.financeiro.print_pdf.name') ?>:</td>
-            <td style="width:55%"><?= htmlspecialchars($cliente['nome_rsocial'] ?? $lancamento['cliente_nome'] ?? '-') ?></td>
+            <td style="width:55%"><?= htmlspecialchars($contraparteNome) ?></td>
             <td class="label" style="width:13%"><?= t('modules.financeiro.print_pdf.tax_id') ?>:</td>
-            <td style="width:20%"><?= htmlspecialchars($cliente['cpf_cnpj'] ?? '-') ?></td>
+            <td style="width:20%"><?= htmlspecialchars($contraparteDocumento) ?></td>
         </tr>
-        <?php if ($enderecoCli || $cidadeUfCli): ?>
+        <?php if ($enderecoContraparte || $cidadeUfContraparte): ?>
         <tr>
             <td class="label"><?= t('modules.financeiro.print_pdf.address') ?>:</td>
-            <td><?= htmlspecialchars($enderecoCli ?: '-') ?></td>
+            <td><?= htmlspecialchars($enderecoContraparte ?: '-') ?></td>
             <td class="label"><?= t('modules.financeiro.print_pdf.city_state') ?>:</td>
-            <td><?= htmlspecialchars($cidadeUfCli ?: '-') ?></td>
+            <td><?= htmlspecialchars($cidadeUfContraparte ?: '-') ?></td>
         </tr>
         <?php endif; ?>
-        <?php if (!empty($cliente['email']) || !empty($cliente['celular']) || !empty($cliente['telefone'])): ?>
+        <?php if (!empty($contraparte['email']) || $contraparteTelefone !== ''): ?>
         <tr>
             <td class="label"><?= t('modules.financeiro.print_pdf.email') ?>:</td>
-            <td><?= htmlspecialchars($cliente['email'] ?? '-') ?></td>
+            <td><?= htmlspecialchars($contraparte['email'] ?? '-') ?></td>
             <td class="label"><?= t('modules.financeiro.print_pdf.phone') ?>:</td>
-            <td><?= htmlspecialchars($cliente['celular'] ?? $cliente['telefone'] ?? '-') ?></td>
+            <td><?= htmlspecialchars($contraparteTelefone ?: '-') ?></td>
         </tr>
         <?php endif; ?>
     </table>

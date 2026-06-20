@@ -12,6 +12,7 @@ use App\Models\FinanceiroTransacao;
 use App\Models\Financeiro;
 use App\Models\ClienteCartao;
 use App\Services\Gateways\GatewayFactory;
+use App\Services\PagamentoLinkSyncService;
 
 /**
  * Controller para página pública de pagamento
@@ -36,6 +37,17 @@ class PagamentoPublicoController
             return;
         }
 
+        if ($this->financeiroEstaPago($link)) {
+            $this->renderSucesso('Pagamento já realizado', 'Esta fatura já foi paga. Obrigado!');
+            return;
+        }
+
+        $link = $this->sincronizarLinkPublico($linkModel, $link);
+        if (!$link) {
+            $this->renderErro('Pagamento indisponível', 'Esta fatura não está disponível para pagamento. Entre em contato com a empresa.');
+            return;
+        }
+
         // Verificar se expirou
         if (!empty($link['expires_at']) && strtotime($link['expires_at']) < time()) {
             $linkModel->marcarComoExpirado($link['id']);
@@ -51,7 +63,7 @@ class PagamentoPublicoController
 
         // Verificar se foi cancelado
         if ($link['status'] === 'cancelled') {
-            $this->renderErro('Link cancelado', 'Este link de pagamento foi cancelado.');
+            $this->renderErro('Pagamento indisponível', 'Esta fatura não está disponível para pagamento. Entre em contato com a empresa.');
             return;
         }
 
@@ -134,10 +146,19 @@ class PagamentoPublicoController
         }
 
         // Validações
-        if ($link['status'] === 'paid') {
+        if ($link['status'] === 'paid' || $this->financeiroEstaPago($link)) {
             Response::json([
                 'success' => false,
-                'message' => 'Este link já foi pago'
+                'message' => 'Esta fatura já foi paga'
+            ], 400);
+            return;
+        }
+
+        $link = $this->sincronizarLinkPublico($linkModel, $link);
+        if (!$link) {
+            Response::json([
+                'success' => false,
+                'message' => 'Esta fatura não está disponível para pagamento'
             ], 400);
             return;
         }
@@ -209,6 +230,11 @@ class PagamentoPublicoController
         }
 
         try {
+            if (!empty($link['id_financeiro'])) {
+                (new PagamentoLinkSyncService())->invalidarLinksPendentes((int) $link['id_financeiro'], (string) $link['chave']);
+                $link = $linkModel->buscarPorCodigo($codigo) ?? $link;
+            }
+
             // Criar instância do gateway
             $gateway = GatewayFactory::create(
                 $gatewayConfig['gateway_code'],
@@ -277,11 +303,58 @@ class PagamentoPublicoController
             ]);
 
         } catch (\Exception $e) {
+            $mensagem = $e->getMessage();
+            if (str_contains($mensagem, 'ja consta como paga') || str_contains($mensagem, 'já consta como paga')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Esta fatura já possui pagamento confirmado no gateway. Aguarde a atualização do financeiro.'
+                ], 409);
+                return;
+            }
+
             Response::json([
                 'success' => false,
-                'message' => 'Erro ao processar pagamento: ' . $e->getMessage()
+                'message' => 'Erro ao processar pagamento: ' . $mensagem
             ], 500);
         }
+    }
+
+    private function sincronizarLinkPublico(PagamentoLink $linkModel, array $link): ?array
+    {
+        if (empty($link['id_financeiro'])) {
+            return $link;
+        }
+
+        if (($link['financeiro_tipo'] ?? null) !== 'R') {
+            return null;
+        }
+
+        if (($link['financeiro_pago'] ?? 'N') === 'S') {
+            return $link;
+        }
+
+        if (!isset($link['financeiro_valor_total'])) {
+            return null;
+        }
+
+        $expiresAt = $link['expires_at'] ?? null;
+        if (empty($expiresAt) || strtotime((string) $expiresAt) < time() || ($link['status'] ?? '') !== 'pending') {
+            $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
+        }
+
+        $linkModel->atualizarDadosCobranca((int) $link['id'], [
+            'id_cliente' => $link['financeiro_id_cliente'] ?? $link['id_cliente'] ?? null,
+            'valor' => $link['financeiro_valor_total'],
+            'descricao' => $link['financeiro_descricao'] ?? $link['descricao'] ?? 'Pagamento',
+            'expires_at' => $expiresAt,
+        ], (string) $link['chave']);
+
+        return $linkModel->buscarPorCodigo((string) $link['codigo']);
+    }
+
+    private function financeiroEstaPago(array $link): bool
+    {
+        return ($link['status'] ?? '') === 'paid' || ($link['financeiro_pago'] ?? 'N') === 'S';
     }
 
     private function resolveGatewayDueDate(?string $financeiroVencimento): string
@@ -580,9 +653,9 @@ class PagamentoPublicoController
             if ($newStatus === 'paid' && !empty($transacao['id_financeiro'])) {
                 // Buscar link associado ao financeiro
                 $linkModel = new PagamentoLink();
-                $link = $linkModel->buscarPorFinanceiro($transacao['id_financeiro']);
+                $link = $linkModel->buscarReutilizavelPorFinanceiro($transacao['id_financeiro']);
 
-                if ($link && $link['status'] === 'pending') {
+                if ($link) {
                     $linkModel->marcarComoPago(
                         $link['id'],
                         $transacao['id'],

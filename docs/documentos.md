@@ -84,11 +84,14 @@ A filtragem ocorre via `array_filter` sobre o resultado de `listarParaSelect()`.
 ### Adicionar/Editar `/pages/documentos/adicionar` (`adicionar.php`)
 
 - Form com título, tipo (`<select>` populado a partir de `Documento::TIPOS` via Controller), status, e editor TinyMCE para o conteúdo HTML
+- O editor TinyMCE permite ajustar tamanho da fonte em `pt`, preservando o estilo inline no HTML salvo em `documentos.texto`
 - Painel lateral com lista de variáveis disponíveis (insere placeholders no editor)
 
 ## Variáveis dinâmicas (placeholders)
 
 O conteúdo do documento aceita placeholders `{{cliente.nome}}`, `{{empresa.cnpj}}`, `{{contrato.valor.parcela}}`, etc. Nos três fluxos, antes do PDF o `App\I18n\TemplateRenderer` substitui os placeholders: contratos/locações montam o contexto nos respectivos controllers; multas usam `MultasController::buildDocumentoContextMulta()` em `imprimir` e em `enviarMulta`.
+
+No fluxo de locações, `LocacoesController::buildDocumentoContext()` alimenta variáveis como `{{locacao.data_retirada}}`, `{{locacao.valor_total}}`, `{{locacao.km_saida}}` e `{{locacao.bloqueio_valor}}` a partir dos dados da locação e do último vínculo de veículo, com fallback para campos legados quando necessário.
 
 Variável especial para contratos com múltiplos veículos:
 

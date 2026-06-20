@@ -161,6 +161,57 @@ class Financeiro extends Model
     }
 
     /**
+     * Lista faturas vinculadas a um veiculo pelo cabecalho ou pelos itens.
+     */
+    public function listarPorVeiculo(int $idVeiculo, string $filialWhere = '', array $filialParams = []): array
+    {
+        $query = $this->qb
+            ->table('financeiro', 'f')
+            ->select([
+                'f.id',
+                'f.tipo',
+                'f.codigo',
+                'f.sequencia',
+                'f.documento',
+                'f.descricao',
+                'f.data_venci',
+                'f.data_pago',
+                'f.valor_total',
+                'f.pago',
+                'f.id_locacao',
+                'f.id_contrato',
+                'c.nome_rsocial AS cliente_nome',
+                'fo.nome_rsocial AS fornecedor_nome',
+                'fp.nome AS forma_pagamento_descricao',
+                'mf.nome_fantasia AS filial_nome'
+            ])
+            ->leftJoin('clientes', 'c', 'f.id_cliente', '=', 'c.id')
+            ->leftJoin('fornecedores', 'fo', 'f.id_fornecedor', '=', 'fo.id')
+            ->leftJoin('formas_pagamento', 'fp', 'f.id_forma_pagamento', '=', 'fp.id')
+            ->leftJoin('matrizes_filiais', 'mf', 'f.id_matriz_filial', '=', 'mf.id')
+            ->whereRaw(
+                "(f.id_veiculo = ? OR EXISTS (
+                    SELECT 1
+                    FROM financeiro_itens fi
+                    WHERE fi.id_financeiro = f.id
+                        AND fi.chave = f.chave
+                        AND fi.id_veiculo = ?
+                ))",
+                [$idVeiculo, $idVeiculo]
+            );
+
+        if (!empty($filialWhere)) {
+            $filialWherePrefixed = str_replace('id_matriz_filial', 'f.id_matriz_filial', $filialWhere);
+            $query->whereRaw($filialWherePrefixed, $filialParams);
+        }
+
+        return $query
+            ->orderByDesc('f.data_venci')
+            ->orderByDesc('f.id')
+            ->get();
+    }
+
+    /**
      * Conta total de lancamentos com filtros
      *
      * @param string $chave Chave do tenant
@@ -814,15 +865,6 @@ class Financeiro extends Model
                 (new FinanceiroItem())->salvarTodos($idDiferenca, $chave, $itensDiferenca);
                 $this->recalcularTotal($idDiferenca);
             }
-
-            $this->qb
-                ->table('pagamentos_links')
-                ->where('id_financeiro', '=', $id)
-                ->where('status', '=', 'pending')
-                ->update([
-                    'status' => 'cancelled',
-                    'updated_at' => date('Y-m-d H:i:s'),
-                ]);
 
             $mysqli->commit();
 

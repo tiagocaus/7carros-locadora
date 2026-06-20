@@ -327,27 +327,31 @@ class NFSeService
             return $this->erro('Email do tomador não informado.', 'TOMADOR_EMAIL');
         }
 
-        // Gerar PDF se nao existe
-        if (empty($nfse['pdf_url'])) {
-            $pdfResult = $this->pdf->gerar($nfse);
-            if (!$pdfResult['sucesso']) {
-                return $this->erro('Erro ao gerar PDF: ' . $pdfResult['mensagem'], 'ERRO_DESCONHECIDO');
-            }
-            $this->nfseModel->salvarPdfUrl($idNFSe, $pdfResult['caminho']);
-            $nfse['pdf_url'] = $pdfResult['caminho'];
+        $pdfResult = $this->pdf->gerarTemporario($nfse);
+        if (!$pdfResult['sucesso']) {
+            return $this->erro('Erro ao gerar PDF: ' . $pdfResult['mensagem'], 'ERRO_DESCONHECIDO');
         }
 
         // Enviar email via fila
-        $caminhoCompleto = $this->pdf->getCaminhoCompleto($nfse['pdf_url']);
-
-        queue_message('email', [
-            'to' => $email,
-            'to_name' => $nfse['tomador_nome'] ?? '',
-            'subject' => 'NFS-e Nº ' . ($nfse['numero'] ?? '') . ' - ' . ($nfse['prestador_razao_social'] ?? ''),
-            'body' => $this->gerarCorpoEmail($nfse),
-            'attachments' => [$caminhoCompleto],
-            'id_matriz_filial' => $nfse['id_matriz_filial'],
-        ], $chave);
+        try {
+            queue_message('email', [
+                'to' => $email,
+                'to_name' => $nfse['tomador_nome'] ?? '',
+                'subject' => 'NFS-e Nº ' . ($nfse['numero'] ?? '') . ' - ' . ($nfse['prestador_razao_social'] ?? ''),
+                'body' => $this->gerarCorpoEmail($nfse),
+                'attachments' => [[
+                    'path' => $pdfResult['caminho_completo'],
+                    'name' => $pdfResult['nome_arquivo'],
+                    'delete_after_send' => true,
+                ]],
+                'id_matriz_filial' => $nfse['id_matriz_filial'],
+            ], $chave);
+        } catch (\Throwable $e) {
+            if (!empty($pdfResult['caminho_completo']) && file_exists($pdfResult['caminho_completo'])) {
+                @unlink($pdfResult['caminho_completo']);
+            }
+            throw $e;
+        }
 
         // Marcar como enviado
         $this->nfseModel->marcarEmailEnviado($idNFSe, $email);
@@ -569,15 +573,6 @@ class NFSeService
             ]);
 
             $this->eventoModel->registrar($idNFSe, 'emissao', null, 'NFS-e autorizada com sucesso', $resultado['resposta'] ?? null);
-
-            // Gerar PDF
-            $nfse = $this->nfseModel->buscarPorId($idNFSe);
-            if ($nfse) {
-                $pdfResult = $this->pdf->gerar($nfse);
-                if ($pdfResult['sucesso']) {
-                    $this->nfseModel->salvarPdfUrl($idNFSe, $pdfResult['caminho']);
-                }
-            }
 
             return [
                 'sucesso' => true,

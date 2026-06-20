@@ -7,6 +7,25 @@
 
 ## 1. Visao Geral
 
+### Regra obrigatoria de nomenclatura no front-end
+
+O front-end **nunca deve exibir o termo tecnico do provedor** para clientes. Isso vale
+para textos visiveis e tambem para qualquer codigo ou payload que o tenant consiga
+inspecionar no navegador: ids/classes HTML, nomes de funcoes/variaveis JS renderizadas,
+valores de `option`, atributos `data-*` e JSON retornado para telas. Em labels, botoes,
+alertas, mensagens de erro, tooltips, modais, historico e PDFs visiveis ao tenant, use
+sempre:
+
+- `Consulta Online`
+- `consultas online`
+- `sistema de consultas online`
+
+O nome tecnico do provedor deve ficar restrito a contexto interno: classes,
+services, controllers, rotas internas, tabelas, colunas, variaveis de ambiente,
+logs tecnicos e documentacao tecnica de integracao. Quando um valor interno precisa
+chegar ao front-end, exponha um alias neutro, por exemplo `consulta_online`,
+`evento_online` ou `status_online`.
+
 ### 1.1 Objetivo
 
 Transformar o modulo de multas atual (100% manual) em uma **Central de Multas inteligente** integrada com a API de consultas online, permitindo:
@@ -515,10 +534,10 @@ SERPRO_AMBIENTE=homologacao                   # homologacao | producao
 SERPRO_BEARER_TOKEN=                          # JWT token usado em homologacao
 SERPRO_HOMOLOGACAO_BASE_URL=https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api
 SERPRO_HOMOLOGACAO_BASE_URL_TRANSACIONAL=https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api/transacional
-SERPRO_HOMOLOGACAO_BASE_URL_CRLV=https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api
+SERPRO_HOMOLOGACAO_BASE_URL_CRLV=https://hom-efrotas.np.estaleiro.serpro.gov.br/efrotas/api/crlv
 SERPRO_PRODUCAO_BASE_URL=https://efrotas.estaleiro.serpro.gov.br/efrotas/api
 SERPRO_PRODUCAO_BASE_URL_TRANSACIONAL=https://efrotas.estaleiro.serpro.gov.br/efrotas/api/transacional
-SERPRO_PRODUCAO_BASE_URL_CRLV=https://efrotas.estaleiro.serpro.gov.br/efrotas/api
+SERPRO_PRODUCAO_BASE_URL_CRLV=https://efrotas.estaleiro.serpro.gov.br/efrotas/api/crlv
 SERPRO_CERT_PATH=storage/certificates/7carros/certificate.pfx
 SERPRO_CERT_PASSWORD=                         # senha do certificado digital A1/PFX usado em producao
 SERPRO_CERT_TYPE=P12                          # P12/PFX ou PEM
@@ -532,6 +551,8 @@ SERPRO_WEBHOOK_SECRET=                        # token para validar webhooks rece
 SERPRO_PRECO_CONSULTA=0.43                    # preco atual da faixa vigente (consulta)
 SERPRO_PRECO_EVENTO=1.07                      # preco atual da faixa vigente (evento)
 SERPRO_PRECO_INDICACAO=1.07                   # preco configurado para indicacao de condutor
+SERPRO_PRECO_COSULTA_DADOSVEICULO=0.43        # preco da consulta de dados cadastrais do veiculo
+SERPRO_PRECO_COSULTA_CRLV=0.43                # preco da consulta de CRLV
 SERPRO_MARKUP_PERCENT=10                      # % adicionado ao preco SERPRO
 
 # ============================
@@ -577,7 +598,7 @@ STRIPE_WEBHOOK_SECRET=
 | Detalhe da infracao             | GET    | `/consultas/v1/infracoes/codigoOrgao/{co}/numeroAit/{na}/codigoInfracao/{ci}`      |
 | PDF da NA                       | GET    | `/consultas/sne/pdf/placa/{p}/codigoOrgao/{co}/numeroAit/{na}/codigoInfracao/{ci}/NA` |
 | PDF da NP                       | GET    | `/consultas/sne/pdf/placa/{p}/codigoOrgao/{co}/numeroAit/{na}/codigoInfracao/{ci}/NP` |
-| CRLV do veiculo                 | GET    | `/v1/documento/placa/{placa}`                                                      |
+| CRLV do veiculo                 | GET    | `{SERPRO_*_BASE_URL_CRLV}/v1/documento/placa/{placa}`                              |
 | Notificacoes por periodo        | GET    | `/notificacoes/v1/dataInicio/{di}/dataFim/{df}`                                    |
 
 ### 5.2 Gerenciamento de Eventos
@@ -696,6 +717,8 @@ GET    /api/serpro/consultar/na-pdf/{co}/{na}/{ci}   → SerproConsultaControlle
 GET    /api/serpro/consultar/np-pdf/{co}/{na}/{ci}   → SerproConsultaController::downloadNP()
 GET    /api/serpro/consultar/crlv/{placa}             → SerproConsultaController::crlv()
 GET    /api/serpro/consultar/veiculo/{placa}           → SerproConsultaController::dadosVeiculo()
+GET    /api/multas-online/crlv/{placa}                 → SerproConsultaController::crlv()
+GET    /api/multas-online/veiculo/{placa}              → SerproConsultaController::dadosVeiculo()
 POST   /api/serpro/configuracoes                       → SerproConsultaController::salvarConfig()
 GET    /api/serpro/configuracoes                        → SerproConsultaController::getConfig()
 GET    /api/serpro/consultas-log                        → SerproConsultaController::log()
@@ -837,7 +860,7 @@ Metodos:
 │                                                                         │
 │  ┌─ ACOES RAPIDAS ───────────────────────────────────────────────────┐ │
 │  │                                                                    │ │
-│  │  [Buscar Multas SERPRO]  [Buscar Todas as Placas]  [+ Nova Manual]│ │
+│  │  [Buscar Multas Online]  [Buscar Todas as Placas]  [+ Nova Manual]│ │
 │  │                                                                    │ │
 │  └────────────────────────────────────────────────────────────────────┘ │
 │                                                                         │
@@ -857,7 +880,7 @@ Metodos:
 │  │  [ ] │ Placa   │ Infracao      │ Orgao    │ Valor  │ Venc.  │ Proc│ │
 │  │  ────┼─────────┼───────────────┼──────────┼────────┼────────┼─────│ │
 │  │  [ ] │ ABC1D23 │ Vel. 50% acima│ DETRAN-SP│ 293,47 │ 20/03  │ Novo│ │
-│  │      │ (SERPRO)│ AIT: SRPO-876 │          │        │  15d   │     │ │
+│  │      │ (Online)│ AIT: SRPO-876 │          │        │  15d   │     │ │
 │  │  ────┼─────────┼───────────────┼──────────┼────────┼────────┼─────│ │
 │  │  [ ] │ XYZ9E87 │ Avancar sinal │ DER-RJ   │ 195,23 │ 25/03  │Indic│ │
 │  │      │ (Manual)│               │          │        │  20d   │ado  │ │
@@ -953,7 +976,7 @@ Metodos:
 │                                                                         │
 │  ┌─ DADOS DA EMPRESA ────────────────────────────────────────────────┐ │
 │  │                                                                    │ │
-│  │  CNPJ cadastrado na SERPRO: [12.345.678/0001-90]                  │ │
+│  │  CNPJ da Consulta Online: [12.345.678/0001-90]                    │ │
 │  │                                                                    │ │
 │  └────────────────────────────────────────────────────────────────────┘ │
 │                                                                         │

@@ -19,6 +19,8 @@ use App\Views\Template;
 class AuthController
 {
     private LoginAttempt $loginAttemptModel;
+    private const MAX_LOGIN_ATTEMPTS = 5;
+    private const LOGIN_BLOCK_MINUTES = 15;
 
     public function __construct()
     {
@@ -51,8 +53,9 @@ class AuthController
         // Proteção contra brute force (simples)
         $this->checkLoginAttempts($username, $request->ip());
 
-        // Tenta autenticar
-        if (Auth::attempt($username, $password, $remember)) {
+        // Tenta autenticar com motivo detalhado para mensagens claras
+        $authResult = Auth::attemptDetailed($username, $password, $remember);
+        if ($authResult['success']) {
             // Limpa tentativas de login
             $this->clearLoginAttempts($username, $request->ip());
 
@@ -70,12 +73,25 @@ class AuthController
             }
         }
 
-        // Login falhou, registra tentativa
-        $this->recordLoginAttempt($username, $request->ip());
+        if (($authResult['reason'] ?? null) === Auth::ATTEMPT_SUSPENDED) {
+            Response::backWithError(
+                'Seu acesso está suspenso. Isso pode acontecer por fatura vencida. Entre em contato com o suporte para regularizar o acesso.'
+            );
+        }
 
-        // Retorna com erro
+        if (($authResult['reason'] ?? null) === Auth::ATTEMPT_INACTIVE) {
+            Response::backWithError(
+                'Seu usuário está inativo. Entre em contato com o suporte para verificar o acesso.'
+            );
+        }
+
+        // Login falhou por usuário ou senha, registra tentativa
+        $attemptInfo = $this->recordLoginAttempt($username, $request->ip());
+        $message = $this->invalidCredentialsMessage($attemptInfo);
+        Session::flash('error', $message);
+
         Response::backWithErrors(
-            ['username' => 'Credenciais inválidas ou usuário inativo'],
+            ['username' => $message],
             ['username' => $username]
         );
     }
@@ -201,7 +217,7 @@ class AuthController
 
             $minutesLeft = max(1, (int) ceil($secondsLeft / 60));
             Response::backWithError(
-                "Muitas tentativas de login. Tente novamente em $minutesLeft minutos."
+                "Acesso temporariamente bloqueado por muitas tentativas. Tente novamente em $minutesLeft minutos ou redefina sua senha."
             );
         }
     }
@@ -209,7 +225,7 @@ class AuthController
     /**
      * Registra uma tentativa de login falhada
      */
-    private function recordLoginAttempt(string $username, string $ip): void
+    private function recordLoginAttempt(string $username, string $ip): array
     {
         // Verifica se já existe um registro
         $attempt = $this->loginAttemptModel->buscar($username, $ip);
@@ -218,21 +234,62 @@ class AuthController
             if (!empty($attempt['bloqueado_ate']) && $this->secondsUntilUnlock($attempt['bloqueado_ate']) <= 0) {
                 $this->clearLoginAttempts($username, $ip);
                 $this->loginAttemptModel->registrar($username, $ip);
-                return;
+                return [
+                    'attempts' => 1,
+                    'blocked' => false,
+                    'blocked_until' => null,
+                    'remaining' => self::MAX_LOGIN_ATTEMPTS - 1,
+                ];
             }
 
-            $newAttempts = $attempt['tentativas'] + 1;
+            $newAttempts = ((int) $attempt['tentativas']) + 1;
             $bloqueadoAte = null;
 
             // Bloqueia por 15 minutos após 5 tentativas
-            if ($newAttempts >= 5) {
-                $bloqueadoAte = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+            if ($newAttempts >= self::MAX_LOGIN_ATTEMPTS) {
+                $bloqueadoAte = date('Y-m-d H:i:s', strtotime('+' . self::LOGIN_BLOCK_MINUTES . ' minutes'));
             }
 
             $this->loginAttemptModel->incrementar($username, $ip, $newAttempts, $bloqueadoAte);
+
+            return [
+                'attempts' => $newAttempts,
+                'blocked' => $bloqueadoAte !== null,
+                'blocked_until' => $bloqueadoAte,
+                'remaining' => max(0, self::MAX_LOGIN_ATTEMPTS - $newAttempts),
+            ];
         } else {
             $this->loginAttemptModel->registrar($username, $ip);
+
+            return [
+                'attempts' => 1,
+                'blocked' => false,
+                'blocked_until' => null,
+                'remaining' => self::MAX_LOGIN_ATTEMPTS - 1,
+            ];
         }
+    }
+
+    /**
+     * Monta mensagem clara para erro de usuario/senha.
+     */
+    private function invalidCredentialsMessage(array $attemptInfo): string
+    {
+        if (!empty($attemptInfo['blocked'])) {
+            return 'Usuário ou senha inválidos. Seu acesso foi bloqueado temporariamente por muitas tentativas. Tente novamente em '
+                . self::LOGIN_BLOCK_MINUTES
+                . ' minutos ou clique em Redefinir senha.';
+        }
+
+        $attempts = (int) ($attemptInfo['attempts'] ?? 1);
+        $remaining = (int) ($attemptInfo['remaining'] ?? (self::MAX_LOGIN_ATTEMPTS - $attempts));
+
+        if ($attempts >= 2) {
+            $plural = $remaining === 1 ? 'tentativa' : 'tentativas';
+            return "Usuário ou senha inválidos. Restam {$remaining} {$plural} antes do bloqueio temporário. Se esqueceu a senha, clique em Redefinir senha antes de tentar novamente.";
+        }
+
+        return 'Usuário ou senha inválidos.';
     }
 
     /**

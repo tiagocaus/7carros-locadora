@@ -69,6 +69,74 @@ class NFSePDF
     }
 
     /**
+     * Gera PDF da DANFSE em memoria, sem persistir arquivo.
+     *
+     * @return array{sucesso:bool, conteudo:string, mensagem:string}
+     */
+    public function gerarConteudo(array $dadosNFSe): array
+    {
+        try {
+            $html = $this->gerarHTML($dadosNFSe);
+            $conteudo = PdfHelper::generateAsString($html);
+
+            return [
+                'sucesso' => true,
+                'conteudo' => $conteudo,
+                'mensagem' => 'PDF gerado com sucesso.',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'sucesso' => false,
+                'conteudo' => '',
+                'mensagem' => 'Erro ao gerar PDF: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Gera PDF temporario para anexos de email. O chamador deve remover o arquivo.
+     *
+     * @return array{sucesso:bool, caminho_completo:string, nome_arquivo:string, mensagem:string}
+     */
+    public function gerarTemporario(array $dadosNFSe): array
+    {
+        $pdf = $this->gerarConteudo($dadosNFSe);
+        if (!$pdf['sucesso']) {
+            return [
+                'sucesso' => false,
+                'caminho_completo' => '',
+                'nome_arquivo' => '',
+                'mensagem' => $pdf['mensagem'],
+            ];
+        }
+
+        $numero = preg_replace('/[^A-Za-z0-9_.-]/', '_', (string) ($dadosNFSe['numero'] ?? $dadosNFSe['id'] ?? 'nfse'));
+        $serie = preg_replace('/[^A-Za-z0-9_.-]/', '_', (string) ($dadosNFSe['serie'] ?? 'DPS'));
+        $nomeArquivo = "nfse_{$numero}_{$serie}.pdf";
+        $tempPath = tempnam(sys_get_temp_dir(), 'nfse_');
+
+        if ($tempPath === false || file_put_contents($tempPath, $pdf['conteudo']) === false) {
+            if ($tempPath !== false && file_exists($tempPath)) {
+                @unlink($tempPath);
+            }
+
+            return [
+                'sucesso' => false,
+                'caminho_completo' => '',
+                'nome_arquivo' => '',
+                'mensagem' => 'Erro ao criar arquivo temporario do PDF.',
+            ];
+        }
+
+        return [
+            'sucesso' => true,
+            'caminho_completo' => $tempPath,
+            'nome_arquivo' => $nomeArquivo,
+            'mensagem' => 'PDF temporario gerado com sucesso.',
+        ];
+    }
+
+    /**
      * Retorna caminho completo de um PDF existente
      */
     public function getCaminhoCompleto(string $caminhoRelativo): string

@@ -144,7 +144,7 @@ class SerproAutoConsultaJob extends BaseJob
 
                 try {
                     // Debitar consulta
-                    $saldoService->debitarConsulta("Auto-consulta placa {$placa}", $placa);
+                    $debito = $saldoService->debitarConsulta("Auto-consulta placa {$placa}", $placa);
 
                     // Consultar SERPRO
                     $resultado = $serpro->consultarInfracoes($placa);
@@ -153,6 +153,7 @@ class SerproAutoConsultaJob extends BaseJob
                         $novas = $this->sincronizarInfracoes($chave, $placa, $veiculo['id'], $resultado['data'], $multaModel);
                         $novasInfracoes += $novas;
                     } elseif (!$resultado['success']) {
+                        $this->estornarDebitoConsulta($saldoService, $debito, $placa, $resultado);
                         $erros++;
                     }
 
@@ -217,5 +218,20 @@ class SerproAutoConsultaJob extends BaseJob
         }
 
         return $novas;
+    }
+
+    private function estornarDebitoConsulta(SerproSaldoService $saldoService, array $debito, string $placa, array $resultado): void
+    {
+        $transacaoId = (int) ($debito['transacao_id'] ?? 0);
+        if ($transacaoId <= 0) {
+            return;
+        }
+
+        try {
+            $saldoService->estornarDebito($transacaoId);
+            $this->log("Placa {$placa}: debito estornado apos falha da Consulta Online ({$resultado['status']})", 'WARNING');
+        } catch (\Throwable $e) {
+            $this->log("Placa {$placa}: falha ao estornar debito {$transacaoId}: " . $e->getMessage(), 'ERROR');
+        }
     }
 }

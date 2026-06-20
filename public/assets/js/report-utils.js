@@ -305,21 +305,23 @@ const ReportUtils = {
      * @param {string} title - Título do modal
      */
     exportPdf(url, title) {
-        const params = new URLSearchParams();
-        const dataInicio = document.getElementById('filterDataInicio')?.value;
-        const dataFim = document.getElementById('filterDataFim')?.value;
-        const filial = document.getElementById('filterFilial')?.value;
-        const grupo = document.getElementById('filterGrupo')?.value;
+        const pdfUrl = new URL(url, window.location.origin);
 
-        if (dataInicio) params.set('data_inicio', dataInicio);
-        if (dataFim) params.set('data_fim', dataFim);
-        if (filial) params.set('filial', filial);
-        if (grupo) params.set('grupo', grupo);
+        document.querySelectorAll('[id^="filter"]').forEach((field) => {
+            const key = field.id
+                .replace(/^filter/, '')
+                .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+                .toLowerCase();
+            const value = field.value;
 
-        // Se a URL ja tem query string, anexa com '&'; senao usa '?'.
-        const fullUrl = params.toString()
-            ? `${url}${url.includes('?') ? '&' : '?'}${params.toString()}`
-            : url;
+            if (key && value && !pdfUrl.searchParams.has(key)) {
+                pdfUrl.searchParams.set(key, value);
+            }
+        });
+
+        const fullUrl = url.startsWith('http://') || url.startsWith('https://')
+            ? pdfUrl.toString()
+            : `${pdfUrl.pathname}${pdfUrl.search}${pdfUrl.hash}`;
 
         if (window.parent !== window) {
             window.parent.postMessage({

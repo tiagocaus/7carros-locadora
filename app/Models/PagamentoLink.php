@@ -95,6 +95,14 @@ class PagamentoLink extends Model
                 'f.documento AS financeiro_documento',
                 'f.data_venci AS financeiro_vencimento',
                 'f.id_forma_pagamento AS id_forma_pagamento',
+                'f.tipo AS financeiro_tipo',
+                'f.pago AS financeiro_pago',
+                'f.valor_subtotal AS financeiro_valor_subtotal',
+                'f.juros AS financeiro_juros',
+                'f.multa AS financeiro_multa',
+                'f.desconto AS financeiro_desconto',
+                'f.valor_total AS financeiro_valor_total',
+                'f.id_cliente AS financeiro_id_cliente',
                 'c.nome_rsocial AS cliente_nome',
                 'c.cpf_cnpj AS cliente_documento',
                 "(SELECT email FROM contatos_emails WHERE entidade_tipo = 'cliente' AND entidade_id = c.id AND principal = 'S' LIMIT 1) AS cliente_email",
@@ -336,6 +344,59 @@ class PagamentoLink extends Model
             ->where('id_financeiro', '=', $idFinanceiro)
             ->where('status', '=', 'pending')
             ->first();
+    }
+
+    /**
+     * Busca o link mais recente reaproveitavel para um financeiro.
+     *
+     * Links pagos nao sao reutilizados; links expirados/cancelados podem ser
+     * reativados quando o financeiro segue pendente.
+     *
+     * @param int $idFinanceiro
+     * @return array<string, mixed>|null
+     */
+    public function buscarReutilizavelPorFinanceiro(int $idFinanceiro): ?array
+    {
+        return $this->qb
+            ->table('pagamentos_links')
+            ->where('id_financeiro', '=', $idFinanceiro)
+            ->where('status', '!=', 'paid')
+            ->orderBy('created_at', 'DESC')
+            ->first();
+    }
+
+    /**
+     * Atualiza o snapshot do link publico sem alterar seu codigo.
+     *
+     * @param int $id
+     * @param array<string, mixed> $dados
+     * @param string|null $chave
+     * @return int
+     */
+    public function atualizarDadosCobranca(int $id, array $dados, ?string $chave = null): int
+    {
+        $update = [
+            'valor' => $dados['valor'],
+            'descricao' => $dados['descricao'] ?? null,
+            'id_cliente' => $dados['id_cliente'] ?? null,
+            'expires_at' => $dados['expires_at'] ?? null,
+            'status' => 'pending',
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        if (array_key_exists('id_locacao', $dados)) {
+            $update['id_locacao'] = $dados['id_locacao'];
+        }
+
+        $query = $this->qb
+            ->table('pagamentos_links')
+            ->where('id', '=', $id);
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        return $query->update($update);
     }
 
     /**

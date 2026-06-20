@@ -56,7 +56,7 @@ class SerproIndicacaoController
 
             Response::json([
                 'success' => true,
-                'data' => $indicacoes,
+                'data' => array_map([$this, 'normalizarIndicacaoParaFrontend'], $indicacoes),
                 'pagination' => [
                     'page' => $page,
                     'perPage' => $perPage,
@@ -90,13 +90,26 @@ class SerproIndicacaoController
                 return;
             }
 
-            Response::json(['success' => true, 'data' => $indicacao]);
+            Response::json(['success' => true, 'data' => $this->normalizarIndicacaoParaFrontend($indicacao)]);
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao buscar indicacao: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Remove nomes tecnicos do payload consumido pelo navegador.
+     */
+    private function normalizarIndicacaoParaFrontend(array $indicacao): array
+    {
+        if (array_key_exists('status_serpro', $indicacao)) {
+            $indicacao['status_online'] = $indicacao['status_serpro'];
+            unset($indicacao['status_serpro']);
+        }
+
+        return $indicacao;
     }
 
     /**

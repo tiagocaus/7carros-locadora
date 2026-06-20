@@ -133,6 +133,7 @@ return [
     'stats' => [
         'total' => 'Total',
         'autorizadas' => 'Autorizadas',
+        'valor_autorizadas' => 'Valor autorizado',
         'pendentes' => 'Pendentes',
         'rejeitadas' => 'Rejeitadas',
         'canceladas' => 'Canceladas',

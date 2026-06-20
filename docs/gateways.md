@@ -267,18 +267,21 @@ Gateways nao devem aplicar fallback proprio como `+3 dias` ou `+1 dia`; a normal
 
 ### Substituicao de cobrancas apos alteracao financeira
 
-Boletos e demais cobrancas externas nao devem ser editados em aberto para refletir
-novo valor do financeiro. O comportamento padrao do sistema e cancelar a cobranca
-antiga e criar uma nova cobranca quando o cliente acessar um link atualizado.
+O link publico (`/pagar/{codigo}`) deve ser estavel e carregar sempre os dados
+atuais do financeiro. Boletos e demais cobrancas externas nao devem ser editados
+em aberto para refletir novo valor do financeiro. O comportamento padrao do
+sistema e manter o mesmo link publico, cancelar a cobranca externa antiga e criar
+uma nova cobranca quando o cliente escolher pagar.
 
 Quando uma receita pendente muda valor, vencimento, cliente, forma de pagamento,
 juros, multa, desconto ou soma dos itens:
 
-1. `PagamentoLinkSyncService` localiza links `pending` e transacoes `charge` abertas.
-2. Para cada transacao com `external_id`, o sistema consulta o status no gateway.
-3. Se a cobranca estiver aberta, chama `PaymentGatewayInterface::cancel($externalId)`.
-4. Se o cancelamento for confirmado, a transacao local e o link antigo ficam `cancelled`.
-5. O proximo `GET /api/financeiro/{id}/link-pagamento` cria um novo link com o valor atual.
+1. `PagamentoLinkSyncService` localiza o link publico reaproveitavel e transacoes `charge` abertas.
+2. O link publico e sincronizado com valor, cliente, descricao e vencimento atuais.
+3. Para cada transacao com `external_id`, o sistema consulta o status no gateway.
+4. Se a cobranca estiver aberta, chama `PaymentGatewayInterface::cancel($externalId)`.
+5. Se o cancelamento for confirmado, a transacao local fica `cancelled`; o link publico continua `pending`.
+6. O proximo processamento pelo mesmo `/pagar/{codigo}` cria uma nova cobranca externa com o valor atual.
 
 Se o gateway retornar `paid`, `received`, `confirmed` ou equivalente, o sistema
 marca a transacao local como paga e nao emite outro link automaticamente. Se o

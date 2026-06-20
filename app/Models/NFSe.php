@@ -197,7 +197,7 @@ class NFSe extends Model
      */
     public function estatisticas(string $filialWhere = '', array $filialParams = [], string $dataInicio = '', string $dataFim = '', string $filialId = ''): array
     {
-        $buildQuery = function (?string $status = null) use ($filialWhere, $filialParams, $dataInicio, $dataFim, $filialId) {
+        $aplicarFiltros = function (?string $status = null, bool $usarMesAtualPadrao = false) use ($filialWhere, $filialParams, $dataInicio, $dataFim, $filialId) {
             $q = $this->qb
                 ->table('nfse');
 
@@ -217,8 +217,21 @@ class NFSe extends Model
                 $q->where('id_matriz_filial', '=', (int) $filialId);
             }
 
+            if ($usarMesAtualPadrao && empty($dataInicio) && empty($dataFim)) {
+                $q->where('data_emissao', '>=', date('Y-m-01') . ' 00:00:00')
+                  ->where('data_emissao', '<=', date('Y-m-t') . ' 23:59:59');
+            }
+
+            return $q;
+        };
+
+        $buildQuery = function (?string $status = null) use ($aplicarFiltros) {
+            $q = $aplicarFiltros($status);
             return $q->count();
         };
+
+        $valorAutorizadas = $aplicarFiltros('autorizada', true)
+            ->sum('valor_servicos');
 
         $autorizada = $buildQuery('autorizada');
         $rejeitada = $buildQuery('rejeitada');
@@ -237,6 +250,7 @@ class NFSe extends Model
             'rejeitadas' => $rejeitada,
             'canceladas' => $cancelada,
             'pendentes' => $pendente + $processando,
+            'valor_autorizadas' => $valorAutorizadas,
         ];
     }
 

@@ -52,13 +52,13 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 ```
 
 ### Criacao de Reserva
-- Reserva (`status = R`) e reserva pendente (`status = P`) **nao precisam selecionar veiculo especifico**.
-- A pratica operacional esperada e reservar o **grupo/categoria**: o cliente garante um grupo (ex: Economico, SUV) e recebe qualquer veiculo disponivel daquele grupo no momento da retirada.
-- Reserva pode ser criada apenas com grupo/categoria (`id_grupo`), gravando `id_veiculo = NULL` em `locacoes_veiculos`.
+- Reserva (`status = R`) e reserva pendente (`status = P`) **nao precisam selecionar veiculo especifico**, mas podem gravar um veiculo como preferencia operacional.
+- A pratica operacional esperada e reservar o **grupo/categoria**; quando um veiculo especifico for selecionado na reserva, ele representa preferencia, nao bloqueio de disponibilidade.
+- Reserva pode ser criada apenas com grupo/categoria (`id_grupo`), gravando `id_veiculo = NULL` em `locacoes_veiculos`, ou com `id_veiculo` preenchido como preferencia.
 - Se nenhum grupo/veiculo for informado, a locacao pode ser criada sem registro em `locacoes_veiculos`, quando o fluxo de tela permitir.
-- Nao exibir mensagem em tela dizendo que veiculo e opcional; o comportamento deve ser silencioso e natural.
+- A tela de reserva deve mostrar o campo de veiculo, mas sem obrigatoriedade.
 - Veiculo especifico so e obrigatorio ao abrir a locacao/registrar saida (`status = A`) ou em fluxos de fechamento que dependam de veiculo ativo.
-- Ao registrar saida, a locadora escolhe um veiculo disponivel do grupo reservado. A partir desse momento a locacao passa a ter veiculo ativo para checklist, rastreabilidade financeira e devolucao.
+- Ao registrar saida, se o veiculo preferido ainda estiver disponivel, ele deve ser usado. Se nao estiver disponivel, a tela deve exigir a selecao de outro veiculo disponivel do grupo. A partir desse momento a locacao passa a ter veiculo ativo para checklist, rastreabilidade financeira e devolucao.
 - Na impressao, reserva confirmada (`status = R`) deve ser apresentada como **Voucher**, nao como fatura. O offcanvas de impressao mostra apenas Voucher e Documento para esse status. Reserva pendente (`status = P`) nao entra nessa regra.
 
 ### R → A (Registrar Saida)
@@ -310,6 +310,9 @@ Na tela de locacao:
 - `Diferenca`: total final simulado menos total lancado; indica quanto ainda precisa ser lancado no financeiro
 - `Valor pago`: soma das parcelas ja pagas
 - `Saldo a pagar`: total final simulado menos valor pago; indica quanto ainda falta receber
+- Em nova locacao/reserva ainda nao salva, a secao Pagamentos deve aparecer
+  sem botoes ou acoes, exibindo apenas a orientacao para salvar antes de
+  adicionar pagamento.
 
 Na fatura PDF da locacao, o valor reembolsado aparece nos totais quando existir
 credito de devolucao e reduz o `TOTAL A PAGAR`, sem misturar esse lancamento na

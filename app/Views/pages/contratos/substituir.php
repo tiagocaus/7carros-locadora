@@ -640,7 +640,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('valorKmLivre').value = valores.valor_plano_km_livre ? Currency.format(valores.valor_plano_km_livre * multiplicador) : '';
         document.getElementById('valorSeguroCarro').value = valores.valor_seguro_carro ? Currency.format(valores.valor_seguro_carro * multiplicador) : '';
         document.getElementById('valorSeguroTerceiros').value = valores.valor_seguro_terceiros ? Currency.format(valores.valor_seguro_terceiros * multiplicador) : '';
-        document.getElementById('kmFranquia').value = valores.km_franquia ? (valores.km_franquia * multiplicador) : '';
+        document.getElementById('kmFranquia').value = valores.km_franquia ? Km.format(valores.km_franquia * multiplicador) : '';
         // Valores por km - NAO multiplicar
         document.getElementById('valorKmDiaria').value = valores.valor_km_excedente ? Currency.format(valores.valor_km_excedente) : '';
         document.getElementById('valorKmExcedente').value = valores.valor_km_excedente ? Currency.format(valores.valor_km_excedente) : '';
@@ -659,7 +659,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('valorKmLivre').value = v.valor_plano_km_livre ? Currency.format(v.valor_plano_km_livre) : '';
         document.getElementById('valorSeguroCarro').value = v.valor_seguro_carro ? Currency.format(v.valor_seguro_carro) : '';
         document.getElementById('valorSeguroTerceiros').value = v.valor_seguro_terceiros ? Currency.format(v.valor_seguro_terceiros) : '';
-        document.getElementById('kmFranquia').value = v.km_franquia || '';
+        document.getElementById('kmFranquia').value = v.km_franquia ? Km.format(v.km_franquia) : '';
         document.getElementById('valorKmDiaria').value = v.valor_km_excedente ? Currency.format(v.valor_km_excedente) : '';
         document.getElementById('valorKmExcedente').value = v.valor_km_excedente ? Currency.format(v.valor_km_excedente) : '';
 
@@ -952,7 +952,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 valor_plano_km_controlado: planoNovo === 'KMC' ? valorKmControlado : 0,
                 valor_plano_km_livre: planoNovo === 'KL' ? valorKmLivre : 0,
                 valor_km_excedente: Currency.parse(document.getElementById('valorKmExcedente').value || document.getElementById('valorKmDiaria').value || '0'),
-                km_franquia: parseInt(document.getElementById('kmFranquia').value || '0'),
+                km_franquia: Km.parse(document.getElementById('kmFranquia').value || '0'),
                 valor_seguro_carro: Currency.parse(document.getElementById('valorSeguroCarro').value || '0'),
                 valor_seguro_terceiros: Currency.parse(document.getElementById('valorSeguroTerceiros').value || '0'),
                 // Flag

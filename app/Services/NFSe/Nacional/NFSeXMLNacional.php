@@ -35,7 +35,6 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $xml .= '<nDPS>' . (int) ($dados['numero'] ?? 0) . '</nDPS>';
         $xml .= '<dCompet>' . $this->escapeXml((string) ($dados['data_competencia'] ?? date('Y-m-d'))) . '</dCompet>';
         $xml .= '<tpEmit>1</tpEmit>';
-        $xml .= '<finNFSe>0</finNFSe>';
         $xml .= '<cLocEmi>' . $this->somenteDigitos((string) ($dados['municipio_codigo'] ?? '')) . '</cLocEmi>';
 
         // Prestador

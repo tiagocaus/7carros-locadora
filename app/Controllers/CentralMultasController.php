@@ -48,7 +48,7 @@ class CentralMultasController
             $multaModel = new Multa();
 
             // KPIs de multas
-            $kpis = $multaModel->calcularKpis($filialWhere, $filialParams);
+            $kpis = $this->normalizarKpisParaFrontend($multaModel->calcularKpis($filialWhere, $filialParams));
 
             // Saldo SERPRO
             $saldoService = new SerproSaldoService();
@@ -160,7 +160,7 @@ class CentralMultasController
             $search = $request->query('search', '');
             $filtroTipo = $request->query('tipo', '');
             $filtroPago = $request->query('pago', '');
-            $filtroOrigem = $request->query('origem', '');
+            $filtroOrigem = $this->normalizarOrigemFiltro((string) $request->query('origem', ''));
             $filtroStatus = $request->query('status_processamento', '');
             $filtroPlaca = $request->query('placa', '');
             $filtroVencimento = $request->query('vencimento', '');
@@ -184,7 +184,7 @@ class CentralMultasController
 
             Response::json([
                 'success' => true,
-                'data' => $multas,
+                'data' => array_map([$this, 'normalizarMultaParaFrontend'], $multas),
                 'pagination' => [
                     'page' => $page,
                     'perPage' => $perPage,
@@ -222,6 +222,44 @@ class CentralMultasController
                 'message' => 'Erro ao gerar ranking: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Converte aliases publicos da UI para os valores internos persistidos.
+     */
+    private function normalizarOrigemFiltro(string $origem): string
+    {
+        return match ($origem) {
+            'consulta_online' => 'serpro_consulta',
+            'evento_online' => 'serpro_evento',
+            default => $origem,
+        };
+    }
+
+    /**
+     * Remove nomes tecnicos do payload renderizado no navegador.
+     */
+    private function normalizarMultaParaFrontend(array $multa): array
+    {
+        if (($multa['origem'] ?? '') === 'serpro_consulta') {
+            $multa['origem'] = 'consulta_online';
+        } elseif (($multa['origem'] ?? '') === 'serpro_evento') {
+            $multa['origem'] = 'evento_online';
+        }
+
+        return $multa;
+    }
+
+    /**
+     * Expõe KPIs com nomes neutros para o front-end.
+     */
+    private function normalizarKpisParaFrontend(array $kpis): array
+    {
+        $kpis['origem_consulta_online'] = (int) ($kpis['origem_serpro_consulta'] ?? 0);
+        $kpis['origem_evento_online'] = (int) ($kpis['origem_serpro_evento'] ?? 0);
+        unset($kpis['origem_serpro_consulta'], $kpis['origem_serpro_evento']);
+
+        return $kpis;
     }
 
 }

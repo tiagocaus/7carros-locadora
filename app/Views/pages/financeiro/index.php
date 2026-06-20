@@ -371,7 +371,7 @@ $i18nFinanceiro = [
                     <td class="table-cell px-2 w-48 text-right">
                         ${!pago && isReceita ? `<button title="${i18n.paymentLink}" class="btn-icon text-blue-600 hover:text-blue-800 btn-payment-link" data-id="${l.id}"><i class="fas fa-external-link-alt"></i></button>` : ''}
                         ${botaoNfse}
-                        ${isReceita && l.id_cliente ? `<button title="${i18n.printSend}" class="btn-icon text-blue-600 hover:text-blue-800 btn-imprimir-fatura" data-id="${l.id}"><i class="fas fa-print"></i></button>` : ''}
+                        <button title="${i18n.printSend}" class="btn-icon text-blue-600 hover:text-blue-800 btn-imprimir-fatura" data-id="${l.id}"><i class="fas fa-print"></i></button>
                         <button title="${i18n.edit}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${l.id}"><i class="fas fa-edit"></i></button>
                         <button title="${i18n.delete}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${l.id}" data-name="${descricao}"><i class="fas fa-trash"></i></button>
                     </td>

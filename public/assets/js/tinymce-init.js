@@ -10,14 +10,20 @@
  * @param {string} selector - Seletor CSS do textarea
  * @param {object} variables - Variáveis disponíveis organizadas por entidade
  * @param {function} onChangeCallback - Callback chamado quando o conteúdo muda
+ * @param {object} options - Opções adicionais do editor
  * @returns {Promise} Promise que resolve quando o editor estiver pronto
  */
-async function initTinyMCE(selector, variables, onChangeCallback) {
+async function initTinyMCE(selector, variables, onChangeCallback, options = {}) {
     // Remover instância anterior se existir 
     const existingEditor = tinymce.get(selector.replace('#', ''));
     if (existingEditor) {
         existingEditor.remove();
     }
+
+    const enableFontSize = options.enableFontSize === true;
+    const toolbarFirstRow = enableFontSize
+        ? 'undo redo | formatselect fontsize | bold italic underline strikethrough | forecolor backcolor'
+        : 'undo redo | formatselect | bold italic underline strikethrough | forecolor backcolor';
 
     return new Promise((resolve, reject) => {
         tinymce.init({
@@ -46,12 +52,12 @@ async function initTinyMCE(selector, variables, onChangeCallback) {
             noneditable_regexp: /\{\{[a-zA-Z0-9_.]+\}\}/g,
             noneditable_class: 'mceNonEditable template-var',
 
-            // Permitir atributo contenteditable em spans
-            extended_valid_elements: 'span[class|contenteditable]',
+            // Permitir atributos usados por variáveis e estilos aplicados no editor
+            extended_valid_elements: 'span[class|contenteditable|style]',
 
             // Toolbar customizada
             toolbar: [
-                'undo redo | formatselect | bold italic underline strikethrough | forecolor backcolor',
+                toolbarFirstRow,
                 'alignleft aligncenter alignright alignjustify | bullist numlist | link image table | variablesButton | code fullscreen'
             ].join(' | '),
 
@@ -90,6 +96,8 @@ async function initTinyMCE(selector, variables, onChangeCallback) {
 
             // Formatos de texto permitidos
             block_formats: 'Parágrafo=p; Cabeçalho 1=h1; Cabeçalho 2=h2; Cabeçalho 3=h3; Cabeçalho 4=h4',
+            font_size_formats: '5pt 6pt 7pt 8pt 9pt 10pt 11pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt',
+            font_size_input_default_unit: 'pt',
 
             // Configurações de links
             link_default_target: '_blank',

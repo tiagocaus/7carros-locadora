@@ -274,7 +274,7 @@
                 variablesData = result.data;
                 renderVariaveis(result.data);
                 // Inicializar TinyMCE apos carregar variaveis
-                await initTinyMCE('#documentoConteudo', result.data);
+                await initTinyMCE('#documentoConteudo', result.data, null, { enableFontSize: true });
             } else {
                 variablesContainer.innerHTML = '<p class="text-sm text-red-500">' + i18n.loadVarsError + '</p>';
             }

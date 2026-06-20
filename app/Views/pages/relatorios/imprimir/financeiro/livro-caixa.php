@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><style><?php include __DIR__ . '/../kpis/_css.php'; ?></style></head>
+<head><meta charset="UTF-8"><style><?php include __DIR__ . '/../kpis/_css.php'; ?> .descricao-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 230px; max-width: 230px; }</style></head>
 <body>
     <?php include __DIR__ . '/../kpis/_header.php'; ?>
 
@@ -32,7 +32,8 @@
         <thead>
             <tr>
                 <th><?= t('modules.relatorios.financeiro.livro_caixa.col_data') ?></th>
-                <th><?= t('modules.relatorios.financeiro.livro_caixa.col_historico') ?></th>
+                <th><?= t('modules.relatorios.financeiro.livro_caixa.col_pessoa') ?></th>
+                <th><?= t('modules.relatorios.financeiro.livro_caixa.col_descricao') ?></th>
                 <th class="right"><?= t('modules.relatorios.financeiro.livro_caixa.col_entrada') ?></th>
                 <th class="right"><?= t('modules.relatorios.financeiro.livro_caixa.col_saida') ?></th>
                 <th class="right"><?= t('modules.relatorios.financeiro.livro_caixa.col_saldo') ?></th>
@@ -40,9 +41,19 @@
         </thead>
         <tbody>
             <?php foreach ($details as $row): ?>
+            <?php
+                $pessoaLabel = ($row['pessoa_tipo'] ?? '') === 'cliente'
+                    ? t('modules.relatorios.financeiro.livro_caixa.pessoa_cliente')
+                    : ((($row['pessoa_tipo'] ?? '') === 'fornecedor') ? t('modules.relatorios.financeiro.livro_caixa.pessoa_fornecedor') : '');
+                $pessoa = !empty($row['pessoa_nome']) && $pessoaLabel !== ''
+                    ? $pessoaLabel . ': ' . $row['pessoa_nome']
+                    : '-';
+                $descricao = $row['descricao'] ?? $row['historico'] ?? '-';
+            ?>
             <tr>
                 <td><?= format_date($row['data'] ?? '') ?></td>
-                <td><?= htmlspecialchars($row['historico'] ?? '-') ?></td>
+                <td><?= htmlspecialchars($pessoa) ?></td>
+                <td class="descricao-cell"><?= htmlspecialchars($descricao) ?></td>
                 <td class="right" style="color: #166534;"><?= ($row['entrada'] ?? 0) > 0 ? currency_format($row['entrada']) : '-' ?></td>
                 <td class="right" style="color: #991b1b;"><?= ($row['saida'] ?? 0) > 0 ? currency_format($row['saida']) : '-' ?></td>
                 <td class="right" style="font-weight: bold;"><?= currency_format($row['saldo'] ?? 0) ?></td>

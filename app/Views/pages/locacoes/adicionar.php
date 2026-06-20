@@ -667,11 +667,11 @@
                 </div>
             </div>
 
-            <!-- Parcelas (visivel quando status != R) -->
+            <!-- Pagamentos -->
             <div id="secaoParcelas" class="form-section mb-4 hidden">
                 <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-300">
                     <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-list-ol mr-2"></i><?= t('modules.locacoes.installments.title') ?></h3>
-                    <div class="flex space-x-2">
+                    <div id="parcelasAcoesHeader" class="flex space-x-2">
                         <button type="button" id="btnGerarParcelas" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
                             <i class="fas fa-magic mr-1"></i><?= t('modules.locacoes.installments.generate') ?>
                         </button>
@@ -679,6 +679,10 @@
                             <i class="fas fa-plus mr-1"></i><?= t('modules.locacoes.installments.add') ?>
                         </button>
                     </div>
+                </div>
+
+                <div id="parcelasEstadoNovo" class="hidden rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
+                    <i class="fas fa-info-circle mr-2 text-slate-400"></i><?= t('modules.locacoes.installments.save_before_add_payment') ?>
                 </div>
 
                 <!-- Formulario gerar parcelas (toggle) -->
@@ -795,7 +799,7 @@
                 </div>
 
                 <!-- Tabela de parcelas -->
-                <div class="overflow-x-auto">
+                <div id="parcelasTabelaWrapper" class="overflow-x-auto">
                     <table class="w-full text-sm" id="tabelaParcelas">
                         <thead class="bg-slate-100">
                             <tr class="text-xs text-slate-500 uppercase">
@@ -1313,6 +1317,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 return;
             }
 
+            if (['R', 'P'].includes(locacaoData?.status || '')) {
+                return;
+            }
+
             const idVeiculoAtual = String(locacaoData.id_veiculo);
             const jaExiste = Array.from(selectVeiculo.options).some(opt => opt.value === idVeiculoAtual);
 
@@ -1327,11 +1335,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const selectVeiculo = document.getElementById('id_veiculo');
             const valorAtual = selectVeiculo?.value || (isEditing && locacaoData?.id_veiculo ? String(locacaoData.id_veiculo) : '');
 
-            if (isStatusReserva()) {
-                prepararVeiculoParaReserva();
-                return;
-            }
-
             if (!grupoId || !filialId) {
                 selectVeiculo.innerHTML = '<option value=""><?= t('modules.locacoes.messages.select_group_first') ?></option>';
                 if (selectVeiculo.chosenSelect) selectVeiculo.chosenSelect.refresh();
@@ -1341,7 +1344,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             try {
                 const result = await API.get('/api/veiculos/por-grupo', {
                     id_grupo: grupoId,
-                    id_filial: filialId
+                    id_filial: filialId,
+                    contexto: isStatusReserva() ? 'reserva' : ''
                 });
 
                 if (result.success) {
@@ -1364,19 +1368,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         function isStatusReserva() {
             const status = document.getElementById('locacaoStatus')?.value || 'R';
             return ['R', 'P'].includes(status);
-        }
-
-        function prepararVeiculoParaReserva() {
-            const selectVeiculo = document.getElementById('id_veiculo');
-            if (!selectVeiculo) return;
-
-            if (!isEditing || !locacaoData?.id_veiculo) {
-                selectVeiculo.innerHTML = '<option value=""><?= t('modules.locacoes.messages.vehicle_defined_at_checkout') ?></option>';
-                selectVeiculo.value = '';
-            }
-
-            selectVeiculo.removeAttribute('required');
-            if (selectVeiculo.chosenSelect) selectVeiculo.chosenSelect.refresh();
         }
 
         async function carregarGrupos() {
@@ -1418,19 +1409,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const grupoId = this.value;
             if (!grupoId) {
                 const selectVeiculo = document.getElementById('id_veiculo');
-                selectVeiculo.innerHTML = isStatusReserva()
-                    ? '<option value=""><?= t('modules.locacoes.messages.vehicle_defined_at_checkout') ?></option>'
-                    : '<option value=""><?= t('modules.locacoes.messages.select_group_first') ?></option>';
+                selectVeiculo.innerHTML = '<option value=""><?= t('modules.locacoes.messages.select_group_first') ?></option>';
                 if (selectVeiculo.chosenSelect) selectVeiculo.chosenSelect.refresh();
                 return;
             }
 
             await carregarValoresGrupo(grupoId);
-            if (isStatusReserva()) {
-                prepararVeiculoParaReserva();
-            } else {
-                await carregarVeiculosPorGrupo(grupoId);
-            }
+            await carregarVeiculosPorGrupo(grupoId);
         });
 
         // Recarregar grupos e veiculos quando filial de retirada muda
@@ -1442,11 +1427,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const grupoId = document.getElementById('id_grupo')?.value;
             if (grupoId) {
                 carregarValoresGrupo(grupoId);
-                if (isStatusReserva()) {
-                    prepararVeiculoParaReserva();
-                } else {
-                    carregarVeiculosPorGrupo(grupoId);
-                }
+                carregarVeiculosPorGrupo(grupoId);
             }
             verificarKmRetorno();
         });
@@ -3185,19 +3166,24 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     ? campoVeiculo.setAttribute('required', '')
                     : campoVeiculo.removeAttribute('required');
             }
-            document.getElementById('campoVeiculoWrapper')?.classList.toggle('hidden', !veiculoObrigatorio);
+            document.getElementById('campoVeiculoWrapper')?.classList.remove('hidden');
             document.getElementById('asterisco_id_veiculo')?.classList.toggle('hidden', !veiculoObrigatorio);
 
-            if (veiculoObrigatorio) {
-                const grupoId = document.getElementById('id_grupo')?.value;
-                if (grupoId) carregarVeiculosPorGrupo(grupoId);
-            } else {
-                prepararVeiculoParaReserva();
-            }
+            const grupoId = document.getElementById('id_grupo')?.value;
+            if (grupoId) carregarVeiculosPorGrupo(grupoId);
 
-            // Parcelas: visivel quando estiver editando
+            // Pagamentos: visivel sempre, mas sem acoes antes de salvar.
             if (secaoParcelas) {
-                secaoParcelas.classList.toggle('hidden', !isEditing);
+                secaoParcelas.classList.remove('hidden');
+            }
+            document.getElementById('parcelasEstadoNovo')?.classList.toggle('hidden', isEditing);
+            document.getElementById('parcelasAcoesHeader')?.classList.toggle('hidden', !isEditing);
+            document.getElementById('parcelasTabelaWrapper')?.classList.toggle('hidden', !isEditing);
+            document.getElementById('resumoFinanceiroParcelas')?.classList.toggle('hidden', !isEditing);
+            if (!isEditing) {
+                ['formGerarParcelas', 'formAdicionarParcela', 'formMarcarPago'].forEach(id => {
+                    document.getElementById(id)?.classList.add('hidden');
+                });
             }
 
             // Label do campo data_prevista: muda para "Data Chegada" quando F

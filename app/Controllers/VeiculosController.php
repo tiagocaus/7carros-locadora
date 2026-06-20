@@ -14,6 +14,7 @@ use App\Models\VeiculoAcessorio;
 use App\Models\Manutencao;
 use App\Models\ManutencaoPlano;
 use App\Models\VeiculoEncargo;
+use App\Models\Financeiro;
 use App\Helpers\FilialHelper;
 use App\Helpers\PlanoLimiteHelper;
 use App\Services\AuditLogService;
@@ -237,12 +238,23 @@ class VeiculosController
         try {
             $grupoId = $request->query('id_grupo', $request->query('grupo_id', ''));
             $filialId = $request->query('id_filial', $request->query('filial_id', ''));
+            $contexto = (string) $request->query('contexto', '');
+
+            if (!empty($filialId) && !FilialHelper::temAcessoFilial((int) $filialId)) {
+                Response::json(['success' => false, 'message' => 'Voce nao tem acesso a esta filial'], 403);
+                return;
+            }
 
             $model = new Veiculo();
-            $veiculos = $model->listarDisponiveisParaContrato(
-                !empty($grupoId) ? (int) $grupoId : null,
-                !empty($filialId) ? (int) $filialId : null
-            );
+            $veiculos = $contexto === 'reserva'
+                ? $model->listarAtivosParaReserva(
+                    !empty($grupoId) ? (int) $grupoId : null,
+                    !empty($filialId) ? (int) $filialId : null
+                )
+                : $model->listarDisponiveisParaContrato(
+                    !empty($grupoId) ? (int) $grupoId : null,
+                    !empty($filialId) ? (int) $filialId : null
+                );
 
             Response::json(['success' => true, 'data' => $veiculos]);
         } catch (\Exception $e) {
@@ -666,6 +678,84 @@ class VeiculosController
             Response::json(['success' => true, 'data' => $manutencoes]);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao listar manutencoes: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Lista faturas vinculadas a um veiculo
+     *
+     * GET /api/veiculos/{id}/faturas
+     */
+    public function faturas(Request $request, int $id): void
+    {
+        try {
+            if (!Auth::can('veiculos.visualizar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para visualizar veiculos'
+                ], 403);
+                return;
+            }
+
+            $veiculoModel = new Veiculo();
+            $veiculo = $veiculoModel->buscarPorId($id);
+
+            if (!$veiculo || $veiculo['chave'] !== Auth::chave()) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Veiculo nao encontrado'
+                ], 404);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($veiculo['id_matriz_filial'])) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem acesso a este veiculo'
+                ], 403);
+                return;
+            }
+
+            [$filialWhere, $filialParams] = FilialHelper::whereFiliais('id_matriz_filial');
+
+            $financeiroModel = new Financeiro();
+            $faturas = $financeiroModel->listarPorVeiculo($id, $filialWhere, $filialParams);
+
+            foreach ($faturas as &$fatura) {
+                $fatura['valor_total_formatted'] = currency_format($fatura['valor_total'] ?? 0);
+                $fatura['data_venci_formatted'] = $fatura['data_venci'] ? format_date($fatura['data_venci']) : '';
+                $fatura['data_pago_formatted'] = $fatura['data_pago'] ? format_date($fatura['data_pago']) : '';
+
+                if (($fatura['pago'] ?? 'N') === 'S') {
+                    $fatura['status'] = 'paid';
+                    $fatura['status_label'] = 'Pago';
+                } elseif (!empty($fatura['data_venci']) && $fatura['data_venci'] < date('Y-m-d')) {
+                    $fatura['status'] = 'overdue';
+                    $fatura['status_label'] = 'Vencido';
+                } else {
+                    $fatura['status'] = 'pending';
+                    $fatura['status_label'] = 'Pendente';
+                }
+
+                if (!empty($fatura['id_locacao'])) {
+                    $fatura['origem'] = 'Locacao';
+                } elseif (!empty($fatura['id_contrato'])) {
+                    $fatura['origem'] = 'Contrato';
+                } else {
+                    $fatura['origem'] = 'Avulsa';
+                }
+            }
+            unset($fatura);
+
+            Response::json([
+                'success' => true,
+                'data' => $faturas
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao listar faturas: ' . $e->getMessage()
+            ], 500);
         }
     }
 

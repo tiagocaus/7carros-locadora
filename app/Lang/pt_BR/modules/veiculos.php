@@ -61,6 +61,8 @@ return [
         'change_photo' => 'Alterar Foto',
         'brand_model' => 'Marca/Modelo',
         'branch_short' => 'Filial',
+        'search_online' => 'Buscar dados na Consulta Online',
+        'consult_crlv' => 'Consultar CRLV',
     ],
 
     // Seções do formulário
@@ -80,6 +82,7 @@ return [
         'vehicle_data' => 'Dados do Veículo',
         'maintenance_plan' => 'Plano de Manutenção',
         'maintenances' => 'Manutenções',
+        'invoices' => 'Faturas',
     ],
 
     // Aba Manutencoes
@@ -96,6 +99,29 @@ return [
         'status_open' => 'Aberta',
         'status_closed' => 'Fechada',
         'action_print' => 'Imprimir OS',
+    ],
+
+    // Aba Faturas
+    'invoices' => [
+        'no_records' => 'Nenhuma fatura vinculada a este veículo.',
+        'no_filtered_records' => 'Nenhuma fatura para os filtros selecionados.',
+        'load_error' => 'Erro ao carregar faturas',
+        'filter_receivable' => 'A receber',
+        'filter_payable' => 'A pagar',
+        'receivable' => 'A receber',
+        'payable' => 'A pagar',
+        'table_type' => 'Tipo',
+        'table_due_date' => 'Vencimento',
+        'table_description' => 'Descrição',
+        'table_person' => 'Cliente/Fornecedor',
+        'table_payment_method' => 'Forma',
+        'table_origin' => 'Origem',
+        'table_value' => 'Valor',
+        'table_status' => 'Status',
+        'status_paid' => 'Pago',
+        'status_overdue' => 'Vencido',
+        'status_pending' => 'Pendente',
+        'action_open' => 'Abrir fatura',
     ],
 
     // Disponibilidade
@@ -224,6 +250,18 @@ return [
         'for_sale_tooltip' => 'Ao ativar para venda, o veículo vai aparecer no site como disponível para venda e não vai ficar mais disponível para locação ou contrato.',
         'loading_accessories' => 'Carregando acessórios...',
         'plan_limit_reached' => 'Limite de veículos atingido. Seu plano (:plano) permite no máximo :limite veículos ativos. Para reativar este veículo, remova outro ou faça upgrade do plano.',
+        'online_plate_required' => 'Informe a placa antes de buscar os dados na Consulta Online.',
+        'online_vehicle_loading' => 'Consultando dados do veículo...',
+        'online_vehicle_success' => 'Dados do veículo preenchidos com sucesso.',
+        'online_vehicle_no_data' => 'A Consulta Online não retornou dados aproveitáveis para preencher o cadastro.',
+        'online_vehicle_error' => 'Erro ao consultar dados do veículo.',
+        'online_overwrite_title' => 'Substituir dados do veículo',
+        'online_overwrite_confirm' => 'Alguns campos já estão preenchidos. Deseja substituir pelos dados retornados pela Consulta Online?',
+        'online_overwrite_button' => 'Substituir dados',
+        'online_crlv_loading' => 'Consultando CRLV...',
+        'online_crlv_error' => 'Erro ao consultar CRLV.',
+        'online_crlv_no_pdf' => 'A Consulta Online retornou a consulta, mas não enviou o PDF do CRLV.',
+        'online_crlv_popup_blocked' => 'O navegador bloqueou a abertura do CRLV. Permita pop-ups para visualizar o documento.',
     ],
 
     // Paginação

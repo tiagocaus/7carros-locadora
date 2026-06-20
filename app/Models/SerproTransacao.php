@@ -259,6 +259,20 @@ class SerproTransacao extends Model
     }
 
     /**
+     * Marca debito do tenant atual como estornado.
+     */
+    public function marcarEstornado(int $id): int
+    {
+        return $this->qb
+            ->table('serpro_transacoes')
+            ->where('id', '=', $id)
+            ->where('status', '=', 'confirmado')
+            ->update([
+                'status' => 'estornado',
+            ]);
+    }
+
+    /**
      * Resumo de gastos do tenant (para dashboard)
      */
     public function resumoGastos(): array

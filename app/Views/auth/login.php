@@ -33,15 +33,25 @@
 
         @if($error)
             <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i>
-                {{ $error }}
+                <div class="alert-icon">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <div class="alert-content">
+                    <strong><?= t('common.labels.attention') ?></strong>
+                    <span>{{ $error }}</span>
+                </div>
             </div>
         @endif
 
         @if($success)
             <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i>
-                {{ $success }}
+                <div class="alert-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="alert-content">
+                    <strong><?= t('common.labels.info') ?></strong>
+                    <span>{{ $success }}</span>
+                </div>
             </div>
         @endif
 
@@ -63,7 +73,7 @@
                         autocomplete="username">
                 </div>
                 @if($errors['username'] ?? false)
-                    <div class="error-message">{{ $errors['username'] }}</div>
+                    <div class="error-message show">{{ $errors['username'] }}</div>
                 @endif
             </div>
 
@@ -81,7 +91,7 @@
                         autocomplete="current-password">
                 </div>
                 @if($errors['password'] ?? false)
-                    <div class="error-message">{{ $errors['password'] }}</div>
+                    <div class="error-message show">{{ $errors['password'] }}</div>
                 @endif
             </div>
 

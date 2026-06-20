@@ -63,6 +63,34 @@ if (!empty($vencimentoFinanceiro)) {
                 Vencimento: <?= date('d/m/Y', strtotime($link['financeiro_vencimento'])) ?>
             </div>
         @endif
+
+        <?php
+        $juros = (float) ($link['financeiro_juros'] ?? 0);
+        $multa = (float) ($link['financeiro_multa'] ?? 0);
+        $desconto = (float) ($link['financeiro_desconto'] ?? 0);
+        ?>
+        @if($juros > 0 || $multa > 0 || $desconto > 0)
+            <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                @if($multa > 0)
+                    <div class="flex justify-between gap-3">
+                        <span>Multa</span>
+                        <span class="font-medium"><?= currency_format($multa) ?></span>
+                    </div>
+                @endif
+                @if($juros > 0)
+                    <div class="flex justify-between gap-3">
+                        <span>Juros</span>
+                        <span class="font-medium"><?= currency_format($juros) ?></span>
+                    </div>
+                @endif
+                @if($desconto > 0)
+                    <div class="flex justify-between gap-3">
+                        <span>Desconto</span>
+                        <span class="font-medium text-green-700">- <?= currency_format($desconto) ?></span>
+                    </div>
+                @endif
+            </div>
+        @endif
     </div>
 
     <!-- Selecao de metodo de pagamento -->

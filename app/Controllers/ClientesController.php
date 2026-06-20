@@ -14,9 +14,9 @@ use App\Helpers\FilialHelper;
 use App\Models\ClienteCartao;
 use App\Models\Financeiro;
 use App\Models\GatewayPagamento;
-use App\Models\PagamentoLink;
 use App\Services\AuditLogService;
 use App\Services\Gateways\GatewayFactory;
+use App\Services\PagamentoLinkSyncService;
 
 /**
  * Controller de Clientes
@@ -808,20 +808,8 @@ class ClientesController
             $emailModel = new ContatoEmail();
             $emailPrincipal = $emailModel->getPrincipal('cliente', (int) $cliente['id']);
             $email = $emailPrincipal['email'] ?? '';
-            $linkModel = new PagamentoLink();
-            $link = $linkModel->buscarPorFinanceiro($id);
-            if (!$link) {
-                $linkId = $linkModel->criar([
-                    'chave' => Auth::chave(),
-                    'id_financeiro' => $id,
-                    'id_cliente' => $financeiro['id_cliente'] ?? null,
-                    'valor' => $financeiro['valor_total'],
-                    'descricao' => $financeiro['descricao'] ?? 'Cobrança',
-                    'expires_at' => date('Y-m-d H:i:s', strtotime('+30 days')),
-                ]);
-                $link = $linkModel->buscarPorId($linkId);
-            }
-            $urlPagamento = $link ? $linkModel->getUrl($link['codigo']) : '';
+            $link = (new PagamentoLinkSyncService())->obterOuCriarLinkAtualizado($id, Auth::chave());
+            $urlPagamento = $link['url'] ?? '';
 
             // Preparar contexto para o template (empresa.* vem do enrichment no service)
             $context = [

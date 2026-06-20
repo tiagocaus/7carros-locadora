@@ -61,6 +61,8 @@ return [
         'change_photo' => 'Change Photo',
         'brand_model' => 'Brand/Model',
         'branch_short' => 'Branch',
+        'search_online' => 'Fetch data from Online Query',
+        'consult_crlv' => 'Consult CRLV',
     ],
 
     // Form sections
@@ -80,6 +82,7 @@ return [
         'vehicle_data' => 'Vehicle Data',
         'maintenance_plan' => 'Maintenance Plan',
         'maintenances' => 'Maintenances',
+        'invoices' => 'Invoices',
     ],
 
     // Maintenances Tab
@@ -96,6 +99,29 @@ return [
         'status_open' => 'Open',
         'status_closed' => 'Closed',
         'action_print' => 'Print WO',
+    ],
+
+    // Invoices Tab
+    'invoices' => [
+        'no_records' => 'No invoices linked to this vehicle.',
+        'no_filtered_records' => 'No invoices for the selected filters.',
+        'load_error' => 'Error loading invoices',
+        'filter_receivable' => 'Receivable',
+        'filter_payable' => 'Payable',
+        'receivable' => 'Receivable',
+        'payable' => 'Payable',
+        'table_type' => 'Type',
+        'table_due_date' => 'Due Date',
+        'table_description' => 'Description',
+        'table_person' => 'Customer/Supplier',
+        'table_payment_method' => 'Method',
+        'table_origin' => 'Origin',
+        'table_value' => 'Value',
+        'table_status' => 'Status',
+        'status_paid' => 'Paid',
+        'status_overdue' => 'Overdue',
+        'status_pending' => 'Pending',
+        'action_open' => 'Open invoice',
     ],
 
     // Availability
@@ -224,6 +250,18 @@ return [
         'for_sale_tooltip' => 'When enabled for sale, the vehicle will appear on the website as available for sale and will no longer be available for rental or contract.',
         'loading_accessories' => 'Loading accessories...',
         'plan_limit_reached' => 'Vehicle limit reached. Your plan (:plano) allows a maximum of :limite active vehicles. To reactivate this vehicle, remove another or upgrade your plan.',
+        'online_plate_required' => 'Enter the plate before fetching data from Online Query.',
+        'online_vehicle_loading' => 'Consulting vehicle data...',
+        'online_vehicle_success' => 'Vehicle data filled successfully.',
+        'online_vehicle_no_data' => 'Online Query did not return usable data to fill the registration.',
+        'online_vehicle_error' => 'Error consulting vehicle data.',
+        'online_overwrite_title' => 'Replace vehicle data',
+        'online_overwrite_confirm' => 'Some fields are already filled. Do you want to replace them with the data returned by Online Query?',
+        'online_overwrite_button' => 'Replace data',
+        'online_crlv_loading' => 'Consulting CRLV...',
+        'online_crlv_error' => 'Error consulting CRLV.',
+        'online_crlv_no_pdf' => 'Online Query returned the query, but did not send the CRLV PDF.',
+        'online_crlv_popup_blocked' => 'The browser blocked the CRLV opening. Allow pop-ups to view the document.',
     ],
 
     // Pagination

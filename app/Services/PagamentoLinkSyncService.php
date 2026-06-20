@@ -29,16 +29,22 @@ class PagamentoLinkSyncService
     }
 
     /**
-     * Garante que o link pendente reflete o valor atual do financeiro.
+     * Garante que o link publico reflete o valor atual do financeiro.
      *
      * @return array{url:string,link_id:int,created:bool}
      */
-    public function obterOuCriarLinkAtualizado(int $idFinanceiro, string $chave, int $diasExpiracao = 30): array
+    public function obterOuCriarLinkAtualizado(int $idFinanceiro, string $chave, int $diasExpiracao = 30, array $dadosExtras = []): array
     {
         $financeiro = $this->buscarFinanceiroElegivel($idFinanceiro, $chave);
-        $linkExistente = $this->linkModel->buscarPorFinanceiro($idFinanceiro);
+        $linkExistente = $this->linkModel->buscarReutilizavelPorFinanceiro($idFinanceiro);
 
-        if ($linkExistente && $this->linkEstaAtualizado($linkExistente, $financeiro)) {
+        if ($linkExistente) {
+            if (!$this->linkEstaAtualizado($linkExistente, $financeiro) && $this->temCobrancaAberta($idFinanceiro)) {
+                $this->invalidarCobrancasExternasAbertas($idFinanceiro, $chave);
+            }
+
+            $this->sincronizarLinkComFinanceiro($linkExistente, $financeiro, $diasExpiracao, $dadosExtras);
+
             return [
                 'url' => $this->linkModel->getUrl($linkExistente['codigo']),
                 'link_id' => (int) $linkExistente['id'],
@@ -46,16 +52,17 @@ class PagamentoLinkSyncService
             ];
         }
 
-        if ($linkExistente || $this->temCobrancaAberta($idFinanceiro)) {
-            $this->invalidarLinksPendentes($idFinanceiro, $chave);
+        if ($this->temCobrancaAberta($idFinanceiro)) {
+            $this->invalidarCobrancasExternasAbertas($idFinanceiro, $chave);
         }
 
         $linkId = $this->linkModel->criar([
             'chave' => $chave,
             'id_financeiro' => $idFinanceiro,
+            'id_locacao' => $dadosExtras['id_locacao'] ?? null,
             'id_cliente' => $financeiro['id_cliente'] ?? null,
             'valor' => $financeiro['valor_total'],
-            'descricao' => $financeiro['descricao'],
+            'descricao' => $dadosExtras['descricao'] ?? $financeiro['descricao'],
             'expires_at' => date('Y-m-d H:i:s', strtotime("+{$diasExpiracao} days")),
         ]);
 
@@ -72,7 +79,8 @@ class PagamentoLinkSyncService
     }
 
     /**
-     * Cancela links pendentes e cobrancas externas abertas de uma receita pendente.
+     * Cancela cobrancas externas abertas de uma receita pendente e mantem o
+     * link publico reaproveitavel.
      *
      * @return array{links_cancelados:int,cobrancas_canceladas:int}
      */
@@ -87,11 +95,24 @@ class PagamentoLinkSyncService
             return ['links_cancelados' => 0, 'cobrancas_canceladas' => 0];
         }
 
-        $links = $this->linkModel->listarPendentesPorFinanceiro($idFinanceiro);
-        $transacoes = $this->transacaoModel->listarCobrancasAbertasPorFinanceiro($idFinanceiro);
+        $cobrancasCanceladas = $this->invalidarCobrancasExternasAbertas($idFinanceiro, $chave);
+        $link = $this->linkModel->buscarReutilizavelPorFinanceiro($idFinanceiro);
 
-        if (empty($links) && empty($transacoes)) {
-            return ['links_cancelados' => 0, 'cobrancas_canceladas' => 0];
+        if ($link) {
+            $this->sincronizarLinkComFinanceiro($link, $financeiro);
+        }
+
+        return [
+            'links_cancelados' => 0,
+            'cobrancas_canceladas' => $cobrancasCanceladas,
+        ];
+    }
+
+    private function invalidarCobrancasExternasAbertas(int $idFinanceiro, string $chave): int
+    {
+        $transacoes = $this->transacaoModel->listarCobrancasAbertasPorFinanceiro($idFinanceiro);
+        if (empty($transacoes)) {
+            return 0;
         }
 
         $cobrancasCanceladas = 0;
@@ -101,12 +122,7 @@ class PagamentoLinkSyncService
             }
         }
 
-        $linksCancelados = $this->linkModel->cancelarPendentesPorFinanceiro($idFinanceiro);
-
-        return [
-            'links_cancelados' => $linksCancelados,
-            'cobrancas_canceladas' => $cobrancasCanceladas,
-        ];
+        return $cobrancasCanceladas;
     }
 
     /**
@@ -206,6 +222,27 @@ class PagamentoLinkSyncService
 
         return abs($valorLink - $valorFinanceiro) < 0.01
             && (string) $clienteLink === (string) $clienteFinanceiro;
+    }
+
+    private function sincronizarLinkComFinanceiro(array $link, array $financeiro, int $diasExpiracao = 30, array $dadosExtras = []): void
+    {
+        $expiresAt = $link['expires_at'] ?? null;
+        if (empty($expiresAt) || strtotime((string) $expiresAt) < time() || ($link['status'] ?? '') !== 'pending') {
+            $expiresAt = date('Y-m-d H:i:s', strtotime("+{$diasExpiracao} days"));
+        }
+
+        $dados = [
+            'id_cliente' => $financeiro['id_cliente'] ?? null,
+            'valor' => $financeiro['valor_total'] ?? 0,
+            'descricao' => $dadosExtras['descricao'] ?? ($financeiro['descricao'] ?? 'Cobranca'),
+            'expires_at' => $expiresAt,
+        ];
+
+        if (array_key_exists('id_locacao', $dadosExtras)) {
+            $dados['id_locacao'] = $dadosExtras['id_locacao'];
+        }
+
+        $this->linkModel->atualizarDadosCobranca((int) $link['id'], $dados, $financeiro['chave'] ?? null);
     }
 
     private function temCobrancaAberta(int $idFinanceiro): bool

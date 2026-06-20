@@ -236,12 +236,16 @@ class SmtpService
             }
 
             // Anexos
+            $deleteAfterSend = [];
             if (!empty($payload['attachments']) && is_array($payload['attachments'])) {
                 foreach ($payload['attachments'] as $attachment) {
                     if (is_array($attachment)) {
                         $path = $attachment['path'] ?? $attachment[0];
                         $name = $attachment['name'] ?? basename($path);
                         $mailer->addAttachment($path, $name);
+                        if (!empty($attachment['delete_after_send'])) {
+                            $deleteAfterSend[] = $path;
+                        }
                     } else {
                         $mailer->addAttachment($attachment);
                     }
@@ -259,6 +263,12 @@ class SmtpService
 
             // Envia
             $mailer->send();
+
+            foreach ($deleteAfterSend as $path) {
+                if (is_string($path) && $path !== '' && file_exists($path)) {
+                    @unlink($path);
+                }
+            }
 
             return [
                 'success' => true,
