@@ -1553,8 +1553,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     card.querySelector('.pessoa-id').value = cliente.id;
                     card.querySelector('.pessoa-cc').value = formatarCpfCnpj(cliente.cpf_cnpj);
 
+                    const cnhNumero = cliente.cnh_numero || cliente.cnh || '';
                     const cnhEl = card.querySelector('.pessoa-cnh');
-                    if (cnhEl) cnhEl.value = cliente.cnh || '';
+                    if (cnhEl) cnhEl.value = cnhNumero;
 
                     const cnhValEl = card.querySelector('.pessoa-cnh-validade');
                     if (cnhValEl) cnhValEl.value = formatarDataBr(cliente.cnh_validade);

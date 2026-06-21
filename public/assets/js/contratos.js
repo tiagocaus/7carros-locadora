@@ -825,7 +825,8 @@
 
                 card.querySelector('.pessoa-id').value = cliente.id;
                 card.querySelector('.pessoa-cpf').value = formatarCpfCnpj(cliente.cpf_cnpj);
-                card.querySelector('.pessoa-cnh').value = cliente.cnh || '';
+                const cnhNumero = cliente.cnh_numero || cliente.cnh || '';
+                card.querySelector('.pessoa-cnh').value = cnhNumero;
                 card.querySelector('.pessoa-validade').value = formatarDataBr(cliente.cnh_validade);
 
                 // Verificar CNH vencida
@@ -841,7 +842,7 @@
                     id: cliente.id,
                     nome: cliente.nome_rsocial,
                     cc: limparDocumento(cliente.cpf_cnpj),
-                    cn: cliente.cnh || '',
+                    cn: cnhNumero,
                     va: cliente.cnh_validade || ''
                 };
             }
