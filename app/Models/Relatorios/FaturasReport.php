@@ -30,6 +30,11 @@ class FaturasReport extends BaseReportModel
         }
     }
 
+    private function applyPeriodoVencimentoFilter($query, string $dataInicio, string $dataFim, string $prefix = 'f'): void
+    {
+        $query->whereRaw("{$prefix}.data_venci BETWEEN ? AND ?", [$dataInicio, $dataFim]);
+    }
+
     private function applyFornecedorFilter($query, string $fornecedorId, string $prefix = 'f'): void
     {
         if ($fornecedorId !== '') {
@@ -79,10 +84,14 @@ class FaturasReport extends BaseReportModel
      *   - buckets: hoje, 7d, 15d, 30d, >30d
      *
      * @param string $visao 'vencidas' ou 'a_vencer'
+     * @param string $dataInicio Data inicial de vencimento (Y-m-d)
+     * @param string $dataFim Data final de vencimento (Y-m-d)
      * @return array{totals: array, details: array, chart: array}
      */
     public function faturasVencidasAVencer(
         string $visao,
+        string $dataInicio,
+        string $dataFim,
         string $filialWhere,
         array $filialParams,
         string $filialId = '',
@@ -100,6 +109,7 @@ class FaturasReport extends BaseReportModel
             ->whereRaw('f.tipo = ?', ['R'])
             ->whereRaw('f.pago = ?', ['N'])
             ->whereRaw('f.data_venci < CURDATE()');
+        $this->applyPeriodoVencimentoFilter($queryTotaisVencidas, $dataInicio, $dataFim);
         $this->applyFilialFilter($queryTotaisVencidas, $filialWhere, $filialParams, $filialId);
         $this->applyClienteFilter($queryTotaisVencidas, $clienteId);
 
@@ -114,6 +124,7 @@ class FaturasReport extends BaseReportModel
             ->whereRaw('f.tipo = ?', ['R'])
             ->whereRaw('f.pago = ?', ['N'])
             ->whereRaw('f.data_venci >= CURDATE()');
+        $this->applyPeriodoVencimentoFilter($queryTotaisAVencer, $dataInicio, $dataFim);
         $this->applyFilialFilter($queryTotaisAVencer, $filialWhere, $filialParams, $filialId);
         $this->applyClienteFilter($queryTotaisAVencer, $clienteId);
 
@@ -157,6 +168,7 @@ class FaturasReport extends BaseReportModel
             $queryLista->orderByRaw('f.data_venci ASC');
         }
 
+        $this->applyPeriodoVencimentoFilter($queryLista, $dataInicio, $dataFim);
         $this->applyFilialFilter($queryLista, $filialWhere, $filialParams, $filialId);
         $this->applyClienteFilter($queryLista, $clienteId);
 
@@ -200,6 +212,7 @@ class FaturasReport extends BaseReportModel
                 ->whereRaw('f.tipo = ?', ['R'])
                 ->whereRaw('f.pago = ?', ['N'])
                 ->whereRaw('f.data_venci < CURDATE()')
+                ->whereRaw('f.data_venci BETWEEN ? AND ?', [$dataInicio, $dataFim])
                 ->groupBy('faixa')
                 ->orderByRaw("CASE faixa WHEN '1-7' THEN 1 WHEN '8-15' THEN 2 WHEN '16-30' THEN 3 WHEN '31-60' THEN 4 WHEN '61-90' THEN 5 ELSE 6 END");
             $this->applyFilialFilter($queryAging, $filialWhere, $filialParams, $filialId);
@@ -237,6 +250,7 @@ class FaturasReport extends BaseReportModel
                 ->whereRaw('f.tipo = ?', ['R'])
                 ->whereRaw('f.pago = ?', ['N'])
                 ->whereRaw('f.data_venci >= CURDATE()')
+                ->whereRaw('f.data_venci BETWEEN ? AND ?', [$dataInicio, $dataFim])
                 ->groupBy('faixa')
                 ->orderByRaw("CASE faixa WHEN 'hoje' THEN 1 WHEN '1-7' THEN 2 WHEN '8-15' THEN 3 WHEN '16-30' THEN 4 ELSE 5 END");
             $this->applyFilialFilter($queryPrazos, $filialWhere, $filialParams, $filialId);

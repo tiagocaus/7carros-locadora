@@ -9,8 +9,16 @@
     </div>
     <p class="text-sm text-slate-500 mb-3"><?= t('modules.relatorios.faturas.vencidas_a_vencer.description') ?></p>
 
-    <!-- Filtros customizados (sem periodo — relatorio eh snapshot do estado atual) -->
+    <!-- Filtros customizados com periodo por vencimento -->
     <div class="flex flex-wrap gap-3 mb-4 p-3 bg-slate-50 rounded-lg items-end">
+        <div class="flex-1 min-w-[150px] max-w-[200px]">
+            <label for="filterDataInicio" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.date_start') ?></label>
+            <input type="date" id="filterDataInicio" class="form-input-focus w-full text-sm">
+        </div>
+        <div class="flex-1 min-w-[150px] max-w-[200px]">
+            <label for="filterDataFim" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.date_end') ?></label>
+            <input type="date" id="filterDataFim" class="form-input-focus w-full text-sm">
+        </div>
         <div class="flex-1 min-w-[200px] max-w-[280px]">
             <label class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.faturas.vencidas_a_vencer.visao') ?></label>
             <div class="inline-flex rounded-md shadow-sm w-full" role="group">
@@ -68,6 +76,7 @@
                     <th class="table-header text-right"><?= t('modules.relatorios.faturas.vencidas_a_vencer.col_valor_total') ?></th>
                     <th class="table-header text-center"><?= t('modules.relatorios.faturas.vencidas_a_vencer.col_dias') ?></th>
                     <th class="table-header text-center"><?= t('modules.relatorios.faturas.vencidas_a_vencer.col_status') ?></th>
+                    <th class="table-header text-center"><?= t('common.labels.actions') ?></th>
                 </tr>
             </thead>
             <tbody id="reportTableBody" class="bg-white divide-y divide-slate-200"></tbody>
@@ -94,6 +103,7 @@
     ];
 
     async function init() {
+        ReportUtils.setDefaultPeriod();
         await ReportUtils.loadFiliais('filterFilial');
 
         document.getElementById('btnVisaoVencidas')?.addEventListener('click', () => setVisao('vencidas'));
@@ -122,6 +132,8 @@
 
     function exportarPdf() {
         const params = new URLSearchParams({
+            data_inicio: document.getElementById('filterDataInicio').value,
+            data_fim: document.getElementById('filterDataFim').value,
             filial: document.getElementById('filterFilial').value,
             cliente: document.getElementById('filterCliente').value,
             visao: visaoAtual,
@@ -134,6 +146,8 @@
             ReportUtils.showLoading();
 
             const params = {
+                data_inicio: document.getElementById('filterDataInicio').value,
+                data_fim: document.getElementById('filterDataFim').value,
                 filial: document.getElementById('filterFilial').value,
                 cliente: document.getElementById('filterCliente').value,
                 visao: visaoAtual,
@@ -238,8 +252,58 @@
                 <td class="table-cell text-right font-semibold">${cf(row.valor_total)}</td>
                 <td class="table-cell text-center">${dias}</td>
                 <td class="table-cell text-center">${statusBadge}</td>
+                <td class="table-cell text-center">
+                    <button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-payment-link" data-id="${row.id}" title="<?= t('modules.financeiro.buttons.payment_link') ?>">
+                        <i class="fas fa-external-link-alt"></i>
+                    </button>
+                </td>
             </tr>`;
         }).join('');
+
+        tbody.querySelectorAll('.btn-payment-link').forEach(button => {
+            button.addEventListener('click', function () {
+                abrirLinkPagamento(this.getAttribute('data-id'), this);
+            });
+        });
+    }
+
+    async function abrirLinkPagamento(id, button) {
+        if (!id || !button) return;
+
+        const originalHtml = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        button.disabled = true;
+
+        try {
+            const result = await API.get('/api/financeiro/' + id + '/link-pagamento');
+
+            if (result.success && result.url) {
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        action: 'openLinkModal',
+                        url: result.url
+                    }, '*');
+                } else {
+                    window.open(result.url, '_blank');
+                }
+            } else {
+                openAlert(result.message || '<?= t('modules.financeiro.messages.payment_link_error') ?>');
+            }
+        } catch (error) {
+            console.error('Erro ao gerar link de pagamento:', error);
+            openAlert('<?= t('modules.financeiro.messages.payment_link_error') ?>');
+        } finally {
+            button.innerHTML = originalHtml;
+            button.disabled = false;
+        }
+    }
+
+    function openAlert(message) {
+        if (window.parent !== window) {
+            window.parent.postMessage({ action: 'openAlert', message }, '*');
+        } else {
+            console.error(message);
+        }
     }
 
     init();

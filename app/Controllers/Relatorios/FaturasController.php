@@ -32,7 +32,14 @@ class FaturasController extends BaseRelatorioController
         try {
             if (!$this->checkPermission('relatorios.faturas.vencidas_a_vencer')) return;
 
-            $filialId = $request->query('filial', '');
+            $filters = $this->parseFilters($request);
+            $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
+            if ($erro) {
+                Response::json(['success' => false, 'message' => $erro], 422);
+                return;
+            }
+
+            $filialId = $filters['filial'];
             $clienteId = $this->normalizarClienteId($request->query('cliente', ''));
             $visao = $request->query('visao', 'vencidas');
 
@@ -41,7 +48,15 @@ class FaturasController extends BaseRelatorioController
             [$filialWhere, $filialParams] = $this->getFilialFilter();
 
             $model = new FaturasReport();
-            $result = $model->faturasVencidasAVencer($visao, $filialWhere, $filialParams, $filialId, $clienteId);
+            $result = $model->faturasVencidasAVencer(
+                $visao,
+                $filters['data_inicio'],
+                $filters['data_fim'],
+                $filialWhere,
+                $filialParams,
+                $filialId,
+                $clienteId
+            );
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
         } catch (\Exception $e) {
@@ -54,20 +69,34 @@ class FaturasController extends BaseRelatorioController
     {
         if (!$this->checkPermission('relatorios.faturas.vencidas_a_vencer')) return;
 
-        $filialId = $request->query('filial', '');
+        $filters = $this->parseFilters($request);
+        $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
+        if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
+
+        $filialId = $filters['filial'];
         $clienteId = $this->normalizarClienteId($request->query('cliente', ''));
         $visao = $request->query('visao', 'vencidas');
 
         [$filialWhere, $filialParams] = $this->getFilialFilter();
         $model = new FaturasReport();
-        $result = $model->faturasVencidasAVencer($visao, $filialWhere, $filialParams, $filialId, $clienteId);
+        $result = $model->faturasVencidasAVencer(
+            $visao,
+            $filters['data_inicio'],
+            $filters['data_fim'],
+            $filialWhere,
+            $filialParams,
+            $filialId,
+            $clienteId
+        );
 
-        $this->renderPdf(
+        $this->renderPdfPeriodo(
             'vencidas-a-vencer.php',
             t('modules.relatorios.faturas.vencidas_a_vencer.title'),
             t('modules.relatorios.faturas.vencidas_a_vencer.description'),
             $result['totals'],
             $result['details'],
+            $filters['data_inicio'],
+            $filters['data_fim'],
             'L'
         );
     }
