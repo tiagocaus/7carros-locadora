@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
+use App\I18n\Translator;
 use App\Models\MatrizFilial;
 
 /**
@@ -159,6 +160,12 @@ class ConfiguracoesController
             }
 
             $model->atualizar((int) $matriz['id'], $dados);
+            $_SESSION['empresa_ui_locale'] = $locale;
+
+            if (empty($_SESSION['user_locale']) && empty($_SESSION['ui_locale'])) {
+                Translator::getInstance()->setLocale($locale);
+                unset($_SESSION['ui_locale']);
+            }
 
             Response::json([
                 'success' => true,

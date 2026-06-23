@@ -159,13 +159,13 @@
                 window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.cancel_success') ?>' }, '*');
                 window.parent.postMessage({ action: 'navigate', page: `/pages/nfse/${nfseId}/visualizar` }, '*');
             } else {
-                const msg = result.message || '<?= t('modules.nfse.messages.cancel_error') ?>';
+                const msg = result.message || <?= js_t('modules.nfse.messages.cancel_error') ?>;
                 window.parent.postMessage({ action: 'openAlert', message: msg }, '*');
                 btn.innerHTML = textoOriginal;
                 btn.disabled = false;
             }
         } catch (e) {
-            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.cancel_error') ?>' }, '*');
+            window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.cancel_error') ?> }, '*');
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
         }

@@ -117,19 +117,12 @@ class NFSeXMLNacional implements NFSeXMLInterface
 
         $xml .= '</tribMun>';
 
-        // Tributos totais
-        $aliquotaIBS = (float) ($valores['aliquota_ibs'] ?? 0.10);
-        $aliquotaCBS = (float) ($valores['aliquota_cbs'] ?? 0.90);
-        $valorIBS = (float) $valorServicos * ($aliquotaIBS / 100);
-        $valorCBS = (float) $valorServicos * ($aliquotaCBS / 100);
-        $valorISSTrib = $tribISSQN === 1 ? $baseCalculo * ((float) ($valores['aliquota_iss'] ?? 0) / 100) : 0;
-
         $xml .= '<totTrib>';
-        $xml .= '<vTotTrib>';
-        $xml .= '<vTotTribFed>' . number_format($valorCBS, 2, '.', '') . '</vTotTribFed>';
-        $xml .= '<vTotTribEst>' . number_format($valorIBS, 2, '.', '') . '</vTotTribEst>';
-        $xml .= '<vTotTribMun>' . number_format($valorISSTrib, 2, '.', '') . '</vTotTribMun>';
-        $xml .= '</vTotTrib>';
+        $xml .= '<pTotTrib>';
+        $xml .= '<pTotTribFed>0.00</pTotTribFed>';
+        $xml .= '<pTotTribEst>0.00</pTotTribEst>';
+        $xml .= '<pTotTribMun>0.00</pTotTribMun>';
+        $xml .= '</pTotTrib>';
         $xml .= '</totTrib>';
         $xml .= '</trib>';
         $xml .= '</valores>';

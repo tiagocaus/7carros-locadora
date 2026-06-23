@@ -31,7 +31,7 @@
         loadError: '<?= addslashes(t("modules.mensageria.common.load_error")) ?>',
         noBranches: '<?= addslashes(t("modules.mensageria.common.no_branches")) ?>',
         alreadyLinked: '<?= addslashes(t("modules.mensageria.common.already_linked")) ?>',
-        selectBranch: '<?= addslashes(t("modules.mensageria.common.select_branch")) ?>',
+        selectBranch: <?= js_t("modules.mensageria.common.select_branch") ?>,
         creating: '<?= addslashes(t("common.labels.creating")) ?>',
         whatsappCreated: '<?= addslashes(t("modules.mensageria.messages.whatsapp_created")) ?>',
         whatsappCreateError: '<?= addslashes(t("modules.mensageria.messages.whatsapp_create_error")) ?>',

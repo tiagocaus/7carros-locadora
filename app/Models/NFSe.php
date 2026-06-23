@@ -91,8 +91,10 @@ class NFSe extends Model
                 'n.ambiente',
                 'n.status',
                 'n.tipo_emissao',
+                'n.protocolo',
                 'n.data_emissao',
                 'n.created_at',
+                'n.updated_at',
                 'mf.nome_fantasia AS filial_nome',
             ])
             ->leftJoin('matrizes_filiais', 'mf', 'n.id_matriz_filial', '=', 'mf.id');
@@ -380,6 +382,20 @@ class NFSe extends Model
     }
 
     /**
+     * Marca XML como pronto para envio ao provedor.
+     */
+    public function marcarProntaParaEnvio(int $id, string $xml): int
+    {
+        return $this->qb
+            ->table('nfse')
+            ->where('id', '=', $id)
+            ->update([
+                'xml_envio' => $xml,
+                'status' => 'processando',
+            ]);
+    }
+
+    /**
      * Atualiza dados principais antes de reenviar XML regenerado.
      */
     public function atualizarParaReenvio(int $id, array $dados): int
@@ -443,14 +459,16 @@ class NFSe extends Model
      */
     public function buscarBethaProcessando(int $limite = 20): array
     {
+        $atividadeRecente = 'COALESCE(updated_at, created_at)';
+
         return $this->qb
             ->table('nfse')
             ->withoutChave()
             ->where('tipo_emissao', '=', 'betha')
             ->where('status', '=', 'processando')
             ->whereNotNull('protocolo')
-            ->whereRaw('created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)')
-            ->orderBy('created_at', 'ASC')
+            ->whereRaw("{$atividadeRecente} >= DATE_SUB(NOW(), INTERVAL 48 HOUR)")
+            ->orderByRaw("{$atividadeRecente} ASC")
             ->limit($limite)
             ->get();
     }

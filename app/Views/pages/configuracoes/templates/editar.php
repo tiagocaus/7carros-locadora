@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
         saving: '<?= addslashes(t('modules.configuracoes.messages.saving')) ?>',
         saveSuccess: '<?= addslashes(t('modules.configuracoes.messages.save_success')) ?>',
         saveError: '<?= addslashes(t('modules.configuracoes.messages.save_error')) ?>',
-        previewError: '<?= addslashes(t('modules.configuracoes.messages.preview_error')) ?>',
+        previewError: <?= js_t('modules.configuracoes.messages.preview_error') ?>,
         restoring: '<?= addslashes(t('modules.configuracoes.messages.restoring')) ?>',
         restoreSuccess: '<?= addslashes(t('modules.configuracoes.messages.restore_success')) ?>',
         restoreError: '<?= addslashes(t('modules.configuracoes.messages.restore_error')) ?>',

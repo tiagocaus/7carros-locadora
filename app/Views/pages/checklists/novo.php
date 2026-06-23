@@ -648,7 +648,7 @@
         errFillOdometer: '<?= addslashes(t('modules.checklists.digital.err_fill_odometer')) ?>',
         errAnswerAll: '<?= addslashes(t('modules.checklists.digital.err_answer_all')) ?>',
         errSign: '<?= addslashes(t('modules.checklists.digital.err_sign')) ?>',
-        errMinPhoto: '<?= addslashes(t('modules.checklists.digital.err_min_photo')) ?>',
+        errMinPhoto: <?= js_t('modules.checklists.digital.err_min_photo') ?>,
         tank: '<?= addslashes(t('modules.checklists.digital.tank')) ?>',
         batteryCharge: '<?= addslashes(t('modules.checklists.digital.battery_charge')) ?>',
     };

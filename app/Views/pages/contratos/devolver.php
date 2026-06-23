@@ -107,20 +107,24 @@
                     <!-- Separador -->
                     <div class="border-t border-slate-200 my-4"></div>
 
-                    <!-- Campos editaveis: Odometro Atual, Km Rodados, Tanque Chegada -->
+                    <!-- Campos editaveis: Data/Hora, Odometro Atual, Km Rodados, Tanque Chegada -->
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div class="md:col-span-4 form-input-group">
+                        <div class="md:col-span-3 form-input-group">
+                            <label class="form-label-group"><?= t('modules.contratos.return_page.return_datetime') ?> <span class="text-red-500">*</span></label>
+                            <input type="datetime-local" class="form-input-group-field data-devolucao" data-index="<?= $index ?>">
+                        </div>
+                        <div class="md:col-span-3 form-input-group">
                             <label class="form-label-group"><?= t('modules.contratos.return_page.odometer_current') ?> <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <input type="text" class="form-input-group-field input-km odometro-atual" data-index="<?= $index ?>" placeholder="0">
                                 <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">km</span>
                             </div>
                         </div>
-                        <div class="md:col-span-4 form-input-group">
+                        <div class="md:col-span-3 form-input-group">
                             <label class="form-label-group"><?= t('modules.contratos.return_page.odometer_driven') ?></label>
                             <input type="text" class="form-input-group-field bg-slate-50 odometro-rodado" data-index="<?= $index ?>" readonly value="-">
                         </div>
-                        <div class="md:col-span-4 form-input-group">
+                        <div class="md:col-span-3 form-input-group">
                             <label class="form-label-group fuel-arrival-label" data-index="<?= $index ?>"><?= t('modules.contratos.return_page.fuel_arrival') ?></label>
                             <select class="form-input-group-field tanque-chegada" data-index="<?= $index ?>">
                                 <option value="">-</option>
@@ -230,6 +234,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'confirmReturns' => t('modules.contratos.return_page.confirm_returns'),
         'selectAtLeastOne' => t('modules.contratos.return_page.select_at_least_one'),
         'informOdometer' => t('modules.contratos.return_page.inform_odometer'),
+        'informReturnDate' => t('modules.contratos.return_page.inform_return_datetime'),
         'processing' => t('modules.contratos.return_page.processing'),
         'returnSuccess' => t('modules.contratos.return_page.return_success'),
         'returnError' => t('modules.contratos.return_page.return_error'),
@@ -280,10 +285,17 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     // ==================== INICIALIZACAO ====================
 
     function init() {
+        const agora = formatarDatetimeLocal(new Date());
+
         // Atualizar FuelLabels e labels dinamicos para cada veiculo
         veiculosAtivos.forEach((v, i) => {
             const tipo = v.veiculo_tipo_combustivel || '';
             const card = document.querySelector(`.veiculo-card[data-index="${i}"]`);
+
+            const dataDevolucao = card.querySelector('.data-devolucao');
+            if (dataDevolucao && !dataDevolucao.value) {
+                dataDevolucao.value = agora;
+            }
 
             // Tanque de saida (display texto)
             const tanqueSaidaDisplay = card.querySelector('.tanque-saida-display');
@@ -522,6 +534,18 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
     // ==================== SUBMISSAO ====================
 
+    function formatarDatetimeLocal(date) {
+        const pad = value => String(value).padStart(2, '0');
+        return [
+            date.getFullYear(),
+            pad(date.getMonth() + 1),
+            pad(date.getDate())
+        ].join('-') + 'T' + [
+            pad(date.getHours()),
+            pad(date.getMinutes())
+        ].join(':');
+    }
+
     async function confirmarDevolucao() {
         const veiculosPayload = [];
 
@@ -531,9 +555,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
             const card = document.querySelector(`.veiculo-card[data-index="${i}"]`);
             const odometro = card.querySelector('.odometro-atual').value;
+            const dataDevolucao = card.querySelector('.data-devolucao')?.value || '';
 
             veiculosPayload.push({
                 id_contrato_veiculo: state.data.id,
+                data_entrada: dataDevolucao,
                 odometro_entrada: Km.parse(odometro || '0'),
                 combustivel_entrada: card.querySelector('.tanque-chegada').value || null,
                 acao_veiculo: card.querySelector('.acao-veiculo').value || 'disponivel',
@@ -544,6 +570,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         if (veiculosPayload.length === 0) {
             window.parent.postMessage({ action: 'openAlert', message: i18n.selectAtLeastOne }, '*');
             return;
+        }
+
+        // Validar: todos tem data/hora de devolucao
+        for (const vp of veiculosPayload) {
+            if (!vp.data_entrada) {
+                window.parent.postMessage({ action: 'openAlert', message: i18n.informReturnDate }, '*');
+                return;
+            }
         }
 
         // Validar: todos tem odometro

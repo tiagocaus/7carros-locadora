@@ -10,7 +10,7 @@ use App\Services\NFSe\NFSeXMLInterface;
 class NFSeXMLBetha implements NFSeXMLInterface
 {
     private const NAMESPACE = 'http://www.betha.com.br/e-nota-dps';
-    private const VERSAO = '1.00';
+    private const VERSAO = '1.01';
     private const FISCAL_TIMEZONE = 'America/Sao_Paulo';
 
     public function gerarXML(array $dados): string
@@ -64,6 +64,7 @@ class NFSeXMLBetha implements NFSeXMLInterface
             $xml .= '<CPF>' . $cpfCnpj . '</CPF>';
         }
         $xml .= '<xNome>' . $this->textoMaiusculo((string) ($tomador['nome'] ?? '')) . '</xNome>';
+        $xml .= $this->gerarEnderecoTomador($tomador['endereco'] ?? []);
         $xml .= '</toma>';
 
         $xml .= '<serv>';
@@ -71,7 +72,10 @@ class NFSeXMLBetha implements NFSeXMLInterface
         $xml .= '<cServ>';
         $xml .= '<cTribNac>' . $this->mapearCTribNac($tribISSQN) . '</cTribNac>';
         $xml .= '<xDescServ>' . $this->textoMaiusculo((string) ($servico['descricao'] ?? '')) . '</xDescServ>';
-        $xml .= '<cNBS>' . $this->converterNBS((string) ($servico['codigo'] ?? '1.1101.11')) . '</cNBS>';
+        $xml .= '<cNBS>' . $this->converterNBS(
+            (string) ($servico['codigo'] ?? '1.1101.11'),
+            (string) ($servico['descricao'] ?? '')
+        ) . '</cNBS>';
         $xml .= '</cServ>';
         $xml .= '</serv>';
 
@@ -86,23 +90,28 @@ class NFSeXMLBetha implements NFSeXMLInterface
         }
         $xml .= '</tribMun>';
 
-        $aliquotaIBS = (float) ($valores['aliquota_ibs'] ?? 0.10);
-        $aliquotaCBS = (float) ($valores['aliquota_cbs'] ?? 0.90);
-        $valorIBS = (float) $valorServicos * ($aliquotaIBS / 100);
-        $valorCBS = (float) $valorServicos * ($aliquotaCBS / 100);
+        $aliquotaIBS = (float) ($valores['aliquota_ibs'] ?? 0);
+        $aliquotaCBS = (float) ($valores['aliquota_cbs'] ?? 0);
+        $valorIBS = (float) ($valores['valor_ibs'] ?? ((float) $valorServicos * ($aliquotaIBS / 100)));
+        $valorCBS = (float) ($valores['valor_cbs'] ?? ((float) $valorServicos * ($aliquotaCBS / 100)));
         $valorISSTrib = $tribISSQN === 1
             ? (float) ($valores['valor_iss'] ?? ($baseCalculo * ((float) ($valores['aliquota_iss'] ?? 0) / 100)))
             : 0;
 
         $xml .= '<totTrib>';
-        $xml .= '<vTotTrib>';
-        $xml .= '<vTotTribFed>' . number_format($valorCBS, 2, '.', '') . '</vTotTribFed>';
-        $xml .= '<vTotTribEst>' . number_format($valorIBS, 2, '.', '') . '</vTotTribEst>';
-        $xml .= '<vTotTribMun>' . number_format($valorISSTrib, 2, '.', '') . '</vTotTribMun>';
-        $xml .= '</vTotTrib>';
+        if ($valorCBS > 0 || $valorIBS > 0 || $valorISSTrib > 0) {
+            $xml .= '<vTotTrib>';
+            $xml .= '<vTotTribFed>' . number_format($valorCBS, 2, '.', '') . '</vTotTribFed>';
+            $xml .= '<vTotTribEst>' . number_format($valorIBS, 2, '.', '') . '</vTotTribEst>';
+            $xml .= '<vTotTribMun>' . number_format($valorISSTrib, 2, '.', '') . '</vTotTribMun>';
+            $xml .= '</vTotTrib>';
+        } else {
+            $xml .= '<indTotTrib>0</indTotTrib>';
+        }
         $xml .= '</totTrib>';
         $xml .= '</trib>';
         $xml .= '</valores>';
+        $xml .= $this->gerarIBSCBS($valores);
 
         $xml .= '</infDPS>';
         $xml .= '</DPS>';
@@ -262,9 +271,30 @@ class NFSeXMLBetha implements NFSeXMLInterface
         };
     }
 
-    private function converterNBS(string $nbs): string
+    private function converterNBS(string $nbs, string $descricaoServico = ''): string
     {
-        return str_pad(str_replace('.', '', $nbs), 9, '0', STR_PAD_RIGHT);
+        $limpo = $this->somenteDigitos($nbs);
+        if ($limpo === '999999999' && $this->ehLocacaoVeiculo($descricaoServico)) {
+            return '111011100';
+        }
+
+        return str_pad($limpo, 9, '0', STR_PAD_RIGHT);
+    }
+
+    private function ehLocacaoVeiculo(string $descricao): bool
+    {
+        $texto = mb_strtolower($descricao, 'UTF-8');
+        $texto = strtr($texto, [
+            'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a',
+            'é' => 'e', 'ê' => 'e',
+            'í' => 'i',
+            'ó' => 'o', 'ô' => 'o', 'õ' => 'o',
+            'ú' => 'u',
+            'ç' => 'c',
+        ]);
+
+        return str_contains($texto, 'locacao')
+            && (str_contains($texto, 'veiculo') || str_contains($texto, 'automotor'));
     }
 
     private function formatarDataISO(string $data): string
@@ -277,9 +307,78 @@ class NFSeXMLBetha implements NFSeXMLInterface
         }
     }
 
+    private function gerarEnderecoTomador(mixed $endereco): string
+    {
+        if (is_string($endereco)) {
+            $decoded = json_decode($endereco, true);
+            $endereco = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($endereco)) {
+            return '';
+        }
+
+        $codigoMunicipio = $this->somenteDigitos((string) ($endereco['codigo_municipio'] ?? ''));
+        $cep = $this->somenteDigitos((string) ($endereco['cep'] ?? ''));
+
+        if (strlen($codigoMunicipio) !== 7 || strlen($cep) !== 8) {
+            return '';
+        }
+
+        $xml = '<end>';
+        $xml .= '<endNac>';
+        $xml .= '<cMun>' . $codigoMunicipio . '</cMun>';
+        $xml .= '<CEP>' . $cep . '</CEP>';
+        $xml .= '</endNac>';
+
+        if (!empty($endereco['logradouro'])) {
+            $xml .= '<xLgr>' . $this->textoMaiusculo((string) $endereco['logradouro']) . '</xLgr>';
+        }
+        if (!empty($endereco['numero'])) {
+            $xml .= '<nro>' . $this->textoMaiusculo((string) $endereco['numero']) . '</nro>';
+        }
+        if (!empty($endereco['complemento'])) {
+            $xml .= '<xCpl>' . $this->textoMaiusculo((string) $endereco['complemento']) . '</xCpl>';
+        }
+        if (!empty($endereco['bairro'])) {
+            $xml .= '<xBairro>' . $this->textoMaiusculo((string) $endereco['bairro']) . '</xBairro>';
+        }
+
+        $xml .= '</end>';
+
+        return $xml;
+    }
+
+    private function gerarIBSCBS(array $valores): string
+    {
+        if (($valores['preencher_ibscbs'] ?? 'N') !== 'S') {
+            return '';
+        }
+
+        $cIndOp = preg_replace('/\D/', '', (string) ($valores['c_ind_op_ibscbs'] ?? '050102'));
+        $cst = preg_replace('/\D/', '', (string) ($valores['cst_ibscbs'] ?? '000'));
+        $classTrib = preg_replace('/\D/', '', (string) ($valores['c_class_trib_ibscbs'] ?? '000001'));
+
+        $xml = '<IBSCBS>';
+        $xml .= '<finNFSe>0</finNFSe>';
+        $xml .= '<cIndOp>' . str_pad(substr($cIndOp, 0, 6), 6, '0', STR_PAD_LEFT) . '</cIndOp>';
+        $xml .= '<indDest>0</indDest>';
+        $xml .= '<valores>';
+        $xml .= '<trib>';
+        $xml .= '<gIBSCBS>';
+        $xml .= '<CST>' . str_pad(substr($cst, 0, 3), 3, '0', STR_PAD_LEFT) . '</CST>';
+        $xml .= '<cClassTrib>' . str_pad(substr($classTrib, 0, 6), 6, '0', STR_PAD_LEFT) . '</cClassTrib>';
+        $xml .= '</gIBSCBS>';
+        $xml .= '</trib>';
+        $xml .= '</valores>';
+        $xml .= '</IBSCBS>';
+
+        return $xml;
+    }
+
     private function textoMaiusculo(string $texto): string
     {
-        return mb_strtoupper(htmlspecialchars($texto, ENT_XML1 | ENT_QUOTES, 'UTF-8'));
+        return htmlspecialchars(mb_strtoupper($texto, 'UTF-8'), ENT_XML1 | ENT_QUOTES, 'UTF-8');
     }
 
     private function somenteDigitos(string $valor): string

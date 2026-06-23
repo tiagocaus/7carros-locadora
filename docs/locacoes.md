@@ -221,7 +221,10 @@ Reservas podem ter linha sem veiculo especifico (`id_veiculo = NULL`) para guard
 
 ## Substituicao Veicular
 
-Durante uma locacao aberta (status A), eh possivel substituir o veiculo:
+Durante uma locacao aberta (status A), eh possivel substituir o veiculo pela acao
+dedicada de substituicao. A edicao normal da locacao nao deve trocar o veiculo.
+Reservas (`status = R` ou `P`) continuam podendo alterar o veiculo/preferencia
+diretamente no formulario de edicao.
 
 ### Fluxo
 1. `LocacaoVeiculo::substituir()` recebe dados do veiculo antigo e novo
@@ -232,12 +235,21 @@ Durante uma locacao aberta (status A), eh possivel substituir o veiculo:
 
 ### API
 ```javascript
-// Substituicao eh feita via update da locacao
-await Api.post(`/locacoes/${locacaoId}/atualizar`, {
-    // ... dados da locacao
-    // Controller detecta mudanca de veiculo e chama substituir()
+// Substituicao eh feita pela acao dedicada
+await Api.post(`/locacoes/${locacaoId}/substituir`, {
+    id_locacao_veiculo_antigo,
+    id_veiculo_novo,
+    odometro_entrada,
+    combustivel_entrada,
+    motivo_saida,
+    plano_novo,
+    manter_valores
 });
 ```
+
+Se uma locacao aberta (`A`) ou fechada (`F`) receber mudanca de `id_veiculo` em
+`POST /locacoes/{id}/atualizar`, o backend deve bloquear a operacao. Locacoes
+fechadas nao permitem substituicao; apenas exibem o historico.
 
 ### Rastreabilidade Financeira
 
@@ -355,7 +367,8 @@ GET /api/locacoes/{id}/assinatura             → Dados da assinatura digital
 ### Acoes (POST)
 ```
 POST /locacoes/salvar                         → Criar locacao
-POST /locacoes/{id}/atualizar                 → Atualizar (inclui transicoes R→A, A→F, substituicao)
+POST /locacoes/{id}/atualizar                 → Atualizar (inclui transicoes R→A, A→F; nao troca veiculo em A/F)
+POST /locacoes/{id}/substituir                → Substituir veiculo de locacao aberta
 POST /locacoes/{id}/excluir                   → Excluir locacao
 POST /locacoes/{id}/limpar-assinatura         → Limpar assinatura para reassinar
 POST /locacoes/{id}/enviar                    → Enviar por email/whatsapp/sms
@@ -392,13 +405,15 @@ POST /api/locacoes/{id}/caucao/devolver       → Registrar devolucao do caucao 
 | `locacoes.criar` | Criar novas locacoes |
 | `locacoes.editar` | Editar locacoes existentes |
 | `locacoes.cancelar` | Excluir locacoes |
+| `locacoes.substituir` | Substituir veiculo de locacao aberta |
 | `locacoes.saida` | Registrar saida do veiculo (R→A) |
 | `locacoes.devolucao` | Registrar devolucao do veiculo (A→F) |
 | `locacoes.imprimir` | Imprimir documentos |
 
-Atendentes devem possuir `locacoes.editar` e `locacoes.devolucao` para alterar
-dados operacionais, substituir veiculo e registrar devolucao/fechamento da
-locacao. Essas permissoes nao liberam cancelamento/exclusao.
+Atendentes devem possuir `locacoes.editar`, `locacoes.substituir` e
+`locacoes.devolucao` para alterar dados operacionais, substituir veiculo e
+registrar devolucao/fechamento da locacao. Essas permissoes nao liberam
+cancelamento/exclusao.
 
 ## Metodos do Model Principal (Locacao.php)
 

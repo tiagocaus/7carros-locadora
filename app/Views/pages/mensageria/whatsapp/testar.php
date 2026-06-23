@@ -32,7 +32,7 @@
         sending: '<?= addslashes(t("common.labels.sending")) ?>',
         testSent: '<?= addslashes(t("modules.mensageria.messages.test_sent")) ?>',
         testSuccess: '<?= addslashes(t("modules.mensageria.messages.test_success")) ?>',
-        testError: '<?= addslashes(t("modules.mensageria.messages.test_error")) ?>',
+        testError: <?= js_t("modules.mensageria.messages.test_error") ?>,
     };
 
     const urlParams = new URLSearchParams(window.location.search);

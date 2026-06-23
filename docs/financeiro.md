@@ -486,6 +486,17 @@ Quando um veiculo eh substituido durante um contrato/locacao:
 
 Na criacao de um contrato novo, quando o front envia parcelas para `/api/contratos/{id}/gerar-parcelas` com `salvar=true` e `from_creation=true`, o backend salva as parcelas em `financeiro`, cria ou reutiliza o link em `pagamentos_links` para cada parcela e enfileira o template `payment_reminder` para email, WhatsApp e SMS. O envio e assincrono via `messages_queue`; indisponibilidade de um canal fica registrada no resumo da resposta e nao desfaz as parcelas.
 
+### Cobranca automatica por CRON
+
+O cron `SendFinanceiroCobrancasJob` envia cobrancas de receitas pendentes com cliente:
+
+- 1 dia antes do vencimento: template `payment_reminder`.
+- Depois de vencida: template `overdue_notice`, no maximo uma vez a cada 7 dias por fatura/canal.
+- Email e enviado quando o cliente possui email. WhatsApp e SMS dependem de telefone no cliente e conexao validada/conectada na filial.
+- O controle de duplicidade fica em `financeiro_cobrancas_notificacoes`.
+
+Antes de enfileirar a mensagem, o cron cria ou reutiliza o link publico da fatura por `PagamentoLinkSyncService`. O link segue estavel e reflete valor, vencimento, juros, multa e desconto atuais.
+
 ### Diferenca entre `financeiro.id_veiculo` e `financeiro_itens.id_veiculo`
 
 - **`financeiro.id_veiculo`**: Nivel cabecalho. Usado para parcelas de contratos/locacoes (que nao criam itens em `financeiro_itens`). Preenchido automaticamente pelo sistema.

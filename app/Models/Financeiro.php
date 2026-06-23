@@ -364,7 +364,9 @@ class Financeiro extends Model
                 'mf.razao_social AS filial_razao_social',
                 'mf.cpf_cnpj AS filial_cnpj',
                 'ct.nome AS conta_descricao',
-                'func.nome AS funcionario_nome'
+                'func.nome AS funcionario_nome',
+                'v.placa AS veiculo_placa',
+                'v.modelo AS veiculo_modelo'
             ])
             ->leftJoin('clientes', 'c', 'f.id_cliente', '=', 'c.id')
             ->leftJoin('fornecedores', 'fo', 'f.id_fornecedor', '=', 'fo.id')
@@ -373,6 +375,7 @@ class Financeiro extends Model
             ->leftJoin('matrizes_filiais', 'mf', 'f.id_matriz_filial', '=', 'mf.id')
             ->leftJoin('contas_bancarias', 'ct', 'f.id_conta', '=', 'ct.id')
             ->leftJoin('funcionarios', 'func', 'f.id_funcionario', '=', 'func.id')
+            ->leftJoin('veiculos', 'v', 'f.id_veiculo', '=', 'v.id')
             ->where('f.id', '=', $id)
             ->first();
     }
@@ -1116,12 +1119,17 @@ class Financeiro extends Model
      */
     public function listarPlanosDeContasSelect(string $chave, string $tipo = '', string $search = ''): array
     {
+        $locale = current_locale();
+        $descricaoAtual = "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')), '')";
+        $descricaoFallback = "NULLIF(JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')), '')";
+        $descricaoSelect = "COALESCE({$descricaoAtual}, {$descricaoFallback}, '')";
+
         $query = $this->qb
             ->table('planos_de_contas')
             ->select([
                 'id',
                 'tipo',
-                "CONCAT(hierarquia, ' - ', JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR'))) AS text"
+                "CONCAT(hierarquia, ' - ', {$descricaoSelect}) AS text"
             ])
             ->withGlobals();
 
@@ -1131,8 +1139,9 @@ class Financeiro extends Model
 
         if (!empty($search)) {
             $searchTerm = "%{$search}%";
-            $query->whereNested(function ($q) use ($searchTerm) {
-                $q->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) LIKE ?", [$searchTerm])
+            $query->whereNested(function ($q) use ($searchTerm, $locale) {
+                $q->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.{$locale}')) LIKE ?", [$searchTerm])
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(descricao_i18n, '$.pt_BR')) LIKE ?", [$searchTerm])
                   ->orWhere('hierarquia', 'LIKE', $searchTerm);
             });
         }

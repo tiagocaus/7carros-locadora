@@ -32,10 +32,10 @@
         loadBranchesError: '<?= addslashes(t("modules.mensageria.common.load_branches_error")) ?>',
         loadError: '<?= addslashes(t("modules.mensageria.common.load_error")) ?>',
         noBranches: '<?= addslashes(t("modules.mensageria.common.no_branches")) ?>',
-        selectBranch: '<?= addslashes(t("modules.mensageria.common.select_branch")) ?>',
+        selectBranch: <?= js_t("modules.mensageria.common.select_branch") ?>,
         saving: '<?= addslashes(t("common.labels.saving")) ?>',
         whatsappUpdated: '<?= addslashes(t("modules.mensageria.messages.whatsapp_updated")) ?>',
-        whatsappUpdateError: '<?= addslashes(t("modules.mensageria.messages.whatsapp_update_error")) ?>',
+        whatsappUpdateError: <?= js_t("modules.mensageria.messages.whatsapp_update_error") ?>,
         saveChanges: '<?= addslashes(t("common.buttons.save_changes")) ?>',
     };
 

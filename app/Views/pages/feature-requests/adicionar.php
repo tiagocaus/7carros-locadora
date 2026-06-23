@@ -97,7 +97,7 @@
         descriptionRequired: '<?= addslashes(t('modules.feature_requests.messages.description_required')) ?>',
         sending: '<?= addslashes(t('modules.feature_requests.actions.sending')) ?>',
         submitSuccess: '<?= addslashes(t('modules.feature_requests.messages.submit_success')) ?>',
-        submitError: '<?= addslashes(t('modules.feature_requests.messages.submit_error')) ?>',
+        submitError: <?= js_t('modules.feature_requests.messages.submit_error') ?>,
         btnSubmit: '<?= addslashes(t('modules.feature_requests.actions.submit')) ?>',
     };
 

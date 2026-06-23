@@ -20,6 +20,16 @@
         <div class="flex flex-wrap gap-2 mt-3 sm:mt-0" id="acoesContainer"></div>
     </div>
 
+    <div id="processamentoBethaAviso" class="hidden mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+        <div class="flex gap-3">
+            <i class="fas fa-hourglass-half text-amber-600 mt-0.5"></i>
+            <div>
+                <div class="text-sm font-semibold text-amber-800" id="processamentoBethaTitulo"></div>
+                <div class="text-sm text-amber-700" id="processamentoBethaMensagem"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Identificacao -->
     <div class="form-section mb-6">
         <h3 class="form-section-title">
@@ -136,12 +146,12 @@
                         <td class="py-2 px-4 text-slate-600">ISS (<span id="infoAliquotaISS">0,00</span>%)</td>
                         <td class="py-2 px-4 text-right font-medium" id="infoValorISS">R$ 0,00</td>
                     </tr>
-                    <tr class="border-b">
-                        <td class="py-2 px-4 text-slate-600">IBS (<span id="infoAliquotaIBS">0,10</span>%)</td>
+                    <tr class="border-b hidden" id="rowIBS">
+                        <td class="py-2 px-4 text-slate-600">IBS (<span id="infoAliquotaIBS">0,00</span>%)</td>
                         <td class="py-2 px-4 text-right font-medium" id="infoValorIBS">R$ 0,00</td>
                     </tr>
-                    <tr>
-                        <td class="py-2 px-4 text-slate-600">CBS (<span id="infoAliquotaCBS">0,90</span>%)</td>
+                    <tr class="hidden" id="rowCBS">
+                        <td class="py-2 px-4 text-slate-600">CBS (<span id="infoAliquotaCBS">0,00</span>%)</td>
                         <td class="py-2 px-4 text-right font-medium" id="infoValorCBS">R$ 0,00</td>
                     </tr>
                 </tbody>
@@ -233,8 +243,23 @@
             cancelada: { bg: 'bg-slate-200', text: 'text-slate-600', icon: 'fa-ban', label: '<?= t('modules.nfse.status.cancelada') ?>' },
         };
         const s = statusMap[n.status] || statusMap.pendente;
+        if (n.status === 'processando' && n.mensagem_processamento && n.mensagem_processamento !== '<?= t('modules.nfse.status.processando') ?>') {
+            s.label = n.mensagem_processamento;
+            s.icon = n.processamento_demorado ? 'fa-hourglass-half' : 'fa-clock';
+            s.bg = n.processamento_demorado ? 'bg-amber-100' : 'bg-sky-100';
+            s.text = n.processamento_demorado ? 'text-amber-700' : 'text-sky-700';
+        }
         document.getElementById('statusBadge').className = `inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${s.bg} ${s.text}`;
-        document.getElementById('statusBadge').innerHTML = `<i class="fas ${s.icon} mr-1"></i>${s.label}`;
+        document.getElementById('statusBadge').innerHTML = `<i class="fas ${s.icon} mr-1"></i>${escapeHtml(s.label)}`;
+
+        const avisoProcessamento = document.getElementById('processamentoBethaAviso');
+        if (n.processamento_alerta) {
+            document.getElementById('processamentoBethaTitulo').textContent = n.mensagem_processamento || 'Aguardando validação Betha';
+            document.getElementById('processamentoBethaMensagem').textContent = n.mensagem_processamento_detalhe || 'DPS Betha recepcionada e aguardando validação do ambiente nacional.';
+            avisoProcessamento.classList.remove('hidden');
+        } else {
+            avisoProcessamento.classList.add('hidden');
+        }
 
         // Ambiente
         if (parseInt(n.ambiente) !== 1) {
@@ -254,6 +279,9 @@
             acoesHtml += `<button onclick="enviarEmail(${n.id})" class="btn-green py-1 px-3 rounded text-xs"><i class="fas fa-envelope mr-1"></i><?= t('modules.nfse.buttons.send_email') ?></button>`;
             acoesHtml += `<button onclick="consultarStatus(${n.id})" class="btn-secondary py-1 px-3 rounded text-xs"><i class="fas fa-sync mr-1"></i><?= t('modules.nfse.buttons.consult') ?></button>`;
             acoesHtml += `<button onclick="navegarPara('/pages/nfse/${n.id}/cancelar')" class="btn-red py-1 px-3 rounded text-xs"><i class="fas fa-ban mr-1"></i><?= t('modules.nfse.buttons.cancel_nfse') ?></button>`;
+        }
+        if (n.status === 'processando') {
+            acoesHtml += `<button onclick="consultarStatus(${n.id})" class="btn-secondary py-1 px-3 rounded text-xs"><i class="fas fa-sync mr-1"></i><?= t('modules.nfse.buttons.consult') ?></button>`;
         }
         if (n.status === 'rejeitada') {
             acoesHtml += `<button onclick="reenviarNfse(${n.id})" class="btn-blue py-1 px-3 rounded text-xs"><i class="fas fa-redo mr-1"></i><?= t('modules.nfse.buttons.resend') ?></button>`;
@@ -300,10 +328,16 @@
         document.getElementById('infoBaseCalculo').textContent = Currency.format(parseFloat(n.base_calculo || 0), true);
         document.getElementById('infoAliquotaISS').textContent = parseFloat(n.aliquota_iss || 0).toFixed(2).replace('.', ',');
         document.getElementById('infoValorISS').textContent = Currency.format(parseFloat(n.valor_iss || 0), true);
-        document.getElementById('infoAliquotaIBS').textContent = parseFloat(n.aliquota_ibs || 0.10).toFixed(2).replace('.', ',');
-        document.getElementById('infoValorIBS').textContent = Currency.format(parseFloat(n.valor_ibs || 0), true);
-        document.getElementById('infoAliquotaCBS').textContent = parseFloat(n.aliquota_cbs || 0.90).toFixed(2).replace('.', ',');
-        document.getElementById('infoValorCBS').textContent = Currency.format(parseFloat(n.valor_cbs || 0), true);
+        const aliquotaIBS = parseFloat(n.aliquota_ibs || 0);
+        const valorIBS = parseFloat(n.valor_ibs || 0);
+        const aliquotaCBS = parseFloat(n.aliquota_cbs || 0);
+        const valorCBS = parseFloat(n.valor_cbs || 0);
+        document.getElementById('infoAliquotaIBS').textContent = aliquotaIBS.toFixed(2).replace('.', ',');
+        document.getElementById('infoValorIBS').textContent = Currency.format(valorIBS, true);
+        document.getElementById('infoAliquotaCBS').textContent = aliquotaCBS.toFixed(2).replace('.', ',');
+        document.getElementById('infoValorCBS').textContent = Currency.format(valorCBS, true);
+        document.getElementById('rowIBS').classList.toggle('hidden', aliquotaIBS <= 0 && valorIBS <= 0);
+        document.getElementById('rowCBS').classList.toggle('hidden', aliquotaCBS <= 0 && valorCBS <= 0);
 
         if (parseFloat(n.valor_deducoes || 0) === 0) {
             document.getElementById('rowDeducoes').classList.add('hidden');
@@ -375,10 +409,10 @@
     window.enviarEmail = async function(id) {
         try {
             const result = await API.post(`/nfse/${id}/email`, {});
-            const msg = result.success ? '<?= t('modules.nfse.messages.email_success') ?>' : (result.message || '<?= t('modules.nfse.messages.email_error') ?>');
+            const msg = result.success ? '<?= t('modules.nfse.messages.email_success') ?>' : (result.message || <?= js_t('modules.nfse.messages.email_error') ?>);
             window.parent.postMessage({ action: 'openAlert', message: msg }, '*');
         } catch (e) {
-            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.email_error') ?>' }, '*');
+            window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.email_error') ?> }, '*');
         }
     };
 
@@ -387,6 +421,7 @@
             const result = await API.post(`/nfse/${id}/consultar`, {});
             const msg = result.success ? '<?= t('modules.nfse.messages.consult_success') ?>' : (result.message || '<?= t('modules.nfse.messages.connection_error') ?>');
             window.parent.postMessage({ action: 'openAlert', message: msg }, '*');
+            if (result.success) { location.reload(); }
         } catch (e) {
             window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.connection_error') ?>' }, '*');
         }

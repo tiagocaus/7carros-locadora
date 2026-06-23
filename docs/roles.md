@@ -112,7 +112,7 @@ Roles padrao do sistema (todas com `chave = '0'`):
 A role `Atendente` pode criar contratos e locacoes, operar devolucao/fechamento
 e substituir/adicionar veiculos nesses fluxos. Para isso, deve possuir:
 `contratos.editar`, `contratos.devolver`, `contratos.substituir`,
-`locacoes.editar` e `locacoes.devolucao`.
+`locacoes.editar`, `locacoes.substituir` e `locacoes.devolucao`.
 
 Essa liberacao nao inclui exclusao, cancelamento de locacoes nem edicao especial
 de valores/taxas.

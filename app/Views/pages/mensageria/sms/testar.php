@@ -33,8 +33,8 @@
         sending: '<?= addslashes(t("common.labels.sending")) ?>',
         smsTestSuccess: '<?= addslashes(t("modules.mensageria.messages.sms_test_success")) ?>',
         smsSent: '<?= addslashes(t("modules.mensageria.messages.sms_sent")) ?>',
-        smsTestError: '<?= addslashes(t("modules.mensageria.messages.sms_test_error")) ?>',
-        smsTestSendError: '<?= addslashes(t("modules.mensageria.messages.sms_test_send_error")) ?>',
+        smsTestError: <?= js_t("modules.mensageria.messages.sms_test_error") ?>,
+        smsTestSendError: <?= js_t("modules.mensageria.messages.sms_test_send_error") ?>,
         sendTest: '<?= addslashes(t("modules.mensageria.sms.send_test")) ?>',
     };
 

@@ -26,6 +26,7 @@ use App\Helpers\SequenciaHelper;
 class Locacao extends Model
 {
     public const PLANO_CONTA_DEVOLUCAO_LOCACAO = '3.4.1.22';
+    public const PLANO_CONTA_AVARIAS = '4.2.2.01';
 
     use Auditable;
     use DetectsCrossTenant;
@@ -981,6 +982,7 @@ class Locacao extends Model
             'id_matriz_filial' => $locacao['id_matriz_filial_retirada'],
             'id_conta' => $dados['id_conta'] ?? ($locacao['id_conta'] ?? null),
             'id_forma_pagamento' => $dados['id_forma_pagamento'] ?? ($locacao['id_forma_pagamento'] ?? null),
+            'id_plano_de_conta' => $dados['id_plano_de_conta'] ?? null,
             'tipo' => 'R',
             'pago' => 'N',
             'parcela' => $proximaParcela,

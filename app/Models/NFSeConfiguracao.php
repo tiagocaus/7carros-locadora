@@ -45,25 +45,41 @@ class NFSeConfiguracao extends Model
         $existing = $this->buscarPorMatrizFilial($idMatrizFilial);
         $ativo = $dados['ativo'] ?? 'N';
         $serie = trim((string) ($dados['serie'] ?? ''));
+        $tipoEmissao = (string) ($dados['tipo_emissao'] ?? 'nacional');
+        $codigoMunicipio = preg_replace('/\D/', '', (string) ($dados['codigo_municipio'] ?? ''));
+        $codigoServico = trim((string) ($dados['codigo_servico'] ?? ''));
+
+        if (!in_array($tipoEmissao, ['nacional', 'betha'], true)) {
+            throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado.');
+        }
 
         if ($ativo === 'S' && $serie === '') {
             throw new \InvalidArgumentException('Série da NFS-e é obrigatória quando a emissão está ativa.');
+        }
+        if ($ativo === 'S' && strlen($codigoMunicipio) !== 7) {
+            throw new \InvalidArgumentException('Código IBGE do município deve ter 7 dígitos quando a emissão está ativa.');
+        }
+        if ($ativo === 'S' && $codigoServico === '') {
+            throw new \InvalidArgumentException('Código do serviço é obrigatório quando a emissão está ativa.');
         }
 
         $campos = [
             'ativo' => $ativo,
             'ambiente' => (int) ($dados['ambiente'] ?? 2),
-            'tipo_emissao' => $dados['tipo_emissao'] ?? 'nacional',
+            'tipo_emissao' => $tipoEmissao,
             'serie' => $serie !== '' ? $serie : null,
             'emissao_auto' => $dados['emissao_auto'] ?? 'N',
             'enviar_email' => $dados['enviar_email'] ?? 'S',
-            'codigo_municipio' => $dados['codigo_municipio'] ?? null,
-            'codigo_servico' => $dados['codigo_servico'] ?? '1.1101.11',
+            'codigo_municipio' => $codigoMunicipio !== '' ? $codigoMunicipio : null,
+            'codigo_servico' => $codigoServico !== '' ? $codigoServico : '1.1101.11',
             'descricao_servico' => $dados['descricao_servico'] ?? null,
             'regime_tributario' => (int) ($dados['regime_tributario'] ?? 1),
             'reg_apuracao_sn' => (int) ($dados['reg_apuracao_sn'] ?? 1),
             'trib_issqn' => (int) ($dados['trib_issqn'] ?? 4),
-            'aliquota_iss' => (float) ($dados['aliquota_iss'] ?? 0),
+            'aliquota_iss' => $this->normalizarDecimal($dados['aliquota_iss'] ?? 0),
+            'preencher_ibscbs' => ($dados['preencher_ibscbs'] ?? 'N') === 'S' ? 'S' : 'N',
+            'aliquota_ibs' => $this->normalizarDecimal($dados['aliquota_ibs'] ?? 0),
+            'aliquota_cbs' => $this->normalizarDecimal($dados['aliquota_cbs'] ?? 0),
             'exigibilidade_iss' => (int) ($dados['exigibilidade_iss'] ?? 1),
             'enviar_im' => $dados['enviar_im'] ?? 'N',
             'incentivo_fiscal' => $dados['incentivo_fiscal'] ?? 'N',
@@ -85,6 +101,20 @@ class NFSeConfiguracao extends Model
         return $this->qb
             ->table('nfse_configuracoes')
             ->insert($campos);
+    }
+
+    private function normalizarDecimal(mixed $valor): float
+    {
+        $valor = trim((string) ($valor ?? '0'));
+        if ($valor === '') {
+            return 0.0;
+        }
+
+        if (str_contains($valor, ',') && str_contains($valor, '.')) {
+            $valor = str_replace('.', '', $valor);
+        }
+
+        return (float) str_replace(',', '.', preg_replace('/[^\d,.-]/', '', $valor) ?? '0');
     }
 
     /**
@@ -132,40 +162,76 @@ class NFSeConfiguracao extends Model
     }
 
     /**
-     * Proximo numero sequencial (atomico)
-     *
-     * @param string $tipo 'nacional' ou 'betha'
-     * @return int Proximo numero
+     * Consulta o próximo número sem reservar.
      */
-    public function proximoNumero(int $idMatrizFilial, string $tipo = 'nacional', ?string $chave = null): int
+    public function consultarProximoNumero(int $idMatrizFilial, ?string $chave = null): int
     {
-        $campo = 'numero_atual';
-
-        $mysqli = $this->getMysqli();
-
-        // UPDATE atomico para evitar numeros duplicados em concorrencia
         if ($chave !== null) {
+            $mysqli = $this->getMysqli();
             $stmt = $mysqli->prepare(
-                "UPDATE nfse_configuracoes SET {$campo} = {$campo} + 1 WHERE id_matriz_filial = ? AND chave = ?"
+                'SELECT numero_atual FROM nfse_configuracoes WHERE id_matriz_filial = ? AND chave = ? LIMIT 1'
             );
             $stmt->bind_param('is', $idMatrizFilial, $chave);
-        } else {
-            $stmt = $mysqli->prepare(
-                "UPDATE nfse_configuracoes SET {$campo} = {$campo} + 1 WHERE id_matriz_filial = ?"
-            );
-            $stmt->bind_param('i', $idMatrizFilial);
-        }
-        $stmt->execute();
-        $stmt->close();
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $config = $result ? $result->fetch_assoc() : null;
+            $stmt->close();
 
-        // Buscar o valor atualizado
+            return ((int) ($config['numero_atual'] ?? 0)) + 1;
+        }
+
         $config = $this->qb
             ->table('nfse_configuracoes')
-            ->select([$campo])
+            ->select(['numero_atual'])
             ->where('id_matriz_filial', '=', $idMatrizFilial)
             ->first();
 
-        return (int) ($config[$campo] ?? 1);
+        return ((int) ($config['numero_atual'] ?? 0)) + 1;
+    }
+
+    /**
+     * Reserva de forma atomica um número previamente calculado.
+     */
+    public function reservarNumero(int $idMatrizFilial, int $numero, ?string $chave = null): bool
+    {
+        $numeroAnterior = max(0, $numero - 1);
+        $mysqli = $this->getMysqli();
+
+        if ($chave !== null) {
+            $stmt = $mysqli->prepare(
+                'UPDATE nfse_configuracoes SET numero_atual = ? WHERE id_matriz_filial = ? AND chave = ? AND numero_atual = ?'
+            );
+            $stmt->bind_param('iisi', $numero, $idMatrizFilial, $chave, $numeroAnterior);
+        } else {
+            $stmt = $mysqli->prepare(
+                'UPDATE nfse_configuracoes SET numero_atual = ? WHERE id_matriz_filial = ? AND numero_atual = ?'
+            );
+            $stmt->bind_param('iii', $numero, $idMatrizFilial, $numeroAnterior);
+        }
+
+        $stmt->execute();
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+
+        return $affected === 1;
+    }
+
+    /**
+     * Reserva e retorna o próximo número sequencial.
+     *
+     * @param string $tipo 'nacional' ou 'betha'
+     * @return int Próximo número reservado
+     */
+    public function proximoNumero(int $idMatrizFilial, string $tipo = 'nacional', ?string $chave = null): int
+    {
+        for ($tentativa = 0; $tentativa < 3; $tentativa++) {
+            $numero = $this->consultarProximoNumero($idMatrizFilial, $chave);
+            if ($this->reservarNumero($idMatrizFilial, $numero, $chave)) {
+                return $numero;
+            }
+        }
+
+        throw new \RuntimeException('Não foi possível reservar número sequencial da NFS-e.');
     }
 
     /**

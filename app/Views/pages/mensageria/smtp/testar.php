@@ -28,13 +28,13 @@
 (function() {
     const i18n = {
         connectionIdMissing: '<?= addslashes(t("modules.mensageria.common.connection_id_missing")) ?>',
-        provideEmail: '<?= addslashes(t("modules.mensageria.messages.provide_email")) ?>',
-        provideValidEmail: '<?= addslashes(t("modules.mensageria.messages.provide_valid_email")) ?>',
+        provideEmail: <?= js_t("modules.mensageria.messages.provide_email") ?>,
+        provideValidEmail: <?= js_t("modules.mensageria.messages.provide_valid_email") ?>,
         sending: '<?= addslashes(t("common.labels.sending")) ?>',
         emailTestSuccess: '<?= addslashes(t("modules.mensageria.messages.email_test_success")) ?>',
         emailSent: '<?= addslashes(t("modules.mensageria.messages.email_sent")) ?>',
-        emailTestError: '<?= addslashes(t("modules.mensageria.messages.email_test_error")) ?>',
-        emailTestSendError: '<?= addslashes(t("modules.mensageria.messages.email_test_send_error")) ?>',
+        emailTestError: <?= js_t("modules.mensageria.messages.email_test_error") ?>,
+        emailTestSendError: <?= js_t("modules.mensageria.messages.email_test_send_error") ?>,
         sendTest: '<?= addslashes(t("modules.mensageria.smtp.send_test")) ?>',
     };
 

@@ -77,10 +77,10 @@
     const i18n = {
         editTitle: '<?= addslashes(t('modules.oficinas.edit_title')) ?>',
         notFound: '<?= addslashes(t('modules.oficinas.messages.not_found')) ?>',
-        loadDataError: '<?= addslashes(t('modules.oficinas.messages.load_data_error')) ?>',
-        companyRequired: '<?= addslashes(t('modules.oficinas.messages.company_required')) ?>',
+        loadDataError: <?= js_t('modules.oficinas.messages.load_data_error') ?>,
+        companyRequired: <?= js_t('modules.oficinas.messages.company_required') ?>,
         saving: '<?= addslashes(t('modules.oficinas.messages.saving')) ?>',
-        saveError: '<?= addslashes(t('modules.oficinas.messages.save_error')) ?>',
+        saveError: <?= js_t('modules.oficinas.messages.save_error') ?>,
         created: '<?= addslashes(t('modules.oficinas.messages.created')) ?>',
         updated: '<?= addslashes(t('modules.oficinas.messages.updated')) ?>',
     };

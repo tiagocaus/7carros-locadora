@@ -88,6 +88,8 @@ Campos principais:
 | `regime_tributario` | `1=Simples ME/EPP`, `4=MEI`, `2=Lucro Presumido`, `3=Lucro Real` |
 | `reg_apuracao_sn` | Regime de apuracao do Simples, quando aplicavel |
 | `trib_issqn` | Tributacao ISSQN |
+| `preencher_ibscbs` | Habilita preenchimento de IBS/CBS; padrao `N` |
+| `aliquota_ibs` / `aliquota_cbs` | Percentuais IBS/CBS usados somente quando `preencher_ibscbs = S` |
 | `enviar_im` | Envia IM no DPS Nacional/Betha somente quando necessario |
 | `certificado_arquivo` | Arquivo PFX/P12 |
 | `certificado_senha` | Senha criptografada |
@@ -137,6 +139,8 @@ Regras de XML:
 - Cancelamento: evento `101101` em `pedidoRegistroEventoXmlGZipB64`
 - Textos enviados no XML devem ser normalizados em maiusculas e escapados como XML.
 - Endereco do tomador deve ser enviado apenas quando houver CEP com 8 digitos e codigo IBGE do municipio do tomador com 7 digitos; sem esses dados, omitir o bloco `<end>`.
+- Nao enviar `<IBSCBS>` enquanto `preencher_ibscbs = N`.
+- Com IBS/CBS desativado, `<totTrib>` deve usar `<pTotTrib>` zerado, nao `<vTotTrib>` calculado por aliquotas padrao.
 
 Mapeamento Simples Nacional:
 
@@ -189,13 +193,20 @@ Operacoes:
 Regras de XML:
 
 - Namespace: `http://www.betha.com.br/e-nota-dps`
-- Root: `<DPS versao="1.00">`
+- Root: `<DPS versao="1.01">`
 - Elemento assinado: `infDPS`
 - Atributo de ID: `id` minusculo
 - Assinatura: SHA256
 - Texto do servico em maiusculo
 - Bloco `<trib>` deve conter `<tribMun>` e `<totTrib>`; sem `<totTrib>` a Betha rejeita a DPS por schema incompleto.
 - `<dhEmi>` deve usar horario local do prestador (`America/Sao_Paulo`, offset `-03:00`), nao UTC.
+- Endereco do tomador deve seguir a mesma regra conservadora do Nacional: enviar `<end>` apenas quando houver CEP com 8 digitos e codigo IBGE do municipio do tomador com 7 digitos. Quando esses dados existirem, Betha deve gerar o endereco no namespace Betha, nunca reaproveitar XML Nacional/ABRASF.
+- No schema Betha aceito pelo SOAP, `<valores>` deve vir logo apos `</serv>`. Nao enviar `<cLocalidadeIncid>` nesse ponto; esse elemento pertence ao XML nacional/NFS-e gerado posteriormente, nao ao DPS Betha.
+- Betha v1.01 deve manter o namespace `http://www.betha.com.br/e-nota-dps`; nao trocar o DPS para namespace SPED.
+- Betha NT004 v2.0 aceita o grupo `<IBSCBS>` depois de `<valores>`, no namespace Betha, mas o sistema nao deve envia-lo enquanto `preencher_ibscbs = N`. Enviar `CST=000` e `cClassTrib=000001` aciona tributacao IBS/CBS na calculadora nacional; se o portal Betha estiver configurado sem preenchimento de IBS/CBS, esse bloco deve ser omitido.
+- Com IBS/CBS sem aliquotas/valores informados, Betha v1.01 deve seguir os exemplos oficiais NT004 v2.0 e gerar `<totTrib><indTotTrib>0</indTotTrib></totTrib>`, sem `<pTotTrib>` ou `<vTotTrib>` zerados.
+- `999999999` nao e NBS valido para a calculadora nacional acionada pela Betha NT004. Para a descricao padrao de locacao de veiculo automotor sem condutor, converter esse placeholder para `111011100` (`1.1101.11`) antes de enviar.
+- Se `preencher_ibscbs = S`, a emissao deve falhar com erro claro ate existir XML homologado para o tipo de emissao/provedor. Nao chute estrutura de `<IBSCBS>`.
 - `ConsultarStatusDpsEnvio` deve enviar `<tpAmb>`, `<codigoIbge>`, `<cpfCnpjPrestador>`, `<protocolo>` e `<tipoIntegracao>`, nessa ordem.
 - Para consulta de emissao Betha, `<tipoIntegracao>` deve ser `EMISSAO`.
 - Resposta pode vir com prefixo `ns2:`; parsers devem usar namespace, nao string fixa.
@@ -212,7 +223,9 @@ Fluxo:
 Numeracao:
 
 - Usa `numero_atual`.
-- Numero e reservado no envio, pois DPS recepcionada nao deve reutilizar o mesmo ID.
+- Falhas locais antes do envio externo nao devem consumir numero: validacao, geracao XML, certificado e assinatura precisam concluir antes da reserva.
+- A reserva do numero deve ser atomica e ocorrer somente com XML assinado pronto para envio.
+- Numero enviado ou possivelmente enviado ao provedor deve ser preservado, mesmo quando a DPS voltar rejeitada. DPS recepcionada nao deve reutilizar o mesmo ID.
 
 ---
 
@@ -221,11 +234,12 @@ Numeracao:
 Para NFS-e rejeitada:
 
 - Maximo de 3 tentativas.
-- Reenvio manual pode liberar tentativa extra somente para `XML_INVALIDO` com financeiro vinculado e causa tecnica conhecida ja corrigida no gerador XML/data fiscal.
+- Reenvio manual pode liberar tentativa extra somente para `XML_INVALIDO` com financeiro vinculado e causa tecnica conhecida ja corrigida no gerador XML/data fiscal, incluindo erros Betha de schema por `cLocalidadeIncid`.
 - Reenvio automatico por CRON continua limitado a `tentativas_envio < 3`.
 - Se houver `id_financeiro`, regenerar XML com os dados atuais antes de reenviar.
 - Se nao houver `id_financeiro`, reaproveitar o XML salvo como fallback.
 - Em Betha, regenerar evita erro de DPS ja recepcionada com mesmo ID.
+- Quando o reenvio regenerar XML e reservar novo numero, registrar evento com o numero anterior e o novo para manter rastreabilidade.
 
 ---
 
@@ -244,6 +258,7 @@ Regras da tela:
 - `valor_deducoes` deve ser a soma dos itens nao tributaveis.
 - `base_calculo` deve ser `valor_servicos - valor_deducoes`, nunca negativa.
 - O email editado na tela prevalece sobre o email cadastrado do cliente apenas para essa emissao.
+- O codigo IBGE do municipio do tomador pode ser informado nessa tela para permitir envio de endereco completo em emissores DPS quando o cadastro do cliente ainda nao tiver esse dado.
 - Ausencia de configuracao NFS-e ou certificado nao deve redirecionar para a listagem. A tela deve permanecer aberta, mostrar aviso especifico e bloquear somente o botao de emissao.
 
 Persistencia:
@@ -267,6 +282,18 @@ Nao crie tabela separada para itens nao tributaveis sem necessidade fiscal nova.
 | `NFSeReenviarJob` | 5min | 20 | Reenvia rejeitadas recuperaveis |
 | `NFSeConsultarBethaJob` | 1min | 20 | Consulta protocolos Betha em processamento |
 | `NFSeEnviarEmailJob` | 5min | 30 | Envia PDF por email |
+
+`NFSeConsultarBethaJob` deve considerar atividade recente por `COALESCE(updated_at, created_at)`, nao apenas `created_at`, porque reenvios Betha reutilizam o registro rejeitado e atualizam protocolo/status no mesmo registro.
+
+Consultas Betha que retornam apenas "ainda em processamento" nao devem gerar evento em `nfse_eventos`; registrar somente emissao/recepcao, autorizacao, rejeicao, erro ou outra mudanca relevante de estado.
+
+Enquanto a Betha mantiver a DPS como recebida e sem resultado final, o banco deve continuar com `nfse.status = processando`. A API pode expor metadados derivados de exibicao (`processamento_minutos`, `processamento_alerta`, `processamento_demorado`, `mensagem_processamento`) para evitar que a tela pareca travada:
+
+- ate 15 minutos: exibir como `Processando`;
+- a partir de 15 minutos: exibir como `Aguardando validação Betha`;
+- a partir de 60 minutos: exibir alerta `Validação demorada no provedor`.
+
+Esse tratamento e apenas visual/API. Nao transformar em rejeitada, nao liberar reenvio e nao consumir novo numero enquanto houver protocolo Betha em processamento sem rejeicao real do provedor.
 
 ---
 

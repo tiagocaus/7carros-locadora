@@ -225,7 +225,7 @@
         const dominio = document.getElementById('dominio').value.trim();
         const radio = document.querySelector('input[name="quer_registro"]:checked');
         if (!radio) {
-            toast.error('<?= t("modules.website.select_domain_option") ?>');
+            toast.error(<?= js_t("modules.website.select_domain_option") ?>);
             return;
         }
         if (!dominio) {
@@ -242,7 +242,7 @@
         if (querRegistro) {
             msg += '<?= t("modules.website.confirm_charge_domain") ?>\n';
         }
-        msg += '<?= t("modules.website.confirm_charge_hosting") ?>';
+        msg += <?= js_t("modules.website.confirm_charge_hosting") ?>;
 
         window.parent.postMessage({
             action: 'openGenericConfirmModal',

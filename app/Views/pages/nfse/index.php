@@ -338,7 +338,7 @@ $i18nNfse = [
             betha: 'Betha'
         };
         const tipo = tiposEmissao[n.tipo_emissao] || n.tipo_emissao || '-';
-        const statusBadge = getStatusBadge(n.status);
+        const statusBadge = getStatusBadge(n);
 
         const acoes = getAcoes(n);
 
@@ -359,7 +359,8 @@ $i18nNfse = [
         </tr>`;
     }
 
-    function getStatusBadge(status) {
+    function getStatusBadge(n) {
+        const status = n.status || 'pendente';
         const map = {
             pendente: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: 'fa-clock', label: i18n.status.pendente },
             processando: { bg: 'bg-blue-100', text: 'text-blue-700', icon: 'fa-spinner fa-spin', label: i18n.status.processando },
@@ -368,8 +369,17 @@ $i18nNfse = [
             cancelada: { bg: 'bg-slate-100', text: 'text-slate-500', icon: 'fa-ban', label: i18n.status.cancelada },
         };
         const s = map[status] || map.pendente;
-        return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}">
-            <i class="fas ${s.icon} mr-1"></i>${s.label}
+
+        if (status === 'processando' && n.mensagem_processamento && n.mensagem_processamento !== i18n.status.processando) {
+            s.label = n.mensagem_processamento;
+            s.icon = n.processamento_demorado ? 'fa-hourglass-half' : 'fa-clock';
+            s.bg = n.processamento_demorado ? 'bg-amber-100' : 'bg-sky-100';
+            s.text = n.processamento_demorado ? 'text-amber-700' : 'text-sky-700';
+        }
+
+        const title = n.mensagem_processamento_detalhe ? ` title="${escapeAttr(n.mensagem_processamento_detalhe)}"` : '';
+        return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}"${title}>
+            <i class="fas ${s.icon} mr-1"></i>${escapeHtml(s.label)}
         </span>`;
     }
 

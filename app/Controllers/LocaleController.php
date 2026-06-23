@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Auth;
 use App\Core\Response;
 use App\I18n\Translator;
 use App\Models\Funcionario;
@@ -146,15 +147,18 @@ class LocaleController
      */
     private function persistLocale(string $locale): void
     {
-        if (empty($_SESSION['funcionario_id'])) {
+        $funcionarioId = Auth::id();
+
+        if (empty($funcionarioId)) {
             return;
         }
 
         try {
             (new Funcionario())->atualizarLocale(
-                (int) $_SESSION['funcionario_id'],
+                (int) $funcionarioId,
                 $locale
             );
+            $_SESSION['ui_locale'] = $locale;
             $_SESSION['user_locale'] = $locale;
         } catch (\Exception $e) {
             error_log("Erro ao persistir locale: " . $e->getMessage());

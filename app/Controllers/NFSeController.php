@@ -26,6 +26,9 @@ use App\Services\NFSe\NFSeCertificado;
  */
 class NFSeController
 {
+    private const BETHA_PROCESSAMENTO_AVISO_MINUTOS = 15;
+    private const BETHA_PROCESSAMENTO_DEMORADO_MINUTOS = 60;
+
     // ==========================================
     // VIEWS (Paginas iframe)
     // ==========================================
@@ -112,6 +115,56 @@ class NFSeController
         return $nfse;
     }
 
+    /**
+     * Adiciona metadados de exibicao para DPS Betha recepcionada e ainda sem
+     * retorno final. Nao altera o status real gravado no banco.
+     */
+    private function adicionarProcessamentoBetha(array $nfse): array
+    {
+        $nfse['processamento_minutos'] = null;
+        $nfse['processamento_demorado'] = false;
+        $nfse['processamento_alerta'] = false;
+        $nfse['mensagem_processamento'] = null;
+        $nfse['mensagem_processamento_detalhe'] = null;
+
+        if (($nfse['tipo_emissao'] ?? '') !== 'betha' || ($nfse['status'] ?? '') !== 'processando') {
+            return $nfse;
+        }
+
+        $dataBase = $nfse['updated_at'] ?? $nfse['created_at'] ?? null;
+        $timestamp = $dataBase ? strtotime((string) $dataBase) : false;
+        $minutos = $timestamp ? max(0, (int) floor((time() - $timestamp) / 60)) : null;
+
+        $nfse['processamento_minutos'] = $minutos;
+
+        if ($minutos !== null && $minutos >= self::BETHA_PROCESSAMENTO_AVISO_MINUTOS) {
+            $demorado = $minutos >= self::BETHA_PROCESSAMENTO_DEMORADO_MINUTOS;
+            $nfse['processamento_alerta'] = true;
+            $nfse['processamento_demorado'] = $demorado;
+            $nfse['mensagem_processamento'] = $demorado
+                ? 'Validação demorada no provedor'
+                : 'Aguardando validação Betha';
+
+            $protocolo = trim((string) ($nfse['protocolo'] ?? ''));
+            $detalhe = 'DPS Betha recepcionada e aguardando validação do ambiente nacional.';
+            if ($protocolo !== '') {
+                $detalhe .= ' Protocolo: ' . $protocolo . '.';
+            }
+            $nfse['mensagem_processamento_detalhe'] = $detalhe;
+        }
+
+        return $nfse;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $notas
+     * @return array<int, array<string, mixed>>
+     */
+    private function adicionarProcessamentoBethaLista(array $notas): array
+    {
+        return array_map(fn(array $nfse): array => $this->adicionarProcessamentoBetha($nfse), $notas);
+    }
+
     // ==========================================
     // API - Leitura
     // ==========================================
@@ -154,6 +207,7 @@ class NFSeController
                 $filialWhere, $filialParams,
                 $filialId, $status, $dataInicio, $dataFim, $ambiente
             );
+            $notas = $this->adicionarProcessamentoBethaLista($notas);
 
             $total = $nfseModel->contar(
                 $search,
@@ -198,7 +252,7 @@ class NFSeController
                 return;
             }
 
-            Response::json(['success' => true, 'data' => $nfse]);
+            Response::json(['success' => true, 'data' => $this->adicionarProcessamentoBetha($nfse)]);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao buscar NFS-e: ' . $e->getMessage()], 500);
         }
@@ -296,6 +350,7 @@ class NFSeController
                 'tomador_cpf_cnpj' => $dados['tomador_cpf_cnpj'] ?? '',
                 'tomador_nome' => $dados['tomador_nome'] ?? '',
                 'tomador_email' => $dados['tomador_email'] ?? '',
+                'tomador_codigo_municipio' => $dados['tomador_codigo_municipio'] ?? '',
                 'itens_nao_tributaveis' => $dados['itens_nao_tributaveis'] ?? [],
             ];
 

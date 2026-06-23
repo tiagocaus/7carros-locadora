@@ -23,6 +23,8 @@ use App\Helpers\FilialHelper;
  */
 class Contrato extends Model
 {
+    public const PLANO_CONTA_AVARIAS = '4.2.2.01';
+
     use Auditable;
     use DetectsCrossTenant;
 
@@ -1126,6 +1128,7 @@ class Contrato extends Model
                 'f.pago',
                 'f.id_conta',
                 'f.id_forma_pagamento',
+                'f.descricao',
                 'cb.nome AS conta_nome',
                 'fp.nome AS forma_pagamento_nome'
             ])
@@ -1134,6 +1137,139 @@ class Contrato extends Model
             ->where('f.id_contrato', '=', $contratoId)
             ->orderBy('f.parcela', 'ASC')
             ->get();
+    }
+
+    /**
+     * Atualiza uma parcela pendente do contrato.
+     */
+    public function atualizarParcelaContrato(int $contratoId, int $idParcela, array $dados): int
+    {
+        $parcela = $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $idParcela)
+            ->where('id_contrato', '=', $contratoId)
+            ->where('pago', '=', 'N')
+            ->first();
+
+        if (!$parcela) {
+            throw new \InvalidArgumentException('Parcela não encontrada ou já paga');
+        }
+
+        $dadosUpdate = ['updated_at' => date('Y-m-d H:i:s')];
+
+        if (isset($dados['valor'])) {
+            $valor = currency_parse($dados['valor']);
+            $dadosUpdate['valor_subtotal'] = $valor;
+            $dadosUpdate['valor_total'] = $valor;
+        }
+        if (isset($dados['data_venci'])) {
+            $dadosUpdate['data_venci'] = $dados['data_venci'];
+        }
+        if (isset($dados['id_conta'])) {
+            $dadosUpdate['id_conta'] = !empty($dados['id_conta']) ? (int) $dados['id_conta'] : null;
+        }
+        if (isset($dados['id_forma_pagamento'])) {
+            $dadosUpdate['id_forma_pagamento'] = !empty($dados['id_forma_pagamento']) ? (int) $dados['id_forma_pagamento'] : null;
+        }
+        if (isset($dados['descricao'])) {
+            $dadosUpdate['descricao'] = $dados['descricao'];
+        }
+
+        return $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $idParcela)
+            ->where('id_contrato', '=', $contratoId)
+            ->where('pago', '=', 'N')
+            ->update($dadosUpdate);
+    }
+
+    /**
+     * Remove uma parcela pendente do contrato.
+     */
+    public function removerParcelaContrato(int $contratoId, int $idParcela): int
+    {
+        $parcela = $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $idParcela)
+            ->where('id_contrato', '=', $contratoId)
+            ->where('pago', '=', 'N')
+            ->first();
+
+        if (!$parcela) {
+            throw new \InvalidArgumentException('Parcela não encontrada ou já paga');
+        }
+
+        return $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $idParcela)
+            ->where('id_contrato', '=', $contratoId)
+            ->where('pago', '=', 'N')
+            ->delete();
+    }
+
+    /**
+     * Marca uma parcela do contrato como paga.
+     */
+    public function marcarParcelaContratoPaga(int $contratoId, int $idParcela, array $dados): int
+    {
+        $parcela = $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $idParcela)
+            ->where('id_contrato', '=', $contratoId)
+            ->where('pago', '=', 'N')
+            ->first();
+
+        if (!$parcela) {
+            throw new \InvalidArgumentException('Parcela não encontrada ou já paga');
+        }
+
+        $dadosUpdate = [
+            'pago' => 'S',
+            'data_pago' => !empty($dados['data_pago']) ? $dados['data_pago'] : date('Y-m-d'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        if (!empty($dados['id_forma_pagamento'])) {
+            $dadosUpdate['id_forma_pagamento'] = (int) $dados['id_forma_pagamento'];
+        }
+        if (!empty($dados['id_conta'])) {
+            $dadosUpdate['id_conta'] = (int) $dados['id_conta'];
+        }
+
+        return $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $idParcela)
+            ->where('id_contrato', '=', $contratoId)
+            ->where('pago', '=', 'N')
+            ->update($dadosUpdate);
+    }
+
+    /**
+     * Estorna o pagamento de uma parcela do contrato.
+     */
+    public function estornarParcelaContratoPagamento(int $contratoId, int $idParcela): int
+    {
+        $parcela = $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $idParcela)
+            ->where('id_contrato', '=', $contratoId)
+            ->where('pago', '=', 'S')
+            ->first();
+
+        if (!$parcela) {
+            throw new \InvalidArgumentException('Parcela não encontrada ou não está paga');
+        }
+
+        return $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $idParcela)
+            ->where('id_contrato', '=', $contratoId)
+            ->where('pago', '=', 'S')
+            ->update([
+                'pago' => 'N',
+                'data_pago' => null,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
     }
 
     /**
@@ -1559,6 +1695,7 @@ class Contrato extends Model
             'id_cliente' => $contrato['id_cliente'],
             'id_conta' => $dados['id_conta'] ?? null,
             'id_forma_pagamento' => $dados['id_forma_pagamento'] ?? null,
+            'id_plano_de_conta' => $dados['id_plano_de_conta'] ?? null,
             'tipo' => 'R',
             'pago' => 'N',
             'parcela' => $proximaParcela,

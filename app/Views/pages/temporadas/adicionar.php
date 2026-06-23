@@ -121,7 +121,7 @@
         noGroups: '<?= addslashes(t('modules.temporadas.messages.no_groups')) ?>',
         saving: '<?= addslashes(t('modules.temporadas.messages.saving')) ?>',
         saveError: '<?= addslashes(t('modules.temporadas.messages.save_error')) ?>',
-        requestError: '<?= addslashes(t('modules.temporadas.messages.request_error')) ?>',
+        requestError: <?= js_t('modules.temporadas.messages.request_error') ?>,
         btnSave: '<?= addslashes(t('common.buttons.save')) ?>',
     };
 

@@ -87,6 +87,7 @@
             'approveError' => t('modules.locacoes.messages.approve_error'),
             'btnPrint' => t('common.buttons.print'),
             'btnSignature' => t('modules.locacoes.buttons.signature'),
+            'btnReplace' => t('modules.locacoes.buttons.replace_vehicle'),
             'btnEdit' => t('common.buttons.edit'),
             'btnDelete' => t('common.buttons.delete'),
             'recordType' => t('modules.locacoes.record_type'),
@@ -107,6 +108,7 @@
         let searchTerm = '';
         let statusFilter = 'R,A,P';
         let searchTimeout = null;
+        const canSubstituir = <?= \App\Core\Auth::can('locacoes.substituir') ? 'true' : 'false' ?>;
 
         const tbody = document.getElementById('locacoesTableBody');
 
@@ -236,6 +238,10 @@
                     actionButtons += `<button title="${i18n.btnSignature}" class="btn-icon ${assinaturaClass} btn-assinatura" data-id="${loc.id}" data-codigo="${codigo}" data-tem="${temAssinatura ? '1' : '0'}"><i class="fas fa-signature"></i></button>`;
                 }
 
+                if (canSubstituir && loc.status === 'A') {
+                    actionButtons += `<button title="${i18n.btnReplace}" class="btn-icon text-amber-600 hover:text-amber-800 btn-substituir" data-id="${loc.id}"><i class="fa-solid fa-up-down"></i></button>`;
+                }
+
                 // Editar e Excluir (todos)
                 actionButtons += `<button title="${i18n.btnEdit}" class="btn-icon text-slate-600 hover:text-slate-800 btn-edit" data-id="${loc.id}"><i class="fas fa-edit"></i></button>`;
                 actionButtons += `<button title="${i18n.btnDelete}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${loc.id}" data-name="${codigo}"><i class="fas fa-trash"></i></button>`;
@@ -272,6 +278,14 @@
                     e.preventDefault();
                     const id = this.getAttribute('data-id');
                     navegarPara('/pages/locacoes/editar/' + id);
+                });
+            });
+
+            tbody.querySelectorAll('.btn-substituir').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const id = this.getAttribute('data-id');
+                    navegarPara('/pages/locacoes/substituir/' + id);
                 });
             });
 

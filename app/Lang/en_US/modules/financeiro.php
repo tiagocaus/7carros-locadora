@@ -29,6 +29,7 @@ return [
         'client' => 'Client',
         'supplier' => 'Supplier',
         'employee' => 'Employee',
+        'vehicle' => 'Vehicle',
         'subtotal' => 'Subtotal',
         'interest' => 'Interest',
         'penalty' => 'Penalty',
@@ -48,7 +49,7 @@ return [
     'sections' => [
         'basic_data' => 'Basic Data',
         'links' => 'Association(s)',
-        'links_hint' => 'fill in at least one: Client, Supplier or Employee',
+        'links_hint' => 'fill in at least one: Client, Supplier, Employee or Vehicle',
         'values' => 'Values',
         'items' => 'Entry Items',
         'items_hint' => 'optional - if provided, the Subtotal will be calculated automatically',
@@ -213,7 +214,8 @@ return [
         'partial_use_button' => 'Use the Create difference button to register a partial payment',
         // Validation
         'required_field' => 'Required field: :field',
-        'fill_at_least_one_link' => 'Fill in at least one: Client, Supplier or Employee',
+        'fill_at_least_one_link' => 'Fill in at least one: Client, Supplier, Employee or Vehicle',
+        'vehicle_link_item_mismatch' => 'The linked vehicle differs from a vehicle selected in an item. Remove the linked vehicle or use the same vehicle in the items.',
         'inform_value_or_item' => 'Enter the Subtotal or add at least one item',
         'payment_date_required' => 'Payment Date is required when the entry is marked as paid',
     ],

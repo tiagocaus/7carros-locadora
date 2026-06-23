@@ -156,15 +156,15 @@
 (function () {
     const i18n = {
         imported: '<?= addslashes(t('modules.documentos.messages.imported')) ?>',
-        editorError: '<?= addslashes(t('modules.documentos.messages.editor_error')) ?>',
+        editorError: <?= js_t('modules.documentos.messages.editor_error') ?>,
         loadVarsError: '<?= addslashes(t('modules.documentos.variables.load_error')) ?>',
         noVariables: '<?= addslashes(t('modules.documentos.variables.no_variables')) ?>',
         titleRequired: '<?= addslashes(t('modules.documentos.messages.title_required')) ?>',
         saving: '<?= addslashes(t('modules.documentos.messages.saving')) ?>',
         saved: '<?= addslashes(t('modules.documentos.messages.saved')) ?>',
         saveError: '<?= addslashes(t('modules.documentos.messages.save_error')) ?>',
-        contentRequired: '<?= addslashes(t('modules.documentos.messages.content_required')) ?>',
-        previewError: '<?= addslashes(t('modules.documentos.messages.preview_error')) ?>',
+        contentRequired: <?= js_t('modules.documentos.messages.content_required') ?>,
+        previewError: <?= js_t('modules.documentos.messages.preview_error') ?>,
         btnSave: '<?= addslashes(t('common.buttons.save')) ?>',
         btnPreview: '<?= addslashes(t('common.labels.preview')) ?>',
         btnClose: '<?= addslashes(t('common.buttons.close')) ?>',

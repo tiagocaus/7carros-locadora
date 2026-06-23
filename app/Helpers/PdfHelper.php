@@ -409,6 +409,10 @@ class PdfHelper
         }
 
         $mime = @mime_content_type($path);
+        if (!is_string($mime) || !str_starts_with($mime, 'image/')) {
+            return '';
+        }
+
         if ($mime !== 'image/webp') {
             return $path;
         }

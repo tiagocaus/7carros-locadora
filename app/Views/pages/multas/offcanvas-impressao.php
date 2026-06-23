@@ -124,8 +124,8 @@ document.addEventListener('DOMContentLoaded', function() {
         fineLabel: '<?= t('modules.multas.print.fine_label') ?>',
         sending: '<?= t('modules.multas.messages.sending') ?>',
         sendSuccess: '<?= t('modules.multas.messages.send_success') ?>',
-        sendError: '<?= addslashes(t('modules.multas.messages.send_error')) ?>',
-        sendConnectionError: '<?= addslashes(t('modules.multas.messages.send_connection_error')) ?>',
+        sendError: <?= js_t('modules.multas.messages.send_error') ?>,
+        sendConnectionError: <?= js_t('modules.multas.messages.send_connection_error') ?>,
     };
 
     const TIPOS_COM_DOCUMENTO = ['documento'];

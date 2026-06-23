@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const i18n = {
         saving: '<?= addslashes(t("common.labels.saving")) ?>',
         saveError: '<?= addslashes(t("modules.roles.messages.save_error")) ?>',
-        processError: '<?= addslashes(t("modules.roles.messages.process_error")) ?>',
+        processError: <?= js_t("modules.roles.messages.process_error") ?>,
         loadPermissionsError: '<?= addslashes(t("modules.roles.messages.load_permissions_error")) ?>',
         noPermissions: '<?= addslashes(t("modules.roles.messages.no_permissions")) ?>',
         selectAll: '<?= addslashes(t("modules.roles.actions.select_all")) ?>',

@@ -705,8 +705,8 @@
     const i18n = {
         editTitle: '<?= t('modules.veiculos.edit_title') ?>',
         selectPlanFirst: '<?= t('modules.veiculos.messages.select_plan_first') ?>',
-        invalidImage: '<?= t('modules.veiculos.messages.invalid_image') ?>',
-        imageTooLarge: '<?= t('modules.veiculos.messages.image_too_large') ?>',
+        invalidImage: <?= js_t('modules.veiculos.messages.invalid_image') ?>,
+        imageTooLarge: <?= js_t('modules.veiculos.messages.image_too_large') ?>,
         accessoriesLoadError: '<?= t('modules.veiculos.messages.accessories_load_error') ?>',
         accessoriesLoadErrorShort: '<?= t('modules.veiculos.messages.accessories_load_error_short') ?>',
         noAccessories: '<?= t('modules.veiculos.messages.no_accessories') ?>',

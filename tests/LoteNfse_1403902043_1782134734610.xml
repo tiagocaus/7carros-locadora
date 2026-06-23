@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="yes"?>
+<ConsultarNfseResposta xmlns:ns2="http://www.w3.org/2000/09/xmldsig#">
+    <ListaNfse>
+        <CompNfse>
+            <Nfse>
+                <InfNfse>
+                    <Numero>194</Numero>
+                    <CodigoVerificacao>KQTZOT0LP</CodigoVerificacao>
+                    <DataEmissao>2026-06-19T15:25:59.210-03:00</DataEmissao>
+                    <IdentificacaoRps/>
+                    <NaturezaOperacao>7</NaturezaOperacao>
+                    <OptanteSimplesNacional>1</OptanteSimplesNacional>
+                    <Competencia>2026-06-01</Competencia>
+                    <Servico>
+                        <Valores>
+                            <ValorServicos>2490</ValorServicos>
+                            <ValorDeducoes>0.00</ValorDeducoes>
+                            <IssRetido>2</IssRetido>
+                            <ValorIss>0.00</ValorIss>
+                            <BaseCalculo>2490</BaseCalculo>
+                            <Aliquota>0</Aliquota>
+                            <ValorLiquidoNfse>2490</ValorLiquidoNfse>
+                            <DescontoCondicionado>0.00</DescontoCondicionado>
+                            <DescontoIncondicionado>0.00</DescontoIncondicionado>
+                        </Valores>
+                        <ItemListaServico>990101</ItemListaServico>
+                        <Discriminacao>{[[Descricao=Locação][ItemServico=990101][Quantidade=1][ValorUnitario=2490][ValorServico=2490][ValorBaseCalculo=2490][Aliquota=0][Deducoes=0][DescontoCondicionado=0][DescontoIncondicionado=0]]}</Discriminacao>
+                        <CodigoMunicipio>4204558</CodigoMunicipio>
+                    </Servico>
+                    <PrestadorServico>
+                        <IdentificacaoPrestador>
+                            <Cnpj>35706623000169</Cnpj>
+                            <InscricaoMunicipal>7138</InscricaoMunicipal>
+                        </IdentificacaoPrestador>
+                        <RazaoSocial>TELES LOCADORA DE VEICULOS LTDA</RazaoSocial>
+                        <NomeFantasia>TELES LOCADORA</NomeFantasia>
+                        <Endereco>
+                            <Endereco>R ALFREDO PAES DE FREITAS</Endereco>
+                            <Numero>25</Numero>
+                            <Complemento>SALA  2 ednoteles@hotmail.com</Complemento>
+                            <Bairro>SAO CRISTOVAO</Bairro>
+                            <CodigoMunicipio>4204558</CodigoMunicipio>
+                            <Cep>88535000</Cep>
+                        </Endereco>
+                        <Contato/>
+                    </PrestadorServico>
+                    <TomadorServico>
+                        <IdentificacaoTomador>
+                            <CpfCnpj>
+                                <Cnpj>02656748000172</Cnpj>
+                            </CpfCnpj>
+                            <InscricaoEstadual>455148021111</InscricaoEstadual>
+                        </IdentificacaoTomador>
+                        <RazaoSocial>CLYDE INDUSTRIES BRASIL LTDA</RazaoSocial>
+                        <Endereco>
+                            <Endereco>Vereador José Maria Rangel</Endereco>
+                            <Numero>485</Numero>
+                            <Bairro>DISTRITO INDUSTRIAL IV</Bairro>
+                            <CodigoMunicipio>3530706</CodigoMunicipio>
+                            <Uf>SP</Uf>
+                            <Cep>13849252</Cep>
+                        </Endereco>
+                        <Contato/>
+                    </TomadorServico>
+                    <IntermediarioServico/>
+                    <ConstrucaoCivil/>
+                    <CondicaoPagamento/>
+                </InfNfse>
+            </Nfse>
+            <NfseCancelamento>
+                <Confirmacao>
+                    <Pedido>
+                        <InfPedidoCancelamento/>
+                        <ns2:Signature/>
+                    </Pedido>
+                    <InfConfirmacaoCancelamento>
+                        <Sucesso>false</Sucesso>
+                    </InfConfirmacaoCancelamento>
+                </Confirmacao>
+            </NfseCancelamento>
+            <NfseSubstituicao>
+                <SubstituicaoNfse/>
+            </NfseSubstituicao>
+        </CompNfse>
+    </ListaNfse>
+    <ListaMensagemRetorno/>
+</ConsultarNfseResposta>

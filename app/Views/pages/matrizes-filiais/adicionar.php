@@ -565,7 +565,7 @@
                             <input type="text" name="codigo_municipio" id="inputCodigoMunicipio" class="form-input-group-field" placeholder="5300108" maxlength="7">
                         </div>
                         <div class="md:col-span-4 form-input-group">
-                            <label class="form-label-group"><?= t('modules.nfse.config.codigo_servico') ?></label>
+                            <label class="form-label-group"><?= t('modules.nfse.config.codigo_servico') ?> <?= aviso(t('modules.nfse.config.codigo_servico_hint')) ?></label>
                             <input type="text" name="codigo_servico" id="inputCodigoServico" class="form-input-group-field" placeholder="1.1101.11" maxlength="20">
                         </div>
                         <div class="md:col-span-4 form-input-group">
@@ -602,6 +602,32 @@
                             <div class="relative">
                                 <input type="text" name="aliquota_iss" id="inputAliquotaISS" class="form-input-group-field pr-10 input-percent" placeholder="0,00">
                                 <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">%</span>
+                            </div>
+                        </div>
+                        <div class="md:col-span-12 border-t border-slate-200 pt-4 mt-2" id="sectionIBSCBS">
+                            <h4 class="text-sm font-semibold text-slate-700 mb-3">IBS/CBS</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                <div class="md:col-span-4 form-input-group" id="fieldPreencherIBSCBS">
+                                    <label class="form-label-group"><?= t('modules.nfse.config.preencher_ibscbs') ?> <?= aviso(t('modules.nfse.config.preencher_ibscbs_hint')) ?></label>
+                                    <div class="flex items-center mt-1">
+                                        <input type="checkbox" name="preencher_ibscbs" value="S" id="inputPreencherIBSCBS" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded">
+                                        <label for="inputPreencherIBSCBS" class="ml-2 text-sm text-slate-700 cursor-pointer"><?= t('modules.matrizes_filiais.nfse_ui.activate') ?></label>
+                                    </div>
+                                </div>
+                                <div class="md:col-span-4 form-input-group" id="fieldAliquotaIBS">
+                                    <label class="form-label-group"><?= t('modules.nfse.config.aliquota_ibs') ?></label>
+                                    <div class="relative">
+                                        <input type="text" name="aliquota_ibs" id="inputAliquotaIBS" class="form-input-group-field pr-10 input-percent" placeholder="0,00">
+                                        <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">%</span>
+                                    </div>
+                                </div>
+                                <div class="md:col-span-4 form-input-group" id="fieldAliquotaCBS">
+                                    <label class="form-label-group"><?= t('modules.nfse.config.aliquota_cbs') ?></label>
+                                    <div class="relative">
+                                        <input type="text" name="aliquota_cbs" id="inputAliquotaCBS" class="form-input-group-field pr-10 input-percent" placeholder="0,00">
+                                        <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">%</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="md:col-span-3 form-input-group">
@@ -682,7 +708,7 @@
             exceptionDescPlaceholder: '<?= addslashes(t('modules.matrizes_filiais.exceptions.description_placeholder')) ?>',
             alreadyRegistered: '<?= addslashes(t('modules.matrizes_filiais.exceptions.already_registered')) ?>',
             exceptionAdded: '<?= addslashes(t('modules.matrizes_filiais.exceptions.exception_added')) ?>',
-            alreadyExists: '<?= addslashes(t('modules.matrizes_filiais.exceptions.already_exists')) ?>',
+            alreadyExists: <?= js_t('modules.matrizes_filiais.exceptions.already_exists') ?>,
             // Feriados
             holidayClosed: '<?= addslashes(t('modules.matrizes_filiais.holidays.closed_btn')) ?>',
             holidaySpecial: '<?= addslashes(t('modules.matrizes_filiais.holidays.special_hours_btn')) ?>',
@@ -1890,6 +1916,7 @@
             // Event listeners NFS-e
             inputTipoEmissao.addEventListener('change', nfseToggleDpsFields);
             document.getElementById('inputRegimeTributario').addEventListener('change', nfseToggleDpsFields);
+            document.getElementById('inputPreencherIBSCBS').addEventListener('change', nfseToggleDpsFields);
             formCert.addEventListener('submit', nfseUploadCertificado);
             formConfig.addEventListener('submit', nfseSalvarConfiguracoes);
             document.getElementById('btnTestarConexao').addEventListener('click', nfseTestarConexao);
@@ -1945,6 +1972,9 @@
                 document.getElementById('inputRegApuracaoSN').value = config.reg_apuracao_sn || '1';
                 document.getElementById('inputTribISSQN').value = config.trib_issqn || '4';
                 document.getElementById('inputAliquotaISS').value = config.aliquota_iss || '';
+                document.getElementById('inputPreencherIBSCBS').checked = config.preencher_ibscbs === 'S';
+                document.getElementById('inputAliquotaIBS').value = config.aliquota_ibs || '';
+                document.getElementById('inputAliquotaCBS').value = config.aliquota_cbs || '';
                 document.getElementById('inputExigibilidadeISS').value = config.exigibilidade_iss || '1';
                 document.getElementById('inputIncentivoFiscal').checked = config.incentivo_fiscal === 'S';
                 document.getElementById('inputEnviarIM').checked = config.enviar_im === 'S';
@@ -1993,9 +2023,14 @@
             function nfseToggleDpsFields() {
                 const isDps = inputTipoEmissao.value === 'nacional' || inputTipoEmissao.value === 'betha';
                 const isSimples = document.getElementById('inputRegimeTributario').value === '1';
+                const preencherIBSCBS = document.getElementById('inputPreencherIBSCBS').checked;
                 document.getElementById('fieldNumeroAtual').style.display = 'block';
                 document.getElementById('fieldEnviarIM').style.display = isDps ? 'block' : 'none';
                 document.getElementById('fieldRegApuracaoSN').style.display = isDps && isSimples ? 'block' : 'none';
+                document.getElementById('sectionIBSCBS').style.display = isDps ? 'block' : 'none';
+                document.getElementById('fieldPreencherIBSCBS').style.display = 'block';
+                document.getElementById('fieldAliquotaIBS').style.display = isDps && preencherIBSCBS ? 'block' : 'none';
+                document.getElementById('fieldAliquotaCBS').style.display = isDps && preencherIBSCBS ? 'block' : 'none';
             }
 
             async function nfseUploadCertificado(e) {
@@ -2011,10 +2046,10 @@
                         document.getElementById('nomeArquivoCert').textContent = i18n.noFileSelected;
                         document.getElementById('certFilialId').value = registroId;
                     } else {
-                        window.parent.postMessage({ action: 'openAlert', message: result.message || '<?= t('modules.nfse.messages.cert_error') ?>' }, '*');
+                        window.parent.postMessage({ action: 'openAlert', message: result.message || <?= js_t('modules.nfse.messages.cert_error') ?> }, '*');
                     }
                 } catch (e) {
-                    window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.cert_error') ?>' }, '*');
+                    window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.cert_error') ?> }, '*');
                 }
             }
 
@@ -2038,7 +2073,7 @@
                                 nfseCarregarConfiguracoes(registroId);
                             }
                         } catch (e) {
-                            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.cert_error') ?>' }, '*');
+                            window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.cert_error') ?> }, '*');
                         }
                     }
                 });
@@ -2048,7 +2083,17 @@
                 e.preventDefault();
                 const serie = document.getElementById('inputSerie').value.trim();
                 if (document.getElementById('inputAtivo').checked && !serie) {
-                    window.parent.postMessage({ action: 'openAlert', message: 'Informe a série da NFS-e antes de ativar a emissão.' }, '*');
+                    window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.serie_required_active') ?> }, '*');
+                    return;
+                }
+                const codigoMunicipio = document.getElementById('inputCodigoMunicipio').value.replace(/\D/g, '');
+                if (document.getElementById('inputAtivo').checked && codigoMunicipio.length !== 7) {
+                    window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.codigo_municipio_required_active') ?> }, '*');
+                    return;
+                }
+                const codigoServico = document.getElementById('inputCodigoServico').value.trim();
+                if (document.getElementById('inputAtivo').checked && !codigoServico) {
+                    window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.codigo_servico_required_active') ?> }, '*');
                     return;
                 }
 
@@ -2061,13 +2106,16 @@
                     numero_atual: document.getElementById('inputNumeroAtual').value,
                     emissao_auto: document.getElementById('inputEmissaoAuto').checked ? 'S' : 'N',
                     enviar_email: document.getElementById('inputEnviarEmail').checked ? 'S' : 'N',
-                    codigo_municipio: document.getElementById('inputCodigoMunicipio').value,
-                    codigo_servico: document.getElementById('inputCodigoServico').value,
+                    codigo_municipio: codigoMunicipio,
+                    codigo_servico: codigoServico,
                     descricao_servico: document.getElementById('inputDescricaoServico').value,
                     regime_tributario: document.getElementById('inputRegimeTributario').value,
                     reg_apuracao_sn: document.getElementById('inputRegApuracaoSN').value,
                     trib_issqn: document.getElementById('inputTribISSQN').value,
                     aliquota_iss: document.getElementById('inputAliquotaISS').value,
+                    preencher_ibscbs: document.getElementById('inputPreencherIBSCBS').checked ? 'S' : 'N',
+                    aliquota_ibs: document.getElementById('inputAliquotaIBS').value,
+                    aliquota_cbs: document.getElementById('inputAliquotaCBS').value,
                     exigibilidade_iss: document.getElementById('inputExigibilidadeISS').value,
                     incentivo_fiscal: document.getElementById('inputIncentivoFiscal').checked ? 'S' : 'N',
                     enviar_im: document.getElementById('inputEnviarIM').checked ? 'S' : 'N',

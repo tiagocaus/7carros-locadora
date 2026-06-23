@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NFSe versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse" xmlns:ns2="http://www.w3.org/2000/09/xmldsig#">
+    <infNFSe Id="NFS42045581235706623000169000000000019426062311185034">
+        <xLocEmi>Correia Pinto</xLocEmi>
+        <xLocPrestacao>Correia Pinto</xLocPrestacao>
+        <nNFSe>194</nNFSe>
+        <xTribNac>Serviços sem a incidência de ISSQN e ICMS</xTribNac>
+        <xNBS>NAO INFORMADO</xNBS>
+        <verAplic>1.1.0</verAplic>
+        <ambGer>1</ambGer>
+        <tpEmis>2</tpEmis>
+        <cStat>100</cStat>
+        <dhProc>2026-06-19T15:54:18-03:00</dhProc>
+        <nDFSe>194</nDFSe>
+        <emit>
+            <CNPJ>35706623000169</CNPJ>
+            <IM>7138</IM>
+            <xNome>TELES LOCADORA DE VEICULOS LTDA</xNome>
+            <enderNac>
+                <xLgr>R ALFREDO PAES DE FREITAS</xLgr>
+                <nro>25</nro>
+                <xBairro>SAO CRISTOVAO</xBairro>
+                <cMun>4204558</cMun>
+                <UF>SC</UF>
+                <CEP>88535000</CEP>
+           </enderNac>
+            <email>EDNOTELES@HOTMAIL.COM</email>
+       </emit>
+        <valores>
+            <vLiq>2490.00</vLiq>
+       </valores>
+        <DPS versao="1.01">
+            <infDPS Id="DPS420455823570662300016900001000000000000194">
+                <tpAmb>1</tpAmb>
+                <dhEmi>2026-06-19T15:25:59-03:00</dhEmi>
+                <verAplic>1.1.0</verAplic>
+                <serie>1</serie>
+                <nDPS>194</nDPS>
+                <dCompet>2026-06-19</dCompet>
+                <tpEmit>1</tpEmit>
+                <cLocEmi>4204558</cLocEmi>
+                <prest>
+                    <CNPJ>35706623000169</CNPJ>
+                    <IM>7138</IM>
+                    <email>EDNOTELES@HOTMAIL.COM</email>
+                    <regTrib>
+                        <opSimpNac>3</opSimpNac>
+                        <regApTribSN>1</regApTribSN>
+                        <regEspTrib>0</regEspTrib>
+                   </regTrib>
+               </prest>
+                <toma>
+                    <CNPJ>02656748000172</CNPJ>
+                    <xNome>CLYDE INDUSTRIES BRASIL LTDA</xNome>
+                    <end>
+                        <endNac>
+                            <cMun>3530706</cMun>
+                            <CEP>13849252</CEP>
+                       </endNac>
+                        <xLgr>Vereador José Maria Rangel</xLgr>
+                        <nro>485</nro>
+                        <xBairro>DISTRITO INDUSTRIAL IV</xBairro>
+                   </end>
+               </toma>
+                <serv>
+                    <locPrest>
+                        <cLocPrestacao>4204558</cLocPrestacao>
+                   </locPrest>
+                    <cServ>
+                        <cTribNac>990101</cTribNac>
+                        <xDescServ>Locacao</xDescServ>
+                        <cNBS>999999999</cNBS>
+                        <cIntContrib>31487</cIntContrib>
+                   </cServ>
+                    <infoCompl/>
+               </serv>
+                <valores>
+                    <vServPrest>
+                        <vServ>2490.00</vServ>
+                   </vServPrest>
+                    <trib>
+                        <tribMun>
+                            <tribISSQN>4</tribISSQN>
+                            <tpRetISSQN>1</tpRetISSQN>
+                       </tribMun>
+                        <totTrib>
+                            <pTotTrib>
+                                <pTotTribFed>0.00</pTotTribFed>
+                                <pTotTribEst>0.00</pTotTribEst>
+                                <pTotTribMun>0.00</pTotTribMun>
+                           </pTotTrib>
+                       </totTrib>
+                   </trib>
+               </valores>
+           </infDPS>
+       </DPS>
+   </infNFSe>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><Reference URI="#NFS42045581235706623000169000000000019426062311185034"><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>ofGzZhyKplmXIOA7dXCHyIWddDk=</DigestValue></Reference></SignedInfo><SignatureValue>twXq4f97a/xeSaVWfelS2k7ltJFQmD1fvEf6QCOGJ/9P4jnXFFEg5/XK5xLUGCHvI3yr7EzNvexI&#xd;
+AGOlobcMNiCgHGSn19PerpWmOmMaFjBI0QY+fu1FhNHZuJzcY+sp4rPdK1xQ0xNMGgkXmwqw+3Iu&#xd;
+ZdT5HHO0gcHOJRFRu0AKC/WCvnnKGZe1faC4Q3UZgp3o9kAMKVk5MbvZbRfaT2Itp67uG5DVONZf&#xd;
+6EkTublY01VaTXSaXT51yOJKq+mogKCqZoWhSHM1T+TB0B2NXl66TMn3zeCMIqv0wnlY+1xALbEn&#xd;
+6M7CL6WnZP0OZ2hM6tiX9cURThJtXu/Vtdqbsw==</SignatureValue><KeyInfo><X509Data><X509Certificate>MIIH8TCCBdmgAwIBAgIIYTfw1t5UKI0wDQYJKoZIhvcNAQELBQAwdjELMAkGA1UEBhMCQlIxEzAR&#xd;
+BgNVBAoTCklDUC1CcmFzaWwxNjA0BgNVBAsTLVNlY3JldGFyaWEgZGEgUmVjZWl0YSBGZWRlcmFs&#xd;
+IGRvIEJyYXNpbCAtIFJGQjEaMBgGA1UEAxMRQUMgU0FGRVdFQiBSRkIgdjUwHhcNMjYwMTA4MTcz&#xd;
+OTQ2WhcNMjcwMTA4MTczOTQ2WjCB/zELMAkGA1UEBhMCQlIxEzARBgNVBAoTCklDUC1CcmFzaWwx&#xd;
+CzAJBgNVBAgTAlNDMRYwFAYDVQQHEw1DT1JSRUlBIFBJTlRPMTYwNAYDVQQLEy1TZWNyZXRhcmlh&#xd;
+IGRhIFJlY2VpdGEgRmVkZXJhbCBkbyBCcmFzaWwgLSBSRkIxFjAUBgNVBAsTDVJGQiBlLUNOUEog&#xd;
+QTExFzAVBgNVBAsTDjM0ODQxODg0MDAwMTI5MRkwFwYDVQQLExB2aWRlb2NvbmZlcmVuY2lhMTIw&#xd;
+MAYDVQQDEylNVU5JQ0lQSU8gREUgQ09SUkVJQSBQSU5UTzo3NTQzODY1NTAwMDE0NTCCASIwDQYJ&#xd;
+KoZIhvcNAQEBBQADggEPADCCAQoCggEBALw6Yt5XTY2fhW6Tx1HrIeOUSqZDaUkSbym5a/dtV8An&#xd;
+/Ju6GbB+0P4UTJKDfn1O8TFgLMZfEwUkMCFcdwErv3512bTj1/uWhB5GfOgzrLquI0iU+YqvTvbg&#xd;
+FRcJYAkb6sp9fpKj/N4mDXd0ENdoPdSc7PaD4z1fz7xjHsoVa8F65dB4Ee0sL7X8pHNH+u7qxDn8&#xd;
+koL4mlMlm/lfJuw53svUzKmnj+kXl2zmstLDDKaghduQ9kiLxah3tsC2Qqz7lHY5uzW78G6qyfxH&#xd;
+CByL0Cq1D7eH+kGYjrcujn+6csG9FtVODaG+dk4p6f9Rd0q2ot1JDRn5t5BNs0wxslicyfUCAwEA&#xd;
+AaOCAvcwggLzMB8GA1UdIwQYMBaAFCleS9VGTLv+FqdjwR3EJvLd2PMFMA4GA1UdDwEB/wQEAwIF&#xd;
+4DBpBgNVHSAEYjBgMF4GBmBMAQIBMzBUMFIGCCsGAQUFBwIBFkZodHRwOi8vcmVwb3NpdG9yaW8u&#xd;
+YWNzYWZld2ViLmNvbS5ici9hYy1zYWZld2VicmZiL2RwYy1hY3NhZmV3ZWJyZmIucGRmMIGuBgNV&#xd;
+HR8EgaYwgaMwT6BNoEuGSWh0dHA6Ly9yZXBvc2l0b3Jpby5hY3NhZmV3ZWIuY29tLmJyL2FjLXNh&#xd;
+ZmV3ZWJyZmIvbGNyLWFjLXNhZmV3ZWJyZmJ2NS5jcmwwUKBOoEyGSmh0dHA6Ly9yZXBvc2l0b3Jp&#xd;
+bzIuYWNzYWZld2ViLmNvbS5ici9hYy1zYWZld2VicmZiL2xjci1hYy1zYWZld2VicmZidjUuY3Js&#xd;
+MIG3BggrBgEFBQcBAQSBqjCBpzBRBggrBgEFBQcwAoZFaHR0cDovL3JlcG9zaXRvcmlvLmFjc2Fm&#xd;
+ZXdlYi5jb20uYnIvYWMtc2FmZXdlYnJmYi9hYy1zYWZld2VicmZidjUucDdiMFIGCCsGAQUFBzAC&#xd;
+hkZodHRwOi8vcmVwb3NpdG9yaW8yLmFjc2FmZXdlYi5jb20uYnIvYWMtc2FmZXdlYnJmYi9hYy1z&#xd;
+YWZld2VicmZidjUucDdiMIG/BgNVHREEgbcwgbSBG0xVQ0lBUkFRVUVMUk9SVElaQEdNQUlMLkNP&#xd;
+TaAnBgVgTAEDAqAeExxMVUNJQSBSQVFVRUwgUk9EUklHVUVTIE9SVElaoBkGBWBMAQMDoBATDjc1&#xd;
+NDM4NjU1MDAwMTQ1oDgGBWBMAQMEoC8TLTEyMDUxOTc0OTczMzQzMTY5OTEwMDAwMDAwMDAwMDAw&#xd;
+MDAwMDAwMDAwMDAwMKAXBgVgTAEDB6AOEwwwMDAwMDAwMDAwMDAwHQYDVR0lBBYwFAYIKwYBBQUH&#xd;
+AwIGCCsGAQUFBwMEMAkGA1UdEwQCMAAwDQYJKoZIhvcNAQELBQADggIBAG6dCoT8ZIYoII63iuHd&#xd;
+/JYkrKIZWLz4seH4NxfHoKzB/yW2UIEhzXOfaxx0hf0CC77r04Ii4otaYHKMeay+BF3VGeTdQIP6&#xd;
+/OcfBm4JGImUdhhRBJdAS3x3PkflSlfQDXClrEjFs5OFvC2/w/x2En7JhBNaI7ngXddkBeHyAxEB&#xd;
+4hjMOVnvhDT6ppd9NlJW7o37aDk9nisz17u52RHUWJ0/mDQBIonu06OApKMn7TvmiPToGb3gBVWa&#xd;
+fbCtVTKUOZYtJusXr3aDxuHlVbzb6RBGgtg+ziNyrEp0VkL/rSNiw+D6hnzGKnidpzqsaIfPU3HH&#xd;
+ShY4t2zJSCCO7YfLOpznMfquKHNpaVsmPqxJiZxI+sNXoE946BW9fb8DewbVqlgImm7xaFFTH3zo&#xd;
+gj2Vx8d1miuoBcAf1s2WC173g//RKgaVId5E7xopN+JttNu8qaRITAwkMxBDeQrpEwUdsCVPYeuV&#xd;
+sid3GNVx/Lo3p8Oc5RNSRn5qrSZ0zohS0jZusZIBAj9Xa8at3GrsVjO9OU1bBe3gTVMZ+3ETDlsE&#xd;
+gyclVWW57nHaeDvOg4Xm1YYC3XnBZSmg/kMOgGrr6W4GclDuL+8xugF02KD9wLU+JRAnVyxHDP5h&#xd;
+9r56S17SP5i5v3WDpB1L+pHj5Wxx1zBX5vJF7y1FfeGmgu6qpfnmmf8x</X509Certificate></X509Data></KeyInfo></Signature></NFSe>

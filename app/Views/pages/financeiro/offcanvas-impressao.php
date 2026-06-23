@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded', function() {
         entryLabel: '<?= t('modules.financeiro.print.entry_label') ?>',
         sending: '<?= t('modules.financeiro.print.sending') ?>',
         sendSuccess: '<?= addslashes(t('modules.financeiro.print.send_success')) ?>',
-        sendError: '<?= addslashes(t('modules.financeiro.print.send_error')) ?>',
-        sendConnectionError: '<?= addslashes(t('modules.financeiro.print.send_connection_error')) ?>',
+        sendError: <?= js_t('modules.financeiro.print.send_error') ?>,
+        sendConnectionError: <?= js_t('modules.financeiro.print.send_connection_error') ?>,
     };
 
     document.getElementById('btnGerarPdf').addEventListener('click', function() {

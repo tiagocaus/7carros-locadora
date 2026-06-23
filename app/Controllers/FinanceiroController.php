@@ -71,13 +71,24 @@ class FinanceiroController
             }
         }
 
-        // Validar vinculo (pelo menos um: Cliente, Fornecedor ou Funcionario)
+        // Validar vinculo (pelo menos um: Cliente, Fornecedor, Funcionario ou Veiculo)
         $temCliente = !empty($dados['id_cliente']);
         $temFornecedor = !empty($dados['id_fornecedor']);
         $temFuncionario = !empty($dados['id_funcionario']);
+        $temVeiculo = !empty($dados['id_veiculo']);
 
-        if (!$temCliente && !$temFornecedor && !$temFuncionario) {
-            return 'Informe pelo menos um: Cliente, Fornecedor ou Funcionario';
+        if (!$temCliente && !$temFornecedor && !$temFuncionario && !$temVeiculo) {
+            return 'Informe pelo menos um: Cliente, Fornecedor, Funcionario ou Veiculo';
+        }
+
+        if ($temVeiculo && !empty($dados['itens']) && is_array($dados['itens'])) {
+            $idVeiculoCabecalho = (int) $dados['id_veiculo'];
+            foreach ($dados['itens'] as $item) {
+                $itemValido = currency_parse($item['valor'] ?? 0) > 0 || !empty(trim((string) ($item['descricao'] ?? '')));
+                if ($itemValido && !empty($item['id_veiculo']) && (int) $item['id_veiculo'] !== $idVeiculoCabecalho) {
+                    return 'O veiculo do vinculo e diferente do veiculo informado em um item. Remova o veiculo do vinculo ou use o mesmo veiculo nos itens.';
+                }
+            }
         }
 
         // Itens sao opcionais, mas se nao houver itens, valor_subtotal deve ser > 0

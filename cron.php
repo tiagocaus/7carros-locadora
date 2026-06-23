@@ -129,6 +129,11 @@ try {
     $scheduler->job(new \App\Crons\Jobs\GerarEncargosFinanceiroJob())
               ->dailyAt('02:00');
 
+    // Financeiro - Cobrancas automaticas
+    // Executa diariamente as 08:00 para enviar lembretes D-1 e avisos de faturas vencidas
+    $scheduler->job(new \App\Crons\Jobs\SendFinanceiroCobrancasJob())
+              ->dailyAt('08:00');
+
     // Auto-consulta online de infracoes
     // Executa diariamente as 03:30 para consultar infracoes de tenants com auto-consulta ativa
     $scheduler->job(new \App\Crons\Jobs\SerproAutoConsultaJob())

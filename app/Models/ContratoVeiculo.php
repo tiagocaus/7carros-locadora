@@ -321,19 +321,22 @@ class ContratoVeiculo extends Model
      * @param int $odometroEntrada Km de entrada (veiculo volta a empresa)
      * @param int|null $combustivelEntrada Nivel de combustivel
      * @param string|null $motivo Motivo da devolucao
+     * @param string|null $dataEntrada Data/hora da devolucao (Y-m-d H:i:s)
      * @return int Linhas afetadas
      */
-    public function devolver(int $id, int $odometroEntrada, ?int $combustivelEntrada = null, ?string $motivo = null): int
+    public function devolver(int $id, int $odometroEntrada, ?int $combustivelEntrada = null, ?string $motivo = null, ?string $dataEntrada = null): int
     {
+        $agora = date('Y-m-d H:i:s');
+
         return $this->qb
             ->table('contratos_veiculos')
             ->where('id', '=', $id)
             ->update([
-                'data_entrada' => date('Y-m-d H:i:s'),
+                'data_entrada' => $dataEntrada ?: $agora,
                 'odometro_entrada' => $odometroEntrada,
                 'combustivel_entrada' => $combustivelEntrada,
                 'motivo_saida' => $motivo,
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => $agora
             ]);
     }
 

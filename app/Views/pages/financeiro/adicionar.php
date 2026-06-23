@@ -176,7 +176,7 @@
         <div class="form-section mb-6 mt-6">
             <h3 class="form-section-title"><i class="fas fa-user mr-2"></i><?= t('modules.financeiro.sections.links') ?> <span class="text-xs font-normal text-slate-500">(<?= t('modules.financeiro.sections.links_hint') ?>)</span></h3>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <!-- Matriz/Filial -->
                 <div class="form-input-group">
                     <label for="idMatrizFilial" class="form-label-group"><?= t('modules.financeiro.fields.branch') ?> <span class="text-red-500">*</span></label>
@@ -205,6 +205,14 @@
                 <div class="form-input-group">
                     <label for="idFuncionario" class="form-label-group"><?= t('modules.financeiro.fields.employee') ?></label>
                     <select id="idFuncionario" name="id_funcionario" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/funcionarios/buscar" data-chosen-placeholder="<?= t('common.labels.select') ?>...">
+                        <option value=""><?= t('common.labels.select') ?>...</option>
+                    </select>
+                </div>
+
+                <!-- Veiculo -->
+                <div class="form-input-group">
+                    <label for="idVeiculo" class="form-label-group"><?= t('modules.financeiro.fields.vehicle') ?></label>
+                    <select id="idVeiculo" name="id_veiculo" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/veiculos/buscar" data-chosen-placeholder="<?= t('common.labels.select') ?>...">
                         <option value=""><?= t('common.labels.select') ?>...</option>
                     </select>
                 </div>
@@ -518,9 +526,9 @@
         selectInstallment: '<?= t("modules.financeiro.messages.select_installment") ?>',
         informFieldUpdate: '<?= t("modules.financeiro.messages.inform_field_update") ?>',
         installmentsUpdated: '<?= t("modules.financeiro.messages.installments_updated") ?>',
-        installmentsUpdateError: '<?= t("modules.financeiro.messages.installments_update_error") ?>',
+        installmentsUpdateError: <?= js_t("modules.financeiro.messages.installments_update_error") ?>,
         installmentsDeleted: '<?= t("modules.financeiro.messages.installments_deleted") ?>',
-        installmentsDeleteError: '<?= t("modules.financeiro.messages.installments_delete_error") ?>',
+        installmentsDeleteError: <?= js_t("modules.financeiro.messages.installments_delete_error") ?>,
         statusPaid: '<?= t("modules.financeiro.status.paid") ?>',
         statusPending: '<?= t("modules.financeiro.status.pending") ?>',
         editModalTitle: '<?= t("modules.financeiro.installment_modal.edit_title") ?>',
@@ -540,6 +548,7 @@
         partialSuccess: '<?= t("modules.financeiro.messages.partial_success") ?>',
         partialError: '<?= t("modules.financeiro.messages.partial_error") ?>',
         partialUseButton: '<?= t("modules.financeiro.messages.partial_use_button") ?>',
+        vehicleLinkItemMismatch: '<?= t("modules.financeiro.messages.vehicle_link_item_mismatch") ?>',
         select: '<?= t("common.labels.select") ?>',
         edit: '<?= t("common.buttons.edit") ?>',
     };
@@ -697,6 +706,15 @@
             const selectFuncionario = document.getElementById('idFuncionario');
             selectFuncionario.innerHTML = `<option value="">${i18n.select}...</option><option value="${dados.id_funcionario}" selected>${escapeHtml(dados.funcionario_nome)}</option>`;
             selectFuncionario.dispatchEvent(new Event('change'));
+        }
+
+        if (dados.id_veiculo) {
+            const selectVeiculo = document.getElementById('idVeiculo');
+            const textoVeiculo = [dados.veiculo_placa, dados.veiculo_modelo]
+                .filter(Boolean)
+                .join(' - ');
+            selectVeiculo.innerHTML = `<option value="">${i18n.select}...</option><option value="${dados.id_veiculo}" selected>${escapeHtml(textoVeiculo || dados.id_veiculo)}</option>`;
+            selectVeiculo.dispatchEvent(new Event('change'));
         }
 
         if (dados.id_plano_de_conta && dados.plano_conta_descricao) {
@@ -1431,13 +1449,29 @@
             }
         });
 
-        // Validar vinculo (pelo menos um: Cliente, Fornecedor ou Funcionario)
+        // Validar vinculo (pelo menos um: Cliente, Fornecedor, Funcionario ou Veiculo)
         const idCliente = document.getElementById('idCliente')?.value || '';
         const idFornecedor = document.getElementById('idFornecedor')?.value || '';
         const idFuncionario = document.getElementById('idFuncionario')?.value || '';
+        const idVeiculo = document.getElementById('idVeiculo')?.value || '';
 
-        if (!idCliente && !idFornecedor && !idFuncionario) {
+        if (!idCliente && !idFornecedor && !idFuncionario && !idVeiculo) {
             erros.push(i18n.fillAtLeastOneLink);
+        }
+
+        if (idVeiculo) {
+            const temItemComVeiculoDiferente = Array.from(document.querySelectorAll('.item-row')).some(row => {
+                const index = row.dataset.index;
+                const idVeiculoItem = document.querySelector(`[name="itens[${index}][id_veiculo]"]`)?.value || '';
+                const descricaoItem = document.querySelector(`[name="itens[${index}][descricao]"]`)?.value?.trim() || '';
+                const valorItem = parseMoeda(document.querySelector(`[name="itens[${index}][valor]"]`)?.value || '0');
+                const itemValido = valorItem > 0 || descricaoItem !== '';
+                return itemValido && idVeiculoItem && idVeiculoItem !== idVeiculo;
+            });
+
+            if (temItemComVeiculoDiferente) {
+                erros.push(i18n.vehicleLinkItemMismatch);
+            }
         }
 
         // Validar valor principal (obrigatorio quando nao ha itens)

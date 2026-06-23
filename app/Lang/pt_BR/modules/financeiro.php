@@ -29,6 +29,7 @@ return [
         'client' => 'Cliente',
         'supplier' => 'Fornecedor',
         'employee' => 'Funcionário',
+        'vehicle' => 'Veículo',
         'subtotal' => 'Subtotal',
         'interest' => 'Juros',
         'penalty' => 'Multa',
@@ -48,7 +49,7 @@ return [
     'sections' => [
         'basic_data' => 'Dados Básicos',
         'links' => 'Vínculo(s)',
-        'links_hint' => 'preencha pelo menos um: Cliente, Fornecedor ou Funcionário',
+        'links_hint' => 'preencha pelo menos um: Cliente, Fornecedor, Funcionário ou Veículo',
         'values' => 'Valores',
         'items' => 'Itens do Lançamento',
         'items_hint' => 'opcional - se informado, o Subtotal será calculado automaticamente',
@@ -213,7 +214,8 @@ return [
         'partial_use_button' => 'Use o botão Criar diferença para registrar pagamento parcial',
         // Validação
         'required_field' => 'Campo obrigatório: :field',
-        'fill_at_least_one_link' => 'Preencha pelo menos um: Cliente, Fornecedor ou Funcionário',
+        'fill_at_least_one_link' => 'Preencha pelo menos um: Cliente, Fornecedor, Funcionário ou Veículo',
+        'vehicle_link_item_mismatch' => 'O veículo do vínculo é diferente do veículo informado em um item. Remova o veículo do vínculo ou use o mesmo veículo nos itens.',
         'inform_value_or_item' => 'Informe o Subtotal ou adicione pelo menos um item',
         'payment_date_required' => 'Data do Pagamento é obrigatória quando o lançamento está marcado como pago',
     ],

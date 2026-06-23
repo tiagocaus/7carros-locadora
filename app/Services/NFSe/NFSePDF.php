@@ -179,8 +179,10 @@ class NFSePDF
         $valorISSRetidoRaw = (float) ($d['valor_iss_retido'] ?? 0);
         $valorISSRetido = currency_format($valorISSRetidoRaw);
         $valorLiquido = currency_format(max(0, (float) ($d['valor_servicos'] ?? 0) - (float) ($d['valor_deducoes'] ?? 0) - $valorISSRetidoRaw));
-        $valorIBS = currency_format((float) ($d['valor_ibs'] ?? 0));
-        $valorCBS = currency_format((float) ($d['valor_cbs'] ?? 0));
+        $valorIBSRaw = (float) ($d['valor_ibs'] ?? 0);
+        $valorCBSRaw = (float) ($d['valor_cbs'] ?? 0);
+        $valorIBS = currency_format($valorIBSRaw);
+        $valorCBS = currency_format($valorCBSRaw);
         $dataEmissao = $this->formatarDataHora($d['data_emissao'] ?? null);
         $dataCompetencia = $this->formatarData($d['data_competencia'] ?? null);
         $itensNaoTributaveis = [];
@@ -318,8 +320,12 @@ class NFSePDF
         $html .= '<tr><td><span class="label">Valor ISS</span></td><td>' . $valorISS . '</td></tr>';
         $html .= '<tr><td><span class="label">ISS Retido</span></td><td>' . ($issRetido ? 'Sim' : 'Não') . '</td></tr>';
         $html .= '<tr><td><span class="label">Valor ISS Retido</span></td><td>' . $valorISSRetido . '</td></tr>';
-        $html .= '<tr><td><span class="label">IBS (' . number_format((float) ($d['aliquota_ibs'] ?? 0.10), 2, ',', '.') . '%)</span></td><td>' . $valorIBS . '</td></tr>';
-        $html .= '<tr><td><span class="label">CBS (' . number_format((float) ($d['aliquota_cbs'] ?? 0.90), 2, ',', '.') . '%)</span></td><td>' . $valorCBS . '</td></tr>';
+        if ($valorIBSRaw > 0 || (float) ($d['aliquota_ibs'] ?? 0) > 0) {
+            $html .= '<tr><td><span class="label">IBS (' . number_format((float) ($d['aliquota_ibs'] ?? 0), 2, ',', '.') . '%)</span></td><td>' . $valorIBS . '</td></tr>';
+        }
+        if ($valorCBSRaw > 0 || (float) ($d['aliquota_cbs'] ?? 0) > 0) {
+            $html .= '<tr><td><span class="label">CBS (' . number_format((float) ($d['aliquota_cbs'] ?? 0), 2, ',', '.') . '%)</span></td><td>' . $valorCBS . '</td></tr>';
+        }
         $html .= '<tr class="total"><td><span class="label">Valor Líquido</span></td><td>' . $valorLiquido . '</td></tr>';
         $html .= '</table>';
         $html .= '</div>';

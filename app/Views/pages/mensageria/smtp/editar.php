@@ -94,10 +94,10 @@
         loadBranchesError: '<?= addslashes(t("modules.mensageria.common.load_branches_error")) ?>',
         loadError: '<?= addslashes(t("modules.mensageria.common.load_error")) ?>',
         noBranches: '<?= addslashes(t("modules.mensageria.common.no_branches")) ?>',
-        selectBranch: '<?= addslashes(t("modules.mensageria.common.select_branch")) ?>',
+        selectBranch: <?= js_t("modules.mensageria.common.select_branch") ?>,
         saving: '<?= addslashes(t("common.labels.saving")) ?>',
         smtpUpdated: '<?= addslashes(t("modules.mensageria.messages.smtp_updated")) ?>',
-        smtpUpdateError: '<?= addslashes(t("modules.mensageria.messages.smtp_update_error")) ?>',
+        smtpUpdateError: <?= js_t("modules.mensageria.messages.smtp_update_error") ?>,
         saveChanges: '<?= addslashes(t("common.buttons.save_changes")) ?>',
     };
 

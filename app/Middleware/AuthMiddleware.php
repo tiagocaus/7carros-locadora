@@ -6,6 +6,7 @@ use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
 use App\I18n\Translator;
+use App\Models\Funcionario;
 
 /**
  * Middleware de Autenticação
@@ -55,26 +56,48 @@ class AuthMiddleware
      * Prioridade:
      * 1. ui_locale da sessão (já definido pelo usuário durante a sessão)
      * 2. ui_locale do banco de dados (preferência persistida)
-     * 3. Deixar o Translator usar seu fallback padrão
+     * 3. locale da empresa/filial vinculada ao usuário
+     * 4. Deixar o Translator usar seu fallback padrão
      */
     private function loadUserLocale(): void
     {
-        // Se já tiver um locale na sessão, não precisa buscar do banco
+        $translator = Translator::getInstance();
+
+        // Se já tiver um locale na sessão, sincronizar o Translator da requisição
         if (!empty($_SESSION['ui_locale'])) {
-            return;
+            $locale = $_SESSION['ui_locale'];
+            if ($translator->isSupported($locale)) {
+                $translator->setLocale($locale);
+                return;
+            }
+
+            unset($_SESSION['ui_locale']);
         }
 
         // Buscar locale do funcionário no banco
-        $user = Auth::user();
-        if (!empty($user['ui_locale'])) {
-            $locale = $user['ui_locale'];
+        $funcionarioId = Auth::id();
+        if ($funcionarioId) {
+            try {
+                $funcionario = (new Funcionario())->buscarPorId((int) $funcionarioId);
+                $locale = $funcionario['ui_locale'] ?? null;
 
-            // Validar e definir o locale
-            $translator = Translator::getInstance();
-            if ($translator->isSupported($locale)) {
-                $_SESSION['ui_locale'] = $locale;
-                $translator->setLocale($locale);
+                if (!empty($locale) && $translator->isSupported($locale)) {
+                    $_SESSION['user_locale'] = $locale;
+                    $translator->setLocale($locale);
+                    return;
+                }
+            } catch (\Exception $e) {
+                error_log('Erro ao carregar locale do funcionário: ' . $e->getMessage());
             }
+        }
+
+        // Buscar locale configurado na empresa/filial como fallback da interface
+        $empresa = Auth::empresa();
+        $locale = $empresa['locale'] ?? null;
+        if (!empty($locale) && $translator->isSupported($locale)) {
+            $_SESSION['empresa_ui_locale'] = $locale;
+            $translator->setLocale($locale);
+            unset($_SESSION['ui_locale']);
         }
     }
 }

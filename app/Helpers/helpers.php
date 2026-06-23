@@ -282,6 +282,34 @@ if (!function_exists('e')) {
     }
 }
 
+if (!function_exists('js_string')) {
+    /**
+     * Codifica uma string PHP como literal JavaScript seguro.
+     */
+    function js_string(?string $value): string
+    {
+        return json_encode(
+            $value ?? '',
+            JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_SLASHES
+            | JSON_HEX_TAG
+            | JSON_HEX_APOS
+            | JSON_HEX_AMP
+            | JSON_HEX_QUOT
+        );
+    }
+}
+
+if (!function_exists('js_t')) {
+    /**
+     * Traduz e codifica como literal JavaScript seguro.
+     */
+    function js_t(string $key, array $replace = [], ?string $locale = null): string
+    {
+        return js_string(t($key, $replace, $locale));
+    }
+}
+
 if (!function_exists('now')) {
     /**
      * Retorna a data/hora atual

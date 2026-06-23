@@ -195,6 +195,10 @@
                         <select id="id_veiculo" name="id_veiculo" class="form-input-group-field chosen-select" data-chosen-type="normal" data-chosen-placeholder="<?= t('modules.locacoes.messages.select_group_first') ?>">
                             <option value=""><?= t('modules.locacoes.messages.select_group_first') ?></option>
                         </select>
+                        <input type="hidden" id="id_veiculo_locked" name="id_veiculo" value="" disabled>
+                        <p id="vehicleLockedHint" class="text-xs text-slate-500 mt-1 hidden">
+                            <?= t('modules.locacoes.messages.vehicle_locked_use_substitution') ?>
+                        </p>
                     </div>
                 </div>
 
@@ -678,6 +682,9 @@
                         <button type="button" id="btnAdicionarParcela" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
                             <i class="fas fa-plus mr-1"></i><?= t('modules.locacoes.installments.add') ?>
                         </button>
+                        <button type="button" id="btnAdicionarAvaria" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
+                            <i class="fas fa-car-crash mr-1"></i><?= t('modules.locacoes.installments.add_damage') ?>
+                        </button>
                     </div>
                 </div>
 
@@ -760,6 +767,50 @@
                         <div class="md:col-span-6 form-input-group">
                             <label class="form-label-group"><?= t('modules.locacoes.installments.description') ?></label>
                             <input type="text" id="parcela_descricao" class="form-input-group-field" placeholder="<?= t('modules.locacoes.installments.optional_description') ?>">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="formAdicionarAvaria" class="bg-orange-50 p-4 rounded-md mb-4 hidden">
+                    <h4 class="text-sm font-semibold text-orange-700 mb-3"><?= t('modules.locacoes.installments.add_damage') ?></h4>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div class="md:col-span-2 form-input-group">
+                            <label class="form-label-group"><?= t('modules.locacoes.installments.value') ?></label>
+                            <div class="relative">
+                                <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
+                                <input type="text" id="avaria_valor" class="form-input-group-field pl-10 input-moeda">
+                            </div>
+                        </div>
+                        <div class="md:col-span-2 form-input-group">
+                            <label class="form-label-group"><?= t('modules.locacoes.installments.due_date') ?></label>
+                            <input type="date" id="avaria_data_venci" class="form-input-group-field">
+                        </div>
+                        <div class="md:col-span-3 form-input-group">
+                            <label class="form-label-group"><?= t('modules.locacoes.installments.bank_account') ?></label>
+                            <select id="avaria_id_conta" class="form-input-group-field">
+                                <option value=""><?= t('common.labels.select') ?></option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2 form-input-group">
+                            <label class="form-label-group"><?= t('modules.locacoes.installments.payment_method_short') ?></label>
+                            <select id="avaria_id_forma_pagamento" class="form-input-group-field">
+                                <option value=""><?= t('common.labels.select') ?></option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-3 form-input-group">
+                            <label class="form-label-group"><?= t('modules.locacoes.installments.description') ?></label>
+                            <input type="text" id="avaria_descricao" class="form-input-group-field" placeholder="<?= t('modules.locacoes.installments.damage_description_placeholder') ?>">
+                        </div>
+                    </div>
+                    <div class="mt-3 flex items-center justify-between gap-3">
+                        <span class="text-xs text-orange-700"><?= t('modules.locacoes.installments.damage_chart_account_hint') ?></span>
+                        <div class="flex gap-2">
+                            <button type="button" id="btnConfirmarAdicionarAvaria" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
+                                <i class="fas fa-check mr-1"></i><?= t('common.buttons.save') ?>
+                            </button>
+                            <button type="button" id="btnCancelarAdicionarAvaria" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
+                                <i class="fas fa-times mr-1"></i><?= t('common.buttons.cancel') ?>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1064,6 +1115,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         const isEditing = <?= isset($locacao) ? 'true' : 'false' ?>;
         const locacaoData = <?= isset($locacao) ? json_encode($locacao) : 'null' ?>;
+        const vehicleChangeLocked = isEditing && locacaoData && ['A', 'F'].includes(locacaoData.status);
 
         // ===== NAVEGACAO =====
 
@@ -3162,13 +3214,35 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
             const veiculoObrigatorio = !['R', 'P'].includes(status);
             const campoVeiculo = document.getElementById('id_veiculo');
+            const campoVeiculoLocked = document.getElementById('id_veiculo_locked');
             if (campoVeiculo) {
                 veiculoObrigatorio
                     ? campoVeiculo.setAttribute('required', '')
                     : campoVeiculo.removeAttribute('required');
+
+                if (vehicleChangeLocked) {
+                    campoVeiculo.disabled = true;
+                    campoVeiculo.removeAttribute('name');
+                    if (campoVeiculoLocked) {
+                        campoVeiculoLocked.disabled = false;
+                        campoVeiculoLocked.value = locacaoData?.id_veiculo || campoVeiculo.value || '';
+                    }
+                } else {
+                    campoVeiculo.disabled = false;
+                    campoVeiculo.setAttribute('name', 'id_veiculo');
+                    if (campoVeiculoLocked) {
+                        campoVeiculoLocked.disabled = true;
+                        campoVeiculoLocked.value = '';
+                    }
+                }
+
+                if (campoVeiculo.chosenSelect) {
+                    campoVeiculo.chosenSelect.refresh();
+                }
             }
             document.getElementById('campoVeiculoWrapper')?.classList.remove('hidden');
             document.getElementById('asterisco_id_veiculo')?.classList.toggle('hidden', !veiculoObrigatorio);
+            document.getElementById('vehicleLockedHint')?.classList.toggle('hidden', !vehicleChangeLocked);
 
             const grupoId = document.getElementById('id_grupo')?.value;
             if (grupoId) carregarVeiculosPorGrupo(grupoId);
@@ -3182,7 +3256,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             document.getElementById('parcelasTabelaWrapper')?.classList.toggle('hidden', !isEditing);
             document.getElementById('resumoFinanceiroParcelas')?.classList.toggle('hidden', !isEditing);
             if (!isEditing) {
-                ['formGerarParcelas', 'formAdicionarParcela', 'formMarcarPago'].forEach(id => {
+                ['formGerarParcelas', 'formAdicionarParcela', 'formAdicionarAvaria', 'formMarcarPago'].forEach(id => {
                     document.getElementById(id)?.classList.add('hidden');
                 });
             }
@@ -3423,7 +3497,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 // Contas bancarias
                 const contasResult = await API.get('/api/contas-bancarias/buscar');
                 if (contasResult.success && contasResult.data) {
-                    ['gerar_id_conta', 'parcela_id_conta', 'pagar_id_conta'].forEach(selectId => {
+                    ['gerar_id_conta', 'parcela_id_conta', 'avaria_id_conta', 'pagar_id_conta'].forEach(selectId => {
                         const sel = document.getElementById(selectId);
                         if (!sel) return;
                         sel.innerHTML = `<option value="">${i18n.select}</option>`;
@@ -3436,7 +3510,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 // Formas de pagamento
                 const fpResult = await API.get('/api/formas-pagamento');
                 if (fpResult.success && fpResult.data) {
-                    ['gerar_id_forma_pagamento', 'parcela_id_forma_pagamento', 'pagar_id_forma_pagamento'].forEach(selectId => {
+                    ['gerar_id_forma_pagamento', 'parcela_id_forma_pagamento', 'avaria_id_forma_pagamento', 'pagar_id_forma_pagamento'].forEach(selectId => {
                         const sel = document.getElementById(selectId);
                         if (!sel) return;
                         sel.innerHTML = `<option value="">${i18n.select}</option>`;
@@ -3454,6 +3528,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('btnGerarParcelas')?.addEventListener('click', () => {
             document.getElementById('formGerarParcelas')?.classList.toggle('hidden');
             document.getElementById('formAdicionarParcela')?.classList.add('hidden');
+            document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
             document.getElementById('formMarcarPago')?.classList.add('hidden');
         });
 
@@ -3502,6 +3577,15 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('btnAdicionarParcela')?.addEventListener('click', () => {
             document.getElementById('formAdicionarParcela')?.classList.toggle('hidden');
             document.getElementById('formGerarParcelas')?.classList.add('hidden');
+            document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
+            document.getElementById('formMarcarPago')?.classList.add('hidden');
+        });
+
+        document.getElementById('btnAdicionarAvaria')?.addEventListener('click', () => {
+            document.getElementById('formAdicionarAvaria')?.classList.toggle('hidden');
+            document.getElementById('formAdicionarParcela')?.classList.add('hidden');
+            document.getElementById('formGerarParcelas')?.classList.add('hidden');
+            document.getElementById('formMarcarPago')?.classList.add('hidden');
         });
 
         document.getElementById('btnCancelarGerarParcelas')?.addEventListener('click', () => {
@@ -3510,6 +3594,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         document.getElementById('btnCancelarAdicionarParcela')?.addEventListener('click', () => {
             document.getElementById('formAdicionarParcela')?.classList.add('hidden');
+        });
+
+        document.getElementById('btnCancelarAdicionarAvaria')?.addEventListener('click', () => {
+            document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
         });
 
         // Confirmar gerar parcelas
@@ -3595,6 +3683,47 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 }
             } catch (e) {
                 console.error('Erro ao adicionar parcela:', e);
+                window.parent.postMessage({ action: 'openAlert', message: i18n.installments.addError }, '*');
+            }
+        });
+
+        document.getElementById('btnConfirmarAdicionarAvaria')?.addEventListener('click', async () => {
+            if (!isEditing || !locacaoData) return;
+
+            const valor = document.getElementById('avaria_valor')?.value;
+            const dataVenci = document.getElementById('avaria_data_venci')?.value;
+            const idConta = document.getElementById('avaria_id_conta')?.value;
+            const idFormaPgto = document.getElementById('avaria_id_forma_pagamento')?.value;
+            const descricao = document.getElementById('avaria_descricao')?.value || '';
+
+            if (!valor || !dataVenci || !idConta || !idFormaPgto) {
+                window.parent.postMessage({ action: 'openAlert', message: i18n.allRequiredFields }, '*');
+                return;
+            }
+
+            try {
+                const result = await API.post(`/api/locacoes/${locacaoData.id}/parcelas`, {
+                    tipo_lancamento: 'avaria',
+                    valor: valor,
+                    data_venci: dataVenci,
+                    id_conta: idConta,
+                    id_forma_pagamento: idFormaPgto,
+                    descricao: descricao
+                });
+
+                if (result.success) {
+                    window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.installments.added }, '*');
+                    document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
+                    ['avaria_valor', 'avaria_data_venci', 'avaria_descricao'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.value = '';
+                    });
+                    carregarParcelas();
+                } else {
+                    window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.installments.addError }, '*');
+                }
+            } catch (e) {
+                console.error('Erro ao adicionar avaria:', e);
                 window.parent.postMessage({ action: 'openAlert', message: i18n.installments.addError }, '*');
             }
         });

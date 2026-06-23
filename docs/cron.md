@@ -283,6 +283,7 @@ Os jobs executados uma vez por dia ficam distribuídos na madrugada:
 | `03:00` | `RotateAuthorizationHoldsJob` |
 | `03:30` | `SerproAutoConsultaJob` |
 | `04:30` | `SendDailyCronSummaryJob` |
+| `08:00` | `SendFinanceiroCobrancasJob` |
 
 O `Scheduler` registra o resultado dos jobs diários em `storage/cron/daily-summary/YYYY-MM-DD.json`.
 O `SendDailyCronSummaryJob` envia um email único para `APP_COMPANY_EMAIL` com status, duração, mensagem e contadores de cada job diário.
@@ -298,6 +299,27 @@ Jobs recorrentes por minuto, 5, 15 ou 30 minutos não entram nesse resumo.
 - O job nunca deve alterar `contratos.data_ini` nem `contratos.data_fim`; esses campos guardam o período original/contratual.
 - O período de cobrança da renovação é calculado temporariamente entre a `data_renovacao` atual e a nova `data_renovacao`.
 - Caso existam contratos antigos com `data_ini`/`data_fim` deslocadas por autorrenovação, a correção deve ser feita pelo script `scripts/corrigir-datas-contratos-autorenovacao.php`, sempre começando por `--dry-run`.
+
+---
+
+### SendFinanceiroCobrancasJob
+
+**Descrição**: envia cobranças automáticas de receitas pendentes com cliente.
+
+**Arquivo**: `app/Crons/Jobs/SendFinanceiroCobrancasJob.php`
+
+**Frequência**: diariamente às 08:00.
+
+**Lógica**:
+
+1. Busca receitas pendentes (`financeiro.tipo = 'R'`, `financeiro.pago = 'N'`) com cliente vinculado.
+2. Envia `payment_reminder` 1 dia antes do vencimento (`data_venci = amanhã`).
+3. Envia `overdue_notice` para faturas vencidas (`data_venci < hoje`) no máximo uma vez a cada 7 dias por fatura/canal.
+4. Antes do envio, cria ou reutiliza o link público de pagamento com `PagamentoLinkSyncService`, mantendo o mesmo `/pagar/{codigo}` atualizado.
+5. Enfileira email quando o cliente possui email. WhatsApp e SMS só são enfileirados se a filial tiver conexão validada/conectada e o cliente possuir telefone.
+6. Registra cada tentativa em `financeiro_cobrancas_notificacoes` para evitar duplicidade.
+
+O job não cria cobrança externa diretamente no gateway. A cobrança externa é criada no fluxo público de pagamento quando o cliente acessa o link e escolhe a forma/gateway.
 
 ---
 

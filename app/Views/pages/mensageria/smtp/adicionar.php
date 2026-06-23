@@ -98,7 +98,7 @@
         noBranches: '<?= addslashes(t("modules.mensageria.common.no_branches")) ?>',
         alreadyLinked: '<?= addslashes(t("modules.mensageria.common.already_linked")) ?>',
         fillRequired: '<?= addslashes(t("modules.mensageria.common.fill_required")) ?>',
-        selectBranch: '<?= addslashes(t("modules.mensageria.common.select_branch")) ?>',
+        selectBranch: <?= js_t("modules.mensageria.common.select_branch") ?>,
         creating: '<?= addslashes(t("common.labels.creating")) ?>',
         smtpCreated: '<?= addslashes(t("modules.mensageria.messages.smtp_created")) ?>',
         smtpCreateError: '<?= addslashes(t("modules.mensageria.messages.smtp_create_error")) ?>',

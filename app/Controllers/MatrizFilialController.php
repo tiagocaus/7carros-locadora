@@ -13,6 +13,7 @@ use App\Models\Feriado;
 use App\Models\ContatoEmail;
 use App\Models\ContatoTelefone;
 use App\Helpers\FileHelper;
+use App\Helpers\ImageHelper;
 use App\Helpers\FilialHelper;
 use App\Helpers\PlanoLimiteHelper;
 use App\Services\AuditLogService;
@@ -181,13 +182,10 @@ class MatrizFilialController
                 $dados['status'] = 'A';
             }
 
-            // Processar upload de logo usando FileHelper
+            // Processar upload de logo como imagem.
             $logoBase64 = $request->input('logo_base64', '');
             if (!empty($logoBase64)) {
-                $filename = FileHelper::save($logoBase64, 'logo');
-                if ($filename) {
-                    $dados['logo'] = $filename;
-                }
+                $dados['logo'] = $this->salvarLogoImagem($logoBase64);
             }
 
             // Remover campos vazios
@@ -243,6 +241,11 @@ class MatrizFilialController
                 'message' => 'Matriz/Filial criada com sucesso',
                 'data' => ['id' => $id]
             ], 201);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,
@@ -292,18 +295,17 @@ class MatrizFilialController
                 return;
             }
 
-            // Processar upload de logo usando FileHelper
+            // Processar upload de logo como imagem.
             $logoBase64 = $request->input('logo_base64', '');
             if (!empty($logoBase64)) {
+                $filename = $this->salvarLogoImagem($logoBase64);
+
                 // Apagar logo antigo
                 if (!empty($registroExistente['logo'])) {
                     FileHelper::delete($registroExistente['logo'], $registroExistente['chave']);
                 }
 
-                $filename = FileHelper::save($logoBase64, 'logo');
-                if ($filename) {
-                    $dados['logo'] = $filename;
-                }
+                $dados['logo'] = $filename;
             }
 
             // Remover campos não fornecidos
@@ -384,6 +386,11 @@ class MatrizFilialController
                 'success' => true,
                 'message' => 'Matriz/Filial atualizada com sucesso'
             ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,
@@ -453,6 +460,25 @@ class MatrizFilialController
                 'message' => 'Erro ao excluir matriz/filial: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Salva logo aceitando apenas imagens. Documentos/PDFs quebram o cabeçalho
+     * dos PDFs gerados pelo mPDF, que usa o logo dentro de uma tag <img>.
+     */
+    private function salvarLogoImagem(string $base64): string
+    {
+        $validation = ImageHelper::validate($base64);
+        if (!$validation['valid'] || !str_starts_with((string) ($validation['mime'] ?? ''), 'image/')) {
+            throw new \InvalidArgumentException('O logo deve ser uma imagem válida (PNG, JPG, GIF ou WebP).');
+        }
+
+        $filename = ImageHelper::save($base64, 'logo');
+        if (!$filename) {
+            throw new \InvalidArgumentException('Não foi possível salvar o logo informado.');
+        }
+
+        return $filename;
     }
 
     /**

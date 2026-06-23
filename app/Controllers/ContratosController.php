@@ -25,6 +25,7 @@ use App\Models\Cliente;
 use App\Models\Fornecedor;
 use App\Models\Checklist;
 use App\Models\ChecklistModelo;
+use App\Models\PlanoDeContas;
 use App\Models\Whatsapp;
 use App\Models\Sms;
 use App\Config\Planos;
@@ -1046,13 +1047,19 @@ class ContratosController
                 $veiculos = $dados['veiculos'];
             } elseif (!empty($dados['id_contrato_veiculo'])) {
                 // Compatibilidade com formato legado
-                $veiculos = [[
+                $veiculoLegado = [
                     'id_contrato_veiculo' => $dados['id_contrato_veiculo'],
                     'odometro_entrada' => $dados['odometro_entrada'] ?? 0,
                     'combustivel_entrada' => $dados['combustivel_entrada'] ?? null,
                     'acao_veiculo' => 'disponivel',
                     'observacao' => $dados['motivo_saida'] ?? null,
-                ]];
+                ];
+
+                if (array_key_exists('data_entrada', $dados)) {
+                    $veiculoLegado['data_entrada'] = $dados['data_entrada'];
+                }
+
+                $veiculos = [$veiculoLegado];
             }
 
             if (empty($veiculos)) {
@@ -1074,6 +1081,34 @@ class ContratosController
                     continue;
                 }
 
+                $dataEntrada = null;
+                if (array_key_exists('data_entrada', $vData)) {
+                    $dataEntrada = $this->normalizarDataEntradaContrato($vData['data_entrada']);
+                    if ($dataEntrada === null) {
+                        Response::json([
+                            'success' => false,
+                            'message' => 'Data/hora de devolucao invalida'
+                        ], 422);
+                        return;
+                    }
+
+                    if (!empty($veiculoContrato['data_saida']) && strtotime($dataEntrada) < strtotime((string) $veiculoContrato['data_saida'])) {
+                        Response::json([
+                            'success' => false,
+                            'message' => 'Data/hora de devolucao nao pode ser anterior a data/hora de saida do veiculo'
+                        ], 422);
+                        return;
+                    }
+
+                    if (strtotime($dataEntrada) > time() + 60) {
+                        Response::json([
+                            'success' => false,
+                            'message' => 'Data/hora de devolucao nao pode ser futura'
+                        ], 422);
+                        return;
+                    }
+                }
+
                 $odometroEntrada = $this->normalizarOdometroContrato($vData['odometro_entrada'] ?? 0);
                 $odometroMinimo = max(
                     (int) ($veiculoContrato['odometro_saida'] ?? 0),
@@ -1092,7 +1127,7 @@ class ContratosController
                 $observacao = $vData['observacao'] ?? $vData['motivo_saida'] ?? null;
 
                 // 1. Registrar devolucao
-                $veiculoModel->devolver($idCv, $odometroEntrada, $combustivelEntrada, $observacao);
+                $veiculoModel->devolver($idCv, $odometroEntrada, $combustivelEntrada, $observacao, $dataEntrada);
                 $veiculoModelGeral->atualizarOdometro((int) $veiculoContrato['id_veiculo'], $odometroEntrada);
 
                 // 2. Atualizar disponibilidade do veiculo
@@ -2947,6 +2982,24 @@ class ContratosController
             }
 
             $dados = $request->all();
+            $tipoLancamento = (string) ($dados['tipo_lancamento'] ?? '');
+
+            if ($tipoLancamento === 'avaria') {
+                $planoAvarias = (new PlanoDeContas())->buscarPorHierarquia(Contrato::PLANO_CONTA_AVARIAS);
+                if (!$planoAvarias || ($planoAvarias['tipo'] ?? '') !== 'R') {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Plano de contas de avarias não encontrado'
+                    ], 400);
+                    return;
+                }
+
+                $dados['id_plano_de_conta'] = (int) $planoAvarias['id'];
+                $dados['descricao'] = trim((string) ($dados['descricao'] ?? ''));
+                if ($dados['descricao'] === '') {
+                    $dados['descricao'] = "Contrato #{$contrato['codigo']} - Avaria";
+                }
+            }
 
             // Validações
             if (empty($dados['data_venci'])) {
@@ -2968,13 +3021,17 @@ class ContratosController
             $parcelaId = $contratoModel->adicionarParcelaAvulsa($id, $dados, $chave);
 
             // Log de auditoria
+            $acaoLog = $tipoLancamento === 'avaria'
+                ? 'adicionou cobrança de avaria ao contrato'
+                : 'adicionou parcela avulsa ao contrato';
+
             AuditLogService::registrar(
-                ($_SESSION['user_name'] ?? 'Sistema') . ", adicionou parcela avulsa ao contrato [{$contrato['codigo']}]"
+                ($_SESSION['user_name'] ?? 'Sistema') . ", {$acaoLog} [{$contrato['codigo']}]"
             );
 
             Response::json([
                 'success' => true,
-                'message' => 'Parcela adicionada com sucesso',
+                'message' => $tipoLancamento === 'avaria' ? 'Avaria adicionada com sucesso' : 'Parcela adicionada com sucesso',
                 'data' => ['id' => $parcelaId]
             ]);
         } catch (\Exception $e) {
@@ -2982,6 +3039,166 @@ class ContratosController
                 'success' => false,
                 'message' => 'Erro ao adicionar parcela: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Atualiza uma parcela pendente do contrato.
+     *
+     * POST /api/contratos/{id}/parcelas/{idParcela}/atualizar
+     */
+    public function atualizarParcela(Request $request, int $id, int $idParcela): void
+    {
+        try {
+            $contratoModel = new Contrato();
+            $contrato = $contratoModel->buscarPorId($id);
+
+            if (!$contrato) {
+                Response::json(['success' => false, 'message' => 'Contrato não encontrado'], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if ($contrato['chave'] !== $chave) {
+                Response::json(['success' => false, 'message' => 'Acesso negado'], 403);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($contrato['id_matriz_filial_retirada'] ?? null)) {
+                Response::json(['success' => false, 'message' => 'Acesso negado'], 403);
+                return;
+            }
+
+            $contratoModel->atualizarParcelaContrato($id, $idParcela, $request->all());
+
+            Response::json(['success' => true, 'message' => 'Parcela atualizada com sucesso']);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao atualizar parcela: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Remove uma parcela pendente do contrato.
+     *
+     * POST /api/contratos/{id}/parcelas/{idParcela}/excluir
+     */
+    public function removerParcela(Request $request, int $id, int $idParcela): void
+    {
+        try {
+            $contratoModel = new Contrato();
+            $contrato = $contratoModel->buscarPorId($id);
+
+            if (!$contrato) {
+                Response::json(['success' => false, 'message' => 'Contrato não encontrado'], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if ($contrato['chave'] !== $chave) {
+                Response::json(['success' => false, 'message' => 'Acesso negado'], 403);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($contrato['id_matriz_filial_retirada'] ?? null)) {
+                Response::json(['success' => false, 'message' => 'Acesso negado'], 403);
+                return;
+            }
+
+            $contratoModel->removerParcelaContrato($id, $idParcela);
+
+            AuditLogService::registrar(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", removeu parcela do contrato [{$contrato['codigo']}]"
+            );
+
+            Response::json(['success' => true, 'message' => 'Parcela removida com sucesso']);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao remover parcela: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Marca uma parcela do contrato como paga.
+     *
+     * POST /api/contratos/{id}/parcelas/{idParcela}/marcar-pago
+     */
+    public function marcarParcelaPaga(Request $request, int $id, int $idParcela): void
+    {
+        try {
+            $contratoModel = new Contrato();
+            $contrato = $contratoModel->buscarPorId($id);
+
+            if (!$contrato) {
+                Response::json(['success' => false, 'message' => 'Contrato não encontrado'], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if ($contrato['chave'] !== $chave) {
+                Response::json(['success' => false, 'message' => 'Acesso negado'], 403);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($contrato['id_matriz_filial_retirada'] ?? null)) {
+                Response::json(['success' => false, 'message' => 'Acesso negado'], 403);
+                return;
+            }
+
+            $contratoModel->marcarParcelaContratoPaga($id, $idParcela, $request->all());
+
+            AuditLogService::registrar(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", marcou parcela como paga no contrato [{$contrato['codigo']}]"
+            );
+
+            Response::json(['success' => true, 'message' => 'Parcela marcada como paga']);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao marcar parcela como paga: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Estorna o pagamento de uma parcela do contrato.
+     *
+     * POST /api/contratos/{id}/parcelas/{idParcela}/estornar
+     */
+    public function estornarParcelaPagamento(Request $request, int $id, int $idParcela): void
+    {
+        try {
+            $contratoModel = new Contrato();
+            $contrato = $contratoModel->buscarPorId($id);
+
+            if (!$contrato) {
+                Response::json(['success' => false, 'message' => 'Contrato não encontrado'], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if ($contrato['chave'] !== $chave) {
+                Response::json(['success' => false, 'message' => 'Acesso negado'], 403);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($contrato['id_matriz_filial_retirada'] ?? null)) {
+                Response::json(['success' => false, 'message' => 'Acesso negado'], 403);
+                return;
+            }
+
+            $contratoModel->estornarParcelaContratoPagamento($id, $idParcela);
+
+            AuditLogService::registrar(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", estornou pagamento de parcela do contrato [{$contrato['codigo']}]"
+            );
+
+            Response::json(['success' => true, 'message' => 'Pagamento estornado']);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao estornar pagamento: ' . $e->getMessage()], 500);
         }
     }
 
@@ -3512,6 +3729,25 @@ class ContratosController
         }
 
         return (int) preg_replace('/\D+/', '', (string) $valor);
+    }
+
+    private function normalizarDataEntradaContrato(mixed $valor): ?string
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '') {
+            return null;
+        }
+
+        $formatos = ['Y-m-d\TH:i', 'Y-m-d\TH:i:s', 'Y-m-d H:i:s', 'Y-m-d H:i'];
+
+        foreach ($formatos as $formato) {
+            $data = \DateTimeImmutable::createFromFormat($formato, $valor);
+            if ($data instanceof \DateTimeImmutable && $data->format($formato) === $valor) {
+                return $data->format('Y-m-d H:i:s');
+            }
+        }
+
+        return null;
     }
 
     /**

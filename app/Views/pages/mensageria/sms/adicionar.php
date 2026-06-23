@@ -53,7 +53,7 @@
         noBranches: '<?= addslashes(t("modules.mensageria.common.no_branches")) ?>',
         alreadyLinked: '<?= addslashes(t("modules.mensageria.common.already_linked")) ?>',
         fillRequired: '<?= addslashes(t("modules.mensageria.common.fill_required")) ?>',
-        selectBranch: '<?= addslashes(t("modules.mensageria.common.select_branch")) ?>',
+        selectBranch: <?= js_t("modules.mensageria.common.select_branch") ?>,
         creating: '<?= addslashes(t("common.labels.creating")) ?>',
         smsCreated: '<?= addslashes(t("modules.mensageria.messages.sms_created")) ?>',
         smsCreateError: '<?= addslashes(t("modules.mensageria.messages.sms_create_error")) ?>',

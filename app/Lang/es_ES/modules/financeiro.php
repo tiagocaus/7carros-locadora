@@ -29,6 +29,7 @@ return [
         'client' => 'Cliente',
         'supplier' => 'Proveedor',
         'employee' => 'Empleado',
+        'vehicle' => 'Vehículo',
         'subtotal' => 'Subtotal',
         'interest' => 'Intereses',
         'penalty' => 'Multa',
@@ -48,7 +49,7 @@ return [
     'sections' => [
         'basic_data' => 'Datos Básicos',
         'links' => 'Vínculo(s)',
-        'links_hint' => 'rellene al menos uno: Cliente, Proveedor o Empleado',
+        'links_hint' => 'rellene al menos uno: Cliente, Proveedor, Empleado o Vehículo',
         'values' => 'Valores',
         'items' => 'Elementos del Movimiento',
         'items_hint' => 'opcional - si se informa, el Subtotal se calculará automáticamente',
@@ -206,7 +207,8 @@ return [
         'partial_use_button' => 'Use el botón Crear diferencia para registrar un pago parcial',
         // Validação
         'required_field' => 'Campo obligatorio: :field',
-        'fill_at_least_one_link' => 'Rellene al menos uno: Cliente, Proveedor o Empleado',
+        'fill_at_least_one_link' => 'Rellene al menos uno: Cliente, Proveedor, Empleado o Vehículo',
+        'vehicle_link_item_mismatch' => 'El vehículo del vínculo es diferente del vehículo informado en un elemento. Quite el vehículo del vínculo o use el mismo vehículo en los elementos.',
         'inform_value_or_item' => 'Indique el Subtotal o añada al menos un elemento',
         'payment_date_required' => 'La Fecha de Pago es obligatoria cuando el movimiento está marcado como pagado',
     ],

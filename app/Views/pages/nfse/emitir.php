@@ -56,9 +56,13 @@
                             <label class="form-label-group"><?= t('modules.nfse.fields.tomador_cpf_cnpj') ?></label>
                             <input type="text" name="tomador_cpf_cnpj" id="tomadorCpfCnpj" class="form-input-group-field bg-slate-50" readonly>
                         </div>
-                        <div class="md:col-span-12 form-input-group">
+                        <div class="md:col-span-8 form-input-group">
                             <label class="form-label-group"><?= t('modules.nfse.fields.tomador_email') ?></label>
                             <input type="email" name="tomador_email" id="tomadorEmail" class="form-input-group-field">
+                        </div>
+                        <div class="md:col-span-4 form-input-group">
+                            <label class="form-label-group"><?= t('modules.nfse.fields.tomador_codigo_municipio') ?></label>
+                            <input type="text" name="tomador_codigo_municipio" id="tomadorCodigoMunicipio" class="form-input-group-field" maxlength="7" placeholder="0000000">
                         </div>
                     </div>
                 </div>
@@ -152,17 +156,17 @@
 
             <!-- Resumo tributos -->
             <div class="mt-4 p-3 bg-slate-50 rounded-lg">
-                <div class="grid grid-cols-3 gap-4 text-sm text-center">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-center">
                     <div>
                         <span class="text-slate-500">ISS</span>
                         <div class="font-medium" id="resumoISS">R$ 0,00</div>
                     </div>
-                    <div>
-                        <span class="text-slate-500">IBS (0,10%)</span>
+                    <div id="resumoIBSBox" class="hidden">
+                        <span class="text-slate-500" id="resumoIBSLabel">IBS</span>
                         <div class="font-medium" id="resumoIBS">R$ 0,00</div>
                     </div>
-                    <div>
-                        <span class="text-slate-500">CBS (0,90%)</span>
+                    <div id="resumoCBSBox" class="hidden">
+                        <span class="text-slate-500" id="resumoCBSLabel">CBS</span>
                         <div class="font-medium" id="resumoCBS">R$ 0,00</div>
                     </div>
                 </div>
@@ -281,6 +285,7 @@
         document.getElementById('tomadorNome').value = financeiroData.cliente_nome || '';
         document.getElementById('tomadorCpfCnpj').value = financeiroData.cliente_cpf_cnpj || '';
         document.getElementById('tomadorEmail').value = financeiroData.cliente_email || '';
+        document.getElementById('tomadorCodigoMunicipio').value = financeiroData.cliente_codigo_municipio || '';
 
         // Valor
         const valorTotal = parseFloat(financeiroData.valor_total || 0);
@@ -417,12 +422,19 @@
 
         const tribISSQN = configData ? parseInt(configData.trib_issqn || 4) : 4;
         const valorISS = tribISSQN === 1 ? Math.max(0, baseCalculo) * (aliquotaISS / 100) : 0;
-        const valorIBS = valorServicos * (0.10 / 100);
-        const valorCBS = valorServicos * (0.90 / 100);
+        const preencherIBSCBS = configData?.preencher_ibscbs === 'S';
+        const aliquotaIBS = preencherIBSCBS ? parseFloat(configData?.aliquota_ibs || 0) : 0;
+        const aliquotaCBS = preencherIBSCBS ? parseFloat(configData?.aliquota_cbs || 0) : 0;
+        const valorIBS = preencherIBSCBS ? valorServicos * (aliquotaIBS / 100) : 0;
+        const valorCBS = preencherIBSCBS ? valorServicos * (aliquotaCBS / 100) : 0;
 
         document.getElementById('resumoISS').textContent = Currency.format(valorISS, true);
         document.getElementById('resumoIBS').textContent = Currency.format(valorIBS, true);
         document.getElementById('resumoCBS').textContent = Currency.format(valorCBS, true);
+        document.getElementById('resumoIBSLabel').textContent = `IBS (${aliquotaIBS.toFixed(2).replace('.', ',')}%)`;
+        document.getElementById('resumoCBSLabel').textContent = `CBS (${aliquotaCBS.toFixed(2).replace('.', ',')}%)`;
+        document.getElementById('resumoIBSBox').classList.toggle('hidden', !preencherIBSCBS);
+        document.getElementById('resumoCBSBox').classList.toggle('hidden', !preencherIBSCBS);
     }
 
     function calcularTotalNaoTributavel() {
@@ -506,6 +518,7 @@
                 tomador_cpf_cnpj: document.getElementById('tomadorCpfCnpj').value,
                 tomador_nome: document.getElementById('tomadorNome').value,
                 tomador_email: document.getElementById('tomadorEmail').value,
+                tomador_codigo_municipio: document.getElementById('tomadorCodigoMunicipio').value.replace(/\D/g, ''),
             };
 
             const result = await API.post('/nfse/emitir', dados);
@@ -524,11 +537,11 @@
                     return;
                 }
 
-                const msg = formatarErroNfse(result, '<?= t('modules.nfse.messages.emit_error') ?>');
+                const msg = formatarErroNfse(result, <?= js_t('modules.nfse.messages.emit_error') ?>);
                 window.parent.postMessage({ action: 'openAlert', message: msg }, '*');
             }
         } catch (e) {
-            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.emit_error') ?>' }, '*');
+            window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.emit_error') ?> }, '*');
         } finally {
             btn.innerHTML = textoOriginal;
             btn.disabled = false;

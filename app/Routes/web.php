@@ -1000,6 +1000,10 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/api/contratos/preview-parcelas', [ContratosController::class, 'previewParcelasStateless'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/contratos/{id}/gerar-parcelas', [ContratosController::class, 'gerarParcelas'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/contratos/{id}/parcela-avulsa', [ContratosController::class, 'parcelaAvulsa'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/parcelas/{idParcela}/atualizar', [ContratosController::class, 'atualizarParcela'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/parcelas/{idParcela}/excluir', [ContratosController::class, 'removerParcela'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/parcelas/{idParcela}/marcar-pago', [ContratosController::class, 'marcarParcelaPaga'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/parcelas/{idParcela}/estornar', [ContratosController::class, 'estornarParcelaPagamento'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/contratos/{id}/recalcular-parcelas', [ContratosController::class, 'recalcularParcelas'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Bloqueio (Authorization Hold) - Contratos
@@ -1021,6 +1025,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/pages/locacoes', [LocacoesController::class, 'view']);
     $router->get('/pages/locacoes/adicionar', [LocacoesController::class, 'formView']);
     $router->get('/pages/locacoes/editar/{id}', [LocacoesController::class, 'editView']);
+    $router->get('/pages/locacoes/substituir/{id}', [LocacoesController::class, 'substituirView']);
 
     // API Locacoes (com protecao anti-scraping e CSRF)
     $router->get('/api/locacoes', [LocacoesController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
@@ -1038,6 +1043,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/locacoes/{id}/excluir', [LocacoesController::class, 'destroy'], ['csrf', 'rate_limit']);
 
     // Acoes de Locacoes
+    $router->post('/locacoes/{id}/substituir', [LocacoesController::class, 'substituir'], ['csrf', 'rate_limit']);
     $router->post('/locacoes/{id}/limpar-assinatura', [LocacoesController::class, 'limparAssinatura'], ['csrf', 'rate_limit']);
     $router->post('/locacoes/{id}/enviar-link-assinatura', [LocacoesController::class, 'enviarLinkAssinatura'], ['csrf', 'rate_limit']);
 

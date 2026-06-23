@@ -196,7 +196,7 @@
         thisInstallment: '<?= t("modules.promissorias.messages.this_installment") ?>',
         confirmDeleteInstallment: '<?= t("modules.promissorias.messages.confirm_delete_installment") ?>',
         installmentDeleted: '<?= t("modules.promissorias.messages.installment_deleted") ?>',
-        installmentDeleteError: '<?= t("modules.promissorias.messages.installment_delete_error") ?>',
+        installmentDeleteError: <?= js_t("modules.promissorias.messages.installment_delete_error") ?>,
         allAlreadyPaid: '<?= t("modules.promissorias.messages.all_already_paid") ?>',
         markAllTitle: '<?= t("modules.promissorias.messages.mark_all_title") ?>',
         markAllConfirm: '<?= t("modules.promissorias.messages.mark_all_confirm") ?>',
@@ -208,7 +208,7 @@
         saveGeneralData: '<?= t("modules.promissorias.buttons.save_general_data") ?>',
         confirmDeletePromissory: '<?= t("modules.promissorias.messages.confirm_delete_promissory") ?>',
         deletedSuccess: '<?= t("modules.promissorias.messages.deleted_success") ?>',
-        deleteError: '<?= t("modules.promissorias.messages.delete_error") ?>',
+        deleteError: <?= js_t("modules.promissorias.messages.delete_error") ?>,
         printInstallmentTitle: '<?= t("modules.promissorias.messages.print_installment_title") ?>',
         titleSingular: '<?= t("modules.promissorias.title_singular") ?>',
     };

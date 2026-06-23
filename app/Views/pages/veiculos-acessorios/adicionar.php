@@ -53,9 +53,9 @@
         saving: '<?= addslashes(t("common.labels.saving")) ?>',
         save: '<?= addslashes(t("common.buttons.save")) ?>',
         notFound: '<?= addslashes(t("modules.veiculos_acessorios.messages.not_found")) ?>',
-        loadDataError: '<?= addslashes(t("modules.veiculos_acessorios.messages.load_data_error")) ?>',
-        saveError: '<?= addslashes(t("modules.veiculos_acessorios.messages.save_error")) ?>',
-        nameRequired: '<?= addslashes(t("modules.veiculos_acessorios.messages.name_required")) ?>',
+        loadDataError: <?= js_t("modules.veiculos_acessorios.messages.load_data_error") ?>,
+        saveError: <?= js_t("modules.veiculos_acessorios.messages.save_error") ?>,
+        nameRequired: <?= js_t("modules.veiculos_acessorios.messages.name_required") ?>,
     };
 
     // Elementos

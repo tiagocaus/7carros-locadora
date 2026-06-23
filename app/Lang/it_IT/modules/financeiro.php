@@ -29,6 +29,7 @@ return [
         'client' => 'Cliente',
         'supplier' => 'Fornitore',
         'employee' => 'Dipendente',
+        'vehicle' => 'Veicolo',
         'subtotal' => 'Subtotale',
         'interest' => 'Interessi',
         'penalty' => 'Penale',
@@ -48,7 +49,7 @@ return [
     'sections' => [
         'basic_data' => 'Dati di Base',
         'links' => 'Collegamento/i',
-        'links_hint' => 'compilare almeno uno: Cliente, Fornitore o Dipendente',
+        'links_hint' => 'compilare almeno uno: Cliente, Fornitore, Dipendente o Veicolo',
         'values' => 'Valori',
         'items' => 'Voci della Registrazione',
         'items_hint' => 'facoltativo - se indicato, il Subtotale sarà calcolato automaticamente',
@@ -212,7 +213,8 @@ return [
         'partial_use_button' => 'Usare il pulsante Crea differenza per registrare un pagamento parziale',
         // Validazione
         'required_field' => 'Campo obbligatorio: :field',
-        'fill_at_least_one_link' => 'Compilare almeno uno: Cliente, Fornitore o Dipendente',
+        'fill_at_least_one_link' => 'Compilare almeno uno: Cliente, Fornitore, Dipendente o Veicolo',
+        'vehicle_link_item_mismatch' => 'Il veicolo del collegamento è diverso dal veicolo indicato in una voce. Rimuovere il veicolo dal collegamento o usare lo stesso veicolo nelle voci.',
         'inform_value_or_item' => 'Indicare il Subtotale o aggiungere almeno una voce',
         'payment_date_required' => 'La Data del Pagamento è obbligatoria quando la registrazione è contrassegnata come pagata',
     ],

@@ -15,6 +15,7 @@ use App\Models\TaxaServico;
 use App\Models\Cliente;
 use App\Models\Fornecedor;
 use App\Models\MatrizFilial;
+use App\Models\PlanoDeContas;
 use App\Helpers\FilialHelper;
 use App\Helpers\PdfHelper;
 use App\Helpers\FileHelper;
@@ -199,6 +200,56 @@ class LocacoesController
 
         $html = Template::render('pages.locacoes.adicionar', [
             'locacao' => $locacao,
+        ]);
+        Response::html($html);
+    }
+
+    /**
+     * Renderiza a tela dedicada de substituicao de veiculo.
+     *
+     * GET /pages/locacoes/substituir/{id}
+     */
+    public function substituirView(Request $request, int $id): void
+    {
+        if (!Auth::can('locacoes.substituir')) {
+            Response::redirect('/pages/locacoes');
+            return;
+        }
+
+        $locacaoModel = new Locacao();
+        $locacao = $locacaoModel->buscarPorId($id);
+
+        if (!$locacao) {
+            Response::redirect('/pages/locacoes');
+            return;
+        }
+
+        if (($locacao['chave'] ?? '') !== Auth::chave()) {
+            Response::redirect('/pages/locacoes');
+            return;
+        }
+
+        if (!FilialHelper::temAcessoFilial($locacao['id_matriz_filial_retirada'] ?? null)) {
+            Response::redirect('/pages/locacoes');
+            return;
+        }
+
+        if (($locacao['status'] ?? '') !== 'A') {
+            Response::redirect('/pages/locacoes');
+            return;
+        }
+
+        $locacaoVeiculoModel = new LocacaoVeiculo();
+        $veiculoAtivo = $locacaoVeiculoModel->buscarAtivo($id);
+
+        if (!$veiculoAtivo || empty($veiculoAtivo['id_veiculo'])) {
+            Response::redirect('/pages/locacoes');
+            return;
+        }
+
+        $html = Template::render('pages.locacoes.substituir', [
+            'locacao' => $locacao,
+            'veiculoAtivo' => $veiculoAtivo,
         ]);
         Response::html($html);
     }
@@ -686,6 +737,24 @@ class LocacoesController
                 ($statusAnterior === 'A' && $statusNovo === 'F')
             );
 
+            if (
+                in_array($statusAnterior, ['A', 'F'], true) &&
+                array_key_exists('id_veiculo', $dados) &&
+                !empty($dados['id_veiculo']) &&
+                !empty($locacao['id_veiculo']) &&
+                (int) $dados['id_veiculo'] !== (int) $locacao['id_veiculo']
+            ) {
+                Response::json([
+                    'success' => false,
+                    'message' => $this->apiMessage(
+                        $statusAnterior === 'A'
+                            ? 'vehicle_change_use_substitution'
+                            : 'vehicle_change_closed_blocked'
+                    )
+                ], 422);
+                return;
+            }
+
             if (!in_array($statusNovo, ['R', 'P'], true) && empty($dados['id_veiculo']) && empty($locacao['id_veiculo'])) {
                 Response::json(['success' => false, 'message' => $this->apiMessage('vehicle_required_open_closed')], 400);
                 return;
@@ -979,6 +1048,184 @@ class LocacoesController
             Response::json([
                 'success' => false,
                 'message' => $this->apiMessage('update_error', ['message' => $e->getMessage()])
+            ], 500);
+        }
+    }
+
+    /**
+     * Substitui o veiculo de uma locacao aberta.
+     *
+     * POST /locacoes/{id}/substituir
+     */
+    public function substituir(Request $request, int $id): void
+    {
+        try {
+            if (!Auth::can('locacoes.substituir')) {
+                Response::json([
+                    'success' => false,
+                    'message' => $this->apiMessage('no_permission_substitute')
+                ], 403);
+                return;
+            }
+
+            $locacaoModel = new Locacao();
+            $locacao = $locacaoModel->buscarPorId($id);
+
+            if (!$locacao) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('rental_not_found')], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if (($locacao['chave'] ?? '') !== $chave) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('access_denied')], 403);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($locacao['id_matriz_filial_retirada'] ?? null)) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('access_denied')], 403);
+                return;
+            }
+
+            if (($locacao['status'] ?? '') !== 'A') {
+                Response::json(['success' => false, 'message' => $this->apiMessage('substitution_only_open')], 422);
+                return;
+            }
+
+            $dados = $request->all();
+
+            if (empty($dados['id_locacao_veiculo_antigo'])) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('vehicle_to_replace_required')], 400);
+                return;
+            }
+
+            if (empty($dados['id_veiculo_novo'])) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('new_vehicle_required')], 400);
+                return;
+            }
+
+            $locacaoVeiculoModel = new LocacaoVeiculo();
+            $veiculoAntigo = $locacaoVeiculoModel->buscarPorId((int) $dados['id_locacao_veiculo_antigo']);
+
+            if (
+                !$veiculoAntigo ||
+                (int) ($veiculoAntigo['id_locacao'] ?? 0) !== $id ||
+                !empty($veiculoAntigo['data_entrada'])
+            ) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('vehicle_not_in_rental')], 400);
+                return;
+            }
+
+            $idVeiculoNovo = (int) $dados['id_veiculo_novo'];
+            if ((int) ($veiculoAntigo['id_veiculo'] ?? 0) === $idVeiculoNovo) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('new_vehicle_must_differ')], 400);
+                return;
+            }
+
+            $veiculoModel = new Veiculo();
+            $novoVeiculo = $veiculoModel->buscarPorId($idVeiculoNovo);
+            if (!$novoVeiculo) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('vehicle_not_found')], 404);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($novoVeiculo['id_matriz_filial_localizacao'] ?? $novoVeiculo['id_matriz_filial'] ?? null)) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('vehicle_access_denied')], 403);
+                return;
+            }
+
+            $locacaoConflitante = $locacaoVeiculoModel->veiculoEstaLocado($idVeiculoNovo, $id);
+            if ($locacaoConflitante) {
+                Response::json([
+                    'success' => false,
+                    'message' => $this->apiMessage('new_vehicle_already_rented', [
+                        'code' => $locacaoConflitante['locacao_codigo'] ?? '-'
+                    ])
+                ], 400);
+                return;
+            }
+
+            $disponibilidadeSync = new VeiculoDisponibilidadeSync();
+            if ($disponibilidadeSync->possuiVinculoAtivo($idVeiculoNovo, $chave)) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('new_vehicle_active_link')], 400);
+                return;
+            }
+
+            $odometroEntradaAntigo = $this->normalizarOdometro($dados['odometro_entrada'] ?? 0);
+            $odometroMinimoAntigo = (int) ($veiculoAntigo['odometro_saida'] ?? 0);
+            if ($odometroEntradaAntigo > 0 && $odometroEntradaAntigo < $odometroMinimoAntigo) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('return_odometer_invalid')], 422);
+                return;
+            }
+
+            $dadosSaida = [
+                'data_entrada' => $dados['data_entrada'] ?? date('Y-m-d H:i:s'),
+                'odometro_entrada' => $odometroEntradaAntigo,
+                'combustivel_entrada' => $dados['combustivel_entrada'] ?? null,
+                'motivo_saida' => $dados['motivo_saida'] ?? $this->apiMessage('substitution_default_reason'),
+            ];
+
+            $dadosNovo = [
+                'id_veiculo' => $idVeiculoNovo,
+                'id_grupo' => $dados['id_grupo_novo'] ?? ($novoVeiculo['id_grupo'] ?? null),
+                'data_saida' => $dados['data_saida_novo'] ?? date('Y-m-d H:i:s'),
+                'odometro_saida' => $this->normalizarOdometro($dados['odometro_saida_novo'] ?? 0),
+                'combustivel_saida' => $dados['combustivel_saida_novo'] ?? null,
+                'plano' => $dados['plano_novo'] ?? $veiculoAntigo['plano'] ?? 'KL',
+            ];
+
+            $camposValores = [
+                'valor_plano_km_pago', 'valor_plano_km_controlado', 'valor_plano_km_livre',
+                'km_franquia', 'valor_km_excedente', 'minutos_tolerancia', 'valor_tolerancia',
+                'valor_km_retorno', 'valor_condutor_adicional',
+                'seguro_carro', 'valor_seguro_carro', 'cobertura_carro',
+                'seguro_terceiros', 'valor_seguro_terceiros', 'cobertura_terceiros',
+            ];
+
+            foreach ($camposValores as $campo) {
+                if (array_key_exists($campo, $dados)) {
+                    $dadosNovo[$campo] = $dados[$campo];
+                }
+            }
+
+            $manterValores = !empty($dados['manter_valores']);
+            $novoId = $locacaoVeiculoModel->substituir(
+                (int) $dados['id_locacao_veiculo_antigo'],
+                $dadosSaida,
+                $dadosNovo,
+                $manterValores
+            );
+
+            if (!empty($veiculoAntigo['id_veiculo'])) {
+                $veiculoModel->atualizarOdometro((int) $veiculoAntigo['id_veiculo'], $odometroEntradaAntigo);
+                $disponibilidadeSync->liberarSeSemVinculoAtivo((int) $veiculoAntigo['id_veiculo'], 'D', $chave);
+            }
+            $disponibilidadeSync->marcarLocado($idVeiculoNovo, $chave);
+
+            $antigoDescricao = trim(($veiculoAntigo['veiculo_placa'] ?? '') . ' - ' . ($veiculoAntigo['veiculo_marca'] ?? '') . ' ' . ($veiculoAntigo['veiculo_modelo'] ?? ''));
+            $novoDescricao = trim(($novoVeiculo['placa'] ?? '') . ' - ' . ($novoVeiculo['marca'] ?? '') . ' ' . ($novoVeiculo['modelo'] ?? ''));
+
+            AuditLogService::registrarComCampos(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", substituiu veiculo na locacao [{$locacao['codigo']}]",
+                [
+                    AuditLogService::campo('Veículo', $antigoDescricao ?: '-', $novoDescricao ?: '-', 'Substituição'),
+                    AuditLogService::campo('Motivo', null, $dadosSaida['motivo_saida'] ?: '-', 'Substituição'),
+                    AuditLogService::campo('Odômetro Entrada', null, $odometroEntradaAntigo ?: '-', 'Substituição'),
+                    AuditLogService::campo('Ação Valores', null, $manterValores ? 'Manter valores atuais' : 'Usar valores do novo grupo', 'Substituição'),
+                ]
+            );
+
+            Response::json([
+                'success' => true,
+                'message' => $this->apiMessage('substitution_success'),
+                'data' => ['id_locacao_veiculo' => $novoId]
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => $this->apiMessage('substitution_error', ['message' => $e->getMessage()])
             ], 500);
         }
     }
@@ -1443,6 +1690,24 @@ class LocacoesController
             }
 
             $dados = $request->all();
+            $tipoLancamento = (string) ($dados['tipo_lancamento'] ?? '');
+
+            if ($tipoLancamento === 'avaria') {
+                $planoAvarias = (new PlanoDeContas())->buscarPorHierarquia(Locacao::PLANO_CONTA_AVARIAS);
+                if (!$planoAvarias || ($planoAvarias['tipo'] ?? '') !== 'R') {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Plano de contas de avarias não encontrado'
+                    ], 400);
+                    return;
+                }
+
+                $dados['id_plano_de_conta'] = (int) $planoAvarias['id'];
+                $dados['descricao'] = trim((string) ($dados['descricao'] ?? ''));
+                if ($dados['descricao'] === '') {
+                    $dados['descricao'] = "Locação #{$locacao['codigo']} - Avaria";
+                }
+            }
 
             if (empty($dados['valor'])) {
                 Response::json(['success' => false, 'message' => $this->apiMessage('value_required')], 400);
@@ -1467,13 +1732,15 @@ class LocacoesController
             $chave = Auth::chave();
             $idParcela = $locacaoModel->adicionarParcela($id, $dados, $chave);
 
-            AuditLogService::registrar(
-                ($_SESSION['user_name'] ?? 'Sistema') . ", adicionou parcela avulsa na locacao [{$locacao['codigo']}]"
-            );
+            $acaoLog = $tipoLancamento === 'avaria'
+                ? 'adicionou cobrança de avaria na locacao'
+                : 'adicionou parcela avulsa na locacao';
+
+            AuditLogService::registrar(($_SESSION['user_name'] ?? 'Sistema') . ", {$acaoLog} [{$locacao['codigo']}]");
 
             Response::json([
                 'success' => true,
-                'message' => $this->apiMessage('installment_added'),
+                'message' => $tipoLancamento === 'avaria' ? 'Avaria adicionada com sucesso' : $this->apiMessage('installment_added'),
                 'data' => ['id' => $idParcela]
             ]);
         } catch (\InvalidArgumentException $e) {

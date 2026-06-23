@@ -17,6 +17,7 @@
     let parcelasOriginais = []; // Para detectar alteracoes
     let confirmacaoPendente = null;
     let parcelaAvulsaRascunho = null;
+    let parcelaContratoAcaoPendente = null;
 
     // Cache de dados
     let gruposDisponiveis = [];
@@ -277,12 +278,17 @@
                 executarLimparParcelas();
             } else if (acao === 'regenerarPendentes') {
                 executarRegenerarPendentes();
+            } else if (acao === 'removerParcelaContrato') {
+                executarRemoverParcelaContrato();
+            } else if (acao === 'estornarParcelaContrato') {
+                executarEstornarParcelaContrato();
             }
             return;
         }
 
         if (event.data && event.data.action === 'genericModalClosed' && confirmacaoPendente) {
             confirmacaoPendente = null;
+            parcelaContratoAcaoPendente = null;
             return;
         }
 
@@ -2415,79 +2421,52 @@
     // Renderiza tabela de parcelas
     function renderizarParcelas() {
         const tbody = document.getElementById('tabelaParcelasBody');
+        if (!tbody) return;
         tbody.innerHTML = '';
+
+        if (parcelas.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="px-3 py-4 text-center text-slate-400">${i18n.noInstallments || 'Nenhuma parcela gerada'}</td></tr>`;
+            atualizarTotalParcelas();
+            return;
+        }
 
         let total = 0;
 
         parcelas.forEach((parcela, index) => {
-            const valor = parseFloat(parcela.valor_subtotal || parcela.valor_total || 0);
+            const valor = parseFloat(parcela.valor_total || parcela.valor_subtotal || 0);
             total += valor;
 
             const isPago = parcela.pago === 'S';
             const isAtrasado = !isPago && parcela.data_venci && parcela.data_venci < new Date().toISOString().slice(0, 10);
+            const descricao = parcela.descricao || (i18n.installmentLabel || 'Parcela :num').replace(':num', parcela.parcela || (index + 1));
 
             let statusHtml = '';
             if (isPago) {
-                statusHtml = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-700"><i class="fas fa-check mr-1"></i>${i18n.paid || 'Pago'}</span>`;
+                statusHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">${i18n.paid || 'Pago'}</span>`;
             } else if (isAtrasado) {
-                statusHtml = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-700"><i class="fas fa-exclamation-triangle mr-1"></i>${i18n.overdue || 'Atrasado'}</span>`;
+                statusHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">${i18n.overdue || 'Atrasado'}</span>`;
             } else {
-                statusHtml = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700"><i class="fas fa-clock mr-1"></i>${i18n.pending || 'Pendente'}</span>`;
+                statusHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">${i18n.pending || 'Pendente'}</span>`;
             }
 
+            const acoes = isPago
+                ? `<button type="button" class="btn-icon text-amber-600 hover:text-amber-800 btn-estornar-parcela-contrato" data-id="${parcela.id}" title="${i18n.reversePayment || 'Estornar pagamento'}"><i class="fas fa-undo"></i></button>
+                   <button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-abrir-financeiro" data-id="${parcela.id}" title="${i18n.viewInFinancial || 'Ver no Financeiro'}"><i class="fas fa-external-link-alt"></i></button>`
+                : `<button type="button" class="btn-icon text-emerald-600 hover:text-emerald-800 btn-marcar-pago-contrato" data-index="${index}" title="${i18n.markPaid || 'Marcar como paga'}"><i class="fas fa-check-circle"></i></button>
+                   <button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-editar-parcela-contrato" data-index="${index}" title="${i18n.editPayment || 'Editar pagamento'}"><i class="fas fa-edit"></i></button>
+                   <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-parcela-contrato" data-id="${parcela.id}" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`;
+
             const tr = document.createElement('tr');
-            tr.className = 'border-b hover:bg-slate-50';
+            tr.className = 'border-b border-slate-100 hover:bg-slate-50';
             tr.innerHTML = `
-                <td class="px-3 py-2 text-center font-medium">${parcela.parcela}/${parcela.total_parcelas}</td>
-                <td class="px-3 py-2">
-                    <select class="form-input-group-field text-sm parcela-conta" data-index="${index}" ${isPago ? 'disabled' : ''}>
-                        <option value="">${i18n.select || 'Selecione...'}</option>
-                    </select>
-                </td>
-                <td class="px-3 py-2">
-                    <select class="form-input-group-field text-sm parcela-forma" data-index="${index}" ${isPago ? 'disabled' : ''}>
-                        <option value="">${i18n.select || 'Selecione...'}</option>
-                    </select>
-                </td>
-                <td class="px-3 py-2 text-center">
-                    <input type="date" class="form-input-group-field text-sm parcela-vencimento" data-index="${index}" value="${parcela.data_venci || ''}" ${isPago ? 'disabled' : ''}>
-                </td>
-                <td class="px-3 py-2 text-right">
-                    <input type="text" class="form-input-group-field text-sm text-right parcela-valor input-moeda" data-index="${index}" value="${Currency.format(valor)}" ${isPago ? 'disabled' : ''}>
-                </td>
+                <td class="px-3 py-2 text-slate-500">${parcela.parcela || (index + 1)}</td>
+                <td class="px-3 py-2">${escapeHtml(descricao)}</td>
+                <td class="px-3 py-2 text-center">${formatarDataTabela(parcela.data_venci)}</td>
+                <td class="px-3 py-2 text-right font-medium">${Currency.format(valor)}</td>
                 <td class="px-3 py-2 text-center">${statusHtml}</td>
-                <td class="px-3 py-2 text-center">
-                    ${isPago && parcela.id
-                    ? `<button type="button" class="text-blue-600 hover:text-blue-800 btn-abrir-financeiro" data-id="${parcela.id}" title="${i18n.viewInFinancial || 'Ver no Financeiro'}"><i class="fas fa-external-link-alt"></i></button>`
-                    : isPago
-                        ? '<span class="text-slate-400">-</span>'
-                    : `<button type="button" class="text-red-600 hover:text-red-800 btn-remover-parcela" data-index="${index}" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`
-                }
-                </td>
+                <td class="px-3 py-2 text-center whitespace-nowrap">${acoes}</td>
             `;
             tbody.appendChild(tr);
-
-            // Preencher selects de conta e forma com TODAS as opcoes
-            const selectConta = tr.querySelector('.parcela-conta');
-            const selectForma = tr.querySelector('.parcela-forma');
-
-            // Conta bancaria - todas as opcoes
-            contasBancariasList.forEach(cb => {
-                const opt = document.createElement('option');
-                opt.value = cb.id;
-                opt.textContent = cb.nome;
-                if (cb.id == parcela.id_conta) opt.selected = true;
-                selectConta.appendChild(opt);
-            });
-
-            // Forma de pagamento - todas as opcoes
-            formasPagamentoList.forEach(fp => {
-                const opt = document.createElement('option');
-                opt.value = fp.id;
-                opt.textContent = fp.nome;
-                if (fp.id == parcela.id_forma_pagamento) opt.selected = true;
-                selectForma.appendChild(opt);
-            });
         });
 
         // Atualizar total
@@ -2500,33 +2479,41 @@
         const parcelasJsonEl = document.getElementById('parcelasJson');
         if (parcelasJsonEl) parcelasJsonEl.value = JSON.stringify(parcelas);
 
-        // Event listeners para alteracoes
-        tbody.querySelectorAll('.parcela-valor').forEach(input => {
-            input.addEventListener('change', function () {
-                const idx = parseInt(this.dataset.index);
-                parcelas[idx].valor_subtotal = Currency.parse(this.value);
-                parcelas[idx].valor_total = parcelas[idx].valor_subtotal;
-                atualizarTotalParcelas();
-            });
-        });
-
-        tbody.querySelectorAll('.parcela-vencimento').forEach(input => {
-            input.addEventListener('change', function () {
-                const idx = parseInt(this.dataset.index);
-                parcelas[idx].data_venci = this.value;
-            });
-        });
-
-        tbody.querySelectorAll('.btn-remover-parcela').forEach(btn => {
+        tbody.querySelectorAll('.btn-marcar-pago-contrato').forEach(btn => {
             btn.addEventListener('click', function () {
-                const idx = parseInt(this.dataset.index);
-                parcelas.splice(idx, 1);
-                // Renumerar parcelas
-                parcelas.forEach((p, i) => {
-                    p.parcela = i + 1;
-                    p.total_parcelas = parcelas.length;
-                });
-                renderizarParcelas();
+                abrirFormularioBaixaContrato(parseInt(this.dataset.index));
+            });
+        });
+
+        tbody.querySelectorAll('.btn-editar-parcela-contrato').forEach(btn => {
+            btn.addEventListener('click', function () {
+                abrirFormularioEdicaoContrato(parseInt(this.dataset.index));
+            });
+        });
+
+        tbody.querySelectorAll('.btn-remover-parcela-contrato').forEach(btn => {
+            btn.addEventListener('click', function () {
+                parcelaContratoAcaoPendente = { id: this.dataset.id };
+                confirmacaoPendente = 'removerParcelaContrato';
+                window.parent.postMessage({
+                    action: 'openGenericConfirmModal',
+                    title: i18n.removeTitle || 'Remover parcela',
+                    message: i18n.removeMessage || 'Deseja remover esta parcela?',
+                    confirmText: i18n.remove || 'Remover'
+                }, '*');
+            });
+        });
+
+        tbody.querySelectorAll('.btn-estornar-parcela-contrato').forEach(btn => {
+            btn.addEventListener('click', function () {
+                parcelaContratoAcaoPendente = { id: this.dataset.id };
+                confirmacaoPendente = 'estornarParcelaContrato';
+                window.parent.postMessage({
+                    action: 'openGenericConfirmModal',
+                    title: i18n.reverseTitle || 'Estornar pagamento',
+                    message: i18n.reverseMessage || 'Estornar o pagamento desta parcela?',
+                    confirmText: i18n.reverseConfirm || 'Estornar'
+                }, '*');
             });
         });
 
@@ -2535,9 +2522,6 @@
                 abrirLancamentoFinanceiro(this.dataset.id);
             });
         });
-
-        // Inicializar currency mask nos novos inputs
-        Currency.applyMaskToAll('input-moeda');
     }
 
     // Atualiza total das parcelas
@@ -2548,6 +2532,167 @@
         });
         const el = document.getElementById('totalParcelas');
         if (el) el.textContent = Currency.format(total);
+    }
+
+    function formatarDataTabela(data) {
+        if (!data) return '-';
+        const d = new Date(`${data}T00:00:00`);
+        return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR');
+    }
+
+    function popularSelectSimples(selectId, lista, selectedValue = '') {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        select.innerHTML = `<option value="">${i18n.select || 'Selecione...'}</option>`;
+        lista.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.nome;
+            if (String(item.id) === String(selectedValue || '')) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+    }
+
+    function esconderFormulariosPagamentoContrato() {
+        document.getElementById('formEditarParcelaContrato')?.classList.add('hidden');
+        document.getElementById('formMarcarPagoContrato')?.classList.add('hidden');
+        document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
+    }
+
+    function abrirFormularioEdicaoContrato(index) {
+        const parcela = parcelas[index];
+        if (!parcela || parcela.pago === 'S') return;
+
+        esconderFormulariosPagamentoContrato();
+        document.getElementById('editar_id_parcela_contrato').value = parcela.id || '';
+        document.getElementById('editar_descricao_contrato').value = parcela.descricao || '';
+        document.getElementById('editar_data_venci_contrato').value = parcela.data_venci || '';
+        document.getElementById('editar_valor_contrato').value = Currency.format(parseFloat(parcela.valor_total || parcela.valor_subtotal || 0));
+        popularSelectSimples('editar_id_conta_contrato', contasBancariasList, parcela.id_conta);
+        popularSelectSimples('editar_id_forma_pagamento_contrato', formasPagamentoList, parcela.id_forma_pagamento);
+        document.getElementById('formEditarParcelaContrato')?.classList.remove('hidden');
+        Currency.applyMaskToAll('input-moeda');
+    }
+
+    function abrirFormularioBaixaContrato(index) {
+        const parcela = parcelas[index];
+        if (!parcela || parcela.pago === 'S') return;
+
+        esconderFormulariosPagamentoContrato();
+        const descricao = parcela.descricao || (i18n.installmentLabel || 'Parcela :num').replace(':num', parcela.parcela || (index + 1));
+        document.getElementById('pagar_id_parcela_contrato').value = parcela.id || '';
+        document.getElementById('pagar_descricao_contrato').textContent = descricao;
+        document.getElementById('pagar_data_pago_contrato').value = new Date().toISOString().slice(0, 10);
+        popularSelectSimples('pagar_id_conta_contrato', contasBancariasList, parcela.id_conta);
+        popularSelectSimples('pagar_id_forma_pagamento_contrato', formasPagamentoList, parcela.id_forma_pagamento);
+        document.getElementById('formMarcarPagoContrato')?.classList.remove('hidden');
+    }
+
+    async function confirmarEditarParcelaContrato() {
+        const idParcela = document.getElementById('editar_id_parcela_contrato')?.value;
+        if (!editando || !registroId || !idParcela) return;
+
+        const dataVenci = document.getElementById('editar_data_venci_contrato')?.value || '';
+        const valor = document.getElementById('editar_valor_contrato')?.value || '';
+        const idConta = document.getElementById('editar_id_conta_contrato')?.value || '';
+        const idForma = document.getElementById('editar_id_forma_pagamento_contrato')?.value || '';
+        const descricao = document.getElementById('editar_descricao_contrato')?.value || '';
+
+        if (!dataVenci || Currency.parse(valor) <= 0) {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.allRequiredFields || 'Preencha os campos obrigatórios' }, '*');
+            return;
+        }
+
+        try {
+            const result = await API.post(`/api/contratos/${registroId}/parcelas/${idParcela}/atualizar`, {
+                data_venci: dataVenci,
+                valor: valor,
+                id_conta: idConta,
+                id_forma_pagamento: idForma,
+                descricao: descricao
+            });
+
+            if (result.success) {
+                document.getElementById('formEditarParcelaContrato')?.classList.add('hidden');
+                await carregarParcelasContrato();
+            } else {
+                window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.installmentUpdateError || 'Erro ao atualizar parcela' }, '*');
+            }
+        } catch (e) {
+            console.error('Erro ao atualizar parcela:', e);
+            window.parent.postMessage({ action: 'openAlert', message: i18n.installmentUpdateError || 'Erro ao atualizar parcela' }, '*');
+        }
+    }
+
+    async function confirmarMarcarPagoContrato() {
+        const idParcela = document.getElementById('pagar_id_parcela_contrato')?.value;
+        if (!editando || !registroId || !idParcela) return;
+
+        const dataPago = document.getElementById('pagar_data_pago_contrato')?.value || '';
+        const idConta = document.getElementById('pagar_id_conta_contrato')?.value || '';
+        const idForma = document.getElementById('pagar_id_forma_pagamento_contrato')?.value || '';
+
+        if (!dataPago || !idConta || !idForma) {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.allRequiredFields || 'Preencha os campos obrigatórios' }, '*');
+            return;
+        }
+
+        try {
+            const result = await API.post(`/api/contratos/${registroId}/parcelas/${idParcela}/marcar-pago`, {
+                data_pago: dataPago,
+                id_conta: idConta,
+                id_forma_pagamento: idForma
+            });
+
+            if (result.success) {
+                document.getElementById('formMarcarPagoContrato')?.classList.add('hidden');
+                await carregarParcelasContrato();
+            } else {
+                window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.markPaidError || 'Erro ao marcar como paga' }, '*');
+            }
+        } catch (e) {
+            console.error('Erro ao marcar como paga:', e);
+            window.parent.postMessage({ action: 'openAlert', message: i18n.markPaidError || 'Erro ao marcar como paga' }, '*');
+        }
+    }
+
+    async function executarRemoverParcelaContrato() {
+        const idParcela = parcelaContratoAcaoPendente?.id;
+        parcelaContratoAcaoPendente = null;
+        if (!editando || !registroId || !idParcela) return;
+
+        try {
+            const result = await API.post(`/api/contratos/${registroId}/parcelas/${idParcela}/excluir`);
+            if (result.success) {
+                await carregarParcelasContrato();
+            } else {
+                window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.removeError || 'Erro ao remover parcela' }, '*');
+            }
+        } catch (e) {
+            console.error('Erro ao remover parcela:', e);
+            window.parent.postMessage({ action: 'openAlert', message: i18n.removeError || 'Erro ao remover parcela' }, '*');
+        }
+    }
+
+    async function executarEstornarParcelaContrato() {
+        const idParcela = parcelaContratoAcaoPendente?.id;
+        parcelaContratoAcaoPendente = null;
+        if (!editando || !registroId || !idParcela) return;
+
+        try {
+            const result = await API.post(`/api/contratos/${registroId}/parcelas/${idParcela}/estornar`);
+            if (result.success) {
+                await carregarParcelasContrato();
+            } else {
+                window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.reverseError || 'Erro ao estornar pagamento' }, '*');
+            }
+        } catch (e) {
+            console.error('Erro ao estornar pagamento:', e);
+            window.parent.postMessage({ action: 'openAlert', message: i18n.reverseError || 'Erro ao estornar pagamento' }, '*');
+        }
     }
 
     // Limpa todas as parcelas
@@ -2654,10 +2799,112 @@
         }
     }
 
+    function popularSelectAvariaContrato() {
+        const selectConta = document.getElementById('avaria_id_conta');
+        const selectForma = document.getElementById('avaria_id_forma_pagamento');
+
+        if (selectConta && selectConta.options.length <= 1) {
+            contasBancariasList.forEach(conta => {
+                const opt = document.createElement('option');
+                opt.value = conta.id;
+                opt.textContent = conta.nome;
+                if (String(conta.id) === String(document.getElementById('id_conta')?.value || '')) {
+                    opt.selected = true;
+                }
+                selectConta.appendChild(opt);
+            });
+        }
+
+        if (selectForma && selectForma.options.length <= 1) {
+            formasPagamentoList.forEach(forma => {
+                const opt = document.createElement('option');
+                opt.value = forma.id;
+                opt.textContent = forma.nome;
+                if (String(forma.id) === String(document.getElementById('id_forma_pagamento')?.value || '')) {
+                    opt.selected = true;
+                }
+                selectForma.appendChild(opt);
+            });
+        }
+    }
+
+    function alternarFormularioAvaria() {
+        const formAvaria = document.getElementById('formAdicionarAvaria');
+        const deveAbrir = formAvaria?.classList.contains('hidden');
+        esconderFormulariosPagamentoContrato();
+        popularSelectAvariaContrato();
+        if (deveAbrir) {
+            formAvaria?.classList.remove('hidden');
+        }
+    }
+
+    async function confirmarAdicionarAvaria() {
+        if (!editando || !registroId) return;
+
+        const valor = document.getElementById('avaria_valor')?.value || '';
+        const dataVenci = document.getElementById('avaria_data_venci')?.value || '';
+        const idConta = document.getElementById('avaria_id_conta')?.value || '';
+        const idFormaPagamento = document.getElementById('avaria_id_forma_pagamento')?.value || '';
+        const descricao = document.getElementById('avaria_descricao')?.value || '';
+
+        if (Currency.parse(valor) <= 0) {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.invalidValue || 'Valor invalido' }, '*');
+            return;
+        }
+
+        if (!dataVenci || !idConta || !idFormaPagamento) {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.allRequiredFields || 'Preencha os campos obrigatórios' }, '*');
+            return;
+        }
+
+        try {
+            const result = await API.post(`/api/contratos/${registroId}/parcela-avulsa`, {
+                tipo_lancamento: 'avaria',
+                data_venci: dataVenci,
+                valor: valor,
+                id_conta: idConta,
+                id_forma_pagamento: idFormaPagamento,
+                descricao: descricao
+            });
+
+            if (result.success) {
+                window.parent.postMessage({
+                    action: 'showToast',
+                    type: 'success',
+                    message: result.message
+                }, '*');
+                document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
+                ['avaria_valor', 'avaria_data_venci', 'avaria_descricao'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                await carregarParcelasContrato();
+            } else {
+                window.parent.postMessage({ action: 'openAlert', message: result.message || (i18n.addInstallmentError || 'Erro ao adicionar parcela') }, '*');
+            }
+        } catch (e) {
+            console.error('Erro ao adicionar avaria:', e);
+            window.parent.postMessage({ action: 'openAlert', message: i18n.addInstallmentError || 'Erro ao adicionar parcela' }, '*');
+        }
+    }
+
     // Event listeners para aba financeiro
     function configurarEventosFinanceiro() {
         // Comando de parcelas: disponivel em ambos os modos
         document.getElementById('id_comando_parcela')?.addEventListener('change', mostrarInfoComando);
+        document.getElementById('btnAdicionarAvaria')?.addEventListener('click', alternarFormularioAvaria);
+        document.getElementById('btnConfirmarAdicionarAvaria')?.addEventListener('click', confirmarAdicionarAvaria);
+        document.getElementById('btnCancelarAdicionarAvaria')?.addEventListener('click', () => {
+            document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
+        });
+        document.getElementById('btnConfirmarEditarParcelaContrato')?.addEventListener('click', confirmarEditarParcelaContrato);
+        document.getElementById('btnCancelarEditarParcelaContrato')?.addEventListener('click', () => {
+            document.getElementById('formEditarParcelaContrato')?.classList.add('hidden');
+        });
+        document.getElementById('btnConfirmarMarcarPagoContrato')?.addEventListener('click', confirmarMarcarPagoContrato);
+        document.getElementById('btnCancelarMarcarPagoContrato')?.addEventListener('click', () => {
+            document.getElementById('formMarcarPagoContrato')?.classList.add('hidden');
+        });
 
         if (editando) {
             // Modo edicao: eventos de parcelas existentes

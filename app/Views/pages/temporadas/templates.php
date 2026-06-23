@@ -36,7 +36,7 @@
         noTemplates: '<?= addslashes(t('modules.temporadas.templates.no_templates')) ?>',
         activate: '<?= addslashes(t('modules.temporadas.templates.activate')) ?>',
         activating: '<?= addslashes(t('modules.temporadas.templates.activating')) ?>',
-        activateError: '<?= addslashes(t('modules.temporadas.templates.activate_error')) ?>',
+        activateError: <?= js_t('modules.temporadas.templates.activate_error') ?>,
     };
 
     const container = document.getElementById('templatesContainer');
