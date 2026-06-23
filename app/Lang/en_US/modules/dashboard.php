@@ -25,6 +25,12 @@ return [
         'workshop' => 'Workshop',
     ],
 
+    'operations' => [
+        'reservations_pending' => 'Reservations/Pending',
+        'reserved' => 'Reserved',
+        'pending' => 'Pending',
+    ],
+
     // Sub-tabs
     'tabs' => [
         'quick_search' => 'Quick search',

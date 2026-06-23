@@ -1546,10 +1546,23 @@ class Locacao extends Model
             ->whereNull('data_chegada')
             ->count();
 
+        $reservations = (int) $this->qb
+            ->table('locacoes')
+            ->where('status', '=', 'R')
+            ->count();
+
+        $pending = (int) $this->qb
+            ->table('locacoes')
+            ->where('status', '=', 'P')
+            ->count();
+
         return [
             'departures_today' => $departures,
             'returns_today' => $returns,
             'overdue' => $overdue,
+            'reservations' => $reservations,
+            'pending_reservations' => $pending,
+            'reservations_pending' => $reservations + $pending,
         ];
     }
 

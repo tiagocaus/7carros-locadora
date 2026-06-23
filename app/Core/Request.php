@@ -198,6 +198,18 @@ class Request
     }
 
     /**
+     * Verifica se a resposta esperada pela requisicao e JSON.
+     */
+    public function expectsJson(): bool
+    {
+        $accept = strtolower($this->server['HTTP_ACCEPT'] ?? '');
+
+        return $this->isAjax()
+            || $this->isJson()
+            || str_contains($accept, 'application/json');
+    }
+
+    /**
      * Verifica se a requisição é JSON
      */
     public function isJson(): bool

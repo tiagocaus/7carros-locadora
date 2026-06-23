@@ -486,6 +486,7 @@ class Manutencao extends Model
             if ($statusAtual === 'F') {
                 // Se estiver reabrindo, aceita tambem O (pode ter ficado bloqueado)
                 $disponibilidadesPermitidas[] = 'O';
+                $disponibilidadesPermitidas[] = 'M';
             }
 
             if (!in_array($veiculo['disponibilidade'], $disponibilidadesPermitidas, true)) {
@@ -557,21 +558,15 @@ class Manutencao extends Model
      */
     public function bloquearVeiculo(int $idVeiculo): void
     {
-        $this->qb
-            ->table('veiculos')
-            ->where('id', '=', $idVeiculo)
-            ->update(['disponibilidade' => 'O']);
+        (new VeiculoDisponibilidadeSync())->marcarOficina($idVeiculo);
     }
 
     /**
      * Libera veiculo da manutencao (disponibilidade = 'D')
      */
-    public function liberarVeiculo(int $idVeiculo): void
+    public function liberarVeiculo(int $idVeiculo, ?int $ignorarManutencaoId = null): void
     {
-        $this->qb
-            ->table('veiculos')
-            ->where('id', '=', $idVeiculo)
-            ->update(['disponibilidade' => 'D']);
+        (new VeiculoDisponibilidadeSync())->liberarSeSemVinculoAtivo($idVeiculo, 'D', null, $ignorarManutencaoId);
     }
 
     /**

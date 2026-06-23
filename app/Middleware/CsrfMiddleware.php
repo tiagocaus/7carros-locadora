@@ -25,8 +25,8 @@ class CsrfMiddleware
 
         // Valida o token CSRF
         if (!$request->validateCsrfToken()) {
-            // Se for AJAX, retorna JSON
-            if ($request->isAjax()) {
+            // Se for API/AJAX, retorna JSON
+            if ($request->expectsJson()) {
                 Response::json([
                     'success' => false,
                     'message' => 'Token CSRF inválido'

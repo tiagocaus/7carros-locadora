@@ -456,6 +456,34 @@ class Veiculo extends Model
     }
 
     /**
+     * Atualiza odometro e tanque do cadastro do veiculo a partir do checklist.
+     */
+    public function atualizarDadosChecklist(int $id, ?int $odometro, ?string $tanque): int
+    {
+        if ($id <= 0) {
+            return 0;
+        }
+
+        $dadosUpdate = [];
+        if ($odometro !== null && $odometro > 0) {
+            $dadosUpdate['odometro'] = $odometro;
+        }
+
+        if ($tanque !== null && trim($tanque) !== '') {
+            $dadosUpdate['tanque_fracao'] = trim($tanque);
+        }
+
+        if (empty($dadosUpdate)) {
+            return 0;
+        }
+
+        return $this->qb
+            ->table('veiculos')
+            ->where('id', '=', $id)
+            ->update($dadosUpdate);
+    }
+
+    /**
      * Exclui um veiculo
      *
      * @param int $id ID do veiculo
@@ -647,30 +675,39 @@ class Veiculo extends Model
     /**
      * Resumo agregado da frota para o dashboard.
      *
-     * Conta veiculos por bucket de disponibilidade exibido no card (D/L/R/O).
-     * Total = soma das 4 categorias, garantindo que a barra preencha 100%.
+     * Conta apenas os buckets exibidos na barra de disponibilidade atual (D/L/O).
+     * Manutencoes abertas prevalecem sobre o status gravado no veiculo.
      */
     public function dashboardSummary(string $chave): array
     {
         $veiculos = $this->qb
-            ->table('veiculos')
-            ->select(['disponibilidade'])
-            ->whereIn('disponibilidade', ['D', 'L', 'R', 'O'])
+            ->table('veiculos', 'v')
+            ->select(['v.id', 'v.disponibilidade'])
+            ->selectRaw('MAX(CASE WHEN m.id IS NULL THEN 0 ELSE 1 END) AS em_manutencao')
+            ->leftJoinRaw('manutencoes', 'm', "m.id_veiculo = v.id AND m.status = 'A' AND m.chave = v.chave")
+            ->whereIn('v.disponibilidade', ['D', 'L', 'O'])
+            ->groupBy(['v.id', 'v.disponibilidade'])
             ->get();
 
-        $counts = ['D' => 0, 'L' => 0, 'R' => 0, 'O' => 0];
+        $counts = ['D' => 0, 'L' => 0, 'O' => 0];
         foreach ($veiculos as $v) {
-            $counts[$v['disponibilidade']]++;
+            if ((int) ($v['em_manutencao'] ?? 0) === 1 || ($v['disponibilidade'] ?? '') === 'O') {
+                $counts['O']++;
+            } elseif (($v['disponibilidade'] ?? '') === 'L') {
+                $counts['L']++;
+            } elseif (($v['disponibilidade'] ?? '') === 'D') {
+                $counts['D']++;
+            }
         }
 
-        $total = count($veiculos);
+        $total = array_sum($counts);
         $rented = $counts['L'];
 
         return [
             'total' => $total,
             'available' => $counts['D'],
             'rented' => $rented,
-            'reserved' => $counts['R'],
+            'reserved' => 0,
             'workshop' => $counts['O'],
             'utilization_rate' => $total > 0 ? round(($rented / $total) * 100, 1) : 0.0,
         ];

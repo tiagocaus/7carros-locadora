@@ -3,7 +3,7 @@
 namespace App\Models;
 
 /**
- * Sincroniza veiculos.disponibilidade com vinculos ativos de locacoes/contratos.
+ * Sincroniza veiculos.disponibilidade com vinculos ativos de locacoes/contratos/manutencoes.
  */
 class VeiculoDisponibilidadeSync extends Model
 {
@@ -22,13 +22,41 @@ class VeiculoDisponibilidadeSync extends Model
         });
     }
 
-    public function liberarSeSemVinculoAtivo(int $veiculoId, string $statusLivre = 'D', ?string $chave = null): int
+    public function marcarOficina(int $veiculoId, ?string $chave = null): int
     {
         $chave = $this->resolverChave($chave);
-        $statusLivre = $statusLivre === 'M' ? 'M' : 'D';
 
         if ($this->possuiVinculoAtivo($veiculoId, $chave)) {
             return $this->marcarLocado($veiculoId, $chave);
+        }
+
+        return $this->comChave($chave, function () use ($veiculoId): int {
+            return $this->qb
+                ->table('veiculos')
+                ->where('id', '=', $veiculoId)
+                ->update([
+                    'disponibilidade' => 'O',
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+        });
+    }
+
+    public function liberarSeSemVinculoAtivo(
+        int $veiculoId,
+        string $statusLivre = 'D',
+        ?string $chave = null,
+        ?int $ignorarManutencaoId = null
+    ): int
+    {
+        $chave = $this->resolverChave($chave);
+        $statusLivre = in_array($statusLivre, ['M', 'O'], true) ? 'O' : 'D';
+
+        if ($this->possuiVinculoAtivo($veiculoId, $chave)) {
+            return $this->marcarLocado($veiculoId, $chave);
+        }
+
+        if ($statusLivre !== 'O' && $this->possuiManutencaoAberta($veiculoId, $chave, $ignorarManutencaoId)) {
+            $statusLivre = 'O';
         }
 
         return $this->comChave($chave, function () use ($veiculoId, $statusLivre): int {
@@ -39,6 +67,28 @@ class VeiculoDisponibilidadeSync extends Model
                     'disponibilidade' => $statusLivre,
                     'updated_at' => date('Y-m-d H:i:s'),
                 ]);
+        });
+    }
+
+    public function possuiManutencaoAberta(
+        int $veiculoId,
+        ?string $chave = null,
+        ?int $ignorarManutencaoId = null
+    ): bool
+    {
+        $chave = $this->resolverChave($chave);
+
+        return $this->comChave($chave, function () use ($veiculoId, $ignorarManutencaoId): bool {
+            $query = $this->qb
+                ->table('manutencoes')
+                ->where('id_veiculo', '=', $veiculoId)
+                ->where('status', '=', 'A');
+
+            if ($ignorarManutencaoId !== null) {
+                $query->where('id', '!=', $ignorarManutencaoId);
+            }
+
+            return $query->exists();
         });
     }
 

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Core\Database;
+
 /**
  * Model Checklist
  *
@@ -474,9 +476,27 @@ class Checklist extends Model
      */
     public function criar(array $dados): int
     {
+        $dados['created_at'] = $dados['created_at'] ?? $this->agora();
+
         return $this->qb
             ->table('checklist')
             ->insert($dados);
+    }
+
+    /**
+     * Gera codigo curto no mesmo padrao de contratos e locacoes.
+     */
+    public function gerarCodigo(string $chave): string
+    {
+        $maxId = $this->qb
+            ->table('checklist')
+            ->withChave($chave)
+            ->max('id');
+
+        $proximoId = ($maxId ?? 0) + 1;
+        $letras = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 2);
+
+        return 'CK' . str_pad((string) $proximoId, 5, '0', STR_PAD_LEFT) . $letras;
     }
 
     /**
@@ -527,8 +547,22 @@ class Checklist extends Model
             ->update([
                 'assinatura_unica' => $filename,
                 'status' => '2',
-                'data_checklist' => date('Y-m-d H:i:s'),
+                'data_checklist' => $this->agora(),
             ]);
+    }
+
+    /**
+     * Retorna o horario atual no timezone configurado da aplicacao.
+     */
+    private function agora(): string
+    {
+        $timezone = Database::env('APP_TIMEZONE', 'America/Sao_Paulo');
+
+        try {
+            return (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d H:i:s');
+        } catch (\Exception $e) {
+            return (new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo')))->format('Y-m-d H:i:s');
+        }
     }
 
     /**

@@ -216,9 +216,31 @@ class ManutencoesController
             }
 
             $model = new Manutencao();
+            $statusSolicitado = $dados['status'] ?? 'C';
+
+            if ($statusSolicitado === 'A') {
+                $dados['status'] = 'C';
+            }
 
             // Criar manutencao
             $id = $model->criar($dados);
+
+            if ($statusSolicitado === 'A') {
+                $dadosVeiculo = null;
+                if (!empty($dados['_veiculo_odometro']) || !empty($dados['_veiculo_tanque'])) {
+                    $dadosVeiculo = [
+                        'odometro' => $dados['_veiculo_odometro'] ?? null,
+                        'tanque' => $dados['_veiculo_tanque'] ?? null
+                    ];
+                }
+
+                $resultado = $model->mudarStatus($id, 'A', $dadosVeiculo);
+                if (!$resultado['success']) {
+                    $model->deletar($id);
+                    Response::json(['success' => false, 'message' => $resultado['message']], 400);
+                    return;
+                }
+            }
 
             // Salvar itens
             if (!empty($dados['itens']) && is_array($dados['itens'])) {
@@ -385,7 +407,7 @@ class ManutencoesController
 
             // Se manutencao esta aberta, liberar o veiculo antes de excluir
             if ($manutencao['status'] === 'A' && !empty($manutencao['id_veiculo'])) {
-                $model->liberarVeiculo($manutencao['id_veiculo']);
+                $model->liberarVeiculo((int) $manutencao['id_veiculo'], $id);
 
                 // Log de mudanca de disponibilidade
                 AuditLogService::registrar(

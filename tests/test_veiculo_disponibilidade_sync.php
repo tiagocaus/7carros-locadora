@@ -23,6 +23,8 @@ use App\Models\VeiculoDisponibilidadeSync;
 
 $chave = '1111111111111';
 $_SESSION['chave'] = $chave;
+$_SESSION['user_id'] = 7;
+$_SESSION['user_name'] = 'Teste';
 
 $falhas = 0;
 $sucessos = 0;
@@ -62,6 +64,7 @@ echo "=== Teste sincronizacao disponibilidade veiculos ===\n";
 $veiculosCriados = [];
 $locacoesCriadas = [];
 $contratosCriados = [];
+$manutencoesCriadas = [];
 
 try {
     $sync = new VeiculoDisponibilidadeSync();
@@ -120,7 +123,22 @@ try {
     Database::execute('UPDATE contratos_veiculos SET data_entrada = ? WHERE id_contrato = ?', ['2026-06-30 08:00:00', $contratoId]);
     Database::execute('UPDATE contratos SET status = ? WHERE id = ?', ['F', $contratoId]);
     $sync->liberarSeSemVinculoAtivo($veiculoContrato, 'M');
-    checkDisponibilidade('contrato devolvido com OS envia para manutencao', $veiculoContrato, 'M');
+    checkDisponibilidade('contrato devolvido com OS envia para oficina', $veiculoContrato, 'O');
+
+    $veiculoManutencao = criarVeiculoTeste($chave, 'TSTM001', 'D');
+    $veiculosCriados[] = $veiculoManutencao;
+    $manutencaoId = Database::insertGetId('manutencoes', [
+        'chave' => $chave,
+        'os' => 'TM' . substr((string) time(), -8),
+        'id_veiculo' => $veiculoManutencao,
+        'status' => 'A',
+        'data_enviado' => '2026-06-01 08:00:00',
+    ]);
+    $manutencoesCriadas[] = $manutencaoId;
+    $sync->liberarSeSemVinculoAtivo($veiculoManutencao, 'D');
+    checkDisponibilidade('manutencao aberta mantem veiculo na oficina', $veiculoManutencao, 'O');
+    $sync->liberarSeSemVinculoAtivo($veiculoManutencao, 'D', $chave, $manutencaoId);
+    checkDisponibilidade('ignorar manutencao atual libera veiculo sem outro vinculo', $veiculoManutencao, 'D');
 
     $veiculoSubstituicaoAntigo = criarVeiculoTeste($chave, 'TSTS001', 'L');
     $veiculoSubstituicaoNovo = criarVeiculoTeste($chave, 'TSTS002', 'D');
@@ -134,6 +152,9 @@ try {
     echo 'ERRO: ' . $e->getMessage() . "\n";
     $falhas++;
 } finally {
+    foreach ($manutencoesCriadas as $idManutencao) {
+        Database::execute('DELETE FROM manutencoes WHERE id = ? AND chave = ?', [$idManutencao, $chave]);
+    }
     foreach ($locacoesCriadas as $idLocacao) {
         Database::execute('DELETE FROM locacoes_veiculos WHERE id_locacao = ?', [$idLocacao]);
         Database::execute('DELETE FROM locacoes WHERE id = ?', [$idLocacao]);

@@ -25,6 +25,12 @@ return [
         'workshop' => 'Officina',
     ],
 
+    'operations' => [
+        'reservations_pending' => 'Prenotazioni/In sospeso',
+        'reserved' => 'Prenotate',
+        'pending' => 'In sospeso',
+    ],
+
     // Sub-tabs
     'tabs' => [
         'quick_search' => 'Ricerca rapida',

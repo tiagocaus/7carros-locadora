@@ -7,28 +7,36 @@ O objetivo e orientar a atualizacao do app React Native antigo, que usava a API 
 ## Configuracao geral atual
 
 - Base URL atual: dominio do sistema web, por exemplo `https://locadora.7carros.com`.
-- Autenticacao atual: sessao web por cookie.
-- Tenant atual: definido pela sessao autenticada. Nao enviar `chave` no body.
-- API antiga: nao usar mais `token`, `xAcesso` nem endpoints `.php` da API v2.
-- Endpoints `/api/*`: exigem header `X-CSRF-TOKEN`.
-- Endpoints POST fora de `/api/*`: usam CSRF de formulario/sessao.
-- Header recomendado para chamadas AJAX:
+- Autenticacao atual: sessao web por cookie PHP. Nao existe Bearer/JWT para funcionario.
+- Tenant atual: definido pela sessao autenticada (`chave` em sessao). Nao enviar `chave` no body.
+- API antiga: nao usar mais `token`, `xAcesso`, `usuarioLogado`, `chave` nem endpoints `.php` da API v2.
+- Cookie jar: o app React Native precisa manter os cookies recebidos no `GET /login` e reaproveitar os mesmos cookies em todas as chamadas seguintes.
+- User-Agent: manter consistente entre login e chamadas autenticadas, pois a sessao valida o fingerprint.
+- Endpoints `/api/*`: exigem cookie de sessao autenticada e header `X-CSRF-TOKEN`.
+- Endpoints POST fora de `/api/*`: usam CSRF de formulario/sessao (`_token` ou `X-CSRF-TOKEN`).
+- Header recomendado para chamadas AJAX/API:
   - `X-Requested-With: XMLHttpRequest`
 - Header obrigatorio para `/api/*`:
   - `X-CSRF-TOKEN: <csrf_token_da_sessao>`
 - Body padrao para JSON:
   - `Content-Type: application/json`
-- Resposta padrao:
+- Body do login web:
+  - `Content-Type: application/x-www-form-urlencoded`
+- Resposta JSON padrao:
   - sucesso: `{ "success": true, ... }`
   - erro: `{ "success": false, "message": "..." }`
 
-Se a API retornar `419`, o token CSRF expirou. O sistema web renova com:
+### Renovacao de CSRF e validacao de sessao
+
+Depois do login, use o endpoint abaixo para verificar se a sessao ainda esta valida e renovar o CSRF:
 
 ```http
 GET /api/session/refresh
+Cookie: <cookies_da_sessao>
+X-Requested-With: XMLHttpRequest
 ```
 
-Resposta:
+Resposta `200`:
 
 ```json
 {
@@ -37,14 +45,16 @@ Resposta:
 }
 ```
 
+Se uma chamada `/api/*` retornar `419`, descarte o CSRF atual, chame `GET /api/session/refresh` com os cookies da sessao e repita a requisicao uma vez. Se o refresh falhar com `401` ou redirecionar para `/login`, a sessao expirou e o app deve voltar para a tela de login.
+
 ## Resumo de migracao
 
 | Antigo | Novo |
 | --- | --- |
-| `POST /usuarios.php`, `xAcesso: login` | `POST /login`, fluxo web com redirect |
+| `POST /usuarios.php`, `xAcesso: login` | `GET /login` + `POST /login`, fluxo web com cookie, CSRF e redirect |
 | `POST /clientes.php`, `xAcesso: gerarNovaSenha` | `POST /auth/redefinir-senha` |
 | `POST /checklist.php`, `xAcesso: listar` | `GET /api/checklists` |
-| `POST /checklist.php`, `xAcesso: ver` | Sem JSON final equivalente; usar `/checklists/visualizar/{id}` ou `GET /api/checklists/novo/{id}` para pendentes |
+| `POST /checklist.php`, `xAcesso: ver` | `GET /checklists/visualizar/{id}` para HTML ou `GET /api/checklists/novo/{id}` para dados JSON |
 | `POST /checklist.php`, `xAcesso: modelos` | `GET /api/checklist-modelos/buscar` e `GET /api/checklist-modelos/{id}` |
 | `POST /veiculos.php`, `xAcesso: listar` | `GET /api/checklists/buscar-veiculos` |
 | `POST /checklist.php`, `xAcesso: checklistsAvulsoAdicionar` | `POST /api/checklists/criar` + questoes + fotos + assinatura |
@@ -66,45 +76,167 @@ Resposta:
 | `GET viacep JSONP` | `GET https://viacep.com.br/ws/{cep}/json/` |
 | `https://locadora.7carros.com/uploads/{chave}/...` | URLs retornadas pelo backend, normalmente `/files/{token}` |
 
+## Contrato de erros para o app
+
+| HTTP | Formato comum | Acao no app |
+| --- | --- | --- |
+| `302` | Redirect web | No login, sucesso se `Location` for `/dashboard`, `/checklists/digital` ou `intended_url`; falha se voltar para `/login`. |
+| `401` | HTML redirect ou JSON `{success:false,message}` | Sessao invalida/expirada; limpar cookies e voltar ao login. |
+| `403` | JSON ou HTML | Sem permissao ou plano sem recurso; mostrar `message` quando existir. |
+| `419` | `{ "success": false, "message": "Token CSRF invalido..." }` | Renovar CSRF via `/api/session/refresh` e repetir uma vez. |
+| `422` | `{ "success": false, "message": "..." }` | Erro de validacao de negocio; mostrar `message`. |
+| `429` | HTML/JSON de rate limit | Aguardar e mostrar mensagem de muitas tentativas/requisicoes. |
+| `500` | `{ "success": false, "message": "..." }` | Mostrar erro generico ou `message` tecnico em ambiente interno. |
+
+Mensagens importantes ja retornadas pelo backend:
+
+| Contexto | Mensagem |
+| --- | --- |
+| Login vazio | `Usuário e senha são obrigatórios` |
+| Login invalido, primeira tentativa | `Usuário ou senha inválidos.` |
+| Login invalido, tentativas restantes | `Usuário ou senha inválidos. Restam X tentativas antes do bloqueio temporário. Se esqueceu a senha, clique em Redefinir senha antes de tentar novamente.` |
+| Login bloqueado ao atingir limite | `Usuário ou senha inválidos. Seu acesso foi bloqueado temporariamente por muitas tentativas. Tente novamente em 15 minutos ou clique em Redefinir senha.` |
+| Login ja bloqueado | `Acesso temporariamente bloqueado por muitas tentativas. Tente novamente em X minutos ou redefina sua senha.` |
+| Usuario suspenso | `Seu acesso está suspenso. Isso pode acontecer por fatura vencida. Entre em contato com o suporte para regularizar o acesso.` |
+| Usuario inativo | `Seu usuário está inativo. Entre em contato com o suporte para verificar o acesso.` |
+| CSRF form | `Token CSRF inválido ou expirado` |
+| CSRF API | `Token CSRF inválido` ou `Token CSRF inválido ou ausente` |
+
 ## Autenticacao
 
-### Login
+### Login de funcionario
 
 - Antigo: `POST /usuarios.php`, `xAcesso: login`
-- Atual: `POST /login`
-- Middleware: `csrf`
-- Retorno atual: redirect web, nao JSON mobile.
+- Atual: `GET /login` + `POST /login`
+- Controller: `AuthController::showLogin()` e `AuthController::login()`
+- Middleware do POST: `csrf`
+- Retorno atual: redirect no fluxo web; JSON quando a requisicao pedir `Accept: application/json` ou `X-Requested-With: XMLHttpRequest`.
 
-Request atual:
+#### 1. Obter cookie de sessao e CSRF
+
+```http
+GET /login
+Accept: text/html
+```
+
+Resposta esperada:
+
+- HTTP `200`
+- `Content-Type: text/html`
+- Header `Set-Cookie` com cookie de sessao PHP
+- HTML contendo o formulario:
+
+```html
+<form method="POST" action="/login" id="loginForm">
+  <input type="hidden" name="_token" value="csrf-token-64-hex">
+  <input type="text" name="username">
+  <input type="password" name="password">
+  <input type="checkbox" name="remember">
+</form>
+```
+
+O app deve extrair o valor do input `name="_token"` e preservar todos os cookies retornados.
+
+#### 2. Enviar credenciais
+
+```http
+POST /login
+Content-Type: application/x-www-form-urlencoded
+Accept: text/html,application/xhtml+xml
+Cookie: <cookies_do_get_login>
+```
+
+Para receber JSON no app/API, envie `Accept: application/json` ou `X-Requested-With: XMLHttpRequest` mantendo o mesmo body e os cookies do `GET /login`.
+
+Body:
+
+```txt
+_token=<csrf_extraido_do_html>&username=<email_ou_usuario>&password=<senha>&remember=on
+```
+
+Campos:
+
+| Campo | Tipo | Obrigatorio | Observacao |
+| --- | --- | --- | --- |
+| `_token` | string | Sim | Token CSRF obtido no `GET /login`. |
+| `username` | string | Sim | Aceita login (`funcionarios.usuario`) ou e-mail (`funcionarios.email`). |
+| `password` | string | Sim | Senha em texto no HTTPS. Backend valida com `password_verify`. |
+| `remember` | string | Nao | Enviar exatamente `on` se o usuario marcou "lembrar-me"; omitir se nao marcou. |
+
+Sucesso:
+
+- Web/HTML: HTTP `302`
+- Header `Location`:
+  - `/dashboard`, se o usuario tiver `dashboard.visualizar`
+  - `/checklists/digital`, se nao tiver dashboard e tiver acesso ao checklist
+  - `intended_url`, se a sessao guardou uma URL pretendida
+- Cookies de sessao autenticada atualizados. O app deve salvar o cookie jar final.
+- API/JSON: HTTP `200` com cookies de sessao autenticada atualizados:
 
 ```json
 {
-  "username": "email ou usuario",
-  "password": "senha",
-  "remember": "on"
+  "success": true,
+  "redirect": "/dashboard",
+  "user": {
+    "id": 123,
+    "nome": "Nome",
+    "usuario": "usuario",
+    "email": "email@exemplo.com",
+    "plano": "P3",
+    "id_matriz_filial": 1,
+    "filiais_permitidas": []
+  }
 }
 ```
 
-Observacoes para o app:
+Falha:
 
-- A rota atual foi desenhada para navegador e redireciona para `/dashboard` ou `/checklists/digital`.
-- Para React Native puro, sera necessario tratar cookie de sessao e CSRF ou criar uma API mobile dedicada.
-- O campo antigo `usuario` vira `username`.
-- O campo antigo `senha` vira `password`.
-- Nao enviar `chave`; ela e definida pela autenticacao.
+- Web/HTML: HTTP `302` voltando para `/login` ou HTML da tela de login com `.alert-error`/`.error-message`.
+- API/JSON:
+  - `422` para campos obrigatorios ausentes.
+  - `401` para usuario/senha invalidos.
+  - `403` para usuario suspenso ou inativo.
+  - `419` para CSRF invalido.
+  - `429` para bloqueio temporario por muitas tentativas.
 
-### Verificar usuario
+Nao enviar:
 
-- Antigo: `POST /usuarios.php`, `xAcesso: login` sem senha.
-- Atual: nao ha equivalente direto.
+- `chave`
+- `token`
+- `xAcesso`
+- `Authorization: Bearer`
+- `Content-Type: application/json` no login web
 
-Use a sessao existente chamando uma rota autenticada simples, por exemplo:
+### Verificar sessao autenticada
 
 ```http
 GET /api/session/refresh
+Cookie: <cookies_da_sessao>
+X-Requested-With: XMLHttpRequest
 ```
 
-Se a sessao estiver valida, retorna novo CSRF. Se nao estiver, o app deve voltar para login.
+Resposta `200`:
+
+```json
+{
+  "success": true,
+  "csrf_token": "novo-token"
+}
+```
+
+Use esse endpoint no boot do app para validar a sessao salva. Se falhar com `401`, `302 /login` ou erro de parse HTML, limpar cookies e exigir novo login.
+
+### Logout
+
+```http
+POST /logout
+Cookie: <cookies_da_sessao>
+```
+
+- Middleware: `auth`
+- Nao exige CSRF.
+- Sucesso: redirect para `/login` com mensagem `Você saiu com sucesso`.
+- O app deve limpar cookies locais apos chamar o endpoint ou se a chamada falhar por sessao expirada.
 
 ### Recuperar senha
 
@@ -112,15 +244,23 @@ Se a sessao estiver valida, retorna novo CSRF. Se nao estiver, o app deve voltar
 - Atual: `POST /auth/redefinir-senha`
 - Middleware: `csrf`, `rate_limit`
 
-Request:
+Request JSON, usando o `_token` obtido em `GET /login`:
+
+```http
+POST /auth/redefinir-senha
+Content-Type: application/json
+X-Requested-With: XMLHttpRequest
+X-CSRF-TOKEN: <csrf_do_login>
+Cookie: <cookies_do_get_login>
+```
 
 ```json
 {
-  "identifier": "email, CPF/CNPJ ou usuario"
+  "identifier": "email ou usuario"
 }
 ```
 
-Response:
+Response `200`:
 
 ```json
 {
@@ -128,6 +268,8 @@ Response:
   "message": "Se o usuario existir e tiver e-mail cadastrado, enviaremos um link para redefinir a senha."
 }
 ```
+
+Observacao: o texto sempre e generico para nao revelar se o usuario existe.
 
 ### Definir nova senha
 
@@ -139,12 +281,12 @@ Request:
 ```json
 {
   "token": "token recebido por email",
-  "senha": "nova senha",
-  "senha_confirmacao": "nova senha"
+  "senha": "nova senha com no minimo 8 caracteres",
+  "senha_confirmacao": "nova senha com no minimo 8 caracteres"
 }
 ```
 
-Response:
+Responses:
 
 ```json
 {
@@ -153,37 +295,74 @@ Response:
 }
 ```
 
+```json
+{
+  "success": false,
+  "message": "A senha deve ter pelo menos 8 caracteres."
+}
+```
+
+```json
+{
+  "success": false,
+  "message": "As senhas nao coincidem."
+}
+```
+
+```json
+{
+  "success": false,
+  "message": "Link invalido ou expirado."
+}
+```
+
 ## Checklist Digital
+
+Regras de acesso:
+
+- Autenticacao: cookie de sessao.
+- CSRF: obrigatorio em todos os endpoints `/api/checklists*`.
+- Permissao para criar/editar: `checklists.criar`.
+- Permissao para listar/visualizar: `checklists.visualizar`.
+- Plano para criar checklist digital: `P3` ou `P4`.
+- Tenant: obtido de `Auth::chave()`; nunca enviar `chave`.
+- Filial: filtros aplicados pelo backend via `FilialHelper`.
 
 Telas HTML atuais:
 
 | Metodo | Rota | Finalidade |
 | --- | --- | --- |
-| GET | `/checklists/digital` | Listagem mobile |
-| GET | `/checklists/novo` | Criar checklist |
-| GET | `/checklists/novo?retomar={id}` | Retomar pendente |
-| GET | `/checklists/visualizar/{id}` | Visualizar read-only |
+| GET | `/checklists/digital` | Listagem mobile HTML. |
+| GET | `/checklists/novo` | Criar checklist HTML. |
+| GET | `/checklists/novo?retomar={id}` | Retomar pendente HTML. |
+| GET | `/checklists/visualizar/{id}` | Visualizar read-only HTML. |
 
 ### Listar checklists
 
 - Antigo: `POST /checklist.php`, `xAcesso: listar` e `listagemVinculado`
 - Atual: `GET /api/checklists`
+- Controller: `ChecklistsController::index()`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Permissao: `checklists.visualizar`
 
-Query:
-
-| Param | Tipo | Padrao |
-| --- | --- | --- |
-| `page` | number | `1` |
-| `perPage` | number | `10`, max `100` |
-| `search` | string | `""` |
-
-Exemplo:
+Request:
 
 ```http
 GET /api/checklists?page=1&perPage=20&search=ABC
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
 ```
 
-Response:
+Query:
+
+| Param | Tipo | Padrao | Regra |
+| --- | --- | --- | --- |
+| `page` | int | `1` | Minimo `1`. |
+| `perPage` | int | `10` | Minimo `1`, maximo `100`. |
+| `search` | string | `""` | Busca textual. |
+
+Response `200`:
 
 ```json
 {
@@ -193,6 +372,7 @@ Response:
       "id": 27606,
       "codigo": "CKA1B2C3D4E5F6",
       "tipo": "V",
+      "momento": "S",
       "data_checklist": "2026-06-22 10:30:00",
       "status": "2",
       "created_at": "2026-06-22 10:00:00",
@@ -214,12 +394,46 @@ Response:
 }
 ```
 
+Erros:
+
+```json
+{ "success": false, "message": "Voce nao tem permissao para visualizar checklists" }
+```
+
+```json
+{ "success": false, "message": "Erro ao buscar checklists: <detalhe>" }
+```
+
 ### Criar checklist
 
 - Antigo: `checklistsAvulsoAdicionar`, `uploadVinculadoSaida`, `uploadVinculadoChegada`
 - Atual: `POST /api/checklists/criar`
+- Controller: `ChecklistNovoController::criar()`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Permissao: `checklists.criar`
+- Plano: `P3` ou `P4`
+- Efeito: salva somente a aba de informacoes e cria registro com `status = "1"` (pendente). Questoes, fotos e assinatura sao salvas nas etapas seguintes.
 
-Request vinculado:
+Persistencia da etapa:
+
+- O primeiro salvamento real do checklist acontece ao avancar da aba Informacoes.
+- O backend gera `codigo = CK...`, grava `id_funcionario` do usuario autenticado e retorna `id`/`codigo`.
+- Para checklist avulso (`tipo=A`), o backend ignora qualquer vinculo enviado e força `momento = "N"`, `id_locacao = null` e `id_contrato = null`.
+- Para checklist vinculado (`tipo=V`), o backend exige `momento = "S"` ou `"C"` e exige uma locacao ou contrato.
+- O endpoint de criacao nao salva `questoes`, `vistoria` nem `assinatura_unica`.
+- O endpoint de criacao nao bloqueia sozinho duplicidade de checklist vinculado; a tela/API de veiculos do vinculo sinaliza `checklist_feito` para o app nao permitir selecionar veiculo ja finalizado naquele momento.
+
+Headers:
+
+```http
+POST /api/checklists/criar
+Content-Type: application/json
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
+
+Request vinculado a locacao:
 
 ```json
 {
@@ -230,8 +444,24 @@ Request vinculado:
   "id_locacao": 456,
   "id_contrato": null,
   "tanque": "8",
-  "odometro": "12345",
+  "odometro": "12.345",
   "obs": "Observacao opcional"
+}
+```
+
+Request vinculado a contrato:
+
+```json
+{
+  "tipo": "V",
+  "momento": "C",
+  "id_modelo": 10,
+  "id_veiculo": 123,
+  "id_locacao": null,
+  "id_contrato": 789,
+  "tanque": "4",
+  "odometro": "12345",
+  "obs": ""
 }
 ```
 
@@ -251,7 +481,27 @@ Request avulso:
 }
 ```
 
-Response:
+Campos:
+
+| Campo | Tipo | Obrigatorio | Regra |
+| --- | --- | --- | --- |
+| `tipo` | string | Sim | `V` vinculado ou `A` avulso. |
+| `momento` | string | Sim para `V` | `S` saida ou `C` chegada. Para `A`, backend força `N`. |
+| `id_modelo` | int | Sim | Modelo de checklist digital. |
+| `id_veiculo` | int | Sim | Veiculo vistoriado. |
+| `id_locacao` | int/null | Condicional | Obrigatorio para `V` se `id_contrato` nao for enviado. |
+| `id_contrato` | int/null | Condicional | Obrigatorio para `V` se `id_locacao` nao for enviado. |
+| `tanque` | string | Nao | Escala usada pela UI, normalmente `0` a `8`. |
+| `odometro` | string/int | Nao | Backend remove `.` e `,` antes de converter para int. |
+| `obs` | string | Nao | Salvo em `obs_unica`. |
+
+Comportamento para o app:
+
+- Depois do `200`, guarde o `id` retornado como `checklistId`; ele sera usado em todas as proximas chamadas.
+- Em caso de perda de conexao depois dessa etapa, o checklist fica pendente e pode ser retomado por `GET /api/checklists/novo/{id}`.
+- Para checklist vinculado, prefira obter o veiculo por `GET /api/checklists/veiculos-vinculo?...` e respeitar `checklist_feito = true`.
+
+Response `200`:
 
 ```json
 {
@@ -261,11 +511,77 @@ Response:
 }
 ```
 
+Erros `403`:
+
+```json
+{ "success": false, "message": "Sem permissao" }
+```
+
+```json
+{ "success": false, "message": "Recurso nao disponivel para seu plano" }
+```
+
+Erros `422`:
+
+```json
+{ "success": false, "message": "Tipo invalido" }
+```
+
+```json
+{ "success": false, "message": "Selecione uma locacao ou contrato" }
+```
+
+```json
+{ "success": false, "message": "Selecione o momento (saida/chegada)" }
+```
+
+```json
+{ "success": false, "message": "Selecione um modelo de checklist" }
+```
+
+```json
+{ "success": false, "message": "Selecione um veiculo" }
+```
+
+Erro `500`:
+
+```json
+{ "success": false, "message": "Erro ao criar checklist: <detalhe>" }
+```
+
 ### Salvar questoes
 
 - Atual: `POST /api/checklists/{id}/questoes`
+- Controller: `ChecklistNovoController::salvarQuestoes()`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Permissao: `checklists.criar`
+- Efeito: atualiza `checklist.questoes` com JSON das respostas.
+- Restricao: checklist precisa existir no tenant e nao pode estar finalizado.
+
+Autosave atual da tela web:
+
+- Ao entrar na aba `questoes`, a tela inicia um `setInterval` de 30 segundos.
+- O autosave so envia se ja existir `checklistId`, houver questoes carregadas e pelo menos uma questao tiver `opt` preenchido.
+- O envio do autosave usa este mesmo endpoint e manda o array completo `questoes`.
+- O autosave e silencioso; em sucesso, a tela mostra apenas um indicador discreto de salvo.
+- Ao sair da aba `questoes`, o intervalo e parado.
+- Ao clicar em avancar, a tela valida que todas as questoes possuem `opt` e salva novamente antes de ir para Vistorias.
+
+Observacoes para app nativo:
+
+- Pode replicar o autosave de 30 segundos, mas deve manter o salvamento do botao avancar como confirmacao final da etapa.
+- Se houver autosave parcial, `GET /api/checklists/novo/{id}` retorna as respostas ja gravadas para retomar.
+- O backend aceita o array de questoes como recebido; a obrigatoriedade de todas respondidas e regra da tela/app.
 
 Request:
+
+```http
+POST /api/checklists/27606/questoes
+Content-Type: application/json
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
 
 ```json
 {
@@ -274,6 +590,11 @@ Request:
       "id": 1,
       "content": "Farol funcionando",
       "opt": "1"
+    },
+    {
+      "id": 2,
+      "content": "Pneu estepe",
+      "opt": "4"
     }
   ]
 }
@@ -288,20 +609,70 @@ Opcoes:
 | `3` | Danificado |
 | `4` | N/A |
 
-Response:
+Response `200`:
 
 ```json
-{
-  "success": true
-}
+{ "success": true }
+```
+
+Erros:
+
+```json
+{ "success": false, "message": "Sem permissao" }
+```
+
+```json
+{ "success": false, "message": "Checklist nao encontrado" }
+```
+
+```json
+{ "success": false, "message": "Checklist ja finalizado" }
+```
+
+```json
+{ "success": false, "message": "Dados de questoes invalidos" }
+```
+
+```json
+{ "success": false, "message": "Erro ao salvar questoes: <detalhe>" }
 ```
 
 ### Enviar foto de vistoria
 
 - Antigo: `checklistsAvulsoAdicionarFotos`, `uploadVinculadoSaidaFotos`, `uploadVinculadoChegadaFotos`
 - Atual: `POST /api/checklists/{id}/vistoria/upload`
+- Controller: `ChecklistNovoController::uploadVistoria()`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Permissao: `checklists.criar`
+- Restricao: checklist precisa existir no tenant e nao pode estar finalizado.
+- Efeito: salva imagem via `ImageHelper::save(..., 'vistoria', 'webp', 80, chave)` e atualiza o item em `checklist.vistoria`.
+
+Upload automatico atual:
+
+- A tela dispara o upload imediatamente apos o usuario tirar/selecionar a foto no input de camera.
+- Antes de enviar, a tela redimensiona/converte a imagem no client-side para Data URL JPEG com tamanho maximo de 1200px.
+- O backend recebe `foto` como Data URL base64, converte/salva em WebP qualidade 80 e atualiza `checklist.vistoria`.
+- Se `checklist.vistoria` ainda estiver vazio, o backend carrega os itens do template `modelo_vistoria` e preenche o item correspondente.
+- Se `item_id` nao existir no template, o backend adiciona um item novo com esse `id` e `img`.
+- O response retorna `filename` e `url`; o app deve atualizar o estado local da foto com esses valores.
+- Para avancar para assinatura, a tela atual exige pelo menos uma foto em `vistoria`.
+
+Edicao de foto:
+
+- A edicao e feita no canvas do frontend.
+- Ao salvar a edicao, a tela compoe imagem original + desenhos + marcadores, exporta JPEG 0.85 e reenvia pelo mesmo endpoint.
+- O reenvio substitui o `img` do mesmo `item_id` no JSON de vistoria.
+- As anotacoes vetoriais do editor nao sao persistidas separadamente; elas ficam incorporadas na imagem reenviada.
 
 Request:
+
+```http
+POST /api/checklists/27606/vistoria/upload
+Content-Type: application/json
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
 
 ```json
 {
@@ -310,7 +681,14 @@ Request:
 }
 ```
 
-Response:
+Campos:
+
+| Campo | Tipo | Obrigatorio | Regra |
+| --- | --- | --- | --- |
+| `item_id` | string/int | Sim | Deve bater com `id` de um item do template de vistoria. Se nao existir, backend adiciona um item com esse id. |
+| `foto` | string | Sim | Data URL base64 da imagem. A UI web envia JPEG; backend converte para WebP. |
+
+Response `200`:
 
 ```json
 {
@@ -320,25 +698,98 @@ Response:
 }
 ```
 
+Erros:
+
+```json
+{ "success": false, "message": "Dados incompletos" }
+```
+
+```json
+{ "success": false, "message": "Erro ao salvar foto" }
+```
+
+```json
+{ "success": false, "message": "Erro ao enviar foto: <detalhe>" }
+```
+
 ### Excluir foto de vistoria
 
 - Atual: `POST /api/checklists/{id}/vistoria/{itemId}/excluir`
+- Controller: `ChecklistNovoController::excluirVistoria()`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Permissao: `checklists.criar`
+- Restricao: checklist precisa existir no tenant e nao pode estar finalizado.
+- Efeito: apaga arquivo via `FileHelper::delete()` e seta `img = null` no item.
 
-Request: body vazio.
+Comportamento:
 
-Response:
+- A tela chama este endpoint ao tocar na lixeira do item de vistoria.
+- Em sucesso, o app deve limpar `img`, `img_url` e qualquer estado local de edicao daquele item.
+- A exclusao nao remove o item do template; apenas remove a imagem vinculada ao item.
+
+Request:
+
+```http
+POST /api/checklists/27606/vistoria/lataria_dianteira/excluir
+Content-Type: application/json
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
+
+Body: `{}` ou vazio.
+
+Response `200`:
 
 ```json
-{
-  "success": true
-}
+{ "success": true }
+```
+
+Erros:
+
+```json
+{ "success": false, "message": "Checklist nao encontrado" }
+```
+
+```json
+{ "success": false, "message": "Checklist ja finalizado" }
+```
+
+```json
+{ "success": false, "message": "Erro ao excluir foto: <detalhe>" }
 ```
 
 ### Assinar e finalizar checklist
 
 - Atual: `POST /api/checklists/{id}/assinar`
+- Controller: `ChecklistNovoController::assinar()`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Permissao: `checklists.criar`
+- Restricao: checklist precisa existir no tenant e nao pode estar finalizado.
+- Efeito: antes de finalizar, atualiza `veiculos.odometro` e `veiculos.tanque_fracao` somente para checklist avulso ou vinculado de chegada; depois salva assinatura em `assinatura_checklist` como WebP 90 e finaliza checklist (`status = "2"` pelo model).
+
+Comportamento:
+
+- Esta e a ultima etapa do fluxo.
+- A assinatura e enviada como Data URL base64.
+- Se o checklist for avulso (`tipo=A`) e tiver `id_veiculo`, `odometro` e/ou `tanque`, o cadastro do veiculo e atualizado antes de mudar o checklist para finalizado.
+- Se o checklist for vinculado de chegada (`tipo=V`, `momento=C`) e tiver `id_veiculo`, `odometro` e/ou `tanque`, o cadastro do veiculo e atualizado antes de finalizar.
+- Se o checklist for vinculado de saida (`tipo=V`, `momento=S`), o cadastro do veiculo nao e atualizado, pois a saida vem da tela de contrato/locacao.
+- O odometro do veiculo e atualizado sempre que o checklist tiver odometro maior que zero, mesmo se for menor que o valor atual do cadastro.
+- O tanque do checklist atualiza `veiculos.tanque_fracao` quando estiver preenchido.
+- Quando houver atualizacao do veiculo, registra log de auditoria com valores anteriores e novos de Odometro/Tanque.
+- Em sucesso, o checklist deixa de ser editavel pelas rotas que exigem pendente.
+- Depois de finalizado, `POST /api/checklists/{id}/questoes`, upload/exclusao de vistoria e nova assinatura retornam erro de checklist finalizado.
 
 Request:
+
+```http
+POST /api/checklists/27606/assinar
+Content-Type: application/json
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
 
 ```json
 {
@@ -346,7 +797,7 @@ Request:
 }
 ```
 
-Response:
+Response `200`:
 
 ```json
 {
@@ -355,11 +806,38 @@ Response:
 }
 ```
 
-### Retomar checklist pendente
+Erros:
+
+```json
+{ "success": false, "message": "Assinatura obrigatoria" }
+```
+
+```json
+{ "success": false, "message": "Erro ao salvar assinatura" }
+```
+
+```json
+{ "success": false, "message": "Erro ao salvar assinatura: <detalhe>" }
+```
+
+### Retomar ou consultar checklist
 
 - Atual: `GET /api/checklists/novo/{id}`
+- Controller: `ChecklistNovoController::show()`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Permissao: `checklists.criar`
+- Observacao: apesar do nome da rota, retorna JSON do checklist para retomar/preencher. Aceita checklist pendente ou finalizado.
 
-Response:
+Request:
+
+```http
+GET /api/checklists/novo/27606
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
+
+Response `200`:
 
 ```json
 {
@@ -372,8 +850,12 @@ Response:
     "status": "1",
     "id_modelo": 10,
     "modelo_nome": "Checklist padrao",
-    "modelo_questoes": [],
-    "modelo_vistoria": [],
+    "modelo_questoes": [
+      { "id": 1, "content": "Farol funcionando" }
+    ],
+    "modelo_vistoria": [
+      { "id": "lataria_dianteira", "content": "Lataria dianteira" }
+    ],
     "id_veiculo": 123,
     "veiculo": "ABC1D23 - Chevrolet Onix",
     "id_locacao": 456,
@@ -384,20 +866,49 @@ Response:
     "tanque": "8",
     "odometro": 12345,
     "obs": "Observacao opcional",
-    "questoes": [],
-    "vistoria": [],
+    "questoes": [
+      { "id": 1, "content": "Farol funcionando", "opt": "1" }
+    ],
+    "vistoria": [
+      {
+        "id": "lataria_dianteira",
+        "content": "Lataria dianteira",
+        "img": "vistoria/arquivo.webp",
+        "img_url": "/files/token"
+      }
+    ],
     "assinatura_url": null
   }
 }
 ```
 
+Erros:
+
+```json
+{ "success": false, "message": "Checklist nao encontrado" }
+```
+
+```json
+{ "success": false, "message": "Erro ao buscar checklist: <detalhe>" }
+```
+
 ### Modelos de checklist
 
 - Antigo: `POST /checklist.php`, `xAcesso: modelos`
-- Atual select: `GET /api/checklist-modelos/buscar?q=`
-- Atual completo: `GET /api/checklist-modelos/{id}`
+- Select atual: `GET /api/checklist-modelos/buscar?q=`
+- Completo atual: `GET /api/checklist-modelos/{id}`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
 
-Response do select:
+Request select:
+
+```http
+GET /api/checklist-modelos/buscar?q=padrao
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
+
+Response `200`:
 
 ```json
 {
@@ -412,13 +923,23 @@ Response do select:
 }
 ```
 
-Response completo:
+Request completo:
+
+```http
+GET /api/checklist-modelos/10
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
+
+Response `200`:
 
 ```json
 {
   "success": true,
   "data": {
     "id": 10,
+    "chave": "1111111111111",
     "nome": "Checklist padrao",
     "tipo": 0,
     "status": "A",
@@ -428,13 +949,34 @@ Response completo:
 }
 ```
 
-O app precisa fazer parse de `questoes` e `vistoria`.
+O app precisa fazer `JSON.parse` de `questoes` e `vistoria` quando vierem como string no modelo completo. No retorno de `GET /api/checklists/novo/{id}`, `modelo_questoes` e `modelo_vistoria` ja saem como arrays.
+
+Erros:
+
+```json
+{ "success": false, "message": "Modelo nao encontrado" }
+```
+
+```json
+{ "success": false, "message": "Erro ao buscar modelos: <detalhe>" }
+```
 
 ### Vinculos para checklist vinculado
 
 - Atual combinado: `GET /api/checklists/buscar-vinculos?q={texto}`
 - Atual locacoes: `GET /api/checklists/buscar-locacoes?q={texto}`
 - Atual contratos: `GET /api/checklists/buscar-contratos?q={texto}`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Retorno: listas ja filtradas por tenant e filiais permitidas.
+
+Request combinado:
+
+```http
+GET /api/checklists/buscar-vinculos?q=456
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
 
 Response combinado:
 
@@ -448,16 +990,74 @@ Response combinado:
       "id_veiculo": 123,
       "veiculo": "ABC1D23 - Chevrolet Onix",
       "tipo_combustivel": "GE"
+    },
+    {
+      "id": "C-789",
+      "text": "[Contrato] C000789 - Cliente Exemplo",
+      "id_veiculo": 124,
+      "veiculo": "XYZ9A99 - Fiat Argo",
+      "tipo_combustivel": "GE"
     }
   ]
 }
 ```
 
+Response de locacoes:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 456,
+      "codigo": "L000456",
+      "cliente": "Cliente Exemplo",
+      "id_veiculo": 123,
+      "veiculo": "ABC1D23 - Chevrolet Onix",
+      "text": "L000456 - Cliente Exemplo"
+    }
+  ]
+}
+```
+
+Response de contratos:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 789,
+      "codigo": "C000789",
+      "cliente": "Cliente Exemplo",
+      "id_veiculo": 123,
+      "veiculo": "ABC1D23 - Chevrolet Onix",
+      "text": "C000789 - Cliente Exemplo"
+    }
+  ]
+}
+```
+
+Erro sem sessao:
+
+```json
+{ "success": false, "message": "Sessao invalida" }
+```
+
 ### Veiculos do vinculo
 
 - Atual: `GET /api/checklists/veiculos-vinculo?tipo=L&id=456&momento=S`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
 
-Response:
+Query:
+
+| Param | Tipo | Obrigatorio | Regra |
+| --- | --- | --- | --- |
+| `tipo` | string | Sim | `L` para locacao, `C` para contrato. |
+| `id` | int | Sim | ID da locacao ou contrato. |
+| `momento` | string | Nao | `S` ou `C`; padrao `S`. |
+
+Response `200`:
 
 ```json
 {
@@ -478,12 +1078,33 @@ Response:
 }
 ```
 
+Erros:
+
+```json
+{ "success": false, "message": "Parametros invalidos" }
+```
+
+```json
+{ "success": false, "message": "Sessao invalida" }
+```
+
 ### Veiculos para checklist avulso
 
 - Antigo: `POST /veiculos.php`, `xAcesso: listar`
 - Atual: `GET /api/checklists/buscar-veiculos?q={texto}`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Retorno: somente veiculos do tenant/filiais permitidas.
 
-Response:
+Request:
+
+```http
+GET /api/checklists/buscar-veiculos?q=ABC1D23
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
+
+Response `200`:
 
 ```json
 {
@@ -505,8 +1126,48 @@ Response:
 
 ### PDF e verificacao
 
-- PDF: `GET /checklists/{id}/imprimir?orientacao=L`
+- PDF autenticado: `GET /checklists/{id}/imprimir?orientacao=L`
+  - Retorna PDF inline.
+  - Requer sessao, permissao `checklists.visualizar` e acesso a filial.
+  - `orientacao=L` gera landscape; qualquer outro valor usa portrait.
 - Verificacao publica: `GET /verificar/checklist/{codigo}`
+  - Retorna HTML publico.
+  - Nao requer autenticacao.
+
+## Prompt tecnico para outra IA
+
+Use este prompt se outra IA for implementar/refatorar o fluxo no React Native:
+
+```text
+Refatore o login e o fluxo de Checklist Digital do app React Native para consumir o backend atual do 7Carros Locadora.
+
+Nao use a API legada `https://api.locadora.7carros.com/v2`, `xAcesso`, `token`, `chave` no body, JWT ou Bearer token. O backend atual autentica funcionarios por sessao web PHP com cookie + CSRF.
+
+Implemente um AuthService com cookie jar persistente:
+1. GET {BASE_URL}/login com Accept: text/html.
+2. Salvar cookies retornados.
+3. Extrair do HTML o input hidden `name="_token"`.
+4. POST {BASE_URL}/login com Content-Type: application/x-www-form-urlencoded e os mesmos cookies.
+5. Enviar `_token`, `username`, `password` e, se marcado, `remember=on`.
+6. Considerar sucesso quando o POST responder JSON `{ success: true, redirect, user }` ou, no fluxo HTML, 302 para `/dashboard`, `/checklists/digital` ou intended_url. Considerar falha se voltar para `/login` ou retornar JSON `{ success: false, message }`.
+7. Em falha, extrair `.alert-error`/`.error-message` do HTML ou mostrar as mensagens oficiais documentadas.
+8. Guardar os cookies finais para as chamadas autenticadas.
+
+Depois do login, obter/renovar CSRF com:
+GET {BASE_URL}/api/session/refresh
+Headers: Cookie, X-Requested-With: XMLHttpRequest
+Response: `{ success: true, csrf_token }`.
+
+Todas as chamadas `/api/*` devem enviar:
+- Cookie da sessao
+- X-CSRF-TOKEN: csrf_token atual
+- X-Requested-With: XMLHttpRequest
+- Content-Type: application/json quando houver body JSON
+
+Se receber 419, chamar `/api/session/refresh` e repetir a requisicao uma vez. Se receber 401, redirect para `/login` ou HTML de login, limpar cookies e voltar para login.
+
+Implemente os endpoints de checklist conforme `endpoints_checklists_atualizado.md`: listar, criar, salvar questoes, upload/exclusao de vistoria, assinar/finalizar, retomar checklist, buscar modelos, buscar vinculos e buscar veiculos.
+```
 
 ## Empresa / Matriz-Filial
 
@@ -1009,23 +1670,25 @@ Exemplos de campos atuais:
 
 1. `GET /api/checklist-modelos/buscar?q=`
 2. `GET /api/checklists/buscar-veiculos?q=`
-3. `POST /api/checklists/criar` com `tipo=A`.
+3. `POST /api/checklists/criar` com `tipo=A` ao avancar da aba Informacoes; guardar `id` e `codigo` retornados.
 4. `GET /api/checklist-modelos/{id_modelo}`.
-5. `POST /api/checklists/{id}/questoes`.
-6. `POST /api/checklists/{id}/vistoria/upload`.
-7. `POST /api/checklists/{id}/assinar`.
+5. Na aba Questoes, autosalvar a cada 30s quando houver pelo menos uma resposta; ao avancar, chamar `POST /api/checklists/{id}/questoes` exigindo todas respondidas.
+6. Na aba Vistorias, chamar `POST /api/checklists/{id}/vistoria/upload` imediatamente apos cada foto capturada/selecionada; reusar o mesmo endpoint ao salvar foto editada.
+7. Se remover foto, chamar `POST /api/checklists/{id}/vistoria/{itemId}/excluir`.
+8. Ao finalizar, chamar `POST /api/checklists/{id}/assinar`.
 
 ### Checklist vinculado
 
 1. `GET /api/checklist-modelos/buscar?q=`
 2. `GET /api/checklists/buscar-vinculos?q=`
 3. Escolher `momento=S` ou `momento=C`.
-4. `GET /api/checklists/veiculos-vinculo?tipo=L|C&id={id}&momento=S|C`.
-5. `POST /api/checklists/criar` com `tipo=V`.
+4. `GET /api/checklists/veiculos-vinculo?tipo=L|C&id={id}&momento=S|C` e nao permitir selecionar veiculo com `checklist_feito = true`.
+5. `POST /api/checklists/criar` com `tipo=V` ao avancar da aba Informacoes; guardar `id` e `codigo` retornados.
 6. `GET /api/checklist-modelos/{id_modelo}`.
-7. `POST /api/checklists/{id}/questoes`.
-8. `POST /api/checklists/{id}/vistoria/upload`.
-9. `POST /api/checklists/{id}/assinar`.
+7. Na aba Questoes, autosalvar a cada 30s quando houver pelo menos uma resposta; ao avancar, chamar `POST /api/checklists/{id}/questoes` exigindo todas respondidas.
+8. Na aba Vistorias, chamar `POST /api/checklists/{id}/vistoria/upload` imediatamente apos cada foto capturada/selecionada; reusar o mesmo endpoint ao salvar foto editada.
+9. Se remover foto, chamar `POST /api/checklists/{id}/vistoria/{itemId}/excluir`.
+10. Ao finalizar, chamar `POST /api/checklists/{id}/assinar`.
 
 ### Atualizar empresa
 
@@ -1059,10 +1722,5 @@ Se o app precisar listar todos os documentos assinaveis como antes, sera necessa
 - `AGENTS.md`
 - `docs/checklists.md`
 - `docs/architecture.md`
-- `docs/querybuilder.md`
-- `docs/modals.md`
 - `docs/api.md`
-- `docs/assinaturas.md`
-- `docs/documentos.md`
-- `docs/development.md`
-- `docs/overview.md`
+- `docs/security.md`

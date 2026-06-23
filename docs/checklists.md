@@ -99,7 +99,7 @@ Após capturar uma foto, o usuário pode abrir o editor (ícone caneta) para ano
 - Canvas HTML5 com suporte touch + mouse
 - Suporta rotação do celular (canvas redimensiona mantendo conteúdo)
 - Exporta como JPEG com fundo branco (evita fundo preto no PDF)
-- **Ao salvar**: status muda para `2` (finalizado)
+- **Ao salvar**: antes de finalizar, atualiza `veiculos.odometro` e `veiculos.tanque_fracao` somente para checklist avulso ou vinculado de chegada; vinculado de saída não altera o veículo. Depois o status muda para `2` (finalizado)
 
 ---
 
@@ -149,7 +149,7 @@ Todas são HTML standalone (não usam template de iframe do dashboard).
 ```sql
 id                INT UNSIGNED PK AUTO_INCREMENT
 chave             VARCHAR(45) NOT NULL          -- tenant
-codigo            VARCHAR(50)                    -- código único (CK + hex)
+codigo            VARCHAR(50)                    -- código curto (CK + id 5 dígitos + 2 letras)
 tipo              VARCHAR(1)                     -- V=vinculado, A=avulso
 momento           VARCHAR(1)                     -- S=saída, C=chegada, N=não definido
 id_locacao        INT UNSIGNED NULL FK           -- locacoes.id ON DELETE SET NULL
@@ -162,7 +162,7 @@ questoes          MEDIUMTEXT NULL                -- JSON respostas
 vistoria          LONGTEXT NULL                  -- JSON itens com fotos
 assinatura_unica  MEDIUMTEXT NULL                -- filename assinatura
 obs_unica         MEDIUMTEXT NULL
-data_checklist    DATETIME NULL                  -- data/hora finalização
+data_checklist    DATETIME NULL                  -- data/hora finalização (backend, APP_TIMEZONE)
 id_funcionario    INT UNSIGNED NULL
 status            VARCHAR(3)                     -- 1=pendente, 2=finalizado
 created_at        TIMESTAMP

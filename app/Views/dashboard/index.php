@@ -9,12 +9,12 @@
     $fleetTotal = (int) ($fleet['total'] ?? 0);
     $available = (int) ($fleet['available'] ?? 0);
     $rented = (int) ($fleet['rented'] ?? 0);
-    $reserved = (int) ($fleet['reserved'] ?? 0);
     $workshop = (int) ($fleet['workshop'] ?? 0);
+    $reservations = (int) ($operations['reservations'] ?? 0);
+    $pendingReservations = (int) ($operations['pending_reservations'] ?? 0);
     $denominator = max($fleetTotal, 1);
     $pctAvailable = round(($available / $denominator) * 100, 1);
     $pctRented = round(($rented / $denominator) * 100, 1);
-    $pctReserved = round(($reserved / $denominator) * 100, 1);
     $pctWorkshop = round(($workshop / $denominator) * 100, 1);
 @endphp
 <!-- Tab Content: Início -->
@@ -67,23 +67,37 @@
         </div>
     </div>
 
-    <!-- Barra de disponibilidade (Fixa no topo) -->
-    <div class="kpi-card mb-6">
-        <div class="flex justify-between items-center mb-2">
-            <h4 class="text-base font-semibold text-slate-800">{{ t('modules.dashboard.availability.title') }}</h4>
-            <div class="text-xs text-slate-500">{{ t('modules.dashboard.availability.total') }}: {{ $fleetTotal }}</div>
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
+        <!-- Barra de disponibilidade (Fixa no topo) -->
+        <div class="kpi-card lg:col-span-4">
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="text-base font-semibold text-slate-800">{{ t('modules.dashboard.availability.title') }}</h4>
+                <div class="text-xs text-slate-500">{{ t('modules.dashboard.availability.total') }}: {{ $fleetTotal }}</div>
+            </div>
+            <div class="availability-bar-container mb-2.5">
+                <div class="availability-segment" style="width: {{ $pctAvailable }}%; background-color: #66BB6A;" title="{{ t('modules.dashboard.availability.available') }}: {{ $available }}">{{ $available }}</div>
+                <div class="availability-segment" style="width: {{ $pctRented }}%; background-color: #EF5350;" title="{{ t('modules.dashboard.availability.rented') }}: {{ $rented }}">{{ $rented }}</div>
+                <div class="availability-segment" style="width: {{ $pctWorkshop }}%; background-color: #FFEE58; color: #5D4037;" title="{{ t('modules.dashboard.availability.workshop') }}: {{ $workshop }}">{{ $workshop }}</div>
+            </div>
+            <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-700">
+                <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#66BB6A] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.available') }} ({{ $available }})</div>
+                <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#EF5350] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.rented') }} ({{ $rented }})</div>
+                <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#FFEE58] rounded-full mr-1.5 border border-slate-400"></span>{{ t('modules.dashboard.availability.workshop') }} ({{ $workshop }})</div>
+            </div>
         </div>
-        <div class="availability-bar-container mb-2.5">
-            <div class="availability-segment" style="width: {{ $pctAvailable }}%; background-color: #66BB6A;" title="{{ t('modules.dashboard.availability.available') }}: {{ $available }}">{{ $available }}</div>
-            <div class="availability-segment" style="width: {{ $pctRented }}%; background-color: #EF5350;" title="{{ t('modules.dashboard.availability.rented') }}: {{ $rented }}">{{ $rented }}</div>
-            <div class="availability-segment" style="width: {{ $pctReserved }}%; background-color: #42A5F5;" title="{{ t('modules.dashboard.availability.reserved') }}: {{ $reserved }}">{{ $reserved }}</div>
-            <div class="availability-segment" style="width: {{ $pctWorkshop }}%; background-color: #FFEE58; color: #5D4037;" title="{{ t('modules.dashboard.availability.workshop') }}: {{ $workshop }}">{{ $workshop }}</div>
-        </div>
-        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-700">
-            <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#66BB6A] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.available') }} ({{ $available }})</div>
-            <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#EF5350] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.rented') }} ({{ $rented }})</div>
-            <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#42A5F5] rounded-full mr-1.5"></span>{{ t('modules.dashboard.availability.reserved') }} ({{ $reserved }})</div>
-            <div class="flex items-center"><span class="h-2.5 w-2.5 bg-[#FFEE58] rounded-full mr-1.5 border border-slate-400"></span>{{ t('modules.dashboard.availability.workshop') }} ({{ $workshop }})</div>
+
+        <div class="kpi-card">
+            <h4 class="text-base font-semibold text-slate-800">{{ t('modules.dashboard.operations.reservations_pending') }}</h4>
+            <div class="grid grid-cols-2 gap-3 mt-2">
+                <div>
+                    <p class="text-xs text-slate-500">{{ t('modules.dashboard.operations.reserved') }}</p>
+                    <p class="text-xl text-slate-700">{{ $reservations }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500">{{ t('modules.dashboard.operations.pending') }}</p>
+                    <p class="text-xl text-slate-700">{{ $pendingReservations }}</p>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -25,6 +25,12 @@ return [
         'workshop' => 'Taller',
     ],
 
+    'operations' => [
+        'reservations_pending' => 'Reservas/Pendientes',
+        'reserved' => 'Reservados',
+        'pending' => 'Pendientes',
+    ],
+
     // Sub-tabs
     'tabs' => [
         'quick_search' => 'Búsqueda rápida',

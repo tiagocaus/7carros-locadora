@@ -9,6 +9,7 @@ use App\Core\Response;
 use App\Views\Template;
 use App\Models\Checklist;
 use App\Models\ChecklistModelo;
+use App\Models\Veiculo;
 use App\Helpers\FileHelper;
 use App\Helpers\FilialHelper;
 use App\Helpers\ImageHelper;
@@ -267,10 +268,9 @@ class ChecklistNovoController
                 return;
             }
 
-            // Gerar codigo unico
-            $codigo = 'CK' . strtoupper(bin2hex(random_bytes(6)));
-
             $model = new Checklist();
+            $codigo = $model->gerarCodigo($chave);
+
             $id = $model->criar([
                 'chave' => $chave,
                 'tipo' => $tipo,
@@ -285,7 +285,6 @@ class ChecklistNovoController
                 'obs_unica' => $obs,
                 'id_funcionario' => $user['id'] ?? null,
                 'status' => '1',
-                'created_at' => date('Y-m-d H:i:s'),
             ]);
 
             AuditLogService::registrar(
@@ -480,11 +479,12 @@ class ChecklistNovoController
             }
 
             $model = new Checklist();
+            $this->atualizarVeiculoDoChecklist($checklist);
             $model->salvarAssinatura($id, $filename);
 
             $user = Auth::user();
             AuditLogService::registrar(
-                ($user['name'] ?? 'Sistema') . ", finalizou checklist [{$checklist['codigo']}]"
+                ($user['nome'] ?? $user['name'] ?? 'Sistema') . ", finalizou checklist [{$checklist['codigo']}]"
             );
 
             Response::json([
@@ -497,6 +497,65 @@ class ChecklistNovoController
                 'message' => 'Erro ao salvar assinatura: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Atualiza o cadastro do veiculo com odometro/tanque informados no checklist.
+     */
+    private function atualizarVeiculoDoChecklist(array $checklist): void
+    {
+        if (($checklist['tipo'] ?? '') === 'V' && ($checklist['momento'] ?? '') !== 'C') {
+            return;
+        }
+
+        $idVeiculo = (int) ($checklist['id_veiculo'] ?? 0);
+        if ($idVeiculo <= 0) {
+            return;
+        }
+
+        $odometro = isset($checklist['odometro']) && (int) $checklist['odometro'] > 0
+            ? (int) $checklist['odometro']
+            : null;
+        $tanque = isset($checklist['tanque']) && trim((string) $checklist['tanque']) !== ''
+            ? trim((string) $checklist['tanque'])
+            : null;
+
+        if ($odometro === null && $tanque === null) {
+            return;
+        }
+
+        $veiculoModel = new Veiculo();
+        $veiculoModel->atualizarDadosChecklist($idVeiculo, $odometro, $tanque);
+
+        $campos = [];
+        if ($odometro !== null) {
+            $campos[] = AuditLogService::campo(
+                'Odometro',
+                $checklist['veiculo_odometro'] ?? null,
+                $odometro,
+                'Checklist'
+            );
+        }
+
+        if ($tanque !== null) {
+            $campos[] = AuditLogService::campo(
+                'Tanque',
+                $checklist['tanque_fracao'] ?? null,
+                $tanque,
+                'Checklist'
+            );
+        }
+
+        $user = Auth::user();
+        $veiculoDescricao = trim(
+            ($checklist['placa'] ?? '') . ' - ' . ($checklist['marca'] ?? '') . ' ' . ($checklist['veiculo_modelo'] ?? '')
+        );
+        $veiculoDescricao = $veiculoDescricao !== '-' ? $veiculoDescricao : '#' . $idVeiculo;
+
+        AuditLogService::registrarComCampos(
+            ($user['nome'] ?? $user['name'] ?? 'Sistema') . ", atualizou veiculo [{$veiculoDescricao}] pelo checklist [{$checklist['codigo']}]",
+            $campos
+        );
     }
 
     /**

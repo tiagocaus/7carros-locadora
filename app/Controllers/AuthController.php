@@ -45,13 +45,21 @@ class AuthController
         $username = trim($request->input('username', ''));
         $password = $request->input('password', '');
         $remember = $request->input('remember') === 'on';
+        $expectsJson = $request->expectsJson();
 
         if (empty($username) || empty($password)) {
+            if ($expectsJson) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Usuário e senha são obrigatórios',
+                ], 422);
+            }
+
             Response::backWithError('Usuário e senha são obrigatórios');
         }
 
         // Proteção contra brute force (simples)
-        $this->checkLoginAttempts($username, $request->ip());
+        $this->checkLoginAttempts($username, $request->ip(), $expectsJson);
 
         // Tenta autenticar com motivo detalhado para mensagens claras
         $authResult = Auth::attemptDetailed($username, $password, $remember);
@@ -64,30 +72,70 @@ class AuthController
             Session::remove('intended_url');
 
             if ($intendedUrl) {
+                if ($expectsJson) {
+                    $this->respondLoginSuccess($intendedUrl);
+                }
+
                 Response::redirect($intendedUrl);
             } elseif (Auth::can('dashboard.visualizar')) {
+                if ($expectsJson) {
+                    $this->respondLoginSuccess('/dashboard');
+                }
+
                 Response::redirect('/dashboard');
             } else {
                 // Usuario sem acesso ao dashboard (ex: funcionario so com checklists.criar)
+                if ($expectsJson) {
+                    $this->respondLoginSuccess('/checklists/digital');
+                }
+
                 Response::redirect('/checklists/digital');
             }
         }
 
         if (($authResult['reason'] ?? null) === Auth::ATTEMPT_SUSPENDED) {
+            $message = 'Seu acesso está suspenso. Isso pode acontecer por fatura vencida. Entre em contato com o suporte para regularizar o acesso.';
+            if ($expectsJson) {
+                Response::json([
+                    'success' => false,
+                    'message' => $message,
+                ], 403);
+            }
+
             Response::backWithError(
-                'Seu acesso está suspenso. Isso pode acontecer por fatura vencida. Entre em contato com o suporte para regularizar o acesso.'
+                $message
             );
         }
 
         if (($authResult['reason'] ?? null) === Auth::ATTEMPT_INACTIVE) {
+            $message = 'Seu usuário está inativo. Entre em contato com o suporte para verificar o acesso.';
+            if ($expectsJson) {
+                Response::json([
+                    'success' => false,
+                    'message' => $message,
+                ], 403);
+            }
+
             Response::backWithError(
-                'Seu usuário está inativo. Entre em contato com o suporte para verificar o acesso.'
+                $message
             );
         }
 
         // Login falhou por usuário ou senha, registra tentativa
         $attemptInfo = $this->recordLoginAttempt($username, $request->ip());
         $message = $this->invalidCredentialsMessage($attemptInfo);
+
+        if ($expectsJson) {
+            Response::json([
+                'success' => false,
+                'message' => $message,
+                'attempts' => $attemptInfo['attempts'] ?? null,
+                'remaining' => $attemptInfo['remaining'] ?? null,
+                'blocked' => $attemptInfo['blocked'] ?? false,
+                'blocked_until' => $attemptInfo['blocked_until'] ?? null,
+            ], 401);
+        }
+
         Session::flash('error', $message);
 
         Response::backWithErrors(
@@ -204,7 +252,7 @@ class AuthController
     /**
      * Verifica tentativas de login (rate limiting)
      */
-    private function checkLoginAttempts(string $username, string $ip): void
+    private function checkLoginAttempts(string $username, string $ip, bool $expectsJson = false): void
     {
         $attempts = $this->loginAttemptModel->buscarBloqueio($username, $ip);
 
@@ -216,10 +264,44 @@ class AuthController
             }
 
             $minutesLeft = max(1, (int) ceil($secondsLeft / 60));
+            $message = "Acesso temporariamente bloqueado por muitas tentativas. Tente novamente em $minutesLeft minutos ou redefina sua senha.";
+
+            if ($expectsJson) {
+                Response::json([
+                    'success' => false,
+                    'message' => $message,
+                    'blocked' => true,
+                    'blocked_until' => $attempts['bloqueado_ate'] ?? null,
+                    'retry_after_seconds' => $secondsLeft,
+                ], 429);
+            }
+
             Response::backWithError(
-                "Acesso temporariamente bloqueado por muitas tentativas. Tente novamente em $minutesLeft minutos ou redefina sua senha."
+                $message
             );
         }
+    }
+
+    /**
+     * Retorna os dados da sessao autenticada no fluxo de login JSON.
+     */
+    private function respondLoginSuccess(string $redirect): void
+    {
+        $user = Auth::user() ?? [];
+
+        Response::json([
+            'success' => true,
+            'redirect' => $redirect,
+            'user' => [
+                'id' => $user['id'] ?? null,
+                'nome' => $user['nome'] ?? '',
+                'usuario' => $user['usuario'] ?? '',
+                'email' => $user['email'] ?? '',
+                'plano' => $user['plano'] ?? null,
+                'id_matriz_filial' => $user['id_matriz_filial'] ?? null,
+                'filiais_permitidas' => $user['filiais_permitidas'] ?? [],
+            ],
+        ]);
     }
 
     /**
