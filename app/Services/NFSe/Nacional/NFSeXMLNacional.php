@@ -135,7 +135,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
 
     public function gerarXMLCancelamento(string $chaveAcesso, string $motivo, array $dados): string
     {
-        $id = 'PRE' . $this->somenteDigitos($chaveAcesso);
+        $id = 'PRE' . $this->somenteDigitos($chaveAcesso) . '101101';
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<pedRegEvento xmlns="' . self::NAMESPACE . '" versao="1.01">';
         $xml .= '<infPedReg Id="' . $this->escapeXml($id) . '">';
@@ -187,13 +187,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
             if (!empty($resultado['chave_acesso']) || !empty($resultado['numero'])) {
                 $resultado['sucesso'] = true;
             } elseif (isset($json['erros']) || isset($json['erro'])) {
-                $erros = $json['erros'] ?? [$json['erro'] ?? []];
-                foreach ($erros as $erro) {
-                    $resultado['erros'][] = [
-                        'codigo' => $erro['Codigo'] ?? $erro['codigo'] ?? $erro['cod'] ?? 'ERRO_DESCONHECIDO',
-                        'mensagem' => $erro['Descricao'] ?? $erro['descricao'] ?? $erro['mensagem'] ?? $erro['msg'] ?? '',
-                    ];
-                }
+                $resultado['erros'] = $this->extrairErrosJson($json);
             }
             return $resultado;
         }
@@ -285,17 +279,42 @@ class NFSeXMLNacional implements NFSeXMLInterface
             if (isset($json['sucesso']) && $json['sucesso'] === true) {
                 $resultado['sucesso'] = true;
                 $resultado['mensagem'] = $json['mensagem'] ?? 'NFS-e cancelada com sucesso.';
-            } elseif (!empty($json['erros'])) {
-                foreach ($json['erros'] as $erro) {
-                    $resultado['erros'][] = [
-                        'codigo' => $erro['codigo'] ?? 'ERRO_DESCONHECIDO',
-                        'mensagem' => $erro['mensagem'] ?? '',
-                    ];
-                }
+            } else {
+                $resultado['erros'] = $this->extrairErrosJson($json);
             }
         }
 
         return $resultado;
+    }
+
+    private function extrairErrosJson(array $json): array
+    {
+        $itens = [];
+
+        if (!empty($json['erros']) && is_array($json['erros'])) {
+            $itens = $json['erros'];
+        } elseif (!empty($json['erro']) && is_array($json['erro'])) {
+            $itens = array_is_list($json['erro']) ? $json['erro'] : [$json['erro']];
+        }
+
+        $erros = [];
+        foreach ($itens as $erro) {
+            if (!is_array($erro)) {
+                continue;
+            }
+
+            $codigo = (string) ($erro['Codigo'] ?? $erro['codigo'] ?? $erro['cod'] ?? 'ERRO_DESCONHECIDO');
+            $descricao = (string) ($erro['Descricao'] ?? $erro['descricao'] ?? $erro['mensagem'] ?? $erro['Mensagem'] ?? $erro['msg'] ?? '');
+            $complemento = (string) ($erro['Complemento'] ?? $erro['complemento'] ?? '');
+            $mensagem = trim($descricao . ($complemento !== '' ? ' - ' . $complemento : ''));
+
+            $erros[] = [
+                'codigo' => $codigo !== '' ? $codigo : 'ERRO_DESCONHECIDO',
+                'mensagem' => $mensagem,
+            ];
+        }
+
+        return $erros;
     }
 
     /**

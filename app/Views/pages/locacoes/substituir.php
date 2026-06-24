@@ -25,7 +25,14 @@
                     <i class="fas fa-arrow-down mr-2 text-red-500 text-lg"></i><?= t('modules.locacoes.substitution.vehicle_to_return') ?>
                 </h3>
 
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
+                    <div class="md:col-span-12 form-input-group">
+                        <label for="dataSubstituicao" class="form-label-group">Data da Substituição <span class="text-red-500">*</span></label>
+                        <input type="datetime-local" id="dataSubstituicao" class="form-input-group-field">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
                     <div class="md:col-span-4 form-input-group">
                         <label class="form-label-group"><?= t('modules.locacoes.fields.plan') ?></label>
                         <input type="text" id="atualPlano" class="form-input-group-field bg-slate-50" readonly>
@@ -253,6 +260,18 @@
         return (parseInt(value, 10) || 0).toLocaleString('pt-BR');
     }
 
+    function formatarDatetimeLocal(date) {
+        const pad = value => String(value).padStart(2, '0');
+        return [
+            date.getFullYear(),
+            pad(date.getMonth() + 1),
+            pad(date.getDate())
+        ].join('-') + 'T' + [
+            pad(date.getHours()),
+            pad(date.getMinutes())
+        ].join(':');
+    }
+
     function alertMessage(message) {
         window.parent.postMessage({ action: 'openAlert', message }, '*');
     }
@@ -266,6 +285,10 @@
     }
 
     function preencherAtual() {
+        if ($('dataSubstituicao') && !$('dataSubstituicao').value) {
+            $('dataSubstituicao').value = formatarDatetimeLocal(new Date());
+        }
+
         const descricao = [
             veiculoAtual.veiculo_placa || '',
             [veiculoAtual.veiculo_marca || '', veiculoAtual.veiculo_modelo || ''].join(' ').trim()
@@ -375,8 +398,9 @@
         const novoGrupo = $('novoGrupo').value;
         const novoVeiculo = $('novoVeiculo').value;
         const novoPlano = $('novoPlano').value;
+        const dataSubstituicao = $('dataSubstituicao').value || '';
 
-        if (!odometroEntrada || !novoGrupo || !novoVeiculo || !novoPlano) {
+        if (!dataSubstituicao || !odometroEntrada || !novoGrupo || !novoVeiculo || !novoPlano) {
             alertMessage(i18n.required);
             return;
         }
@@ -389,6 +413,8 @@
         const plano = novoPlano;
         const payload = {
             id_locacao_veiculo_antigo: veiculoAtual.id,
+            data_entrada: dataSubstituicao,
+            data_saida_novo: dataSubstituicao,
             odometro_entrada: odometroEntrada,
             combustivel_entrada: $('combustivelEntrada').value || null,
             motivo_saida: $('motivoSaida').value || null,

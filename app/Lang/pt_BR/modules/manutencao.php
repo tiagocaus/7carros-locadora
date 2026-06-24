@@ -247,6 +247,12 @@ return [
     // Tipo de registro (para modal de exclusão)
     'record_type' => 'manutenção',
 
+    // Opções do modal de exclusão
+    'delete_options' => [
+        'financial_linked' => 'Excluir financeiro vinculado',
+        'restore_stock' => 'Repor estoque utilizado',
+    ],
+
     // Auditoria do financeiro
     'audit_financial' => [
         'section' => 'Lançamento Financeiro',

@@ -490,14 +490,14 @@ class NFSeService
 
             $retorno = $xmlGenerator->parseRetornoCancelamento($resultado['resposta'] ?? '');
 
-            if ($retorno['sucesso'] || ($resultado['sucesso'] ?? false)) {
+            if (empty($retorno['erros']) && ($retorno['sucesso'] || ($resultado['sucesso'] ?? false))) {
                 $this->nfseModel->atualizarCancelada($idNFSe, $motivo);
                 $this->eventoModel->registrar($idNFSe, 'cancelamento', null, $motivo, $resultado['resposta'] ?? null);
                 return ['sucesso' => true, 'mensagem' => 'NFS-e cancelada com sucesso.'];
             }
 
-            $erroMsg = $retorno['erros'][0]['mensagem'] ?? 'Erro desconhecido ao cancelar.';
-            $erroCod = $retorno['erros'][0]['codigo'] ?? 'ERRO_DESCONHECIDO';
+            $erroMsg = $retorno['erros'][0]['mensagem'] ?? ($resultado['erro'] ?? 'Erro desconhecido ao cancelar.');
+            $erroCod = $retorno['erros'][0]['codigo'] ?? ($resultado['codigoErro'] ?? 'ERRO_DESCONHECIDO');
             $this->eventoModel->registrar($idNFSe, 'erro', $erroCod, $erroMsg, $resultado['resposta'] ?? null);
             return $this->erro($erroMsg, NFSeErros::mapearErroAPI($erroCod));
         } catch (\Throwable $e) {
@@ -520,14 +520,14 @@ class NFSeService
             $resultado = $api->cancelar($xml, $nfse['chave_acesso'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
             $retorno = $xmlGenerator->parseRetornoCancelamento($resultado['resposta'] ?? '');
 
-            if ($retorno['sucesso'] || ($resultado['sucesso'] ?? false)) {
+            if (empty($retorno['erros']) && ($retorno['sucesso'] || ($resultado['sucesso'] ?? false))) {
                 $this->nfseModel->atualizarCancelada($idNFSe, $motivo);
                 $this->eventoModel->registrar($idNFSe, 'cancelamento', null, $motivo, $resultado['resposta'] ?? null);
                 return ['sucesso' => true, 'mensagem' => 'NFS-e cancelada com sucesso.'];
             }
 
-            $erroMsg = $retorno['erros'][0]['mensagem'] ?? 'Erro desconhecido ao cancelar na Betha.';
-            $erroCod = $retorno['erros'][0]['codigo'] ?? 'ERRO_DESCONHECIDO';
+            $erroMsg = $retorno['erros'][0]['mensagem'] ?? ($resultado['erro'] ?? 'Erro desconhecido ao cancelar na Betha.');
+            $erroCod = $retorno['erros'][0]['codigo'] ?? ($resultado['codigoErro'] ?? 'ERRO_DESCONHECIDO');
             $this->eventoModel->registrar($idNFSe, 'erro', $erroCod, $erroMsg, $resultado['resposta'] ?? null);
             return $this->erro($erroMsg, NFSeErros::mapearErroAPI($erroCod));
         } catch (\Throwable $e) {

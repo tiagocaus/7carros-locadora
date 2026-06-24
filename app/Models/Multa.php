@@ -10,7 +10,7 @@ use App\Helpers\SequenciaHelper;
  * Model Multa
  *
  * Gerencia multas de transito vinculadas a contratos ou locacoes.
- * Integra com o financeiro para lancamento automatico de despesas.
+ * Integra com o financeiro para lancamento automatico de receitas/despesas.
  */
 class Multa extends Model
 {
@@ -251,6 +251,8 @@ class Multa extends Model
      */
     public function criar(array $dados): int
     {
+        $pagador = $this->normalizarPagador($dados['pagador'] ?? null);
+        $valor = currency_parse($dados['valor'] ?? 0);
         $sequenciaFinanceiro = null;
         if (!empty($dados['id_matriz_filial'])) {
             $sequenciaFinanceiro = SequenciaHelper::proximaSequencia(
@@ -278,15 +280,16 @@ class Multa extends Model
                     'estado' => $dados['estado'] ?? '',
                     'data_hora' => $dados['data_hora'],
                     'data_vencimento' => $dados['data_vencimento'] ?? date('Y-m-d'),
-                    'valor' => currency_parse($dados['valor'] ?? 0),
+                    'valor' => $valor,
                     'pago' => 'N',
+                    'pagador' => $pagador,
                     'descri' => $dados['descri'] ?? '',
                     'orgao_autuador' => $dados['orgao_autuador'] ?? '',
                     'n_infracao' => $dados['n_infracao'] ?? '',
                     'foto' => $dados['foto'] ?? null,
                 ]);
 
-            // Criar lancamento financeiro (Despesa) vinculado
+            // Criar lancamento financeiro vinculado.
             $financeiro = new Financeiro();
             $descFinanceiro = 'Multa de transito';
             if (!empty($dados['n_infracao'])) {
@@ -296,17 +299,18 @@ class Multa extends Model
             $dadosFinanceiro = [
                 'chave' => $dados['chave'],
                 'id_matriz_filial' => $dados['id_matriz_filial'] ?? null,
-                'id_cliente' => $dados['id_cliente'] ?? null,
+                'id_cliente' => $pagador === 'cliente' ? ($dados['id_cliente'] ?? null) : null,
+                'id_fornecedor' => null,
                 'id_multa' => $idMulta,
                 'id_contrato' => $dados['id_contrato'] ?? null,
                 'id_locacao' => $dados['id_locacao'] ?? null,
                 'id_veiculo' => $dados['id_veiculo'] ?? null,
-                'tipo' => 'D',
+                'tipo' => $pagador === 'cliente' ? 'R' : 'D',
                 'pago' => 'N',
                 'descricao' => $descFinanceiro,
                 'data_criada' => date('Y-m-d'),
                 'data_venci' => $dados['data_vencimento'] ?? date('Y-m-d'),
-                'valor_subtotal' => $dados['valor'] ?? 0,
+                'valor_subtotal' => $valor,
             ];
 
             if ($sequenciaFinanceiro !== null) {
@@ -356,6 +360,9 @@ class Multa extends Model
         if (array_key_exists('valor', $dados)) {
             $dadosUpdate['valor'] = currency_parse($dados['valor'] ?? 0);
         }
+        if (array_key_exists('pagador', $dados)) {
+            $dadosUpdate['pagador'] = $this->normalizarPagador($dados['pagador'] ?? null);
+        }
         if (isset($dados['descri'])) {
             $dadosUpdate['descri'] = $dados['descri'];
         }
@@ -380,19 +387,38 @@ class Multa extends Model
             ->where('id', '=', $id)
             ->update($dadosUpdate);
 
-        // Se valor mudou, atualizar financeiro vinculado
-        if (isset($dadosUpdate['valor']) && !empty($multa['id_financeiro'])) {
-            $financeiro = new Financeiro();
-            $dadosFinanceiro = [
-                'valor_subtotal' => $dadosUpdate['valor'],
-            ];
-            if (isset($dadosUpdate['data_vencimento'])) {
-                $dadosFinanceiro['data_venci'] = $dadosUpdate['data_vencimento'];
-            }
-            $financeiro->atualizar((int) $multa['id_financeiro'], $dadosFinanceiro);
+        if (!empty($multa['id_financeiro'])) {
+            $this->sincronizarFinanceiroVinculado($multa, $dadosUpdate);
         }
 
         return $result;
+    }
+
+    private function normalizarPagador(?string $pagador): string
+    {
+        return in_array($pagador, ['cliente', 'empresa'], true) ? $pagador : 'cliente';
+    }
+
+    private function sincronizarFinanceiroVinculado(array $multa, array $dadosUpdate): void
+    {
+        $pagador = $this->normalizarPagador($dadosUpdate['pagador'] ?? ($multa['pagador'] ?? 'cliente'));
+        $valor = array_key_exists('valor', $dadosUpdate)
+            ? (float) $dadosUpdate['valor']
+            : (float) ($multa['valor'] ?? 0);
+        $dataVencimento = $dadosUpdate['data_vencimento'] ?? ($multa['data_vencimento'] ?? date('Y-m-d'));
+
+        $this->qb
+            ->table('financeiro')
+            ->where('id', '=', (int) $multa['id_financeiro'])
+            ->update([
+                'tipo' => $pagador === 'cliente' ? 'R' : 'D',
+                'id_cliente' => $pagador === 'cliente' ? (!empty($multa['id_cliente']) ? (int) $multa['id_cliente'] : null) : null,
+                'id_fornecedor' => null,
+                'data_venci' => $dataVencimento,
+                'valor_subtotal' => $valor,
+                'valor_total' => $valor,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
     }
 
     /**

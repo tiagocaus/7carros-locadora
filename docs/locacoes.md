@@ -66,6 +66,7 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 - Grava odometro e combustivel de saida
 - Atualiza status do veiculo para "L" (Locado)
 - Pode atualizar dados de bloqueio/caucao
+- Em documentos personalizados, `{{locacao.tanque_saida}}` exibe o nível de saída como fração legível (`Reserva`, `1/2`, `Cheio`, etc.).
 
 ### A → F (Registrar Devolucao)
 - Registra data/hora de chegada
@@ -80,6 +81,7 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 - Antes de fechar, exige parcelas financeiras lancadas com total igual ao total final da locacao
 - Parcelas pendentes nao bloqueiam o fechamento; a regra exige lancamento, nao pagamento
 - Atualiza status do veiculo para "D" (Disponivel)
+- Em documentos personalizados, `{{locacao.tanque_chegada}}` exibe o nível de chegada como fração legível (`Reserva`, `1/2`, `Cheio`, etc.).
 - Apos fechar (`status = F`), a locacao deixa de ter veiculo ativo porque
   `locacoes_veiculos.data_entrada` fica preenchida. Listagens e telas de
   exibicao devem mostrar o ultimo veiculo do historico da locacao.
@@ -117,12 +119,6 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 | bloqueio_valor | DECIMAL | (legado) Valor |
 | bloqueio_prazo_devolucao | INT | (legado) Dias |
 | bloqueio_data_devolucao | DATE | (legado) Data devolucao |
-| caucao_valor | DECIMAL | Valor do deposito de garantia |
-| caucao_tipo | VARCHAR | Forma pagamento (dinheiro, pix, cartao, cheque) |
-| id_conta_caucao | INT UNSIGNED | FK conta bancaria da caucao |
-| caucao_prazo_devolucao | INT | Dias para devolver caucao |
-| caucao_data_devolucao | DATE | Data efetiva da devolucao |
-| id_cartao_caucao | INT UNSIGNED | FK clientes_cartoes (se pago com cartao) |
 | id_bloqueio_ativo | INT UNSIGNED | FK locacoes_bloqueios (hold ativo) |
 | condutor_adicional | JSON | Array de condutores adicionais |
 | array_fiadores | JSON | Array de fiadores |
@@ -130,6 +126,33 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 | array_testemunhas | JSON | Array de testemunhas |
 | id_funcionario | INT UNSIGNED | Funcionario que criou |
 | obs | TEXT | Observacoes |
+| created_at | TIMESTAMP | Data de criacao |
+| updated_at | DATETIME | Data de atualizacao |
+
+### Tabela `locacoes_caucoes`
+
+Armazena o deposito de garantia da locacao. Substitui as colunas legadas de caucao em
+`locacoes` e permite controlar forma de pagamento, lancamento financeiro e devolucao sem
+misturar esses dados no cadastro principal da locacao.
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | INT UNSIGNED PK | Identificador |
+| chave | VARCHAR(20) | Tenant |
+| id_locacao | INT UNSIGNED FK | FK locacoes (CASCADE) |
+| id_cliente | INT UNSIGNED NULL | FK cliente vinculado a locacao |
+| id_conta | INT UNSIGNED NULL | FK conta bancaria da caucao |
+| id_cartao | INT UNSIGNED NULL | FK clientes_cartoes, quando aplicavel |
+| id_forma_pagamento | INT UNSIGNED NULL | FK forma de pagamento |
+| id_financeiro_entrada | INT UNSIGNED NULL | Lancamento de entrada da caucao |
+| id_financeiro_devolucao | INT UNSIGNED NULL | Lancamento de devolucao da caucao |
+| valor | DECIMAL(10,2) | Valor do deposito de garantia |
+| prazo_devolucao | INT NULL | Dias para devolver a caucao |
+| data_devolucao | DATE NULL | Data efetiva da devolucao |
+| lancar_financeiro | TINYINT(1) | Indica se deve gerar financeiro |
+| status | ENUM | ativa, devolvida ou cancelada |
+| legacy_tipo | VARCHAR(100) NULL | Valor legado de `caucao_tipo`, preservado para auditoria/migracao |
+| observacoes | TEXT NULL | Observacoes da caucao |
 | created_at | TIMESTAMP | Data de criacao |
 | updated_at | DATETIME | Data de atualizacao |
 

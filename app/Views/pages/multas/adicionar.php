@@ -109,6 +109,14 @@
                         </div>
                     </div>
 
+                    <div class="form-input-group">
+                        <label for="pagador" class="form-label-group"><?= t('modules.multas.fields.payer') ?></label>
+                        <select id="pagador" name="pagador" class="form-input-group-field">
+                            <option value="cliente" selected><?= t('modules.multas.fields.payer_client') ?></option>
+                            <option value="empresa"><?= t('modules.multas.fields.payer_company') ?></option>
+                        </select>
+                    </div>
+
                     <!-- Status de pagamento (somente edicao) -->
                     <div id="statusPagoSection" class="form-input-group hidden">
                         <label class="form-label-group"><?= t('modules.multas.fields.status') ?></label>
@@ -124,7 +132,7 @@
                         <input type="text" id="n_infracao" name="n_infracao" class="form-input-group-field" maxlength="10">
                     </div>
 
-                    <div class="form-input-group md:col-span-3">
+                    <div id="orgaoAutuadorGroup" class="form-input-group md:col-span-3">
                         <label for="orgao_autuador" class="form-label-group"><?= t('modules.multas.fields.issuing_body') ?></label>
                         <input type="text" id="orgao_autuador" name="orgao_autuador" class="form-input-group-field" maxlength="150" placeholder="Ex: DETRAN, PRF, DNIT...">
                     </div>
@@ -442,6 +450,7 @@
             document.getElementById('cidade').value = data.cidade || '';
             document.getElementById('estado').value = data.estado || '';
             document.getElementById('descri').value = data.descri || '';
+            document.getElementById('pagador').value = data.pagador || 'cliente';
 
             // Valor formatado
             Currency.setValue('#valor', data.valor || 0);
@@ -462,6 +471,8 @@
             statusPagoOriginal = data.pago || 'N';
             document.getElementById('statusPago').value = statusPagoOriginal;
             document.getElementById('statusPagoSection').classList.remove('hidden');
+            document.getElementById('orgaoAutuadorGroup').classList.remove('md:col-span-3');
+            document.getElementById('orgaoAutuadorGroup').classList.add('md:col-span-2');
 
             // Titulo de edicao
             document.getElementById('pageTitle').textContent = i18n.editTitle;

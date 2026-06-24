@@ -28,12 +28,13 @@ Campos principais (schema completo via `DESCRIBE multas`):
 | `id`, `chave`, `id_matriz_filial` | identificação + multi-tenancy |
 | `tipo` | varchar(1) — `'C'` (contrato) ou `'L'` (locação) |
 | `id_contrato`, `id_locacao` | fk para o vínculo (apenas um preenchido) |
-| `id_cliente`, `id_veiculo` | quem paga + qual carro |
+| `id_cliente`, `id_veiculo` | responsável/vínculo + qual carro |
 | `n_infracao`, `numero_ait`, `codigo_orgao`, `codigo_infracao` | identificadores oficiais |
 | `orgao_autuador`, `local`, `cidade`, `estado` | onde foi |
 | `data_hora`, `data_vencimento` | quando ocorreu, quando vence |
 | `valor`, `valor_desconto_40` | valor cheio + 40% (boleto antecipado) |
 | `pago` | varchar(1) — `'S'` ou `'N'` |
+| `pagador` | varchar(20) — `'cliente'` gera receita; `'empresa'` gera despesa |
 | `descri` | descrição livre |
 | `foto`, `foto_radar` | imagens (WebP) |
 | `origem` | enum `manual` / `serpro_consulta` / `serpro_evento` |
@@ -46,6 +47,13 @@ Campos principais (schema completo via `DESCRIBE multas`):
 `buscarPorId(int $id)` (linha 128) já traz todos os JOINs em uma query: `cliente_nome`, `cliente_cpf_cnpj`, `veiculo_placa/modelo/marca`, `filial_nome`, `contrato_codigo`, `locacao_codigo`. **Reuse — não duplique a query.**
 
 `buscarResponsavel($veiculoId, $dataHoraMulta)` busca o responsável pelo veículo na data/hora da infração (delega para `ContratoVeiculo::findResponsavelByMulta` e `LocacaoVeiculo::findResponsavelByMulta`).
+
+Regra de vínculo por data/hora:
+
+- `data_entrada = NULL` em `contratos_veiculos` ou `locacoes_veiculos` significa que o veículo ainda está em aberto/ativo naquele vínculo.
+- Um vínculo cobre a multa quando `data_saida <= data_hora` e (`data_entrada IS NULL` ou `data_entrada >= data_hora`).
+- Quando mais de um vínculo cobre a mesma data/hora, o sistema escolhe o vínculo mais recente: `data_saida DESC`, depois `id DESC`.
+- Não descarte automaticamente contratos por `contratos.data_fim`, pois contratos ativos/autorenovados podem ter `data_fim` passada e veículo ainda aberto (`data_entrada = NULL`).
 
 ## Controller `app/Controllers/MultasController.php`
 
@@ -92,10 +100,19 @@ O PDF usa `SetHTMLHeader` / `SetHTMLFooter` como em contratos/locações; a marg
 ### Cadastro manual e financeiro
 
 Ao cadastrar multa manualmente, `Multa::criar()` cria a multa e um lançamento
-financeiro de despesa vinculado (`multas.id_financeiro` e
-`financeiro.id_multa`). A sequência do financeiro deve ser gerada antes da
-transação principal de multa/financeiro para reduzir contenção em
-`matrizes_filiais.sequencia_financeiro`.
+financeiro vinculado (`multas.id_financeiro` e `financeiro.id_multa`). O campo
+`multas.pagador` define o tipo do lançamento:
+
+- `cliente`: gera receita (`financeiro.tipo='R'`) com `financeiro.id_cliente`
+  preenchido.
+- `empresa`: gera despesa (`financeiro.tipo='D'`) sem cliente ou fornecedor
+  vinculado.
+
+A sequência do financeiro deve ser gerada antes da transação principal de
+multa/financeiro para reduzir contenção em
+`matrizes_filiais.sequencia_financeiro`. Ao editar multa vinculada ao
+financeiro, alterações de pagador, vencimento ou valor devem sincronizar o
+lançamento financeiro existente.
 
 Erros transitórios de banco, como lock wait timeout ou deadlock, não devem ser
 expostos ao usuário com a mensagem técnica do MySQL. O controller deve registrar

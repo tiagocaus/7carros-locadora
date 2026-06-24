@@ -1260,6 +1260,98 @@ class FinanceiroReport extends BaseReportModel
         $lucroTotal = $receitaTotal - $custosTotal;
         $margemMedia = $this->pct($lucroTotal, $receitaTotal);
 
+        if (in_array($dimensao, ['grupo', 'veiculo'], true)) {
+            $receitas = $this->financeiroVeiculoRows('R', $dataInicio, $dataFim, [
+                'date_field' => 'data_criada',
+                'filial_where' => $filialWhere,
+                'filial_params' => $filialParams,
+                'filial_id' => $filialId,
+            ]);
+            $custos = $this->financeiroVeiculoRows('D', $dataInicio, $dataFim, [
+                'date_field' => 'data_criada',
+                'filial_where' => $filialWhere,
+                'filial_params' => $filialParams,
+                'filial_id' => $filialId,
+            ]);
+
+            $agrupado = [];
+            $receitaAgrupada = 0.0;
+            $custosAgrupados = 0.0;
+            foreach ([['rows' => $receitas, 'campo' => 'receita'], ['rows' => $custos, 'campo' => 'custos']] as $grupoRows) {
+                foreach ($grupoRows['rows'] as $row) {
+                    $key = $dimensao === 'grupo'
+                        ? 'g:' . (int) ($row['id_grupo'] ?? 0)
+                        : 'v:' . (int) $row['id_veiculo'];
+
+                    if (!isset($agrupado[$key])) {
+                        $agrupado[$key] = [
+                            'dimensao_nome' => $dimensao === 'grupo'
+                                ? (($row['grupo_nome'] ?? '') ?: 'Sem grupo')
+                                : trim(($row['placa'] ?? '-') . ' - ' . ($row['marca'] ?? '') . ' ' . ($row['modelo'] ?? '')),
+                            'receita' => 0.0,
+                            'custos' => 0.0,
+                        ];
+                    }
+
+                    $valor = (float) $row['valor'];
+                    $agrupado[$key][$grupoRows['campo']] += $valor;
+                    if ($grupoRows['campo'] === 'receita') {
+                        $receitaAgrupada += $valor;
+                    } else {
+                        $custosAgrupados += $valor;
+                    }
+                }
+            }
+
+            $receitaOutros = max(0.0, $receitaTotal - $receitaAgrupada);
+            $custosOutros = max(0.0, $custosTotal - $custosAgrupados);
+            if ($receitaOutros > 0 || $custosOutros > 0) {
+                $agrupado['outros'] = [
+                    'dimensao_nome' => 'Outros',
+                    'receita' => $receitaOutros,
+                    'custos' => $custosOutros,
+                ];
+            }
+
+            $allDetails = array_map(function ($row) use ($receitaTotal) {
+                $receita = (float) $row['receita'];
+                $custos = (float) $row['custos'];
+                $lucro = $receita - $custos;
+
+                return [
+                    'dimensao' => $row['dimensao_nome'] ?: '-',
+                    'receita' => $receita,
+                    'custos' => $custos,
+                    'lucro' => $lucro,
+                    'margem' => $this->pct($lucro, $receita),
+                    'participacao' => $this->pct($receita, $receitaTotal),
+                ];
+            }, array_values($agrupado));
+
+            usort($allDetails, fn($a, $b) => $b['receita'] <=> $a['receita']);
+
+            $totalRows = count($allDetails);
+            $offset = max(0, ($page - 1) * $perPage);
+            $details = array_slice($allDetails, $offset, $perPage);
+
+            $chartItems = array_slice($details, 0, 10);
+
+            return [
+                'totals' => [
+                    'receita_total' => $receitaTotal,
+                    'custos_total' => $custosTotal,
+                    'lucro_total' => $lucroTotal,
+                    'margem_media' => $margemMedia,
+                ],
+                'details' => $details,
+                'chart' => [
+                    'labels' => array_column($chartItems, 'dimensao'),
+                    'data' => array_column($chartItems, 'lucro'),
+                ],
+                'total' => $totalRows,
+            ];
+        }
+
         // --- Contagem para paginacao ---
         $queryCount = $this->qb
             ->table('financeiro', 'f')

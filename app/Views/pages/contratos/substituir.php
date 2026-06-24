@@ -51,8 +51,16 @@
             <div class="form-section" style="margin-bottom: 0;">
                 <h3 class="form-section-title"><i class="fas fa-arrow-down mr-2 text-red-500 text-lg"></i><?= t('modules.contratos.substitution.vehicle_to_return') ?></h3>
 
-                <!-- Linha 1: Plano, Placa/Marca/Modelo, Grupo -->
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <!-- Linha 1: Data da Substituicao -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
+                    <div class="md:col-span-12 form-input-group">
+                        <label for="dataSubstituicao" class="form-label-group">Data da Substituição <span class="text-red-500">*</span></label>
+                        <input type="datetime-local" id="dataSubstituicao" class="form-input-group-field">
+                    </div>
+                </div>
+
+                <!-- Linha 2: Plano, Placa/Marca/Modelo, Grupo -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
                     <div class="md:col-span-3 form-input-group">
                         <label class="form-label-group"><?= t('modules.contratos.substitution.plan') ?></label>
                         <input type="text" id="atualPlano" class="form-input-group-field bg-slate-50" readonly value="-">
@@ -67,7 +75,7 @@
                     </div>
                 </div>
 
-                <!-- Linha 2: Odometro Inicial, Odometro Atual, Odometro Rodado -->
+                <!-- Linha 3: Odometro Inicial, Odometro Atual, Odometro Rodado -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
                     <div class="md:col-span-4 form-input-group">
                         <label class="form-label-group"><?= t('modules.contratos.substitution.odometer_initial') ?></label>
@@ -86,7 +94,7 @@
                     </div>
                 </div>
 
-                <!-- Linha 3: Tanque de Saida, Tanque de Chegada -->
+                <!-- Linha 4: Tanque de Saida, Tanque de Chegada -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
                     <div class="md:col-span-6 form-input-group">
                         <label class="form-label-group"><?= t('modules.contratos.substitution.fuel_out') ?></label>
@@ -451,6 +459,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     // ==================== INICIALIZACAO ====================
 
     async function init() {
+        const dataSubstituicao = document.getElementById('dataSubstituicao');
+        if (dataSubstituicao && !dataSubstituicao.value) {
+            dataSubstituicao.value = formatarDatetimeLocal(new Date());
+        }
+
         // Definir veiculo atual
         if (veiculosAtivos.length === 1) {
             exibirVeiculoAtual(veiculosAtivos[0]);
@@ -478,6 +491,18 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         // Eventos
         configurarEventos();
+    }
+
+    function formatarDatetimeLocal(date) {
+        const pad = value => String(value).padStart(2, '0');
+        return [
+            date.getFullYear(),
+            pad(date.getMonth() + 1),
+            pad(date.getDate())
+        ].join('-') + 'T' + [
+            pad(date.getHours()),
+            pad(date.getMinutes())
+        ].join(':');
     }
 
     // ==================== COLUNA ESQUERDA: VEICULO A SER DEVOLVIDO ====================
@@ -902,7 +927,12 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         const grupoNovoId = selectGrupo.value;
         const planoNovo = selectPlano.value;
         const odometroAtualVal = inputOdometroAtual.value;
+        const dataSubstituicao = document.getElementById('dataSubstituicao')?.value || '';
 
+        if (!dataSubstituicao) {
+            window.parent.postMessage({ action: 'openAlert', message: 'Informe a data da substituição' }, '*');
+            return;
+        }
         if (!planoNovo) {
             window.parent.postMessage({ action: 'openAlert', message: i18n.selectPlan }, '*');
             return;
@@ -933,6 +963,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
             const payload = {
                 id_contrato_veiculo_antigo: veiculoAtualData.id,
+                data_entrada: dataSubstituicao,
+                data_saida_novo: dataSubstituicao,
                 // Dados devolucao (veiculo entra na empresa)
                 odometro_entrada: Km.parse(odometroAtualVal),
                 combustivel_entrada: document.getElementById('tanqueChegada').value || null,

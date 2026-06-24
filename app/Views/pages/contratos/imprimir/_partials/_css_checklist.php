@@ -50,12 +50,19 @@
     text-align: center;
     margin: 8px 0;
 }
-.diagrama-coluna img { max-width: 100%; max-height: 180px; }
+.diagrama-coluna img {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    max-height: 420px;
+    width: auto;
+    height: auto;
+}
 
 /* Tanque (tabela de fracoes) */
 .tanque-table {
     border-collapse: collapse;
-    margin: 8px 0;
+    margin: 8px auto;
 }
 .tanque-table th {
     background: #f0f0f0;

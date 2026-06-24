@@ -123,8 +123,10 @@ class NFSeXMLBetha implements NFSeXMLInterface
     {
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<RecepcionarEventoCancelamentoEnvio xmlns="' . self::NAMESPACE . '">';
+        $xml .= '<evento>';
         $xml .= '<chaveAcesso>' . htmlspecialchars($chaveAcesso) . '</chaveAcesso>';
         $xml .= '<motivo>' . $this->textoMaiusculo($motivo) . '</motivo>';
+        $xml .= '</evento>';
         $xml .= '</RecepcionarEventoCancelamentoEnvio>';
 
         return $xml;
@@ -166,10 +168,11 @@ class NFSeXMLBetha implements NFSeXMLInterface
 
         $erros = $this->parseMensagens($doc);
         $status = $this->valorTag($doc, 'statusProcessamento');
+        $mensagem = $erros[0]['mensagem'] ?? ($this->valorTag($doc, 'mensagem') ?: 'Evento de cancelamento processado.');
 
         return [
             'sucesso' => empty($erros) && ($this->statusSucesso($status) || stripos($resposta, 'sucesso') !== false),
-            'mensagem' => $this->valorTag($doc, 'mensagem') ?: 'Evento de cancelamento processado.',
+            'mensagem' => $mensagem,
             'erros' => $erros,
         ];
     }

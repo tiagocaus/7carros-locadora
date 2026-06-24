@@ -619,54 +619,45 @@
                 <h3 class="form-section-title"><i class="fas fa-shield-alt mr-2"></i><?= t('modules.locacoes.sections.deposit') ?></h3>
 
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    <div class="md:col-span-4 form-input-group">
+                    <div class="md:col-span-3 form-input-group">
                         <label for="id_conta_caucao" class="form-label-group"><?= t('modules.locacoes.deposit.account') ?> <span id="asterisco_conta_caucao" class="text-red-500 hidden">*</span></label>
                         <select id="id_conta_caucao" name="id_conta_caucao" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contas-bancarias/buscar" data-chosen-placeholder="<?= t('common.labels.select_account') ?>">
                             <option value=""><?= t('common.labels.select') ?></option>
                         </select>
                     </div>
-                    <div class="md:col-span-2 form-input-group">
-                        <label for="caucao_tipo" class="form-label-group"><?= t('modules.locacoes.deposit.payment_method') ?> <span id="asterisco_caucao_tipo" class="text-red-500 hidden">*</span></label>
-                        <select id="caucao_tipo" name="caucao_tipo" class="form-input-group-field chosen-select" data-chosen-type="normal" data-chosen-placeholder="<?= t('common.labels.select') ?>">
+                    <div class="md:col-span-3 form-input-group">
+                        <label for="id_forma_pagamento_caucao" class="form-label-group"><?= t('modules.locacoes.deposit.payment_method') ?> <span id="asterisco_forma_pagamento_caucao" class="text-red-500 hidden">*</span></label>
+                        <select id="id_forma_pagamento_caucao" name="id_forma_pagamento_caucao" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/formas-pagamento/select" data-chosen-placeholder="<?= t('common.labels.select') ?>">
                             <option value=""><?= t('common.labels.select') ?></option>
-                            <option value="dinheiro"><?= t('modules.locacoes.payment_types.cash') ?></option>
-                            <option value="pix">PIX</option>
-                            <option value="cartao"><?= t('modules.locacoes.payment_types.card') ?></option>
-                            <option value="cheque"><?= t('modules.locacoes.payment_types.check') ?></option>
                         </select>
                     </div>
-                    <div class="md:col-span-3 form-input-group">
+                    <div class="md:col-span-2 form-input-group">
                         <label for="caucao_valor" class="form-label-group"><?= t('modules.locacoes.deposit.value') ?></label>
                         <div class="relative">
                             <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
                             <input type="text" id="caucao_valor" name="caucao_valor" class="form-input-group-field pl-10 input-moeda" value="0,00">
                         </div>
                     </div>
-                    <div class="md:col-span-3 form-input-group">
+                    <div class="md:col-span-2 form-input-group">
                         <label for="caucao_prazo_devolucao" class="form-label-group"><?= t('modules.locacoes.deposit.return_days') ?> <span id="asterisco_caucao_prazo" class="text-red-500 hidden">*</span></label>
                         <div class="relative">
                             <input type="number" id="caucao_prazo_devolucao" name="caucao_prazo_devolucao" class="form-input-group-field pr-12" min="0">
                             <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-xs"><?= t('modules.locacoes.form.days_suffix') ?></span>
                         </div>
                     </div>
+                    <div class="md:col-span-2 form-input-group">
+                        <label for="caucao_lancar_financeiro" class="form-label-group"><?= t('modules.locacoes.deposit.launch_financial') ?></label>
+                        <select id="caucao_lancar_financeiro" name="caucao_lancar_financeiro" class="form-input-group-field">
+                            <option value="0"><?= t('common.labels.no') ?></option>
+                            <option value="1"><?= t('common.labels.yes') ?></option>
+                        </select>
+                    </div>
                 </div>
 
-                <!-- Cartao do cliente (visivel quando caucao_tipo = cartao) -->
-                <div id="caucaoCartaoArea" class="hidden mt-4">
-                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div class="md:col-span-5 form-input-group">
-                            <label for="caucao_id_cartao" class="form-label-group"><?= t('modules.locacoes.deposit.card') ?></label>
-                            <div class="flex gap-2 items-end">
-                                <div class="flex-1">
-                                    <select id="caucao_id_cartao" name="id_cartao_caucao" class="form-input-group-field chosen-select" data-chosen-type="normal" data-chosen-placeholder="<?= t('common.labels.select') ?>">
-                                        <option value=""><?= t('common.labels.select') ?></option>
-                                    </select>
-                                </div>
-                                <button type="button" id="btnAdicionarCartaoCaucao" class="btn-secondary py-1 px-3 text-xs whitespace-nowrap">
-                                    <i class="fas fa-plus mr-1"></i><?= t('modules.locacoes.block.add_card') ?>
-                                </button>
-                            </div>
-                        </div>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-3">
+                    <div class="md:col-span-12 form-input-group">
+                        <label for="caucao_observacoes" class="form-label-group"><?= t('modules.locacoes.deposit.notes') ?></label>
+                        <input type="text" id="caucao_observacoes" name="caucao_observacoes" class="form-input-group-field">
                     </div>
                 </div>
             </div>
@@ -2204,7 +2195,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const bloqueioStatusClass = document.getElementById('bloqueioStatusBadge')?.className || '';
 
             const caucaoValor = parseCurrency(document.getElementById('caucao_valor')?.value || '0');
-            const caucaoTipo = document.getElementById('caucao_tipo')?.value || '';
+            const caucaoFormaPagamentoEl = document.getElementById('id_forma_pagamento_caucao');
+            const caucaoFormaPagamento = caucaoFormaPagamentoEl?.options[caucaoFormaPagamentoEl.selectedIndex]?.text || '';
             const caucaoPrazo = document.getElementById('caucao_prazo_devolucao')?.value || '';
 
             if (bloqueioValor > 0 || caucaoValor > 0) {
@@ -2228,13 +2220,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 }
 
                 if (caucaoValor > 0) {
-                    const tipoLabels = i18n.paymentTypes;
-                    const tipoLabel = tipoLabels[caucaoTipo] || caucaoTipo;
                     const prazoLabel = caucaoPrazo !== '' ? caucaoPrazo + ' ' + <?= $jsT('modules.locacoes.summary_section.days') ?> : '';
                     html += `<tr class="border-b border-slate-200">
                         <td colspan="4" class="px-4 py-2">
                             <i class="fas fa-shield-alt text-slate-400 mr-1"></i> <?= t('modules.locacoes.sections.deposit') ?>
-                            <span class="text-xs text-slate-400 ml-2">${tipoLabel}${prazoLabel ? ' - <?= t('modules.locacoes.deposit.return_days') ?>: ' + prazoLabel : ''}</span>
+                            <span class="text-xs text-slate-400 ml-2">${caucaoFormaPagamento}${prazoLabel ? ' - <?= t('modules.locacoes.deposit.return_days') ?>: ' + prazoLabel : ''}</span>
                         </td>
                         <td class="px-4 py-2 text-right font-medium">${fmtCurrency(caucaoValor)}</td>
                     </tr>`;
@@ -2653,16 +2643,17 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             if (locacaoData.seguro_terceiros === 'S') document.getElementById('seguro_terceiros').checked = true;
 
             // Caucao
-            if (locacaoData.caucao_tipo) {
-                document.getElementById('caucao_tipo').value = locacaoData.caucao_tipo;
-                if (locacaoData.caucao_tipo === 'cartao') {
-                    document.getElementById('caucaoCartaoArea')?.classList.remove('hidden');
-                }
-            }
             if (locacaoData.caucao_prazo_devolucao !== null && locacaoData.caucao_prazo_devolucao !== undefined) {
                 document.getElementById('caucao_prazo_devolucao').value = locacaoData.caucao_prazo_devolucao;
             }
             setChosen('id_conta_caucao', locacaoData.id_conta_caucao, locacaoData.conta_caucao_descricao);
+            setChosen('id_forma_pagamento_caucao', locacaoData.id_forma_pagamento_caucao, locacaoData.forma_pagamento_caucao_descricao);
+            if (locacaoData.caucao_lancar_financeiro !== null && locacaoData.caucao_lancar_financeiro !== undefined) {
+                document.getElementById('caucao_lancar_financeiro').value = String(locacaoData.caucao_lancar_financeiro) === '1' ? '1' : '0';
+            }
+            if (locacaoData.caucao_observacoes) {
+                document.getElementById('caucao_observacoes').value = locacaoData.caucao_observacoes;
+            }
 
             // Bloqueio (hold) - carregar status se existir (authorized, captured, released, etc)
             if (locacaoData.bloqueio_status) {
@@ -2813,7 +2804,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
             [
                 { id: 'id_conta_caucao', asterisco: 'asterisco_conta_caucao' },
-                { id: 'caucao_tipo', asterisco: 'asterisco_caucao_tipo' },
+                { id: 'id_forma_pagamento_caucao', asterisco: 'asterisco_forma_pagamento_caucao' },
                 { id: 'caucao_prazo_devolucao', asterisco: 'asterisco_caucao_prazo' },
             ].forEach(({ id, asterisco }) => {
                 const el = document.getElementById(id);
@@ -2825,12 +2816,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         document.getElementById('caucao_valor')?.addEventListener('change', atualizarCaucaoRequired);
         document.getElementById('caucao_valor')?.addEventListener('input', atualizarCaucaoRequired);
-
-        // Mostrar/ocultar campo de cartao quando tipo caucao muda
-        document.getElementById('caucao_tipo')?.addEventListener('change', function() {
-            const area = document.getElementById('caucaoCartaoArea');
-            if (area) area.classList.toggle('hidden', this.value !== 'cartao');
-        });
 
         // ===== CARTOES DO CLIENTE =====
 
@@ -2846,7 +2831,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                         `<option value="${c.id}">**** ${c.ultimos_digitos} ${c.bandeira}</option>`
                     ).join('');
 
-                    ['bloqueio_id_cartao', 'caucao_id_cartao'].forEach(selId => {
+                    ['bloqueio_id_cartao'].forEach(selId => {
                         const sel = document.getElementById(selId);
                         if (sel) {
                             sel.innerHTML = '<option value=""><?= t('common.labels.select') ?></option>' + options;
@@ -3256,7 +3241,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             document.getElementById('parcelasTabelaWrapper')?.classList.toggle('hidden', !isEditing);
             document.getElementById('resumoFinanceiroParcelas')?.classList.toggle('hidden', !isEditing);
             if (!isEditing) {
-                ['formGerarParcelas', 'formAdicionarParcela', 'formAdicionarAvaria', 'formMarcarPago'].forEach(id => {
+                esconderFormularioBaixaLocacao();
+                ['formGerarParcelas', 'formAdicionarParcela', 'formAdicionarAvaria'].forEach(id => {
                     document.getElementById(id)?.classList.add('hidden');
                 });
             }
@@ -3321,6 +3307,53 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         // ===== PARCELAS =====
 
         let parcelasData = [];
+        const origemFormularioBaixaLocacao = {};
+
+        function registrarOrigemFormularioBaixaLocacao() {
+            if (origemFormularioBaixaLocacao.parent) return;
+
+            const form = document.getElementById('formMarcarPago');
+            if (!form || !form.parentNode) return;
+
+            origemFormularioBaixaLocacao.parent = form.parentNode;
+            origemFormularioBaixaLocacao.nextSibling = form.nextSibling;
+        }
+
+        function removerLinhaFormularioBaixaLocacao() {
+            document.getElementById('linhaFormularioBaixaLocacao')?.remove();
+        }
+
+        function esconderFormularioBaixaLocacao() {
+            registrarOrigemFormularioBaixaLocacao();
+
+            const form = document.getElementById('formMarcarPago');
+            if (form && origemFormularioBaixaLocacao.parent) {
+                form.classList.add('hidden');
+                origemFormularioBaixaLocacao.parent.insertBefore(form, origemFormularioBaixaLocacao.nextSibling || null);
+            }
+
+            removerLinhaFormularioBaixaLocacao();
+        }
+
+        function inserirFormularioBaixaAbaixoLinhaLocacao(linhaReferencia) {
+            const form = document.getElementById('formMarcarPago');
+            if (!form || !linhaReferencia) return;
+
+            esconderFormularioBaixaLocacao();
+
+            const linhaFormulario = document.createElement('tr');
+            linhaFormulario.id = 'linhaFormularioBaixaLocacao';
+            linhaFormulario.className = 'bg-slate-50 border-b border-slate-100';
+
+            const celula = document.createElement('td');
+            celula.colSpan = linhaReferencia.children.length || 6;
+            celula.className = 'px-3 py-3';
+
+            linhaFormulario.appendChild(celula);
+            linhaReferencia.insertAdjacentElement('afterend', linhaFormulario);
+            celula.appendChild(form);
+            form.classList.remove('hidden');
+        }
 
         async function carregarParcelas() {
             if (!isEditing || !locacaoData) return;
@@ -3367,6 +3400,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         function renderParcelas() {
             const tbody = document.getElementById('parcelasBody');
             if (!tbody) return;
+            esconderFormularioBaixaLocacao();
 
             if (parcelasData.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="px-3 py-4 text-center text-slate-400">${i18n.installments.noInstallments}</td></tr>`;
@@ -3415,7 +3449,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 });
             });
 
-            // Bind marcar pago: abre form inline com dados da parcela
+            // Bind marcar pago: abre form logo abaixo da linha acionada
             tbody.querySelectorAll('.btn-marcar-pago').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const idP = this.dataset.id;
@@ -3432,7 +3466,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     const selForma = document.getElementById('pagar_id_forma_pagamento');
                     if (selForma) selForma.value = idForma || '';
 
-                    document.getElementById('formMarcarPago')?.classList.remove('hidden');
+                    inserirFormularioBaixaAbaixoLinhaLocacao(this.closest('tr'));
                     document.getElementById('formGerarParcelas')?.classList.add('hidden');
                     document.getElementById('formAdicionarParcela')?.classList.add('hidden');
                 });
@@ -3529,12 +3563,12 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             document.getElementById('formGerarParcelas')?.classList.toggle('hidden');
             document.getElementById('formAdicionarParcela')?.classList.add('hidden');
             document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
-            document.getElementById('formMarcarPago')?.classList.add('hidden');
+            esconderFormularioBaixaLocacao();
         });
 
         // Marcar pago: cancelar e confirmar
         document.getElementById('btnCancelarMarcarPago')?.addEventListener('click', () => {
-            document.getElementById('formMarcarPago')?.classList.add('hidden');
+            esconderFormularioBaixaLocacao();
         });
 
         document.getElementById('btnConfirmarMarcarPago')?.addEventListener('click', async () => {
@@ -3564,7 +3598,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     id_conta: idConta,
                 });
                 if (result.success) {
-                    document.getElementById('formMarcarPago')?.classList.add('hidden');
+                    esconderFormularioBaixaLocacao();
                     carregarParcelas();
                 } else {
                     window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.installments.markPaidError }, '*');
@@ -3578,14 +3612,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             document.getElementById('formAdicionarParcela')?.classList.toggle('hidden');
             document.getElementById('formGerarParcelas')?.classList.add('hidden');
             document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
-            document.getElementById('formMarcarPago')?.classList.add('hidden');
+            esconderFormularioBaixaLocacao();
         });
 
         document.getElementById('btnAdicionarAvaria')?.addEventListener('click', () => {
             document.getElementById('formAdicionarAvaria')?.classList.toggle('hidden');
             document.getElementById('formAdicionarParcela')?.classList.add('hidden');
             document.getElementById('formGerarParcelas')?.classList.add('hidden');
-            document.getElementById('formMarcarPago')?.classList.add('hidden');
+            esconderFormularioBaixaLocacao();
         });
 
         document.getElementById('btnCancelarGerarParcelas')?.addEventListener('click', () => {

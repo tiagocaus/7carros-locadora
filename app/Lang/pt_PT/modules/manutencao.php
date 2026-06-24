@@ -247,6 +247,12 @@ return [
     // Tipo de registo (para modal de eliminação)
     'record_type' => 'manutenção',
 
+    // Opções do modal de eliminação
+    'delete_options' => [
+        'financial_linked' => 'Eliminar financeiro vinculado',
+        'restore_stock' => 'Repor stock utilizado',
+    ],
+
     // Auditoria financeira
     'audit_financial' => [
         'section' => 'Lançamento Financeiro',

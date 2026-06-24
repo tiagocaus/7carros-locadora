@@ -71,7 +71,7 @@ class DocumentosController
 
         $html = Template::render('pages.documentos.adicionar', [
             'documento' => $documento,
-            'tipos' => Documento::TIPOS,
+            'tipos' => Documento::TIPOS_FORM,
         ]);
         Response::html($html);
     }
@@ -254,6 +254,14 @@ class DocumentosController
                 return;
             }
 
+            if (!$this->tipoFormularioValido($dados['tipo'] ?? null)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Selecione um tipo valido para o documento'
+                ], 400);
+                return;
+            }
+
             $documentoModel = new Documento();
             $id = $documentoModel->criar($dados);
 
@@ -305,6 +313,15 @@ class DocumentosController
             $chave = Auth::chave();
             if ($documento['chave'] === '0') {
                 $dados = $request->all();
+
+                if (!$this->tipoFormularioValido($dados['tipo'] ?? null)) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Selecione um tipo valido para o documento'
+                    ], 400);
+                    return;
+                }
+
                 $novoId = $documentoModel->criarCopiaTenant($documento, $chave, $dados);
 
                 AuditLogService::registrar(
@@ -332,6 +349,15 @@ class DocumentosController
             }
 
             $dados = $request->all();
+
+            if (!$this->tipoFormularioValido($dados['tipo'] ?? null)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Selecione um tipo valido para o documento'
+                ], 400);
+                return;
+            }
+
             $documentoModel->atualizar($id, $dados);
 
             // Log de auditoria
@@ -568,5 +594,21 @@ class DocumentosController
                 'message' => 'Erro ao processar arquivo. Tente novamente.'
             ], 500);
         }
+    }
+
+    /**
+     * Valida os tipos ativos do formulario de documentos.
+     */
+    private function tipoFormularioValido($tipo): bool
+    {
+        if ($tipo === null || $tipo === '') {
+            return false;
+        }
+
+        if (!is_int($tipo) && !ctype_digit((string) $tipo)) {
+            return false;
+        }
+
+        return array_key_exists((int) $tipo, Documento::TIPOS_FORM);
     }
 }

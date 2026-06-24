@@ -210,6 +210,8 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 - Modelo customizado da entidade `documentos` (texto rico + placeholders); cabeçalho institucional e rodapé com assinaturas são aplicados pelo controller via `SetHTMLHeader`/`SetHTMLFooter` do mPDF; margens do corpo em `PdfHelper::DOCUMENTO_HTML_*`. Detalhes: [pdf.md](./pdf.md).
 - Corpo: cláusulas e dados mesclados pelo `TemplateRenderer`
 - Contratos com múltiplos veículos devem usar `{{contrato.veiculos_anexo}}` quando o objetivo for um documento contratual completo. Essa variável renderiza o Anexo I com identificação dos veículos, fornecedor/investidor quando houver, plano, valores, seguros e dados de saída. `{{contrato.veiculos_tabela}}` permanece disponível como tabela resumida.
+- Para campos escalares do veículo ativo principal, use `{{contrato.km_saida}}`, `{{contrato.km_chegada}}`, `{{contrato.tanque_saida}}` e `{{contrato.tanque_chegada}}`. Os campos de tanque são exibidos como frações legíveis (`Reserva`, `1/2`, `Cheio`, etc.).
+- Para o tipo de combustível cadastrado no veículo, use `{{veiculo.combustivel_tipo}}`.
 - Para cláusulas que precisam citar o valor recorrente da parcela, use `{{contrato.valor.parcela}}`. A variável considera o valor mais comum entre as parcelas financeiras vinculadas ao contrato; se houver empate, usa o primeiro valor encontrado na ordem das parcelas.
 
 ### Fatura + Documento (fatura_documento.php)

@@ -344,6 +344,8 @@ class LocacaoVeiculo extends Model
             throw new \InvalidArgumentException('Veículo da locação não encontrado');
         }
 
+        $agora = date('Y-m-d H:i:s');
+
         // Registrar saida do veiculo antigo
         $this->devolver($idVeiculoAntigo, array_merge($dadosSaida, [
             'motivo_saida' => $dadosSaida['motivo_saida'] ?? 'Substituição de veículo'
@@ -353,7 +355,7 @@ class LocacaoVeiculo extends Model
         $dadosInsert = $dadosNovo;
         $dadosInsert['chave'] = $veiculoAntigo['chave'];
         $dadosInsert['id_locacao'] = $veiculoAntigo['id_locacao'];
-        $dadosInsert['data_saida'] = date('Y-m-d H:i:s');
+        $dadosInsert['data_saida'] = $dadosNovo['data_saida'] ?? $agora;
         $dadosInsert['acao_valores'] = $manterValores ? 'manter' : 'grupo';
 
         // Se manter valores, copiar do veiculo antigo
@@ -460,6 +462,8 @@ class LocacaoVeiculo extends Model
                 $q->whereNull('lv.data_entrada')
                   ->orWhere('lv.data_entrada', '>=', $dataHoraMulta);
             })
+            ->orderByDesc('lv.data_saida')
+            ->orderByDesc('lv.id')
             ->first();
     }
 

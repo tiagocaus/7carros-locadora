@@ -449,6 +449,7 @@ class ClientesController
                 'cnh_categoria' => $request->input('cnh_categoria'),
                 'cnh_validade' => $request->input('cnh_validade'),
                 'situacao' => $request->input('situacao'),
+                'obs' => $request->input('obs'),
             ];
 
             // Atualizar senha apenas se fornecida
@@ -473,6 +474,9 @@ class ClientesController
             $dados = array_filter($dados, function($value) {
                 return $value !== null && $value !== '';
             });
+            if ($request->input('obs', null) !== null) {
+                $dados['obs'] = $request->input('obs', '');
+            }
 
             $tipoEfetivo = $tipoCliente ?? ($clienteExistente['tipo'] ?? null);
             if ($tipoEfetivo === 'PJ') {

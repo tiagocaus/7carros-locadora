@@ -94,6 +94,20 @@ class Financeiro extends Model
                   ->whereRaw('fi.id_financeiro = f.id');
             }, 'qtd_itens')
             ->selectSubquery(function ($q) {
+                $q->table('veiculos', 'v_placas')
+                  ->selectRaw("GROUP_CONCAT(DISTINCT v_placas.placa ORDER BY v_placas.placa SEPARATOR ', ')")
+                  ->whereRaw('v_placas.chave = f.chave')
+                  ->whereRaw(
+                      "(v_placas.id = f.id_veiculo OR EXISTS (
+                          SELECT 1
+                          FROM financeiro_itens fi_placas
+                          WHERE fi_placas.id_financeiro = f.id
+                              AND fi_placas.chave = f.chave
+                              AND fi_placas.id_veiculo = v_placas.id
+                      ))"
+                  );
+            }, 'veiculo_placas')
+            ->selectSubquery(function ($q) {
                 $q->table('nfse', 'nf')
                   ->selectRaw('COUNT(*)')
                   ->whereRaw('nf.id_financeiro = f.id AND nf.chave = f.chave AND nf.status != \'cancelada\'');
@@ -313,6 +327,7 @@ class Financeiro extends Model
 
         $term = '%' . $search . '%';
         $searchLower = mb_strtolower(trim($search));
+        $placaTerm = '%' . str_replace(['-', ' '], '', mb_strtoupper(trim($search))) . '%';
 
         // Detecta palavra-chave de status e monta branch SQL adicional
         $statusBranch = null;
@@ -324,7 +339,7 @@ class Financeiro extends Model
             $statusBranch = "f.pago = 'N' AND f.data_venci >= CURDATE()";
         }
 
-        $query->whereNested(function ($q) use ($term, $statusBranch) {
+        $query->whereNested(function ($q) use ($term, $placaTerm, $statusBranch) {
             $q->where('f.descricao', 'LIKE', $term)
               ->orWhere('f.documento', 'LIKE', $term)
               ->orWhere('f.codigo', 'LIKE', $term)
@@ -333,7 +348,36 @@ class Financeiro extends Model
               ->orWhere('fo.nome_rsocial', 'LIKE', $term)
               ->orWhere('func.nome', 'LIKE', $term)
               ->orWhereRaw("DATE_FORMAT(f.data_venci, '%d/%m/%Y') LIKE ?", [$term])
-              ->orWhereRaw('CAST(f.valor_total AS CHAR) LIKE ?', [$term]);
+              ->orWhereRaw('CAST(f.valor_total AS CHAR) LIKE ?', [$term])
+              ->orWhereRaw(
+                  "EXISTS (
+                      SELECT 1
+                      FROM veiculos v_busca
+                      WHERE v_busca.id = f.id_veiculo
+                          AND v_busca.chave = f.chave
+                          AND (
+                              v_busca.placa LIKE ?
+                              OR REPLACE(REPLACE(UPPER(v_busca.placa), '-', ''), ' ', '') LIKE ?
+                          )
+                  )",
+                  [$term, $placaTerm]
+              )
+              ->orWhereRaw(
+                  "EXISTS (
+                      SELECT 1
+                      FROM financeiro_itens fi_busca
+                      INNER JOIN veiculos vi_busca
+                          ON vi_busca.id = fi_busca.id_veiculo
+                          AND vi_busca.chave = fi_busca.chave
+                      WHERE fi_busca.id_financeiro = f.id
+                          AND fi_busca.chave = f.chave
+                          AND (
+                              vi_busca.placa LIKE ?
+                              OR REPLACE(REPLACE(UPPER(vi_busca.placa), '-', ''), ' ', '') LIKE ?
+                          )
+                  )",
+                  [$term, $placaTerm]
+              );
 
             if ($statusBranch !== null) {
                 $q->orWhereRaw('(' . $statusBranch . ')');

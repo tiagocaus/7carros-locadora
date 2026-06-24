@@ -260,7 +260,7 @@
         } else if (typeof toast !== 'undefined') {
             toast[type] ? toast[type](message) : toast.show(message);
         } else {
-            alert(message);
+            console[type === 'error' ? 'error' : 'log'](message);
         }
     }
 

@@ -32,6 +32,9 @@ return [
         'rental_code' => 'Código de la Locación',
         'code' => 'Código',
         'photo' => 'Foto de la Multa',
+        'payer' => '¿Quién pagará la multa?',
+        'payer_client' => 'Cliente',
+        'payer_company' => 'Empresa',
     ],
 
     'table' => [

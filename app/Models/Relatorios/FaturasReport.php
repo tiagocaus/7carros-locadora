@@ -319,48 +319,49 @@ class FaturasReport extends BaseReportModel
             return $this->faturasPorVeiculoIndividualizado($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $veiculoId);
         }
 
+        $rows = $this->buscarFaturasVeiculoNormalizadas($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $veiculoId);
+
         // --- Lista agregada por veiculo ---
-        $query = $this->qb
-            ->table('financeiro', 'f')
-            ->selectRaw("
-                v.id AS id_veiculo,
-                v.placa,
-                v.marca,
-                v.modelo,
-                v.ano,
-                COUNT(*) AS total_faturas,
-                COALESCE(SUM(f.valor_total), 0) AS valor_total,
-                COALESCE(SUM(CASE WHEN f.pago = 'S' THEN f.valor_total ELSE 0 END), 0) AS total_pago,
-                COALESCE(SUM(CASE WHEN f.pago = 'N' AND f.data_venci >= CURDATE() THEN f.valor_total ELSE 0 END), 0) AS total_pendente,
-                COALESCE(SUM(CASE WHEN f.pago = 'N' AND f.data_venci < CURDATE() THEN f.valor_total ELSE 0 END), 0) AS total_vencido
-            ")
-            ->innerJoin('veiculos', 'v', 'f.id_veiculo', '=', 'v.id')
-            ->whereRaw('f.tipo = ?', ['R'])
-            ->whereRaw('f.data_criada BETWEEN ? AND ?', [$dataInicio, $dataFim])
-            ->groupBy(['v.id', 'v.placa', 'v.marca', 'v.modelo', 'v.ano'])
-            ->orderByRaw('valor_total DESC');
+        $porVeiculo = [];
+        foreach ($rows as $row) {
+            $idVeiculo = (int) $row['id_veiculo'];
+            $status = $this->statusConta($row['pago'] ?? null, $row['data_venci'] ?? null);
+            $valor = (float) $row['valor_veiculo'];
 
-        $this->applyFilialFilter($query, $filialWhere, $filialParams, $filialId);
+            if (!isset($porVeiculo[$idVeiculo])) {
+                $porVeiculo[$idVeiculo] = [
+                    'id_veiculo' => $idVeiculo,
+                    'placa' => $row['placa'] ?? '-',
+                    'veiculo' => trim(($row['marca'] ?? '') . ' ' . ($row['modelo'] ?? '')),
+                    'ano' => $row['ano'] ?? null,
+                    'faturas_ids' => [],
+                    'total_faturas' => 0,
+                    'valor_total' => 0.0,
+                    'total_pago' => 0.0,
+                    'total_pendente' => 0.0,
+                    'total_vencido' => 0.0,
+                ];
+            }
 
-        if ($veiculoId !== '') {
-            $query->whereRaw('f.id_veiculo = ?', [(int) $veiculoId]);
+            $porVeiculo[$idVeiculo]['faturas_ids'][(int) $row['id']] = true;
+            $porVeiculo[$idVeiculo]['valor_total'] += $valor;
+
+            if ($status === 'pago') {
+                $porVeiculo[$idVeiculo]['total_pago'] += $valor;
+            } elseif ($status === 'vencida') {
+                $porVeiculo[$idVeiculo]['total_vencido'] += $valor;
+            } else {
+                $porVeiculo[$idVeiculo]['total_pendente'] += $valor;
+            }
         }
 
-        $rows = $query->get();
+        $details = array_values(array_map(function (array $row) {
+            $row['total_faturas'] = count($row['faturas_ids']);
+            unset($row['faturas_ids']);
+            return $row;
+        }, $porVeiculo));
 
-        $details = array_map(function ($row) {
-            return [
-                'id_veiculo' => (int) $row['id_veiculo'],
-                'placa' => $row['placa'] ?? '-',
-                'veiculo' => trim(($row['marca'] ?? '') . ' ' . ($row['modelo'] ?? '')),
-                'ano' => $row['ano'] ?? null,
-                'total_faturas' => (int) $row['total_faturas'],
-                'valor_total' => (float) $row['valor_total'],
-                'total_pago' => (float) $row['total_pago'],
-                'total_pendente' => (float) $row['total_pendente'],
-                'total_vencido' => (float) $row['total_vencido'],
-            ];
-        }, $rows);
+        usort($details, fn($a, $b) => $b['valor_total'] <=> $a['valor_total']);
 
         // --- Totalizadores gerais ---
         $totals = [
@@ -401,39 +402,7 @@ class FaturasReport extends BaseReportModel
         string $filialId = '',
         string $veiculoId = ''
     ): array {
-        $query = $this->qb
-            ->table('financeiro', 'f')
-            ->selectRaw("
-                f.id,
-                f.codigo,
-                f.sequencia,
-                f.parcela,
-                f.total_parcelas,
-                f.descricao,
-                f.data_venci,
-                f.data_pago,
-                f.pago,
-                f.valor_total,
-                v.id AS id_veiculo,
-                v.placa,
-                v.marca,
-                v.modelo,
-                v.ano,
-                cl.nome_rsocial AS cliente_nome
-            ")
-            ->innerJoin('veiculos', 'v', 'f.id_veiculo', '=', 'v.id')
-            ->leftJoin('clientes', 'cl', 'f.id_cliente', '=', 'cl.id')
-            ->whereRaw('f.tipo = ?', ['R'])
-            ->whereRaw('f.data_criada BETWEEN ? AND ?', [$dataInicio, $dataFim])
-            ->orderByRaw('f.data_venci ASC, f.id ASC');
-
-        $this->applyFilialFilter($query, $filialWhere, $filialParams, $filialId);
-
-        if ($veiculoId !== '') {
-            $query->whereRaw('f.id_veiculo = ?', [(int) $veiculoId]);
-        }
-
-        $rows = $query->get();
+        $rows = $this->buscarFaturasVeiculoNormalizadas($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $veiculoId);
 
         $details = array_map(function ($row) {
             return [
@@ -447,10 +416,10 @@ class FaturasReport extends BaseReportModel
                 'veiculo' => trim(($row['marca'] ?? '') . ' ' . ($row['modelo'] ?? '')),
                 'ano' => $row['ano'] ?? null,
                 'cliente' => $row['cliente_nome'] ?? '-',
-                'descricao' => $row['descricao'] ?? '',
+                'descricao' => $row['descricao_item'] ?: ($row['descricao'] ?? ''),
                 'data_venci' => $row['data_venci'],
                 'data_pago' => $row['data_pago'],
-                'valor_total' => (float) $row['valor_total'],
+                'valor_total' => (float) $row['valor_veiculo'],
                 'status' => $this->statusConta($row['pago'] ?? null, $row['data_venci'] ?? null),
             ];
         }, $rows);
@@ -482,6 +451,170 @@ class FaturasReport extends BaseReportModel
                 'data' => array_values($top),
             ],
         ];
+    }
+
+    private function buscarFaturasVeiculoNormalizadas(
+        string $dataInicio,
+        string $dataFim,
+        string $filialWhere,
+        array $filialParams,
+        string $filialId = '',
+        string $veiculoId = ''
+    ): array {
+        $chave = $_SESSION['chave'] ?? '';
+        if ($chave === '') {
+            return [];
+        }
+
+        [$filialSql, $filialBindParams] = $this->buildFilialSql($filialWhere, $filialParams, $filialId);
+
+        $itemWhere = "
+            f.chave = ?
+            AND f.tipo = 'R'
+            AND f.data_criada BETWEEN ? AND ?
+            {$filialSql}
+        ";
+        $itemParams = array_merge([$chave, $dataInicio, $dataFim], $filialBindParams);
+
+        $fallbackWhere = $itemWhere;
+        $fallbackParams = $itemParams;
+
+        if ($veiculoId !== '') {
+            $itemWhere .= ' AND fi.id_veiculo = ?';
+            $itemParams[] = (int) $veiculoId;
+            $fallbackWhere .= ' AND f.id_veiculo = ?';
+            $fallbackParams[] = (int) $veiculoId;
+        }
+
+        $sql = "
+            SELECT *
+            FROM (
+                SELECT
+                    f.id,
+                    f.codigo,
+                    f.sequencia,
+                    f.parcela,
+                    f.total_parcelas,
+                    f.descricao,
+                    fi.descricao AS descricao_item,
+                    f.data_venci,
+                    f.data_pago,
+                    f.pago,
+                    fi.valor AS valor_veiculo,
+                    v.id AS id_veiculo,
+                    v.placa,
+                    v.marca,
+                    v.modelo,
+                    v.ano,
+                    cl.nome_rsocial AS cliente_nome
+                FROM financeiro f
+                INNER JOIN financeiro_itens fi
+                    ON fi.id_financeiro = f.id
+                    AND fi.chave = f.chave
+                    AND fi.id_veiculo IS NOT NULL
+                    AND fi.id_veiculo > 0
+                INNER JOIN veiculos v
+                    ON v.id = fi.id_veiculo
+                    AND v.chave = f.chave
+                LEFT JOIN clientes cl
+                    ON cl.id = f.id_cliente
+                    AND cl.chave = f.chave
+                WHERE {$itemWhere}
+
+                UNION ALL
+
+                SELECT
+                    f.id,
+                    f.codigo,
+                    f.sequencia,
+                    f.parcela,
+                    f.total_parcelas,
+                    f.descricao,
+                    NULL AS descricao_item,
+                    f.data_venci,
+                    f.data_pago,
+                    f.pago,
+                    f.valor_total AS valor_veiculo,
+                    v.id AS id_veiculo,
+                    v.placa,
+                    v.marca,
+                    v.modelo,
+                    v.ano,
+                    cl.nome_rsocial AS cliente_nome
+                FROM financeiro f
+                INNER JOIN veiculos v
+                    ON v.id = f.id_veiculo
+                    AND v.chave = f.chave
+                LEFT JOIN clientes cl
+                    ON cl.id = f.id_cliente
+                    AND cl.chave = f.chave
+                WHERE {$fallbackWhere}
+                    AND f.id_veiculo IS NOT NULL
+                    AND f.id_veiculo > 0
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM financeiro_itens fi2
+                        WHERE fi2.id_financeiro = f.id
+                            AND fi2.chave = f.chave
+                            AND fi2.id_veiculo IS NOT NULL
+                            AND fi2.id_veiculo > 0
+                    )
+            ) base
+            ORDER BY data_venci ASC, id ASC, placa ASC
+        ";
+
+        return $this->selectRows($sql, array_merge($itemParams, $fallbackParams));
+    }
+
+    private function buildFilialSql(string $filialWhere, array $filialParams, string $filialId): array
+    {
+        if ($filialId !== '') {
+            return [' AND f.id_matriz_filial = ?', [(int) $filialId]];
+        }
+
+        $filialWhere = trim($filialWhere);
+        if ($filialWhere === '' || $filialWhere === '1=1') {
+            return ['', []];
+        }
+
+        if (!str_contains($filialWhere, '.')) {
+            $filialWhere = str_replace('id_matriz_filial', 'f.id_matriz_filial', $filialWhere);
+        }
+
+        return [' AND ' . $filialWhere, $filialParams];
+    }
+
+    private function selectRows(string $sql, array $params): array
+    {
+        $stmt = $this->getMysqli()->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('Erro ao preparar consulta do relatório: ' . $this->getMysqli()->error);
+        }
+
+        if (!empty($params)) {
+            $stmt->bind_param($this->paramTypes($params), ...$params);
+        }
+
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+
+        $stmt->close();
+        return $rows;
+    }
+
+    private function paramTypes(array $params): string
+    {
+        $types = '';
+        foreach ($params as $param) {
+            $types .= is_int($param) ? 'i' : (is_float($param) ? 'd' : 's');
+        }
+
+        return $types;
     }
 
     /**

@@ -247,6 +247,12 @@ return [
     // Record type (for delete modal)
     'record_type' => 'manutencao',
 
+    // Delete modal options
+    'delete_options' => [
+        'financial_linked' => 'Delete linked financial entry',
+        'restore_stock' => 'Restore used stock',
+    ],
+
     // Financial audit
     'audit_financial' => [
         'section' => 'Financial Entry',

@@ -25,13 +25,16 @@ CREATE TABLE documentos (
 
 | Valor | Rótulo | Onde aparece |
 |---|---|---|
-| `0` | Contrato/Locação | Disponível tanto na impressão de **contratos** quanto **locações** (compartilhado) |
+| `0` | Contrato/Locação | **Legado**. Disponível tanto na impressão de **contratos** quanto **locações** para documentos antigos ainda não reclassificados |
 | `1` | Contrato | Apenas na impressão de **contratos** |
 | `2` | Locação | Apenas na impressão de **locações** |
 | `3` | Multa | Apenas na impressão de **multas** |
 
+O valor `0` permanece suportado para leitura, listagem, filtros e impressão de documentos existentes, mas não deve ser usado em novos cadastros. A tela de adicionar/editar documentos exibe apenas `Contrato`, `Locação` e `Multa`; ao editar um documento legado, o salvamento reclassifica o documento para um desses tipos ativos.
+
 ### Histórico
 
+- **2026-06-24**: tipo `0` mantido apenas como legado. A tela de adicionar/editar passou a permitir somente `1=Contrato`, `2=Locação` e `3=Multa`; registros antigos `0` continuam aparecendo nos fluxos de contrato e locação até serem editados/reclassificados.
 - **2026-04-30**: rótulo `0` renomeado de "Ambos" para "Contrato/Locação" (a palavra "Ambos" virou ambígua quando entrou o tipo Multa). Valor numérico inalterado — apenas mudança de label nas 5 línguas.
 - **2026-04-30**: adicionado `3` (Multa) para suportar a nova feature de impressão do módulo Multas.
 - A migration `00169_alter_documentos_tipo.php` faz o remapeamento dos valores legados (sistema antigo usava `1=Ambos, 2=Contrato, 3=Locação, 4=Multas` → novo `0/1/2/3`).
@@ -41,6 +44,12 @@ CREATE TABLE documentos (
 ```php
 public const TIPOS = [
     0 => 'Contrato/Locação',
+    1 => 'Contrato',
+    2 => 'Locação',
+    3 => 'Multa',
+];
+
+public const TIPOS_FORM = [
     1 => 'Contrato',
     2 => 'Locação',
     3 => 'Multa',
@@ -83,7 +92,8 @@ A filtragem ocorre via `array_filter` sobre o resultado de `listarParaSelect()`.
 
 ### Adicionar/Editar `/pages/documentos/adicionar` (`adicionar.php`)
 
-- Form com título, tipo (`<select>` populado a partir de `Documento::TIPOS` via Controller), status, e editor TinyMCE para o conteúdo HTML
+- Form com título, tipo (`<select>` populado a partir de `Documento::TIPOS_FORM` via Controller), status, e editor TinyMCE para o conteúdo HTML
+- O tipo legado `0=Contrato/Locação` não aparece no formulário. Ao editar um documento legado, o usuário escolhe `Contrato`, `Locação` ou `Multa`, e o documento passa ao novo padrão no salvamento.
 - O editor TinyMCE permite ajustar tamanho da fonte em `pt`, preservando o estilo inline no HTML salvo em `documentos.texto`
 - Painel lateral com lista de variáveis disponíveis (insere placeholders no editor)
 
@@ -91,7 +101,9 @@ A filtragem ocorre via `array_filter` sobre o resultado de `listarParaSelect()`.
 
 O conteúdo do documento aceita placeholders `{{cliente.nome}}`, `{{empresa.cnpj}}`, `{{contrato.valor.parcela}}`, etc. Nos três fluxos, antes do PDF o `App\I18n\TemplateRenderer` substitui os placeholders: contratos/locações montam o contexto nos respectivos controllers; multas usam `MultasController::buildDocumentoContextMulta()` em `imprimir` e em `enviarMulta`.
 
-No fluxo de locações, `LocacoesController::buildDocumentoContext()` alimenta variáveis como `{{locacao.data_retirada}}`, `{{locacao.valor_total}}`, `{{locacao.km_saida}}` e `{{locacao.bloqueio_valor}}` a partir dos dados da locação e do último vínculo de veículo, com fallback para campos legados quando necessário.
+No fluxo de locações, `LocacoesController::buildDocumentoContext()` alimenta variáveis como `{{locacao.data_retirada}}`, `{{locacao.valor_total}}`, `{{locacao.km_saida}}`, `{{locacao.tanque_saida}}` e `{{locacao.bloqueio_valor}}` a partir dos dados da locação e do último vínculo de veículo, com fallback para campos legados quando necessário. Os campos de tanque (`{{locacao.tanque_saida}}` e `{{locacao.tanque_chegada}}`) são exibidos como frações legíveis (`Reserva`, `1/2`, `Cheio`, etc.).
+
+No fluxo de contratos, `ContratosController::buildDocumentoContext()` alimenta os campos escalares do veículo ativo principal: `{{contrato.km_saida}}`, `{{contrato.km_chegada}}`, `{{contrato.tanque_saida}}` e `{{contrato.tanque_chegada}}`. Para tipo de combustível do veículo, use `{{veiculo.combustivel_tipo}}`.
 
 Variável especial para contratos com múltiplos veículos:
 

@@ -357,23 +357,25 @@ class ContratoVeiculo extends Model
             throw new \InvalidArgumentException('Veiculo do contrato nao encontrado');
         }
 
+        $agora = date('Y-m-d H:i:s');
+
         // Registrar devolucao do veiculo antigo (veiculo entra na empresa)
         $this->qb
             ->table('contratos_veiculos')
             ->where('id', '=', $idVeiculoAntigo)
             ->update([
-                'data_entrada' => date('Y-m-d H:i:s'),
+                'data_entrada' => $dadosSaida['data_entrada'] ?? $agora,
                 'odometro_entrada' => $dadosSaida['odometro_entrada'] ?? null,
                 'combustivel_entrada' => $dadosSaida['combustivel_entrada'] ?? null,
                 'motivo_saida' => $dadosSaida['motivo_saida'] ?? 'Substituicao de veiculo',
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => $agora
             ]);
 
         // Preparar dados do novo veiculo (veiculo sai da empresa)
         $dadosInsert = $dadosNovo;
         $dadosInsert['chave'] = $veiculoAntigo['chave'];
         $dadosInsert['id_contrato'] = $veiculoAntigo['id_contrato'];
-        $dadosInsert['data_saida'] = date('Y-m-d H:i:s');
+        $dadosInsert['data_saida'] = $dadosNovo['data_saida'] ?? $agora;
         $dadosInsert['acao_valores'] = $manterValores ? 'manter' : 'grupo';
 
         // Se manter valores, copiar do veiculo antigo
@@ -523,6 +525,8 @@ class ContratoVeiculo extends Model
                 $q->whereNull('cv.data_entrada')
                   ->orWhere('cv.data_entrada', '>=', $dataHoraMulta);
             })
+            ->orderByDesc('cv.data_saida')
+            ->orderByDesc('cv.id')
             ->first();
     }
 

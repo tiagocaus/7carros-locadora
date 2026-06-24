@@ -217,6 +217,22 @@ return [
         'reason_extra_days' => 'Diária(s) extra(s)',
         'reason_other' => 'Outro',
     ],
+    'deposit' => [
+        'title' => 'Caução (Depósito de Garantia)',
+        'value' => 'Valor da caução',
+        'account' => 'Conta da caução',
+        'payment_method' => 'Forma de pagamento',
+        'return_deadline' => 'Prazo devolução (dias)',
+        'launch_financial' => 'Lançar caução no financeiro',
+        'card' => 'Cartão da caução',
+        'notes' => 'Observações da caução',
+        'types' => [
+            'cash' => 'Dinheiro',
+            'pix' => 'PIX',
+            'card' => 'Cartão',
+            'check' => 'Cheque',
+        ],
+    ],
     // Pessoas (condutor, fiador, etc.)
     'person' => [
         'full_name' => 'Nome Completo',
@@ -647,6 +663,9 @@ return [
         'hold_capture_error' => 'Erro ao capturar bloqueio',
         'select_client_first' => 'Selecione primeiro um cliente',
         'send_connection_error' => 'Erro de ligação ao enviar documento.',
+        'deposit_account_required' => 'Selecione a conta bancária da caução.',
+        'deposit_payment_method_required' => 'Selecione a forma de pagamento da caução.',
+        'deposit_deadline_required' => 'Informe o prazo de devolução da caução.',
     ],
 
     // Paginação

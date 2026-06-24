@@ -233,6 +233,8 @@ Nos templates, continue usando `PdfHelper::resolveImagePath()` e nunca monte `<i
 
 No template, basta `<img src="<?= $logoPath ?>">` (path local absoluto, mPDF abre direto).
 
+Para imagens estáticas do projeto, como diagramas de veículos em `public/assets/img/diagramas`, use `PdfHelper::resolvePublicAssetImagePath($filename, 'assets/img/diagramas')`. Esse método retorna um path local absoluto e resolve nomes legados com diferença de caixa, por exemplo `Sedan.jpg` no banco apontando para `sedan.jpg` no filesystem Linux.
+
 ### Por que usar o helper
 
 1. **NUNCA passe URL HTTP** (ex: `FileHelper::url()`) para mPDF. URLs com token HMAC não são acessíveis pelo servidor onde o mPDF roda — `WriteHTML()` morre silenciosamente, gera erro 500 genérico.

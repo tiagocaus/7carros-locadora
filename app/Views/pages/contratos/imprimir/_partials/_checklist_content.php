@@ -247,7 +247,7 @@ $checklistModeloQuestoes = $checklistModeloQuestoes ?? [];
 
                 <?php if (!empty($diagramaPath)): ?>
                 <div class="diagrama-coluna">
-                    <img src="<?= htmlspecialchars($diagramaPath) ?>" alt="<?= t('modules.contratos.pdf.vehicle_diagram_alt') ?>">
+                    <img src="<?= htmlspecialchars($diagramaPath) ?>" style="max-width: 100%; max-height: 420px; width: auto; height: auto;" alt="<?= t('modules.contratos.pdf.vehicle_diagram_alt') ?>">
                 </div>
                 <?php endif; ?>
 
@@ -288,7 +288,7 @@ $checklistModeloQuestoes = $checklistModeloQuestoes ?? [];
 
                 <?php if (!empty($diagramaPath)): ?>
                 <div class="diagrama-coluna">
-                    <img src="<?= htmlspecialchars($diagramaPath) ?>" alt="<?= t('modules.contratos.pdf.vehicle_diagram_alt') ?>">
+                    <img src="<?= htmlspecialchars($diagramaPath) ?>" style="max-width: 100%; max-height: 420px; width: auto; height: auto;" alt="<?= t('modules.contratos.pdf.vehicle_diagram_alt') ?>">
                 </div>
                 <?php endif; ?>
 

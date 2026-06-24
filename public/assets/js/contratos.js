@@ -18,6 +18,7 @@
     let confirmacaoPendente = null;
     let parcelaAvulsaRascunho = null;
     let parcelaContratoAcaoPendente = null;
+    let parcelaContratoEdicaoIndex = null;
 
     // Cache de dados
     let gruposDisponiveis = [];
@@ -516,6 +517,8 @@
             }
         }
 
+        preencherCaucao(data);
+
         // Primeiro vencimento (campo date, não moeda)
         const primeiroVenc = document.getElementById('primeiro_vencimento');
         if (primeiroVenc && data.primeiro_pagamento) {
@@ -587,6 +590,47 @@
         }
 
         atualizarTotais();
+    }
+
+    function preencherCaucao(data) {
+        const caucao = data.caucao || {};
+        const valor = caucao.valor ?? data.caucao_valor ?? 0;
+
+        const valorEl = document.getElementById('caucao_valor');
+        if (valorEl) valorEl.value = valor ? Currency.format(valor) : '0,00';
+
+        const contaId = caucao.id_conta ?? data.id_conta_caucao;
+        const contaDescricao = caucao.conta_descricao ?? data.conta_caucao_descricao;
+        const contaEl = document.getElementById('id_conta_caucao');
+        if (contaEl && contaId && contaDescricao) {
+            contaEl.innerHTML = `<option value="">${i18n.select || 'Selecione...'}</option><option value="${contaId}" selected>${escapeHtml(contaDescricao)}</option>`;
+            contaEl.chosenSelect?.refresh();
+        }
+
+        const formaPagamentoId = caucao.id_forma_pagamento ?? data.id_forma_pagamento_caucao;
+        const formaPagamentoDescricao = caucao.forma_pagamento_descricao ?? data.forma_pagamento_caucao_descricao;
+        const formaPagamentoEl = document.getElementById('id_forma_pagamento_caucao');
+        if (formaPagamentoEl && formaPagamentoId && formaPagamentoDescricao) {
+            formaPagamentoEl.innerHTML = `<option value="">${i18n.select || 'Selecione...'}</option><option value="${formaPagamentoId}" selected>${escapeHtml(formaPagamentoDescricao)}</option>`;
+            formaPagamentoEl.chosenSelect?.refresh();
+        }
+
+        const prazoEl = document.getElementById('caucao_prazo_devolucao');
+        if (prazoEl) prazoEl.value = caucao.prazo_devolucao ?? data.caucao_prazo_devolucao ?? '';
+
+        const lancarEl = document.getElementById('caucao_lancar_financeiro');
+        if (lancarEl) lancarEl.value = String(caucao.lancar_financeiro ?? data.caucao_lancar_financeiro ?? '0') === '1' ? '1' : '0';
+
+        const obsEl = document.getElementById('caucao_observacoes');
+        if (obsEl) obsEl.value = caucao.observacoes ?? data.caucao_observacoes ?? '';
+
+        const badge = document.getElementById('caucaoStatusBadge');
+        if (badge && caucao.status) {
+            badge.textContent = caucao.status;
+            badge.classList.remove('hidden');
+        }
+
+        atualizarCaucaoRequired();
     }
 
     function formatDateTimeForInput(dateStr) {
@@ -1227,6 +1271,43 @@
         return totalVeiculos * dias;
     }
 
+    // ===== CAUCAO =====
+
+    function atualizarCaucaoRequired() {
+        const valor = Currency.parse(document.getElementById('caucao_valor')?.value || '0');
+        const required = valor > 0;
+
+        ['id_conta_caucao', 'id_forma_pagamento_caucao', 'caucao_prazo_devolucao'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.required = required;
+        });
+    }
+
+    function validarCaucao() {
+        const valor = Currency.parse(document.getElementById('caucao_valor')?.value || '0');
+        if (valor <= 0) return true;
+
+        if (!document.getElementById('id_conta_caucao')?.value) {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.depositAccountRequired || 'Selecione a conta bancaria da caucao' }, '*');
+            document.querySelector('[data-form-tab-target="#tabFinanceiro"]')?.click();
+            return false;
+        }
+
+        if (!document.getElementById('id_forma_pagamento_caucao')?.value) {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.depositPaymentMethodRequired || 'Selecione a forma de pagamento da caucao' }, '*');
+            document.querySelector('[data-form-tab-target="#tabFinanceiro"]')?.click();
+            return false;
+        }
+
+        if (!document.getElementById('caucao_prazo_devolucao')?.value) {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.depositDeadlineRequired || 'Informe o prazo de devolucao da caucao' }, '*');
+            document.querySelector('[data-form-tab-target="#tabFinanceiro"]')?.click();
+            return false;
+        }
+
+        return true;
+    }
+
     // ===== TOTAIS =====
 
     function atualizarTotais() {
@@ -1467,6 +1548,22 @@
             });
         }
 
+        const caucaoValor = Currency.parse(document.getElementById('caucao_valor')?.value || '0');
+        if (caucaoValor > 0) {
+            const formaPagamentoSelect = document.getElementById('id_forma_pagamento_caucao');
+            const formaPagamentoTexto = formaPagamentoSelect?.options[formaPagamentoSelect.selectedIndex]?.text || '';
+            const lancarFinanceiro = document.getElementById('caucao_lancar_financeiro')?.value === '1';
+
+            html += `<tr class="bg-slate-100"><td colspan="5" class="px-4 py-2 font-semibold text-slate-700 uppercase text-xs">${i18n.summaryGuarantees || 'Garantias'}</td></tr>`;
+            html += `<tr class="border-b border-slate-100">
+                <td class="px-4 py-2">${i18n.depositTitle || 'Caucao (Deposito de Garantia)'}</td>
+                <td class="px-4 py-2 text-center">1</td>
+                <td class="px-4 py-2 text-center">${escapeHtml(formaPagamentoTexto)}</td>
+                <td class="px-4 py-2 text-right">${lancarFinanceiro ? (i18n.yes || 'Sim') : (i18n.no || 'Nao')}</td>
+                <td class="px-4 py-2 text-right font-medium">${Currency.format(caucaoValor)}</td>
+            </tr>`;
+        }
+
         // ====== SECAO: TOTAIS ======
         html += `<tr class="bg-slate-200"><td colspan="5" class="px-4 py-2 font-semibold text-slate-700 uppercase text-xs">${i18n.summaryTotals || 'Totais'}</td></tr>`;
         html += `<tr class="border-b border-slate-200">
@@ -1666,6 +1763,14 @@
 
         // Desconto muda -> atualizar totais
         document.getElementById('valor_desconto')?.addEventListener('blur', atualizarTotais);
+
+        document.getElementById('caucao_valor')?.addEventListener('input', () => {
+            atualizarCaucaoRequired();
+            atualizarResumoCompleto();
+        });
+        document.getElementById('caucao_valor')?.addEventListener('blur', atualizarTotais);
+        document.getElementById('id_forma_pagamento_caucao')?.addEventListener('change', atualizarResumoCompleto);
+        document.getElementById('caucao_lancar_financeiro')?.addEventListener('change', atualizarResumoCompleto);
 
         // ===== EVENTOS DE PERIODO (contagem, data_ini, data_fim, dias) =====
 
@@ -2011,6 +2116,20 @@
         const desconto = document.getElementById('valor_desconto')?.value;
         financeiro.push({ label: 'Desconto', de: null, para: fmtMoney(window.Currency ? Currency.parse(desconto || '0') : parseFloat(desconto) || 0) });
 
+        const caucaoValor = document.getElementById('caucao_valor')?.value || '0';
+        const caucaoValorNum = window.Currency ? Currency.parse(caucaoValor) : parseFloat(caucaoValor) || 0;
+        if (caucaoValorNum > 0) {
+            const caucaoConta = getSelectText('id_conta_caucao');
+            const caucaoFormaPagamento = getSelectText('id_forma_pagamento_caucao');
+            const caucaoPrazo = document.getElementById('caucao_prazo_devolucao')?.value || '';
+            const caucaoLancar = document.getElementById('caucao_lancar_financeiro')?.value === '1';
+            financeiro.push({ label: 'Caucao', de: null, para: fmtMoney(caucaoValorNum) });
+            if (caucaoConta) financeiro.push({ label: 'Conta da Caucao', de: null, para: caucaoConta });
+            if (caucaoFormaPagamento) financeiro.push({ label: 'Forma de Pagamento da Caucao', de: null, para: caucaoFormaPagamento });
+            if (caucaoPrazo) financeiro.push({ label: 'Prazo de Devolucao da Caucao', de: null, para: `${caucaoPrazo} dia(s)` });
+            financeiro.push({ label: 'Lancar Caucao no Financeiro', de: null, para: caucaoLancar ? 'Sim' : 'Nao' });
+        }
+
         // Calcular total a pagar
         const qtdPeriodos = parseInt(document.getElementById('dias')?.value) || 1;
         const contagemVal = document.getElementById('contagem')?.value || 'dia';
@@ -2083,6 +2202,10 @@
             return;
         }
 
+        if (!validarCaucao()) {
+            return;
+        }
+
         const btnSalvar = document.getElementById('btnSalvar');
         btnSalvar.disabled = true;
         btnSalvar.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${i18n.saving || 'Salvando...'}`;
@@ -2099,6 +2222,8 @@
             // Converter valores monetarios
             dados.valor_desconto = Currency.parse(dados.valor_desconto || '0');
             dados.primeiro_pagamento = Currency.parse(dados.primeiro_pagamento || '0');
+            dados.caucao_valor = Currency.parse(dados.caucao_valor || '0');
+            dados.caucao_lancar_financeiro = document.getElementById('caucao_lancar_financeiro')?.value === '1' ? '1' : '0';
 
             // Veiculos
             dados.veiculos = veiculos.map(v => normalizarValoresPlanoVeiculo({
@@ -2422,10 +2547,11 @@
     function renderizarParcelas() {
         const tbody = document.getElementById('tabelaParcelasBody');
         if (!tbody) return;
+        esconderFormulariosPagamentoContrato();
         tbody.innerHTML = '';
 
         if (parcelas.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="px-3 py-4 text-center text-slate-400">${i18n.noInstallments || 'Nenhuma parcela gerada'}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="px-3 py-4 text-center text-slate-400">${i18n.noInstallments || 'Nenhuma parcela gerada'}</td></tr>`;
             atualizarTotalParcelas();
             return;
         }
@@ -2437,8 +2563,11 @@
             total += valor;
 
             const isPago = parcela.pago === 'S';
+            const temId = !!parcela.id;
             const isAtrasado = !isPago && parcela.data_venci && parcela.data_venci < new Date().toISOString().slice(0, 10);
             const descricao = parcela.descricao || (i18n.installmentLabel || 'Parcela :num').replace(':num', parcela.parcela || (index + 1));
+            const contaNome = obterNomeContaParcela(parcela);
+            const formaNome = obterNomeFormaPagamentoParcela(parcela);
 
             let statusHtml = '';
             if (isPago) {
@@ -2449,18 +2578,26 @@
                 statusHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">${i18n.pending || 'Pendente'}</span>`;
             }
 
-            const acoes = isPago
-                ? `<button type="button" class="btn-icon text-amber-600 hover:text-amber-800 btn-estornar-parcela-contrato" data-id="${parcela.id}" title="${i18n.reversePayment || 'Estornar pagamento'}"><i class="fas fa-undo"></i></button>
-                   <button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-abrir-financeiro" data-id="${parcela.id}" title="${i18n.viewInFinancial || 'Ver no Financeiro'}"><i class="fas fa-external-link-alt"></i></button>`
-                : `<button type="button" class="btn-icon text-emerald-600 hover:text-emerald-800 btn-marcar-pago-contrato" data-index="${index}" title="${i18n.markPaid || 'Marcar como paga'}"><i class="fas fa-check-circle"></i></button>
+            let acoes = '';
+            if (isPago && temId) {
+                acoes = `<button type="button" class="btn-icon text-amber-600 hover:text-amber-800 btn-estornar-parcela-contrato" data-id="${parcela.id}" title="${i18n.reversePayment || 'Estornar pagamento'}"><i class="fas fa-undo"></i></button>
+                   <button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-abrir-financeiro" data-id="${parcela.id}" title="${i18n.viewInFinancial || 'Ver no Financeiro'}"><i class="fas fa-external-link-alt"></i></button>`;
+            } else if (temId) {
+                acoes = `<button type="button" class="btn-icon text-emerald-600 hover:text-emerald-800 btn-marcar-pago-contrato" data-index="${index}" title="${i18n.markPaid || 'Marcar como paga'}"><i class="fas fa-check-circle"></i></button>
                    <button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-editar-parcela-contrato" data-index="${index}" title="${i18n.editPayment || 'Editar pagamento'}"><i class="fas fa-edit"></i></button>
                    <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-parcela-contrato" data-id="${parcela.id}" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`;
+            } else {
+                acoes = `<button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-editar-parcela-contrato" data-index="${index}" title="${i18n.editPayment || 'Editar pagamento'}"><i class="fas fa-edit"></i></button>
+                   <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-parcela-contrato" data-index="${index}" data-draft="1" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`;
+            }
 
             const tr = document.createElement('tr');
             tr.className = 'border-b border-slate-100 hover:bg-slate-50';
             tr.innerHTML = `
                 <td class="px-3 py-2 text-slate-500">${parcela.parcela || (index + 1)}</td>
                 <td class="px-3 py-2">${escapeHtml(descricao)}</td>
+                <td class="px-3 py-2">${escapeHtml(contaNome || '-')}</td>
+                <td class="px-3 py-2">${escapeHtml(formaNome || '-')}</td>
                 <td class="px-3 py-2 text-center">${formatarDataTabela(parcela.data_venci)}</td>
                 <td class="px-3 py-2 text-right font-medium">${Currency.format(valor)}</td>
                 <td class="px-3 py-2 text-center">${statusHtml}</td>
@@ -2481,19 +2618,21 @@
 
         tbody.querySelectorAll('.btn-marcar-pago-contrato').forEach(btn => {
             btn.addEventListener('click', function () {
-                abrirFormularioBaixaContrato(parseInt(this.dataset.index));
+                abrirFormularioBaixaContrato(parseInt(this.dataset.index), this.closest('tr'));
             });
         });
 
         tbody.querySelectorAll('.btn-editar-parcela-contrato').forEach(btn => {
             btn.addEventListener('click', function () {
-                abrirFormularioEdicaoContrato(parseInt(this.dataset.index));
+                abrirFormularioEdicaoContrato(parseInt(this.dataset.index), this.closest('tr'));
             });
         });
 
         tbody.querySelectorAll('.btn-remover-parcela-contrato').forEach(btn => {
             btn.addEventListener('click', function () {
-                parcelaContratoAcaoPendente = { id: this.dataset.id };
+                parcelaContratoAcaoPendente = this.dataset.draft === '1'
+                    ? { draft: true, index: parseInt(this.dataset.index) }
+                    : { id: this.dataset.id };
                 confirmacaoPendente = 'removerParcelaContrato';
                 window.parent.postMessage({
                     action: 'openGenericConfirmModal',
@@ -2540,6 +2679,32 @@
         return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR');
     }
 
+    function obterTextoSelectSelecionado(id) {
+        const select = document.getElementById(id);
+        if (!select) return '';
+        const option = select.options[select.selectedIndex];
+        return option && option.value ? option.text.trim() : '';
+    }
+
+    function obterNomeListaPorId(lista, id) {
+        if (!id) return '';
+        const item = lista.find(registro => String(registro.id) === String(id));
+        return item?.nome || '';
+    }
+
+    function obterNomeContaParcela(parcela) {
+        return parcela.conta_nome
+            || obterNomeListaPorId(contasBancariasList, parcela.id_conta)
+            || (String(parcela.id_conta || '') === String(document.getElementById('id_conta')?.value || '') ? obterTextoSelectSelecionado('id_conta') : '');
+    }
+
+    function obterNomeFormaPagamentoParcela(parcela) {
+        return parcela.forma_pagamento_nome
+            || parcela.forma_pagamento
+            || obterNomeListaPorId(formasPagamentoList, parcela.id_forma_pagamento)
+            || (String(parcela.id_forma_pagamento || '') === String(document.getElementById('id_forma_pagamento')?.value || '') ? obterTextoSelectSelecionado('id_forma_pagamento') : '');
+    }
+
     function popularSelectSimples(selectId, lista, selectedValue = '') {
         const select = document.getElementById(selectId);
         if (!select) return;
@@ -2556,28 +2721,79 @@
         });
     }
 
+    const origensFormulariosParcelaContrato = {};
+
+    function registrarOrigemFormularioParcelaContrato(formId) {
+        if (origensFormulariosParcelaContrato[formId]) return;
+
+        const form = document.getElementById(formId);
+        if (!form || !form.parentNode) return;
+
+        origensFormulariosParcelaContrato[formId] = {
+            parent: form.parentNode,
+            nextSibling: form.nextSibling
+        };
+    }
+
+    function restaurarFormularioParcelaContrato(formId) {
+        registrarOrigemFormularioParcelaContrato(formId);
+
+        const form = document.getElementById(formId);
+        const origem = origensFormulariosParcelaContrato[formId];
+        if (!form || !origem || !origem.parent) return;
+
+        form.classList.add('hidden');
+        origem.parent.insertBefore(form, origem.nextSibling || null);
+    }
+
+    function removerLinhaFormularioParcelaContrato() {
+        document.getElementById('linhaFormularioParcelaContrato')?.remove();
+    }
+
+    function inserirFormularioAbaixoLinhaContrato(formId, linhaReferencia) {
+        const form = document.getElementById(formId);
+        if (!form || !linhaReferencia) return;
+
+        esconderFormulariosPagamentoContrato();
+
+        const linhaFormulario = document.createElement('tr');
+        linhaFormulario.id = 'linhaFormularioParcelaContrato';
+        linhaFormulario.className = 'bg-slate-50 border-b border-slate-100';
+
+        const celula = document.createElement('td');
+        celula.colSpan = linhaReferencia.children.length || 6;
+        celula.className = 'px-3 py-3';
+
+        linhaFormulario.appendChild(celula);
+        linhaReferencia.insertAdjacentElement('afterend', linhaFormulario);
+        celula.appendChild(form);
+        form.classList.remove('hidden');
+    }
+
     function esconderFormulariosPagamentoContrato() {
-        document.getElementById('formEditarParcelaContrato')?.classList.add('hidden');
-        document.getElementById('formMarcarPagoContrato')?.classList.add('hidden');
+        restaurarFormularioParcelaContrato('formEditarParcelaContrato');
+        restaurarFormularioParcelaContrato('formMarcarPagoContrato');
+        removerLinhaFormularioParcelaContrato();
         document.getElementById('formAdicionarAvaria')?.classList.add('hidden');
     }
 
-    function abrirFormularioEdicaoContrato(index) {
+    function abrirFormularioEdicaoContrato(index, linhaReferencia = null) {
         const parcela = parcelas[index];
         if (!parcela || parcela.pago === 'S') return;
 
         esconderFormulariosPagamentoContrato();
+        parcelaContratoEdicaoIndex = index;
         document.getElementById('editar_id_parcela_contrato').value = parcela.id || '';
         document.getElementById('editar_descricao_contrato').value = parcela.descricao || '';
         document.getElementById('editar_data_venci_contrato').value = parcela.data_venci || '';
         document.getElementById('editar_valor_contrato').value = Currency.format(parseFloat(parcela.valor_total || parcela.valor_subtotal || 0));
         popularSelectSimples('editar_id_conta_contrato', contasBancariasList, parcela.id_conta);
         popularSelectSimples('editar_id_forma_pagamento_contrato', formasPagamentoList, parcela.id_forma_pagamento);
-        document.getElementById('formEditarParcelaContrato')?.classList.remove('hidden');
+        inserirFormularioAbaixoLinhaContrato('formEditarParcelaContrato', linhaReferencia);
         Currency.applyMaskToAll('input-moeda');
     }
 
-    function abrirFormularioBaixaContrato(index) {
+    function abrirFormularioBaixaContrato(index, linhaReferencia = null) {
         const parcela = parcelas[index];
         if (!parcela || parcela.pago === 'S') return;
 
@@ -2588,12 +2804,11 @@
         document.getElementById('pagar_data_pago_contrato').value = new Date().toISOString().slice(0, 10);
         popularSelectSimples('pagar_id_conta_contrato', contasBancariasList, parcela.id_conta);
         popularSelectSimples('pagar_id_forma_pagamento_contrato', formasPagamentoList, parcela.id_forma_pagamento);
-        document.getElementById('formMarcarPagoContrato')?.classList.remove('hidden');
+        inserirFormularioAbaixoLinhaContrato('formMarcarPagoContrato', linhaReferencia);
     }
 
     async function confirmarEditarParcelaContrato() {
         const idParcela = document.getElementById('editar_id_parcela_contrato')?.value;
-        if (!editando || !registroId || !idParcela) return;
 
         const dataVenci = document.getElementById('editar_data_venci_contrato')?.value || '';
         const valor = document.getElementById('editar_valor_contrato')?.value || '';
@@ -2603,6 +2818,27 @@
 
         if (!dataVenci || Currency.parse(valor) <= 0) {
             window.parent.postMessage({ action: 'openAlert', message: i18n.allRequiredFields || 'Preencha os campos obrigatórios' }, '*');
+            return;
+        }
+
+        if (!editando || !registroId || !idParcela) {
+            if (parcelaContratoEdicaoIndex === null || !parcelas[parcelaContratoEdicaoIndex]) return;
+
+            const valorNumerico = Currency.parse(valor);
+            parcelas[parcelaContratoEdicaoIndex] = {
+                ...parcelas[parcelaContratoEdicaoIndex],
+                descricao: descricao,
+                data_venci: dataVenci,
+                valor_subtotal: valorNumerico,
+                valor_total: valorNumerico,
+                id_conta: idConta ? parseInt(idConta) : null,
+                id_forma_pagamento: idForma ? parseInt(idForma) : null,
+                conta_nome: obterNomeListaPorId(contasBancariasList, idConta),
+                forma_pagamento_nome: obterNomeListaPorId(formasPagamentoList, idForma)
+            };
+            parcelaContratoEdicaoIndex = null;
+            esconderFormulariosPagamentoContrato();
+            renderizarParcelas();
             return;
         }
 
@@ -2616,7 +2852,7 @@
             });
 
             if (result.success) {
-                document.getElementById('formEditarParcelaContrato')?.classList.add('hidden');
+                esconderFormulariosPagamentoContrato();
                 await carregarParcelasContrato();
             } else {
                 window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.installmentUpdateError || 'Erro ao atualizar parcela' }, '*');
@@ -2648,7 +2884,7 @@
             });
 
             if (result.success) {
-                document.getElementById('formMarcarPagoContrato')?.classList.add('hidden');
+                esconderFormulariosPagamentoContrato();
                 await carregarParcelasContrato();
             } else {
                 window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.markPaidError || 'Erro ao marcar como paga' }, '*');
@@ -2660,6 +2896,20 @@
     }
 
     async function executarRemoverParcelaContrato() {
+        if (parcelaContratoAcaoPendente?.draft) {
+            const index = parcelaContratoAcaoPendente.index;
+            parcelaContratoAcaoPendente = null;
+            if (Number.isInteger(index) && parcelas[index]) {
+                parcelas.splice(index, 1);
+                parcelas.forEach((parcela, i) => {
+                    parcela.parcela = i + 1;
+                    parcela.total_parcelas = parcelas.length;
+                });
+                renderizarParcelas();
+            }
+            return;
+        }
+
         const idParcela = parcelaContratoAcaoPendente?.id;
         parcelaContratoAcaoPendente = null;
         if (!editando || !registroId || !idParcela) return;
@@ -2899,11 +3149,11 @@
         });
         document.getElementById('btnConfirmarEditarParcelaContrato')?.addEventListener('click', confirmarEditarParcelaContrato);
         document.getElementById('btnCancelarEditarParcelaContrato')?.addEventListener('click', () => {
-            document.getElementById('formEditarParcelaContrato')?.classList.add('hidden');
+            esconderFormulariosPagamentoContrato();
         });
         document.getElementById('btnConfirmarMarcarPagoContrato')?.addEventListener('click', confirmarMarcarPagoContrato);
         document.getElementById('btnCancelarMarcarPagoContrato')?.addEventListener('click', () => {
-            document.getElementById('formMarcarPagoContrato')?.classList.add('hidden');
+            esconderFormulariosPagamentoContrato();
         });
 
         if (editando) {

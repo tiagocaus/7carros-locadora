@@ -217,6 +217,22 @@ return [
         'reason_extra_days' => 'Giorno/i extra',
         'reason_other' => 'Altro',
     ],
+    'deposit' => [
+        'title' => 'Deposito Cauzionale',
+        'value' => 'Importo del deposito',
+        'account' => 'Conto del deposito',
+        'payment_method' => 'Metodo di pagamento',
+        'return_deadline' => 'Termine restituzione (giorni)',
+        'launch_financial' => 'Registrare deposito nel finanziario',
+        'card' => 'Carta del deposito',
+        'notes' => 'Note del deposito',
+        'types' => [
+            'cash' => 'Contanti',
+            'pix' => 'PIX',
+            'card' => 'Carta',
+            'check' => 'Assegno',
+        ],
+    ],
     // Persone (conducente, garante, ecc.)
     'person' => [
         'full_name' => 'Nome e cognome',
@@ -647,6 +663,9 @@ return [
         'hold_capture_error' => 'Errore nella cattura del blocco',
         'select_client_first' => 'Seleziona prima un cliente',
         'send_connection_error' => 'Errore di connessione durante l\'invio del documento.',
+        'deposit_account_required' => 'Seleziona il conto del deposito.',
+        'deposit_payment_method_required' => 'Seleziona il metodo di pagamento del deposito.',
+        'deposit_deadline_required' => 'Inserisci il termine di restituzione del deposito.',
     ],
 
     // Paginazione

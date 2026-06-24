@@ -289,6 +289,37 @@ class ManutencaoItem extends Model
     }
 
     /**
+     * Repoe estoque de todos os itens da manutencao que usam produto com baixa automatica.
+     */
+    public function reporEstoquePorManutencao(int $idManutencao): void
+    {
+        $itens = $this->qb
+            ->table('manutencoes_itens')
+            ->select(['id_estoque', 'quantidade'])
+            ->where('id_manutencao', '=', $idManutencao)
+            ->whereNotNull('id_estoque')
+            ->get();
+
+        foreach ($itens as $item) {
+            $this->ajustarEstoque((int) $item['id_estoque'], (float) $item['quantidade'], 'repor');
+        }
+    }
+
+    /**
+     * Deleta todos os itens de uma manutencao, incluindo pagos.
+     *
+     * Usado apenas na exclusao da manutencao inteira, quando a confirmacao do
+     * usuario ja definiu se o estoque deve ser reposto.
+     */
+    public function deletarTodosPorManutencao(int $idManutencao): int
+    {
+        return $this->qb
+            ->table('manutencoes_itens')
+            ->where('id_manutencao', '=', $idManutencao)
+            ->delete();
+    }
+
+    /**
      * Salva multiplos itens (bulk insert/update) e remove os que nao estao mais na lista
      */
     public function salvarTodos(int $idManutencao, string $chave, array $itens): int

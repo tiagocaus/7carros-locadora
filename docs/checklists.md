@@ -140,6 +140,10 @@ Todas são HTML standalone (não usam template de iframe do dashboard).
 
 ### Busca para impressão
 - Busca por FK (`id_locacao`/`id_contrato`) primeiro, fallback por `codigo` para registros legados
+- Checklist impresso (`checklist_modelos.tipo = 1`) usa o diagrama do cadastro do veículo (`veiculos.diagrama`) em `public/assets/img/diagramas`.
+- Diagramas são assets estáticos do projeto e devem ser passados ao mPDF como caminho local absoluto. Use `PdfHelper::resolvePublicAssetImagePath($diagrama, 'assets/img/diagramas')`, que também trata diferenças de maiúsculas/minúsculas entre dados legados do banco (`Sedan.jpg`) e arquivos reais (`sedan.jpg`).
+- No PDF impresso, o diagrama deve preservar proporção e respeitar altura máxima de `420px` em cada coluna de saída/chegada.
+- A tabela de tanque/combustível deve ficar centralizada horizontalmente abaixo do diagrama.
 
 ---
 

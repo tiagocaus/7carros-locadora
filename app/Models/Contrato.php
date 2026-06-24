@@ -358,6 +358,26 @@ class Contrato extends Model
             $contrato['cliente_endereco_completo'] = $this->montarEnderecoCliente($contrato);
         }
 
+        if ($contrato) {
+            $caucao = (new ContratoCaucao())->buscarAtivaPorContrato((int) $contrato['id']);
+            $contrato['caucao'] = $caucao;
+            if ($caucao) {
+                $contrato['caucao_id'] = $caucao['id'];
+                $contrato['caucao_valor'] = $caucao['valor'];
+                $contrato['id_conta_caucao'] = $caucao['id_conta'];
+                $contrato['conta_caucao_descricao'] = $caucao['conta_descricao'];
+                $contrato['id_forma_pagamento_caucao'] = $caucao['id_forma_pagamento'];
+                $contrato['forma_pagamento_caucao_descricao'] = $caucao['forma_pagamento_descricao'];
+                $contrato['id_cartao_caucao'] = $caucao['id_cartao'];
+                $contrato['caucao_prazo_devolucao'] = $caucao['prazo_devolucao'];
+                $contrato['caucao_data_devolucao'] = $caucao['data_devolucao'];
+                $contrato['caucao_lancar_financeiro'] = $caucao['lancar_financeiro'];
+                $contrato['caucao_status'] = $caucao['status'];
+                $contrato['caucao_observacoes'] = $caucao['observacoes'];
+                $contrato['id_financeiro_caucao_entrada'] = $caucao['id_financeiro_entrada'];
+            }
+        }
+
         // Carregar dados do bloqueio ativo (pre-autorizacao)
         if ($contrato && !empty($contrato['id_bloqueio_ativo'])) {
             $bloqueioModel = new ContratoBloqueio();
@@ -750,17 +770,20 @@ class Contrato extends Model
      *
      * @param int $id ID do contrato
      * @param string $status Novo status (A/F)
+     * @param array $dadosExtras Campos adicionais a atualizar junto ao status
      * @return int Linhas afetadas
      */
-    public function atualizarStatus(int $id, string $status): int
+    public function atualizarStatus(int $id, string $status, array $dadosExtras = []): int
     {
+        $dadosUpdate = array_merge($dadosExtras, [
+            'status' => $status,
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+
         return $this->qb
             ->table('contratos')
             ->where('id', '=', $id)
-            ->update([
-                'status' => $status,
-                'updated_at' => date('Y-m-d H:i:s')
-            ]);
+            ->update($dadosUpdate);
     }
 
     /**
@@ -1286,7 +1309,7 @@ class Contrato extends Model
         }
 
         // Buscar totais das parcelas
-        $totais = $this->qb
+        $queryTotais = $this->qb
             ->table('financeiro')
             ->selectRaw('
                 COUNT(*) AS total_parcelas,
@@ -1295,8 +1318,22 @@ class Contrato extends Model
                 SUM(CASE WHEN pago = "N" THEN valor_total ELSE 0 END) AS total_pendente,
                 SUM(CASE WHEN pago = "N" AND data_venci < CURDATE() THEN valor_total ELSE 0 END) AS total_atrasado
             ')
-            ->where('id_contrato', '=', $contratoId)
-            ->first();
+            ->where('id_contrato', '=', $contratoId);
+
+        if ((new ContratoCaucao())->tabelaDisponivel()) {
+            $queryTotais->whereRaw('NOT EXISTS (
+                    SELECT 1
+                    FROM contratos_caucoes cc
+                    WHERE cc.chave = financeiro.chave
+                      AND cc.id_contrato = financeiro.id_contrato
+                      AND (
+                          cc.id_financeiro_entrada = financeiro.id
+                          OR cc.id_financeiro_devolucao = financeiro.id
+                      )
+                )');
+        }
+
+        $totais = $queryTotais->first();
 
         return [
             'total_contrato' => (float) $contrato['total_pagar'],

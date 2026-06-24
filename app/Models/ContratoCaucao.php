@@ -1,0 +1,264 @@
+<?php
+
+namespace App\Models;
+
+/**
+ * Model ContratoCaucao
+ *
+ * Controla caucoes vinculadas a contratos e seus lancamentos financeiros.
+ */
+class ContratoCaucao extends Model
+{
+    private const PLANO_CONTA_ENTRADA = '1.1.6.01';
+
+    public function tabelaDisponivel(): bool
+    {
+        static $disponivel = null;
+
+        if ($disponivel !== null) {
+            return $disponivel;
+        }
+
+        $result = $this->getMysqli()->query("SHOW TABLES LIKE 'contratos_caucoes'");
+        $disponivel = $result !== false && $result->num_rows > 0;
+        if ($result instanceof \mysqli_result) {
+            $result->free();
+        }
+
+        return $disponivel;
+    }
+
+    public function buscarAtivaPorContrato(int $contratoId): ?array
+    {
+        if (!$this->tabelaDisponivel()) {
+            return null;
+        }
+
+        return $this->qb
+            ->table('contratos_caucoes', 'cc')
+            ->select([
+                'cc.*',
+                'cb.nome AS conta_descricao',
+                'fp.nome AS forma_pagamento_descricao',
+                'cart.bandeira AS cartao_bandeira',
+                'cart.ultimos_digitos AS cartao_ultimos_digitos',
+            ])
+            ->leftJoin('contas_bancarias', 'cb', 'cc.id_conta', '=', 'cb.id')
+            ->leftJoin('formas_pagamento', 'fp', 'cc.id_forma_pagamento', '=', 'fp.id')
+            ->leftJoin('clientes_cartoes', 'cart', 'cc.id_cartao', '=', 'cart.id')
+            ->where('cc.id_contrato', '=', $contratoId)
+            ->where('cc.status', '=', 'ativa')
+            ->orderByDesc('cc.id')
+            ->first();
+    }
+
+    public function sincronizarAtiva(int $contratoId, array $dados, array $contrato): ?array
+    {
+        $valor = currency_parse($dados['caucao_valor'] ?? 0);
+        $caucao = $this->buscarAtivaPorContrato($contratoId);
+
+        if (!$this->tabelaDisponivel()) {
+            if ($valor <= 0) {
+                return null;
+            }
+            throw new \RuntimeException('Tabela de caucoes de contratos ainda nao foi criada');
+        }
+
+        if ($valor <= 0) {
+            if ($caucao) {
+                $this->cancelarCaucao($caucao);
+            }
+            return null;
+        }
+
+        $lancarFinanceiro = $this->booleanFromInput($dados['caucao_lancar_financeiro'] ?? null);
+        $payload = [
+            'chave' => $contrato['chave'],
+            'id_contrato' => $contratoId,
+            'id_cliente' => (int) ($contrato['id_cliente'] ?? $dados['id_cliente'] ?? 0),
+            'id_conta' => !empty($dados['id_conta_caucao']) ? (int) $dados['id_conta_caucao'] : null,
+            'id_cartao' => !empty($dados['id_cartao_caucao']) ? (int) $dados['id_cartao_caucao'] : null,
+            'id_forma_pagamento' => !empty($dados['id_forma_pagamento_caucao']) ? (int) $dados['id_forma_pagamento_caucao'] : null,
+            'valor' => $valor,
+            'prazo_devolucao' => !empty($dados['caucao_prazo_devolucao']) ? (int) $dados['caucao_prazo_devolucao'] : null,
+            'lancar_financeiro' => $lancarFinanceiro ? 1 : 0,
+            'observacoes' => $dados['caucao_observacoes'] ?? null,
+            'status' => 'ativa',
+        ];
+
+        if ($caucao && !$this->podeAlterarCaucaoComFinanceiro($caucao, $payload)) {
+            throw new \RuntimeException('Nao e possivel alterar a caucao com lancamento financeiro ja pago');
+        }
+
+        if ($caucao) {
+            $this->qb
+                ->table('contratos_caucoes')
+                ->where('id', '=', (int) $caucao['id'])
+                ->update(array_merge($payload, ['updated_at' => date('Y-m-d H:i:s')]));
+            $idCaucao = (int) $caucao['id'];
+        } else {
+            $idCaucao = $this->qb
+                ->table('contratos_caucoes')
+                ->insert($payload);
+            $caucao = ['id' => $idCaucao];
+        }
+
+        $caucaoAtualizada = array_merge($caucao, $payload, ['id' => $idCaucao]);
+        $this->sincronizarFinanceiroEntrada($caucaoAtualizada, $contrato);
+
+        return $this->buscarAtivaPorContrato($contratoId);
+    }
+
+    private function sincronizarFinanceiroEntrada(array $caucao, array $contrato): void
+    {
+        $idFinanceiro = !empty($caucao['id_financeiro_entrada']) ? (int) $caucao['id_financeiro_entrada'] : null;
+
+        if (empty($caucao['lancar_financeiro'])) {
+            if ($idFinanceiro) {
+                $this->removerFinanceiroPendente($idFinanceiro);
+                $this->qb
+                    ->table('contratos_caucoes')
+                    ->where('id', '=', (int) $caucao['id'])
+                    ->update([
+                        'id_financeiro_entrada' => null,
+                        'updated_at' => date('Y-m-d H:i:s'),
+                    ]);
+            }
+            return;
+        }
+
+        $plano = (new PlanoDeContas())->buscarPorHierarquia(self::PLANO_CONTA_ENTRADA);
+        if (!$plano) {
+            throw new \RuntimeException('Plano de conta da entrada de caucao nao encontrado');
+        }
+
+        $descricao = sprintf('Caucao - Contrato #%s', $contrato['codigo'] ?? $contrato['id'] ?? $caucao['id_contrato']);
+        $dadosFinanceiro = [
+            'chave' => $caucao['chave'],
+            'codigo' => $contrato['codigo'] ?? null,
+            'id_contrato' => (int) $caucao['id_contrato'],
+            'id_cliente' => (int) $caucao['id_cliente'],
+            'id_matriz_filial' => !empty($contrato['id_matriz_filial_retirada']) ? (int) $contrato['id_matriz_filial_retirada'] : null,
+            'id_conta' => $caucao['id_conta'] ?? null,
+            'id_forma_pagamento' => $caucao['id_forma_pagamento'] ?? null,
+            'id_plano_de_conta' => (int) $plano['id'],
+            'tipo' => 'R',
+            'pago' => 'N',
+            'parcela' => 1,
+            'total_parcelas' => 1,
+            'descricao' => $descricao,
+            'data_venci' => date('Y-m-d'),
+            'valor_subtotal' => $caucao['valor'],
+            'valor_total' => $caucao['valor'],
+        ];
+
+        $financeiroModel = new Financeiro();
+        if ($idFinanceiro) {
+            $lancamento = $financeiroModel->buscarPorId($idFinanceiro);
+            if (!$lancamento || (int) ($lancamento['id_contrato'] ?? 0) !== (int) $caucao['id_contrato']) {
+                $idFinanceiro = null;
+            } elseif (($lancamento['pago'] ?? 'N') === 'S') {
+                if ($this->financeiroPagoEquivaleCaucao($lancamento, $caucao)) {
+                    return;
+                }
+                throw new \RuntimeException('Nao e possivel alterar a caucao com lancamento financeiro ja pago');
+            } else {
+                $financeiroModel->atualizar($idFinanceiro, $dadosFinanceiro);
+                (new FinanceiroItem())->salvarTodos($idFinanceiro, (string) $caucao['chave'], [[
+                    'id_plano_de_conta' => (int) $plano['id'],
+                    'descricao' => $descricao,
+                    'valor' => $caucao['valor'],
+                ]]);
+            }
+        }
+
+        if (!$idFinanceiro) {
+            if (!empty($dadosFinanceiro['id_matriz_filial'])) {
+                $dadosFinanceiro['sequencia'] = \App\Helpers\SequenciaHelper::proximaSequencia(
+                    (string) $caucao['chave'],
+                    (int) $dadosFinanceiro['id_matriz_filial'],
+                    'financeiro'
+                );
+            }
+            $idFinanceiro = $financeiroModel->criar($dadosFinanceiro);
+            (new FinanceiroItem())->salvarTodos($idFinanceiro, (string) $caucao['chave'], [[
+                'id_plano_de_conta' => (int) $plano['id'],
+                'descricao' => $descricao,
+                'valor' => $caucao['valor'],
+            ]]);
+        }
+
+        $this->qb
+            ->table('contratos_caucoes')
+            ->where('id', '=', (int) $caucao['id'])
+            ->update([
+                'id_financeiro_entrada' => $idFinanceiro,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+    }
+
+    private function cancelarCaucao(array $caucao): void
+    {
+        if (!empty($caucao['id_financeiro_entrada'])) {
+            $this->removerFinanceiroPendente((int) $caucao['id_financeiro_entrada']);
+        }
+
+        $this->qb
+            ->table('contratos_caucoes')
+            ->where('id', '=', (int) $caucao['id'])
+            ->update([
+                'status' => 'cancelada',
+                'id_financeiro_entrada' => null,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+    }
+
+    private function removerFinanceiroPendente(int $idFinanceiro): void
+    {
+        $financeiroModel = new Financeiro();
+        $lancamento = $financeiroModel->buscarPorId($idFinanceiro);
+        if (!$lancamento) {
+            return;
+        }
+
+        if (($lancamento['pago'] ?? 'N') === 'S') {
+            throw new \RuntimeException('Nao e possivel remover caucao com lancamento financeiro ja pago');
+        }
+
+        $financeiroModel->deletar($idFinanceiro);
+    }
+
+    private function podeAlterarCaucaoComFinanceiro(array $caucaoAtual, array $payload): bool
+    {
+        if (empty($caucaoAtual['id_financeiro_entrada'])) {
+            return true;
+        }
+
+        $lancamento = (new Financeiro())->buscarPorId((int) $caucaoAtual['id_financeiro_entrada']);
+        if (!$lancamento || ($lancamento['pago'] ?? 'N') !== 'S') {
+            return true;
+        }
+
+        if (empty($payload['lancar_financeiro'])) {
+            return false;
+        }
+
+        return (float) $caucaoAtual['valor'] === (float) $payload['valor']
+            && (int) ($caucaoAtual['id_conta'] ?? 0) === (int) ($payload['id_conta'] ?? 0)
+            && (int) ($caucaoAtual['id_forma_pagamento'] ?? 0) === (int) ($payload['id_forma_pagamento'] ?? 0)
+            && (int) ($caucaoAtual['id_cliente'] ?? 0) === (int) ($payload['id_cliente'] ?? 0);
+    }
+
+    private function financeiroPagoEquivaleCaucao(array $lancamento, array $caucao): bool
+    {
+        return (float) ($lancamento['valor_total'] ?? 0) === (float) ($caucao['valor'] ?? 0)
+            && (int) ($lancamento['id_conta'] ?? 0) === (int) ($caucao['id_conta'] ?? 0)
+            && (int) ($lancamento['id_forma_pagamento'] ?? 0) === (int) ($caucao['id_forma_pagamento'] ?? 0)
+            && (int) ($lancamento['id_cliente'] ?? 0) === (int) ($caucao['id_cliente'] ?? 0);
+    }
+
+    private function booleanFromInput(mixed $value): bool
+    {
+        return in_array($value, [1, '1', true, 'true', 'S', 'on', 'sim'], true);
+    }
+}

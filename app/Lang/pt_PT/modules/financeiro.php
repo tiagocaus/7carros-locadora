@@ -85,6 +85,7 @@ return [
         'client_supplier_employee_full' => 'Cliente/Fornecedor/Funcionário',
         'due_date' => 'Vencimento',
         'value' => 'Valor',
+        'vehicle_plates_label' => 'Matrícula(s)',
         'installment' => 'Prestação',
     ],
 

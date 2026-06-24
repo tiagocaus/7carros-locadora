@@ -100,6 +100,8 @@
             <h3 class="modal-title" id="deleteModalTitle"><?= t('modules.layout.delete.title') ?></h3>
             <p class="modal-message" id="deleteModalMessage"><?= t('modules.layout.delete.default_message') ?></p>
 
+            <div class="mt-4 mb-2 space-y-2" id="deleteOptionsSection" style="display: none;"></div>
+
             <!-- Campo de Confirmação -->
             <div class="mt-4 mb-4" id="confirmDeleteSection" style="display: none;">
                 <label for="confirmDeleteInput" class="form-label">
@@ -1025,20 +1027,23 @@
         const CONFIRM_TEXT = layoutT('delete.confirm_text');
         let globalConfirmType = 'text';
         let globalExpectedText = '';
+        let globalDeleteOptions = [];
 
         /**
          * Abre o modal de exclusão global
          */
-        window.openGlobalDeleteModal = function(recordId, recordName, recordType = 'registro', confirmType = 'text', customAction = null) {
+        window.openGlobalDeleteModal = function(recordId, recordName, recordType = 'registro', confirmType = 'text', customAction = null, options = []) {
             globalRecordId = recordId;
             globalRecordName = recordName;
             globalRecordType = recordType;
             globalCustomAction = customAction;
             globalConfirmType = confirmType;
+            globalDeleteOptions = Array.isArray(options) ? options : [];
 
             const modal = document.getElementById('deleteConfirmationModal');
             const modalTitle = document.getElementById('deleteModalTitle');
             const modalMessage = document.getElementById('deleteModalMessage');
+            const optionsSection = document.getElementById('deleteOptionsSection');
             const confirmSection = document.getElementById('confirmDeleteSection');
             const confirmInput = document.getElementById('confirmDeleteInput');
             const confirmText = document.getElementById('confirmDeleteText');
@@ -1053,6 +1058,8 @@
             // Garantir que temos um nome válido
             const displayName = recordName && recordName !== 'undefined' && recordName !== '' ? recordName : layoutT('delete.record_fallback');
             modalMessage.textContent = layoutT('delete.message', { type: recordType, name: displayName });
+
+            renderGlobalDeleteOptions(optionsSection);
 
             // Modo sem confirmação
             if (confirmType === 'none') {
@@ -1098,6 +1105,7 @@
             const modal = document.getElementById('deleteConfirmationModal');
             const confirmSection = document.getElementById('confirmDeleteSection');
             const confirmInput = document.getElementById('confirmDeleteInput');
+            const optionsSection = document.getElementById('deleteOptionsSection');
 
             if (confirmInput) {
                 confirmInput.removeEventListener('input', validateGlobalDeleteConfirmation);
@@ -1105,6 +1113,10 @@
             }
             if (confirmSection) {
                 confirmSection.style.display = 'none';
+            }
+            if (optionsSection) {
+                optionsSection.innerHTML = '';
+                optionsSection.style.display = 'none';
             }
 
             modal.classList.remove('open');
@@ -1114,7 +1126,43 @@
             globalCustomAction = null;
             globalConfirmType = 'text';
             globalExpectedText = '';
+            globalDeleteOptions = [];
         };
+
+        function renderGlobalDeleteOptions(optionsSection) {
+            if (!optionsSection) return;
+
+            optionsSection.innerHTML = '';
+            if (!globalDeleteOptions.length) {
+                optionsSection.style.display = 'none';
+                return;
+            }
+
+            globalDeleteOptions.forEach((option, index) => {
+                if (!option || !option.key || !option.label) return;
+
+                const optionId = 'deleteOption_' + index + '_' + String(option.key).replace(/[^a-zA-Z0-9_-]/g, '');
+                const wrapper = document.createElement('label');
+                wrapper.className = 'flex items-center gap-2 text-sm text-slate-700 cursor-pointer';
+                wrapper.setAttribute('for', optionId);
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = optionId;
+                checkbox.className = 'rounded border-slate-300 text-red-600 focus:ring-red-500';
+                checkbox.dataset.deleteOptionKey = option.key;
+                checkbox.checked = option.checked !== false;
+
+                const text = document.createElement('span');
+                text.textContent = option.label;
+
+                wrapper.appendChild(checkbox);
+                wrapper.appendChild(text);
+                optionsSection.appendChild(wrapper);
+            });
+
+            optionsSection.style.display = optionsSection.children.length ? 'block' : 'none';
+        }
 
         /**
          * Valida o texto digitado no campo de confirmação
@@ -1148,13 +1196,19 @@
             const targetWindow = globalSourceWindow ||
                 document.querySelector('.tab-content.active-content iframe')?.contentWindow;
 
+            const deleteOptions = {};
+            document.querySelectorAll('#deleteOptionsSection [data-delete-option-key]').forEach((checkbox) => {
+                deleteOptions[checkbox.dataset.deleteOptionKey] = checkbox.checked;
+            });
+
             if (targetWindow) {
                 targetWindow.postMessage({
                     action: 'confirmDelete',
                     recordId: globalRecordId,
                     recordName: globalRecordName,
                     recordType: globalRecordType,
-                    customAction: globalCustomAction
+                    customAction: globalCustomAction,
+                    deleteOptions: deleteOptions
                 }, '*');
             }
 
@@ -1607,7 +1661,8 @@
                     event.data.recordName,
                     event.data.recordType || 'registro',
                     event.data.confirmType || 'text',
-                    event.data.customAction || null
+                    event.data.customAction || null,
+                    event.data.options || []
                 );
             } else if (event.data && event.data.action === 'openGenericConfirmModal') {
                 // Abrir modal de confirmação genérico

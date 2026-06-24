@@ -105,6 +105,8 @@ class ManutencoesController
                 $m['total_pendente_formatted'] = currency_format((float) $m['total_pendente']);
                 $m['data_enviado_formatted'] = $m['data_enviado'] ? date('d/m/Y H:i', strtotime($m['data_enviado'])) : '';
                 $m['data_retorno_formatted'] = $m['data_retorno'] ? date('d/m/Y H:i', strtotime($m['data_retorno'])) : '';
+                $m['tem_financeiro_vinculado'] = !empty($m['id_financeiro_principal']) || (int) ($m['qtd_financeiros_itens'] ?? 0) > 0;
+                $m['tem_estoque_utilizado'] = (int) ($m['qtd_itens_estoque'] ?? 0) > 0;
 
                 // Status formatado
                 $statusMap = ['C' => 'Criada', 'A' => 'Aberta', 'F' => 'Fechada'];
@@ -405,36 +407,72 @@ class ManutencoesController
                 return;
             }
 
-            // Se manutencao esta aberta, liberar o veiculo antes de excluir
-            if ($manutencao['status'] === 'A' && !empty($manutencao['id_veiculo'])) {
-                $model->liberarVeiculo((int) $manutencao['id_veiculo'], $id);
+            $financeirosVinculados = $model->listarFinanceirosVinculados($id);
+            $temFinanceiroVinculado = !empty($financeirosVinculados);
+            $temEstoqueUtilizado = $model->temEstoqueUtilizado($id);
+            $excluirFinanceiro = $this->boolInput(
+                $request->input('excluir_financeiro', $temFinanceiroVinculado),
+                $temFinanceiroVinculado
+            );
+            $reporEstoque = $this->boolInput(
+                $request->input('repor_estoque', $temEstoqueUtilizado),
+                $temEstoqueUtilizado
+            );
 
-                // Log de mudanca de disponibilidade
+            $model->excluirComImpactos(
+                $id,
+                $financeirosVinculados,
+                $temFinanceiroVinculado && $excluirFinanceiro,
+                $temEstoqueUtilizado && $reporEstoque
+            );
+
+            // Log de mudanca de disponibilidade
+            if ($manutencao['status'] === 'A' && !empty($manutencao['id_veiculo'])) {
                 AuditLogService::registrar(
                     "Manutencao [{$manutencao['os']}] excluida mudou disponibilidade do veiculo [{$manutencao['veiculo_placa']}] de O para D"
                 );
             }
 
-            // Excluir financeiro atrelado
-            if (!empty($manutencao['id_financeiro_principal'])) {
-                $financeiroModel = new Financeiro();
-                $financeiroModel->deletar((int) $manutencao['id_financeiro_principal']);
-            }
-
-            // Deletar itens primeiro (CASCADE cuidaria, mas vamos ser explicitos)
-            $itemModel = new ManutencaoItem();
-            $itemModel->deletarPorManutencao($id);
-
-            // Deletar manutencao
-            $model->deletar($id);
-
             // Auditoria
-            AuditLogService::registrar($_SESSION['user_name'] . " excluiu manutencao [{$manutencao['os']}]");
+            AuditLogService::registrarComCampos(
+                $_SESSION['user_name'] . " excluiu manutencao [{$manutencao['os']}]",
+                [
+                    AuditLogService::campo(
+                        'Excluir financeiro vinculado',
+                        null,
+                        $temFinanceiroVinculado ? ($excluirFinanceiro ? 'Sim' : 'Nao') : 'Nao aplicavel',
+                        'Exclusao'
+                    ),
+                    AuditLogService::campo(
+                        'Repor estoque utilizado',
+                        null,
+                        $temEstoqueUtilizado ? ($reporEstoque ? 'Sim' : 'Nao') : 'Nao aplicavel',
+                        'Exclusao'
+                    ),
+                ]
+            );
 
             Response::json(['success' => true, 'message' => 'Manutencao excluida com sucesso']);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }
+    }
+
+    private function boolInput(mixed $value, bool $default = false): bool
+    {
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value === 1;
+        }
+
+        return in_array(strtolower((string) $value), ['1', 'true', 's', 'sim', 'yes', 'on'], true);
     }
 
     // ===== ACOES DE NEGOCIO =====

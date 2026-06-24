@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
 use App\Models\Locacao;
+use App\Models\LocacaoCaucao;
 use App\Models\LocacaoVeiculo;
 use App\Models\LocacaoTaxaServico;
 use App\Models\Veiculo;
@@ -55,6 +56,28 @@ class LocacoesController
         }
 
         return "{$contexto}: " . $e->getMessage();
+    }
+
+    private function validarCaucaoLocacao(array $dados): ?string
+    {
+        $caucaoValor = currency_parse($dados['caucao_valor'] ?? 0);
+        if ($caucaoValor <= 0) {
+            return null;
+        }
+
+        if (empty($dados['id_conta_caucao'])) {
+            return $this->apiMessage('deposit_account_required');
+        }
+
+        if (empty($dados['id_forma_pagamento_caucao'])) {
+            return $this->apiMessage('deposit_payment_method_required');
+        }
+
+        if (!isset($dados['caucao_prazo_devolucao']) || $dados['caucao_prazo_devolucao'] === '') {
+            return $this->apiMessage('deposit_return_deadline_required');
+        }
+
+        return null;
     }
 
     /**
@@ -423,24 +446,10 @@ class LocacoesController
                 return;
             }
 
-            // Validacao condicional caucao (deposito de garantia)
-            $caucaoValor = !empty($dados['caucao_valor'])
-                ? (float) str_replace(['.', ','], ['', '.'], $dados['caucao_valor'])
-                : 0;
-
-            if ($caucaoValor > 0) {
-                if (empty($dados['id_conta_caucao'])) {
-                    Response::json(['success' => false, 'message' => $this->apiMessage('deposit_account_required')], 400);
-                    return;
-                }
-                if (empty($dados['caucao_tipo'])) {
-                    Response::json(['success' => false, 'message' => $this->apiMessage('deposit_payment_method_required')], 400);
-                    return;
-                }
-                if (!isset($dados['caucao_prazo_devolucao']) || $dados['caucao_prazo_devolucao'] === '') {
-                    Response::json(['success' => false, 'message' => $this->apiMessage('deposit_return_deadline_required')], 400);
-                    return;
-                }
+            $erroCaucao = $this->validarCaucaoLocacao($dados);
+            if ($erroCaucao !== null) {
+                Response::json(['success' => false, 'message' => $erroCaucao], 400);
+                return;
             }
 
             $locacaoModel = new Locacao();
@@ -461,6 +470,10 @@ class LocacoesController
 
             // 1. Criar locacao (sem dados de veiculo/taxa)
             $id = $locacaoModel->criarComAuditoria($dados);
+            $locacaoCriadaParaCaucao = $locacaoModel->buscarPorId($id);
+            if ($locacaoCriadaParaCaucao) {
+                (new LocacaoCaucao())->sincronizarAtual($id, $dados, $locacaoCriadaParaCaucao);
+            }
 
             // 2. Adicionar veiculo em locacoes_veiculos
             //    - Locacao (status A/F): exige id_veiculo.
@@ -692,24 +705,10 @@ class LocacoesController
                 return;
             }
 
-            // Validacao condicional caucao (deposito de garantia)
-            $caucaoValor = !empty($dados['caucao_valor'])
-                ? (float) str_replace(['.', ','], ['', '.'], $dados['caucao_valor'])
-                : 0;
-
-            if ($caucaoValor > 0) {
-                if (empty($dados['id_conta_caucao'])) {
-                    Response::json(['success' => false, 'message' => $this->apiMessage('deposit_account_required')], 400);
-                    return;
-                }
-                if (empty($dados['caucao_tipo'])) {
-                    Response::json(['success' => false, 'message' => $this->apiMessage('deposit_payment_method_required')], 400);
-                    return;
-                }
-                if (!isset($dados['caucao_prazo_devolucao']) || $dados['caucao_prazo_devolucao'] === '') {
-                    Response::json(['success' => false, 'message' => $this->apiMessage('deposit_return_deadline_required')], 400);
-                    return;
-                }
+            $erroCaucao = $this->validarCaucaoLocacao($dados);
+            if ($erroCaucao !== null) {
+                Response::json(['success' => false, 'message' => $erroCaucao], 400);
+                return;
             }
 
             // Processar arrays JSON (intervenientes)
@@ -787,6 +786,10 @@ class LocacoesController
 
             // 1. Atualizar locacao (sem dados de veiculo/taxa)
             $locacaoModel->atualizar($id, $dadosLocacao);
+            $locacaoAtualizadaParaCaucao = $locacaoModel->buscarPorId($id);
+            if ($locacaoAtualizadaParaCaucao) {
+                (new LocacaoCaucao())->sincronizarAtual($id, $dados, $locacaoAtualizadaParaCaucao);
+            }
 
             // 2. Atualizar veiculo ativo em locacoes_veiculos
             $idLocacaoVeiculo = $locacao['_id_locacao_veiculo'] ?? null;
@@ -1158,8 +1161,20 @@ class LocacoesController
                 return;
             }
 
+            $dataSubstituicao = $this->normalizarDataSubstituicao($dados['data_entrada'] ?? null);
+            if ($dataSubstituicao === null) {
+                Response::json(['success' => false, 'message' => 'Data da substituição inválida'], 400);
+                return;
+            }
+
+            $dataSaidaAntigo = $this->normalizarDataSubstituicao($veiculoAntigo['data_saida'] ?? null);
+            if ($dataSaidaAntigo !== null && strtotime($dataSubstituicao) < strtotime($dataSaidaAntigo)) {
+                Response::json(['success' => false, 'message' => 'Data da substituição não pode ser anterior à saída do veículo atual'], 422);
+                return;
+            }
+
             $dadosSaida = [
-                'data_entrada' => $dados['data_entrada'] ?? date('Y-m-d H:i:s'),
+                'data_entrada' => $dataSubstituicao,
                 'odometro_entrada' => $odometroEntradaAntigo,
                 'combustivel_entrada' => $dados['combustivel_entrada'] ?? null,
                 'motivo_saida' => $dados['motivo_saida'] ?? $this->apiMessage('substitution_default_reason'),
@@ -1168,7 +1183,7 @@ class LocacoesController
             $dadosNovo = [
                 'id_veiculo' => $idVeiculoNovo,
                 'id_grupo' => $dados['id_grupo_novo'] ?? ($novoVeiculo['id_grupo'] ?? null),
-                'data_saida' => $dados['data_saida_novo'] ?? date('Y-m-d H:i:s'),
+                'data_saida' => $dataSubstituicao,
                 'odometro_saida' => $this->normalizarOdometro($dados['odometro_saida_novo'] ?? 0),
                 'combustivel_saida' => $dados['combustivel_saida_novo'] ?? null,
                 'plano' => $dados['plano_novo'] ?? $veiculoAntigo['plano'] ?? 'KL',
@@ -1558,6 +1573,25 @@ class LocacoesController
         }
 
         return (int) preg_replace('/\D/', '', $texto);
+    }
+
+    private function normalizarDataSubstituicao(mixed $valor): ?string
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '') {
+            return null;
+        }
+
+        $formatos = ['Y-m-d\TH:i', 'Y-m-d\TH:i:s', 'Y-m-d H:i:s', 'Y-m-d H:i'];
+
+        foreach ($formatos as $formato) {
+            $data = \DateTimeImmutable::createFromFormat($formato, $valor);
+            if ($data instanceof \DateTimeImmutable && $data->format($formato) === $valor) {
+                return $data->format('Y-m-d H:i:s');
+            }
+        }
+
+        return null;
     }
 
     private function calcularTotaisLocacao(int $id, array $locacao, array &$dados, bool $usarTaxasEnviadas = false): array
@@ -2478,8 +2512,8 @@ class LocacoesController
                 'fatura_paga' => $locacao['fatura_paga'] ?? $locacao['valor_pago'] ?? 0,
                 'grupo' => $locacao['grupo_nome'] ?? '',
                 'grupo_descricao' => $locacao['grupo_descricao'] ?? $locacao['grupo_nome'] ?? '',
-                'tanque_saida' => $locacao['combustivel_ini'] ?? '',
-                'tanque_chegada' => $locacao['combustivel_fim'] ?? '',
+                'tanque_saida' => $this->formatarNivelTanqueDocumento($locacao['combustivel_ini'] ?? null),
+                'tanque_chegada' => $this->formatarNivelTanqueDocumento($locacao['combustivel_fim'] ?? null),
                 'km_saida' => $kmSaidaDocumento,
                 'km_chegada' => $locacao['odometro_fim'] ?? '',
                 'plano' => $locacao['plano'] ?? '',
@@ -2504,12 +2538,33 @@ class LocacoesController
                 'renavam' => $veiculo['renavam'] ?? '',
                 'categoria' => $veiculo['grupo_nome'] ?? $locacao['grupo_nome'] ?? '',
                 'chassi' => $veiculo['chassi'] ?? '',
-                'combustivel' => $veiculo['tipo_combustivel'] ?? $locacao['veiculo_tipo_combustivel'] ?? '',
+                'combustivel_tipo' => $veiculo['tipo_combustivel'] ?? $locacao['veiculo_tipo_combustivel'] ?? '',
                 'valor_compra' => $veiculo['valor_compra'] ?? 0,
                 'valor_venda' => $veiculo['valor_venda'] ?? 0,
             ] : [],
             'fornecedor' => $this->formatarFornecedorDocumento($fornecedorData),
         ];
+    }
+
+    private function formatarNivelTanqueDocumento(mixed $nivel): string
+    {
+        if ($nivel === null || $nivel === '') {
+            return '';
+        }
+
+        $niveis = [
+            '0' => 'Reserva',
+            '1' => '1/8',
+            '2' => '1/4',
+            '3' => '3/8',
+            '4' => '1/2',
+            '5' => '5/8',
+            '6' => '3/4',
+            '7' => '7/8',
+            '8' => 'Cheio',
+        ];
+
+        return $niveis[(string) $nivel] ?? (string) $nivel;
     }
 
     private function primeiroValorDocumento(array $valores, mixed $padrao = ''): mixed
@@ -2659,10 +2714,10 @@ class LocacoesController
         $veiculoModel = new LocacaoVeiculo();
         $veiculoAtivo = $veiculoModel->buscarAtualOuUltimo((int) $locacao['id']);
         if ($veiculoAtivo && !empty($veiculoAtivo['veiculo_diagrama'])) {
-            $imgPath = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/assets/img/diagramas/' . $veiculoAtivo['veiculo_diagrama'];
-            if (file_exists($imgPath)) {
-                $diagramaPath = $imgPath;
-            }
+            $diagramaPath = PdfHelper::resolvePublicAssetImagePath(
+                $veiculoAtivo['veiculo_diagrama'],
+                'assets/img/diagramas'
+            );
         }
 
         return [
@@ -3318,8 +3373,7 @@ class LocacoesController
                 return;
             }
 
-            $caucaoValor = (float) ($locacao['caucao_valor'] ?? 0);
-            if ($caucaoValor <= 0) {
+            if ((float) ($locacao['caucao_valor'] ?? 0) <= 0) {
                 Response::json(['success' => false, 'message' => $this->apiMessage('rental_without_deposit')], 400);
                 return;
             }
@@ -3330,39 +3384,7 @@ class LocacoesController
                 return;
             }
 
-            $chave = $_SESSION['chave'] ?? '';
-
-            // Buscar plano de contas "Caucao saida" pela hierarquia
-            $planoModel = new \App\Models\PlanoDeContas();
-            $planoCaucaoSaida = $planoModel->buscarPorHierarquia('1.1.6.02');
-            if (!$planoCaucaoSaida) {
-                Response::json(['success' => false, 'message' => $this->apiMessage('deposit_chart_account_missing')], 500);
-                return;
-            }
-
-            // Criar lancamento financeiro de saida (devolucao)
-            $financeiroModel = new \App\Models\Financeiro();
-            $financeiroModel->criar([
-                'chave' => $chave,
-                'tipo' => 'D',
-                'pago' => 'S',
-                'descricao' => 'Devolucao Caucao - Locacao ' . ($locacao['codigo'] ?? $id),
-                'id_cliente' => $locacao['id_cliente'],
-                'id_conta' => $locacao['id_conta_caucao'],
-                'id_plano_de_conta' => (int) $planoCaucaoSaida['id'],
-                'id_locacao' => $id,
-                'data_criada' => date('Y-m-d'),
-                'data_venci' => date('Y-m-d'),
-                'data_pago' => date('Y-m-d'),
-                'valor_subtotal' => $caucaoValor,
-                'parcela' => 1,
-                'total_parcelas' => 1,
-            ]);
-
-            // Atualizar data de devolucao na locacao
-            $locacaoModel->atualizar($id, [
-                'caucao_data_devolucao' => date('Y-m-d'),
-            ]);
+            (new LocacaoCaucao())->devolver($id, $locacao);
 
             Response::json([
                 'success' => true,

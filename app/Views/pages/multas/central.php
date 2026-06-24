@@ -491,7 +491,7 @@ $saldoTitleJson = htmlspecialchars(json_encode(t('modules.multas.saldo.title'), 
                 <td class="table-cell text-center hidden lg:table-cell">${getOrigemBadge(m.origem)}</td>
                 <td class="table-cell text-center hidden lg:table-cell">${getStatusBadge(m.status_processamento)}</td>
                 <td class="table-cell text-center w-36">
-                    <div class="flex items-center justify-center gap-1">
+                    <div class="flex items-center justify-end gap-1">
                         <button title="${i18n.actionPrint}" class="btn-icon text-blue-600 hover:text-blue-800 btn-imprimir" data-id="${m.id}"><i class="fas fa-print"></i></button>
                         <button title="${i18n.actionEdit}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${m.id}"><i class="fas fa-edit"></i></button>
                         ${podeIndicar ? `<button title="${i18n.actionNominate}" class="btn-icon text-orange-600 hover:text-orange-800 btn-indicar" data-id="${m.id}" data-label="${escapeHtml(indicacaoLabel)}"><i class="fas fa-user-shield"></i></button>` : ''}

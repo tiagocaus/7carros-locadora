@@ -144,6 +144,8 @@ return [
         'value' => 'Valore',
         'account' => 'Conto',
         'return_days' => 'Termine di restituzione',
+        'launch_financial' => 'Registrare cauzione nel finanziario',
+        'notes' => 'Osservazioni sulla cauzione',
         'return_on_closing' => 'Alla chiusura',
         'return_date' => 'Data di restituzione',
         'card' => 'Carta del cliente',

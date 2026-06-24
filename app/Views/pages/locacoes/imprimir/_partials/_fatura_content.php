@@ -565,8 +565,9 @@ $_formatarVeiculoFatura = static function(array $item): string {
             <?php if ($caucaoValorPdf > 0): ?>
             <tr>
                 <td><?= t('modules.locacoes.sections.deposit') ?>
-                    <?php if (!empty($locacao['caucao_tipo'])): ?>
-                        <span style="color: #999; font-size: 9px;">(<?= htmlspecialchars(ucfirst($locacao['caucao_tipo'])) ?>)</span>
+                    <?php $formaPagamentoCaucao = $locacao['forma_pagamento_caucao_descricao'] ?? $locacao['caucao_tipo'] ?? ''; ?>
+                    <?php if (!empty($formaPagamentoCaucao)): ?>
+                        <span style="color: #999; font-size: 9px;">(<?= htmlspecialchars($formaPagamentoCaucao) ?>)</span>
                     <?php endif; ?>
                 </td>
                 <td>

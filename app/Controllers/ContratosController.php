@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
 use App\Models\Contrato;
+use App\Models\ContratoCaucao;
 use App\Models\ContratoVeiculo;
 use App\Models\ContratoOdometro;
 use App\Models\ContratoTaxaServico;
@@ -52,6 +53,28 @@ class ContratosController
         }
 
         return "{$contexto}: " . $e->getMessage();
+    }
+
+    private function validarCaucaoContrato(array $dados): ?string
+    {
+        $valor = currency_parse($dados['caucao_valor'] ?? 0);
+        if ($valor <= 0) {
+            return null;
+        }
+
+        if (empty($dados['id_conta_caucao'])) {
+            return 'Selecione a conta bancaria da caucao';
+        }
+
+        if (empty($dados['id_forma_pagamento_caucao'])) {
+            return 'Selecione a forma de pagamento da caucao';
+        }
+
+        if (empty($dados['caucao_prazo_devolucao'])) {
+            return 'Informe o prazo de devolucao da caucao';
+        }
+
+        return null;
     }
 
     /**
@@ -507,6 +530,15 @@ class ContratosController
 
             $contratoModel = new Contrato();
 
+            $erroCaucao = $this->validarCaucaoContrato($dados);
+            if ($erroCaucao !== null) {
+                Response::json([
+                    'success' => false,
+                    'message' => $erroCaucao
+                ], 400);
+                return;
+            }
+
             // Processar arrays JSON
             if (!empty($dados['condutor_adicional']) && is_array($dados['condutor_adicional'])) {
                 $dados['condutor_adicional'] = json_encode($dados['condutor_adicional']);
@@ -523,6 +555,10 @@ class ContratosController
 
             // Criar contrato
             $id = $contratoModel->criarComAuditoria($dados);
+            $contratoCriado = $contratoModel->buscarPorId($id);
+            if ($contratoCriado) {
+                (new ContratoCaucao())->sincronizarAtiva($id, $dados, $contratoCriado);
+            }
 
             // Adicionar veiculos se enviados
             if (!empty($dados['veiculos']) && is_array($dados['veiculos'])) {
@@ -681,6 +717,15 @@ class ContratosController
 
             $dados = $request->all();
 
+            $erroCaucao = $this->validarCaucaoContrato($dados);
+            if ($erroCaucao !== null) {
+                Response::json([
+                    'success' => false,
+                    'message' => $erroCaucao
+                ], 400);
+                return;
+            }
+
             // Processar arrays JSON
             if (isset($dados['condutor_adicional']) && is_array($dados['condutor_adicional'])) {
                 $dados['condutor_adicional'] = json_encode($dados['condutor_adicional']);
@@ -701,6 +746,10 @@ class ContratosController
 
             // Atualizar contrato
             $contratoModel->atualizar($id, $dados);
+            $contratoAtualizado = $contratoModel->buscarPorId($id);
+            if ($contratoAtualizado) {
+                (new ContratoCaucao())->sincronizarAtiva($id, $dados, $contratoAtualizado);
+            }
             $todosVeiculoChanges = [];
 
             // Adicionar novos veiculos se enviados
@@ -1071,6 +1120,7 @@ class ContratosController
             }
 
             $resultados = [];
+            $ultimaDataEntrada = null;
 
             foreach ($veiculos as $vData) {
                 $idCv = (int) ($vData['id_contrato_veiculo'] ?? 0);
@@ -1100,13 +1150,6 @@ class ContratosController
                         return;
                     }
 
-                    if (strtotime($dataEntrada) > time() + 60) {
-                        Response::json([
-                            'success' => false,
-                            'message' => 'Data/hora de devolucao nao pode ser futura'
-                        ], 422);
-                        return;
-                    }
                 }
 
                 $odometroEntrada = $this->normalizarOdometroContrato($vData['odometro_entrada'] ?? 0);
@@ -1126,8 +1169,13 @@ class ContratosController
                     : null;
                 $observacao = $vData['observacao'] ?? $vData['motivo_saida'] ?? null;
 
+                $dataEntradaEfetiva = $dataEntrada ?: date('Y-m-d H:i:s');
+                if ($ultimaDataEntrada === null || $dataEntradaEfetiva > $ultimaDataEntrada) {
+                    $ultimaDataEntrada = $dataEntradaEfetiva;
+                }
+
                 // 1. Registrar devolucao
-                $veiculoModel->devolver($idCv, $odometroEntrada, $combustivelEntrada, $observacao, $dataEntrada);
+                $veiculoModel->devolver($idCv, $odometroEntrada, $combustivelEntrada, $observacao, $dataEntradaEfetiva);
                 $veiculoModelGeral->atualizarOdometro((int) $veiculoContrato['id_veiculo'], $odometroEntrada);
 
                 // 2. Atualizar disponibilidade do veiculo
@@ -1219,7 +1267,9 @@ class ContratosController
             // 6. Verificar se ainda ha veiculos ativos
             $veiculosAtivosCount = $veiculoModel->contarAtivos($id);
             if ($veiculosAtivosCount === 0) {
-                $contratoModel->atualizarStatus($id, 'F');
+                $contratoModel->atualizarStatus($id, 'F', [
+                    'data_fim' => $ultimaDataEntrada ?? date('Y-m-d H:i:s')
+                ]);
             }
 
             $qtd = count($resultados);
@@ -1338,8 +1388,27 @@ class ContratosController
                 return;
             }
 
+            $dataSubstituicao = $this->normalizarDataEntradaContrato($dados['data_entrada'] ?? null);
+            if ($dataSubstituicao === null) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Data da substituicao invalida'
+                ], 400);
+                return;
+            }
+
+            $dataSaidaAntigo = $this->normalizarDataEntradaContrato($veiculoAntigo['data_saida'] ?? null);
+            if ($dataSaidaAntigo !== null && strtotime($dataSubstituicao) < strtotime($dataSaidaAntigo)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Data da substituicao nao pode ser anterior a saida do veiculo atual'
+                ], 422);
+                return;
+            }
+
             // Preparar dados de devolucao (veiculo antigo entra na empresa)
             $dadosSaida = [
+                'data_entrada' => $dataSubstituicao,
                 'odometro_entrada' => $odometroEntradaAntigo,
                 'combustivel_entrada' => $dados['combustivel_entrada'] ?? null,
                 'motivo_saida' => $dados['motivo_saida'] ?? 'Substituicao de veiculo'
@@ -1349,6 +1418,7 @@ class ContratosController
             $dadosNovo = [
                 'id_veiculo' => (int) $dados['id_veiculo_novo'],
                 'id_grupo' => $dados['id_grupo_novo'] ?? null,
+                'data_saida' => $dataSubstituicao,
                 'odometro_saida' => $dados['odometro_saida_novo'] ?? 0,
                 'combustivel_saida' => $dados['combustivel_saida_novo'] ?? null,
                 'plano' => $dados['plano_novo'] ?? $veiculoAntigo['plano'],
@@ -2135,6 +2205,11 @@ class ContratosController
             $parcelasFinanceiras = (new Contrato())->listarParcelasContrato((int) $contrato['id']);
         }
 
+        $kmSaidaDocumento = $veiculo ? ($veiculo['odometro_saida'] ?? '') : '';
+        $kmChegadaDocumento = $veiculo ? ($veiculo['odometro_entrada'] ?? '') : '';
+        $tanqueSaidaDocumento = $this->formatarNivelTanqueDocumento($veiculo['combustivel_saida'] ?? null);
+        $tanqueChegadaDocumento = $this->formatarNivelTanqueDocumento($veiculo['combustivel_entrada'] ?? null);
+
         return [
             'cliente' => [
                 'nome' => $clienteData['nome_rsocial'] ?? $contrato['cliente_nome'] ?? '',
@@ -2210,6 +2285,10 @@ class ContratosController
                 },
                 'data_renovacao' => $contrato['data_renovacao'] ?? '',
                 'filial_retirada' => $contrato['filial_nome'] ?? '',
+                'km_saida' => $kmSaidaDocumento,
+                'km_chegada' => $kmChegadaDocumento,
+                'tanque_saida' => $tanqueSaidaDocumento,
+                'tanque_chegada' => $tanqueChegadaDocumento,
                 'filial' => [
                     'endereco' => $empresa['rua'] ?? '',
                     'numero' => $empresa['num'] ?? '',
@@ -2234,15 +2313,39 @@ class ContratosController
                 'ano' => $veiculo['veiculo_ano'] ?? $veiculo['ano'] ?? '',
                 'cor' => $veiculo['veiculo_cor'] ?? $veiculo['cor'] ?? '',
                 'renavam' => $veiculo['veiculo_renavam'] ?? $veiculo['renavam'] ?? '',
+                'chassi' => $veiculo['veiculo_chassi'] ?? $veiculo['chassi'] ?? '',
                 // Prefixed for computed vars (descricao_completa)
                 'veiculo_placa' => $veiculo['veiculo_placa'] ?? $veiculo['placa'] ?? '',
                 'veiculo_modelo' => $veiculo['veiculo_modelo'] ?? $veiculo['modelo'] ?? '',
                 'veiculo_marca' => $veiculo['veiculo_marca'] ?? $veiculo['marca'] ?? '',
                 'veiculo_ano' => $veiculo['veiculo_ano'] ?? $veiculo['ano'] ?? '',
                 'veiculo_cor' => $veiculo['veiculo_cor'] ?? $veiculo['cor'] ?? '',
+                'veiculo_chassi' => $veiculo['veiculo_chassi'] ?? $veiculo['chassi'] ?? '',
+                'combustivel_tipo' => $veiculo['veiculo_tipo_combustivel'] ?? $veiculo['tipo_combustivel'] ?? '',
             ] : [],
             'fornecedor' => $this->formatarFornecedorDocumento($fornecedorData),
         ];
+    }
+
+    private function formatarNivelTanqueDocumento(mixed $nivel): string
+    {
+        if ($nivel === null || $nivel === '') {
+            return '';
+        }
+
+        $niveis = [
+            '0' => 'Reserva',
+            '1' => '1/8',
+            '2' => '1/4',
+            '3' => '3/8',
+            '4' => '1/2',
+            '5' => '5/8',
+            '6' => '3/4',
+            '7' => '7/8',
+            '8' => 'Cheio',
+        ];
+
+        return $niveis[(string) $nivel] ?? (string) $nivel;
     }
 
     /**
@@ -2322,10 +2425,10 @@ class ContratosController
         // Checklist impresso: usar diagrama do veiculo
         $diagramaPath = null;
         if ($veiculo && !empty($veiculo['veiculo_diagrama'])) {
-            $imgPath = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/assets/img/diagramas/' . $veiculo['veiculo_diagrama'];
-            if (file_exists($imgPath)) {
-                $diagramaPath = $imgPath;
-            }
+            $diagramaPath = PdfHelper::resolvePublicAssetImagePath(
+                $veiculo['veiculo_diagrama'],
+                'assets/img/diagramas'
+            );
         }
 
         return [

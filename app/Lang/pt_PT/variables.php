@@ -107,6 +107,10 @@ return [
         'contagem' => 'Tipo de Contagem',
         'autorenovacao' => 'Renovação Automática',
         'data_renovacao' => 'Data de Renovação',
+        'km_saida' => 'KM na Saída',
+        'km_chegada' => 'KM na Chegada',
+        'tanque_saida' => 'Depósito na Saída',
+        'tanque_chegada' => 'Depósito na Chegada',
 
         // Veículos do Contrato
         'veiculos' => 'Lista de Veículos',
@@ -205,7 +209,7 @@ return [
         'cor' => 'Cor',
         'renavam' => 'Registo de Veículo',
         'chassi' => 'Chassis',
-        'combustivel' => 'Combustível',
+        'combustivel_tipo' => 'Tipo de Combustível',
         'categoria' => 'Categoria',
         'cambio' => 'Caixa de Velocidades',
         'portas' => 'Número de Portas',
@@ -325,6 +329,10 @@ return [
 
         // Descrições das novas variáveis de contrato
         'contrato.filial_endereco' => 'Morada completa da filial de levantamento',
+        'contrato.km_saida' => 'Odómetro de saída do veículo ativo do contrato',
+        'contrato.km_chegada' => 'Odómetro de chegada do veículo ativo do contrato',
+        'contrato.tanque_saida' => 'Nível de combustível/carga de saída do veículo ativo do contrato',
+        'contrato.tanque_chegada' => 'Nível de combustível/carga de chegada do veículo ativo do contrato',
         'contrato.veiculos' => 'Lista formatada com detalhes de todos os veículos do contrato',
         'contrato.veiculos_tabela' => 'Tabela HTML com veículos (ideal para impressão)',
         'contrato.veiculos_anexo' => 'Anexo HTML completo com identificação, fornecedor, plano e dados de saída dos veículos',

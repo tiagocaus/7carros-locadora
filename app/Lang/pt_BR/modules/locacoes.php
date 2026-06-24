@@ -167,6 +167,8 @@ return [
         'value' => 'Valor',
         'account' => 'Conta',
         'return_days' => 'Prazo devolução',
+        'launch_financial' => 'Lançar caução no financeiro',
+        'notes' => 'Observações da caução',
         'return_on_closing' => 'No fechamento',
         'return_date' => 'Data devolução',
         'card' => 'Cartão do cliente',

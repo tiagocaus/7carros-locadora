@@ -338,7 +338,7 @@ class ComparativosReport extends BaseReportModel
         $criterio = in_array($criterio, ['receita', 'qtd_locacoes', 'taxa_ocupacao'], true) ? $criterio : 'receita';
         $diasPeriodo = $this->daysBetween($dataInicio, $dataFim) ?: 1;
 
-        // Receita por veículo (financeiro.id_veiculo direto)
+        // Receita por veículo (itens financeiros com fallback no cabeçalho)
         $valorPorVeiculo = [];
         if ($criterio === 'receita') {
             $valorPorVeiculo = $this->somaReceitaFinanceira($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId);
@@ -423,27 +423,13 @@ class ComparativosReport extends BaseReportModel
 
     private function somaReceitaFinanceira(string $dataInicio, string $dataFim, string $filialWhere, array $filialParams, string $filialId, string $grupoId): array
     {
-        $query = $this->qb
-            ->table('financeiro', 'f')
-            ->select(['f.id_veiculo'])
-            ->selectRaw('COALESCE(SUM(f.valor_total), 0) AS receita')
-            ->where('f.tipo', '=', 'R')
-            ->whereNotNull('f.id_veiculo')
-            ->whereBetween('f.data_venci', $dataInicio, $dataFim);
-
-        if (!empty($filialWhere)) {
-            $query->whereRaw(str_replace('id_matriz_filial', 'f.id_matriz_filial', $filialWhere), $filialParams);
-        }
-        if (!empty($filialId)) $query->where('f.id_matriz_filial', '=', (int) $filialId);
-        if (!empty($grupoId)) {
-            $query->innerJoin('veiculos', 'v', 'f.id_veiculo', '=', 'v.id')->where('v.id_grupo', '=', (int) $grupoId);
-        }
-
-        $out = [];
-        foreach ($query->groupBy('f.id_veiculo')->get() as $r) {
-            $out[(int) $r['id_veiculo']] = (float) $r['receita'];
-        }
-        return $out;
+        return $this->financeiroVeiculoSomas('R', $dataInicio, $dataFim, [
+            'date_field' => 'data_venci',
+            'filial_where' => $filialWhere,
+            'filial_params' => $filialParams,
+            'filial_id' => $filialId,
+            'grupo_id' => $grupoId,
+        ]);
     }
 
     private function qtdLocacoesContratosPorVeiculo(string $dataInicio, string $dataFim, string $filialWhere, array $filialParams, string $filialId, string $grupoId): array

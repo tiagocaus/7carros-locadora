@@ -247,6 +247,12 @@ return [
     // Tipo di record (per modale di eliminazione)
     'record_type' => 'manutencao',
 
+    // Opzioni del modale di eliminazione
+    'delete_options' => [
+        'financial_linked' => 'Elimina registrazione finanziaria collegata',
+        'restore_stock' => 'Ripristina scorte utilizzate',
+    ],
+
     // Audit finanziario
     'audit_financial' => [
         'section' => 'Registrazione Finanziaria',

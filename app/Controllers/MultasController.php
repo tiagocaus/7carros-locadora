@@ -23,7 +23,7 @@ use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
  * Controller de Multas de Transito
  *
  * Gerencia operacoes CRUD de multas vinculadas a contratos ou locacoes.
- * Integra com o financeiro para lancamento automatico de despesas.
+ * Integra com o financeiro para lancamento automatico de receitas/despesas.
  */
 class MultasController
 {
@@ -172,6 +172,7 @@ class MultasController
 
             $dados = $request->all();
             $dados['chave'] = Auth::chave();
+            $dados['pagador'] = $this->normalizarPagadorMulta($dados['pagador'] ?? null);
 
             // Validar campos obrigatorios
             $erros = [];
@@ -266,6 +267,7 @@ class MultasController
             }
 
             $dados = $request->all();
+            $dados['pagador'] = $this->normalizarPagadorMulta($dados['pagador'] ?? null);
 
             // Processar upload de foto (nova ou substituicao)
             if (!empty($dados['foto_base64'])) {
@@ -322,6 +324,11 @@ class MultasController
             'success' => false,
             'message' => $mensagem
         ], 500);
+    }
+
+    private function normalizarPagadorMulta(?string $pagador): string
+    {
+        return in_array($pagador, ['cliente', 'empresa'], true) ? $pagador : 'cliente';
     }
 
     /**

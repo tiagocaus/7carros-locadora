@@ -91,6 +91,7 @@ return [
         'client_supplier_employee_full' => 'Cliente/Fornitore/Dipendente',
         'due_date' => 'Scadenza',
         'value' => 'Valore',
+        'vehicle_plates_label' => 'Targa/e',
         'installment' => 'Rata',
     ],
 

@@ -91,6 +91,7 @@ return [
         'client_supplier_employee_full' => 'Client/Supplier/Employee',
         'due_date' => 'Due Date',
         'value' => 'Amount',
+        'vehicle_plates_label' => 'Plate(s)',
         'installment' => 'Installment',
     ],
 

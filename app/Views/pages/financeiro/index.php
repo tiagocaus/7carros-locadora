@@ -133,6 +133,7 @@ $i18nFinanceiro = [
     'delete' => t('common.buttons.delete'),
     'paymentLinkError' => t('modules.financeiro.messages.payment_link_error'),
     'paginationShowing' => t('modules.financeiro.pagination.showing'),
+    'vehiclePlatesLabel' => t('modules.financeiro.table.vehicle_plates_label'),
 ];
 ?>
 <script>
@@ -311,6 +312,16 @@ $i18nFinanceiro = [
                     : descricaoCompleta
             );
             const descricaoTitle = escapeHtml(descricaoCompleta);
+            const placasCompleta = (l.veiculo_placas || '').trim();
+            const placas = escapeHtml(
+                placasCompleta.length > 60
+                    ? placasCompleta.substring(0, 60) + '...'
+                    : placasCompleta
+            );
+            const placasTitle = escapeHtml(placasCompleta);
+            const placasHtml = placasCompleta
+                ? `<div class="mt-0.5 text-xs text-slate-500" title="${placasTitle}">${i18n.vehiclePlatesLabel}: ${placas}</div>`
+                : '';
             const documento = l.documento ? `<span class="text-xs text-slate-400">${escapeHtml(l.documento)}</span>` : '';
 
             // Cliente, Fornecedor ou Funcionario (prioridade: cliente > fornecedor > funcionario)
@@ -362,6 +373,7 @@ $i18nFinanceiro = [
                     <td class="table-cell w-16 text-center text-slate-500">${l.sequencia || '-'}</td>
                     <td class="table-cell">
                         <div class="font-medium" title="${descricaoTitle}">${descricao}</div>
+                        ${placasHtml}
                         ${documento ? `<div class="mt-0.5">${documento}</div>` : ''}
                     </td>
                     <td class="table-cell hidden sm:table-cell text-slate-600">${clienteFornecedor}</td>

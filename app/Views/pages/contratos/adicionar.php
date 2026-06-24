@@ -373,6 +373,51 @@
                 </div>
             </div>
 
+            <!-- SECAO: CAUCAO (Deposito de Garantia) -->
+            <div id="secaoCaucao" class="form-section mb-4">
+                <h3 class="form-section-title"><i class="fas fa-shield-alt mr-2"></i><?= t('modules.contratos.deposit.title') ?></h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div class="md:col-span-3 form-input-group">
+                        <label for="id_conta_caucao" class="form-label-group"><?= t('modules.contratos.deposit.account') ?></label>
+                        <select id="id_conta_caucao" name="id_conta_caucao" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contas-bancarias/buscar" data-chosen-placeholder="<?= t('common.labels.select_account') ?>">
+                            <option value=""><?= t('common.labels.select') ?></option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-3 form-input-group">
+                        <label for="id_forma_pagamento_caucao" class="form-label-group"><?= t('modules.contratos.deposit.payment_method') ?></label>
+                        <select id="id_forma_pagamento_caucao" name="id_forma_pagamento_caucao" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/formas-pagamento/select" data-chosen-placeholder="<?= t('common.labels.select') ?>">
+                            <option value=""><?= t('common.labels.select') ?></option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2 form-input-group">
+                        <label for="caucao_valor" class="form-label-group"><?= t('modules.contratos.deposit.value') ?></label>
+                        <div class="relative">
+                            <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
+                            <input type="text" id="caucao_valor" name="caucao_valor" class="form-input-group-field pl-10 input-moeda" value="0,00">
+                        </div>
+                    </div>
+                    <div class="md:col-span-2 form-input-group">
+                        <label for="caucao_prazo_devolucao" class="form-label-group"><?= t('modules.contratos.deposit.return_deadline') ?></label>
+                        <input type="number" id="caucao_prazo_devolucao" name="caucao_prazo_devolucao" class="form-input-group-field" min="0" placeholder="0">
+                    </div>
+                    <div class="md:col-span-2 form-input-group">
+                        <label for="caucao_lancar_financeiro" class="form-label-group"><?= t('modules.contratos.deposit.launch_financial') ?></label>
+                        <select id="caucao_lancar_financeiro" name="caucao_lancar_financeiro" class="form-input-group-field">
+                            <option value="0"><?= t('common.labels.no') ?></option>
+                            <option value="1"><?= t('common.labels.yes') ?></option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-3">
+                    <div class="md:col-span-12 form-input-group">
+                        <label for="caucao_observacoes" class="form-label-group"><?= t('modules.contratos.deposit.notes') ?></label>
+                        <input type="text" id="caucao_observacoes" name="caucao_observacoes" class="form-input-group-field">
+                    </div>
+                </div>
+            </div>
+
             <!-- SECAO 3: PARCELAS GERADAS -->
             <div id="secaoParcelasGeradas" class="form-section mb-4 hidden">
                 <h3 class="form-section-title">
@@ -385,6 +430,7 @@
                         <thead>
                             <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
                                 <th class="px-3 py-2 text-center w-12"><?= t('modules.contratos.financial.installment_header_num') ?></th>
+                                <th class="px-3 py-2 text-left"><?= t('modules.contratos.financial.installment_header_description') ?></th>
                                 <th class="px-3 py-2 text-left"><?= t('modules.contratos.financial.installment_header_account') ?></th>
                                 <th class="px-3 py-2 text-left"><?= t('modules.contratos.financial.installment_header_method') ?></th>
                                 <th class="px-3 py-2 text-center w-28"><?= t('modules.contratos.financial.installment_header_due_date') ?></th>
@@ -398,7 +444,7 @@
                         </tbody>
                         <tfoot>
                             <tr class="bg-slate-50 font-semibold">
-                                <td colspan="4" class="px-3 py-2 text-right"><?= t('modules.contratos.financial.total_label') ?></td>
+                                <td colspan="5" class="px-3 py-2 text-right"><?= t('modules.contratos.financial.total_label') ?></td>
                                 <td id="totalParcelas" class="px-3 py-2 text-right">R$ 0,00</td>
                                 <td colspan="2"></td>
                             </tr>
@@ -410,6 +456,50 @@
                     <button type="button" id="btnAdicionarParcelaAvulsa" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium flex items-center">
                         <i class="fas fa-plus mr-2"></i><?= t('modules.contratos.financial.add_single_installment') ?>
                     </button>
+                </div>
+
+                <div id="formEditarParcelaContrato" class="mt-4 bg-blue-50 p-4 rounded-md hidden">
+                    <h4 class="text-sm font-semibold text-blue-700 mb-3">
+                        <i class="fas fa-edit mr-1"></i><?= t('modules.contratos.financial.edit_payment') ?>
+                    </h4>
+                    <input type="hidden" id="editar_id_parcela_contrato">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div class="md:col-span-4 form-input-group">
+                            <label class="form-label-group"><?= t('modules.contratos.financial.installment_header_description') ?></label>
+                            <input type="text" id="editar_descricao_contrato" class="form-input-group-field">
+                        </div>
+                        <div class="md:col-span-2 form-input-group">
+                            <label class="form-label-group"><?= t('modules.contratos.financial.installment_header_due_date') ?></label>
+                            <input type="date" id="editar_data_venci_contrato" class="form-input-group-field">
+                        </div>
+                        <div class="md:col-span-2 form-input-group">
+                            <label class="form-label-group"><?= t('modules.contratos.financial.installment_header_value') ?></label>
+                            <div class="relative">
+                                <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
+                                <input type="text" id="editar_valor_contrato" class="form-input-group-field pl-10 input-moeda">
+                            </div>
+                        </div>
+                        <div class="md:col-span-2 form-input-group">
+                            <label class="form-label-group"><?= t('modules.contratos.financial.installment_header_account') ?></label>
+                            <select id="editar_id_conta_contrato" class="form-input-group-field">
+                                <option value=""><?= t('common.labels.select') ?></option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2 form-input-group">
+                            <label class="form-label-group"><?= t('modules.contratos.financial.installment_header_method') ?></label>
+                            <select id="editar_id_forma_pagamento_contrato" class="form-input-group-field">
+                                <option value=""><?= t('common.labels.select') ?></option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex justify-end gap-2">
+                        <button type="button" id="btnConfirmarEditarParcelaContrato" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
+                            <i class="fas fa-check mr-1"></i><?= t('common.buttons.save') ?>
+                        </button>
+                        <button type="button" id="btnCancelarEditarParcelaContrato" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
+                            <i class="fas fa-times mr-1"></i><?= t('common.buttons.cancel') ?>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -732,6 +822,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'summaryTotalToPay' => t('modules.contratos.summary_section.total_to_pay'),
         'summaryVehicleInsurance' => t('modules.contratos.summary_section.vehicle_insurance'),
         'summaryThirdPartyInsurance' => t('modules.contratos.summary_section.third_party_insurance'),
+        'summaryGuarantees' => t('modules.contratos.summary_section.guarantees'),
+        'depositTitle' => t('modules.contratos.deposit.title'),
+        'depositAccountRequired' => t('modules.contratos.messages.deposit_account_required'),
+        'depositPaymentMethodRequired' => t('modules.contratos.messages.deposit_payment_method_required'),
+        'depositDeadlineRequired' => t('modules.contratos.messages.deposit_deadline_required'),
         'headerVeic' => t('modules.contratos.vehicles.header_veic'),
         'headerValue' => t('modules.contratos.vehicles.header_value'),
         'headerTotal' => t('modules.contratos.vehicles.header_total'),
@@ -765,6 +860,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'viewInFinancial' => t('modules.contratos.messages.view_in_financial'),
         'newClient' => t('modules.contratos.buttons.new_client'),
         'select' => t('common.labels.select'),
+        'yes' => t('common.labels.yes'),
+        'no' => t('common.labels.no'),
         'save' => t('common.buttons.save'),
         'remove' => t('common.buttons.remove'),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;

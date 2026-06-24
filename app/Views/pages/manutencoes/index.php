@@ -78,6 +78,8 @@ $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED
         'actionPrint' => t('modules.manutencao.print.action'),
         'actionEdit' => t('common.buttons.edit'),
         'actionDelete' => t('common.buttons.delete'),
+        'deleteFinancialLinked' => t('modules.manutencao.delete_options.financial_linked'),
+        'restoreUsedStock' => t('modules.manutencao.delete_options.restore_stock'),
         'recordType' => t('modules.manutencao.record_type'),
         'showingPagination' => t('modules.manutencao.pagination.showing'),
         'printTitle' => t('modules.manutencao.print.title'),
@@ -88,6 +90,7 @@ $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED
     let perPage = 10;
     let searchTerm = '';
     let searchTimeout = null;
+    let manutencoesMap = new Map();
 
     // Elementos
     const tbody = document.getElementById('manutencoesTableBody');
@@ -143,7 +146,9 @@ $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED
         }
 
         let html = '';
+        manutencoesMap = new Map();
         manutencoes.forEach(m => {
+            manutencoesMap.set(Number(m.id), m);
             const veiculo = m.veiculo_placa ? `${m.veiculo_placa} - ${m.veiculo_marca} ${m.veiculo_modelo}` : '-';
             const oficina = m.oficina_nome || '-';
 
@@ -164,10 +169,7 @@ $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED
             // Botoes de acao
             let botoes = `<button onclick="imprimirManutencao(${m.id})" class="btn-icon text-blue-600 hover:text-blue-800" title="${i18n.actionPrint}"><i class="fas fa-print"></i></button>`;
             botoes += ` <button onclick="editarManutencao(${m.id})" class="btn-icon text-amber-600 hover:text-amber-800" title="${i18n.actionEdit}"><i class="fas fa-edit"></i></button>`;
-
-            if (m.status !== 'A') {
-                botoes += ` <button onclick="deletarManutencao(${m.id}, '${m.os}')" class="btn-icon text-red-600 hover:text-red-800" title="${i18n.actionDelete}"><i class="fas fa-trash"></i></button>`;
-            }
+            botoes += ` <button onclick="deletarManutencao(${m.id})" class="btn-icon text-red-600 hover:text-red-800" title="${i18n.actionDelete}"><i class="fas fa-trash"></i></button>`;
 
             html += `
                 <tr class="hover:bg-slate-50 transition-colors">
@@ -203,21 +205,44 @@ $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED
         navegarPara('/pages/manutencoes/adicionar?id=' + id);
     };
 
-    window.deletarManutencao = function(id, os) {
+    window.deletarManutencao = function(id) {
+        const manutencao = manutencoesMap.get(Number(id)) || {};
+        const options = [];
+
+        if (manutencao.tem_financeiro_vinculado) {
+            options.push({
+                key: 'excluir_financeiro',
+                label: i18n.deleteFinancialLinked,
+                checked: true
+            });
+        }
+
+        if (manutencao.tem_estoque_utilizado) {
+            options.push({
+                key: 'repor_estoque',
+                label: i18n.restoreUsedStock,
+                checked: true
+            });
+        }
+
         if (window.parent !== window) {
             window.parent.postMessage({
                 action: 'openDeleteModal',
                 recordId: id,
-                recordName: os,
+                recordName: manutencao.os || id,
                 recordType: i18n.recordType,
-                confirmType: 'text'
+                confirmType: 'text',
+                options: options
             }, '*');
         }
     };
 
-    async function excluirManutencao(id) {
+    async function excluirManutencao(id, deleteOptions = {}) {
         try {
-            const result = await API.post('/manutencoes/' + id + '/excluir');
+            const result = await API.post('/manutencoes/' + id + '/excluir', {
+                excluir_financeiro: deleteOptions.excluir_financeiro !== false,
+                repor_estoque: deleteOptions.repor_estoque !== false
+            });
             if (result.success) {
                 carregarManutencoes(currentPage, perPage, searchTerm);
             } else {
@@ -233,7 +258,7 @@ $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED
         if (!event.data || !event.data.action) return;
 
         if (event.data.action === 'confirmDelete') {
-            excluirManutencao(event.data.recordId);
+            excluirManutencao(event.data.recordId, event.data.deleteOptions || {});
         }
     });
 

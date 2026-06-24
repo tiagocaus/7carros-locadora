@@ -437,6 +437,75 @@ class PdfHelper
     }
 
     /**
+     * Resolve imagem estatica do projeto para uso em mPDF.
+     *
+     * Usado para assets versionados em public/ (ex: diagramas de veiculos).
+     * Faz fallback case-insensitive porque registros legados podem ter nomes
+     * como "Sedan.jpg", enquanto o arquivo real no Linux e "sedan.jpg".
+     */
+    public static function resolvePublicAssetImagePath(?string $filename, string $relativeDir): string
+    {
+        $filename = trim((string) $filename);
+        $relativeDir = trim($relativeDir, '/');
+
+        if ($filename === '' || $relativeDir === '') {
+            return '';
+        }
+
+        $basename = basename($filename);
+        if ($basename !== $filename || str_contains($basename, "\0")) {
+            return '';
+        }
+
+        $publicRoot = defined('APP_ROOT')
+            ? rtrim(APP_ROOT, '/') . '/public'
+            : dirname(__DIR__, 2) . '/public';
+
+        $dir = $publicRoot . '/' . $relativeDir;
+        if (!is_dir($dir)) {
+            return '';
+        }
+
+        $path = $dir . '/' . $basename;
+        if (!file_exists($path)) {
+            $resolved = self::findFileCaseInsensitive($dir, $basename);
+            if ($resolved === null) {
+                return '';
+            }
+            $path = $resolved;
+        }
+
+        $mime = @mime_content_type($path);
+        if (!is_string($mime) || !str_starts_with($mime, 'image/')) {
+            return '';
+        }
+
+        return $path;
+    }
+
+    private static function findFileCaseInsensitive(string $dir, string $filename): ?string
+    {
+        $target = strtolower($filename);
+        $files = @scandir($dir);
+        if ($files === false) {
+            return null;
+        }
+
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+
+            $path = $dir . '/' . $file;
+            if (is_file($path) && strtolower($file) === $target) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Compoe imagem potencialmente transparente sobre fundo branco para JPEG/PDF.
      */
     private static function flattenImageOnWhite(\GdImage $img): \GdImage

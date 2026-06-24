@@ -339,13 +339,7 @@ class VeicularReport extends BaseReportModel
     }
 
     /**
-     * Soma de receita por id_veiculo no período usando financeiro.id_veiculo direto.
-     *
-     * Pré-requisito: migration 00344_backfill_financeiro_id_veiculo.php aplicada,
-     * para que registros pré-2026 também tenham id_veiculo preenchido.
-     *
-     * Captura: receitas de locação, contrato, parcelas avulsas, adicionais —
-     * tudo que tiver tipo='R' e id_veiculo preenchido.
+     * Soma de receita por veículo usando itens financeiros com fallback no cabeçalho.
      */
     private function somaReceitaPorVeiculo(
         string $dataInicio,
@@ -356,33 +350,14 @@ class VeicularReport extends BaseReportModel
         string $grupoId,
         string $veiculoId
     ): array {
-        $query = $this->qb
-            ->table('financeiro', 'f')
-            ->select(['f.id_veiculo'])
-            ->selectRaw('COALESCE(SUM(f.valor_total), 0) AS receita')
-            ->where('f.tipo', '=', 'R')
-            ->whereNotNull('f.id_veiculo')
-            ->whereBetween('f.data_venci', $dataInicio, $dataFim);
-
-        if (!empty($filialWhere)) {
-            $query->whereRaw(str_replace('id_matriz_filial', 'f.id_matriz_filial', $filialWhere), $filialParams);
-        }
-        if (!empty($filialId)) $query->where('f.id_matriz_filial', '=', (int) $filialId);
-        if (!empty($veiculoId)) $query->where('f.id_veiculo', '=', (int) $veiculoId);
-
-        // Filtro de grupo exige JOIN em veiculos
-        if (!empty($grupoId)) {
-            $query->innerJoin('veiculos', 'v', 'f.id_veiculo', '=', 'v.id')
-                  ->where('v.id_grupo', '=', (int) $grupoId);
-        }
-
-        $rows = $query->groupBy('f.id_veiculo')->get();
-
-        $resultado = [];
-        foreach ($rows as $r) {
-            $resultado[(int) $r['id_veiculo']] = (float) $r['receita'];
-        }
-        return $resultado;
+        return $this->financeiroVeiculoSomas('R', $dataInicio, $dataFim, [
+            'date_field' => 'data_venci',
+            'filial_where' => $filialWhere,
+            'filial_params' => $filialParams,
+            'filial_id' => $filialId,
+            'grupo_id' => $grupoId,
+            'veiculo_id' => $veiculoId,
+        ]);
     }
 
     private function somaManutencoesPorVeiculo(string $dataInicio, string $dataFim, string $filialId, string $veiculoId): array
@@ -569,23 +544,12 @@ class VeicularReport extends BaseReportModel
 
     private function somaOutrasDespesasPorVeiculo(string $dataInicio, string $dataFim, string $filialId, string $veiculoId): array
     {
-        $query = $this->qb
-            ->table('financeiro', 'f')
-            ->select(['f.id_veiculo'])
-            ->selectRaw('COALESCE(SUM(f.valor_total), 0) AS valor')
-            ->where('f.tipo', '=', 'D')
-            ->whereNotNull('f.id_veiculo')
-            ->whereBetween('f.data_venci', $dataInicio, $dataFim)
-            ->whereNull('f.id_multa')
-            ->whereNull('f.id_oficina');
-
-        if (!empty($filialId)) $query->where('f.id_matriz_filial', '=', (int) $filialId);
-        if (!empty($veiculoId)) $query->where('f.id_veiculo', '=', (int) $veiculoId);
-
-        $rows = $query->groupBy('f.id_veiculo')->get();
-        $out = [];
-        foreach ($rows as $r) $out[(int) $r['id_veiculo']] = (float) $r['valor'];
-        return $out;
+        return $this->financeiroVeiculoSomas('D', $dataInicio, $dataFim, [
+            'date_field' => 'data_venci',
+            'filial_id' => $filialId,
+            'veiculo_id' => $veiculoId,
+            'extra_where' => ['f.id_multa IS NULL', 'f.id_oficina IS NULL'],
+        ]);
     }
 
     private function filtrarVeiculosPorGrupo(array $ids, int $grupoId): array
@@ -1553,24 +1517,15 @@ class VeicularReport extends BaseReportModel
             if (isset($grupos[$gid])) $grupos[$gid]['dias_locados'] += (int) $r['dias_locados'];
         }
 
-        // Receita por grupo (via financeiro -> veiculos.id_grupo)
-        $queryR = $this->qb
-            ->table('financeiro', 'f')
-            ->select(['v.id_grupo'])
-            ->selectRaw('COALESCE(SUM(f.valor_total), 0) AS receita')
-            ->innerJoin('veiculos', 'v', 'f.id_veiculo', '=', 'v.id')
-            ->where('f.tipo', '=', 'R')
-            ->whereNotNull('f.id_veiculo')
-            ->whereBetween('f.data_venci', $dataInicio, $dataFim);
-
-        if (!empty($filialWhere)) {
-            $queryR->whereRaw(str_replace('id_matriz_filial', 'f.id_matriz_filial', $filialWhere), $filialParams);
-        }
-        if (!empty($filialId)) $queryR->where('f.id_matriz_filial', '=', (int) $filialId);
-
-        foreach ($queryR->groupBy('v.id_grupo')->get() as $r) {
-            $gid = (int) ($r['id_grupo'] ?? 0);
-            if (isset($grupos[$gid])) $grupos[$gid]['receita'] += (float) $r['receita'];
+        // Receita por grupo (itens financeiros com fallback no cabeçalho)
+        $receitaPorGrupo = $this->financeiroVeiculoSomasPorGrupo('R', $dataInicio, $dataFim, [
+            'date_field' => 'data_venci',
+            'filial_where' => $filialWhere,
+            'filial_params' => $filialParams,
+            'filial_id' => $filialId,
+        ]);
+        foreach ($receitaPorGrupo as $gid => $receita) {
+            if (isset($grupos[$gid])) $grupos[$gid]['receita'] += (float) $receita;
         }
 
         // Montar details

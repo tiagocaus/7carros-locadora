@@ -72,8 +72,7 @@ class IntlPhone {
         this.flagButton = document.createElement('button');
         this.flagButton.type = 'button';
         this.flagButton.className = 'intl-phone-flag-button';
-        this.flagButton.innerHTML = `<span class="flag-emoji">${this.selectedCountry.flag}</span>`;
-        this.flagButton.title = `${this.selectedCountry.name} (${this.selectedCountry.dialCode})`;
+        this.updateFlagButton();
 
         // Inserir bandeira antes do input
         this.wrapper.insertBefore(this.flagButton, this.input);
@@ -82,12 +81,23 @@ class IntlPhone {
         this.createDropdown();
 
         // Adicionar padding ao input para não sobrepor a bandeira
-        this.input.style.paddingLeft = '50px';
+        this.input.style.paddingLeft = '62px';
 
         // Aplicar placeholder do país selecionado
         if (this.selectedCountry.placeholder) {
             this.input.setAttribute('placeholder', this.selectedCountry.placeholder);
         }
+    }
+
+    /**
+     * Atualiza o botão de seleção de país
+     */
+    updateFlagButton() {
+        this.flagButton.innerHTML = `
+            <span class="flag-emoji">${this.selectedCountry.flag}</span>
+            <span class="intl-phone-chevron" aria-hidden="true">▾</span>
+        `;
+        this.flagButton.title = `${this.selectedCountry.name} (${this.selectedCountry.dialCode})`;
     }
 
     /**
@@ -179,8 +189,7 @@ class IntlPhone {
         this.selectedCountry = country;
 
         // Atualizar bandeira
-        this.flagButton.innerHTML = `<span class="flag-emoji">${country.flag}</span>`;
-        this.flagButton.title = `${country.name} (${country.dialCode})`;
+        this.updateFlagButton();
 
         // Atualizar placeholder com o formato do novo país
         if (country.placeholder) {
@@ -294,8 +303,7 @@ class IntlPhone {
             if (value.startsWith(country.dialCode)) {
                 if (this.selectedCountry.code !== country.code) {
                     this.selectedCountry = country;
-                    this.flagButton.innerHTML = `<span class="flag-emoji">${country.flag}</span>`;
-                    this.flagButton.title = `${country.name} (${country.dialCode})`;
+                    this.updateFlagButton();
                 }
                 break;
             }
@@ -339,8 +347,7 @@ class IntlPhone {
             for (const country of countryData) {
                 if (value.startsWith(country.dialCode)) {
                     this.selectedCountry = country;
-                    this.flagButton.innerHTML = `<span class="flag-emoji">${country.flag}</span>`;
-                    this.flagButton.title = `${country.name} (${country.dialCode})`;
+                    this.updateFlagButton();
 
                     // Aplicar máscara ao valor existente
                     const digits = this.extractDigits(value);
@@ -420,4 +427,3 @@ class IntlPhone {
 document.addEventListener('DOMContentLoaded', function () {
     IntlPhone.initAll();
 });
-

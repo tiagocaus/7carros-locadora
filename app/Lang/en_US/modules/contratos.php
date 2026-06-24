@@ -217,6 +217,22 @@ return [
         'reason_extra_days' => 'Extra day(s)',
         'reason_other' => 'Other',
     ],
+    'deposit' => [
+        'title' => 'Security Deposit',
+        'value' => 'Deposit amount',
+        'account' => 'Deposit account',
+        'payment_method' => 'Payment method',
+        'return_deadline' => 'Return deadline (days)',
+        'launch_financial' => 'Post deposit to financial',
+        'card' => 'Deposit card',
+        'notes' => 'Deposit notes',
+        'types' => [
+            'cash' => 'Cash',
+            'pix' => 'PIX',
+            'card' => 'Card',
+            'check' => 'Check',
+        ],
+    ],
     // People (driver, guarantor, etc.)
     'person' => [
         'full_name' => 'Full Name',
@@ -647,6 +663,9 @@ return [
         'hold_capture_error' => 'Error capturing hold',
         'select_client_first' => 'Select a client first',
         'send_connection_error' => 'Connection error while sending document.',
+        'deposit_account_required' => 'Select the deposit account.',
+        'deposit_payment_method_required' => 'Select the deposit payment method.',
+        'deposit_deadline_required' => 'Enter the deposit return deadline.',
     ],
 
     // Pagination

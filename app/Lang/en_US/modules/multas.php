@@ -32,6 +32,9 @@ return [
         'rental_code' => 'Rental Code',
         'code' => 'Code',
         'photo' => 'Fine Photo',
+        'payer' => 'Who will pay the fine?',
+        'payer_client' => 'Client',
+        'payer_company' => 'Company',
     ],
 
     'table' => [

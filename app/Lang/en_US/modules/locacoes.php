@@ -144,6 +144,8 @@ return [
         'value' => 'Value',
         'account' => 'Account',
         'return_days' => 'Return deadline',
+        'launch_financial' => 'Post deposit to financial',
+        'notes' => 'Deposit notes',
         'return_on_closing' => 'At closing',
         'return_date' => 'Return date',
         'card' => 'Client card',

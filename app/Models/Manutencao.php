@@ -70,6 +70,19 @@ class Manutencao extends Model
                   ->selectRaw('COUNT(*)')
                   ->whereRaw('mi.id_manutencao = m.id');
             }, 'qtd_itens')
+            ->selectSubquery(function ($q) {
+                $q->table('manutencoes_itens', 'mi')
+                  ->selectRaw('COUNT(DISTINCT mi.id_financeiro)')
+                  ->whereRaw('mi.id_manutencao = m.id')
+                  ->whereNotNull('mi.id_financeiro');
+            }, 'qtd_financeiros_itens')
+            ->selectSubquery(function ($q) {
+                $q->table('manutencoes_itens', 'mi')
+                  ->selectRaw('COUNT(*)')
+                  ->innerJoin('estoque', 'e', 'mi.id_estoque', '=', 'e.id')
+                  ->whereRaw('mi.id_manutencao = m.id')
+                  ->where('e.baixa_automatica', '=', 'S');
+            }, 'qtd_itens_estoque')
             ->leftJoin('veiculos', 'v', 'm.id_veiculo', '=', 'v.id')
             ->leftJoin('oficinas', 'o', 'm.id_oficina', '=', 'o.id')
             ->leftJoin('matrizes_filiais', 'mf', 'm.id_matriz_filial', '=', 'mf.id');
@@ -632,6 +645,93 @@ class Manutencao extends Model
             'temVinculos' => !empty($vinculos),
             'detalhes' => $vinculos
         ];
+    }
+
+    /**
+     * Lista todos os lancamentos financeiros vinculados a uma manutencao.
+     */
+    public function listarFinanceirosVinculados(int $id): array
+    {
+        $manutencao = $this->buscarPorId($id);
+        if (!$manutencao) {
+            return [];
+        }
+
+        $ids = [];
+        if (!empty($manutencao['id_financeiro_principal'])) {
+            $ids[] = (int) $manutencao['id_financeiro_principal'];
+        }
+
+        $idsItens = $this->qb
+            ->table('manutencoes_itens')
+            ->where('id_manutencao', '=', $id)
+            ->whereNotNull('id_financeiro')
+            ->pluck('id_financeiro');
+
+        foreach ($idsItens as $idFinanceiro) {
+            if (!empty($idFinanceiro)) {
+                $ids[] = (int) $idFinanceiro;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * Verifica se ha item com baixa automatica de estoque na manutencao.
+     */
+    public function temEstoqueUtilizado(int $id): bool
+    {
+        return $this->qb
+            ->table('manutencoes_itens', 'mi')
+            ->innerJoin('estoque', 'e', 'mi.id_estoque', '=', 'e.id')
+            ->where('mi.id_manutencao', '=', $id)
+            ->where('e.baixa_automatica', '=', 'S')
+            ->count() > 0;
+    }
+
+    /**
+     * Exclui uma manutencao e seus impactos opcionais em uma unica transacao.
+     */
+    public function excluirComImpactos(
+        int $id,
+        array $financeirosVinculados,
+        bool $excluirFinanceiro,
+        bool $reporEstoque
+    ): void {
+        $manutencao = $this->buscarPorId($id);
+        if (!$manutencao) {
+            throw new \InvalidArgumentException('Manutencao nao encontrada');
+        }
+
+        $mysqli = $this->getMysqli();
+        $mysqli->begin_transaction();
+
+        try {
+            if ($manutencao['status'] === 'A' && !empty($manutencao['id_veiculo'])) {
+                $this->liberarVeiculo((int) $manutencao['id_veiculo'], $id);
+            }
+
+            if ($excluirFinanceiro && !empty($financeirosVinculados)) {
+                $financeiroModel = new Financeiro();
+                foreach ($financeirosVinculados as $idFinanceiro) {
+                    $financeiroModel->deletar((int) $idFinanceiro);
+                }
+            }
+
+            $itemModel = new ManutencaoItem();
+            if ($reporEstoque) {
+                $itemModel->reporEstoquePorManutencao($id);
+            }
+
+            $itemModel->deletarTodosPorManutencao($id);
+            $this->deletar($id);
+
+            $mysqli->commit();
+        } catch (\Throwable $e) {
+            $mysqli->rollback();
+            throw $e;
+        }
     }
 
     // ===== METODOS FINANCEIROS =====

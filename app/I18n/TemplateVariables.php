@@ -413,6 +413,30 @@ class TemplateVariables
                 'label_key' => 'variables.contrato.data_renovacao',
                 'example' => '15/02/2024'
             ],
+            'km_saida' => [
+                'key' => 'contrato.km_saida',
+                'type' => 'text',
+                'label_key' => 'variables.contrato.km_saida',
+                'example' => '45.230'
+            ],
+            'km_chegada' => [
+                'key' => 'contrato.km_chegada',
+                'type' => 'text',
+                'label_key' => 'variables.contrato.km_chegada',
+                'example' => '48.120'
+            ],
+            'tanque_saida' => [
+                'key' => 'contrato.tanque_saida',
+                'type' => 'text',
+                'label_key' => 'variables.contrato.tanque_saida',
+                'example' => 'Cheio'
+            ],
+            'tanque_chegada' => [
+                'key' => 'contrato.tanque_chegada',
+                'type' => 'text',
+                'label_key' => 'variables.contrato.tanque_chegada',
+                'example' => '1/2'
+            ],
 
             // Veículos do Contrato
             'veiculos' => [
@@ -839,10 +863,10 @@ class TemplateVariables
                 'label_key' => 'variables.veiculo.chassi',
                 'example' => '9BWZZZ377VT004251'
             ],
-            'combustivel' => [
-                'key' => 'veiculo.combustivel',
+            'combustivel_tipo' => [
+                'key' => 'veiculo.combustivel_tipo',
                 'type' => 'text',
-                'label_key' => 'variables.veiculo.combustivel',
+                'label_key' => 'variables.veiculo.combustivel_tipo',
                 'example' => 'Flex'
             ],
             'valor_compra' => [
@@ -1314,7 +1338,7 @@ class TemplateVariables
         '$lAno' => 'veiculo.ano',
         '$lRenavam' => 'veiculo.renavam',
         '$lChassi' => 'veiculo.chassi',
-        '$lCombustivel' => 'veiculo.combustivel',
+        '$lCombustivel' => 'veiculo.combustivel_tipo',
         '$lGrupo' => 'locacao.grupo',
         '$lGrupoDescricao' => 'locacao.grupo_descricao',
         '$lGrupoTanque' => 'locacao.grupo_tanque',
@@ -1432,6 +1456,10 @@ class TemplateVariables
      */
     public static function exists(string $variable): bool
     {
+        if ($variable === 'veiculo.combustivel') {
+            return true;
+        }
+
         $parts = explode('.', $variable, 2);
         if (count($parts) !== 2) {
             return false;
@@ -1446,6 +1474,10 @@ class TemplateVariables
      */
     public static function getInfo(string $variable): ?array
     {
+        if ($variable === 'veiculo.combustivel') {
+            $variable = 'veiculo.combustivel_tipo';
+        }
+
         $parts = explode('.', $variable, 2);
         if (count($parts) !== 2) {
             return null;
@@ -1465,6 +1497,10 @@ class TemplateVariables
      */
     public static function resolve(string $variable, array $context, string $locale = 'pt_BR'): ?string
     {
+        if ($variable === 'veiculo.combustivel') {
+            $variable = 'veiculo.combustivel_tipo';
+        }
+
         $info = self::getInfo($variable);
         if ($info === null) {
             return null;

@@ -25,6 +25,17 @@ class Documento extends Model
     ];
 
     /**
+     * Tipos disponiveis para novos cadastros e edicoes.
+     *
+     * O tipo 0 permanece apenas para compatibilidade com documentos legados.
+     */
+    public const TIPOS_FORM = [
+        1 => 'Contrato',
+        2 => 'Locação',
+        3 => 'Multa',
+    ];
+
+    /**
      * Status disponiveis
      */
     public const STATUS = [

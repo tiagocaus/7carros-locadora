@@ -144,6 +144,8 @@ return [
         'value' => 'Valor',
         'account' => 'Cuenta',
         'return_days' => 'Plazo de devolución',
+        'launch_financial' => 'Lanzar fianza en financiero',
+        'notes' => 'Observaciones de la fianza',
         'return_on_closing' => 'Al cierre',
         'return_date' => 'Fecha de devolución',
         'card' => 'Tarjeta del cliente',

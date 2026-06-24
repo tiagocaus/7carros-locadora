@@ -217,6 +217,22 @@ return [
         'reason_extra_days' => 'Dia(s) extra(s)',
         'reason_other' => 'Otro',
     ],
+    'deposit' => [
+        'title' => 'Depósito de Garantía',
+        'value' => 'Valor del depósito',
+        'account' => 'Cuenta del depósito',
+        'payment_method' => 'Forma de pago',
+        'return_deadline' => 'Plazo de devolución (días)',
+        'launch_financial' => 'Lanzar depósito en financiero',
+        'card' => 'Tarjeta del depósito',
+        'notes' => 'Observaciones del depósito',
+        'types' => [
+            'cash' => 'Efectivo',
+            'pix' => 'PIX',
+            'card' => 'Tarjeta',
+            'check' => 'Cheque',
+        ],
+    ],
     // Personas (conductor, fiador, etc.)
     'person' => [
         'full_name' => 'Nombre Completo',
@@ -646,6 +662,9 @@ return [
         'hold_capture_error' => 'Error al capturar bloqueo',
         'select_client_first' => 'Seleccione un cliente primero',
         'send_connection_error' => 'Error de conexión al enviar documento.',
+        'deposit_account_required' => 'Seleccione la cuenta del depósito.',
+        'deposit_payment_method_required' => 'Seleccione la forma de pago del depósito.',
+        'deposit_deadline_required' => 'Informe el plazo de devolución del depósito.',
     ],
 
     // Paginacion

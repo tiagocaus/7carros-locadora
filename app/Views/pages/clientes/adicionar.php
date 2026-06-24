@@ -395,6 +395,16 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Seção: Observações -->
+                <div class="form-section mt-6">
+                    <h3 class="form-section-title">{{ t('modules.clientes.fields.observations') }}</h3>
+
+                    <div class="form-input-group">
+                        <label for="clienteObservacoes" class="form-label-group">{{ t('modules.clientes.fields.observations') }}</label>
+                        <textarea id="clienteObservacoes" name="obs" rows="4" class="form-input-group-field"></textarea>
+                    </div>
+                </div>
             </div>
 
             <!-- Botões de ação no final -->
@@ -1373,6 +1383,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
             if (data.cnh_codigo_seguranca) document.getElementById('clienteCNHCodSeg').value = data.cnh_codigo_seguranca;
             if (data.cnh_categoria) document.getElementById('clienteCNHCategoria').value = data.cnh_categoria;
             if (data.cnh_validade) document.getElementById('clienteCNHValidade').value = data.cnh_validade;
+            document.getElementById('clienteObservacoes').value = data.obs || '';
 
             // Foto
             if (data.foto_url) {

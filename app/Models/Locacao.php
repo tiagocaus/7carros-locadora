@@ -292,7 +292,6 @@ class Locacao extends Model
                 'fp.nome AS forma_pagamento_descricao',
                 'func.nome AS funcionario_nome',
                 'ct_bloq.nome AS conta_bloqueio_descricao',
-                'ct_cauc.nome AS conta_caucao_descricao',
                 'lb.status AS bloqueio_status',
                 'lb.valor AS bloqueio_hold_valor',
                 'lb.valor_capturado AS bloqueio_valor_capturado',
@@ -308,7 +307,6 @@ class Locacao extends Model
             ->leftJoin('matrizes_filiais', 'mf_dev', 'l.id_matriz_filial_devolucao', '=', 'mf_dev.id')
             ->leftJoin('contas_bancarias', 'ct', 'l.id_conta', '=', 'ct.id')
             ->leftJoin('contas_bancarias', 'ct_bloq', 'l.id_conta_bloqueio', '=', 'ct_bloq.id')
-            ->leftJoin('contas_bancarias', 'ct_cauc', 'l.id_conta_caucao', '=', 'ct_cauc.id')
             ->leftJoin('locacoes_bloqueios', 'lb', 'l.id_bloqueio_ativo', '=', 'lb.id')
             ->leftJoin('clientes_cartoes', 'cc_bloq', 'lb.id_cartao', '=', 'cc_bloq.id')
             ->leftJoin('formas_pagamento', 'fp', 'l.id_forma_pagamento', '=', 'fp.id')
@@ -323,6 +321,28 @@ class Locacao extends Model
         // Compatibilidade com templates/contexts antigos de impressao.
         // A coluna real da tabela locacoes eh `dias`.
         $locacao['quantidade_dias'] = (int) ($locacao['dias'] ?? 0);
+
+        $caucao = (new LocacaoCaucao())->buscarAtualPorLocacao((int) $locacao['id']);
+        $locacao['caucao'] = $caucao;
+        if ($caucao) {
+            $locacao['caucao_id'] = $caucao['id'];
+            $locacao['caucao_valor'] = $caucao['valor'];
+            $locacao['id_conta_caucao'] = $caucao['id_conta'];
+            $locacao['conta_caucao_descricao'] = $caucao['conta_descricao'];
+            $locacao['id_cartao_caucao'] = $caucao['id_cartao'];
+            $locacao['id_forma_pagamento_caucao'] = $caucao['id_forma_pagamento'];
+            $locacao['forma_pagamento_caucao_descricao'] = $caucao['forma_pagamento_descricao'];
+            $locacao['caucao_tipo'] = $caucao['legacy_tipo'];
+            $locacao['caucao_prazo_devolucao'] = $caucao['prazo_devolucao'];
+            $locacao['caucao_data_devolucao'] = $caucao['data_devolucao'];
+            $locacao['caucao_lancar_financeiro'] = $caucao['lancar_financeiro'];
+            $locacao['caucao_status'] = $caucao['status'];
+            $locacao['caucao_observacoes'] = $caucao['observacoes'];
+            $locacao['id_financeiro_caucao_entrada'] = $caucao['id_financeiro_entrada'];
+            $locacao['id_financeiro_caucao_devolucao'] = $caucao['id_financeiro_devolucao'];
+        } else {
+            $locacao['caucao_valor'] = $locacao['caucao_valor'] ?? 0;
+        }
 
         // Carregar veiculo atual/ultimo de locacoes_veiculos.
         // Locacoes fechadas nao possuem veiculo ativo, mas ainda devem exibir
@@ -498,12 +518,6 @@ class Locacao extends Model
                 'bloqueio_valor' => $this->toDecimal($dados['bloqueio_valor'] ?? 0),
                 'bloqueio_prazo_devolucao' => isset($dados['bloqueio_prazo_devolucao']) && $dados['bloqueio_prazo_devolucao'] !== '' ? (int) $dados['bloqueio_prazo_devolucao'] : null,
                 'bloqueio_data_devolucao' => !empty($dados['bloqueio_data_devolucao']) ? $dados['bloqueio_data_devolucao'] : null,
-                'caucao_valor' => $this->toDecimal($dados['caucao_valor'] ?? 0),
-                'caucao_tipo' => $dados['caucao_tipo'] ?? null,
-                'id_conta_caucao' => !empty($dados['id_conta_caucao']) ? (int) $dados['id_conta_caucao'] : null,
-                'caucao_prazo_devolucao' => isset($dados['caucao_prazo_devolucao']) && $dados['caucao_prazo_devolucao'] !== '' ? (int) $dados['caucao_prazo_devolucao'] : null,
-                'caucao_data_devolucao' => !empty($dados['caucao_data_devolucao']) ? $dados['caucao_data_devolucao'] : null,
-                'id_cartao_caucao' => !empty($dados['id_cartao_caucao']) ? (int) $dados['id_cartao_caucao'] : null,
                 'id_bloqueio_ativo' => !empty($dados['id_bloqueio_ativo']) ? (int) $dados['id_bloqueio_ativo'] : null,
                 'id_conta' => !empty($dados['id_conta']) ? (int) $dados['id_conta'] : null,
                 'id_forma_pagamento' => !empty($dados['id_forma_pagamento']) ? (int) $dados['id_forma_pagamento'] : null,
@@ -568,25 +582,6 @@ class Locacao extends Model
             $dadosUpdate['bloqueio_prazo_devolucao'] = $dados['bloqueio_prazo_devolucao'] !== '' ? (int) $dados['bloqueio_prazo_devolucao'] : null;
         }
 
-        // Caucao (deposito de garantia)
-        if (isset($dados['caucao_valor'])) {
-            $dadosUpdate['caucao_valor'] = $this->toDecimal($dados['caucao_valor']);
-        }
-        if (isset($dados['caucao_tipo'])) {
-            $dadosUpdate['caucao_tipo'] = $dados['caucao_tipo'];
-        }
-        if (isset($dados['id_conta_caucao'])) {
-            $dadosUpdate['id_conta_caucao'] = !empty($dados['id_conta_caucao']) ? (int) $dados['id_conta_caucao'] : null;
-        }
-        if (isset($dados['caucao_prazo_devolucao'])) {
-            $dadosUpdate['caucao_prazo_devolucao'] = $dados['caucao_prazo_devolucao'] !== '' ? (int) $dados['caucao_prazo_devolucao'] : null;
-        }
-        if (isset($dados['caucao_data_devolucao'])) {
-            $dadosUpdate['caucao_data_devolucao'] = $dados['caucao_data_devolucao'];
-        }
-        if (isset($dados['id_cartao_caucao'])) {
-            $dadosUpdate['id_cartao_caucao'] = !empty($dados['id_cartao_caucao']) ? (int) $dados['id_cartao_caucao'] : null;
-        }
         if (isset($dados['id_bloqueio_ativo'])) {
             $dadosUpdate['id_bloqueio_ativo'] = !empty($dados['id_bloqueio_ativo']) ? (int) $dados['id_bloqueio_ativo'] : null;
         }

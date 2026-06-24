@@ -1212,6 +1212,16 @@ class KpiReport extends BaseReportModel
         string $filialId,
         string $grupoId
     ): float {
+        if (!empty($grupoId)) {
+            return (float) array_sum($this->financeiroVeiculoSomas('D', $dataInicio, $dataFim, [
+                'date_field' => 'data_criada',
+                'filial_where' => $filialWhere,
+                'filial_params' => $filialParams,
+                'filial_id' => $filialId,
+                'grupo_id' => $grupoId,
+            ]));
+        }
+
         $query = $this->qb
             ->table('financeiro', 'f')
             ->selectRaw('COALESCE(SUM(f.valor_total), 0) AS total_custos')
@@ -1226,10 +1236,6 @@ class KpiReport extends BaseReportModel
 
         if (!empty($filialId)) {
             $query->where('f.id_matriz_filial', '=', (int) $filialId);
-        }
-
-        if (!empty($grupoId)) {
-            $query->whereRaw('f.id_veiculo IN (SELECT id FROM veiculos WHERE id_grupo = ? AND chave = ?)', [(int) $grupoId, $chave]);
         }
 
         $result = $query->first();
@@ -1294,15 +1300,9 @@ class KpiReport extends BaseReportModel
      */
     private function calcularCustosVeiculo(int $veiculoId, string $dataInicio, string $dataFim): float
     {
-        $result = $this->qb
-            ->table('financeiro', 'f')
-            ->selectRaw('COALESCE(SUM(f.valor_total), 0) AS total_custos')
-            ->where('f.tipo', '=', 'D')
-            ->where('f.id_veiculo', '=', $veiculoId)
-            ->whereRaw('f.data_criada >= ?', [$dataInicio])
-            ->whereRaw('f.data_criada <= ?', [$dataFim])
-            ->first();
-
-        return (float) ($result['total_custos'] ?? 0);
+        return (float) array_sum($this->financeiroVeiculoSomas('D', $dataInicio, $dataFim, [
+            'date_field' => 'data_criada',
+            'veiculo_id' => (string) $veiculoId,
+        ]));
     }
 }

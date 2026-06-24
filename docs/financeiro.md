@@ -603,6 +603,15 @@ Esse lancamento compensa o saldo financeiro efetivo da locacao, mas nao altera n
 remove a receita original. Devolucoes de caucao continuam usando `1.1.6.02` e nao
 devem ser tratadas como credito de diaria/taxa de locacao.
 
+### Multas
+
+Multas cadastradas manualmente geram um lançamento financeiro vinculado por
+`financeiro.id_multa` e `multas.id_financeiro`. O campo `multas.pagador` define
+o sentido financeiro:
+
+- `cliente`: receita (`financeiro.tipo='R'`) com `financeiro.id_cliente`.
+- `empresa`: despesa (`financeiro.tipo='D'`) sem cliente/fornecedor.
+
 ## Migracao de Dados Legados
 
 As migrations 00108-00112 cuidam da migracao dos dados existentes:
