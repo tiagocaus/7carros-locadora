@@ -261,6 +261,54 @@ curl -X POST https://locadora.7carros.com/webhook/whmcs/terminar \
 
 ---
 
+### 7. Consultar Disponibilidade de Veículos
+
+Retorna a quantidade de veículos agrupada por disponibilidade para leitura externa pelo WHMCS.
+
+```
+POST /webhook/whmcs/veiculos-disponibilidade
+```
+
+**Parâmetros:**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `chave` | string | Sim | Identificador do tenant |
+
+**Exemplo:**
+```bash
+curl -X POST https://locadora.7carros.com/webhook/whmcs/veiculos-disponibilidade \
+  -H "Content-Type: application/json" \
+  -d '{"accesshash": "<TENANT_ONBOARD_SECRET>", "chave": "9B9B05072DD20D1CC3E54607B84C889B"}'
+```
+
+**Resposta (200):**
+```json
+{
+    "success": true,
+    "chave": "9B9B05072DD20D1CC3E54607B84C889B",
+    "data": {
+        "disponiveis": 0,
+        "reservados": 0,
+        "locados": 0,
+        "oficina": 0,
+        "vendidos": 0,
+        "batidos": 0,
+        "excluidos": 0,
+        "roubados": 0,
+        "lavaJato": 0,
+        "aVenda": 0,
+        "usoInterno": 0,
+        "somaTotal": 0,
+        "emAtividade": 0
+    }
+}
+```
+
+`emAtividade` desconsidera veículos vendidos, excluídos e roubados.
+
+---
+
 ## Planos Válidos
 
 | Código | Nome | Veículos | Filiais |
@@ -322,6 +370,7 @@ Configure cada ação do produto para chamar o endpoint correspondente:
 | Change Package | `/webhook/whmcs/mudar-pacote` | POST |
 | Change Password | `/webhook/whmcs/atualizar-senha` | POST |
 | Terminate | `/webhook/whmcs/terminar` | POST |
+| Disponibilidade de Veículos | `/webhook/whmcs/veiculos-disponibilidade` | POST |
 
 ### Mapeamento de Campos WHMCS → Sistema
 
@@ -365,12 +414,12 @@ SELECT * FROM logs WHERE mensagem LIKE '[WHMCS]%' ORDER BY data DESC;
 | `app/Middleware/WhmcsAuthMiddleware.php` | Valida Bearer token |
 | `app/Controllers/WhmcsController.php` | Validação de input, delegação ao Service |
 | `app/Services/TenantProvisioningService.php` | Lógica de negócio (CRUD de tenant) |
-| `app/Routes/web.php` | Definição das 6 rotas POST |
+| `app/Routes/web.php` | Definição das rotas POST |
 | `app/Config/Security.php` | Rate limit para `/webhook/whmcs` |
 
 ### Multi-tenancy
 
-Os endpoints WHMCS operam **sem sessão** (`$_SESSION['chave']` não existe). Por isso, todas as queries usam `withoutChave()` — exceção legítima para operações administrativas cross-tenant.
+Os endpoints WHMCS operam **sem sessão** (`$_SESSION['chave']` não existe). Queries administrativas cross-tenant podem usar `withoutChave()` apenas nos contextos permitidos pela documentação de QueryBuilder. Consultas pontuais por tenant, como a disponibilidade de veículos, devem filtrar explicitamente por `chave` com prepared statements no Model.
 
 ### Segurança
 

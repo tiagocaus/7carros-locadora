@@ -93,98 +93,124 @@ class WebsiteService
             return ['success' => false, 'message' => 'Secret inválido'];
         }
 
-        // Validar campos obrigatórios
-        if (empty($ftpData['host']) || empty($ftpData['usuario']) || empty($ftpData['senha'])) {
-            return ['success' => false, 'message' => 'Dados FTP incompletos'];
+        // Temporariamente setar chave na sessao para o QueryBuilder dos Models.
+        if (!isset($_SESSION) || !is_array($_SESSION)) {
+            $_SESSION = [];
         }
-
-        // Descriptografar apenas a senha (AES-256-CBC com TENANT_ONBOARD_SECRET)
-        $senhaPlain = $this->decryptFtpSenha($ftpData['senha'], $expectedSecret);
-        if ($senhaPlain === null) {
-            return ['success' => false, 'message' => 'Falha ao descriptografar senha FTP'];
-        }
-
-        // Temporariamente setar chave na sessao para o QueryBuilder dos Models
+        $hadChave = array_key_exists('chave', $_SESSION);
         $oldChave = $_SESSION['chave'] ?? null;
         $_SESSION['chave'] = $chave;
 
-        // Idempotência: se já está ativo, não refaz nada.
-        $configAtual = (new SiteConfig())->buscarPorChave();
-        if ($configAtual && ($configAtual['status'] ?? '') === 'ativo') {
-            if ($oldChave !== null) {
-                $_SESSION['chave'] = $oldChave;
+        try {
+            $configModel = new SiteConfig();
+            $configAtual = $configModel->buscarPorChave();
+            $alreadyActive = $configAtual && ($configAtual['status'] ?? '') === 'ativo';
+            $alreadyDeployed = $alreadyActive && !empty($configAtual['ultimo_deploy_em']);
+            $redirectUrl = $this->buildSiteRedirectUrl($configAtual);
+
+            if ($alreadyDeployed) {
+                return [
+                    'success'          => true,
+                    'redirect'         => true,
+                    'already_active'   => true,
+                    'already_deployed' => true,
+                    'redirect_url'     => $redirectUrl,
+                    'message'          => 'Site já instalado — redirecionando para o site',
+                ];
             }
+
+            // Validar campos obrigatórios apenas quando ainda precisa executar a instalação.
+            if (empty($ftpData['host']) || empty($ftpData['usuario']) || empty($ftpData['senha'])) {
+                return ['success' => false, 'message' => 'Dados FTP incompletos'];
+            }
+
+            // Descriptografar apenas a senha (AES-256-CBC com TENANT_ONBOARD_SECRET)
+            $senhaPlain = $this->decryptFtpSenha($ftpData['senha'], $expectedSecret);
+            if ($senhaPlain === null) {
+                return ['success' => false, 'message' => 'Falha ao descriptografar senha FTP'];
+            }
+
+            // Salvar/atualizar credenciais em toda chamada valida do WHMCS.
+            (new SiteCredencial())->salvar([
+                'tipo'      => 'ftp',
+                'host'      => $ftpData['host'],
+                'porta'     => (int) ($ftpData['porta'] ?? 21),
+                'usuario'   => $ftpData['usuario'],
+                'senha'     => $senhaPlain,
+                'diretorio' => !empty($ftpData['diretorio']) ? $ftpData['diretorio'] : '/public_html',
+            ]);
+
+            // Ativar site preservando api_token existente.
+            $dadosConfig = ['status' => 'ativo'];
+            if (empty($configAtual['api_token'])) {
+                $dadosConfig['api_token'] = encrypt(bin2hex(random_bytes(32)));
+            }
+            $configModel->criarOuAtualizar($dadosConfig);
+
+            // Seed de conteúdo padrão (idempotente — só popula se vazio)
+            try {
+                (new WebsiteSeedService())->seedTenant($chave);
+            } catch (\Throwable $e) {
+                error_log('[WHMCS site-ativacao] Seed falhou: ' . $e->getMessage());
+            }
+
+            // Deploy inicial para o FTP recém-recebido.
+            @set_time_limit(300);
+            @ini_set('memory_limit', '512M');
+
+            // O set_error_handler global (public/index.php) converte qualquer warning/notice
+            // em HTTP 500 — o que quebra o deploy porque FTP/RecursiveIterator podem emitir
+            // warnings rotineiros. Desativa temporariamente durante o deploy e restaura depois.
+            set_error_handler(function () {
+                return true; // engole warnings/notices; erros fatais continuam subindo
+            });
+
+            $deployResult = ['success' => false, 'message' => 'nao executado'];
+            try {
+                $builder = new WebsiteBuilderService();
+                $deployResult = $builder->deploy($chave);
+            } catch (\Throwable $e) {
+                error_log('[WHMCS site-ativacao] Deploy inicial falhou: ' . $e->getMessage());
+                $deployResult = ['success' => false, 'message' => $e->getMessage()];
+            } finally {
+                restore_error_handler();
+            }
+
             return [
-                'success'       => true,
-                'already_active'=> true,
-                'message'       => 'Site já está ativo — nenhuma ação realizada',
-                'dominio'       => $configAtual['dominio'] ?? null,
-                'versao'        => $configAtual['versao'] ?? null,
-                'ultimo_deploy' => $configAtual['ultimo_deploy_em'] ?? null,
+                'success'        => true,
+                'redirect'       => (bool) ($deployResult['success'] ?? false),
+                'redirect_url'   => $redirectUrl,
+                'already_active' => $alreadyActive,
+                'message'        => $alreadyActive
+                    ? 'Site estava ativo, mas sem deploy registrado — deploy inicial executado'
+                    : 'Site ativado com sucesso',
+                'deploy_success' => $deployResult['success'],
+                'deploy_message' => $deployResult['message'],
+                'deploy_details' => $deployResult['detalhes'] ?? null,
             ];
-        }
-
-        // Salvar credenciais (apenas senha criptografada com APP_KEY no BD)
-        $credModel = new SiteCredencial();
-        $credModel->salvar([
-            'tipo'      => 'ftp',
-            'host'      => $ftpData['host'],
-            'porta'     => (int) ($ftpData['porta'] ?? 21),
-            'usuario'   => $ftpData['usuario'],
-            'senha'     => $senhaPlain,
-            'diretorio' => !empty($ftpData['diretorio']) ? $ftpData['diretorio'] : '/public_html',
-        ]);
-
-        // Gerar api_token e ativar site
-        $apiToken = bin2hex(random_bytes(32));
-        $configModel = new SiteConfig();
-        $configModel->criarOuAtualizar([
-            'status'    => 'ativo',
-            'api_token' => encrypt($apiToken),
-        ]);
-
-        // Seed de conteúdo padrão (idempotente — só popula se vazio)
-        try {
-            (new WebsiteSeedService())->seedTenant($chave);
-        } catch (\Throwable $e) {
-            error_log('[WHMCS site-ativacao] Seed falhou: ' . $e->getMessage());
-        }
-
-        // Deploy inicial para o FTP recém-recebido.
-        // Build + upload FTP pode levar alguns segundos e consumir memória acima do default.
-        // Falha não derruba a ativação — o tenant pode redeployar pela UI.
-        @set_time_limit(300);
-        @ini_set('memory_limit', '512M');
-
-        // O set_error_handler global (public/index.php) converte qualquer warning/notice
-        // em HTTP 500 — o que quebra o deploy porque FTP/RecursiveIterator podem emitir
-        // warnings rotineiros. Desativa temporariamente durante o deploy e restaura depois.
-        set_error_handler(function () {
-            return true; // engole warnings/notices; erros fatais continuam subindo
-        });
-
-        $deployResult = ['success' => false, 'message' => 'nao executado'];
-        try {
-            $builder = new WebsiteBuilderService();
-            $deployResult = $builder->deploy($chave);
-        } catch (\Throwable $e) {
-            error_log('[WHMCS site-ativacao] Deploy inicial falhou: ' . $e->getMessage());
-            $deployResult = ['success' => false, 'message' => $e->getMessage()];
         } finally {
-            restore_error_handler();
+            if ($hadChave) {
+                $_SESSION['chave'] = $oldChave;
+            } else {
+                unset($_SESSION['chave']);
+            }
+        }
+    }
+
+    private function buildSiteRedirectUrl(?array $config): string
+    {
+        $dominio = trim((string) ($config['dominio'] ?? ''));
+        if ($dominio !== '') {
+            $dominio = preg_replace('#^https?://#i', '', $dominio);
+            $dominio = preg_split('/[\/?#]/', $dominio)[0] ?? '';
+            $dominio = trim($dominio);
+
+            if ($dominio !== '') {
+                return 'https://' . $dominio;
+            }
         }
 
-        // Restaurar sessao
-        if ($oldChave !== null) {
-            $_SESSION['chave'] = $oldChave;
-        }
-
-        return [
-            'success'        => true,
-            'message'        => 'Site ativado com sucesso',
-            'deploy_success' => $deployResult['success'],
-            'deploy_message' => $deployResult['message'],
-        ];
+        return rtrim(Database::env('APP_URL', 'https://locadora.7carros.com'), '/');
     }
 
     /**

@@ -126,27 +126,33 @@ class WebsiteBuilderService
             }
         }
 
-        if (!$aparencia) {
-            return $result;
+        if ($aparencia) {
+            foreach (['logo', 'favicon'] as $campo) {
+                $filename = $aparencia[$campo] ?? null;
+                if (empty($filename)) {
+                    continue;
+                }
+
+                $origem = APP_ROOT . '/storage/uploads/' . $chave . '/' . $filename;
+                if (!file_exists($origem)) {
+                    continue;
+                }
+
+                $ext = pathinfo($filename, PATHINFO_EXTENSION) ?: 'webp';
+                $destinoRelativo = 'assets/img/' . $campo . '.' . $ext;
+                $destinoAbsoluto = $buildDir . '/' . $destinoRelativo;
+
+                if (@copy($origem, $destinoAbsoluto)) {
+                    $result[$campo] = $destinoRelativo;
+                }
+            }
         }
 
-        foreach (['logo', 'favicon'] as $campo) {
-            $filename = $aparencia[$campo] ?? null;
-            if (empty($filename)) {
-                continue;
-            }
-
-            $origem = APP_ROOT . '/storage/uploads/' . $chave . '/' . $filename;
-            if (!file_exists($origem)) {
-                continue;
-            }
-
-            $ext = pathinfo($filename, PATHINFO_EXTENSION) ?: 'webp';
-            $destinoRelativo = 'assets/img/' . $campo . '.' . $ext;
-            $destinoAbsoluto = $buildDir . '/' . $destinoRelativo;
-
-            if (@copy($origem, $destinoAbsoluto)) {
-                $result[$campo] = $destinoRelativo;
+        if ($result['logo'] === '') {
+            $logoPadraoOrigem = APP_ROOT . '/public/assets/img/logo_padrao.png';
+            $logoPadraoRelativo = 'assets/img/logo_padrao.png';
+            if (file_exists($logoPadraoOrigem) && @copy($logoPadraoOrigem, $buildDir . '/' . $logoPadraoRelativo)) {
+                $result['logo'] = $logoPadraoRelativo;
             }
         }
 
@@ -197,6 +203,7 @@ class WebsiteBuilderService
         $buildPath = null;
 
         // Setar chave na sessao para os Models funcionarem
+        $hadChave = array_key_exists('chave', $_SESSION);
         $oldChave = $_SESSION['chave'] ?? null;
         $_SESSION['chave'] = $chave;
 
@@ -244,6 +251,18 @@ class WebsiteBuilderService
             // 5. Desconectar
             $ftpService->disconnect();
 
+            if ($uploadResult['arquivos_enviados'] < 1) {
+                throw new \RuntimeException('Nenhum arquivo foi enviado ao FTP');
+            }
+
+            if (!empty($uploadResult['erros'])) {
+                $amostraErros = implode(', ', array_slice($uploadResult['erros'], 0, 5));
+                $totalErros = count($uploadResult['erros']);
+                throw new \RuntimeException(
+                    "Falha ao enviar {$totalErros} arquivo(s) ao FTP: {$amostraErros}"
+                );
+            }
+
             // 6. Cleanup
             $this->cleanup($buildPath);
             $buildPath = null;
@@ -263,8 +282,10 @@ class WebsiteBuilderService
             $deployLogModel->atualizarStatus($logId, 'sucesso', $detalhes);
 
             // Restaurar sessao
-            if ($oldChave !== null) {
+            if ($hadChave) {
                 $_SESSION['chave'] = $oldChave;
+            } else {
+                unset($_SESSION['chave']);
             }
 
             return [
@@ -289,8 +310,10 @@ class WebsiteBuilderService
             $deployLogModel->atualizarStatus($logId, 'falha', $detalhes);
 
             // Restaurar sessao
-            if ($oldChave !== null) {
+            if ($hadChave) {
                 $_SESSION['chave'] = $oldChave;
+            } else {
+                unset($_SESSION['chave']);
             }
 
             return [

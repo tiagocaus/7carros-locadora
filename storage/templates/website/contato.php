@@ -60,38 +60,26 @@ $empresa = $dados['empresa'] ?? [];
                     </div>
 
                     <div class="col-md-5">
-                        <ul class="contato-detalhes">
+                        <div class="contato-detalhes">
                             <?php foreach ($filiais as $f): ?>
-                            <li>
-                                <i class="fa fa-map-marker fa-lg" aria-hidden="true"></i>
-                                <span>
-                                    <strong><?= e($f['nome'] ?? '') ?></strong><br>
-                                    <?= e(trim(($f['rua'] ?? '') . (!empty($f['num']) ? ', ' . $f['num'] : ''))) ?><br>
-                                    <?= e(trim(($f['bairro'] ?? '') . ' - ' . ($f['cidade'] ?? '') . ' - ' . ($f['estado'] ?? ''))) ?>
-                                    <?php if (!empty($f['cep'])): ?><br><?= e($f['cep']) ?><?php endif; ?>
-                                </span>
-                            </li>
-                            <?php if (!empty($f['tel_fixo']) || !empty($f['celular'])): ?>
-                            <li>
-                                <i class="fa fa-phone fa-lg" aria-hidden="true"></i>
-                                <?= e($f['celular'] ?? $f['tel_fixo'] ?? '') ?>
-                            </li>
-                            <?php endif; ?>
-                            <?php if (!empty($f['email'])): ?>
-                            <li>
-                                <i class="fa fa-envelope fa-lg" aria-hidden="true"></i>
-                                <?= e($f['email']) ?>
-                            </li>
-                            <?php endif; ?>
+                            <div class="mb-4">
+                                <strong><?= e($f['nome'] ?? '') ?></strong>
+                                <?php $endereco = trim(($f['rua'] ?? '') . (!empty($f['num']) ? ', ' . $f['num'] : '')); ?>
+                                <?php if ($endereco !== ''): ?><br><?= e($endereco) ?><?php endif; ?>
+                                <?php $localidade = trim(($f['bairro'] ?? '') . ' - ' . ($f['cidade'] ?? '') . ' - ' . ($f['estado'] ?? ''), ' -'); ?>
+                                <?php if ($localidade !== ''): ?><br><?= e($localidade) ?><?php endif; ?>
+                                <?php if (!empty($f['cep'])): ?><br><?= e($f['cep']) ?><?php endif; ?>
+                                <?php if (!empty($f['telefone'])): ?><br><?= e($f['telefone']) ?><?php endif; ?>
+                                <?php if (!empty($f['email'])): ?><br><?= e($f['email']) ?><?php endif; ?>
+                            </div>
                             <?php endforeach; ?>
 
                             <?php if (empty($filiais)): ?>
-                            <li>
-                                <i class="fa fa-link fa-lg" aria-hidden="true"></i>
+                            <div class="mb-4">
                                 www.<?= e($config['dominio']) ?>
-                            </li>
+                            </div>
                             <?php endif; ?>
-                        </ul>
+                        </div>
                     </div>
                 </div>
             </div>

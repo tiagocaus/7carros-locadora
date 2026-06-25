@@ -153,6 +153,7 @@ $router->post('/webhook/whmcs/reativar', [WhmcsController::class, 'reativar'], [
 $router->post('/webhook/whmcs/mudar-pacote', [WhmcsController::class, 'mudarPacote'], ['whmcs_auth', 'rate_limit']);
 $router->post('/webhook/whmcs/atualizar-senha', [WhmcsController::class, 'atualizarSenha'], ['whmcs_auth', 'rate_limit']);
 $router->post('/webhook/whmcs/terminar', [WhmcsController::class, 'terminar'], ['whmcs_auth', 'rate_limit']);
+$router->post('/webhook/whmcs/veiculos-disponibilidade', [WhmcsController::class, 'veiculosDisponibilidade'], ['whmcs_auth', 'rate_limit']);
 
 // Webhook WHMCS - Ativação de Website (público, sem auth de sessão)
 $router->get('/api/webhook/whmcs/site-ativacao', [WebsiteController::class, 'webhookWhmcsAtivacao'], ['rate_limit']);

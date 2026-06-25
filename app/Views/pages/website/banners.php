@@ -113,7 +113,7 @@
             div.innerHTML = `
                 <div class="text-slate-300 cursor-grab"><i class="fas fa-grip-vertical"></i></div>
                 <div class="w-20 h-14 bg-slate-100 rounded overflow-hidden flex-shrink-0">
-                    ${b.foto ? `<img src="/uploads/<?= $_SESSION['chave'] ?? '' ?>/${b.foto}" class="w-full h-full object-cover">` : '<div class="flex items-center justify-center h-full text-slate-300"><i class="fas fa-image"></i></div>'}
+                    ${b.foto_url ? `<img src="${b.foto_url}" class="w-full h-full object-cover">` : '<div class="flex items-center justify-center h-full text-slate-300"><i class="fas fa-image"></i></div>'}
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="font-medium text-sm truncate">${b.titulo || 'Sem titulo'}</p>
@@ -158,8 +158,8 @@
             document.getElementById('bannerTarget').value = b.link_target || '_blank';
             document.getElementById('bannerFoto').value = '';
 
-            if (b.foto) {
-                document.getElementById('bannerFotoPreview').src = '/uploads/<?= $_SESSION["chave"] ?? "" ?>/' + b.foto;
+            if (b.foto_url) {
+                document.getElementById('bannerFotoPreview').src = b.foto_url;
                 document.getElementById('bannerFotoPreview').classList.remove('hidden');
             } else {
                 document.getElementById('bannerFotoPreview').classList.add('hidden');

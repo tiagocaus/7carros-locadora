@@ -20,6 +20,20 @@ class Veiculo extends Model
      */
     public const DISPONIBILIDADE_INATIVA = ['V', 'RO', 'E'];
 
+    private const DISPONIBILIDADE_WHMCS = [
+        'D' => 'disponiveis',
+        'R' => 'reservados',
+        'L' => 'locados',
+        'O' => 'oficina',
+        'V' => 'vendidos',
+        'B' => 'batidos',
+        'E' => 'excluidos',
+        'RO' => 'roubados',
+        'LJ' => 'lavaJato',
+        'AV' => 'aVenda',
+        'UI' => 'usoInterno',
+    ];
+
     /**
      * Lista todos os veiculos do tenant
      *
@@ -194,6 +208,60 @@ class Veiculo extends Model
             ->table('veiculos', 'v')
             ->whereNotIn('v.disponibilidade', self::DISPONIBILIDADE_INATIVA)
             ->count();
+    }
+
+    /**
+     * Retorna o resumo de disponibilidades de veiculos para integracoes publicas.
+     *
+     * Este metodo recebe a chave explicitamente porque webhooks publicos nao
+     * dependem da sessao do tenant.
+     *
+     * @param string $chave Chave do tenant
+     * @return array Totais por disponibilidade
+     */
+    public function resumoDisponibilidadeParaWhmcs(string $chave): array
+    {
+        $counts = array_fill_keys(array_keys(self::DISPONIBILIDADE_WHMCS), 0);
+        $somaTotal = 0;
+
+        $stmt = $this->getMysqli()->prepare(
+            'SELECT disponibilidade, COUNT(*) AS total
+             FROM veiculos
+             WHERE chave = ?
+             GROUP BY disponibilidade'
+        );
+
+        if (!$stmt) {
+            throw new \RuntimeException('Erro ao preparar consulta de disponibilidade de veiculos');
+        }
+
+        $stmt->bind_param('s', $chave);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $codigo = (string) ($row['disponibilidade'] ?? '');
+            $total = (int) ($row['total'] ?? 0);
+            $somaTotal += $total;
+
+            if (array_key_exists($codigo, $counts)) {
+                $counts[$codigo] = $total;
+            }
+        }
+
+        $stmt->close();
+
+        $resumo = [];
+        foreach (self::DISPONIBILIDADE_WHMCS as $codigo => $campo) {
+            $resumo[$campo] = $counts[$codigo];
+        }
+
+        $resumo['somaTotal'] = $somaTotal;
+        $resumo['emAtividade'] = $somaTotal - (
+            $counts['V'] + $counts['E'] + $counts['RO']
+        );
+
+        return $resumo;
     }
 
     /**

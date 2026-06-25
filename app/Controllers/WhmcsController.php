@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Core\Request;
 use App\Core\Response;
 use App\Config\Planos;
+use App\Models\Veiculo;
 use App\Services\TenantProvisioningService;
 
 /**
@@ -186,6 +187,32 @@ class WhmcsController
         } catch (\Exception $e) {
             error_log('[WHMCS] Erro ao terminar tenant: ' . $e->getMessage());
             Response::error('Erro interno ao terminar tenant', null, 500);
+        }
+    }
+
+    /**
+     * Retorna totais de veiculos por disponibilidade para o WHMCS
+     *
+     * POST /webhook/whmcs/veiculos-disponibilidade
+     */
+    public function veiculosDisponibilidade(Request $request): void
+    {
+        $chave = trim((string) $request->input('chave', ''));
+
+        if ($chave === '') {
+            Response::error('Campo obrigatório ausente: chave', ['chave'], 400);
+            return;
+        }
+
+        try {
+            Response::json([
+                'success' => true,
+                'chave' => $chave,
+                'data' => (new Veiculo())->resumoDisponibilidadeParaWhmcs($chave),
+            ]);
+        } catch (\Exception $e) {
+            error_log('[WHMCS] Erro ao consultar disponibilidade de veiculos: ' . $e->getMessage());
+            Response::error('Erro interno ao consultar disponibilidade de veiculos', null, 500);
         }
     }
 

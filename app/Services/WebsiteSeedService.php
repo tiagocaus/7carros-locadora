@@ -15,9 +15,9 @@ use App\Models\SiteSeo;
  * Idempotente: só insere se a tabela do tenant estiver vazia. Nunca sobrescreve
  * edições feitas pelo cliente. Lê os arrays de /storage/templates/website/seed/.
  *
- * Imagens padrão (logo + banners): ficam em /storage/templates/website/defaults/
- * e são COPIADAS no momento da ativação para storage/uploads/{chave}/ com sufixo
- * de timestamp único. Apenas o nome do arquivo gerado é salvo no BD.
+ * Imagens padrão de banners ficam em /storage/templates/website/defaults/ e são
+ * copiadas no momento da ativação para storage/uploads/{chave}/ com sufixo único.
+ * A logo padrão é asset fixo do sistema e só vira upload quando o cliente envia uma.
  */
 class WebsiteSeedService
 {
@@ -115,18 +115,12 @@ class WebsiteSeedService
     {
         $model = new SiteAparencia();
         $existing = $model->buscarPorChave();
-        if ($existing && !empty($existing['logo'])) {
-            return 0;
-        }
-
-        $logoName = $this->copyDefaultAsset('logo.webp', $chave, 'logo_' . $this->suffix, 'site');
-        if (!$logoName) {
+        if ($existing) {
             return 0;
         }
 
         $model->criarOuAtualizar([
             'preset_cor'        => 'azul',
-            'logo'              => $logoName,
             'logo_fundo_branco' => 1,
             'logo_alinhamento'  => 'centro',
             'fonte_primaria'    => 'Titillium Web',

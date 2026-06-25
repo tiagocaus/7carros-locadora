@@ -465,7 +465,12 @@ class WebsiteController
         try {
             $idioma = $request->query('idioma');
             $model = new SiteBanner();
-            Response::json(['success' => true, 'data' => $model->listar($idioma)]);
+            $banners = $model->listar($idioma);
+            foreach ($banners as &$banner) {
+                $banner['foto_url'] = FileHelper::url($banner['foto'] ?? null);
+            }
+
+            Response::json(['success' => true, 'data' => $banners]);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }
@@ -877,13 +882,18 @@ class WebsiteController
                 'diretorio' => $request->query('ftp_diretorio', '/public_html'),
             ];
 
-            if (empty($chave) || empty($secret) || empty($ftpData['host']) || empty($ftpData['usuario']) || empty($ftpData['senha'])) {
+            if (empty($chave) || empty($secret)) {
                 Response::json(['success' => false, 'message' => 'Parâmetros incompletos'], 400);
                 return;
             }
 
             $service = new WebsiteService();
             $result = $service->processarCallbackWhmcs($chave, $secret, $ftpData);
+
+            if (!empty($result['redirect']) && !empty($result['redirect_url'])) {
+                Response::redirect($result['redirect_url']);
+                return;
+            }
 
             $statusCode = $result['success'] ? 200 : 401;
             Response::json($result, $statusCode);

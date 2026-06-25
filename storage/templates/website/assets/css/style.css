@@ -681,17 +681,24 @@ ul.contato-detalhes {
     padding-left: 0;
 }
 ul.contato-detalhes li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
     margin: 16px 0;
     line-height: 1.6;
 }
 ul.contato-detalhes li i {
+    flex: 0 0 24px;
     width: 24px;
     text-align: center;
     color: var(--cor-5);
-    margin-right: 8px;
+    margin-right: 0;
+    padding-top: 3px;
 }
 ul.contato-detalhes span {
-    display: inline-flex;
+    display: block;
+    flex: 1;
+    min-width: 0;
 }
 
 /* ---- CORES ---- */

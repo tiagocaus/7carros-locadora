@@ -87,7 +87,8 @@ inativo → pendente → ativo ↔ suspenso
    ├─ Parâmetros: chave, dados criptografados, secret
    ├─ Sistema valida TENANT_ONBOARD_SECRET
    ├─ Descriptografa e salva credenciais FTP (encrypt)
-   └─ Muda status para "ativo"
+   ├─ Muda status para "ativo"
+   └─ Executa deploy inicial para o FTP informado
 ```
 
 ### Verificação de Domínio (DNS)
@@ -131,6 +132,7 @@ GET /api/webhook/whmcs/site-ativacao
 - Converte para base64 para transporte seguro via GET
 - O sistema valida o `secret` e descriptografa os dados
 - As credenciais FTP são re-criptografadas com `encrypt()` (APP_KEY) antes de salvar no BD
+- Chamadas repetidas após deploy bem-sucedido não atualizam credenciais nem executam novo deploy; apenas redirecionam para o domínio do site
 - Rate limit: 10 requisições por minuto por IP
 - Log de todas as chamadas para auditoria
 
@@ -220,7 +222,7 @@ CREATE TABLE site_aparencia (
     css_customizado_backup      TEXT NULL COMMENT 'Snapshot para undo',
     fonte_primaria              VARCHAR(100) DEFAULT 'Titillium Web',
     fonte_url                   VARCHAR(500) NULL COMMENT 'URL Google Fonts',
-    logo                        VARCHAR(255) NULL COMMENT 'Path do logo do SITE (uploads/{chave}/site/). Independente do logo do cadastro da empresa',
+    logo                        VARCHAR(255) NULL COMMENT 'Arquivo de logo do SITE em storage/uploads/{chave}; NULL usa logo_padrao.png',
     logo_fundo_branco           TINYINT(1) DEFAULT 1 COMMENT 'Fundo branco no container do logo (navbar-brand)',
     logo_alinhamento            ENUM('esquerda','centro') DEFAULT 'centro' COMMENT 'Alinhamento do logo na navbar',
     favicon                     VARCHAR(255) NULL COMMENT 'Path do favicon',
@@ -1041,9 +1043,10 @@ preset base → merge cores_customizadas → :root final
 **Upload:**
 - Campo exclusivo na tela de Aparência para upload do logo do site
 - Aceita apenas imagens: `jpg`, `jpeg`, `png`, `gif`, `svg`, `webp`
-- Salvo em `uploads/{chave}/site/` (diretório separado para assets do site)
+- Salvo em `storage/uploads/{chave}/`
 - Processado via `ImageHelper` — convertido para WebP se aplicável
 - Coluna: `site_aparencia.logo`
+- Se `site_aparencia.logo` estiver vazio, o build usa `public/assets/img/logo_padrao.png`
 
 **Opções de customização da navbar:**
 
@@ -2083,9 +2086,9 @@ Justificativa: o pacote é leve (~20 arquivos PHP + CSS + JS + assets). Upload c
 ```
 
 **O que NÃO vai para o FTP (servido do sistema principal):**
-- Banners → `locadora.7carros.com/uploads/{chave}/`
-- Logo → `locadora.7carros.com/uploads/{chave}/site/`
-- Imagens de veículos → `locadora.7carros.com/uploads/{chave}/`
+- Banners → `locadora.7carros.com/files/{token}`
+- Logo/favicon enviados pelo cliente → `locadora.7carros.com/files/{token}` em APIs runtime
+- Imagens de veículos → `locadora.7carros.com/files/{token}`
 - Dados dinâmicos → vêm da API em runtime
 
 **O que VAI para o FTP:**
@@ -2094,6 +2097,7 @@ Justificativa: o pacote é leve (~20 arquivos PHP + CSS + JS + assets). Upload c
 - CSS compilado e minificado (cores aplicadas)
 - JS minificado
 - Imagens estáticas do CSS (bg.png, marcador.png, etc.)
+- Logo padrão (`assets/img/logo_padrao.png`) quando o tenant ainda não enviou logo
 - Arquivos de idioma (apenas os ativos)
 - sitemap.xml, robots.txt, versao.json
 - Diretório cache/ vazio com .htaccess

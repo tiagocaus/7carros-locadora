@@ -72,6 +72,10 @@ class PublicWebsiteController
                 $cidade       = trim($f['cidade'] ?? '');
                 $nomeFantasia = trim($f['nome_fantasia'] ?? $f['razao_social'] ?? '');
                 $cidadeOuNome = $cidade !== '' ? $cidade : $nomeFantasia;
+                $telefone     = trim($this->qbPrimeiroContato('matriz_filial', (int) $f['id'], 'telefones', 'telefone'));
+                if ($telefone === '') {
+                    $telefone = trim($f['celular'] ?? '');
+                }
 
                 // Pula filiais sem dados uteis pra exibir no select
                 if ($estado === '' && $cidadeOuNome === '') {
@@ -87,6 +91,8 @@ class PublicWebsiteController
                     'estado'            => $estado,
                     'label'             => $label,
                     'email'             => $f['email'] ?? '',
+                    'telefone'          => $telefone,
+                    'celular'           => $f['celular'] ?? '',
                     'currency_code'     => $f['currency_code'] ?? 'BRL',
                     'locale'            => $f['locale'] ?? 'pt_BR',
                     'simbolo_moeda'     => $c[0],
@@ -117,7 +123,7 @@ class PublicWebsiteController
                     'id'        => $g['id'],
                     'nome'      => $g['nome'] ?? '',
                     'descricao' => $g['descricao'] ?? '',
-                    'foto_url'  => !empty($g['imagem']) ? $appUrl . '/uploads/' . $chave . '/' . $g['imagem'] : null,
+                    'foto_url'  => $this->publicFileUrl($g['imagem'] ?? null, $chave, $appUrl),
                     'diaria'    => isset($g['valor_diaria']) ? (float) $g['valor_diaria'] : null,
                 ];
             }
@@ -275,9 +281,7 @@ class PublicWebsiteController
             $bannerModel = new SiteBanner();
             $banners = $bannerModel->listarAtivos($idioma);
             foreach ($banners as &$b) {
-                if (!empty($b['foto'])) {
-                    $b['foto_url'] = $appUrl . '/uploads/' . $chave . '/' . $b['foto'];
-                }
+                $b['foto_url'] = $this->publicFileUrl($b['foto'] ?? null, $chave, $appUrl);
             }
 
             // Links ativos
@@ -322,12 +326,8 @@ class PublicWebsiteController
             $aparencia = (new \App\Models\SiteAparencia())->buscarPorChave() ?? [];
             $this->restoreTenantContext();
 
-            $logoUrl = !empty($aparencia['logo'])
-                ? $appUrl . '/uploads/' . $chave . '/' . $aparencia['logo']
-                : '';
-            $faviconUrl = !empty($aparencia['favicon'])
-                ? $appUrl . '/uploads/' . $chave . '/' . $aparencia['favicon']
-                : '';
+            $logoUrl = $this->publicFileUrl($aparencia['logo'] ?? null, $chave, $appUrl) ?? '';
+            $faviconUrl = $this->publicFileUrl($aparencia['favicon'] ?? null, $chave, $appUrl) ?? '';
 
             header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
             header('Pragma: no-cache');
@@ -1204,6 +1204,16 @@ HTML;
             unset($_SESSION['chave']);
         }
         $this->previousChave = null;
+    }
+
+    private function publicFileUrl(?string $filename, string $chave, string $appUrl): ?string
+    {
+        if (empty($filename) || !FileHelper::exists($filename, $chave)) {
+            return null;
+        }
+
+        $path = FileHelper::url($filename, $chave);
+        return $path !== '' ? rtrim($appUrl, '/') . $path : null;
     }
 
     /**
