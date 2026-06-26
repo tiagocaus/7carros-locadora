@@ -70,6 +70,10 @@ if (file_exists(__DIR__ . '/config/database.php')) {
     require_once __DIR__ . '/config/database.php';
 }
 
+// Padroniza o relogio dos jobs com o mesmo timezone configurado para a aplicacao web.
+$appTimezone = \App\Core\Database::env('APP_TIMEZONE', 'America/Sao_Paulo');
+date_default_timezone_set($appTimezone);
+
 // Ensure we're running from CLI
 if (php_sapi_name() !== 'cli') {
     echo "This script can only be run from the command line.\n";
@@ -165,9 +169,9 @@ try {
               ->everyFiveMinutes();
 
     // Financeiro - Juros e Multa de Lancamentos Vencidos
-    // Executa a cada 15 minutos para recalcular encargos conforme a forma de pagamento
+    // Executa diariamente as 00:15 para recalcular encargos conforme a forma de pagamento
     $scheduler->job(new \App\Crons\Jobs\CalculateOverdueFeesJob())
-              ->everyFifteenMinutes();
+              ->dailyAt('00:15');
 
     // Rotacao de Authorization Holds (Bloqueio)
     // Executa diariamente as 03:00 - rotaciona holds que expiram em 2 dias e marca expirados

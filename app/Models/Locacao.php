@@ -59,6 +59,7 @@ class Locacao extends Model
                 'l.*',
                 'cl.nome_rsocial AS cliente_nome_completo',
                 'cl.cpf_cnpj AS cliente_cpf_cnpj',
+                'cl.preferred_locale AS cliente_preferred_locale',
                 'cl.cep AS cliente_cep',
                 'cl.rua AS cliente_rua',
                 'cl.numero AS cliente_numero',

@@ -207,6 +207,19 @@ UI: Usuário clica "Cancelar" → POST /comissoes-investidores/{id}/cancelar
   → Log de auditoria com motivo
 ```
 
+### Relatório Fornecedor Investidor
+
+O relatório `/pages/relatorios/fornecedores/investidor` mostra resumo por investidor e detalhamento por veículo.
+
+- A configuração em `grupos.comissao_investidor_tipo` e `grupos.comissao_investidor_valor` define a regra de comissão, mas não cria valores retroativos por si só.
+- Receita gerada, comissão devida, comissão paga e saldo são calculados a partir dos registros em `comissoes_investidores` no período filtrado.
+- O detalhamento por veículo deve indicar quando não existe comissão gerada: grupo sem comissão, sem fatura paga no período ou comissão mensal ainda não gerada.
+- Comissões já geradas continuam aparecendo nos valores financeiros do período mesmo se o veículo estiver inativo no cadastro atual; esses veículos aparecem como histórico/inativo no detalhe e não entram na contagem operacional.
+- Veículos com disponibilidade inativa (`V`, `RO`, `E`) não entram na contagem operacional do relatório.
+- O filtro "Fornecedor investidor" usa `/api/fornecedores/investidores/select` e restringe o relatório ao fornecedor selecionado.
+- O filtro de filial restringe veículos e comissões pela filial do veículo, além do controle de acesso multi-filial do usuário.
+- O filtro visual "Modelo" define a apresentação: `Detalhado` é o padrão e mostra os veículos de cada fornecedor logo abaixo; `Agrupado` mostra somente fornecedores. Esse filtro não altera totais.
+
 ## Permissões
 
 | Permissão | Descrição |

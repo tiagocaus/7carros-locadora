@@ -304,13 +304,13 @@ class FornecedoresController
      * Lista investidores para select
      *
      * GET /api/fornecedores/investidores/select
-     * Query params: search
+     * Query params: search ou q
      */
     public function investidoresSelect(Request $request): void
     {
         try {
             $chave = Auth::chave();
-            $search = $request->query('search', '');
+            $search = $request->query('search', $request->query('q', ''));
 
             $model = new Fornecedor();
             $investidores = $model->listarInvestidoresSelect($chave, $search);

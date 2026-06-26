@@ -512,7 +512,7 @@ Links publicos de pagamento usam `financeiro.data_venci` como fonte de verdade p
 
 ### Juros e multa de parcelas vencidas
 
-O cron `CalculateOverdueFeesJob` recalcula automaticamente `juros`, `multa` e `valor_total` de receitas pendentes vencidas. A fonte da regra eh a forma de pagamento vinculada ao lancamento (`financeiro.id_forma_pagamento`): `formas_pagamento.multa` define o percentual unico de multa e `formas_pagamento.juros_por_dia` define o percentual diario de juros.
+O cron `CalculateOverdueFeesJob` recalcula automaticamente, uma vez ao dia, `juros`, `multa` e `valor_total` de receitas pendentes vencidas. A fonte da regra eh a forma de pagamento vinculada ao lancamento (`financeiro.id_forma_pagamento`): `formas_pagamento.multa` define o percentual unico de multa e `formas_pagamento.juros_por_dia` define o percentual diario de juros.
 
 ### Estrutura de Dados
 

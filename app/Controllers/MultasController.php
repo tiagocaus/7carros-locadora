@@ -199,7 +199,7 @@ class MultasController
 
             // Processar upload de foto
             if (!empty($dados['foto_base64'])) {
-                $filename = FileHelper::save($dados['foto_base64'], 'multa');
+                $filename = $this->salvarArquivoMulta($dados['foto_base64']);
                 if ($filename) {
                     $dados['foto'] = $filename;
                 }
@@ -217,6 +217,11 @@ class MultasController
                 'message' => 'Multa registrada com sucesso',
                 'data' => ['id' => $id]
             ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
         } catch (\Exception $e) {
             $this->responderErroOperacaoMulta($e, 'registrar');
         }
@@ -275,7 +280,7 @@ class MultasController
                 if (!empty($multa['foto'])) {
                     FileHelper::delete($multa['foto'], $chave);
                 }
-                $filename = FileHelper::save($dados['foto_base64'], 'multa');
+                $filename = $this->salvarArquivoMulta($dados['foto_base64']);
                 if ($filename) {
                     $dados['foto'] = $filename;
                 }
@@ -324,6 +329,55 @@ class MultasController
             'success' => false,
             'message' => $mensagem
         ], 500);
+    }
+
+    /**
+     * Salva o anexo da multa aceitando apenas imagens ou PDF.
+     */
+    private function salvarArquivoMulta(string $base64): ?string
+    {
+        if (!$this->isArquivoMultaPermitido($base64)) {
+            throw new \InvalidArgumentException(t('modules.multas.messages.invalid_file_type'));
+        }
+
+        $filename = FileHelper::save($base64, 'multa');
+        if (!$filename) {
+            throw new \InvalidArgumentException(t('modules.multas.messages.invalid_file_type'));
+        }
+
+        return $filename;
+    }
+
+    private function isArquivoMultaPermitido(string $base64): bool
+    {
+        $mime = $this->detectarMimeArquivoBase64($base64);
+        return $mime === 'application/pdf' || str_starts_with($mime, 'image/');
+    }
+
+    private function detectarMimeArquivoBase64(string $base64): string
+    {
+        if (preg_match('/^data:([^;]+);base64,/i', $base64, $matches)) {
+            $mime = strtolower($matches[1]);
+            if ($mime !== 'application/octet-stream') {
+                return $mime;
+            }
+        }
+
+        $payload = preg_replace('/^data:[a-z0-9\/+\-]+;base64,/i', '', $base64);
+        $bytes = base64_decode(substr($payload, 0, 2048), true);
+        if ($bytes === false) {
+            return '';
+        }
+
+        return match (true) {
+            str_starts_with($bytes, '%PDF') => 'application/pdf',
+            str_starts_with($bytes, "\xFF\xD8\xFF") => 'image/jpeg',
+            str_starts_with($bytes, "\x89PNG") => 'image/png',
+            str_starts_with($bytes, 'GIF87a'), str_starts_with($bytes, 'GIF89a') => 'image/gif',
+            substr($bytes, 0, 4) === 'RIFF' && substr($bytes, 8, 4) === 'WEBP' => 'image/webp',
+            str_contains(ltrim($bytes), '<svg') => 'image/svg+xml',
+            default => '',
+        };
     }
 
     private function normalizarPagadorMulta(?string $pagador): string

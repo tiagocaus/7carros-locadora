@@ -5,9 +5,15 @@
  * Variáveis esperadas (definidas na view pai):
  * - $showGrupoFilter (bool, opcional) - Mostrar filtro de grupo de veículos
  * - $filialChosenServerSide (bool, opcional) - Usar chosen-select server-side no filtro de filial
+ * - $extraFiltersAfterFilial (string, opcional) - HTML de filtros extras após filial
+ * - $extraFiltersAfterFilialView (string, opcional) - Partial de filtros extras após filial
+ * - $extraFiltersAfterFilialData (array, opcional) - Dados do partial extra
  */
 $showGrupoFilter = $showGrupoFilter ?? false;
 $filialChosenServerSide = $filialChosenServerSide ?? true;
+$extraFiltersAfterFilial = $extraFiltersAfterFilial ?? '';
+$extraFiltersAfterFilialView = $extraFiltersAfterFilialView ?? '';
+$extraFiltersAfterFilialData = $extraFiltersAfterFilialData ?? [];
 ?>
 <div class="flex flex-wrap gap-3 mb-4 p-3 bg-slate-50 rounded-lg items-end">
     <div class="flex-1 min-w-[150px] max-w-[200px]">
@@ -26,6 +32,11 @@ $filialChosenServerSide = $filialChosenServerSide ?? true;
             <option value=""><?= t('modules.relatorios.common.all_branches') ?></option>
         </select>
     </div>
+    <?php if (!empty($extraFiltersAfterFilialView)): ?>
+        <?= \App\Views\Template::includePartial($extraFiltersAfterFilialView, $extraFiltersAfterFilialData) ?>
+    <?php else: ?>
+        <?= $extraFiltersAfterFilial ?>
+    <?php endif; ?>
     <?php if ($showGrupoFilter): ?>
     <div class="flex-1 min-w-[180px] max-w-[250px]">
         <label for="filterGrupo" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.common.vehicle_group') ?></label>

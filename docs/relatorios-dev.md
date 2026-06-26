@@ -203,7 +203,7 @@ O erro mais comum em relatorios e o desalinhamento entre as chaves que o Model r
 
 | Partial | Props | Funcao |
 |---------|-------|--------|
-| `filters.php` | `showGrupoFilter` (bool) | Barra de filtros |
+| `filters.php` | `showGrupoFilter` (bool), `extraFiltersAfterFilial` (HTML opcional), `extraFiltersAfterFilialView` (partial opcional) | Barra de filtros |
 | `totalizadores.php` | — | Container `#reportTotals` |
 | `export-buttons.php` | — | Botao PDF `#btnExportPdf` |
 | `pagination.php` | — | Paginacao `#reportPagination` |

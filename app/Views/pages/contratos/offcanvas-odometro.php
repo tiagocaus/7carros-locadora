@@ -5,6 +5,7 @@
 @section('content')
 <?php
 $fmtKm = static fn($valor): string => number_format((int) ($valor ?? 0), 0, '', '.') . ' km';
+$fmtMediaKm = static fn($valor, string $sufixo): string => number_format((float) ($valor ?? 0), 1, ',', '.') . ' km/' . $sufixo;
 $fmtData = static function (?string $data): string {
     if (empty($data)) {
         return '-';
@@ -61,6 +62,7 @@ $singleMode = count($veiculos) === 1;
                 $kmFranquia = (int) ($veiculo['km_franquia'] ?? 0);
                 $valorKm = (float) ($veiculo['valor_km_excedente'] ?? 0);
                 $kmExcedente = $plano === 'KMC' ? max(0, $kmRodado - $kmFranquia) : 0;
+                $diasUso = max(1, (int) ($veiculo['dias_uso'] ?? 1));
                 ?>
                 <div
                     class="odometer-card <?= $singleMode ? 'single is-open' : '' ?> rounded-lg border border-slate-200 bg-white p-3"
@@ -70,6 +72,7 @@ $singleMode = count($veiculos) === 1;
                     data-plano="<?= htmlspecialchars($plano) ?>"
                     data-km-franquia="<?= $kmFranquia ?>"
                     data-valor-km="<?= $valorKm ?>"
+                    data-dias-uso="<?= $diasUso ?>"
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div>
@@ -115,6 +118,18 @@ $singleMode = count($veiculos) === 1;
                             <div class="flex justify-between">
                                 <span>Km rodado atual</span>
                                 <strong class="km-rodado-label"><?= $fmtKm($kmRodado) ?></strong>
+                            </div>
+                            <div class="mt-1 flex justify-between">
+                                <span>Média por dia</span>
+                                <strong class="media-dia-label"><?= $fmtMediaKm($veiculo['media_km_dia'] ?? 0, 'd') ?></strong>
+                            </div>
+                            <div class="mt-1 flex justify-between">
+                                <span>Média por semana</span>
+                                <strong class="media-semana-label"><?= $fmtMediaKm($veiculo['media_km_semana'] ?? 0, 's') ?></strong>
+                            </div>
+                            <div class="mt-1 flex justify-between">
+                                <span>Média por mês</span>
+                                <strong class="media-mes-label"><?= $fmtMediaKm($veiculo['media_km_mes'] ?? 0, 'm') ?></strong>
                             </div>
                             <?php if ($plano === 'KMC'): ?>
                                 <div class="mt-1 flex justify-between">
@@ -162,6 +177,14 @@ $singleMode = count($veiculos) === 1;
             return `${Km.format(value)} km`;
         }
 
+        function formatAverageKm(value, suffix) {
+            const number = Number(value) || 0;
+            return `${number.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1
+            })} km/${suffix}`;
+        }
+
         function updateCalculation(card) {
             const input = card.querySelector('.odometro-input');
             const odometroDigitado = Km.parse(input.value || '0');
@@ -173,8 +196,13 @@ $singleMode = count($veiculos) === 1;
             const kmFranquia = parseInt(card.dataset.kmFranquia || '0', 10) || 0;
             const valorKm = parseFloat(card.dataset.valorKm || '0') || 0;
             const kmExcedente = plano === 'KMC' ? Math.max(0, kmRodado - kmFranquia) : 0;
+            const diasUso = Math.max(1, parseInt(card.dataset.diasUso || '1', 10) || 1);
+            const mediaDia = kmRodado / diasUso;
 
             card.querySelector('.km-rodado-label').textContent = formatKm(kmRodado);
+            card.querySelector('.media-dia-label').textContent = formatAverageKm(mediaDia, 'd');
+            card.querySelector('.media-semana-label').textContent = formatAverageKm(mediaDia * 7, 's');
+            card.querySelector('.media-mes-label').textContent = formatAverageKm(mediaDia * 30, 'm');
             const excedenteLabel = card.querySelector('.km-excedente-label');
             const valorLabel = card.querySelector('.valor-excedente-label');
             if (excedenteLabel) excedenteLabel.textContent = formatKm(kmExcedente);

@@ -243,6 +243,22 @@ $map = [
     'Vencimento' => 'Scadenza',
     'Vencida' => 'Scaduta',
     'Vencidas' => 'Scadute',
+    'Fornecedor investidor' => 'Fornitore investitore',
+    'Todos os investidores' => 'Tutti gli investitori',
+    'Modelo' => 'Modello',
+    'Agrupado' => 'Raggruppato',
+    'Detalhado' => 'Dettagliato',
+    'Comissão Devida' => 'Commissione Dovuta',
+    'Comissão Paga' => 'Commissione Pagata',
+    'Nenhum veículo encontrado para este investidor nos filtros aplicados.' => 'Nessun veicolo trovato per questo investitore con i filtri applicati.',
+    'Este relatório considera comissões geradas. Configurar comissão no grupo passa a valer para próximas baixas ou gerações mensais, salvo retroprocessamento.' => 'Questo report considera le commissioni generate. La configurazione della commissione nel gruppo vale per i prossimi pagamenti o generazioni mensili, salvo rielaborazione retroattiva.',
+    'Detalhamento por veículo' => 'Dettaglio per veicolo',
+    'Comissão gerada' => 'Commissione generata',
+    'Sem fatura paga no período' => 'Nessuna fattura pagata nel periodo',
+    'Grupo sem comissão' => 'Gruppo senza commissione',
+    'Comissão mensal ainda não gerada' => 'Commissione mensile non ancora generata',
+    'Veículo inativo com comissão no período' => 'Veicolo inattivo con commissione nel periodo',
+    'Sem diagnóstico' => 'Nessuna diagnosi',
 ];
 
 uksort($map, static fn($a, $b) => strlen($b) <=> strlen($a));

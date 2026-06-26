@@ -518,21 +518,42 @@ class MatrizFilial extends Model
      */
     public function buscarDadosEmpresaPorChave(string $chave): ?array
     {
-        return $this->qb
+        $empresa = $this->qb
             ->table('matrizes_filiais')
             ->select([
+                'id',
                 'nome_fantasia',
                 'razao_social',
                 'cpf_cnpj',
                 'celular',
                 'email',
                 'cidade',
-                'estado'
+                'estado',
+                'locale',
+                'currency_code',
+                'date_format',
+                'datetime_format'
             ])
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('tipo', '=', 'M')
             ->first();
+
+        if (!$empresa) {
+            return null;
+        }
+
+        $telefone = $this->qb
+            ->table('contatos_telefones')
+            ->select(['telefone'])
+            ->withChave($chave)
+            ->where('entidade_tipo', '=', 'matriz_filial')
+            ->where('entidade_id', '=', (int) $empresa['id'])
+            ->where('principal', '=', 'S')
+            ->first();
+
+        $empresa['telefone'] = $telefone['telefone'] ?? $empresa['celular'] ?? '';
+
+        return $empresa;
     }
 
     /**

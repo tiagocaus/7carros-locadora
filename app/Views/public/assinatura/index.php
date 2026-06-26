@@ -1,25 +1,50 @@
 <?php
+$tipoPadrao = 'contrato';
 $documento = $documento ?? [
-    'tipo' => 'contrato',
-    'tipo_label' => 'Contrato',
+    'tipo' => $tipoPadrao,
+    'tipo_label' => t('modules.assinatura.types.' . $tipoPadrao . '.label'),
+    'tipo_lower' => t('modules.assinatura.types.' . $tipoPadrao . '.lower'),
+    'tipo_preposicao' => t('modules.assinatura.types.' . $tipoPadrao . '.summary_preposition'),
+    'tipo_demonstrativo' => t('modules.assinatura.types.' . $tipoPadrao . '.demonstrative'),
     'codigo' => $contrato['codigo'] ?? '',
-    'cliente_nome' => $contrato['cliente_nome'] ?? 'N/A',
-    'cliente_documento' => $contrato['cliente_cpf_cnpj'] ?? 'N/A',
+    'cliente_nome' => $contrato['cliente_nome'] ?? t('modules.assinatura.labels.not_available'),
+    'cliente_documento' => $contrato['cliente_cpf_cnpj'] ?? t('modules.assinatura.labels.not_available'),
     'veiculo_texto' => !empty($veiculo) ? trim(($veiculo['veiculo_placa'] ?? '') . ' - ' . ($veiculo['veiculo_modelo'] ?? '')) : '',
-    'periodo' => (!empty($contrato['data_ini']) ? date('d/m/Y', strtotime($contrato['data_ini'])) : '-') . ' a ' . (!empty($contrato['data_fim']) ? date('d/m/Y', strtotime($contrato['data_fim'])) : '-'),
+    'periodo' => '-',
     'valor_total' => (float) ($contrato['total_pagar'] ?? 0),
+    'valor_total_formatado' => currency_format((float) ($contrato['total_pagar'] ?? 0)),
 ];
-$tipoLabel = $documento['tipo_label'] ?? 'Contrato';
-$tipoLower = strtolower($tipoLabel);
-$tipoArtigo = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'a' : 'o';
-$tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do';
+$tipoLabel = $documento['tipo_label'] ?? t('modules.assinatura.types.contrato.label');
+$tipoLower = $documento['tipo_lower'] ?? t('modules.assinatura.types.contrato.lower');
+$tipoPreposicao = $documento['tipo_preposicao'] ?? t('modules.assinatura.types.contrato.summary_preposition');
+$tipoDemonstrativo = $documento['tipo_demonstrativo'] ?? t('modules.assinatura.types.contrato.demonstrative');
+$localeInfo = locale_info() ?? ['code' => 'pt-BR'];
+$signatureI18n = [
+    'locationUnsupported' => t('modules.assinatura.location.unsupported'),
+    'locationDefaultText' => t('modules.assinatura.location.prompt_text'),
+    'locationHttpsText' => t('modules.assinatura.location.https_required_text'),
+    'locationHttpsHint' => t('modules.assinatura.location.https_required_hint'),
+    'locationIframeHint' => t('modules.assinatura.location.iframe_hint'),
+    'locationUnavailable' => t('modules.assinatura.location.unavailable'),
+    'locationTimeout' => t('modules.assinatura.location.timeout'),
+    'allowLocation' => t('modules.assinatura.buttons.allow_location'),
+    'gettingLocation' => t('modules.assinatura.buttons.getting_location'),
+    'requiresHttps' => t('modules.assinatura.buttons.requires_https'),
+    'drawRequired' => t('modules.assinatura.js.draw_required'),
+    'confirmMessage' => t('modules.assinatura.modals.confirm_message', ['document' => $tipoDemonstrativo]),
+    'processingSignature' => t('modules.assinatura.loading.processing_signature'),
+    'processError' => t('modules.assinatura.js.process_error'),
+    'connectionError' => t('modules.assinatura.js.connection_error'),
+    'dateLabel' => t('modules.assinatura.labels.date'),
+    'ipLabel' => t('modules.assinatura.labels.ip'),
+];
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="<?= htmlspecialchars($localeInfo['code'] ?? 'pt-BR') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Assinatura de <?= htmlspecialchars($tipoLabel) ?> - <?= htmlspecialchars($documento['codigo']) ?></title>
+    <title><?= htmlspecialchars(t('modules.assinatura.page_title', ['type' => $tipoLabel, 'code' => $documento['codigo']])) ?></title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -158,7 +183,7 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
             <div class="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full shadow-lg mb-4">
                 <i class="fas fa-file-signature text-3xl text-purple-600"></i>
             </div>
-            <h1 class="text-2xl font-bold text-white mb-2">Assinatura Digital</h1>
+            <h1 class="text-2xl font-bold text-white mb-2"><?= htmlspecialchars(t('modules.assinatura.main_title')) ?></h1>
             <p class="text-purple-200"><?= htmlspecialchars($tipoLabel) ?> <?= htmlspecialchars($documento['codigo']) ?></p>
         </div>
 
@@ -170,12 +195,12 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
                     <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4 success-animation">
                         <i class="fas fa-check text-4xl text-green-600"></i>
                     </div>
-                    <h2 class="text-xl font-bold text-gray-900 mb-2"><?= htmlspecialchars($tipoLabel) ?> Assinado</h2>
-                    <p class="text-gray-600 mb-4">Este documento foi assinado digitalmente.</p>
+                    <h2 class="text-xl font-bold text-gray-900 mb-2"><?= htmlspecialchars(t('modules.assinatura.states.signed_title', ['type' => $tipoLabel])) ?></h2>
+                    <p class="text-gray-600 mb-4"><?= htmlspecialchars(t('modules.assinatura.states.signed_text')) ?></p>
 
                     <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
-                        <p><strong>Data:</strong> <?= !empty($assinatura['created_at']) ? date('d/m/Y H:i', strtotime($assinatura['created_at'])) : '-' ?></p>
-                        <p><strong>IP:</strong> <?= htmlspecialchars($assinatura['ip_address'] ?? '-') ?></p>
+                        <p><strong><?= htmlspecialchars(t('modules.assinatura.labels.date')) ?>:</strong> <?= !empty($assinatura['created_at']) ? format_datetime($assinatura['created_at']) : '-' ?></p>
+                        <p><strong><?= htmlspecialchars(t('modules.assinatura.labels.ip')) ?>:</strong> <?= htmlspecialchars($assinatura['ip_address'] ?? '-') ?></p>
                     </div>
                 </div>
             <?php else: ?>
@@ -185,32 +210,32 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
                     <div class="mb-6">
                         <h2 class="text-lg font-semibold text-gray-900 mb-4">
                             <i class="fas fa-info-circle text-purple-600 mr-2"></i>
-                            Resumo <?= htmlspecialchars($tipoPreposicao) ?> <?= htmlspecialchars($tipoLabel) ?>
+                            <?= htmlspecialchars(t('modules.assinatura.states.summary_title', ['preposition' => $tipoPreposicao, 'type' => $tipoLabel])) ?>
                         </h2>
 
                         <div class="bg-gray-50 rounded-lg p-4">
                             <div class="info-item">
-                                <span class="info-label">Cliente</span>
-                                <span class="info-value"><?= htmlspecialchars($documento['cliente_nome'] ?? 'N/A') ?></span>
+                                <span class="info-label"><?= htmlspecialchars(t('modules.assinatura.labels.client')) ?></span>
+                                <span class="info-value"><?= htmlspecialchars($documento['cliente_nome'] ?? t('modules.assinatura.labels.not_available')) ?></span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Documento</span>
-                                <span class="info-value"><?= htmlspecialchars($documento['cliente_documento'] ?? 'N/A') ?></span>
+                                <span class="info-label"><?= htmlspecialchars(t('modules.assinatura.labels.document')) ?></span>
+                                <span class="info-value"><?= htmlspecialchars($documento['cliente_documento'] ?? t('modules.assinatura.labels.not_available')) ?></span>
                             </div>
                             <?php if (!empty($documento['veiculo_texto'])): ?>
                             <div class="info-item">
-                                <span class="info-label">Veiculo</span>
+                                <span class="info-label"><?= htmlspecialchars(t('modules.assinatura.labels.vehicle')) ?></span>
                                 <span class="info-value"><?= htmlspecialchars($documento['veiculo_texto']) ?></span>
                             </div>
                             <?php endif; ?>
                             <div class="info-item">
-                                <span class="info-label">Periodo</span>
+                                <span class="info-label"><?= htmlspecialchars(t('modules.assinatura.labels.period')) ?></span>
                                 <span class="info-value"><?= htmlspecialchars($documento['periodo'] ?? '-') ?></span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Valor Total</span>
+                                <span class="info-label"><?= htmlspecialchars(t('modules.assinatura.labels.total_value')) ?></span>
                                 <span class="info-value text-lg text-purple-600">
-                                    R$ <?= number_format((float) ($documento['valor_total'] ?? 0), 2, ',', '.') ?>
+                                    <?= htmlspecialchars($documento['valor_total_formatado'] ?? currency_format((float) ($documento['valor_total'] ?? 0))) ?>
                                 </span>
                             </div>
                         </div>
@@ -220,10 +245,10 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
                     <div class="mb-6">
                         <h2 class="text-lg font-semibold text-gray-900 mb-4">
                             <i class="fas fa-pen text-purple-600 mr-2"></i>
-                            Sua Assinatura
+                            <?= htmlspecialchars(t('modules.assinatura.states.signature_title')) ?>
                         </h2>
                         <p class="text-sm text-gray-600 mb-4">
-                            Desenhe sua assinatura no campo abaixo usando o dedo ou mouse.
+                            <?= htmlspecialchars(t('modules.assinatura.states.signature_help')) ?>
                         </p>
 
                         <canvas id="signatureCanvas" class="signature-canvas w-full" height="200"></canvas>
@@ -231,21 +256,21 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
                         <div class="flex gap-3 mt-4">
                             <button type="button" id="btnLimpar" class="btn btn-secondary flex-1">
                                 <i class="fas fa-eraser"></i>
-                                Limpar
+                                <?= htmlspecialchars(t('modules.assinatura.buttons.clear')) ?>
                             </button>
                             <button type="button" id="btnAssinar" class="btn btn-primary flex-1" disabled>
                                 <i class="fas fa-check"></i>
-                                Assinar <?= htmlspecialchars($tipoLabel) ?>
+                                <?= htmlspecialchars(t('modules.assinatura.buttons.sign', ['type' => $tipoLabel])) ?>
                             </button>
                         </div>
                     </div>
 
                     <!-- Termos -->
                     <div class="text-xs text-gray-500 text-center">
-                        <p>Ao assinar, declaro que li e concordo com os termos dest<?= htmlspecialchars($tipoArtigo) ?> <?= htmlspecialchars($tipoLower) ?>.</p>
+                        <p><?= htmlspecialchars(t('modules.assinatura.terms.accept', ['document' => $tipoDemonstrativo])) ?></p>
                         <p class="mt-1">
                             <i class="fas fa-shield-alt text-green-500"></i>
-                            Sua assinatura sera armazenada de forma segura.
+                            <?= htmlspecialchars(t('modules.assinatura.terms.secure_storage')) ?>
                         </p>
                     </div>
                 </div>
@@ -255,14 +280,14 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
                     <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4 success-animation">
                         <i class="fas fa-check text-4xl text-green-600"></i>
                     </div>
-                    <h2 class="text-xl font-bold text-gray-900 mb-2"><?= htmlspecialchars($tipoLabel) ?> Assinado!</h2>
-                    <p class="text-gray-600 mb-4">Obrigado! Sua assinatura foi registrada com sucesso.</p>
+                    <h2 class="text-xl font-bold text-gray-900 mb-2"><?= htmlspecialchars(t('modules.assinatura.states.success_title', ['type' => $tipoLabel])) ?></h2>
+                    <p class="text-gray-600 mb-4"><?= htmlspecialchars(t('modules.assinatura.states.success_text')) ?></p>
 
                     <div id="infoAssinatura" class="bg-gray-50 rounded-lg p-4 text-sm text-gray-600 mb-4">
                     </div>
 
                     <p class="text-sm text-gray-500">
-                        Voce pode fechar esta pagina.
+                        <?= htmlspecialchars(t('modules.assinatura.states.close_page')) ?>
                     </p>
                 </div>
             <?php endif; ?>
@@ -272,8 +297,9 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
         <?php if ($empresa): ?>
         <div class="text-center text-purple-200 text-sm">
             <p class="font-medium"><?= htmlspecialchars($empresa['nome_fantasia'] ?? $empresa['razao_social']) ?></p>
-            <?php if (!empty($empresa['telefone'])): ?>
-            <p><i class="fas fa-phone mr-1"></i> <?= htmlspecialchars($empresa['telefone']) ?></p>
+            <?php $telefoneEmpresa = $empresa['telefone'] ?? $empresa['celular'] ?? ''; ?>
+            <?php if (!empty($telefoneEmpresa)): ?>
+            <p><i class="fas fa-phone mr-1"></i> <?= htmlspecialchars($telefoneEmpresa) ?></p>
             <?php endif; ?>
         </div>
         <?php endif; ?>
@@ -283,7 +309,7 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
     <div id="loadingOverlay" class="loading-overlay">
         <div class="bg-white rounded-lg p-8 text-center">
             <div class="spinner mx-auto mb-4"></div>
-            <p id="loadingText" class="text-gray-600">Processando assinatura...</p>
+            <p id="loadingText" class="text-gray-600"><?= htmlspecialchars(t('modules.assinatura.loading.processing_signature')) ?></p>
         </div>
     </div>
 
@@ -293,18 +319,17 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
             <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
                 <i class="fas fa-map-marker-alt text-3xl text-blue-600"></i>
             </div>
-            <h3 class="text-lg font-bold text-gray-900 mb-2">Localizacao Necessaria</h3>
+            <h3 class="text-lg font-bold text-gray-900 mb-2"><?= htmlspecialchars(t('modules.assinatura.location.prompt_title')) ?></h3>
             <p id="locationPromptText" class="text-gray-600 mb-4 text-sm">
-                Para garantir a validade juridica da sua assinatura, precisamos registrar sua localizacao.
-                Este e um requisito obrigatorio.
+                <?= htmlspecialchars(t('modules.assinatura.location.prompt_text')) ?>
             </p>
             <p id="locationPromptHint" class="text-xs text-gray-400 mb-3 hidden"></p>
             <button id="btnPermitirLocalizacao" class="btn btn-primary w-full">
                 <i class="fas fa-location-arrow"></i>
-                Permitir Localizacao
+                <?= htmlspecialchars(t('modules.assinatura.buttons.allow_location')) ?>
             </button>
             <p class="text-xs text-gray-400 mt-3">
-                Sua localizacao sera usada apenas para validar a assinatura.
+                <?= htmlspecialchars(t('modules.assinatura.location.prompt_footer')) ?>
             </p>
         </div>
     </div>
@@ -315,52 +340,52 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
             <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
                 <i class="fas fa-exclamation-triangle text-3xl text-red-600"></i>
             </div>
-            <h3 class="text-lg font-bold text-gray-900 mb-2">Localizacao Bloqueada</h3>
+            <h3 class="text-lg font-bold text-gray-900 mb-2"><?= htmlspecialchars(t('modules.assinatura.location.denied_title')) ?></h3>
             <p class="text-gray-600 mb-4 text-sm">
-                A permissao de localizacao foi negada. Para assinar est<?= htmlspecialchars($tipoArtigo) ?> <?= htmlspecialchars($tipoLower) ?>, voce precisa habilitar manualmente nas configuracoes do navegador (iOS/Android).
+                <?= htmlspecialchars(t('modules.assinatura.location.denied_text', ['document' => $tipoDemonstrativo])) ?>
             </p>
 
             <div class="bg-gray-50 rounded-lg p-4 text-left text-sm mb-4">
-                <p class="font-semibold text-gray-900 mb-2">Como habilitar:</p>
+                <p class="font-semibold text-gray-900 mb-2"><?= htmlspecialchars(t('modules.assinatura.location.how_to_enable')) ?></p>
                 <div id="instructionsChrome" class="hidden">
-                    <p class="text-gray-600"><strong>Chrome:</strong></p>
+                    <p class="text-gray-600"><strong><?= htmlspecialchars(t('modules.assinatura.location.browser_chrome')) ?></strong></p>
                     <ol class="list-decimal list-inside text-gray-500 text-xs ml-2">
-                        <li>Clique no icone de cadeado na barra de endereco</li>
-                        <li>Clique em "Configuracoes do site"</li>
-                        <li>Mude "Localizacao" para "Permitir"</li>
-                        <li>Recarregue a pagina</li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.chrome_steps.step1')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.chrome_steps.step2')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.chrome_steps.step3')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.chrome_steps.step4')) ?></li>
                     </ol>
                 </div>
                 <div id="instructionsSafari" class="hidden">
-                    <p class="text-gray-600"><strong>Safari:</strong></p>
+                    <p class="text-gray-600"><strong><?= htmlspecialchars(t('modules.assinatura.location.browser_safari')) ?></strong></p>
                     <ol class="list-decimal list-inside text-gray-500 text-xs ml-2">
-                        <li>Va em Ajustes > Safari > Localizacao</li>
-                        <li>Selecione "Permitir" ou "Perguntar"</li>
-                        <li>Volte e recarregue a pagina</li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.safari_steps.step1')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.safari_steps.step2')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.safari_steps.step3')) ?></li>
                     </ol>
                 </div>
                 <div id="instructionsFirefox" class="hidden">
-                    <p class="text-gray-600"><strong>Firefox:</strong></p>
+                    <p class="text-gray-600"><strong><?= htmlspecialchars(t('modules.assinatura.location.browser_firefox')) ?></strong></p>
                     <ol class="list-decimal list-inside text-gray-500 text-xs ml-2">
-                        <li>Clique no icone de cadeado na barra de endereco</li>
-                        <li>Clique em "Limpar permissoes"</li>
-                        <li>Recarregue a pagina</li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.firefox_steps.step1')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.firefox_steps.step2')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.firefox_steps.step3')) ?></li>
                     </ol>
                 </div>
                 <div id="instructionsMobile" class="hidden">
-                    <p class="text-gray-600"><strong>Celular:</strong></p>
+                    <p class="text-gray-600"><strong><?= htmlspecialchars(t('modules.assinatura.location.browser_mobile')) ?></strong></p>
                     <ol class="list-decimal list-inside text-gray-500 text-xs ml-2">
-                        <li>Va em Configuracoes do celular</li>
-                        <li>Procure por "Localizacao" ou "Privacidade"</li>
-                        <li>Encontre o navegador e permita acesso</li>
-                        <li>Volte e recarregue a pagina</li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.mobile_steps.step1')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.mobile_steps.step2')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.mobile_steps.step3')) ?></li>
+                        <li><?= htmlspecialchars(t('modules.assinatura.location.mobile_steps.step4')) ?></li>
                     </ol>
                 </div>
             </div>
 
             <button id="btnRecarregarPagina" class="btn btn-primary w-full">
                 <i class="fas fa-sync-alt"></i>
-                Recarregar Pagina
+                <?= htmlspecialchars(t('modules.assinatura.buttons.reload_page')) ?>
             </button>
         </div>
     </div>
@@ -371,7 +396,7 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
             <div class="inline-flex items-center justify-center w-14 h-14 bg-amber-100 rounded-full mb-4">
                 <i class="fas fa-exclamation-circle text-2xl text-amber-600"></i>
             </div>
-            <h3 class="text-lg font-bold text-gray-900 mb-2">Atencao</h3>
+            <h3 class="text-lg font-bold text-gray-900 mb-2"><?= htmlspecialchars(t('modules.assinatura.modals.alert_title')) ?></h3>
             <p id="signatureAlertMessage" class="text-gray-600 mb-5 text-sm"></p>
             <button id="signatureAlertOk" type="button" class="btn btn-primary w-full">
                 OK
@@ -385,14 +410,14 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
             <div class="inline-flex items-center justify-center w-14 h-14 bg-blue-100 rounded-full mb-4">
                 <i class="fas fa-signature text-2xl text-blue-600"></i>
             </div>
-            <h3 class="text-lg font-bold text-gray-900 mb-2">Confirmar Assinatura</h3>
+            <h3 class="text-lg font-bold text-gray-900 mb-2"><?= htmlspecialchars(t('modules.assinatura.modals.confirm_title')) ?></h3>
             <p id="signatureConfirmMessage" class="text-gray-600 mb-5 text-sm"></p>
             <div class="flex gap-3">
                 <button id="signatureConfirmCancel" type="button" class="btn btn-secondary flex-1">
-                    Cancelar
+                    <?= htmlspecialchars(t('modules.assinatura.buttons.cancel')) ?>
                 </button>
                 <button id="signatureConfirmOk" type="button" class="btn btn-primary flex-1">
-                    Confirmar
+                    <?= htmlspecialchars(t('modules.assinatura.buttons.confirm')) ?>
                 </button>
             </div>
         </div>
@@ -400,6 +425,7 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
 
     <script>
     (function() {
+        const signatureI18n = <?= json_encode($signatureI18n, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
         const canvas = document.getElementById('signatureCanvas');
         if (!canvas) return;
 
@@ -516,7 +542,7 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
         function getLocation() {
             return new Promise((resolve, reject) => {
                 if (!navigator.geolocation) {
-                    reject({ code: 0, message: 'Geolocalizacao nao suportada' });
+                    reject({ code: 0, message: signatureI18n.locationUnsupported });
                     return;
                 }
 
@@ -574,7 +600,7 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
         function initLocation() {
             // Verificar se geolocalizacao eh suportada
             if (!navigator.geolocation) {
-                showAlert('Seu navegador nao suporta geolocalizacao. Por favor, use um navegador moderno.');
+                showAlert(signatureI18n.locationUnsupported);
                 return;
             }
 
@@ -586,8 +612,8 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
 
             if (!isSecureContextOk()) {
                 setPromptMessage(
-                    'Para solicitar sua localizacao, este link precisa estar em HTTPS.',
-                    'Acesse a pagina em um HTTPS real para que o aviso nativo do navegador apareca.'
+                    signatureI18n.locationHttpsText,
+                    signatureI18n.locationHttpsHint
                 );
                 lockLocationButtonForHttps();
                 return;
@@ -595,12 +621,12 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
 
             if (isInIframe()) {
                 setPromptMessage(
-                    'Para garantir a validade juridica da sua assinatura, precisamos registrar sua localizacao.',
-                    'Se esta pagina estiver dentro de um iframe, o navegador pode bloquear a localizacao. Abra em uma aba propria.'
+                    signatureI18n.locationDefaultText,
+                    signatureI18n.locationIframeHint
                 );
             } else {
                 setPromptMessage(
-                    'Para garantir a validade juridica da sua assinatura, precisamos registrar sua localizacao.',
+                    signatureI18n.locationDefaultText,
                     ''
                 );
             }
@@ -609,12 +635,12 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
         // Funcao auxiliar para resetar o botao ao estado inicial
         function resetLocationButton() {
             btnPermitirLocalizacao.disabled = false;
-            btnPermitirLocalizacao.innerHTML = '<i class="fas fa-location-arrow"></i> Permitir Localizacao';
+            btnPermitirLocalizacao.innerHTML = '<i class="fas fa-location-arrow"></i> ' + signatureI18n.allowLocation;
         }
 
         function lockLocationButtonForHttps() {
             btnPermitirLocalizacao.disabled = true;
-            btnPermitirLocalizacao.innerHTML = '<i class="fas fa-lock"></i> Requer HTTPS';
+            btnPermitirLocalizacao.innerHTML = '<i class="fas fa-lock"></i> ' + signatureI18n.requiresHttps;
         }
 
         // Evento do botao permitir localizacao
@@ -625,14 +651,14 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
             // NÃO usar async/await - quebra a cadeia de user gesture
             
             if (!navigator.geolocation) {
-                showAlert('Seu navegador nao suporta geolocalizacao. Por favor, use um navegador moderno.');
+                showAlert(signatureI18n.locationUnsupported);
                 return;
             }
 
             if (!isSecureContextOk()) {
                 setPromptMessage(
-                    'Para solicitar sua localizacao, este link precisa estar em HTTPS.',
-                    'Acesse a pagina em um HTTPS real para que o aviso nativo do navegador apareca.'
+                    signatureI18n.locationHttpsText,
+                    signatureI18n.locationHttpsHint
                 );
                 lockLocationButtonForHttps();
                 return;
@@ -640,18 +666,18 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
 
             if (isInIframe()) {
                 setPromptMessage(
-                    'Para garantir a validade juridica da sua assinatura, precisamos registrar sua localizacao.',
-                    'Se esta pagina estiver dentro de um iframe, o navegador pode bloquear a localizacao. Abra em uma aba propria.'
+                    signatureI18n.locationDefaultText,
+                    signatureI18n.locationIframeHint
                 );
             } else {
                 setPromptMessage(
-                    'Para garantir a validade juridica da sua assinatura, precisamos registrar sua localizacao.',
+                    signatureI18n.locationDefaultText,
                     ''
                 );
             }
 
             btnPermitirLocalizacao.disabled = true;
-            btnPermitirLocalizacao.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obtendo...';
+            btnPermitirLocalizacao.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + signatureI18n.gettingLocation;
 
             // Chamar DIRETAMENTE no handler - sem Promise wrapper, sem async/await
             // Isso garante que o prompt nativo apareça em navegadores móveis
@@ -678,12 +704,12 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
                         // POSITION_UNAVAILABLE - GPS desligado ou indisponivel
                         resetLocationButton();
                         // Manter modal aberto para tentar novamente
-                        showAlert('Nao foi possivel obter sua localizacao. Verifique se o GPS esta ativado.');
+                        showAlert(signatureI18n.locationUnavailable);
                     } else if (error.code === 3) {
                         // TIMEOUT - demorou muito
                         resetLocationButton();
                         // Manter modal aberto para tentar novamente
-                        showAlert('Tempo esgotado ao obter localizacao. Tente novamente.');
+                        showAlert(signatureI18n.locationTimeout);
                     } else {
                         // Erro desconhecido
                         resetLocationButton();
@@ -828,7 +854,7 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
         // Assinar documento
         btnAssinar.addEventListener('click', async function() {
             if (!hasSignature) {
-                showAlert('Por favor, desenhe sua assinatura antes de continuar.');
+                showAlert(signatureI18n.drawRequired);
                 return;
             }
 
@@ -837,14 +863,14 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
                 return;
             }
 
-            const confirmed = await showConfirm('Confirma a assinatura dest<?= addslashes($tipoArtigo) ?> <?= addslashes($tipoLower) ?>?');
+            const confirmed = await showConfirm(signatureI18n.confirmMessage);
             if (!confirmed) {
                 return;
             }
 
             // Mostrar loading
             loadingOverlay.classList.add('active');
-            loadingText.textContent = 'Processando assinatura...';
+            loadingText.textContent = signatureI18n.processingSignature;
             btnAssinar.disabled = true;
 
             try {
@@ -873,16 +899,16 @@ $tipoPreposicao = ($documento['tipo'] ?? 'contrato') === 'locacao' ? 'da' : 'do'
                     estadoSucesso.classList.remove('hidden');
 
                     document.getElementById('infoAssinatura').innerHTML = `
-                        <p><strong>Data:</strong> ${result.data.data_assinatura}</p>
-                        <p><strong>IP:</strong> ${result.data.ip}</p>
+                        <p><strong>${signatureI18n.dateLabel}:</strong> ${result.data.data_assinatura}</p>
+                        <p><strong>${signatureI18n.ipLabel}:</strong> ${result.data.ip}</p>
                     `;
                 } else {
-                    showAlert(result.message || 'Erro ao processar assinatura.');
+                    showAlert(result.message || signatureI18n.processError);
                     btnAssinar.disabled = false;
                 }
             } catch (error) {
-                console.error('Erro:', error);
-                showAlert('Erro de conexao. Tente novamente.');
+                console.error('Signature error:', error);
+                showAlert(signatureI18n.connectionError);
                 updateSignButtonState();
             } finally {
                 loadingOverlay.classList.remove('active');

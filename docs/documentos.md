@@ -103,7 +103,7 @@ O conteúdo do documento aceita placeholders `{{cliente.nome}}`, `{{empresa.cnpj
 
 No fluxo de locações, `LocacoesController::buildDocumentoContext()` alimenta variáveis como `{{locacao.data_retirada}}`, `{{locacao.valor_total}}`, `{{locacao.km_saida}}`, `{{locacao.tanque_saida}}` e `{{locacao.bloqueio_valor}}` a partir dos dados da locação e do último vínculo de veículo, com fallback para campos legados quando necessário. Os campos de tanque (`{{locacao.tanque_saida}}` e `{{locacao.tanque_chegada}}`) são exibidos como frações legíveis (`Reserva`, `1/2`, `Cheio`, etc.).
 
-No fluxo de contratos, `ContratosController::buildDocumentoContext()` alimenta os campos escalares do veículo ativo principal: `{{contrato.km_saida}}`, `{{contrato.km_chegada}}`, `{{contrato.tanque_saida}}` e `{{contrato.tanque_chegada}}`. Para tipo de combustível do veículo, use `{{veiculo.combustivel_tipo}}`.
+No fluxo de contratos, `ContratosController::buildDocumentoContext()` alimenta os campos escalares do veículo ativo principal: `{{contrato.km_saida}}`, `{{contrato.km_chegada}}`, `{{contrato.tanque_saida}}` e `{{contrato.tanque_chegada}}`. Para dados cadastrais do veículo, use variáveis como `{{veiculo.combustivel_tipo}}` e `{{veiculo.valor_compra}}`; o valor de compra vem de `veiculos.valor_compra` e é formatado como moeda pelo `TemplateRenderer`.
 
 Variável especial para contratos com múltiplos veículos:
 

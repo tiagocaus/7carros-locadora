@@ -239,9 +239,25 @@ class ContratosController
             $odometroSaida = (int) ($veiculo['odometro_saida'] ?? 0);
             $odometroCadastro = (int) ($veiculo['veiculo_odometro'] ?? 0);
             $ultimaOdometro = (int) ($ultima['odometro'] ?? 0);
+            $diasUso = 1;
+
+            if (!empty($veiculo['data_saida'])) {
+                try {
+                    $dataSaida = new \DateTimeImmutable((string) $veiculo['data_saida']);
+                    $hoje = new \DateTimeImmutable('today');
+                    $diasUso = max(1, (int) $dataSaida->diff($hoje)->format('%a'));
+                } catch (\Throwable $e) {
+                    $diasUso = 1;
+                }
+            }
+
             $veiculo['ultima_leitura'] = $ultima;
             $veiculo['odometro_minimo'] = max($odometroSaida, $odometroCadastro, $ultimaOdometro);
             $veiculo['km_rodado_atual'] = max(0, $veiculo['odometro_minimo'] - $odometroSaida);
+            $veiculo['dias_uso'] = $diasUso;
+            $veiculo['media_km_dia'] = $veiculo['km_rodado_atual'] / $diasUso;
+            $veiculo['media_km_semana'] = $veiculo['media_km_dia'] * 7;
+            $veiculo['media_km_mes'] = $veiculo['media_km_dia'] * 30;
         }
         unset($veiculo);
 
@@ -2322,6 +2338,7 @@ class ContratosController
                 'veiculo_cor' => $veiculo['veiculo_cor'] ?? $veiculo['cor'] ?? '',
                 'veiculo_chassi' => $veiculo['veiculo_chassi'] ?? $veiculo['chassi'] ?? '',
                 'combustivel_tipo' => $veiculo['veiculo_tipo_combustivel'] ?? $veiculo['tipo_combustivel'] ?? '',
+                'valor_compra' => $veiculo['veiculo_valor_compra'] ?? $veiculo['valor_compra'] ?? 0,
             ] : [],
             'fornecedor' => $this->formatarFornecedorDocumento($fornecedorData),
         ];

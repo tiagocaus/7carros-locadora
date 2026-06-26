@@ -258,6 +258,11 @@ Regras da tela:
 - `valor_deducoes` deve ser a soma dos itens nao tributaveis.
 - `base_calculo` deve ser `valor_servicos - valor_deducoes`, nunca negativa.
 - O email editado na tela prevalece sobre o email cadastrado do cliente apenas para essa emissao.
+- Antes de gerar, assinar e enviar a DPS, o sistema deve validar o tomador:
+  - nome obrigatorio;
+  - CPF com 11 digitos validos ou CNPJ com 14 digitos validos;
+  - ausencia de documento deve bloquear a emissao localmente com mensagem clara para corrigir o cadastro do cliente.
+- Rejeicoes SEFIN de schema `E1235` no bloco `<toma>` por `<xNome>` antes de `CNPJ`/`CPF`/`NIF` devem ser exibidas ao usuario como erro de CPF/CNPJ do cliente ausente, preservando o retorno tecnico em eventos/logs para suporte.
 - O codigo IBGE do municipio do tomador pode ser informado nessa tela para permitir envio de endereco completo em emissores DPS quando o cadastro do cliente ainda nao tiver esse dado.
 - Ausencia de configuracao NFS-e ou certificado nao deve redirecionar para a listagem. A tela deve permanecer aberta, mostrar aviso especifico e bloquear somente o botao de emissao.
 

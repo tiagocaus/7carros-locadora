@@ -165,6 +165,10 @@
                         <div id="fotoUploadArea" class="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 transition-colors">
                             <div id="fotoPreview" class="hidden mb-3">
                                 <img id="fotoPreviewImg" src="" alt="Preview" class="max-h-40 mx-auto rounded shadow">
+                                <div id="fotoPreviewPdf" class="hidden flex flex-col items-center justify-center text-red-600">
+                                    <i class="fas fa-file-pdf text-4xl mb-2"></i>
+                                    <span id="fotoPreviewPdfName" class="text-sm font-medium text-slate-700"></span>
+                                </div>
                                 <button type="button" id="btnRemoverFoto" class="mt-2 text-red-500 text-sm hover:text-red-700">
                                     <i class="fas fa-trash mr-1"></i><?= t('common.buttons.delete') ?>
                                 </button>
@@ -172,8 +176,9 @@
                             <div id="fotoPlaceholder">
                                 <i class="fas fa-cloud-upload-alt text-2xl text-slate-400 mb-2"></i>
                                 <p class="text-sm text-slate-500"><?= t('modules.multas.fields.photo') ?></p>
+                                <p class="text-xs text-slate-400"><?= t('modules.multas.messages.photo_allowed_types') ?></p>
                             </div>
-                            <input type="file" id="fotoInput" accept="image/*" class="hidden">
+                            <input type="file" id="fotoInput" accept="image/*,application/pdf,.pdf" class="hidden">
                         </div>
                     </div>
                 </div>
@@ -208,6 +213,8 @@
             saveError: '<?= addslashes(t('modules.multas.messages.save_error')) ?>',
             created: '<?= addslashes(t('modules.multas.messages.created')) ?>',
             updated: '<?= addslashes(t('modules.multas.messages.updated')) ?>',
+            invalidFileType: '<?= addslashes(t('modules.multas.messages.invalid_file_type')) ?>',
+            pdfSelected: '<?= addslashes(t('modules.multas.messages.pdf_selected')) ?>',
             btnSave: '<?= addslashes(t('common.buttons.save')) ?>',
             btnSearch: '<?= addslashes(t('modules.multas.buttons.search_responsible')) ?>',
             btnContinue: '<?= addslashes(t('modules.multas.buttons.continue')) ?>',
@@ -462,7 +469,7 @@
 
             // Foto existente
             if (data.foto_url) {
-                document.getElementById('fotoPreviewImg').src = data.foto_url;
+                renderFilePreview(data.foto_url, data.foto || '', isPdfFilename(data.foto || data.foto_url));
                 document.getElementById('fotoPreview').classList.remove('hidden');
                 document.getElementById('fotoPlaceholder').classList.add('hidden');
             }
@@ -484,6 +491,56 @@
 
         // ===== UPLOAD DE FOTO =====
 
+        function isPdfFilename(filename) {
+            return String(filename || '').toLowerCase().split('?')[0].endsWith('.pdf');
+        }
+
+        function isImageFilename(filename) {
+            return /\.(jpe?g|png|gif|webp|svg)$/i.test(String(filename || '').split('?')[0]);
+        }
+
+        function isPdfFile(file) {
+            return file.type === 'application/pdf' || isPdfFilename(file.name);
+        }
+
+        function isAllowedFineFile(file) {
+            return file.type.startsWith('image/') || isImageFilename(file.name) || isPdfFile(file);
+        }
+
+        function renderFilePreview(src, filename, isPdf) {
+            const previewImg = document.getElementById('fotoPreviewImg');
+            const previewPdf = document.getElementById('fotoPreviewPdf');
+            const previewPdfName = document.getElementById('fotoPreviewPdfName');
+
+            if (isPdf) {
+                previewImg.src = '';
+                previewImg.classList.add('hidden');
+                previewPdfName.textContent = filename || i18n.pdfSelected;
+                previewPdf.classList.remove('hidden');
+            } else {
+                previewPdf.classList.add('hidden');
+                previewPdfName.textContent = '';
+                previewImg.src = src;
+                previewImg.classList.remove('hidden');
+            }
+        }
+
+        function clearFilePreview() {
+            const input = document.getElementById('fotoInput');
+            const preview = document.getElementById('fotoPreview');
+            const previewImg = document.getElementById('fotoPreviewImg');
+            const placeholder = document.getElementById('fotoPlaceholder');
+
+            document.getElementById('foto_base64').value = '';
+            previewImg.src = '';
+            previewImg.classList.remove('hidden');
+            document.getElementById('fotoPreviewPdf').classList.add('hidden');
+            document.getElementById('fotoPreviewPdfName').textContent = '';
+            preview.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            input.value = '';
+        }
+
         function configurarUploadFoto() {
             const area = document.getElementById('fotoUploadArea');
             const input = document.getElementById('fotoInput');
@@ -501,11 +558,17 @@
                 const file = e.target.files[0];
                 if (!file) return;
 
+                if (!isAllowedFineFile(file)) {
+                    clearFilePreview();
+                    mostrarAlerta(i18n.invalidFileType);
+                    return;
+                }
+
                 const reader = new FileReader();
                 reader.onload = function(ev) {
                     const base64 = ev.target.result;
                     document.getElementById('foto_base64').value = base64;
-                    previewImg.src = base64;
+                    renderFilePreview(base64, file.name, isPdfFile(file));
                     preview.classList.remove('hidden');
                     placeholder.classList.add('hidden');
                 };
@@ -514,11 +577,7 @@
 
             btnRemover.addEventListener('click', function(e) {
                 e.stopPropagation();
-                document.getElementById('foto_base64').value = '';
-                previewImg.src = '';
-                preview.classList.add('hidden');
-                placeholder.classList.remove('hidden');
-                input.value = '';
+                clearFilePreview();
             });
 
             // Drag and drop
@@ -534,11 +593,13 @@
                 e.preventDefault();
                 area.classList.remove('border-blue-400', 'bg-blue-50');
                 const file = e.dataTransfer.files[0];
-                if (file && file.type.startsWith('image/')) {
+                if (file && isAllowedFineFile(file)) {
                     const dt = new DataTransfer();
                     dt.items.add(file);
                     input.files = dt.files;
                     input.dispatchEvent(new Event('change'));
+                } else if (file) {
+                    mostrarAlerta(i18n.invalidFileType);
                 }
             });
         }

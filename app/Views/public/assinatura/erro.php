@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<?php $localeInfo = locale_info() ?? ['code' => 'pt-BR']; ?>
+<html lang="<?= htmlspecialchars($localeInfo['code'] ?? 'pt-BR') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($titulo ?? 'Erro') ?></title>
+    <title><?= htmlspecialchars($titulo ?? t('modules.assinatura.generic_error_title')) ?></title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -36,15 +37,15 @@
             </div>
 
             <h1 class="text-2xl font-bold text-gray-900 mb-3">
-                <?= htmlspecialchars($titulo ?? 'Erro') ?>
+                <?= htmlspecialchars($titulo ?? t('modules.assinatura.generic_error_title')) ?>
             </h1>
 
             <p class="text-gray-600 mb-6">
-                <?= htmlspecialchars($mensagem ?? 'Ocorreu um erro ao processar sua solicitação.') ?>
+                <?= htmlspecialchars($mensagem ?? t('modules.assinatura.generic_error_message')) ?>
             </p>
 
             <div class="text-sm text-gray-500">
-                <p>Se acredita que isso e um erro, entre em contato com a locadora.</p>
+                <p><?= htmlspecialchars(t('modules.assinatura.generic_error_help')) ?></p>
             </div>
         </div>
     </div>

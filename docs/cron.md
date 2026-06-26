@@ -40,6 +40,7 @@ O sistema de CRON permite executar tarefas agendadas de forma automática e orga
 - **Método**: Comando PHP direto via CLI
 - **Frequência crontab**: A cada 1 minuto (o Scheduler decide o que executar)
 - **Comando**: `php cron.php`
+- **Timezone**: usa `APP_TIMEZONE` do ambiente, com fallback para `America/Sao_Paulo`
 - **Opções**:
   - `php cron.php --list` - Lista todos os jobs e suas frequências
   - `php cron.php --force` - Força execução de todos os jobs
@@ -329,7 +330,7 @@ O job não cria cobrança externa diretamente no gateway. A cobrança externa é
 
 **Arquivo**: `app/Crons/Jobs/CalculateOverdueFeesJob.php`
 
-**Frequência**: Executa a cada 15 minutos (via crontab)
+**Frequência**: Executa diariamente às 00:15 (via scheduler interno)
 
 **Lógica**:
 

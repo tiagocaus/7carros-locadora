@@ -98,12 +98,13 @@ class FornecedoresController extends BaseRelatorioController
             $filters = $this->parseFilters($request);
             $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
             if ($erro) { Response::json(['success' => false, 'message' => $erro], 422); return; }
+            if (!$this->validateFilialAccess($filters['filial'])) return;
 
             [$filialWhere, $filialParams] = $this->getFilialFilter();
             $model = new FornecedoresReport();
             $result = $model->investidor(
                 $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams,
-                $request->query('fornecedor', '')
+                $request->query('fornecedor', ''), $filters['filial']
             );
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
@@ -119,12 +120,14 @@ class FornecedoresController extends BaseRelatorioController
         $filters = $this->parseFilters($request);
         $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
         if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
+        if (!$this->validateFilialAccess($filters['filial'])) return;
+        $modelo = $request->query('modelo', 'detalhado') === 'agrupado' ? 'agrupado' : 'detalhado';
 
         [$filialWhere, $filialParams] = $this->getFilialFilter();
         $model = new FornecedoresReport();
         $result = $model->investidor(
             $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams,
-            $request->query('fornecedor', '')
+            $request->query('fornecedor', ''), $filters['filial']
         );
 
         $this->renderPdf(
@@ -132,7 +135,8 @@ class FornecedoresController extends BaseRelatorioController
             t('modules.relatorios.fornecedores.investidor.title'),
             t('modules.relatorios.fornecedores.investidor.description'),
             $result['totals'], $result['details'],
-            $filters['data_inicio'], $filters['data_fim'], 'L'
+            $filters['data_inicio'], $filters['data_fim'], 'L',
+            ['modelo' => $modelo]
         );
     }
 
@@ -148,7 +152,8 @@ class FornecedoresController extends BaseRelatorioController
         array $details,
         string $dataInicio,
         string $dataFim,
-        string $orientation = 'P'
+        string $orientation = 'P',
+        array $extraData = []
     ): void {
         $user = Auth::user();
         $filialModel = new MatrizFilial();
@@ -161,6 +166,7 @@ class FornecedoresController extends BaseRelatorioController
         ];
 
         $usuario = $user['nome'] ?? '';
+        extract($extraData, EXTR_SKIP);
 
         ob_start();
         $viewPath = __DIR__ . '/../../Views/pages/relatorios/imprimir/fornecedores/' . $templateFile;

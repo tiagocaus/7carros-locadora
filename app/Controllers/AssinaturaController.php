@@ -9,6 +9,8 @@ use App\Models\Contrato;
 use App\Models\ContratoVeiculo;
 use App\Models\Locacao;
 use App\Models\MatrizFilial;
+use App\Helpers\CurrencyHelper;
+use App\Helpers\DateHelper;
 use App\Views\Template;
 
 /**
@@ -45,33 +47,41 @@ class AssinaturaController
         $documento = $this->resolverDocumento($codigo);
 
         if (!$documento) {
-            $html = Template::render('public.assinatura.erro', [
-                'titulo' => 'Documento não encontrado',
-                'mensagem' => 'O contrato ou locação informado não existe ou o link está incorreto.'
-            ]);
+            $locale = $this->detectarLocaleNavegador() ?? 'pt_BR';
+            $html = $this->comLocaleTemporario($locale, function () {
+                return Template::render('public.assinatura.erro', [
+                    'titulo' => t('modules.assinatura.document_not_found_title'),
+                    'mensagem' => t('modules.assinatura.document_not_found_message'),
+                ]);
+            });
             Response::html($html, 404);
             return;
         }
 
         $registro = $documento['registro'];
         $chave = (string) $registro['chave'];
+        $empresa = $this->buscarDadosEmpresa($chave);
+        $locale = $this->resolverLocalePublico($registro, $empresa);
+        $documento['resumo'] = $this->prepararResumoTraduzido($documento, $locale);
+
         $assinaturaData = $documento['tipo'] === 'contrato'
             ? $this->assinatura->buscarPorContrato((int) $registro['id'], 'cliente', $chave)
             : $this->assinatura->buscarPorLocacao((int) $registro['id'], 'cliente', $chave);
         $jaAssinado = !empty($assinaturaData);
 
-        // Buscar dados da empresa (tenant)
-        $empresa = $this->buscarDadosEmpresa($chave);
-
-        $html = Template::render('public.assinatura.index', [
-            'contrato' => $documento['tipo'] === 'contrato' ? $registro : null,
-            'locacao' => $documento['tipo'] === 'locacao' ? $registro : null,
-            'documento' => $documento['resumo'],
-            'veiculo' => $documento['veiculo'],
-            'empresa' => $empresa,
-            'jaAssinado' => $jaAssinado,
-            'assinatura' => $assinaturaData
-        ]);
+        $html = $this->comChaveTemporaria($chave, function () use ($locale, $documento, $registro, $empresa, $jaAssinado, $assinaturaData) {
+            return $this->comLocaleTemporario($locale, function () use ($documento, $registro, $empresa, $jaAssinado, $assinaturaData) {
+                return Template::render('public.assinatura.index', [
+                    'contrato' => $documento['tipo'] === 'contrato' ? $registro : null,
+                    'locacao' => $documento['tipo'] === 'locacao' ? $registro : null,
+                    'documento' => $documento['resumo'],
+                    'veiculo' => $documento['veiculo'],
+                    'empresa' => $empresa,
+                    'jaAssinado' => $jaAssinado,
+                    'assinatura' => $assinaturaData,
+                ]);
+            });
+        });
 
         Response::html($html);
     }
@@ -87,17 +97,24 @@ class AssinaturaController
         $documento = $this->resolverDocumento($codigo);
 
         if (!$documento) {
-            Response::json([
-                'success' => false,
-                'message' => 'Documento não encontrado'
-            ], 404);
+            $locale = $this->detectarLocaleNavegador() ?? 'pt_BR';
+            $payload = $this->comLocaleTemporario($locale, function () {
+                return [
+                    'success' => false,
+                    'message' => t('modules.assinatura.document_not_found_json'),
+                ];
+            });
+            Response::json($payload, 404);
             return;
         }
 
         $registro = $documento['registro'];
         $tipo = $documento['tipo'];
-        $tipoLabel = $documento['resumo']['tipo_label'];
         $chave = (string) $registro['chave'];
+        $empresa = $this->buscarDadosEmpresa($chave);
+        $locale = $this->resolverLocalePublico($registro, $empresa);
+        $tipoLabel = t('modules.assinatura.types.' . $tipo . '.label', [], $locale);
+        $tipoLower = t('modules.assinatura.types.' . $tipo . '.lower', [], $locale);
 
         // Verificar se ja foi assinado
         $jaAssinado = $tipo === 'contrato'
@@ -105,20 +122,26 @@ class AssinaturaController
             : $this->assinatura->locacaoTemAssinatura((int) $registro['id'], $chave);
 
         if ($jaAssinado) {
-            Response::json([
-                'success' => false,
-                'message' => 'Este ' . strtolower($tipoLabel) . ' já foi assinado'
-            ], 400);
+            $payload = $this->comLocaleTemporario($locale, function () use ($tipoLower) {
+                return [
+                    'success' => false,
+                    'message' => t('modules.assinatura.already_signed_message', ['type' => $tipoLower]),
+                ];
+            });
+            Response::json($payload, 400);
             return;
         }
 
         // Validar assinatura
         $assinaturaBase64 = $request->input('assinatura', '');
         if (empty($assinaturaBase64) || strpos($assinaturaBase64, 'data:image') !== 0) {
-            Response::json([
-                'success' => false,
-                'message' => 'Assinatura inválida'
-            ], 400);
+            $payload = $this->comLocaleTemporario($locale, function () {
+                return [
+                    'success' => false,
+                    'message' => t('modules.assinatura.invalid_signature'),
+                ];
+            });
+            Response::json($payload, 400);
             return;
         }
 
@@ -147,15 +170,21 @@ class AssinaturaController
             'chave' => $chave,
         ]);
 
-        Response::json([
-            'success' => true,
-            'message' => $tipoLabel . ' assinado com sucesso!',
-            'data' => [
-                'codigo' => $codigo,
-                'data_assinatura' => date('d/m/Y H:i:s'),
-                'ip' => $ip
-            ]
-        ]);
+        $payload = $this->comChaveTemporaria($chave, function () use ($locale, $tipoLabel, $codigo, $ip) {
+            return $this->comLocaleTemporario($locale, function () use ($tipoLabel, $codigo, $ip) {
+                return [
+                    'success' => true,
+                    'message' => t('modules.assinatura.success_message', ['type' => $tipoLabel]),
+                    'data' => [
+                        'codigo' => $codigo,
+                        'data_assinatura' => format_datetime(date('Y-m-d H:i:s')),
+                        'ip' => $ip,
+                    ],
+                ];
+            });
+        });
+
+        Response::json($payload);
     }
 
     /**
@@ -204,14 +233,14 @@ class AssinaturaController
             'veiculo' => $veiculo,
             'resumo' => [
                 'tipo' => 'contrato',
-                'tipo_label' => 'Contrato',
                 'codigo' => $contrato['codigo'] ?? '',
-                'cliente_nome' => $contrato['cliente_nome'] ?? 'N/A',
-                'cliente_documento' => $contrato['cliente_cpf_cnpj'] ?? 'N/A',
+                'cliente_nome' => $contrato['cliente_nome'] ?? '',
+                'cliente_documento' => $contrato['cliente_cpf_cnpj'] ?? '',
                 'veiculo_texto' => $veiculo
                     ? trim(($veiculo['veiculo_placa'] ?? '') . ' - ' . ($veiculo['veiculo_modelo'] ?? ''))
                     : '',
-                'periodo' => $this->formatarPeriodo($contrato['data_ini'] ?? null, $contrato['data_fim'] ?? null),
+                'data_inicio' => $contrato['data_ini'] ?? null,
+                'data_fim' => $contrato['data_fim'] ?? null,
                 'valor_total' => (float) ($contrato['total_pagar'] ?? 0),
             ],
         ];
@@ -233,15 +262,12 @@ class AssinaturaController
             'veiculo' => null,
             'resumo' => [
                 'tipo' => 'locacao',
-                'tipo_label' => 'Locação',
                 'codigo' => $locacao['codigo'] ?? '',
-                'cliente_nome' => $locacao['cliente_nome_completo'] ?? $locacao['cliente_nome'] ?? 'N/A',
-                'cliente_documento' => $locacao['cliente_cpf_cnpj'] ?? 'N/A',
+                'cliente_nome' => $locacao['cliente_nome_completo'] ?? $locacao['cliente_nome'] ?? '',
+                'cliente_documento' => $locacao['cliente_cpf_cnpj'] ?? '',
                 'veiculo_texto' => $locacao['veiculo_info'] ?? '',
-                'periodo' => $this->formatarPeriodo(
-                    $locacao['data_saida'] ?? null,
-                    $locacao['data_chegada'] ?? $locacao['data_prevista'] ?? null
-                ),
+                'data_inicio' => $locacao['data_saida'] ?? null,
+                'data_fim' => $locacao['data_chegada'] ?? $locacao['data_prevista'] ?? null,
                 'valor_total' => (float) ($locacao['total_pagar'] ?? $locacao['total_fatura'] ?? 0),
             ],
         ];
@@ -255,6 +281,8 @@ class AssinaturaController
         $hadChave = isset($_SESSION['chave']);
         $previousChave = $_SESSION['chave'] ?? null;
         $_SESSION['chave'] = $chave;
+        CurrencyHelper::clearCache();
+        DateHelper::clearCache();
 
         try {
             return $callback();
@@ -264,7 +292,56 @@ class AssinaturaController
             } else {
                 unset($_SESSION['chave']);
             }
+            CurrencyHelper::clearCache();
+            DateHelper::clearCache();
         }
+    }
+
+    /**
+     * Executa callback com o locale publico e restaura a preferencia anterior.
+     */
+    private function comLocaleTemporario(string $locale, callable $callback)
+    {
+        $localeAnterior = current_locale();
+        $hadUiLocale = isset($_SESSION['ui_locale']);
+        $previousUiLocale = $_SESSION['ui_locale'] ?? null;
+
+        set_locale($locale);
+
+        try {
+            return $callback();
+        } finally {
+            set_locale($localeAnterior);
+            if ($hadUiLocale) {
+                $_SESSION['ui_locale'] = $previousUiLocale;
+            } else {
+                unset($_SESSION['ui_locale']);
+            }
+        }
+    }
+
+    /**
+     * Prepara labels e campos formatados no idioma/contexto publico.
+     */
+    private function prepararResumoTraduzido(array $documento, string $locale): array
+    {
+        $resumo = $documento['resumo'];
+        $tipo = $documento['tipo'];
+        $chave = (string) ($documento['registro']['chave'] ?? '');
+
+        return $this->comChaveTemporaria($chave, function () use ($resumo, $tipo, $locale) {
+            return $this->comLocaleTemporario($locale, function () use ($resumo, $tipo) {
+                $resumo['tipo_label'] = t('modules.assinatura.types.' . $tipo . '.label');
+                $resumo['tipo_lower'] = t('modules.assinatura.types.' . $tipo . '.lower');
+                $resumo['tipo_preposicao'] = t('modules.assinatura.types.' . $tipo . '.summary_preposition');
+                $resumo['tipo_demonstrativo'] = t('modules.assinatura.types.' . $tipo . '.demonstrative');
+                $resumo['cliente_nome'] = $resumo['cliente_nome'] ?: t('modules.assinatura.labels.not_available');
+                $resumo['cliente_documento'] = $resumo['cliente_documento'] ?: t('modules.assinatura.labels.not_available');
+                $resumo['periodo'] = $this->formatarPeriodo($resumo['data_inicio'] ?? null, $resumo['data_fim'] ?? null);
+                $resumo['valor_total_formatado'] = currency_format((float) ($resumo['valor_total'] ?? 0));
+                return $resumo;
+            });
+        });
     }
 
     /**
@@ -272,7 +349,7 @@ class AssinaturaController
      */
     private function formatarPeriodo(?string $inicio, ?string $fim): string
     {
-        return $this->formatarData($inicio) . ' a ' . $this->formatarData($fim);
+        return $this->formatarData($inicio) . ' - ' . $this->formatarData($fim);
     }
 
     /**
@@ -280,16 +357,70 @@ class AssinaturaController
      */
     private function formatarData(?string $data): string
     {
-        if (empty($data)) {
+        if (empty($data) || strtotime($data) === false) {
             return '-';
         }
 
-        $timestamp = strtotime($data);
-        if ($timestamp === false) {
-            return '-';
+        return format_date($data);
+    }
+
+    /**
+     * Resolve locale da pagina publica sem depender de usuario autenticado.
+     */
+    private function resolverLocalePublico(array $registro, ?array $empresa): string
+    {
+        $candidatos = [
+            $registro['cliente_preferred_locale'] ?? null,
+            $empresa['locale'] ?? null,
+            $this->detectarLocaleNavegador(),
+            'pt_BR',
+        ];
+
+        foreach ($candidatos as $locale) {
+            if (!empty($locale) && is_locale_supported((string) $locale)) {
+                return (string) $locale;
+            }
         }
 
-        return date('d/m/Y', $timestamp);
+        return 'pt_BR';
+    }
+
+    /**
+     * Detecta locale suportado a partir do Accept-Language.
+     */
+    private function detectarLocaleNavegador(): ?string
+    {
+        $acceptLanguage = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+        if ($acceptLanguage === '') {
+            return null;
+        }
+
+        $map = [
+            'pt-BR' => 'pt_BR',
+            'pt-PT' => 'pt_PT',
+            'pt' => 'pt_BR',
+            'en-US' => 'en_US',
+            'en' => 'en_US',
+            'es-ES' => 'es_ES',
+            'es' => 'es_ES',
+            'it-IT' => 'it_IT',
+            'it' => 'it_IT',
+        ];
+
+        preg_match_all('/([a-z]{2}(?:-[A-Z]{2})?)/i', $acceptLanguage, $matches);
+        foreach ($matches[1] as $lang) {
+            $normalized = str_replace('_', '-', $lang);
+            if (isset($map[$normalized])) {
+                return $map[$normalized];
+            }
+
+            $short = substr($normalized, 0, 2);
+            if (isset($map[$short])) {
+                return $map[$short];
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -549,7 +549,39 @@
     }
 
     function formatarErroNfse(result, fallback) {
+        const erro = result?.erro || {};
         const errosApi = Array.isArray(result?.erros_api) ? result.erros_api : [];
+        const linhas = [];
+
+        if (result?.message) {
+            linhas.push(result.message);
+        } else if (erro?.mensagem) {
+            linhas.push(erro.mensagem);
+        }
+
+        if (erro?.instrucao && !linhas.includes(erro.instrucao)) {
+            linhas.push(`${<?= js_t('modules.nfse.messages.error_correction') ?>}: ${erro.instrucao}`);
+        }
+
+        if (erro?.explicacao && !linhas.includes(erro.explicacao)) {
+            linhas.push(erro.explicacao);
+        }
+
+        if (linhas.length > 0) {
+            const codigos = errosApi
+                .map((item) => item?.codigo)
+                .filter(Boolean)
+                .filter((codigo, index, lista) => lista.indexOf(codigo) === index);
+
+            if (codigos.length > 0) {
+                linhas.push(`${<?= js_t('modules.nfse.messages.error_technical_code') ?>}: ${codigos.join(', ')}`);
+            } else if (erro?.codigo) {
+                linhas.push(`${<?= js_t('modules.nfse.messages.error_technical_code') ?>}: ${erro.codigo}`);
+            }
+
+            return linhas.join('\n\n');
+        }
+
         const detalhes = errosApi
             .map((erro) => {
                 const codigo = erro?.codigo ? `${erro.codigo}: ` : '';

@@ -599,7 +599,7 @@ class NFSeService
         // Rejeitada
         $erros = $retorno['erros'] ?? [];
         $primeiroErro = $erros[0] ?? ['codigo' => 'ERRO_DESCONHECIDO', 'mensagem' => 'Erro desconhecido'];
-        $codigoInterno = NFSeErros::mapearErroAPI($primeiroErro['codigo']);
+        $codigoInterno = NFSeErros::mapearErroRetorno($primeiroErro['codigo'], $primeiroErro['mensagem'] ?? '');
         $mensagem = NFSeErros::getMensagem($codigoInterno);
 
         $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $primeiroErro['mensagem'] ?: $mensagem, $codigoInterno);
@@ -881,7 +881,7 @@ class NFSeService
         try {
             $this->validarDPS($dados);
         } catch (\InvalidArgumentException $e) {
-            return ['sucesso' => false, 'mensagem' => $e->getMessage(), 'codigo' => 'CONFIGURACAO_INCOMPLETA'];
+            return ['sucesso' => false, 'mensagem' => $e->getMessage(), 'codigo' => $this->codigoValidacaoDPS($e->getMessage())];
         }
 
         $xmlGenerator = $this->resolverXML($tipoEmissao);
@@ -975,6 +975,90 @@ class NFSeService
         if (strlen($codigoMunicipio) !== 7) {
             throw new \InvalidArgumentException('Código IBGE do município deve ter 7 dígitos.');
         }
+
+        $tomador = $dados['tomador'] ?? [];
+        $nomeTomador = trim((string) ($tomador['nome'] ?? ''));
+        if ($nomeTomador === '') {
+            throw new \InvalidArgumentException('Nome do cliente não informado.');
+        }
+
+        $cpfCnpj = preg_replace('/\D/', '', (string) ($tomador['cpf_cnpj'] ?? ''));
+        if ($cpfCnpj === '') {
+            throw new \InvalidArgumentException(NFSeErros::getInstrucao('TOMADOR_DOCUMENTO_AUSENTE'));
+        }
+        if (strlen($cpfCnpj) === 11 && !$this->cpfValido($cpfCnpj)) {
+            throw new \InvalidArgumentException(NFSeErros::getMensagem('TOMADOR_CPF_INVALIDO'));
+        }
+        if (strlen($cpfCnpj) === 14 && !$this->cnpjValido($cpfCnpj)) {
+            throw new \InvalidArgumentException(NFSeErros::getMensagem('TOMADOR_CNPJ_INVALIDO'));
+        }
+        if (!in_array(strlen($cpfCnpj), [11, 14], true)) {
+            throw new \InvalidArgumentException(NFSeErros::getInstrucao('TOMADOR_DOCUMENTO_AUSENTE'));
+        }
+    }
+
+    private function codigoValidacaoDPS(string $mensagem): string
+    {
+        $mensagemLower = mb_strtolower($mensagem, 'UTF-8');
+
+        if (str_contains($mensagemLower, 'cpf ou cnpj')) {
+            return 'TOMADOR_DOCUMENTO_AUSENTE';
+        }
+        if (str_contains($mensagemLower, 'cpf')) {
+            return 'TOMADOR_CPF_INVALIDO';
+        }
+        if (str_contains($mensagemLower, 'cnpj')) {
+            return 'TOMADOR_CNPJ_INVALIDO';
+        }
+        if (str_contains($mensagemLower, 'nome do cliente')) {
+            return 'TOMADOR_NAO_INFORMADO';
+        }
+
+        return 'CONFIGURACAO_INCOMPLETA';
+    }
+
+    private function cpfValido(string $cpf): bool
+    {
+        if (strlen($cpf) !== 11 || preg_match('/^(\d)\1{10}$/', $cpf)) {
+            return false;
+        }
+
+        for ($t = 9; $t < 11; $t++) {
+            $soma = 0;
+            for ($i = 0; $i < $t; $i++) {
+                $soma += (int) $cpf[$i] * (($t + 1) - $i);
+            }
+            $digito = ((10 * $soma) % 11) % 10;
+            if ((int) $cpf[$t] !== $digito) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function cnpjValido(string $cnpj): bool
+    {
+        if (strlen($cnpj) !== 14 || preg_match('/^(\d)\1{13}$/', $cnpj)) {
+            return false;
+        }
+
+        $pesosPrimeiro = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+        $pesosSegundo = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+        $calcular = static function (string $base, array $pesos): int {
+            $soma = 0;
+            foreach ($pesos as $i => $peso) {
+                $soma += (int) $base[$i] * $peso;
+            }
+            $resto = $soma % 11;
+            return $resto < 2 ? 0 : 11 - $resto;
+        };
+
+        $primeiro = $calcular($cnpj, $pesosPrimeiro);
+        $segundo = $calcular($cnpj, $pesosSegundo);
+
+        return (int) $cnpj[12] === $primeiro && (int) $cnpj[13] === $segundo;
     }
 
     private function gerarCorpoEmail(array $nfse): string

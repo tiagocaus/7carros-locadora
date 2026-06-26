@@ -1676,6 +1676,18 @@ Este documento especifica o comportamento e as informações que cada relatório
 - Histórico de pagamentos de comissão
 - Extrato do período
 
+**Diagnóstico por veículo**:
+- O relatório deve mostrar cada veículo vinculado ao investidor com placa/modelo, grupo, tipo/valor de comissão configurado, receita gerada, comissão pendente, comissão paga e saldo.
+- A receita e as comissões vêm de registros já gerados em `comissoes_investidores` no período; a configuração do grupo apenas define a regra para novas gerações.
+- Quando não houver comissão gerada para um veículo elegível, exibir um diagnóstico claro: comissão gerada, sem fatura paga no período, grupo sem comissão ou comissão mensal ainda não gerada.
+- Comissões históricas geradas no período devem aparecer nos valores financeiros mesmo se o veículo estiver inativo no cadastro atual; nesse caso, o veículo deve aparecer no detalhamento como histórico/inativo, sem entrar na contagem de veículos ativos.
+- Para contagem de veículos ativos, excluir os status inativos padrão do sistema: `V`, `RO` e `E`.
+
+**Filtros específicos**:
+- Fornecedor investidor (opcional): lista apenas fornecedores com `investidor = 1` e filtra resumo, veículos e comissões do investidor selecionado.
+- Filial (opcional): filtra veículos ativos e comissões pela filial do veículo, respeitando também as filiais permitidas ao usuário.
+- Modelo: `Detalhado` é o padrão e mostra cada fornecedor e, logo abaixo, seus veículos com recuo visual; `Agrupado` mostra apenas fornecedores. O filtro não altera totais nem consulta de dados.
+
 ---
 
 ## 10. Funcionários

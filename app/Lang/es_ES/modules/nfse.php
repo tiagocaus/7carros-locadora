@@ -132,6 +132,8 @@ return [
         'serie_required_active' => 'Informe la serie de la NFS-e antes de activar la emisión.',
         'codigo_municipio_required_active' => 'Informe el código IBGE del municipio con 7 dígitos antes de activar la emisión.',
         'codigo_servico_required_active' => 'Informe el código del servicio antes de activar la emisión.',
+        'error_correction' => 'Cómo corregir',
+        'error_technical_code' => 'Código técnico',
     ],
 
     'stats' => [

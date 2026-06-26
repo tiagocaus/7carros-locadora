@@ -122,6 +122,12 @@ class NFSeErros
             'instrucao' => 'Verifique o cadastro do cliente.',
             'categoria' => 'tomador',
         ],
+        'TOMADOR_DOCUMENTO_AUSENTE' => [
+            'mensagem' => 'CPF/CNPJ do cliente não informado.',
+            'instrucao' => 'Informe CPF ou CNPJ válido no cadastro do cliente antes de emitir a NFS-e.',
+            'categoria' => 'tomador',
+            'explicacao' => 'O Padrão Nacional exige que o tomador seja identificado por CPF, CNPJ, NIF ou indicador de não informado. Sem esse dado, a SEFIN rejeita o XML antes de autorizar a nota.',
+        ],
         'TOMADOR_ENDERECO' => [
             'mensagem' => 'Endereço do cliente incompleto.',
             'instrucao' => 'Verifique CEP, cidade e estado no cadastro do cliente.',
@@ -328,6 +334,12 @@ class NFSeErros
             'instrucao' => 'Obrigatório a partir de 01/11/2025.',
             'categoria' => 'prestador',
         ],
+        'E1235' => [
+            'mensagem' => 'CPF/CNPJ do cliente não informado.',
+            'instrucao' => 'Corrija o cadastro do cliente informando CPF ou CNPJ válido e tente emitir novamente.',
+            'categoria' => 'tomador',
+            'explicacao' => 'A SEFIN rejeitou a DPS porque o bloco do tomador foi enviado sem documento de identificação antes do nome.',
+        ],
 
         // ==========================================
         // ERROS RNG (Validacao Schema XML)
@@ -468,6 +480,28 @@ class NFSeErros
         }
 
         return 'ERRO_DESCONHECIDO';
+    }
+
+    public static function mapearErroRetorno(string $codigoSEFIN, string $mensagem = ''): string
+    {
+        $codigoSEFIN = trim($codigoSEFIN);
+        $mensagemLower = mb_strtolower($mensagem, 'UTF-8');
+
+        if (
+            $codigoSEFIN === 'E1235'
+            && str_contains($mensagemLower, "element 'toma'")
+            && str_contains($mensagemLower, "child element 'xnome'")
+            && (
+                str_contains($mensagemLower, 'cnpj')
+                || str_contains($mensagemLower, 'cpf')
+                || str_contains($mensagemLower, 'nif')
+                || str_contains($mensagemLower, 'cnaonif')
+            )
+        ) {
+            return 'E1235';
+        }
+
+        return self::mapearErroAPI($codigoSEFIN);
     }
 
     /**

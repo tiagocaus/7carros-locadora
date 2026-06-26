@@ -154,10 +154,25 @@ class Fornecedor extends Model
             });
         }
 
-        return $query
+        $rows = $query
             ->orderBy('nome_rsocial', 'ASC')
             ->limit(50)
             ->get();
+
+        return array_map(static function (array $row): array {
+            $nome = trim((string) ($row['nome_rsocial'] ?? ''));
+            $documento = trim((string) ($row['cpf_cnpj'] ?? ''));
+            $texto = $nome;
+
+            if ($documento !== '') {
+                $texto .= ' (' . $documento . ')';
+            }
+
+            $row['nome'] = $nome;
+            $row['text'] = $texto !== '' ? $texto : ('Investidor #' . ($row['id'] ?? ''));
+
+            return $row;
+        }, $rows);
     }
 
     /**
