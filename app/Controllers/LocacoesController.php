@@ -2239,7 +2239,9 @@ class LocacoesController
 
             // Gerar PDF como string
             $pdfContent = $this->gerarPdfString($id, $tipo, $idDocumento, $idChecklistModelo, $idChecklistDigital);
-            $documentoLabel = $tipo === 'voucher' ? t('modules.locacoes.print.reservation_label') : t('modules.locacoes.print.rental_label');
+            $documentoLabel = in_array($tipo, ['voucher', 'voucher_checklist'], true)
+                ? t('modules.locacoes.print.reservation_label')
+                : t('modules.locacoes.print.rental_label');
 
             // Salvar em arquivo temporario
             $filename = strtolower($documentoLabel) . '_' . $locacao['codigo'] . '_' . time() . '.pdf';
@@ -2375,15 +2377,13 @@ class LocacoesController
         $isReservaConfirmada = ($locacao['status'] ?? '') === 'R';
         $tipo = trim($tipo);
         $tipoPadrao = $isReservaConfirmada ? 'voucher' : 'fatura';
-        $tiposValidos = [
-            'fatura', 'documento', 'fatura_documento',
-            'fatura_checklist', 'fatura_checklist_documento',
-            'documento_checklist', 'checklist', 'recibo'
-        ];
-
-        if ($isReservaConfirmada) {
-            $tiposValidos[] = 'voucher';
-        }
+        $tiposValidos = $isReservaConfirmada
+            ? ['voucher', 'voucher_checklist']
+            : [
+                'fatura', 'documento', 'fatura_documento',
+                'fatura_checklist', 'fatura_checklist_documento',
+                'documento_checklist', 'checklist', 'recibo'
+            ];
 
         return in_array($tipo, $tiposValidos, true) ? $tipo : $tipoPadrao;
     }
@@ -2393,7 +2393,7 @@ class LocacoesController
      */
     private function tipoIncluiChecklist(string $tipo): bool
     {
-        return in_array($tipo, ['checklist', 'fatura_checklist', 'fatura_checklist_documento', 'documento_checklist'], true);
+        return in_array($tipo, ['checklist', 'fatura_checklist', 'fatura_checklist_documento', 'documento_checklist', 'voucher_checklist'], true);
     }
 
     /**
@@ -3384,7 +3384,7 @@ class LocacoesController
                 return;
             }
 
-            (new LocacaoCaucao())->devolver($id, $locacao);
+            (new LocacaoCaucao())->devolver($id, $locacao, $request->all());
 
             Response::json([
                 'success' => true,

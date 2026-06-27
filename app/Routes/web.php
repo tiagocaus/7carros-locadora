@@ -40,6 +40,7 @@ use App\Controllers\ConcederAcessoController;
 use App\Controllers\ChangelogController;
 use App\Controllers\GravacoesController;
 use App\Controllers\ContratosController;
+use App\Controllers\CaucoesController;
 use App\Controllers\LocacoesController;
 use App\Controllers\AgendaController;
 use App\Controllers\AssinaturaController;
@@ -184,6 +185,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/api/notifications/counts', [NotificationController::class, 'counts'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/pages/notificacoes', [NotificacoesController::class, 'view']);
     $router->get('/api/notifications/list', [NotificacoesController::class, 'list'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/caucoes/{origem}/{id}/devolver', [CaucoesController::class, 'devolver'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Session refresh (sem api_csrf - usado quando token CSRF expira)
     $router->get('/api/session/refresh', [SessionController::class, 'refresh']);
@@ -1220,6 +1222,10 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/pages/relatorios/financeiro/movimentacoes', [FinanceiroReportController::class, 'viewMovimentacoes']);
     $router->get('/api/relatorios/financeiro/movimentacoes', [FinanceiroReportController::class, 'movimentacoes'], ['api_csrf', 'rate_limit', 'throttle']);
 
+    // Caucoes
+    $router->get('/pages/relatorios/financeiro/caucoes', [FinanceiroReportController::class, 'viewCaucoes']);
+    $router->get('/api/relatorios/financeiro/caucoes', [FinanceiroReportController::class, 'caucoes'], ['api_csrf', 'rate_limit', 'throttle']);
+
     // Faturamento
     $router->get('/pages/relatorios/financeiro/faturamento', [FinanceiroReportController::class, 'viewFaturamento']);
     $router->get('/api/relatorios/financeiro/faturamento', [FinanceiroReportController::class, 'faturamento'], ['api_csrf', 'rate_limit', 'throttle']);
@@ -1588,12 +1594,14 @@ $router->group(['middleware' => 'auth'], function ($router) {
     // API - Integrações
     $router->get('/api/website/integracoes', [WebsiteController::class, 'getIntegracoes'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/website/integracoes', [WebsiteController::class, 'saveIntegracao'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/integracoes/{id}/excluir', [WebsiteController::class, 'deleteIntegracao'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->delete('/api/website/integracoes/{id}', [WebsiteController::class, 'deleteIntegracao'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API - Banners
     $router->get('/api/website/banners', [WebsiteController::class, 'getBanners'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/website/banners', [WebsiteController::class, 'saveBanner'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->put('/api/website/banners/{id}', [WebsiteController::class, 'updateBanner'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/banners/{id}/excluir', [WebsiteController::class, 'deleteBanner'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->delete('/api/website/banners/{id}', [WebsiteController::class, 'deleteBanner'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/website/banners/reordenar', [WebsiteController::class, 'reordenarBanners'], ['api_csrf', 'rate_limit', 'throttle']);
 
@@ -1617,5 +1625,6 @@ $router->group(['middleware' => 'auth'], function ($router) {
 
     // API - Presets
     $router->post('/api/website/presets', [WebsiteController::class, 'savePreset'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/website/presets/{id}/excluir', [WebsiteController::class, 'deletePreset'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->delete('/api/website/presets/{id}', [WebsiteController::class, 'deletePreset'], ['api_csrf', 'rate_limit', 'throttle']);
 });

@@ -9,6 +9,7 @@ $i18nNotificacoes = [
     'manutencao' => t('modules.notificacoes.chips.manutencao'),
     'tarefa' => t('modules.notificacoes.chips.tarefa'),
     'fatura' => t('modules.notificacoes.chips.fatura'),
+    'caucao' => t('modules.notificacoes.chips.caucao'),
     'licenciamento' => t('modules.notificacoes.chips.licenciamento'),
     'cnh' => t('modules.notificacoes.chips.cnh'),
     'problema' => t('modules.notificacoes.chips.problema'),
@@ -32,6 +33,8 @@ $i18nNotificacoes = [
     'col_party' => t('modules.notificacoes.cols.client_supplier'),
     'col_value' => t('modules.notificacoes.cols.value'),
     'col_due' => t('modules.notificacoes.cols.due_date'),
+    'col_expected_return' => t('modules.notificacoes.cols.expected_return'),
+    'col_origin' => t('modules.notificacoes.cols.origin'),
     'col_charge' => t('modules.notificacoes.cols.charge'),
     'col_client' => t('modules.notificacoes.cols.client'),
     'col_doc' => t('modules.notificacoes.cols.doc'),
@@ -86,7 +89,7 @@ $initialCategoria = $categoria ?? 'all';
         categoria: initialCategoria || 'all',
         page: 1,
         perPage: 25,
-        counts: { manutencoes: 0, faturas_vencidas: 0, licenciamento: 0, cnh_vencidas: 0, total: 0 },
+        counts: { manutencoes: 0, faturas_vencidas: 0, caucoes: 0, licenciamento: 0, cnh_vencidas: 0, total: 0 },
     };
 
     function escapeHtml(s) {
@@ -110,6 +113,7 @@ $initialCategoria = $categoria ?? 'all';
         const map = {
             manutencao: { icon: 'fa-wrench', label: i18n.manutencao, color: 'bg-amber-100 text-amber-700' },
             fatura: { icon: 'fa-money-bill-wave', label: i18n.fatura, color: 'bg-rose-100 text-rose-700' },
+            caucao: { icon: 'fa-shield-alt', label: i18n.caucao, color: 'bg-blue-100 text-blue-700' },
             licenciamento: { icon: 'fa-id-card', label: i18n.licenciamento, color: 'bg-blue-100 text-blue-700' },
             cnh: { icon: 'fa-id-badge', label: i18n.cnh, color: 'bg-purple-100 text-purple-700' },
         };
@@ -131,6 +135,7 @@ $initialCategoria = $categoria ?? 'all';
             { id: 'manutencao', label: i18n.manutencao, count: c.manutencoes || 0 },
             { id: 'tarefa', label: i18n.tarefa, count: c.tarefas || 0 },
             { id: 'fatura', label: i18n.fatura, count: c.faturas_vencidas || 0 },
+            { id: 'caucao', label: i18n.caucao, count: c.caucoes || 0 },
             { id: 'licenciamento', label: i18n.licenciamento, count: c.licenciamento || 0 },
             { id: 'cnh', label: i18n.cnh, count: c.cnh_vencidas || 0 },
             { id: 'problema', label: i18n.problema, count: c.problemas || 0 },
@@ -183,6 +188,15 @@ $initialCategoria = $categoria ?? 'all';
                 { label: i18n.col_vehicle, align: 'left',   render: i => escapeHtml(i.detalhe) },
                 { label: i18n.col_due,     align: 'center', render: i => fmtDate(i.data) },
                 { label: i18n.col_actions, align: 'right',  render: () => action },
+            ];
+        }
+        if (cat === 'caucao') {
+            return [
+                { label: i18n.col_desc,            align: 'left',   render: i => escapeHtml(i.titulo) },
+                { label: i18n.col_detail,          align: 'left',   render: i => escapeHtml(i.detalhe) },
+                { label: i18n.col_value,           align: 'right',  render: i => fmtMoney(i.extra?.valor) },
+                { label: i18n.col_expected_return, align: 'center', render: i => fmtDate(i.data) },
+                { label: i18n.col_actions,         align: 'right',  render: () => action },
             ];
         }
         if (cat === 'cnh') {

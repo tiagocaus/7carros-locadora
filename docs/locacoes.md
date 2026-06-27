@@ -59,7 +59,7 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 - A tela de reserva deve mostrar o campo de veiculo, mas sem obrigatoriedade.
 - Veiculo especifico so e obrigatorio ao abrir a locacao/registrar saida (`status = A`) ou em fluxos de fechamento que dependam de veiculo ativo.
 - Ao registrar saida, se o veiculo preferido ainda estiver disponivel, ele deve ser usado. Se nao estiver disponivel, a tela deve exigir a selecao de outro veiculo disponivel do grupo. A partir desse momento a locacao passa a ter veiculo ativo para checklist, rastreabilidade financeira e devolucao.
-- Na impressao, reserva confirmada (`status = R`) deve ser apresentada como **Voucher**, nao como fatura. O offcanvas de impressao mostra apenas Voucher e Documento para esse status. Reserva pendente (`status = P`) nao entra nessa regra.
+- Na impressao, reserva confirmada (`status = R`) deve ser apresentada como **Voucher**, nao como fatura. O offcanvas de impressao mostra apenas Voucher e Voucher + Checklist para esse status. Reserva pendente (`status = P`) nao entra nessa regra.
 
 ### R → A (Registrar Saida)
 - Registra data/hora de saida

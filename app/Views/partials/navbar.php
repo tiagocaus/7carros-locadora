@@ -124,6 +124,7 @@
                             <a href="#" class="submenu-parent"><span>{{ t('menu.relatorios_menu.financial') }}</span><i class="fas fa-chevron-right fa-xs"></i></a>
                             <div class="submenu-level-2">
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/financeiro/movimentacoes', '<?= t('menu.relatorios_menu.fin_detailed') ?>', 'fas fa-exchange-alt'); return false;">{{ t('menu.relatorios_menu.fin_detailed') }}</a>
+                                <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/financeiro/caucoes', '<?= t('menu.relatorios_menu.fin_deposits') ?>', 'fas fa-shield-alt'); return false;">{{ t('menu.relatorios_menu.fin_deposits') }}</a>
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/financeiro/faturamento', '<?= t('menu.relatorios_menu.fin_billing') ?>', 'fas fa-file-invoice-dollar'); return false;">{{ t('menu.relatorios_menu.fin_billing') }}</a>
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/financeiro/dre', '<?= t('menu.relatorios_menu.fin_income_statement') ?>', 'fas fa-balance-scale'); return false;">{{ t('menu.relatorios_menu.fin_income_statement') }}</a>
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/financeiro/livro-caixa', '<?= t('menu.relatorios_menu.fin_cashbook') ?>', 'fas fa-book'); return false;">{{ t('menu.relatorios_menu.fin_cashbook') }}</a>
@@ -332,6 +333,9 @@
                         </a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/notificacoes?categoria=fatura', '<?= t('menu.notifications.overdue_invoices') ?>', 'fas fa-file-invoice-dollar'); return false;" class="dropdown-item">
                             <div class="flex items-center"><i class="fas fa-file-invoice-dollar text-slate-500 mr-2"></i>{{ t('menu.notifications.overdue_invoices') }}</div><span class="badge<?= ($notifications['faturas_vencidas'] ?? 0) > 0 ? ' bg-red-200 text-red-700' : '' ?>" data-notification-key="faturas_vencidas"><?= $notifications['faturas_vencidas'] ?? 0 ?></span>
+                        </a>
+                        <a href="#" onclick="openOrSwitchToTab('/pages/notificacoes?categoria=caucao', '<?= t('menu.notifications.deposits') ?>', 'fas fa-shield-alt'); return false;" class="dropdown-item">
+                            <div class="flex items-center"><i class="fas fa-shield-alt text-slate-500 mr-2"></i>{{ t('menu.notifications.deposits') }}</div><span class="badge<?= ($notifications['caucoes'] ?? 0) > 0 ? ' bg-red-200 text-red-700' : '' ?>" data-notification-key="caucoes"><?= $notifications['caucoes'] ?? 0 ?></span>
                         </a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/notificacoes?categoria=licenciamento', '<?= t('menu.notifications.licensing') ?>', 'fas fa-id-card'); return false;" class="dropdown-item">
                             <div class="flex items-center"><i class="fas fa-dollar-sign text-slate-500 mr-2"></i>{{ t('menu.notifications.licensing') }}</div><span class="badge<?= ($notifications['licenciamento'] ?? 0) > 0 ? ' bg-red-200 text-red-700' : '' ?>" data-notification-key="licenciamento"><?= $notifications['licenciamento'] ?? 0 ?></span>

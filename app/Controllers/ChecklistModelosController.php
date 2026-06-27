@@ -177,7 +177,7 @@ class ChecklistModelosController
                     ], 400);
                     return;
                 }
-                $questoes = $this->sanitizarArray($questoes);
+                $questoes = $this->normalizarItensModelo($this->sanitizarArray($questoes));
                 $dados['questoes'] = json_encode($questoes, JSON_UNESCAPED_UNICODE);
             } else {
                 $dados['questoes'] = '[]';
@@ -193,7 +193,7 @@ class ChecklistModelosController
                     ], 400);
                     return;
                 }
-                $vistoria = $this->sanitizarArray($vistoria);
+                $vistoria = $this->normalizarItensModelo($this->sanitizarArray($vistoria));
                 $dados['vistoria'] = json_encode($vistoria, JSON_UNESCAPED_UNICODE);
             } else {
                 $dados['vistoria'] = '[]';
@@ -259,7 +259,7 @@ class ChecklistModelosController
                     ], 400);
                     return;
                 }
-                $questoes = $this->sanitizarArray($questoes);
+                $questoes = $this->normalizarItensModelo($this->sanitizarArray($questoes));
                 $dados['questoes'] = json_encode($questoes, JSON_UNESCAPED_UNICODE);
             }
 
@@ -273,7 +273,7 @@ class ChecklistModelosController
                     ], 400);
                     return;
                 }
-                $vistoria = $this->sanitizarArray($vistoria);
+                $vistoria = $this->normalizarItensModelo($this->sanitizarArray($vistoria));
                 $dados['vistoria'] = json_encode($vistoria, JSON_UNESCAPED_UNICODE);
             }
 
@@ -380,5 +380,35 @@ class ChecklistModelosController
             }
         }
         return $resultado;
+    }
+
+    /**
+     * Padroniza itens de questoes/vistoria para gravar apenas "name" como campo canonico.
+     */
+    private function normalizarItensModelo(array $itens): array
+    {
+        foreach ($itens as &$item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            if (!isset($item['name']) || trim((string) $item['name']) === '') {
+                foreach (['content', 'pergunta', 'label'] as $campoLegado) {
+                    if (isset($item[$campoLegado]) && trim((string) $item[$campoLegado]) !== '') {
+                        $item['name'] = trim((string) $item[$campoLegado]);
+                        break;
+                    }
+                }
+            }
+
+            unset($item['content'], $item['pergunta'], $item['label']);
+
+            if (isset($item['children']) && is_array($item['children'])) {
+                $item['children'] = $this->normalizarItensModelo($item['children']);
+            }
+        }
+        unset($item);
+
+        return $itens;
     }
 }

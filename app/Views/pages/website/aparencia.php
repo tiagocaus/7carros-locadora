@@ -238,7 +238,7 @@
         e.stopPropagation();
 
         try {
-            await API.delete('/api/website/presets/' + btn.dataset.id);
+            await API.post('/api/website/presets/' + btn.dataset.id + '/excluir');
             presetsCustom = presetsCustom.filter(p => p.id != btn.dataset.id);
             if (presetAtual === btn.closest('[class*=cursor-pointer]')?.querySelector('span')?.textContent) {
                 presetAtual = 'azul';

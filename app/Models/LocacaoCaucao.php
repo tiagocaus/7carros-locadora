@@ -120,7 +120,7 @@ class LocacaoCaucao extends Model
         return $this->buscarAtualPorLocacao($locacaoId);
     }
 
-    public function devolver(int $locacaoId, array $locacao): void
+    public function devolver(int $locacaoId, array $locacao, array $dados = []): void
     {
         $caucao = $this->buscarAtualPorLocacao($locacaoId);
         if (!$caucao || (float) ($caucao['valor'] ?? 0) <= 0) {
@@ -131,27 +131,62 @@ class LocacaoCaucao extends Model
             throw new \RuntimeException('Caucao ja foi devolvida');
         }
 
+        $dataDevolucao = $this->normalizarDataDevolucao($dados['data_devolucao'] ?? null);
+        $idFinanceiro = null;
+        $entradaReal = $this->buscarEntradaFinanceiraReal($caucao);
+
+        if ($entradaReal) {
+            $idFinanceiro = $this->criarFinanceiroDevolucao($caucao, $locacao, [
+                'id_locacao' => $locacaoId,
+                'codigo' => $locacao['codigo'] ?? $locacaoId,
+                'id_matriz_filial' => $locacao['id_matriz_filial_retirada'] ?? null,
+                'id_conta' => $dados['id_conta'] ?? $dados['id_conta_caucao'] ?? null,
+                'id_forma_pagamento' => $dados['id_forma_pagamento'] ?? $dados['id_forma_pagamento_caucao'] ?? null,
+                'data_devolucao' => $dataDevolucao,
+            ]);
+        }
+
+        $this->qb
+            ->table('locacoes_caucoes')
+            ->where('id', '=', (int) $caucao['id'])
+            ->update([
+                'id_financeiro_devolucao' => $idFinanceiro,
+                'data_devolucao' => $dataDevolucao,
+                'status' => 'devolvida',
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+    }
+
+    private function criarFinanceiroDevolucao(array $caucao, array $locacao, array $dados): int
+    {
+        if (empty($dados['id_conta'])) {
+            throw new \RuntimeException('Conta da devolucao da caucao e obrigatoria');
+        }
+        if (empty($dados['id_forma_pagamento'])) {
+            throw new \RuntimeException('Forma de pagamento da devolucao da caucao e obrigatoria');
+        }
+
         $plano = (new PlanoDeContas())->buscarPorHierarquia(self::PLANO_CONTA_DEVOLUCAO);
         if (!$plano) {
             throw new \RuntimeException('Plano de conta da devolucao de caucao nao encontrado');
         }
 
-        $descricao = sprintf('Devolucao Caucao - Locacao %s', $locacao['codigo'] ?? $locacaoId);
+        $descricao = sprintf('Devolucao Caucao - Locacao %s', $dados['codigo']);
         $dadosFinanceiro = [
             'chave' => $caucao['chave'],
-            'id_locacao' => $locacaoId,
+            'id_locacao' => (int) $dados['id_locacao'],
             'id_cliente' => $caucao['id_cliente'] ?? null,
-            'id_matriz_filial' => !empty($locacao['id_matriz_filial_retirada']) ? (int) $locacao['id_matriz_filial_retirada'] : null,
-            'id_conta' => $caucao['id_conta'] ?? null,
-            'id_forma_pagamento' => $caucao['id_forma_pagamento'] ?? null,
+            'id_matriz_filial' => !empty($dados['id_matriz_filial']) ? (int) $dados['id_matriz_filial'] : null,
+            'id_conta' => (int) $dados['id_conta'],
+            'id_forma_pagamento' => (int) $dados['id_forma_pagamento'],
             'id_plano_de_conta' => (int) $plano['id'],
             'tipo' => 'D',
             'pago' => 'S',
             'parcela' => 1,
             'total_parcelas' => 1,
             'descricao' => $descricao,
-            'data_venci' => date('Y-m-d'),
-            'data_pago' => date('Y-m-d'),
+            'data_venci' => $dados['data_devolucao'],
+            'data_pago' => $dados['data_devolucao'],
             'valor_subtotal' => $caucao['valor'],
             'valor_total' => $caucao['valor'],
         ];
@@ -171,15 +206,25 @@ class LocacaoCaucao extends Model
             'valor' => $caucao['valor'],
         ]]);
 
-        $this->qb
-            ->table('locacoes_caucoes')
-            ->where('id', '=', (int) $caucao['id'])
-            ->update([
-                'id_financeiro_devolucao' => $idFinanceiro,
-                'data_devolucao' => date('Y-m-d'),
-                'status' => 'devolvida',
-                'updated_at' => date('Y-m-d H:i:s'),
-            ]);
+        return $idFinanceiro;
+    }
+
+    private function buscarEntradaFinanceiraReal(array $caucao): ?array
+    {
+        if (empty($caucao['id_financeiro_entrada'])) {
+            return null;
+        }
+
+        return (new Financeiro())->buscarPorId((int) $caucao['id_financeiro_entrada']);
+    }
+
+    private function normalizarDataDevolucao(mixed $value): string
+    {
+        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return $value;
+        }
+
+        return date('Y-m-d');
     }
 
     private function sincronizarFinanceiroEntrada(array $caucao, array $locacao): void

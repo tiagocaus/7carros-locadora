@@ -61,6 +61,20 @@ $db = Database::getConnection();
 $db->beginTransaction();
 
 try {
+    Database::insertGetId('veiculos', [
+        'chave' => $chave,
+        'placa' => 'TOF' . substr(strtoupper(bin2hex(random_bytes(3))), 0, 4),
+        'marca' => 'Teste',
+        'modelo' => 'Oficina',
+        'id_grupo' => $grupoId,
+        'id_matriz_filial' => $filialId,
+        'disponibilidade' => 'O',
+        'odometro' => 0,
+    ]);
+
+    $comOficina = $veiculoModel->gruposDisponiveisPorFilial($filialId, $periodoIni, $periodoFim);
+    checkReservaGrupo('veiculo em oficina nao aumenta disponibilidade do grupo', $comOficina[$grupoId] ?? 0, $qtdLivre);
+
     $stmtLoc = $db->prepare("
         INSERT INTO locacoes (codigo, chave, status, data_saida, data_prevista, dias, cliente_nome, created_at)
         VALUES (?, ?, ?, ?, ?, 2, 'TEST RESERVA GRUPO', NOW())

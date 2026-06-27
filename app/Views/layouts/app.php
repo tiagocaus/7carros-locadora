@@ -151,6 +151,64 @@
         </div>
     </div>
 
+    <!-- Modal de Banner do Website -->
+    <div id="websiteBannerModal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 640px; text-align: left; max-height: 92vh; overflow-y: auto;">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="modal-title mb-0" id="websiteBannerModalTitle"><?= t('modules.website.add_banner') ?></h3>
+                <button type="button" class="text-slate-400 hover:text-slate-600" onclick="closeWebsiteBannerModal()" title="<?= t('modules.layout.buttons.close') ?>">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="websiteBannerForm" class="space-y-4">
+                <input type="hidden" id="websiteBannerId" value="">
+
+                <div class="form-input-group">
+                    <label class="form-label-group" for="websiteBannerTitulo"><?= t('modules.website.banner_title') ?></label>
+                    <input type="text" id="websiteBannerTitulo" class="form-input-group-field" required>
+                </div>
+
+                <div class="form-input-group">
+                    <label class="form-label-group" for="websiteBannerMensagem"><?= t('modules.website.banner_message') ?></label>
+                    <input type="text" id="websiteBannerMensagem" class="form-input-group-field">
+                </div>
+
+                <div class="form-input-group">
+                    <label class="form-label-group" for="websiteBannerFoto"><?= t('modules.website.banner_image') ?></label>
+                    <input type="file" id="websiteBannerFoto" accept=".jpg,.jpeg,.png,.webp" class="form-input-group-field">
+                    <img id="websiteBannerFotoPreview" class="mt-2 h-28 max-w-full object-contain hidden" src="" alt="">
+                </div>
+
+                <div class="form-input-group">
+                    <label class="form-label-group" for="websiteBannerAlt"><?= t('modules.website.banner_alt') ?></label>
+                    <input type="text" id="websiteBannerAlt" class="form-input-group-field">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="form-input-group">
+                        <label class="form-label-group" for="websiteBannerLink"><?= t('modules.website.banner_link') ?></label>
+                        <input type="text" id="websiteBannerLink" class="form-input-group-field" placeholder="https://...">
+                    </div>
+                    <div class="form-input-group">
+                        <label class="form-label-group" for="websiteBannerTarget"><?= t('modules.website.banner_target') ?></label>
+                        <select id="websiteBannerTarget" class="form-input-group-field">
+                            <option value="_blank"><?= t('modules.website.new_window') ?></option>
+                            <option value="_self"><?= t('modules.website.same_window') ?></option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-actions pt-2">
+                    <button type="button" class="btn-secondary" onclick="closeWebsiteBannerModal()"><?= t('common.buttons.cancel') ?></button>
+                    <button type="submit" id="websiteBannerSaveButton" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
+                        <i class="fas fa-save mr-1"></i> <?= t('common.buttons.save') ?>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal de Validação de Formulário -->
     <div id="validationModal" class="modal-overlay">
         <div class="modal-box validation-modal-box">
@@ -1277,6 +1335,194 @@
             closeGenericConfirmModal();
         };
 
+        // ===== MODAL DE BANNER DO WEBSITE =====
+        let websiteBannerModalSource = null;
+        let websiteBannerCurrentFotoUrl = '';
+        const websiteBannerAcceptedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+        function readWebsiteBannerFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const maxWidth = 1920;
+                        const maxHeight = 1080;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width = Math.round(width * ratio);
+                            height = Math.round(height * ratio);
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        resolve(canvas.toDataURL('image/jpeg', 0.9));
+                    };
+                    img.onerror = function() {
+                        reject(new Error('<?= t("messages.error.upload_failed") ?>'));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.onerror = function() {
+                    reject(new Error('<?= t("messages.error.upload_failed") ?>'));
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function resetWebsiteBannerModal() {
+            document.getElementById('websiteBannerId').value = '';
+            document.getElementById('websiteBannerTitulo').value = '';
+            document.getElementById('websiteBannerMensagem').value = '';
+            document.getElementById('websiteBannerAlt').value = '';
+            document.getElementById('websiteBannerLink').value = '';
+            document.getElementById('websiteBannerTarget').value = '_blank';
+            document.getElementById('websiteBannerFoto').value = '';
+            document.getElementById('websiteBannerFotoPreview').classList.add('hidden');
+            document.getElementById('websiteBannerFotoPreview').src = '';
+            websiteBannerCurrentFotoUrl = '';
+        }
+
+        window.openWebsiteBannerModal = function(banner, source) {
+            websiteBannerModalSource = source || null;
+            resetWebsiteBannerModal();
+
+            const modal = document.getElementById('websiteBannerModal');
+            const title = document.getElementById('websiteBannerModalTitle');
+            const preview = document.getElementById('websiteBannerFotoPreview');
+            const fotoInput = document.getElementById('websiteBannerFoto');
+
+            if (!modal || !title || !preview || !fotoInput) return;
+
+            if (banner && banner.id) {
+                title.textContent = '<?= t("modules.website.banner_title") ?>';
+                fotoInput.required = false;
+                document.getElementById('websiteBannerId').value = banner.id || '';
+                document.getElementById('websiteBannerTitulo').value = banner.titulo || '';
+                document.getElementById('websiteBannerMensagem').value = banner.mensagem || '';
+                document.getElementById('websiteBannerAlt').value = banner.alt_text || '';
+                document.getElementById('websiteBannerLink').value = banner.link_url || '';
+                document.getElementById('websiteBannerTarget').value = banner.link_target || '_blank';
+
+                if (banner.foto_url) {
+                    websiteBannerCurrentFotoUrl = banner.foto_url;
+                    preview.src = banner.foto_url;
+                    preview.classList.remove('hidden');
+                }
+            } else {
+                title.textContent = '<?= t("modules.website.add_banner") ?>';
+                fotoInput.required = true;
+            }
+
+            modal.classList.add('open');
+            document.body.classList.add('modal-open');
+        };
+
+        window.closeWebsiteBannerModal = function() {
+            const modal = document.getElementById('websiteBannerModal');
+            if (modal) modal.classList.remove('open');
+            document.body.classList.remove('modal-open');
+            websiteBannerModalSource = null;
+            resetWebsiteBannerModal();
+        };
+
+        document.getElementById('websiteBannerFoto')?.addEventListener('change', function() {
+            const file = this.files[0];
+            const preview = document.getElementById('websiteBannerFotoPreview');
+            if (!file || !preview) {
+                if (websiteBannerCurrentFotoUrl) {
+                    preview.src = websiteBannerCurrentFotoUrl;
+                    preview.classList.remove('hidden');
+                }
+                return;
+            }
+
+            if (!websiteBannerAcceptedTypes.includes(file.type)) {
+                this.value = '';
+                openAlertModal('<?= t("messages.error.invalid_file_type", ["types" => "JPEG, PNG, WebP"]) ?>');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                this.value = '';
+                openAlertModal('<?= t("messages.error.file_too_large", ["size" => "5MB"]) ?>');
+                return;
+            }
+
+            readWebsiteBannerFile(file).then(function(base64) {
+                preview.src = base64;
+                preview.classList.remove('hidden');
+            }).catch(function(error) {
+                this.value = '';
+                openAlertModal(error.message || '<?= t("messages.error.upload_failed") ?>');
+            }.bind(this));
+        });
+
+        document.getElementById('websiteBannerForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('websiteBannerId').value;
+            const saveButton = document.getElementById('websiteBannerSaveButton');
+            const originalButtonHtml = saveButton.innerHTML;
+            const file = document.getElementById('websiteBannerFoto').files[0];
+            const dados = {
+                titulo: document.getElementById('websiteBannerTitulo').value,
+                mensagem: document.getElementById('websiteBannerMensagem').value,
+                alt_text: document.getElementById('websiteBannerAlt').value,
+                link_url: document.getElementById('websiteBannerLink').value,
+                link_target: document.getElementById('websiteBannerTarget').value,
+                ativo: 1
+            };
+
+            try {
+                if (!id && !file) {
+                    openAlertModal('<?= t("messages.info.required_field") ?>: <?= t("modules.website.banner_image") ?>');
+                    return;
+                }
+
+                saveButton.disabled = true;
+                saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> <?= t("common.labels.saving") ?>';
+
+                if (file) {
+                    dados.foto_base64 = await readWebsiteBannerFile(file);
+                }
+
+                const result = id
+                    ? await API.put('/api/website/banners/' + id, dados)
+                    : await API.post('/api/website/banners', dados);
+
+                if (result.success) {
+                    if (websiteBannerModalSource) {
+                        websiteBannerModalSource.postMessage({ action: 'websiteBannerSaved' }, '*');
+                    }
+                    if (window.toast) {
+                        window.toast.success('<?= t("common.messages.saved") ?>');
+                    }
+                    closeWebsiteBannerModal();
+                } else {
+                    openAlertModal(result.message || '<?= t("common.messages.error") ?>');
+                }
+            } catch (error) {
+                openAlertModal(error.message || '<?= t("common.messages.error") ?>');
+            } finally {
+                saveButton.disabled = false;
+                saveButton.innerHTML = originalButtonHtml;
+            }
+        });
+
+        document.getElementById('websiteBannerModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeWebsiteBannerModal();
+            }
+        });
+
         // ===== MODAL DE EDIÇÃO EM LOTE =====
         let editBatchCallback = null;
 
@@ -1676,6 +1922,9 @@
             } else if (event.data && event.data.action === 'openIntegracaoModal') {
                 // Abrir modal de integração fullscreen
                 window.openIntegracaoModal(event.data.integracao || null, event.source);
+            } else if (event.data && event.data.action === 'openWebsiteBannerModal') {
+                // Abrir modal de banner do website no documento pai
+                window.openWebsiteBannerModal(event.data.banner || null, event.source);
             } else if (event.data && event.data.action === 'openEditBatchModal') {
                 // Abrir modal de edição em lote
                 openEditBatchModal(

@@ -6,6 +6,7 @@ use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
+use App\Models\CaucaoDeposito;
 use App\Models\Relatorios\FinanceiroReport;
 use App\Models\MatrizFilial;
 use App\Helpers\PdfHelper;
@@ -27,6 +28,51 @@ use App\Helpers\PdfHelper;
  */
 class FinanceiroController extends BaseRelatorioController
 {
+    /**
+     * GET /pages/relatorios/financeiro/caucoes
+     */
+    public function viewCaucoes(Request $request): void
+    {
+        $html = Template::render('pages.relatorios.financeiro.caucoes');
+        Response::html($html);
+    }
+
+    /**
+     * GET /api/relatorios/financeiro/caucoes
+     */
+    public function caucoes(Request $request): void
+    {
+        try {
+            if (!$this->checkPermission('relatorios.financeiro.caucoes')) return;
+
+            if (!$this->validateFilialAccess((string) $request->query('filial', ''))) return;
+
+            $page = max(1, (int) $request->query('page', 1));
+            $perPage = max(1, min(100, (int) $request->query('perPage', 25)));
+
+            $result = (new CaucaoDeposito())->buscar([
+                'data_inicio' => $request->query('data_inicio', ''),
+                'data_fim' => $request->query('data_fim', ''),
+                'filial' => $request->query('filial', ''),
+                'status' => $request->query('status', ''),
+                'origem' => $request->query('origem', ''),
+                'cliente' => $request->query('cliente', ''),
+                'page' => $page,
+                'perPage' => $perPage,
+            ]);
+
+            $this->reportPaginatedResponse(
+                $result['details'],
+                $result['totals'],
+                $page,
+                $perPage,
+                $result['total']
+            );
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => t('modules.relatorios.messages.load_error')], 500);
+        }
+    }
+
     // =====================================================
     // MOVIMENTAÇÕES
     // =====================================================

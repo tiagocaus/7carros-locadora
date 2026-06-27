@@ -63,12 +63,14 @@ O Checklist Digital permite que funcionários realizem vistorias de veículos pe
 
 ### Aba 2 — Questões
 - Questões carregadas do modelo selecionado (`checklist_modelos.questoes`)
+- Cada item usa `name` como campo canonico do texto exibido. Campos legados (`content`, `pergunta`, `label`) devem ser convertidos para `name` e removidos ao salvar/migrar.
 - 4 opções por questão: **Confere** (verde), **Não confere** (vermelho), **Danificado** (amarelo), **N/A** (púrpura)
 - **Todas** devem ser respondidas para avançar
 - **Auto-save**: a cada 30 segundos via `setInterval`
 
 ### Aba 3 — Vistorias
 - Itens de vistoria do modelo (`checklist_modelos.vistoria`)
+- Cada item usa `name` como campo canonico do texto exibido. Campos legados (`content`, `pergunta`, `label`) devem ser convertidos para `name` e removidos ao salvar/migrar.
 - Foto tirada via câmera (`<input capture="environment">`)
 - Foto enviada **imediatamente** ao servidor (resize client-side max 1200px → JPEG 85%)
 - **Mínimo 1 foto** obrigatória para avançar

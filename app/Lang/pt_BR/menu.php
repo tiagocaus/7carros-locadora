@@ -95,6 +95,7 @@ return [
         // Financeiro
         'financial' => 'Financeiro',
         'fin_detailed' => 'Movimentações Financeiras',
+        'fin_deposits' => 'Caução (Depósito de Garantia)',
         'fin_billing' => 'Faturamento',
         'fin_income_statement' => 'Demonstrativos de resultados',
         'fin_cashbook' => 'Livro de caixa',
@@ -208,6 +209,7 @@ return [
         'maintenance' => 'Manutenções',
         'tasks' => 'Tarefas',
         'overdue_invoices' => 'Faturas vencidas',
+        'deposits' => 'Caução (Depósito de Garantia)',
         'licensing' => 'Licenciamento',
         'expired_license' => 'CNH Vencidas',
         'problems' => 'Problemas',

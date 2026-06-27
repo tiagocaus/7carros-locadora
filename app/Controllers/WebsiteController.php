@@ -23,6 +23,11 @@ use App\Helpers\FileHelper;
 
 class WebsiteController
 {
+    private function canManageWebsite(): bool
+    {
+        return Auth::can('website.configurar') || Auth::can('website.editar');
+    }
+
     // =========================================================================
     // VIEWS (renderizam HTML)
     // =========================================================================
@@ -124,7 +129,7 @@ class WebsiteController
     public function updateConfig(Request $request): void
     {
         try {
-            if (!Auth::can('website.configurar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -207,7 +212,7 @@ class WebsiteController
     public function updateAparencia(Request $request): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -273,7 +278,7 @@ class WebsiteController
     public function resetAparencia(Request $request): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -319,7 +324,7 @@ class WebsiteController
     public function updateConteudos(Request $request, string $pagina): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -364,7 +369,7 @@ class WebsiteController
     public function updateSeo(Request $request, string $pagina): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -408,7 +413,7 @@ class WebsiteController
     public function saveIntegracao(Request $request): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -439,7 +444,7 @@ class WebsiteController
     public function deleteIntegracao(Request $request, int $id): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -482,21 +487,41 @@ class WebsiteController
     public function saveBanner(Request $request): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
 
-            $dados = $request->only(['foto', 'titulo', 'mensagem', 'alt_text', 'link_url', 'link_target', 'idioma', 'ativo', 'ordem']);
+            $dados = $request->only(['titulo', 'mensagem', 'alt_text', 'link_url', 'link_target', 'idioma', 'ativo', 'ordem']);
             if (isset($dados['ativo'])) {
                 $dados['ativo'] = (int) $dados['ativo'];
             }
+            $dados['titulo'] = trim((string)($dados['titulo'] ?? ''));
+            $dados['mensagem'] = (string)($dados['mensagem'] ?? '');
+
+            if ($dados['titulo'] === '') {
+                Response::json(['success' => false, 'message' => t('messages.info.required_field') . ': ' . t('modules.website.banner_title')], 422);
+                return;
+            }
+
+            $fotoBase64 = $request->input('foto_base64', '');
+            if (empty($fotoBase64)) {
+                Response::json(['success' => false, 'message' => t('messages.info.required_field') . ': ' . t('modules.website.banner_image')], 422);
+                return;
+            }
+
+            $filename = FileHelper::save($fotoBase64, 'banner');
+            if (!$filename) {
+                Response::json(['success' => false, 'message' => t('messages.error.upload_failed')], 422);
+                return;
+            }
+            $dados['foto'] = $filename;
 
             $model = new SiteBanner();
             $id = $model->criar($dados);
 
             Response::json(['success' => true, 'message' => t('common.messages.saved'), 'id' => $id]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
@@ -507,21 +532,50 @@ class WebsiteController
     public function updateBanner(Request $request, int $id): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
 
-            $dados = $request->only(['foto', 'titulo', 'mensagem', 'alt_text', 'link_url', 'link_target', 'idioma', 'ativo', 'ordem']);
+            $dados = $request->only(['titulo', 'mensagem', 'alt_text', 'link_url', 'link_target', 'idioma', 'ativo', 'ordem']);
             if (isset($dados['ativo'])) {
                 $dados['ativo'] = (int) $dados['ativo'];
             }
+            if (isset($dados['titulo'])) {
+                $dados['titulo'] = trim((string)$dados['titulo']);
+                if ($dados['titulo'] === '') {
+                    Response::json(['success' => false, 'message' => t('messages.info.required_field') . ': ' . t('modules.website.banner_title')], 422);
+                    return;
+                }
+            }
+            if (array_key_exists('mensagem', $dados)) {
+                $dados['mensagem'] = (string)$dados['mensagem'];
+            }
 
             $model = new SiteBanner();
+            $atual = $model->buscarPorId($id);
+            if (!$atual) {
+                Response::json(['success' => false, 'message' => t('messages.error.not_found')], 404);
+                return;
+            }
+
+            $fotoBase64 = $request->input('foto_base64', '');
+            if (!empty($fotoBase64)) {
+                $filename = FileHelper::save($fotoBase64, 'banner');
+                if (!$filename) {
+                    Response::json(['success' => false, 'message' => t('messages.error.upload_failed')], 422);
+                    return;
+                }
+                $dados['foto'] = $filename;
+            }
+
             $model->atualizar($id, $dados);
+            if (!empty($dados['foto']) && !empty($atual['foto'])) {
+                FileHelper::delete($atual['foto']);
+            }
 
             Response::json(['success' => true, 'message' => t('common.messages.saved')]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
@@ -532,13 +586,27 @@ class WebsiteController
     public function deleteBanner(Request $request, int $id): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
 
             $model = new SiteBanner();
-            $model->excluir($id);
+            $banner = $model->buscarPorId($id);
+            if (!$banner) {
+                Response::json(['success' => false, 'message' => t('messages.error.not_found')], 404);
+                return;
+            }
+
+            $deleted = $model->excluir($id);
+            if ($deleted < 1) {
+                Response::json(['success' => false, 'message' => t('messages.error.not_found')], 404);
+                return;
+            }
+
+            if (!empty($banner['foto'])) {
+                FileHelper::delete($banner['foto']);
+            }
 
             Response::json(['success' => true, 'message' => t('common.messages.deleted')]);
         } catch (\Exception $e) {
@@ -552,7 +620,7 @@ class WebsiteController
     public function reordenarBanners(Request $request): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -590,7 +658,7 @@ class WebsiteController
     public function saveLinks(Request $request): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -628,7 +696,7 @@ class WebsiteController
     public function saveIdiomas(Request $request): void
     {
         try {
-            if (!Auth::can('website.configurar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -653,7 +721,7 @@ class WebsiteController
     public function savePreset(Request $request): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -687,7 +755,7 @@ class WebsiteController
     public function deletePreset(Request $request, int $id): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
@@ -840,7 +908,7 @@ class WebsiteController
     public function preview(Request $request): void
     {
         try {
-            if (!Auth::can('website.editar')) {
+            if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }

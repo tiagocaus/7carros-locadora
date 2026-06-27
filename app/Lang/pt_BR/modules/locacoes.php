@@ -575,6 +575,7 @@ return [
         'reservation_label' => 'Reserva',
         'print_type' => 'Tipo de Impressão',
         'voucher' => 'Voucher',
+        'voucher_checklist' => 'Voucher + Checklist',
         'invoice' => 'Fatura',
         'invoice_document' => 'Fatura + Documento',
         'document' => 'Documento',

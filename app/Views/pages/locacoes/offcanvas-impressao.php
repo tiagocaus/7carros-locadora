@@ -41,13 +41,19 @@ $printPageTitle = $isReservaConfirmada ? t('modules.locacoes.print.reservation_t
                 </div>
             </label>
 
-            <label class="print-option" data-tipo="documento">
-                <input type="radio" name="tipoImpressao" value="documento" class="hidden">
+            <label class="print-option" data-tipo="voucher_checklist">
+                <input type="radio" name="tipoImpressao" value="voucher_checklist" class="hidden">
                 <div class="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
-                    <i class="fas fa-file-alt text-indigo-500 w-5 text-center mr-3"></i>
-                    <span class="text-sm font-medium"><?= t('modules.locacoes.print.document') ?></span>
+                    <i class="fas fa-clipboard-check text-green-500 w-5 text-center mr-3"></i>
+                    <span class="text-sm font-medium"><?= t('modules.locacoes.print.voucher_checklist') ?></span>
+                    <?php if ($temChecklistDigital): ?>
+                    <span class="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><?= t('modules.locacoes.print.digital') ?></span>
+                    <?php else: ?>
+                    <span class="ml-auto text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full"><?= t('modules.locacoes.print.printed') ?></span>
+                    <?php endif; ?>
                 </div>
             </label>
+
             <?php else: ?>
             <label class="print-option" data-tipo="fatura">
                 <input type="radio" name="tipoImpressao" value="fatura" checked class="hidden">
@@ -228,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'sendConnectionError' => t('modules.locacoes.messages.send_connection_error'),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
     const TIPOS_COM_DOCUMENTO = ['documento', 'fatura_documento', 'fatura_checklist_documento', 'documento_checklist'];
-    const TIPOS_COM_CHECKLIST = ['checklist', 'fatura_checklist', 'fatura_checklist_documento', 'documento_checklist'];
+    const TIPOS_COM_CHECKLIST = ['checklist', 'fatura_checklist', 'fatura_checklist_documento', 'documento_checklist', 'voucher_checklist'];
     const containerDoc = document.getElementById('containerDocumento');
     const containerCkModelo = document.getElementById('containerChecklistModelo');
     const selectChecklistFonte = document.getElementById('selectChecklistFonte');

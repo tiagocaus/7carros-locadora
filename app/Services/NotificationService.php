@@ -7,6 +7,7 @@ use App\Models\Manutencao;
 use App\Models\Financeiro;
 use App\Models\VeiculoEncargo;
 use App\Models\Cliente;
+use App\Models\CaucaoDeposito;
 
 /**
  * Service para contagem de notificacoes do sistema
@@ -47,6 +48,7 @@ class NotificationService
     {
         $manutencoes = (new Manutencao())->contarAbertas();
         $faturasVencidas = (new Financeiro())->contarVencidas();
+        $caucoes = (new CaucaoDeposito())->contarPendentesNotificacao();
         $licenciamento = (new VeiculoEncargo())->contarVencidosOuProximos();
         $cnhVencidas = (new Cliente())->contarCnhVencidas();
 
@@ -57,10 +59,11 @@ class NotificationService
             'manutencoes' => $manutencoes,
             'tarefas' => $tarefas,
             'faturas_vencidas' => $faturasVencidas,
+            'caucoes' => $caucoes,
             'licenciamento' => $licenciamento,
             'cnh_vencidas' => $cnhVencidas,
             'problemas' => $problemas,
-            'total' => $manutencoes + $tarefas + $faturasVencidas + $licenciamento + $cnhVencidas + $problemas,
+            'total' => $manutencoes + $tarefas + $faturasVencidas + $caucoes + $licenciamento + $cnhVencidas + $problemas,
         ];
     }
 
@@ -94,6 +97,12 @@ class NotificationService
                 $items = array_map([$this, 'mapFatura'], $rows);
                 break;
 
+            case 'caucao':
+                $rows = (new CaucaoDeposito())->listarParaNotificacoes($perPage, $offset);
+                $total = (new CaucaoDeposito())->contarPendentesNotificacao();
+                $items = array_map([$this, 'mapCaucao'], $rows);
+                break;
+
             case 'licenciamento':
                 $rows = (new VeiculoEncargo())->listarParaNotificacoes($perPage, $offset);
                 $total = (new VeiculoEncargo())->contarVencidosOuProximos();
@@ -121,6 +130,7 @@ class NotificationService
                 $todos = array_merge(
                     array_map([$this, 'mapManutencao'], (new Manutencao())->listarParaNotificacoes(500, 0)),
                     array_map([$this, 'mapFatura'], (new Financeiro())->listarParaNotificacoes(500, 0)),
+                    array_map([$this, 'mapCaucao'], (new CaucaoDeposito())->listarParaNotificacoes(500, 0)),
                     array_map([$this, 'mapLicenciamento'], (new VeiculoEncargo())->listarParaNotificacoes(500, 0)),
                     array_map([$this, 'mapCnh'], (new Cliente())->listarCnhVencidasParaNotificacoes(500, 0)),
                 );
@@ -184,6 +194,24 @@ class NotificationService
             'extra' => ['valor' => (float) ($r['valor'] ?? 0)],
             'data' => $r['vencimento'] ?? null,
             'link' => $r['id_veiculo'] ? ('/pages/veiculos/editar/' . (int) $r['id_veiculo']) : '/pages/veiculos',
+        ];
+    }
+
+    private function mapCaucao(array $r): array
+    {
+        $origem = ($r['origem'] ?? '') === 'contrato' ? 'Contrato' : 'Locacao';
+        return [
+            'tipo' => 'caucao',
+            'id' => (int) $r['id'],
+            'titulo' => $origem . ' ' . ($r['codigo'] ?? '#' . $r['id_origem']),
+            'detalhe' => $r['cliente_nome'] ?? '-',
+            'extra' => [
+                'origem' => $r['origem'] ?? '',
+                'valor' => (float) ($r['valor'] ?? 0),
+                'situacao' => $r['situacao'] ?? '',
+            ],
+            'data' => $r['data_prevista_devolucao'] ?? null,
+            'link' => '/pages/relatorios/financeiro/caucoes',
         ];
     }
 

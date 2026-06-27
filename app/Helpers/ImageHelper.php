@@ -198,7 +198,7 @@ class ImageHelper
      */
     private static function toWebP(string $imageData, int $quality = 80, bool $whiteBackground = false): ?string
     {
-        $image = @imagecreatefromstring($imageData);
+        $image = self::createImageFromString($imageData);
         if ($image === false) {
             return null;
         }
@@ -211,9 +211,7 @@ class ImageHelper
             imagealphablending($image, true);
         }
 
-        ob_start();
-        imagewebp($image, null, $quality);
-        $webpData = ob_get_clean();
+        $webpData = self::captureImageOutput(static fn() => imagewebp($image, null, $quality));
 
         imagedestroy($image);
 
@@ -229,7 +227,7 @@ class ImageHelper
      */
     private static function toPng(string $imageData, bool $whiteBackground = false): ?string
     {
-        $image = @imagecreatefromstring($imageData);
+        $image = self::createImageFromString($imageData);
         if ($image === false) {
             return null;
         }
@@ -240,13 +238,35 @@ class ImageHelper
             imagesavealpha($image, true);
         }
 
-        ob_start();
-        imagepng($image, null, 6); // Compressão média (0-9)
-        $pngData = ob_get_clean();
+        $pngData = self::captureImageOutput(static fn() => imagepng($image, null, 6)); // Compressão média (0-9)
 
         imagedestroy($image);
 
         return $pngData ?: null;
+    }
+
+    private static function createImageFromString(string $imageData): \GdImage|false
+    {
+        set_error_handler(static fn() => true);
+        try {
+            return imagecreatefromstring($imageData);
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    private static function captureImageOutput(callable $callback): ?string
+    {
+        set_error_handler(static fn() => true);
+        ob_start();
+        try {
+            $success = (bool) $callback();
+            $data = ob_get_clean();
+        } finally {
+            restore_error_handler();
+        }
+
+        return $success && $data !== false && $data !== '' ? $data : null;
     }
 
     /**

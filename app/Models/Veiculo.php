@@ -896,8 +896,8 @@ class Veiculo extends Model
 
     /**
      * Retorna, por grupo, quantos veiculos da filial estao livres no periodo.
-     * Um veiculo eh livre quando nao tem locacao/contrato ativo que sobreponha
-     * o periodo [$dataSaida, $dataDevolucao]. Formula de conflito:
+     * Um veiculo eh livre quando esta disponivel (D) e nao tem locacao/contrato
+     * ativo que sobreponha o periodo [$dataSaida, $dataDevolucao]. Formula de conflito:
      *   nova_saida < existente_fim AND nova_devolucao > existente_inicio
      *
      * @param int    $filialId       matriz_filial.id
@@ -928,7 +928,7 @@ class Veiculo extends Model
             ) rg ON rg.id_grupo = v.id_grupo
             WHERE v.chave = ?
               AND v.id_matriz_filial = ?
-              AND v.disponibilidade NOT IN ('V','RO','E')
+              AND v.disponibilidade = 'D'
               AND NOT EXISTS (
                   SELECT 1
                   FROM locacoes_veiculos lv

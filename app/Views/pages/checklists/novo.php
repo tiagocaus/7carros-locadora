@@ -1036,6 +1036,15 @@
     // ============================
     // Questoes
     // ============================
+    function itemDisplayName(item, idx) {
+        const fallback = 'Item ' + (idx + 1);
+        if (!item || typeof item !== 'object') return fallback;
+
+        const value = item.name ?? item.content ?? item.pergunta ?? item.label ?? '';
+        const text = String(value).trim();
+        return text || fallback;
+    }
+
     function montarQuestoes() {
         const questoes = JSON.parse(modeloData?.questoes || '[]');
         questoesState = questoes.map(q => ({ ...q, opt: null }));
@@ -1045,7 +1054,7 @@
 
         questoesState.forEach((q, idx) => {
             html += '<div class="questao-card" data-idx="' + idx + '">' +
-                '<div class="title">' + escapeHtml(q.content || q.pergunta || 'Item ' + (idx + 1)) + '</div>' +
+                '<div class="title">' + escapeHtml(itemDisplayName(q, idx)) + '</div>' +
                 '<div class="questao-options">' +
                     optBtn(idx, '1', 'fa-check', 'Confere') +
                     optBtn(idx, '2', 'fa-xmark', 'Não confere') +
@@ -1124,13 +1133,14 @@
 
         vistoriaState.forEach((item, idx) => {
             const hasImg = !!item.img;
+            const itemName = itemDisplayName(item, idx);
             html += '<div class="vistoria-card">' +
                 '<div class="vistoria-thumb">' +
                     (hasImg
-                        ? '<img src="' + escapeHtml(item.img_url) + '" alt="' + escapeHtml(item.content) + '">'
+                        ? '<img src="' + escapeHtml(item.img_url) + '" alt="' + escapeHtml(itemName) + '">'
                         : '<i class="fas fa-camera"></i>') +
                 '</div>' +
-                '<div class="vistoria-info"><div class="name">' + escapeHtml(item.content || 'Item ' + (idx + 1)) + '</div></div>' +
+                '<div class="vistoria-info"><div class="name">' + escapeHtml(itemName) + '</div></div>' +
                 '<div class="vistoria-actions">' +
                     (hasImg
                         ? '<button class="btn-view" onclick="abrirEditor(' + idx + ', \'' + escapeHtml(String(item.id)) + '\')"><i class="fas fa-pen"></i></button>' +
@@ -2124,7 +2134,7 @@
         questoesState.forEach((q, idx) => {
             const selected = q.opt ? ' selected-' + q.opt : '';
             html += '<div class="questao-card" data-idx="' + idx + '">' +
-                '<div class="title">' + escapeHtml(q.content || q.pergunta || 'Item ' + (idx + 1)) + '</div>' +
+                '<div class="title">' + escapeHtml(itemDisplayName(q, idx)) + '</div>' +
                 '<div class="questao-options">' +
                     optBtnWithState(idx, '1', 'fa-check', '<?= addslashes(t('modules.checklists.answers.matches')) ?>', q.opt) +
                     optBtnWithState(idx, '2', 'fa-xmark', '<?= addslashes(t('modules.checklists.answers.not_matches')) ?>', q.opt) +

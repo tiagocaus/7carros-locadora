@@ -1080,6 +1080,22 @@ preset base → merge cores_customizadas → :root final
 3. Toggle: "Manter fundo branco atrás do logo?" (sim/não)
 4. Seletor: "Posição do logo" (Centro / Esquerda) — com preview em tempo real
 
+### Banners do Site
+
+**Upload:**
+- A tela `Website > Banners` usa modal global em `app/Views/layouts/app.php`, aberto pelo iframe via `postMessage`. Não criar modal fullscreen dentro de `app/Views/pages/website/banners.php`.
+- Aceita apenas imagens `jpg`, `jpeg`, `png` e `webp`.
+- O frontend valida MIME e tamanho máximo de 5MB, processa a imagem em canvas e envia `foto_base64` no payload JSON.
+- Ao criar banner, a imagem é obrigatória; ao editar, só é enviada quando o usuário escolhe uma nova imagem.
+- O backend salva a imagem com `FileHelper::save($fotoBase64, 'banner')`, grava somente o filename em `site_banners.foto` e expõe a imagem via `FileHelper::url()`.
+- Ao substituir ou excluir banner, remover o arquivo antigo com `FileHelper::delete()`.
+
+**Exclusão no painel:**
+- A rota `DELETE /api/website/banners/{id}` existe no backend por compatibilidade, mas o painel deve chamar `POST /api/website/banners/{id}/excluir`.
+- Em hospedagens com bloqueio de método HTTP, chamadas `DELETE` podem retornar `403` antes de chegar ao PHP.
+- Use `API.post('/api/website/banners/' + id + '/excluir')` na tela.
+- Erros devem ser exibidos via modal global (`openAlert`/`openAlertModal`), nunca com `alert()` nativo.
+
 ### Fontes
 
 - Padrão: Titillium Web (Google Fonts)
@@ -2247,10 +2263,12 @@ $router->get('/api/website/seo/{pagina}', [WebsiteController::class, 'getSeo']);
 $router->post('/api/website/seo/{pagina}', [WebsiteController::class, 'updateSeo'], ['csrf']);
 $router->get('/api/website/integracoes', [WebsiteController::class, 'getIntegracoes']);
 $router->post('/api/website/integracoes', [WebsiteController::class, 'saveIntegracao'], ['csrf']);
+$router->post('/api/website/integracoes/{id}/excluir', [WebsiteController::class, 'deleteIntegracao'], ['csrf']); // usar no painel
 $router->delete('/api/website/integracoes/{id}', [WebsiteController::class, 'deleteIntegracao'], ['csrf']);
 $router->get('/api/website/banners', [WebsiteController::class, 'getBanners']);
 $router->post('/api/website/banners', [WebsiteController::class, 'saveBanner'], ['csrf']);
 $router->put('/api/website/banners/{id}', [WebsiteController::class, 'updateBanner'], ['csrf']);
+$router->post('/api/website/banners/{id}/excluir', [WebsiteController::class, 'deleteBanner'], ['csrf']); // usar no painel
 $router->delete('/api/website/banners/{id}', [WebsiteController::class, 'deleteBanner'], ['csrf']);
 $router->post('/api/website/banners/reordenar', [WebsiteController::class, 'reordenarBanners'], ['csrf']);
 $router->get('/api/website/links', [WebsiteController::class, 'getLinks']);
@@ -2264,6 +2282,7 @@ $router->get('/api/website/deploy/status', [WebsiteController::class, 'deploySta
 $router->get('/api/website/deploy/log', [WebsiteController::class, 'deployLog']);
 $router->post('/api/website/preview', [WebsiteController::class, 'preview'], ['csrf']);
 $router->post('/api/website/presets', [WebsiteController::class, 'savePreset'], ['csrf']);
+$router->post('/api/website/presets/{id}/excluir', [WebsiteController::class, 'deletePreset'], ['csrf']); // usar no painel
 $router->delete('/api/website/presets/{id}', [WebsiteController::class, 'deletePreset'], ['csrf']);
 
 // Webhook WHMCS (público, sem auth de sessão)

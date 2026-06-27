@@ -3,12 +3,15 @@
 @section('title', '<?= t("modules.website.integrations_title") ?>')
 
 @section('content')
+<?php $canManageWebsite = \App\Core\Auth::can('website.configurar') || \App\Core\Auth::can('website.editar'); ?>
 <div class="pl-1 pr-2 py-0">
     <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
         <h2 class="title-page mb-3 sm:mb-0"><?= t('modules.website.integrations_title') ?></h2>
+        <?php if ($canManageWebsite): ?>
         <button id="btnNovo" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow">
             <i class="fas fa-plus mr-2"></i><?= t('modules.website.add_integration') ?>
         </button>
+        <?php endif; ?>
     </div>
 
     <!-- Lista por tipo -->
@@ -30,6 +33,7 @@
 <script>
 (function() {
     let integracoes = [];
+    const canManageWebsite = <?= $canManageWebsite ? 'true' : 'false' ?>;
 
     pageLoading.start();
     carregar();
@@ -68,10 +72,10 @@
                         <span class="font-medium text-sm">${item.descricao || 'Sem descricao'}</span>
                         <span class="text-xs text-slate-400">${(item.codigo || '').substring(0, 60)}...</span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    ${canManageWebsite ? `<div class="flex items-center gap-2">
                         <button class="text-blue-500 hover:text-blue-700 text-sm btn-editar" data-id="${item.id}"><i class="fas fa-edit"></i></button>
                         <button class="text-red-500 hover:text-red-700 text-sm btn-excluir" data-id="${item.id}"><i class="fas fa-trash"></i></button>
-                    </div>
+                    </div>` : ''}
                 `;
                 container.appendChild(div);
             });
@@ -79,7 +83,8 @@
     }
 
     // Novo — abre o modal global via postMessage
-    document.getElementById('btnNovo').addEventListener('click', function() {
+    document.getElementById('btnNovo')?.addEventListener('click', function() {
+        if (!canManageWebsite) return;
         window.parent.postMessage({
             action: 'openIntegracaoModal',
             integracao: null,
@@ -88,6 +93,8 @@
 
     // Editar / Excluir
     document.addEventListener('click', function(e) {
+        if (!canManageWebsite) return;
+
         const btnEditar = e.target.closest('.btn-editar');
         if (btnEditar) {
             const item = integracoes.find(i => i.id == btnEditar.dataset.id);
@@ -101,15 +108,50 @@
 
         const btnExcluir = e.target.closest('.btn-excluir');
         if (btnExcluir) {
-            API.delete('/api/website/integracoes/' + btnExcluir.dataset.id).then(result => {
-                if (result.success) { toast.success('<?= t("common.messages.deleted") ?>'); carregar(); }
-            }).catch(() => toast.error('<?= t("common.messages.error") ?>'));
+            const item = integracoes.find(i => i.id == btnExcluir.dataset.id);
+            window.parent.postMessage({
+                action: 'openDeleteModal',
+                recordId: btnExcluir.dataset.id,
+                recordName: item?.descricao || 'Integração',
+                recordType: 'integração',
+                confirmType: 'text',
+                customAction: 'deleteWebsiteIntegracao'
+            }, '*');
         }
     });
 
+    async function excluirIntegracao(id) {
+        if (!canManageWebsite) return;
+
+        try {
+            const result = await API.post('/api/website/integracoes/' + id + '/excluir');
+            if (result.success) {
+                toast.success('<?= t("common.messages.deleted") ?>');
+                carregar();
+            } else {
+                window.parent.postMessage({
+                    action: 'openAlert',
+                    message: result.message || '<?= t("common.messages.error") ?>'
+                }, '*');
+            }
+        } catch (error) {
+            window.parent.postMessage({
+                action: 'openAlert',
+                message: error.message || '<?= t("common.messages.error") ?>'
+            }, '*');
+        }
+    }
+
     // Escuta confirmação do modal global
     window.addEventListener('message', async function(event) {
+        if (event.data && event.data.action === 'confirmDelete' && event.data.customAction === 'deleteWebsiteIntegracao') {
+            excluirIntegracao(event.data.recordId);
+            return;
+        }
+
         if (!event.data || event.data.action !== 'integracaoModalConfirmado') return;
+        if (!canManageWebsite) return;
+
         const data = event.data.data;
         try {
             const result = await API.post('/api/website/integracoes', data);
