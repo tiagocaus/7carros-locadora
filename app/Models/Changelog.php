@@ -193,7 +193,7 @@ class Changelog extends Model
      *
      * @param int $limite Número máximo de versões a retornar
      * @param int $offset Número de versões a pular (para paginação)
-     * @return array Lista de versões com itens agrupados por tipo
+     * @return array Lista de versões com itens planos (tipo, mensagem, data)
      */
     public function listarUltimasVersoes(int $limite = 50, int $offset = 0): array
     {
@@ -225,47 +225,31 @@ class Changelog extends Model
             ->orderByDesc('id')
             ->get();
 
-        // Agrupar por versão e depois por tipo
         $resultado = [];
         $versoesMap = [];
 
-        // Criar mapa de data por versão
         foreach ($versoes as $v) {
             $versoesMap[$v['versao']] = $v['data_versao'];
         }
 
         foreach ($changelogs as $item) {
             $versao = $item['versao'];
-            $tipo = $item['tipo'];
 
             if (!isset($resultado[$versao])) {
                 $resultado[$versao] = [
                     'versao' => $versao,
                     'data' => $versoesMap[$versao] ?? $item['data'],
-                    'itens' => [
-                        'N' => [],
-                        'A' => [],
-                        'C' => [],
-                    ],
+                    'itens' => [],
                 ];
             }
 
-            $resultado[$versao]['itens'][$tipo][] = $item['mensagem'];
+            $resultado[$versao]['itens'][] = [
+                'tipo' => $item['tipo'],
+                'mensagem' => $item['mensagem'],
+                'data' => $item['data'],
+            ];
         }
 
-        // Converter para array indexado e remover tipos vazios
-        $final = [];
-        foreach ($resultado as $versaoData) {
-            $itensFiltrados = [];
-            foreach ($versaoData['itens'] as $tipo => $mensagens) {
-                if (!empty($mensagens)) {
-                    $itensFiltrados[$tipo] = $mensagens;
-                }
-            }
-            $versaoData['itens'] = $itensFiltrados;
-            $final[] = $versaoData;
-        }
-
-        return $final;
+        return array_values($resultado);
     }
 }

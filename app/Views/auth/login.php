@@ -167,9 +167,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const changelogLoading = document.getElementById('changelogLoading');
 
     const tipoConfig = {
-        'N': { label: loginI18n.new, icon: 'fa-plus-circle', class: 'tipo-novo' },
-        'A': { label: loginI18n.improved, icon: 'fa-arrow-up', class: 'tipo-aprimorado' },
-        'C': { label: loginI18n.fix, icon: 'fa-wrench', class: 'tipo-correcao' }
+        'N': { label: loginI18n.new, badgeClass: 'changelog-tipo-badge-novo' },
+        'A': { label: loginI18n.improved, badgeClass: 'changelog-tipo-badge-aprimorado' },
+        'C': { label: loginI18n.fix, badgeClass: 'changelog-tipo-badge-correcao' }
     };
 
     // Estado da paginação
@@ -239,6 +239,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!dataStr) return '';
         const partes = dataStr.split('-');
         if (partes.length !== 3) return dataStr;
+        return `${partes[2]}/${partes[1]}`;
+    }
+
+    function formatarDataCompleta(dataStr) {
+        if (!dataStr) return '';
+        const partes = dataStr.split('-');
+        if (partes.length !== 3) return dataStr;
         return `${partes[2]}/${partes[1]}/${partes[0]}`;
     }
 
@@ -252,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderChangelog(versoes, append = false) {
         let html = '';
 
-        versoes.forEach((versao, index) => {
+        versoes.forEach((versao) => {
             const isDestaque = versao.destaque;
             const cardClass = isDestaque ? 'changelog-card-featured' : 'changelog-card-normal';
             const iconClass = isDestaque ? 'icon-featured' : 'icon-normal';
@@ -268,38 +275,32 @@ document.addEventListener('DOMContentLoaded', function () {
                             <h3 class="changelog-version">
                                 ${escapeHtml(loginI18n.version)} ${escapeHtml(versao.versao)}${isDestaque ? ' - ' + escapeHtml(loginI18n.mostRecent) : ''}
                             </h3>
-                            <p class="changelog-date">${formatarData(versao.data)}</p>
+                            <p class="changelog-card-date">${formatarDataCompleta(versao.data)}</p>
                         </div>
-                        ${isDestaque ? '<span class="changelog-badge">' + escapeHtml(loginI18n.current) + '</span>' : ''}
+                        ${isDestaque ? '<span class="changelog-badge-atual">' + escapeHtml(loginI18n.current) + '</span>' : ''}
                     </div>
 
                     <div class="changelog-items">
+                        <div class="changelog-list">
             `;
 
-            // Renderizar itens por tipo
-            versao.itens.forEach(tipoData => {
-                const config = tipoConfig[tipoData.tipo] || { label: tipoData.tipo_label, icon: 'fa-circle', class: '' };
+            versao.itens.forEach((item) => {
+                const config = tipoConfig[item.tipo] || {
+                    label: item.tipo_label || item.tipo,
+                    badgeClass: 'changelog-tipo-badge-novo'
+                };
 
                 html += `
-                    <div class="changelog-type-section ${isDestaque ? 'featured' : ''}">
-                        <h4 class="changelog-type-title">
-                            <i class="fas ${config.icon} ${config.class}"></i>
-                            ${escapeHtml(tipoData.tipo_label)}
-                        </h4>
-                        <ul class="changelog-type-list">
-                `;
-
-                tipoData.mensagens.forEach(msg => {
-                    html += `<li>${escapeHtml(msg)}</li>`;
-                });
-
-                html += `
-                        </ul>
+                    <div class="changelog-row">
+                        <span class="changelog-tipo-badge ${config.badgeClass}">${escapeHtml(config.label)}</span>
+                        <span class="changelog-message">${escapeHtml(item.mensagem)}</span>
+                        <time class="changelog-row-date">${formatarData(item.data)}</time>
                     </div>
                 `;
             });
 
             html += `
+                        </div>
                     </div>
                 </div>
             `;

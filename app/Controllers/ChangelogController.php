@@ -295,18 +295,18 @@ class ChangelogController
             $model = new Changelog();
             $versoes = $model->listarUltimasVersoes($limite, $offset);
 
-            // Formatar dados para o frontend
             $resultado = [];
             $primeiraVersao = ($offset === 0);
 
             foreach ($versoes as $versaoData) {
                 $itensFormatados = [];
 
-                foreach ($versaoData['itens'] as $tipo => $mensagens) {
+                foreach ($versaoData['itens'] as $item) {
                     $itensFormatados[] = [
-                        'tipo' => $tipo,
-                        'tipo_label' => Changelog::TIPOS[$tipo] ?? $tipo,
-                        'mensagens' => $mensagens,
+                        'tipo' => $item['tipo'],
+                        'tipo_label' => Changelog::TIPOS[$item['tipo']] ?? $item['tipo'],
+                        'mensagem' => $item['mensagem'],
+                        'data' => $item['data'],
                     ];
                 }
 
