@@ -1395,10 +1395,42 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }
         }
 
+        function aplicarBloqueioChosenVeiculo(bloqueado) {
+            const selectVeiculo = document.getElementById('id_veiculo');
+            if (!selectVeiculo?.chosenSelect?.wrapper) {
+                return;
+            }
+
+            const chosen = selectVeiculo.chosenSelect;
+            if (bloqueado && typeof chosen.close === 'function') {
+                chosen.close();
+            }
+
+            chosen.wrapper.style.pointerEvents = bloqueado ? 'none' : '';
+            chosen.wrapper.style.opacity = bloqueado ? '0.6' : '';
+            chosen.display?.setAttribute('aria-disabled', bloqueado ? 'true' : 'false');
+        }
+
         async function carregarVeiculosPorGrupo(grupoId) {
             const filialId = document.getElementById('id_matriz_filial_retirada')?.value;
             const selectVeiculo = document.getElementById('id_veiculo');
             const valorAtual = selectVeiculo?.value || (isEditing && locacaoData?.id_veiculo ? String(locacaoData.id_veiculo) : '');
+
+            if (!selectVeiculo) {
+                return;
+            }
+
+            if (vehicleChangeLocked) {
+                garantirVeiculoAtualNoSelect(selectVeiculo);
+                if (valorAtual && Array.from(selectVeiculo.options).some(opt => opt.value === String(valorAtual))) {
+                    selectVeiculo.value = String(valorAtual);
+                }
+                if (selectVeiculo.chosenSelect) {
+                    selectVeiculo.chosenSelect.refresh();
+                    aplicarBloqueioChosenVeiculo(true);
+                }
+                return;
+            }
 
             if (!grupoId || !filialId) {
                 selectVeiculo.innerHTML = '<option value=""><?= t('modules.locacoes.messages.select_group_first') ?></option>';
@@ -2612,7 +2644,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                                 selVeiculo.add(new Option(locacaoData.veiculo_info, locacaoData.id_veiculo));
                             }
                             selVeiculo.value = locacaoData.id_veiculo;
-                            if (selVeiculo.chosenSelect) selVeiculo.chosenSelect.refresh();
+                            if (selVeiculo.chosenSelect) {
+                                selVeiculo.chosenSelect.refresh();
+                                aplicarBloqueioChosenVeiculo(vehicleChangeLocked);
+                            }
                             // Atualizar labels de combustivel com tipo do veiculo
                             atualizarLabelsTanque(locacaoData.veiculo_tipo_combustivel || '');
                         }
@@ -3260,13 +3295,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
                 if (campoVeiculo.chosenSelect) {
                     campoVeiculo.chosenSelect.refresh();
+                    aplicarBloqueioChosenVeiculo(vehicleChangeLocked);
                 }
             }
             document.getElementById('campoVeiculoWrapper')?.classList.remove('hidden');
             document.getElementById('asterisco_id_veiculo')?.classList.toggle('hidden', !veiculoObrigatorio);
 
             const grupoId = document.getElementById('id_grupo')?.value;
-            if (grupoId) carregarVeiculosPorGrupo(grupoId);
+            if (grupoId && !vehicleChangeLocked) carregarVeiculosPorGrupo(grupoId);
 
             // Pagamentos: visivel sempre, mas sem acoes antes de salvar.
             if (secaoParcelas) {
