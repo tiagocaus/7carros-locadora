@@ -15,6 +15,7 @@ use App\Models\Fornecedor;
 use App\Models\Whatsapp;
 use App\Models\Sms;
 use App\Helpers\FilialHelper;
+use App\Helpers\DateHelper;
 use App\Helpers\PdfHelper;
 use App\Config\Planos;
 use App\Services\AuditLogService;
@@ -152,7 +153,7 @@ class FinanceiroController
      * Lista lancamentos com paginacao e busca
      *
      * GET /api/financeiro
-     * Query params: page, perPage, search, filial, ano, mes
+     * Query params: page, perPage, search, filial, ano, mes, status, tipo
      */
     public function index(Request $request): void
     {
@@ -177,6 +178,10 @@ class FinanceiroController
             $ano = $request->query('ano', '');
             $mes = $request->query('mes', '');
             $status = $request->query('status', '');
+            $tipo = $request->query('tipo', '');
+            if (!in_array($tipo, ['R', 'D'], true)) {
+                $tipo = '';
+            }
 
             // Validar acesso a filial selecionada
             if (!empty($filialId) && !FilialHelper::temAcessoFilial((int) $filialId)) {
@@ -203,11 +208,12 @@ class FinanceiroController
                 $filialId,
                 $ano,
                 $mes,
-                $status
+                $status,
+                $tipo
             );
 
             // Contar total
-            $total = $financeiroModel->contar($chave, $search, $filialWhere, $filialParams, $filialId, $ano, $mes, $status);
+            $total = $financeiroModel->contar($chave, $search, $filialWhere, $filialParams, $filialId, $ano, $mes, $status, $tipo);
 
             // Total de paginas
             $totalPages = $total > 0 ? (int) ceil($total / $perPage) : 1;
@@ -563,8 +569,8 @@ class FinanceiroController
 
             $dados = $request->all();
             $valorPago = currency_parse($dados['valor_pago'] ?? 0);
-            $dataPago = $dados['data_pago'] ?? date('Y-m-d');
-            $dataVenciDiferenca = $dados['data_venci_diferenca'] ?? ($lancamento['data_venci'] ?? date('Y-m-d'));
+            $dataPago = $dados['data_pago'] ?? DateHelper::todayForDatabase();
+            $dataVenciDiferenca = $dados['data_venci_diferenca'] ?? ($lancamento['data_venci'] ?? DateHelper::todayForDatabase());
 
             (new PagamentoLinkSyncService())->invalidarLinksPendentes($id, $chave);
 
@@ -1201,7 +1207,7 @@ class FinanceiroController
             ]);
 
             $codigoSafe = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($lancamento['codigo'] ?? $id));
-            $filename = 'fatura_' . ($codigoSafe ?: $id) . '_' . time() . '.pdf';
+            $filename = 'fatura_' . ($codigoSafe ?: $id) . '_' . DateHelper::timestamp() . '.pdf';
             $tempDir = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/storage/temp';
             if (!is_dir($tempDir)) {
                 mkdir($tempDir, 0755, true);
@@ -1213,7 +1219,7 @@ class FinanceiroController
             $nomeEmpresa = $empresa['nome_fantasia'] ?? $empresa['razao_social'] ?? 'Locadora';
             $codigo = $lancamento['codigo'] ?? '#' . $id;
             $valorBR = number_format((float) ($lancamento['valor_total'] ?? 0), 2, ',', '.');
-            $venciBR = !empty($lancamento['data_venci']) ? date('d/m/Y', strtotime($lancamento['data_venci'])) : '-';
+            $venciBR = !empty($lancamento['data_venci']) ? format_date($lancamento['data_venci']) : '-';
 
             if ($canal === 'email') {
                 queue_message('email', [

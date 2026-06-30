@@ -579,14 +579,7 @@
             // DATETIME-LOCAL: formatar dd/mm/yyyy HH:mm
             if (field.type === 'datetime-local' && field.value) {
                 try {
-                    const date = new Date(field.value);
-                    return date.toLocaleString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
+                    return DateHelper.formatOperationalDateTime(field.value);
                 } catch {
                     return field.value;
                 }

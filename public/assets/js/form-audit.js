@@ -509,7 +509,7 @@ window.FormAudit = (function() {
      * Captura estado inicial do formulário
      */
     function captureInitial(form) {
-        if (!form.id) form.id = 'form_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+        if (!form.id) form.id = 'form_' + DateHelper.timestamp() + '_' + Math.random().toString(36).substring(2, 11);
 
         // Verificar se há handler especializado
         const handler = getHandler(form);
@@ -560,7 +560,7 @@ window.FormAudit = (function() {
 
         // Gerar ID se não tiver
         if (!form.id) {
-            form.id = 'form_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+            form.id = 'form_' + DateHelper.timestamp() + '_' + Math.random().toString(36).substring(2, 11);
         }
 
         // Capturar estado inicial após carregamento completo

@@ -161,7 +161,7 @@
 
     function init() {
         // Configurar data padrao (hoje)
-        const hoje = new Date().toISOString().split('T')[0];
+        const hoje = DateHelper.todayInput();
         document.getElementById('dataPrimeiroVencimento').value = hoje;
 
         // Calcular previa inicial
@@ -196,10 +196,10 @@
         }
 
         let rows = '';
-        let dataAtual = new Date(dataVencimento + 'T12:00:00');
+        let dataAtual = dataVencimento;
 
         for (let i = 1; i <= numParcelas; i++) {
-            const dataFormatada = dataAtual.toLocaleDateString('pt-BR');
+            const dataFormatada = DateHelper.format(dataAtual);
 
             rows += `
                 <tr class="hover:bg-slate-50">
@@ -210,7 +210,7 @@
             `;
 
             // Adicionar intervalo para proxima parcela
-            dataAtual.setDate(dataAtual.getDate() + intervaloDias);
+            dataAtual = DateHelper.addDays(dataAtual, intervaloDias);
         }
 
         tbody.innerHTML = rows;

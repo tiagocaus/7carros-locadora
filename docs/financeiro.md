@@ -169,12 +169,33 @@ O fluxo usa `PagamentoLinkSyncService` para:
 5. manter o mesmo codigo publico para que mensagens ja enviadas continuem
    abrindo a fatura atualizada.
 
+### Datas de Vencimento, Juros e Cobrancas Automaticas
+
+Regras financeiras baseadas em vencimento usam a data de negocio do tenant,
+calculada pelo `DateHelper` com o contexto da `chave` ativo. CRONs de cobranca,
+juros/multa, autorrenovacao e encargos nao devem usar `CURDATE()` ou `NOW()` do
+MySQL para decidir se uma fatura venceu, vence amanha ou deve ser reenviada.
+
+- `data_venci`, `data_pago` e periodos de cobranca usam `DATE` em `Y-m-d`.
+- Comparacoes de vencimento devem receber `today()` /
+  `DateHelper::todayForDatabase()` como parametro SQL.
+- Janelas como D-1 e proximos vencimentos devem usar
+  `DateHelper::addDaysForDatabase()`.
+- Campos tecnicos como `last_sent_at`, `created_at`, `updated_at` e expiracao
+  de link usam `DateHelper::systemNow()`/`now()` parametrizado.
+
 Se o gateway informar que a cobranca antiga ja foi paga, o sistema nao cria nova
 cobranca silenciosamente. O pagamento deve ser reconciliado pelo fluxo normal de
 status/webhook antes de nova emissao. Se o gateway estiver indisponivel ou recusar
 o cancelamento de uma cobranca ainda pagavel, a alteracao financeira ou o novo
 pagamento online e bloqueado para evitar dois boletos/cobrancas validos para a
 mesma fatura.
+
+No CRON de juros/multa (`CalculateOverdueFeesJob`), esse caso conhecido de
+cobranca ja paga no gateway e tratado como bloqueio parcial: os demais
+lancamentos continuam sendo atualizados e o job pode finalizar com sucesso,
+registrando os IDs bloqueados no resumo. Erros diferentes desse bloqueio seguem
+marcando o job como falha.
 
 `GET /api/financeiro/{id}/link-pagamento` deve reutilizar o link existente do
 financeiro sempre que a fatura estiver pendente. Caso valor, vencimento, cliente,
@@ -649,3 +670,7 @@ php migrate.php rollback 00110
 php migrate.php rollback 00109
 php migrate.php rollback 00108  # Restaura do backup
 ```
+
+## Padrao de Datas
+
+Vencimentos, baixas, parcelas, juros/multa por atraso, links de pagamento, promissorias, caucao e relatorios financeiros devem usar `DateHelper`/helpers globais. Nao use `date()`, `time()`, `new DateTime()`, `new Date()` ou `NOW()/CURDATE()` diretamente em regra de negocio; calcule a data no helper e passe como parametro. SQL legado com agregacoes complexas deve ser migrado em etapa dedicada conforme [date.md](./date.md).

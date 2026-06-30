@@ -306,12 +306,14 @@ class PagamentoLink extends Model
      */
     public function listarExpiradosPendentes(): array
     {
+        $agora = \App\Helpers\DateHelper::systemNow();
+
         return $this->qb
             ->table('pagamentos_links')
             ->withoutChave()
             ->where('status', '=', 'pending')
             ->whereRaw('expires_at IS NOT NULL')
-            ->whereRaw('expires_at < NOW()')
+            ->where('expires_at', '<', $agora)
             ->get();
     }
 
@@ -322,12 +324,14 @@ class PagamentoLink extends Model
      */
     public function atualizarExpirados(): int
     {
+        $agora = \App\Helpers\DateHelper::systemNow();
+
         return $this->qb
             ->table('pagamentos_links')
             ->withoutChave()
             ->where('status', '=', 'pending')
             ->whereRaw('expires_at IS NOT NULL')
-            ->whereRaw('expires_at < NOW()')
+            ->where('expires_at', '<', $agora)
             ->update(['status' => 'expired']);
     }
 
@@ -381,7 +385,7 @@ class PagamentoLink extends Model
             'id_cliente' => $dados['id_cliente'] ?? null,
             'expires_at' => $dados['expires_at'] ?? null,
             'status' => 'pending',
-            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_at' => now(),
         ];
 
         if (array_key_exists('id_locacao', $dados)) {
@@ -429,7 +433,7 @@ class PagamentoLink extends Model
             ->where('status', '=', 'pending')
             ->update([
                 'status' => 'cancelled',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 

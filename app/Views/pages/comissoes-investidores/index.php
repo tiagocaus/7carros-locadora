@@ -527,8 +527,7 @@
 
     function formatarData(data) {
         if (!data) return '-';
-        const d = new Date(data + 'T00:00:00');
-        return d.toLocaleDateString('pt-BR');
+        return DateHelper.format(data);
     }
 
     function escapeHtml(text) {

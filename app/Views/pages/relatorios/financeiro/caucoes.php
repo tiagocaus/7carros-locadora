@@ -127,7 +127,7 @@
         ReportUtils.initFilters();
         await ReportUtils.loadFiliais('filterFilial');
         ReportUtils.setDefaultPeriod();
-        document.getElementById('returnDate').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('returnDate').value = DateHelper.todayInput();
         document.getElementById('btnAplicar')?.addEventListener('click', () => { currentPage = 1; carregarRelatorio(); });
         document.getElementById('btnCancelReturn')?.addEventListener('click', fecharPainel);
         document.getElementById('btnConfirmReturn')?.addEventListener('click', registrarDevolucao);

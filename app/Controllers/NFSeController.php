@@ -133,7 +133,7 @@ class NFSeController
 
         $dataBase = $nfse['updated_at'] ?? $nfse['created_at'] ?? null;
         $timestamp = $dataBase ? strtotime((string) $dataBase) : false;
-        $minutos = $timestamp ? max(0, (int) floor((time() - $timestamp) / 60)) : null;
+        $minutos = $timestamp ? max(0, (int) floor((\App\Helpers\DateHelper::timestamp() - $timestamp) / 60)) : null;
 
         $nfse['processamento_minutos'] = $minutos;
 

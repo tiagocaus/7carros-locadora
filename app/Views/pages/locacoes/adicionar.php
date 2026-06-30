@@ -190,15 +190,12 @@
                     </div>
                     <div id="campoVeiculoWrapper" class="md:col-span-6 form-input-group">
                         <label for="id_veiculo" class="form-label-group">
-                            <?= t('modules.locacoes.fields.vehicle') ?> <span class="text-red-500" id="asterisco_id_veiculo">*</span>
+                            <?= t('modules.locacoes.fields.vehicle') ?> <span class="text-red-500" id="asterisco_id_veiculo">*</span> <?= aviso(t('modules.locacoes.messages.vehicle_locked_use_substitution')) ?>
                         </label>
                         <select id="id_veiculo" name="id_veiculo" class="form-input-group-field chosen-select" data-chosen-type="normal" data-chosen-placeholder="<?= t('modules.locacoes.messages.select_group_first') ?>">
                             <option value=""><?= t('modules.locacoes.messages.select_group_first') ?></option>
                         </select>
                         <input type="hidden" id="id_veiculo_locked" name="id_veiculo" value="" disabled>
-                        <p id="vehicleLockedHint" class="text-xs text-slate-500 mt-1 hidden">
-                            <?= t('modules.locacoes.messages.vehicle_locked_use_substitution') ?>
-                        </p>
                     </div>
                 </div>
 
@@ -485,8 +482,14 @@
         <!-- ================== ABA 5: FINANCEIRO ================== -->
         <div id="tabFinanceiro" class="form-tab-content">
             <div class="form-section mb-4">
-                <h3 class="form-section-title"><i class="fas fa-cog mr-2"></i><?= t('modules.locacoes.sections.payment_config') ?></h3>
+                <div class="flex justify-between items-center <?= isset($locacao) ? 'cursor-pointer' : '' ?>" id="toggleConfigPagamentoLocacao">
+                    <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-cog mr-2"></i><?= t('modules.locacoes.sections.payment_config') ?></h3>
+                    <button type="button" class="text-slate-400 hover:text-slate-600 transition-colors <?= isset($locacao) ? '' : 'hidden' ?>">
+                        <i class="fas fa-chevron-down" id="iconConfigPagamentoLocacao"></i>
+                    </button>
+                </div>
 
+                <div id="conteudoConfigPagamentoLocacao" class="mt-4 <?= isset($locacao) ? 'hidden' : '' ?>">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div class="md:col-span-4 form-input-group">
                         <label for="id_conta" class="form-label-group"><?= t('modules.locacoes.fields.bank_account') ?> <span class="text-red-500">*</span></label>
@@ -512,12 +515,19 @@
                         <input type="text" id="promocao_codigo" name="promocao_codigo" class="form-input-group-field">
                     </div>
                 </div>
+                </div>
             </div>
 
             <!-- Bloqueio (Pre-autorizacao no Cartao) -->
             <div id="secaoBloqueio" class="form-section mb-4">
-                <h3 class="form-section-title"><i class="fas fa-lock mr-2"></i><?= t('modules.locacoes.sections.block') ?></h3>
+                <div class="flex justify-between items-center <?= isset($locacao) ? 'cursor-pointer' : '' ?>" id="toggleBloqueioLocacao">
+                    <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-lock mr-2"></i><?= t('modules.locacoes.sections.block') ?></h3>
+                    <button type="button" class="text-slate-400 hover:text-slate-600 transition-colors <?= isset($locacao) ? '' : 'hidden' ?>">
+                        <i class="fas fa-chevron-down" id="iconBloqueioLocacao"></i>
+                    </button>
+                </div>
 
+                <div id="conteudoBloqueioLocacao" class="mt-4 <?= isset($locacao) ? 'hidden' : '' ?>">
                 <!-- Aviso se nao tem gateway compativel -->
                 <div id="bloqueioSemGateway" class="hidden bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
                     <p class="text-amber-700 text-sm"><i class="fas fa-exclamation-triangle mr-1"></i> <?= t('modules.locacoes.block.no_gateway') ?></p>
@@ -612,12 +622,19 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
 
             <!-- Caucao (Deposito de Garantia) -->
             <div class="form-section mb-4">
-                <h3 class="form-section-title"><i class="fas fa-shield-alt mr-2"></i><?= t('modules.locacoes.sections.deposit') ?></h3>
+                <div class="flex justify-between items-center <?= isset($locacao) ? 'cursor-pointer' : '' ?>" id="toggleCaucaoLocacao">
+                    <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-shield-alt mr-2"></i><?= t('modules.locacoes.sections.deposit') ?></h3>
+                    <button type="button" class="text-slate-400 hover:text-slate-600 transition-colors <?= isset($locacao) ? '' : 'hidden' ?>">
+                        <i class="fas fa-chevron-down" id="iconCaucaoLocacao"></i>
+                    </button>
+                </div>
 
+                <div id="conteudoCaucaoLocacao" class="mt-4 <?= isset($locacao) ? 'hidden' : '' ?>">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div class="md:col-span-3 form-input-group">
                         <label for="id_conta_caucao" class="form-label-group"><?= t('modules.locacoes.deposit.account') ?> <span id="asterisco_conta_caucao" class="text-red-500 hidden">*</span></label>
@@ -659,6 +676,7 @@
                         <label for="caucao_observacoes" class="form-label-group"><?= t('modules.locacoes.deposit.notes') ?></label>
                         <input type="text" id="caucao_observacoes" name="caucao_observacoes" class="form-input-group-field">
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -860,10 +878,14 @@
                 </div>
 
                 <!-- Resumo financeiro -->
-                <div class="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3" id="resumoFinanceiroParcelas">
+                <div class="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" id="resumoFinanceiroParcelas">
                     <div class="bg-slate-50 rounded-md p-3 text-center">
                         <span class="text-xs text-slate-500 block"><?= t('modules.locacoes.installments.total_launched') ?></span>
                         <span class="text-lg font-semibold" id="rfTotalLancado">R$ 0,00</span>
+                    </div>
+                    <div class="bg-orange-50 rounded-md p-3 text-center">
+                        <span class="text-xs text-orange-600 block"><?= t('modules.locacoes.installments.total_damages') ?></span>
+                        <span class="text-lg font-semibold text-orange-600" id="rfTotalAvarias">R$ 0,00</span>
                     </div>
                     <div class="bg-green-50 rounded-md p-3 text-center">
                         <span class="text-xs text-green-600 block"><?= t('modules.locacoes.installments.total_paid') ?></span>
@@ -1139,7 +1161,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 const toleranciaMinutos = status === 'F'
                     ? (parseInt(document.getElementById('minuto_tolerancia')?.value, 10) || 0)
                     : 0;
-                const diffMs = Math.max(0, new Date(prevista) - new Date(saida));
+                const diffMs = Math.max(0, DateHelper.diffDateTime(saida, prevista));
                 const minutosCobradosMs = Math.max(0, diffMs - (toleranciaMinutos * 60 * 1000));
                 const diff = Math.ceil(minutosCobradosMs / (1000 * 60 * 60 * 24));
                 document.getElementById('dias').value = Math.max(1, diff);
@@ -1150,7 +1172,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const campoChegada = document.getElementById('data_prevista');
             if (!campoChegada) return;
 
-            campoChegada.value = formatDateTimeLocal(new Date());
+            campoChegada.value = DateHelper.nowInput();
             calcularDias();
             renderTaxas();
             atualizarResumo();
@@ -1608,7 +1630,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
                     const alerta = card.querySelector('.pessoa-cnh-alerta');
                     if (alerta) {
-                        if (cliente.cnh_validade && new Date(cliente.cnh_validade) < new Date()) {
+                        if (cliente.cnh_validade && DateHelper.diffDays(DateHelper.todayISO(), cliente.cnh_validade) < 0) {
                             alerta.classList.remove('hidden');
                         } else {
                             alerta.classList.add('hidden');
@@ -1655,7 +1677,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
                     const alerta = card.querySelector('.pessoa-cnh-alerta');
                     const va = dados.va || dados.cnh_validade;
-                    if (alerta && va && new Date(va) < new Date()) {
+                    if (alerta && va && DateHelper.diffDays(DateHelper.todayISO(), va) < 0) {
                         alerta.classList.remove('hidden');
                     }
                 } else if (dados.nome) {
@@ -1710,6 +1732,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         let taxaSelecionadaAtual = null;
         let totalPagoFinanceiro = 0;
         let totalReembolsadoFinanceiro = 0;
+        let totalAvariasFinanceiro = 0;
 
         // Carregar cache de todas as taxas disponiveis
         async function carregarTaxasDisponiveis() {
@@ -2165,9 +2188,17 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 <td colspan="4" class="px-4 py-2 text-right text-red-600"><?= t('modules.locacoes.summary_section.discount_label') ?></td>
                 <td class="px-4 py-2 text-right font-medium text-red-600">${fmtCurrency(desconto)}</td>
             </tr>`;
+            if (totalAvariasFinanceiro > 0) {
+                html += `<tr class="border-b border-slate-200">
+                    <td colspan="4" class="px-4 py-2 text-right text-orange-600"><?= t('modules.locacoes.installments.total_damages') ?></td>
+                    <td class="px-4 py-2 text-right font-medium text-orange-600">${fmtCurrency(totalAvariasFinanceiro)}</td>
+                </tr>`;
+            }
+
+            const totalCobrado = totalLocacao - desconto + totalAvariasFinanceiro;
             html += `<tr class="border-b border-slate-200">
                 <td colspan="4" class="px-4 py-2 text-right"><?= t('modules.locacoes.summary_section.total_to_pay') ?></td>
-                <td class="px-4 py-2 text-right font-medium">${fmtCurrency(totalLocacao - desconto)}</td>
+                <td class="px-4 py-2 text-right font-medium">${fmtCurrency(totalCobrado)}</td>
             </tr>`;
             html += `<tr class="border-b border-slate-200">
                 <td colspan="4" class="px-4 py-2 text-right text-green-600">${i18n.summary.amountPaid}</td>
@@ -2179,7 +2210,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     <td class="px-4 py-2 text-right font-medium text-rose-600">${fmtCurrency(totalReembolsadoFinanceiro)}</td>
                 </tr>`;
             }
-            const saldoPagar = Math.max(0, (totalLocacao - desconto) - totalPagoFinanceiro - totalReembolsadoFinanceiro);
+            const saldoPagar = Math.max(0, totalCobrado - totalPagoFinanceiro - totalReembolsadoFinanceiro);
             html += `<tr class="bg-orange-50">
                 <td colspan="4" class="px-4 py-3 text-right font-semibold text-slate-700">${i18n.summary.balanceDue}</td>
                 <td class="px-4 py-3 text-right font-bold text-xl text-orange-600">${fmtCurrency(saldoPagar)}</td>
@@ -2246,7 +2277,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 const resumo = result.data;
                 const totalParcelas = parseInt(resumo.total_parcelas) || 0;
                 const totalLancado = parseFloat(resumo.total_lancado) || 0;
-                const totalPagar = calcularTotalPagarFormulario();
+                const totalAvarias = parseFloat(resumo.total_avarias) || 0;
+                const totalPagar = calcularTotalPagarFormulario() + totalAvarias;
                 const diferenca = Math.round((totalPagar - totalLancado) * 100) / 100;
                 const pendencias = [];
 
@@ -2279,6 +2311,15 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 const result = await API.post(url, dados);
 
                 if (result.success) {
+                    const deveAtualizarPagamentosCaucao = isEditing
+                        && locacaoData?.id
+                        && document.getElementById('caucao_valor')
+                        && document.getElementById('caucao_lancar_financeiro');
+
+                    if (deveAtualizarPagamentosCaucao) {
+                        await carregarParcelas();
+                    }
+
                     window.parent.postMessage({
                         action: 'openAlert',
                         message: isEditing ? i18n.updated : i18n.created
@@ -2467,10 +2508,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     const cnhValidadeEl = document.getElementById('clienteCnhValidade');
                     if (c.cnh_validade) {
                         cnhValidadeEl.textContent = DateHelper.format(c.cnh_validade);
-                        const hoje = new Date();
-                        hoje.setHours(0,0,0,0);
-                        const validade = new Date(c.cnh_validade);
-                        if (validade < hoje) {
+                        if (DateHelper.diffDays(DateHelper.todayISO(), c.cnh_validade) < 0) {
                             cnhValidadeEl.classList.add('text-red-600', 'font-bold');
                         } else {
                             cnhValidadeEl.classList.remove('text-red-600', 'font-bold');
@@ -2584,13 +2622,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
             // Datas
             if (locacaoData.data_saida) {
-                document.getElementById('data_saida').value = formatDateTimeLocal(new Date(locacaoData.data_saida));
+                document.getElementById('data_saida').value = DateHelper.toOperationalDateTimeInput(locacaoData.data_saida);
             }
             const dataPrincipal = locacaoData.status === 'F'
                 ? (locacaoData.data_chegada || locacaoData.data_prevista)
                 : locacaoData.data_prevista;
             if (dataPrincipal) {
-                document.getElementById('data_prevista').value = formatDateTimeLocal(new Date(dataPrincipal));
+                document.getElementById('data_prevista').value = DateHelper.toOperationalDateTimeInput(dataPrincipal);
             }
 
             // Campos simples
@@ -3093,9 +3131,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
             // Data de expiracao
             if (data.expires_at) {
-                const dt = new Date(data.expires_at);
                 document.getElementById('bloqueioExpiraInfo').textContent =
-                    `<?= t('modules.locacoes.block.expires_at') ?>: ${DateHelper.format(dt)}`;
+                    `<?= t('modules.locacoes.block.expires_at') ?>: ${DateHelper.formatDateTime(data.expires_at)}`;
             }
 
             // Mostrar/ocultar botoes de acao
@@ -3227,7 +3264,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }
             document.getElementById('campoVeiculoWrapper')?.classList.remove('hidden');
             document.getElementById('asterisco_id_veiculo')?.classList.toggle('hidden', !veiculoObrigatorio);
-            document.getElementById('vehicleLockedHint')?.classList.toggle('hidden', !vehicleChangeLocked);
 
             const grupoId = document.getElementById('id_grupo')?.value;
             if (grupoId) carregarVeiculosPorGrupo(grupoId);
@@ -3380,12 +3416,16 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     const r = result.data;
                     const totalSimulado = calcularTotalPagarFormulario();
                     const totalLancado = parseFloat(r.total_lancado) || 0;
+                    const totalAvarias = parseFloat(r.total_avarias) || 0;
                     const totalPago = parseFloat(r.total_pago) || 0;
                     const totalReembolsado = parseFloat(r.total_credito_devolucao) || 0;
-                    const diferencaSimulada = Math.max(0, Math.round((totalSimulado - totalLancado) * 100) / 100);
+                    const totalEsperado = totalSimulado + totalAvarias;
+                    const diferencaSimulada = Math.max(0, Math.round((totalEsperado - totalLancado) * 100) / 100);
+                    totalAvariasFinanceiro = totalAvarias;
                     totalPagoFinanceiro = totalPago;
                     totalReembolsadoFinanceiro = totalReembolsado;
                     document.getElementById('rfTotalLancado').textContent = fmtCurrency(parseFloat(r.total_lancado) || 0);
+                    document.getElementById('rfTotalAvarias').textContent = fmtCurrency(totalAvarias);
                     document.getElementById('rfTotalPago').textContent = fmtCurrency(parseFloat(r.total_pago) || 0);
                     document.getElementById('rfTotalPendente').textContent = fmtCurrency(parseFloat(r.total_pendente) || 0);
                     document.getElementById('rfTotalReembolsado').textContent = fmtCurrency(totalReembolsado);
@@ -3459,7 +3499,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
                     document.getElementById('pagar_id_parcela').value = idP;
                     document.getElementById('pagar_descricao_resumo').textContent = descricao;
-                    document.getElementById('pagar_data_pago').value = new Date().toISOString().slice(0, 10);
+                    document.getElementById('pagar_data_pago').value = DateHelper.todayInput();
 
                     const selConta = document.getElementById('pagar_id_conta');
                     if (selConta) selConta.value = idConta || '';
@@ -3762,9 +3802,35 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }
         });
 
+        function configurarToggleSecaoLocacao(toggleId, conteudoId, iconId) {
+            const toggle = document.getElementById(toggleId);
+            const conteudo = document.getElementById(conteudoId);
+            const icon = document.getElementById(iconId);
+
+            if (!toggle || !conteudo) return;
+
+            toggle.addEventListener('click', function () {
+                const isHidden = conteudo.classList.contains('hidden');
+                conteudo.classList.toggle('hidden');
+                if (icon) {
+                    icon.classList.toggle('fa-chevron-down', !isHidden);
+                    icon.classList.toggle('fa-chevron-up', isHidden);
+                }
+            });
+        }
+
+        function configurarTogglesFinanceiroLocacao() {
+            if (!isEditing) return;
+
+            configurarToggleSecaoLocacao('toggleConfigPagamentoLocacao', 'conteudoConfigPagamentoLocacao', 'iconConfigPagamentoLocacao');
+            configurarToggleSecaoLocacao('toggleBloqueioLocacao', 'conteudoBloqueioLocacao', 'iconBloqueioLocacao');
+            configurarToggleSecaoLocacao('toggleCaucaoLocacao', 'conteudoCaucaoLocacao', 'iconCaucaoLocacao');
+        }
+
         // ===== INIT =====
 
         configurarAbas();
+        configurarTogglesFinanceiroLocacao();
         carregarFormasPagamento(isEditing && locacaoData ? locacaoData.id_forma_pagamento : null);
         carregarTaxasDisponiveis();
         if (!isEditing) carregarTaxasAutomaticas();

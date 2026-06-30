@@ -118,7 +118,7 @@ class Cliente extends Model
     public function criar(array $dados): int
     {
         // Adicionar data_cadastro automaticamente
-        $dados['data_cadastro'] = date('Y-m-d');
+        $dados['data_cadastro'] = today();
 
         // Definir situacao padrão se não fornecida
         if (!isset($dados['situacao'])) {
@@ -235,6 +235,40 @@ class Cliente extends Model
         $cliente['email']    = $email['email']       ?? '';
         $cliente['telefone'] = $telefone['telefone'] ?? '';
         return $cliente;
+    }
+
+    /**
+     * Busca cliente por documento para prevenir cadastro duplicado na tela interna.
+     *
+     * @param string|null $extraWhere Condição WHERE adicional (ex: filtro de filiais)
+     * @param array $extraParams Parâmetros para o WHERE adicional
+     */
+    public function buscarPorDocumentoCadastro(string $documento, ?string $extraWhere = null, array $extraParams = []): ?array
+    {
+        $documento = trim($documento);
+        if ($documento === '') {
+            return null;
+        }
+
+        $digitos = preg_replace('/\D/', '', $documento);
+        $query = $this->qb
+            ->table('clientes')
+            ->select(['id', 'nome_rsocial', 'cpf_cnpj', 'id_matriz_filial']);
+
+        if ($digitos !== '' && strlen($digitos) >= 11) {
+            $query->whereRaw(
+                "(REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '-', ''), '/', '') = ? OR cpf_cnpj = ?)",
+                [$digitos, $documento]
+            );
+        } else {
+            $query->where('cpf_cnpj', '=', $documento);
+        }
+
+        if (!empty($extraWhere) && $extraWhere !== '1=1') {
+            $query->whereRaw($extraWhere, $extraParams);
+        }
+
+        return $query->first();
     }
 
     /**
@@ -507,7 +541,7 @@ class Cliente extends Model
                 'arquivo' => $dados['arquivo'],
                 'tipo' => $dados['tipo'],
                 'status' => 1, // Aprovado por padrão quando enviado pelo sistema
-                'created_at' => date('Y-m-d H:i:s')
+                'created_at' => now()
             ]);
     }
 

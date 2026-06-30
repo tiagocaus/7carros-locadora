@@ -223,7 +223,7 @@
                 <div class="doc-titulo"><?= t('modules.checklists.print.doc_title') ?></div>
                 <div class="doc-detalhe"><strong><?= t('modules.checklists.print.code') ?>:</strong> <?= htmlspecialchars($checklist['codigo'] ?? '-') ?></div>
                 <div class="doc-detalhe"><strong><?= t('modules.checklists.print.type') ?>:</strong> <span class="tipo-badge tipo-vinculado"><?= t('modules.checklists.types.linked') ?></span></div>
-                <div class="doc-detalhe"><strong><?= t('modules.checklists.print.date') ?>:</strong> <?= !empty($checklist['created_at']) ? date('d/m/Y H:i', strtotime($checklist['created_at'])) : '-' ?></div>
+                <div class="doc-detalhe"><strong><?= t('modules.checklists.print.date') ?>:</strong> <?= !empty($checklist['created_at']) ? format_datetime($checklist['created_at']) : '-' ?></div>
             </td>
             <td style="width: 15%; text-align: right;">
                 <?php if (!empty($qrPath)): ?>
@@ -278,7 +278,7 @@
                 <table class="section-title-table">
                     <tr>
                         <td class="section-title" style="background: #e8e8e8;">
-                            <?= t('modules.checklists.print.departure') ?><?= !empty($checklist['data_saida']) ? ' - ' . date('d/m/Y H:i', strtotime($checklist['data_saida'])) : '' ?>
+                            <?= t('modules.checklists.print.departure') ?><?= !empty($checklist['data_saida']) ? ' - ' . format_operational_datetime($checklist['data_saida']) : '' ?>
                         </td>
                     </tr>
                 </table>
@@ -288,7 +288,7 @@
                 <table class="section-title-table">
                     <tr>
                         <td class="section-title" style="background: #e8e8e8;">
-                            <?= t('modules.checklists.print.arrival') ?><?= !empty($checklist['data_chegada']) ? ' - ' . date('d/m/Y H:i', strtotime($checklist['data_chegada'])) : '' ?>
+                            <?= t('modules.checklists.print.arrival') ?><?= !empty($checklist['data_chegada']) ? ' - ' . format_operational_datetime($checklist['data_chegada']) : '' ?>
                         </td>
                     </tr>
                 </table>

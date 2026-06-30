@@ -107,7 +107,7 @@ class ComissaoInvestidorService
             'valor_comissao_locadora' => $calculo['locadora'],
             'valor_repasse_investidor' => $calculo['investidor'],
             'status' => 'pendente',
-            'data_referencia' => date('Y-m-d'),
+            'data_referencia' => today(),
         ]);
     }
 
@@ -245,7 +245,7 @@ class ComissaoInvestidorService
                 $descricao = sprintf(
                     'Repasse Investidor - %s - %s',
                     $comissao['fornecedor_nome'] ?? 'Investidor',
-                    date('m/Y', strtotime($comissao['data_referencia']))
+                    \App\Helpers\DateHelper::formatTimestamp(strtotime($comissao['data_referencia']), 'm/Y')
                 );
 
                 $idFinanceiro = $this->financeiroModel->criar([
@@ -254,8 +254,8 @@ class ComissaoInvestidorService
                     'pago' => 'S',
                     'descricao' => $descricao,
                     'valor_subtotal' => $comissao['valor_repasse_investidor'],
-                    'data_venci' => date('Y-m-d'),
-                    'data_pago' => date('Y-m-d'),
+                    'data_venci' => today(),
+                    'data_pago' => today(),
                     'id_fornecedor' => $comissao['id_fornecedor'],
                     'id_plano_de_conta' => $planoConta['id'] ?? null,
                 ]);
@@ -264,7 +264,7 @@ class ComissaoInvestidorService
             // Atualizar comissao
             $this->comissaoModel->atualizar($comissaoId, [
                 'status' => 'pago',
-                'data_pagamento' => date('Y-m-d'),
+                'data_pagamento' => today(),
                 'id_financeiro' => $idFinanceiro
             ]);
 

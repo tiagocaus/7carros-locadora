@@ -132,8 +132,8 @@ class SerproIndicacao extends Model
                 'cnh_indicado' => $dados['cnh_indicado'] ?? null,
                 'chave_indicacao' => $dados['chave_indicacao'] ?? null,
                 'status_serpro' => $dados['status_serpro'] ?? 'enviado',
-                'data_indicacao' => $dados['data_indicacao'] ?? date('Y-m-d H:i:s'),
-                'created_at' => date('Y-m-d H:i:s'),
+                'data_indicacao' => $dados['data_indicacao'] ?? now(),
+                'created_at' => now(),
             ]);
     }
 
@@ -142,7 +142,7 @@ class SerproIndicacao extends Model
      */
     public function atualizarStatus(int $id, array $dados): int
     {
-        $dadosUpdate = ['updated_at' => date('Y-m-d H:i:s')];
+        $dadosUpdate = ['updated_at' => now()];
 
         if (array_key_exists('status_serpro', $dados)) {
             $dadosUpdate['status_serpro'] = $dados['status_serpro'];

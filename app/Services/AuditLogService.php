@@ -109,7 +109,7 @@ class AuditLogService
         return Database::insertGetId('logs', [
             'chave' => $chave,
             'id_funcionario' => $usuarioId,
-            'data' => date('Y-m-d H:i:s'),
+            'data' => now(),
             'ip' => $ip,
             'mensagem' => $mensagem,
             'campos_alterados' => $camposAlterados !== null
@@ -142,7 +142,7 @@ class AuditLogService
         return Database::insertGetId('logs', [
             'chave' => $chave,
             'id_funcionario' => $usuarioId,
-            'data' => date('Y-m-d H:i:s'),
+            'data' => now(),
             'ip' => $ip,
             'mensagem' => $mensagem,
             'campos_alterados' => !empty($camposAlterados)
@@ -171,7 +171,7 @@ class AuditLogService
         return Database::insertGetId('logs', [
             'chave' => $chave,
             'id_funcionario' => $usuarioId,
-            'data' => date('Y-m-d H:i:s'),
+            'data' => now(),
             'ip' => $ip,
             'mensagem' => $mensagem,
             'campos_alterados' => null,

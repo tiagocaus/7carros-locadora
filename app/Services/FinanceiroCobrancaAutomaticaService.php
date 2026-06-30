@@ -34,18 +34,28 @@ class FinanceiroCobrancaAutomaticaService
             'errors' => [],
         ];
 
-        $preDue = $this->buscarFaturasPreVencimento();
-        $overdue = $this->buscarFaturasVencidas();
+        $chaves = $this->carregarChavesComFaturasPendentes();
 
-        $stats['pre_due_candidates'] = count($preDue);
-        $stats['overdue_candidates'] = count($overdue);
+        foreach ($chaves as $chave) {
+            $this->setContextoTenant($chave);
 
-        foreach ($preDue as $fatura) {
-            $this->processarFatura($fatura, 'pre_due', 'payment_reminder', $stats);
-        }
+            $hoje = today();
+            $amanha = \App\Helpers\DateHelper::addDaysForDatabase(1);
+            $limiteReenvioVencidas = $this->technicalDaysAgo(self::OVERDUE_INTERVAL_DAYS);
 
-        foreach ($overdue as $fatura) {
-            $this->processarFatura($fatura, 'overdue', 'overdue_notice', $stats);
+            $preDue = $this->buscarFaturasPreVencimento($chave, $amanha);
+            $overdue = $this->buscarFaturasVencidas($chave, $hoje, $limiteReenvioVencidas);
+
+            $stats['pre_due_candidates'] += count($preDue);
+            $stats['overdue_candidates'] += count($overdue);
+
+            foreach ($preDue as $fatura) {
+                $this->processarFatura($fatura, 'pre_due', 'payment_reminder', $stats);
+            }
+
+            foreach ($overdue as $fatura) {
+                $this->processarFatura($fatura, 'overdue', 'overdue_notice', $stats);
+            }
         }
 
         $this->limparContextoTenant();
@@ -53,20 +63,43 @@ class FinanceiroCobrancaAutomaticaService
         return $stats;
     }
 
-    private function buscarFaturasPreVencimento(): array
+    private function carregarChavesComFaturasPendentes(): array
+    {
+        $rows = $this->qb
+            ->table('financeiro', 'f')
+            ->withoutChave()
+            ->select(['f.chave'])
+            ->distinct()
+            ->innerJoin('clientes', 'c', 'f.id_cliente', '=', 'c.id')
+            ->whereRaw('c.chave = f.chave')
+            ->where('f.tipo', '=', 'R')
+            ->where('f.pago', '=', 'N')
+            ->whereRaw('f.data_venci IS NOT NULL')
+            ->whereRaw("f.data_venci <> '0000-00-00'")
+            ->whereRaw('f.id_cliente IS NOT NULL')
+            ->whereRaw('f.id_cliente > 0')
+            ->orderBy('f.chave', 'ASC')
+            ->get();
+
+        return array_values(array_filter(array_unique(array_map(static fn($row) => (string) ($row['chave'] ?? ''), $rows))));
+    }
+
+    private function buscarFaturasPreVencimento(string $chave, string $amanha): array
     {
         return $this->baseQueryFaturas()
-            ->whereRaw('f.data_venci = DATE_ADD(CURDATE(), INTERVAL 1 DAY)')
+            ->where('f.chave', '=', $chave)
+            ->where('f.data_venci', '=', $amanha)
             ->orderBy('f.data_venci', 'ASC')
             ->orderBy('f.id', 'ASC')
             ->limit(self::BATCH_SIZE)
             ->get();
     }
 
-    private function buscarFaturasVencidas(): array
+    private function buscarFaturasVencidas(string $chave, string $hoje, string $limiteReenvio): array
     {
         return $this->baseQueryFaturas()
-            ->whereRaw('f.data_venci < CURDATE()')
+            ->where('f.chave', '=', $chave)
+            ->where('f.data_venci', '<', $hoje)
             ->whereRaw(
                 "NOT EXISTS (
                     SELECT 1
@@ -74,9 +107,9 @@ class FinanceiroCobrancaAutomaticaService
                     WHERE n.chave = f.chave
                         AND n.id_financeiro = f.id
                         AND n.tipo = 'overdue'
-                        AND n.last_sent_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                        AND n.last_sent_at >= ?
                 )",
-                [self::OVERDUE_INTERVAL_DAYS]
+                [$limiteReenvio]
             )
             ->orderBy('f.data_venci', 'ASC')
             ->orderBy('f.id', 'ASC')
@@ -100,9 +133,40 @@ class FinanceiroCobrancaAutomaticaService
                 'f.id_cliente',
                 'f.id_matriz_filial',
                 'c.nome_rsocial AS cliente_nome',
-                'c.email AS cliente_email',
-                'c.telefone AS cliente_telefone',
-                'c.celular AS cliente_celular',
+                "(SELECT ce.email
+                    FROM contatos_emails ce
+                    WHERE ce.chave = f.chave
+                        AND ce.entidade_tipo = 'cliente'
+                        AND ce.entidade_id = c.id
+                    ORDER BY ce.principal = 'S' DESC, ce.id ASC
+                    LIMIT 1
+                ) AS cliente_email",
+                "(SELECT ct.telefone
+                    FROM contatos_telefones ct
+                    WHERE ct.chave = f.chave
+                        AND ct.entidade_tipo = 'cliente'
+                        AND ct.entidade_id = c.id
+                        AND ct.whatsapp = 'S'
+                    ORDER BY ct.principal = 'S' DESC, ct.id ASC
+                    LIMIT 1
+                ) AS cliente_whatsapp",
+                "(SELECT ct.telefone
+                    FROM contatos_telefones ct
+                    WHERE ct.chave = f.chave
+                        AND ct.entidade_tipo = 'cliente'
+                        AND ct.entidade_id = c.id
+                        AND ct.sms = 'S'
+                    ORDER BY ct.principal = 'S' DESC, ct.id ASC
+                    LIMIT 1
+                ) AS cliente_sms",
+                "(SELECT ct.telefone
+                    FROM contatos_telefones ct
+                    WHERE ct.chave = f.chave
+                        AND ct.entidade_tipo = 'cliente'
+                        AND ct.entidade_id = c.id
+                    ORDER BY ct.principal = 'S' DESC, ct.id ASC
+                    LIMIT 1
+                ) AS cliente_telefone",
                 'c.cpf_cnpj AS cliente_cpf_cnpj',
                 'c.preferred_locale AS cliente_preferred_locale',
             ])
@@ -120,7 +184,7 @@ class FinanceiroCobrancaAutomaticaService
     {
         $chave = (string) ($fatura['chave'] ?? '');
         $idFinanceiro = (int) ($fatura['id'] ?? 0);
-        $dataReferencia = (string) ($fatura['data_venci'] ?? date('Y-m-d'));
+        $dataReferencia = (string) ($fatura['data_venci'] ?? today());
 
         if ($chave === '' || $idFinanceiro <= 0) {
             $stats['skipped']++;
@@ -170,7 +234,7 @@ class FinanceiroCobrancaAutomaticaService
         }
 
         try {
-            $messageId = queue_template_message($template, $canal, $context, $chave);
+            $messageId = queue_template_message($template, $canal, $this->contextoParaCanal($context, $fatura, $canal), $chave);
 
             if ($messageId <= 0) {
                 $this->registrarEnvio($chave, $idFinanceiro, $tipo, $canal, $dataReferencia, null, 'skipped', 'Destinatario ausente para o canal');
@@ -204,7 +268,7 @@ class FinanceiroCobrancaAutomaticaService
             ->where('status', '<>', 'failed');
 
         if ($tipo === 'overdue') {
-            $query->whereRaw('last_sent_at >= DATE_SUB(NOW(), INTERVAL ? DAY)', [self::OVERDUE_INTERVAL_DAYS]);
+            $query->where('last_sent_at', '>=', $this->technicalDaysAgo(self::OVERDUE_INTERVAL_DAYS));
         } else {
             $query->where('data_referencia', '=', $dataReferencia);
         }
@@ -226,29 +290,34 @@ class FinanceiroCobrancaAutomaticaService
             INSERT INTO financeiro_cobrancas_notificacoes
                 (chave, id_financeiro, tipo, canal, data_referencia, last_sent_at, message_id, status, error_message, created_at, updated_at)
             VALUES
-                (?, ?, ?, ?, ?, NOW(), ?, ?, ?, NOW(), NOW())
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 last_sent_at = VALUES(last_sent_at),
                 message_id = VALUES(message_id),
                 status = VALUES(status),
                 error_message = VALUES(error_message),
-                updated_at = NOW()
+                updated_at = VALUES(updated_at)
         ");
 
         if (!$stmt) {
             throw new \RuntimeException('Erro ao preparar registro de notificacao de cobranca: ' . $this->mysqli->error);
         }
 
+        $agora = \App\Helpers\DateHelper::systemNow();
+
         $stmt->bind_param(
-            'sisssiss',
+            'sissssissss',
             $chave,
             $idFinanceiro,
             $tipo,
             $canal,
             $dataReferencia,
+            $agora,
             $messageId,
             $status,
-            $errorMessage
+            $errorMessage,
+            $agora,
+            $agora
         );
 
         if (!$stmt->execute()) {
@@ -265,17 +334,24 @@ class FinanceiroCobrancaAutomaticaService
         $canais = [];
         $filialId = (int) ($fatura['id_matriz_filial'] ?? 0);
         $email = trim((string) ($fatura['cliente_email'] ?? ''));
-        $telefone = trim((string) ($fatura['cliente_telefone'] ?? $fatura['cliente_celular'] ?? ''));
+        $telefonePrincipal = trim((string) ($fatura['cliente_telefone'] ?? ''));
+        $telefoneWhatsapp = trim((string) ($fatura['cliente_whatsapp'] ?? '')) ?: $telefonePrincipal;
+        $telefoneSms = trim((string) ($fatura['cliente_sms'] ?? '')) ?: $telefonePrincipal;
 
-        if ($email !== '') {
+        if ($this->isValidEmail($email)) {
             $canais[] = 'email';
         }
 
-        if ($filialId > 0 && $telefone !== '') {
+        $telefoneWhatsapp = $this->telefoneValido($telefoneWhatsapp) ?: $this->telefoneValido($telefonePrincipal);
+        $telefoneSms = $this->telefoneValido($telefoneSms) ?: $this->telefoneValido($telefonePrincipal);
+
+        if ($filialId > 0 && $telefoneWhatsapp !== '') {
             if ((new Whatsapp())->buscarConectadaPorFilial($filialId) !== null) {
                 $canais[] = 'whatsapp';
             }
+        }
 
+        if ($filialId > 0 && $telefoneSms !== '') {
             if ((new Sms())->buscarValidadaPorFilial($filialId) !== null) {
                 $canais[] = 'sms';
             }
@@ -284,10 +360,29 @@ class FinanceiroCobrancaAutomaticaService
         return $canais;
     }
 
+    private function contextoParaCanal(array $context, array $fatura, string $canal): array
+    {
+        if (!in_array($canal, ['whatsapp', 'sms'], true)) {
+            return $context;
+        }
+
+        $telefonePrincipal = trim((string) ($fatura['cliente_telefone'] ?? ''));
+        $telefone = $canal === 'whatsapp'
+            ? ($this->telefoneValido((string) ($fatura['cliente_whatsapp'] ?? '')) ?: $this->telefoneValido($telefonePrincipal))
+            : ($this->telefoneValido((string) ($fatura['cliente_sms'] ?? '')) ?: $this->telefoneValido($telefonePrincipal));
+
+        $context['cliente']['telefone'] = $telefone;
+        $context['cliente']['celular'] = $telefone;
+
+        return $context;
+    }
+
     private function buildContext(array $fatura, string $linkPagamento): array
     {
         $nome = (string) ($fatura['cliente_nome'] ?? '');
-        $telefone = trim((string) ($fatura['cliente_telefone'] ?? $fatura['cliente_celular'] ?? ''));
+        $telefoneWhatsapp = $this->telefoneValido((string) ($fatura['cliente_whatsapp'] ?? ''));
+        $telefoneSms = $this->telefoneValido((string) ($fatura['cliente_sms'] ?? ''));
+        $telefone = $this->telefoneValido((string) ($fatura['cliente_telefone'] ?? ''));
 
         return [
             'cliente' => [
@@ -295,8 +390,8 @@ class FinanceiroCobrancaAutomaticaService
                 'primeiro_nome' => explode(' ', trim($nome))[0] ?? '',
                 'email' => $fatura['cliente_email'] ?? '',
                 'cpf_cnpj' => $fatura['cliente_cpf_cnpj'] ?? '',
-                'telefone' => $telefone,
-                'celular' => $telefone,
+                'telefone' => $telefoneWhatsapp ?: ($telefoneSms ?: $telefone),
+                'celular' => $telefoneWhatsapp ?: ($telefoneSms ?: $telefone),
                 'preferred_locale' => $fatura['cliente_preferred_locale'] ?? null,
             ],
             'empresa' => [
@@ -328,16 +423,51 @@ class FinanceiroCobrancaAutomaticaService
         return (string) ($fatura['id'] ?? '');
     }
 
+    private function isValidEmail(string $email): bool
+    {
+        return $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    private function telefoneValido(string $telefone): string
+    {
+        $telefone = trim($telefone);
+        if ($telefone === '') {
+            return '';
+        }
+
+        $digits = preg_replace('/[^0-9]/', '', $telefone);
+        $length = strlen($digits);
+
+        if ($length === 0) {
+            return '';
+        }
+
+        if (str_starts_with($digits, '55')) {
+            return ($length === 12 || $length === 13) ? $telefone : '';
+        }
+
+        return ($length >= 8 && $length <= 15) ? $telefone : '';
+    }
+
     private function diasAtraso(?string $dataVencimento): int
     {
-        if (empty($dataVencimento) || $dataVencimento >= date('Y-m-d')) {
+        if (empty($dataVencimento) || $dataVencimento >= today()) {
             return 0;
         }
 
         $vencimento = new \DateTimeImmutable($dataVencimento);
-        $hoje = new \DateTimeImmutable(date('Y-m-d'));
+        $hoje = new \DateTimeImmutable(today());
 
         return (int) $vencimento->diff($hoje)->days;
+    }
+
+    private function technicalDaysAgo(int $days): string
+    {
+        return \App\Helpers\DateHelper::formatTimestamp(
+            \App\Helpers\DateHelper::timestamp() - ($days * 86400),
+            'Y-m-d H:i:s',
+            false
+        );
     }
 
     private function setContextoTenant(string $chave): void

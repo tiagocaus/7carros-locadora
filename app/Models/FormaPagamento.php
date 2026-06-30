@@ -287,7 +287,7 @@ class FormaPagamento extends Model
             ];
         }
 
-        $dataPagamento = $dataPagamento ?? date('Y-m-d');
+        $dataPagamento = $dataPagamento ?? today();
         $vencimento = new \DateTime($dataVencimento);
         $pagamento = new \DateTime($dataPagamento);
 

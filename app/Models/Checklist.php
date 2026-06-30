@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\CodigoHelper;
 use App\Core\Database;
 
 /**
@@ -485,18 +486,25 @@ class Checklist extends Model
 
     /**
      * Gera codigo curto no mesmo padrao de contratos e locacoes.
+     * Formato: CK + 7 caracteres alfanumericos.
      */
     public function gerarCodigo(string $chave): string
     {
-        $maxId = $this->qb
-            ->table('checklist')
-            ->withChave($chave)
-            ->max('id');
+        for ($tentativa = 0; $tentativa < 20; $tentativa++) {
+            $codigo = CodigoHelper::gerarComPrefixo('CK');
 
-        $proximoId = ($maxId ?? 0) + 1;
-        $letras = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 2);
+            $existente = $this->qb
+                ->table('checklist')
+                ->withChave($chave)
+                ->where('codigo', '=', $codigo)
+                ->first();
 
-        return 'CK' . str_pad((string) $proximoId, 5, '0', STR_PAD_LEFT) . $letras;
+            if (!$existente) {
+                return $codigo;
+            }
+        }
+
+        throw new \RuntimeException('Nao foi possivel gerar um codigo de checklist unico');
     }
 
     /**

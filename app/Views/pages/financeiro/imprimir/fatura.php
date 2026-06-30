@@ -33,7 +33,7 @@ if ($pago) {
     $statusLabel = t('modules.financeiro.print_pdf.status_paid');
     $statusColor = '#16a34a';
 } else {
-    $hoje = strtotime(date('Y-m-d'));
+    $hoje = strtotime(today());
     $venci = !empty($lancamento['data_venci']) ? strtotime($lancamento['data_venci']) : 0;
     if ($venci && $venci < $hoje) {
         $statusLabel = t('modules.financeiro.print_pdf.status_overdue');
@@ -248,7 +248,7 @@ $documentCode = $codigo ?: '#' . ($lancamento['id'] ?? '');
 <?php endif; ?>
 
 <div class="footer">
-    <?= t('modules.financeiro.print_pdf.generated_at', ['date' => format_datetime(date('Y-m-d H:i:s'))]) ?>
+    <?= t('modules.financeiro.print_pdf.generated_at', ['date' => format_datetime(now())]) ?>
 </div>
 
 </body>

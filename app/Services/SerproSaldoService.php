@@ -409,25 +409,24 @@ class SerproSaldoService
      */
     public function confirmarRecarga(int $transacaoId, ?string $chaveOverride = null): array
     {
-        // Buscar transacao pendente
-        $transacao = $this->transacaoModel->buscarPorId($transacaoId);
-
-        if (!$transacao) {
-            throw new \RuntimeException('Transacao nao encontrada');
-        }
-
-        if ($transacao['status'] === 'confirmado') {
-            // Ja confirmada (idempotencia)
-            return [
-                'saldo_anterior' => (float) $transacao['saldo_anterior'],
-                'saldo_posterior' => (float) $transacao['saldo_posterior'],
-            ];
-        }
-
         $mysqli = Model::sharedMysqli();
         $mysqli->begin_transaction();
 
         try {
+            $transacao = $this->transacaoModel->bloquearRecargaParaConfirmacao($transacaoId, $chaveOverride);
+
+            if (!$transacao) {
+                throw new \RuntimeException('Transacao nao encontrada');
+            }
+
+            if ($transacao['status'] === 'confirmado') {
+                $mysqli->commit();
+                return [
+                    'saldo_anterior' => (float) $transacao['saldo_anterior'],
+                    'saldo_posterior' => (float) $transacao['saldo_posterior'],
+                ];
+            }
+
             $valor = (float) $transacao['valor_total'];
             $saldos = $this->saldoModel->creditar($valor, $chaveOverride);
 
@@ -435,7 +434,8 @@ class SerproSaldoService
             $this->transacaoModel->confirmarRecarga(
                 $transacaoId,
                 $saldos['saldo_anterior'],
-                $saldos['saldo_posterior']
+                $saldos['saldo_posterior'],
+                $chaveOverride ?? $transacao['chave']
             );
 
             $mysqli->commit();

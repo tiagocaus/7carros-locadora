@@ -283,7 +283,7 @@ class Whatsapp extends Model
         $dados = ['status' => $status];
 
         if ($status === 'connected') {
-            $dados['connected_at'] = date('Y-m-d H:i:s');
+            $dados['connected_at'] = now();
             if ($remoteJid) {
                 $dados['remoteJid'] = $remoteJid;
             }

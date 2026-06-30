@@ -290,7 +290,7 @@ class StripeGateway extends AbstractPaymentGateway implements AuthorizationHoldI
                 return [
                     'success' => true,
                     'status' => $this->mapStatus($paymentIntent->status),
-                    'paid_at' => $paymentIntent->status === 'succeeded' ? date('Y-m-d H:i:s') : null,
+                    'paid_at' => $paymentIntent->status === 'succeeded' ? now() : null,
                     'raw' => $paymentIntent->toArray(),
                 ];
             }
@@ -301,7 +301,7 @@ class StripeGateway extends AbstractPaymentGateway implements AuthorizationHoldI
                 return [
                     'success' => true,
                     'status' => $this->mapStatus($session->payment_status),
-                    'paid_at' => $session->payment_status === 'paid' ? date('Y-m-d H:i:s') : null,
+                    'paid_at' => $session->payment_status === 'paid' ? now() : null,
                     'raw' => $session->toArray(),
                 ];
             }
@@ -464,7 +464,7 @@ class StripeGateway extends AbstractPaymentGateway implements AuthorizationHoldI
             'event' => $event,
             'external_id' => $externalId,
             'status' => $status,
-            'paid_at' => in_array($status, ['paid'], true) ? date('Y-m-d H:i:s') : null,
+            'paid_at' => in_array($status, ['paid'], true) ? now() : null,
             'raw' => $payload,
         ];
     }
@@ -716,7 +716,7 @@ class StripeGateway extends AbstractPaymentGateway implements AuthorizationHoldI
 
             // Calcular data de expiracao (7 dias padrao, 31 se extended)
             $expiresInDays = (!empty($data['extended_authorization'])) ? 31 : 7;
-            $expiresAt = date('Y-m-d H:i:s', strtotime("+{$expiresInDays} days"));
+            $expiresAt = \App\Helpers\DateHelper::addDaysForDatabase($expiresInDays, null, 'Y-m-d H:i:s');
 
             // Log da transacao
             $transactionId = $this->logTransaction(

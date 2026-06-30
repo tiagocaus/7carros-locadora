@@ -559,6 +559,7 @@ Antes de fazer deploy de uma feature, verifique:
 - [ ] Erros são logged mas não expostos ao usuário
 - [ ] Autenticação é verificada em rotas protegidas
 - [ ] Autorização verifica permissões específicas
+- [ ] Datas usam `DateHelper`/helpers globais; nao ha `date()`, `time()`, `new DateTime()`, `new Date()` ou `NOW()/CURDATE()` novos fora das excecoes de `docs/date.md`
 
 ## Helper aviso() - Instruções de Campo
 

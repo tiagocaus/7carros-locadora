@@ -53,7 +53,7 @@ class SiteCredencial extends Model
         $existing = $this->buscarPorChave();
 
         if ($existing) {
-            $payload['updated_at'] = date('Y-m-d H:i:s');
+            $payload['updated_at'] = now();
             return $this->qb
                 ->table('site_credenciais')
                 ->where('id', '=', $existing['id'])

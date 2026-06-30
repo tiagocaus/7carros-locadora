@@ -48,7 +48,7 @@ class DashboardController
         Response::json([
             'success' => true,
             'data' => $this->buildStats(),
-            'timestamp' => date('d/m/Y H:i:s'),
+            'timestamp' => format_datetime(now()),
         ]);
     }
 
@@ -116,7 +116,7 @@ class DashboardController
         Response::json([
             'success' => true,
             'tab' => $tab,
-            'updated_at' => date('d/m/Y H:i'),
+            'updated_at' => format_datetime(now()),
             'data' => $data,
         ]);
     }

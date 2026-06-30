@@ -49,7 +49,7 @@ class RolePermission extends Model
             ->insert([
                 'role_id' => $roleId,
                 'permission_id' => $permissionId,
-                'created_at' => date('Y-m-d H:i:s')
+                'created_at' => now()
             ]);
     }
 

@@ -100,8 +100,12 @@
     <div class="header-body">
         <div class="header-top">
             <?php
-                $dataExibir = $dataSaida ?: ($checklist['data_checklist'] ?? $checklist['created_at'] ?? '');
-                if ($dataExibir) echo date('d/m/Y - H:i', strtotime($dataExibir));
+                $dataExibir = $dataSaida ?: ($checklist['data_checklist'] ?? '');
+                if ($dataExibir) {
+                    echo format_operational_datetime($dataExibir);
+                } elseif (!empty($checklist['created_at'])) {
+                    echo format_datetime($checklist['created_at']);
+                }
             ?>
             - <span class="header-code"><?= htmlspecialchars($checklist['codigo'] ?? '') ?></span>
         </div>

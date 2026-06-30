@@ -47,8 +47,12 @@ class RateLimit extends Model
         string $endpoint,
         int $window
     ): array {
-        $now = date('Y-m-d H:i:s');
-        $expiresAt = date('Y-m-d H:i:s', time() + $window);
+        $now = now();
+        $expiresAt = \App\Helpers\DateHelper::formatTimestamp(
+            \App\Helpers\DateHelper::timestamp() + $window,
+            'Y-m-d H:i:s',
+            false
+        );
 
         // Usa INSERT ... ON DUPLICATE KEY UPDATE para operação atômica
         $sql = "INSERT INTO security_rate_limits
@@ -130,7 +134,7 @@ class RateLimit extends Model
         return $this->qb
             ->table('security_rate_limits')
             ->withoutChave()
-            ->whereRaw('expires_at <= ?', [date('Y-m-d H:i:s')])
+            ->whereRaw('expires_at <= ?', [now()])
             ->delete();
     }
 
@@ -185,7 +189,7 @@ class RateLimit extends Model
                 FROM security_rate_limits
                 WHERE expires_at > ?";
 
-        $now = date('Y-m-d H:i:s');
+        $now = now();
         $stmt = $this->getMysqli()->prepare($sql);
         $stmt->bind_param('s', $now);
         $stmt->execute();

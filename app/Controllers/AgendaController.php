@@ -54,8 +54,8 @@ class AgendaController
                 return;
             }
 
-            $inicio = $request->query('inicio', date('Y-m-d') . ' 00:00:00');
-            $fim = $request->query('fim', date('Y-m-d', strtotime('+6 months')) . ' 23:59:59');
+            $inicio = $request->query('inicio', today() . ' 00:00:00');
+            $fim = $request->query('fim', \App\Helpers\DateHelper::addMonthsForDatabase(6) . ' 23:59:59');
 
             if (strlen($inicio) === 10) $inicio .= ' 00:00:00';
             if (strlen($fim) === 10)    $fim    .= ' 23:59:59';
@@ -188,7 +188,7 @@ class AgendaController
         $dataFim = $loc['data_chegada'] ?: null;
         if (!$dataFim) {
             $prev = $loc['data_prevista'] ?? null;
-            $dataFim = ($prev && strtotime($prev) >= time()) ? $prev : null;
+            $dataFim = ($prev && strtotime($prev) >= \App\Helpers\DateHelper::timestamp()) ? $prev : null;
         }
         $tipoLabel = $loc['status'] === 'R' ? 'Reserva' : 'Locacao';
 

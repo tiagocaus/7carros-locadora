@@ -349,8 +349,7 @@
     // ===== FORMATACAO =====
     function formatarData(dataStr) {
         if (!dataStr) return '-';
-        const data = new Date(dataStr);
-        return data.toLocaleDateString('pt-BR');
+        return DateHelper.format(dataStr);
     }
 
     // ===== PAGINACAO =====

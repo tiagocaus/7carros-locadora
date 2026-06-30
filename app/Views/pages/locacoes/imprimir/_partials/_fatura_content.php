@@ -57,7 +57,9 @@ $_formatarDataFatura = static function($valor, bool $comHora = false): string {
         return '-';
     }
 
-    return date($comHora ? 'd/m/Y H:i' : 'd/m/Y', strtotime($valor));
+    $formatado = $comHora ? format_operational_datetime((string) $valor) : format_date((string) $valor);
+
+    return $formatado !== '' ? $formatado : '-';
 };
 $_formatarVeiculoFatura = static function(array $item): string {
     $placa = trim((string) ($item['veiculo_placa'] ?? ''));
@@ -70,6 +72,13 @@ $_formatarVeiculoFatura = static function(array $item): string {
 
     return $grupo !== '' ? t('modules.locacoes.pdf.group_category_label') . ': ' . $grupo : '-';
 };
+
+$_dataDevolucaoFatura = !empty($locacao['data_chegada'])
+    ? $locacao['data_chegada']
+    : ($locacao['data_prevista'] ?? null);
+$_labelDevolucaoFatura = !empty($locacao['data_chegada'])
+    ? t('modules.locacoes.fields.return_date') . ':'
+    : t('modules.locacoes.pdf.expected_return_label');
 ?>
 
 <!-- HEADER -->
@@ -106,9 +115,9 @@ $_formatarVeiculoFatura = static function(array $item): string {
     <table class="data-table">
         <tr>
             <td style="width: 25%;"><strong><?= t('modules.locacoes.pdf.checkout_label') ?></strong></td>
-            <td style="width: 25%;"><?= !empty($locacao['data_saida']) ? date('d/m/Y H:i', strtotime($locacao['data_saida'])) : '-' ?></td>
-            <td style="width: 25%;"><strong><?= t('modules.locacoes.pdf.expected_return_label') ?></strong></td>
-            <td style="width: 25%;"><?= !empty($locacao['data_prevista']) ? date('d/m/Y H:i', strtotime($locacao['data_prevista'])) : '-' ?></td>
+            <td style="width: 25%;"><?= $_formatarDataFatura($locacao['data_saida'] ?? null, true) ?></td>
+            <td style="width: 25%;"><strong><?= $_labelDevolucaoFatura ?></strong></td>
+            <td style="width: 25%;"><?= $_formatarDataFatura($_dataDevolucaoFatura, true) ?></td>
         </tr>
         <tr>
             <td><strong><?= t('modules.locacoes.odometer_fuel.odometer_out') ?></strong></td>
@@ -297,7 +306,6 @@ $_formatarVeiculoFatura = static function(array $item): string {
 <?php
     $totalLocacaoPdf = (float) ($locacao['total_pagar'] ?? $locacao['valor_total'] ?? 0);
     $totalMultasPdf = (float) ($totalMultas ?? 0);
-    $totalGeralPdf = $totalLocacaoPdf + $totalMultasPdf;
     $valorDescontoPdf = (float) ($locacao['valor_desconto'] ?? 0);
     $codigoPromocaoPdf = trim((string) ($locacao['promocao_codigo'] ?? ''));
     $descontoLabelPdf = rtrim(t('modules.locacoes.pdf.discount_label'), " \t\n\r\0\x0B:");
@@ -306,6 +314,8 @@ $_formatarVeiculoFatura = static function(array $item): string {
     }
     $parcelasFinanceirasPdf = is_array($parcelasFinanceiras ?? null) ? $parcelasFinanceiras : [];
     $resumoFinanceiroPdf = is_array($resumoFinanceiro ?? null) ? $resumoFinanceiro : [];
+    $totalAvariasPdf = (float) ($resumoFinanceiroPdf['total_avarias'] ?? 0);
+    $totalGeralPdf = $totalLocacaoPdf + $totalAvariasPdf + $totalMultasPdf;
     $totalPagoPdf = (float) ($resumoFinanceiroPdf['total_pago'] ?? 0);
     $totalReembolsadoPdf = (float) ($resumoFinanceiroPdf['total_credito_devolucao'] ?? 0);
     $totalAPagarPdf = max(0, $totalGeralPdf - $totalPagoPdf - $totalReembolsadoPdf);
@@ -324,6 +334,12 @@ $_formatarVeiculoFatura = static function(array $item): string {
             <td class="label-col"><?= $_faturaTotalRegistroLabel ?></td>
             <td class="value-col"><?= currency_format($totalLocacaoPdf) ?></td>
         </tr>
+        <?php if ($totalAvariasPdf > 0): ?>
+        <tr>
+            <td class="label-col"><?= t('modules.locacoes.installments.total_damages') ?></td>
+            <td class="value-col"><?= currency_format($totalAvariasPdf) ?></td>
+        </tr>
+        <?php endif; ?>
         <?php if ($totalMultasPdf > 0): ?>
         <tr>
             <td class="label-col"><?= t('modules.locacoes.pdf.total_fines_label') ?></td>
@@ -376,8 +392,8 @@ $_formatarVeiculoFatura = static function(array $item): string {
                 ?>
                 <tr>
                     <td><?= htmlspecialchars($parcelaLabel) ?></td>
-                    <td><?= !empty($parcela['data_venci']) ? date('d/m/Y', strtotime($parcela['data_venci'])) : '-' ?></td>
-                    <td><?= !empty($parcela['data_pago']) ? date('d/m/Y', strtotime($parcela['data_pago'])) : '-' ?></td>
+                    <td><?= $_formatarDataFatura($parcela['data_venci'] ?? null) ?></td>
+                    <td><?= $_formatarDataFatura($parcela['data_pago'] ?? null) ?></td>
                     <td><?= htmlspecialchars($parcela['forma_pagamento_descricao'] ?? '-') ?></td>
                     <td><?= $parcelaPaga ? t('modules.locacoes.installments.paid') : t('modules.locacoes.installments.pending') ?></td>
                     <td class="text-right"><?= currency_format((float) ($parcela['valor_total'] ?? 0)) ?></td>
@@ -410,7 +426,7 @@ $_formatarVeiculoFatura = static function(array $item): string {
                 <td><?= htmlspecialchars($c['nome'] ?? '-') ?></td>
                 <td><?= htmlspecialchars($c['cc'] ?? '-') ?></td>
                 <td><?= htmlspecialchars($c['cn'] ?? $c['cnh'] ?? '-') ?></td>
-                <td><?= !empty($c['va'] ?? $c['cnh_validade'] ?? null) ? date('d/m/Y', strtotime($c['va'] ?? $c['cnh_validade'])) : '-' ?></td>
+                <td><?= $_formatarDataFatura($c['va'] ?? $c['cnh_validade'] ?? null) ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
@@ -572,7 +588,7 @@ $_formatarVeiculoFatura = static function(array $item): string {
                 </td>
                 <td>
                     <?php if (!empty($locacao['caucao_data_devolucao'])): ?>
-                        <?= t('modules.locacoes.deposit.returned') ?> (<?= date('d/m/Y', strtotime($locacao['caucao_data_devolucao'])) ?>)
+                        <?= t('modules.locacoes.deposit.returned') ?> (<?= $_formatarDataFatura($locacao['caucao_data_devolucao']) ?>)
                     <?php elseif (isset($locacao['caucao_prazo_devolucao']) && $locacao['caucao_prazo_devolucao'] !== ''): ?>
                         <?= t('modules.locacoes.deposit.return_days') ?>: <?= (int) $locacao['caucao_prazo_devolucao'] === 0 ? t('modules.locacoes.deposit.return_on_closing') : (int) $locacao['caucao_prazo_devolucao'] . ' ' . t('modules.locacoes.summary_section.days') ?>
                     <?php else: ?>

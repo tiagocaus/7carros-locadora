@@ -84,7 +84,7 @@
         let dataFim = item.data_fim ? new Date(item.data_fim) : null;
 
         if (!dataFim || isNaN(dataFim.getTime())) {
-            const threeDaysAhead = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+            const threeDaysAhead = new Date(DateHelper.timestamp() + 3 * 24 * 60 * 60 * 1000);
             switch (tipoOriginal) {
                 case 'locacoes':
                     // Em aberto (sem data_chegada nem data_prevista futura): 3d a partir de hoje

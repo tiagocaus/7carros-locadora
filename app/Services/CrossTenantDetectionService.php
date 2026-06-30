@@ -328,7 +328,7 @@ class CrossTenantDetectionService
             <tr><td><strong>Score de Suspeita</strong></td><td>{$score}/100</td></tr>
             <tr><td><strong>URI</strong></td><td>{$uri}</td></tr>
             <tr><td><strong>User Agent</strong></td><td>{$userAgent}</td></tr>
-            <tr><td><strong>Data/Hora</strong></td><td>" . date('d/m/Y H:i:s') . "</td></tr>
+            <tr><td><strong>Data/Hora</strong></td><td>" . format_datetime(now()) . "</td></tr>
         </table>
 
         <p><strong>Ação Recomendada:</strong> Verifique os logs de segurança para mais detalhes.</p>

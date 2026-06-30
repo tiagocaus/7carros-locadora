@@ -58,7 +58,7 @@ class ContratoOdometro extends Model
     public function registrarLeitura(array $dados): array
     {
         $contratoVeiculoId = (int) $dados['id_contrato_veiculo'];
-        $data = $dados['data'] ?? date('Y-m-d');
+        $data = $dados['data'] ?? today();
         $odometro = (int) $dados['odometro'];
         $odometroSaida = (int) ($dados['odometro_saida'] ?? 0);
 

@@ -131,14 +131,7 @@
 
         function formatarData(dataString) {
             if (!dataString) return '-';
-            const data = new Date(dataString);
-            const dia = String(data.getDate()).padStart(2, '0');
-            const mes = String(data.getMonth() + 1).padStart(2, '0');
-            const ano = data.getFullYear();
-            const hora = String(data.getHours()).padStart(2, '0');
-            const min = String(data.getMinutes()).padStart(2, '0');
-            const seg = String(data.getSeconds()).padStart(2, '0');
-            return `${dia}/${mes}/${ano} ${hora}:${min}:${seg}`;
+            return DateHelper.formatDateTime(dataString);
         }
 
         function renderLogs(logs) {

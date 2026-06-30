@@ -254,7 +254,7 @@ class RequestFingerprintService
      */
     private function recordFingerprint(): void
     {
-        $now = date('Y-m-d H:i:s');
+        $now = now();
         $nowMs = (int) (microtime(true) * 1000);
 
         // Calcula intervalo desde última requisição

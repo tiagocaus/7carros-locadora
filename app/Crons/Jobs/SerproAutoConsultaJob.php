@@ -57,7 +57,7 @@ class SerproAutoConsultaJob extends BaseJob
 
             // Verificar se ja passou o intervalo
             if ($ultimaConsulta) {
-                $diasDesdeUltima = (int) ((time() - strtotime($ultimaConsulta)) / 86400);
+                $diasDesdeUltima = (int) ((\App\Helpers\DateHelper::timestamp() - strtotime($ultimaConsulta)) / 86400);
                 if ($diasDesdeUltima < $intervalo) {
                     $this->log("Tenant {$chave}: pulando (ultima consulta ha {$diasDesdeUltima} dias, intervalo: {$intervalo})");
                     continue;
@@ -192,7 +192,7 @@ class SerproAutoConsultaJob extends BaseJob
                 'placa' => $placa,
                 'origem' => 'serpro_consulta',
                 'status_processamento' => 'novo',
-                'serpro_sync_at' => date('Y-m-d H:i:s'),
+                'serpro_sync_at' => now(),
             ]));
 
             $codigoOrgao = $dadosMulta['codigo_orgao'] ?? '';

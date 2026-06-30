@@ -947,9 +947,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             data.valor ? fmtCurrency(parseFloat(data.valor)) : '';
 
         if (data.expires_at) {
-            const dt = new Date(data.expires_at);
             document.getElementById('bloqueioExpiraInfo').textContent =
-                `${<?= $jsT('modules.contratos.block.expires_at') ?>}: ${DateHelper.format(dt)}`;
+                `${<?= $jsT('modules.contratos.block.expires_at') ?>}: ${DateHelper.formatDateTime(data.expires_at)}`;
         }
 
         const canAct = data.status === 'authorized';

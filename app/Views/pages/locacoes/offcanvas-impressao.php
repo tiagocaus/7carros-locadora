@@ -171,7 +171,7 @@ $printPageTitle = $isReservaConfirmada ? t('modules.locacoes.print.reservation_t
                         $checklist['veiculo_modelo'] ?? '',
                     ])));
                     $dataLabel = !empty($checklist['data_checklist'])
-                        ? date('d/m/Y H:i', strtotime($checklist['data_checklist']))
+                        ? format_operational_datetime($checklist['data_checklist'])
                         : '';
                     $digitalLabel = trim(implode(' - ', array_filter([$momento, $veiculoLabel, $dataLabel])));
                 ?>

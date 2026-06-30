@@ -45,7 +45,7 @@
             </tr>
             <tr>
                 <td class="label"><?= t('modules.multas.pdf.date_time_label') ?></td>
-                <td><?= !empty($multa['data_hora']) ? format_datetime($multa['data_hora']) : '-' ?></td>
+                <td><?= !empty($multa['data_hora']) ? format_operational_datetime($multa['data_hora']) : '-' ?></td>
                 <td class="label"><?= t('modules.multas.pdf.description_label') ?></td>
                 <td><?= htmlspecialchars($multa['descri'] ?? '-') ?></td>
             </tr>
@@ -108,7 +108,7 @@
     </div>
 
     <div class="footer">
-        <p><?= t('modules.multas.pdf.generated_at', ['datetime' => format_datetime(date('Y-m-d H:i:s'))]) ?></p>
+        <p><?= t('modules.multas.pdf.generated_at', ['datetime' => format_datetime(now())]) ?></p>
     </div>
 </body>
 </html>

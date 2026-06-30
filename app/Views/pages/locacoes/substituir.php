@@ -286,7 +286,7 @@
 
     function preencherAtual() {
         if ($('dataSubstituicao') && !$('dataSubstituicao').value) {
-            $('dataSubstituicao').value = formatarDatetimeLocal(new Date());
+            $('dataSubstituicao').value = DateHelper.nowInput();
         }
 
         const descricao = [

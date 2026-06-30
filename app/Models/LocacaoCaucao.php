@@ -104,7 +104,7 @@ class LocacaoCaucao extends Model
                 ->where('id', '=', (int) $caucao['id'])
                 ->update(array_merge($payload, [
                     'status' => 'ativa',
-                    'updated_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => now(),
                 ]));
             $idCaucao = (int) $caucao['id'];
         } else {
@@ -153,7 +153,7 @@ class LocacaoCaucao extends Model
                 'id_financeiro_devolucao' => $idFinanceiro,
                 'data_devolucao' => $dataDevolucao,
                 'status' => 'devolvida',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -224,7 +224,7 @@ class LocacaoCaucao extends Model
             return $value;
         }
 
-        return date('Y-m-d');
+        return today();
     }
 
     private function sincronizarFinanceiroEntrada(array $caucao, array $locacao): void
@@ -239,7 +239,7 @@ class LocacaoCaucao extends Model
                     ->where('id', '=', (int) $caucao['id'])
                     ->update([
                         'id_financeiro_entrada' => null,
-                        'updated_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => now(),
                     ]);
             }
             return;
@@ -265,7 +265,7 @@ class LocacaoCaucao extends Model
             'parcela' => 1,
             'total_parcelas' => 1,
             'descricao' => $descricao,
-            'data_venci' => date('Y-m-d'),
+            'data_venci' => today(),
             'valor_subtotal' => $caucao['valor'],
             'valor_total' => $caucao['valor'],
         ];
@@ -311,7 +311,7 @@ class LocacaoCaucao extends Model
             ->where('id', '=', (int) $caucao['id'])
             ->update([
                 'id_financeiro_entrada' => $idFinanceiro,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -327,7 +327,7 @@ class LocacaoCaucao extends Model
             ->update([
                 'status' => 'cancelada',
                 'id_financeiro_entrada' => null,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 

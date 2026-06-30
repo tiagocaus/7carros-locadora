@@ -470,7 +470,7 @@ class SerproIndicacaoController
 
             $indicacaoModel->atualizarStatus($id, [
                 'status_serpro' => 'cancelado',
-                'data_resposta' => date('Y-m-d H:i:s'),
+                'data_resposta' => now(),
             ]);
 
             // Reverter status da multa
@@ -586,7 +586,7 @@ class SerproIndicacaoController
         $indicacaoModel = new SerproIndicacao();
         $indicacaoModel->atualizarStatus((int) $indicacao['id'], [
             'status_serpro' => 'excluido',
-            'data_resposta' => date('Y-m-d H:i:s'),
+            'data_resposta' => now(),
         ]);
 
         Response::json([

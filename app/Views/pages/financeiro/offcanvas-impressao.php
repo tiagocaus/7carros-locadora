@@ -13,7 +13,7 @@
 </style>
 <?php
     $valorFmt = 'R$ ' . number_format((float) ($lancamento['valor_total'] ?? 0), 2, ',', '.');
-    $venciFmt = !empty($lancamento['data_venci']) ? date('d/m/Y', strtotime($lancamento['data_venci'])) : '-';
+    $venciFmt = !empty($lancamento['data_venci']) ? format_date($lancamento['data_venci']) : '-';
     $codigoLabel = $lancamento['codigo'] ?? ('#' . ($lancamento['id'] ?? ''));
     $tipoReceita = $tipoReceita ?? (($lancamento['tipo'] ?? '') === 'R');
     $contraparte = $contraparte ?? ($tipoReceita ? ($cliente ?? []) : ($fornecedor ?? []));

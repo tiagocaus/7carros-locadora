@@ -19,8 +19,8 @@ class SecurityLog extends Model
      */
     public function registrar(array $dados): int
     {
-        $dados['created_at'] = $dados['created_at'] ?? date('Y-m-d H:i:s');
-        $dados['updated_at'] = $dados['updated_at'] ?? date('Y-m-d H:i:s');
+        $dados['created_at'] = $dados['created_at'] ?? now();
+        $dados['updated_at'] = $dados['updated_at'] ?? now();
 
         // Converter details para JSON se for array
         if (isset($dados['details']) && is_array($dados['details'])) {
@@ -41,7 +41,7 @@ class SecurityLog extends Model
      */
     public function limparAntigos(int $dias): int
     {
-        $cutoff = date('Y-m-d H:i:s', strtotime("-{$dias} days"));
+        $cutoff = \App\Helpers\DateHelper::addDaysForDatabase(-$dias, null, 'Y-m-d H:i:s');
 
         return $this->qb
             ->table('security_logs')
@@ -83,7 +83,7 @@ class SecurityLog extends Model
      */
     public function obterIpsSuspeitos(int $limite = 10, int $dias = 7): array
     {
-        $cutoff = date('Y-m-d H:i:s', strtotime("-{$dias} days"));
+        $cutoff = \App\Helpers\DateHelper::addDaysForDatabase(-$dias, null, 'Y-m-d H:i:s');
 
         return $this->qb
             ->table('security_logs')

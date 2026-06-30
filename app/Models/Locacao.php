@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use App\Traits\DetectsCrossTenant;
+use App\Helpers\CodigoHelper;
+use App\Helpers\DateHelper;
 use App\Helpers\FilialHelper;
 use App\Helpers\SequenciaHelper;
 
@@ -249,11 +251,11 @@ class Locacao extends Model
             ->leftJoin('clientes', 'cl', 'l.id_cliente', '=', 'cl.id')
             ->whereIn('l.status', ['R', 'A'])
             ->where('l.data_saida', '<=', $fim)
-            // Em aberto (data_chegada=NULL) e ongoing: usa max(data_prevista, NOW())
+            // Em aberto (data_chegada=NULL) e ongoing: usa max(data_prevista, agora).
             // — garante que locacoes/reservas com previsao vencida ainda apareçam.
             ->whereRaw(
-                'COALESCE(l.data_chegada, GREATEST(COALESCE(l.data_prevista, l.data_saida), NOW())) >= ?',
-                [$inicio]
+                'COALESCE(l.data_chegada, GREATEST(COALESCE(l.data_prevista, l.data_saida), ?)) >= ?',
+                [DateHelper::nowForDatabase(), $inicio]
             );
 
         if (!empty($filialWhere)) {
@@ -633,7 +635,7 @@ class Locacao extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = DateHelper::systemNow();
 
         return $this->qb
             ->table('locacoes')
@@ -704,7 +706,7 @@ class Locacao extends Model
 
         if ($idLocacaoVeiculo) {
             $veiculoModel->atualizar($idLocacaoVeiculo, [
-                'data_saida' => $dados['data_saida'] ?? date('Y-m-d H:i:s'),
+                'data_saida' => $dados['data_saida'] ?? DateHelper::nowForDatabase(),
                 'odometro_saida' => (int) ($dados['odometro_ini'] ?? 0),
                 'combustivel_saida' => $dados['combustivel_ini'] ?? null,
             ]);
@@ -719,8 +721,8 @@ class Locacao extends Model
         // Atualizar locacao
         $dadosUpdate = [
             'status' => 'A',
-            'data_saida' => $dados['data_saida'] ?? date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
+            'data_saida' => $dados['data_saida'] ?? DateHelper::nowForDatabase(),
+            'updated_at' => DateHelper::systemNow(),
         ];
 
         if (isset($dados['obs'])) {
@@ -769,7 +771,7 @@ class Locacao extends Model
         if ($idLocacaoVeiculo) {
             $odometroEntrada = (int) ($dados['odometro_fim'] ?? 0);
             $veiculoModel->devolver($idLocacaoVeiculo, [
-                'data_entrada' => $dados['data_chegada'] ?? date('Y-m-d H:i:s'),
+                'data_entrada' => $dados['data_chegada'] ?? DateHelper::nowForDatabase(),
                 'odometro_entrada' => $odometroEntrada,
                 'combustivel_entrada' => $dados['combustivel_fim'] ?? null,
                 'combustivel_valor' => $dados['combustivel_valor'] ?? null,
@@ -789,8 +791,8 @@ class Locacao extends Model
         // Atualizar locacao
         $dadosUpdate = [
             'status' => 'F',
-            'data_chegada' => $dados['data_chegada'] ?? date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
+            'data_chegada' => $dados['data_chegada'] ?? DateHelper::nowForDatabase(),
+            'updated_at' => DateHelper::systemNow(),
         ];
 
         // Filial de devolucao
@@ -853,7 +855,7 @@ class Locacao extends Model
         }
 
         $valorParcela = round($totalPagar / $quantidade, 2);
-        $dataVencimento = $dados['data_primeiro_vencimento'] ?? date('Y-m-d');
+        $dataVencimento = $dados['data_primeiro_vencimento'] ?? DateHelper::todayForDatabase();
 
         // Buscar proximo numero de parcela
         $maxParcela = $this->qb
@@ -905,11 +907,11 @@ class Locacao extends Model
                 'data_venci' => $dataVencimento,
                 'valor_subtotal' => $valor,
                 'valor_total' => $valor,
-                'data_criada' => date('Y-m-d'),
+                'data_criada' => DateHelper::todayForDatabase(),
             ]);
 
             // Proximo vencimento: +1 mes
-            $dataVencimento = date('Y-m-d', strtotime($dataVencimento . ' +1 month'));
+            $dataVencimento = DateHelper::addMonthsForDatabase(1, $dataVencimento);
         }
 
         // Atualizar total_parcelas em todas as parcelas existentes
@@ -987,7 +989,7 @@ class Locacao extends Model
             'data_venci' => $dados['data_venci'],
             'valor_subtotal' => $this->toDecimal($dados['valor']),
             'valor_total' => $this->toDecimal($dados['valor']),
-            'data_criada' => date('Y-m-d'),
+            'data_criada' => DateHelper::todayForDatabase(),
         ]);
     }
 
@@ -997,7 +999,7 @@ class Locacao extends Model
      * @param int $locacaoId ID da locacao
      * @return array Lista de parcelas
      */
-    public function listarParcelas(int $locacaoId, bool $apenasReceitas = false): array
+    public function listarParcelas(int $locacaoId, bool $apenasReceitas = false, bool $incluirMultas = false): array
     {
         $query = $this->qb
             ->table('financeiro', 'f')
@@ -1020,6 +1022,10 @@ class Locacao extends Model
             ->leftJoin('contas_bancarias', 'ct', 'f.id_conta', '=', 'ct.id')
             ->leftJoin('formas_pagamento', 'fp', 'f.id_forma_pagamento', '=', 'fp.id')
             ->where('f.id_locacao', '=', $locacaoId);
+
+        if (!$incluirMultas) {
+            $query->whereRaw('(f.id_multa IS NULL OR f.id_multa = 0)');
+        }
 
         if ($apenasReceitas) {
             $query->where('f.tipo', '=', 'R');
@@ -1052,7 +1058,7 @@ class Locacao extends Model
             throw new \InvalidArgumentException('Parcela não encontrada ou já paga');
         }
 
-        $dadosUpdate = ['updated_at' => date('Y-m-d H:i:s')];
+        $dadosUpdate = ['updated_at' => DateHelper::systemNow()];
 
         if (isset($dados['valor'])) {
             $dadosUpdate['valor_subtotal'] = $this->toDecimal($dados['valor']);
@@ -1126,7 +1132,7 @@ class Locacao extends Model
 
         $update = [
             'pago' => 'S',
-            'data_pago' => !empty($dados['data_pago']) ? $dados['data_pago'] : date('Y-m-d'),
+            'data_pago' => !empty($dados['data_pago']) ? $dados['data_pago'] : DateHelper::todayForDatabase(),
         ];
         if (!empty($dados['id_forma_pagamento'])) {
             $update['id_forma_pagamento'] = (int) $dados['id_forma_pagamento'];
@@ -1210,8 +1216,8 @@ class Locacao extends Model
             'parcela' => 1,
             'total_parcelas' => 1,
             'descricao' => 'Devolucao/Reembolso - Locacao ' . ($locacao['codigo'] ?? $locacaoId),
-            'data_criada' => date('Y-m-d'),
-            'data_venci' => date('Y-m-d'),
+            'data_criada' => DateHelper::todayForDatabase(),
+            'data_venci' => DateHelper::todayForDatabase(),
             'valor_subtotal' => $valor,
         ]);
     }
@@ -1258,13 +1264,15 @@ class Locacao extends Model
             ->selectRaw('
                 SUM(CASE WHEN f.tipo = "R" THEN 1 ELSE 0 END) AS total_parcelas,
                 SUM(CASE WHEN f.tipo = "R" THEN f.valor_total ELSE 0 END) AS total_receitas,
+                SUM(CASE WHEN f.tipo = "R" AND pc.hierarquia = "' . self::PLANO_CONTA_AVARIAS . '" THEN f.valor_total ELSE 0 END) AS total_avarias,
                 SUM(CASE WHEN f.tipo = "D" AND pc.hierarquia = "' . self::PLANO_CONTA_DEVOLUCAO_LOCACAO . '" THEN f.valor_total ELSE 0 END) AS total_credito_devolucao,
                 SUM(CASE WHEN f.tipo = "R" AND f.pago = "S" THEN f.valor_total ELSE 0 END) AS total_pago,
                 SUM(CASE WHEN f.tipo = "R" AND f.pago = "N" THEN f.valor_total ELSE 0 END) AS total_pendente,
                 SUM(CASE WHEN f.tipo = "R" AND f.pago = "N" AND f.data_venci < CURDATE() THEN f.valor_total ELSE 0 END) AS total_atrasado
             ')
             ->leftJoin('planos_de_contas', 'pc', 'f.id_plano_de_conta', '=', 'pc.id')
-            ->where('f.id_locacao', '=', $locacaoId);
+            ->where('f.id_locacao', '=', $locacaoId)
+            ->whereRaw('(f.id_multa IS NULL OR f.id_multa = 0)');
 
         if ($apenasReceitas) {
             $queryTotais->where('f.tipo', '=', 'R');
@@ -1274,11 +1282,15 @@ class Locacao extends Model
 
         $totalPagar = (float) ($locacao['total_pagar'] ?? 0);
         $totalReceitas = (float) ($totais['total_receitas'] ?? 0);
+        $totalAvarias = (float) ($totais['total_avarias'] ?? 0);
+        $totalEsperado = round($totalPagar + $totalAvarias, 2);
         $totalCreditoDevolucao = (float) ($totais['total_credito_devolucao'] ?? 0);
         $totalLancado = round($totalReceitas - $totalCreditoDevolucao, 2);
 
         return [
             'total_locacao' => $totalPagar,
+            'total_avarias' => $totalAvarias,
+            'total_esperado' => $totalEsperado,
             'total_lancado' => $totalLancado,
             'total_receitas' => $totalReceitas,
             'total_credito_devolucao' => $totalCreditoDevolucao,
@@ -1286,7 +1298,7 @@ class Locacao extends Model
             'total_pendente' => (float) ($totais['total_pendente'] ?? 0),
             'total_atrasado' => (float) ($totais['total_atrasado'] ?? 0),
             'total_parcelas' => (int) ($totais['total_parcelas'] ?? 0),
-            'diferenca' => round($totalPagar - $totalLancado, 2),
+            'diferenca' => round($totalEsperado - $totalLancado, 2),
         ];
     }
 
@@ -1423,7 +1435,7 @@ class Locacao extends Model
             ->update([
                 'total_fatura' => $totais['total_fatura'],
                 'total_pagar' => $totais['total_pagar'],
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => DateHelper::systemNow(),
             ]);
 
         return $totais;
@@ -1439,23 +1451,31 @@ class Locacao extends Model
             ->where('id', '=', $id)
             ->update([
                 'status' => $status,
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => DateHelper::systemNow()
             ]);
     }
 
     /**
-     * Gera codigo unico para a locacao
+     * Gera codigo unico para a locacao.
+     * Formato: L + 7 caracteres alfanumericos.
      */
     public function gerarCodigo(string $chave): string
     {
-        $maxId = $this->qb
-            ->table('locacoes')
-            ->max('id');
+        for ($tentativa = 0; $tentativa < 20; $tentativa++) {
+            $codigo = CodigoHelper::gerarComPrefixo('L');
 
-        $proximoId = ($maxId ?? 0) + 1;
-        $letras = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 2);
+            $existente = $this->qb
+                ->table('locacoes')
+                ->withChave($chave)
+                ->where('codigo', '=', $codigo)
+                ->first();
 
-        return 'L' . str_pad($proximoId, 5, '0', STR_PAD_LEFT) . $letras;
+            if (!$existente) {
+                return $codigo;
+            }
+        }
+
+        throw new \RuntimeException('Nao foi possivel gerar um codigo de locacao unico');
     }
 
     /**
@@ -1517,8 +1537,8 @@ class Locacao extends Model
      */
     public function dashboardOperations(string $chave): array
     {
-        $inicioDia = date('Y-m-d 00:00:00');
-        $fimDia = date('Y-m-d 23:59:59');
+        $inicioDia = DateHelper::todayForDatabase('Y-m-d 00:00:00');
+        $fimDia = DateHelper::todayForDatabase('Y-m-d 23:59:59');
 
         $departures = (int) $this->qb
             ->table('locacoes')
@@ -1538,7 +1558,7 @@ class Locacao extends Model
         $overdue = (int) $this->qb
             ->table('locacoes')
             ->where('status', '=', 'A')
-            ->whereRaw('data_prevista < NOW()')
+            ->where('data_prevista', '<', DateHelper::nowForDatabase())
             ->whereNull('data_chegada')
             ->count();
 
@@ -1588,7 +1608,7 @@ class Locacao extends Model
             ")
             ->leftJoin('clientes', 'cl', 'l.id_cliente', '=', 'cl.id')
             ->where('l.status', '=', 'R')
-            ->where('l.data_saida', '>=', date('Y-m-d 00:00:00'))
+            ->where('l.data_saida', '>=', DateHelper::todayForDatabase('Y-m-d 00:00:00'))
             ->orderBy('l.data_saida', 'ASC')
             ->limit($limit)
             ->get();
@@ -1598,7 +1618,7 @@ class Locacao extends Model
                 'codigo' => $r['codigo'],
                 'cliente' => $r['cliente'] ?? '',
                 'veiculo' => trim((string) ($r['veiculo'] ?? '')),
-                'data' => $r['data_saida'] ? date('d/m', strtotime($r['data_saida'])) : '',
+                'data' => $r['data_saida'] ? format_operational_datetime($r['data_saida']) : '',
             ];
         }, $rows);
     }
@@ -1633,7 +1653,7 @@ class Locacao extends Model
 
         return array_map(function ($r) use ($statusMap) {
             return [
-                'hora' => $r['created_at'] ? date('H:i', strtotime($r['created_at'])) : '',
+                'hora' => $r['created_at'] ? DateHelper::formatTimestamp(strtotime($r['created_at']), 'H:i') : '',
                 'codigo' => $r['codigo'],
                 'cliente' => $r['cliente'] ?? '',
                 'veiculo' => trim((string) ($r['veiculo'] ?? '')),
@@ -1705,7 +1725,7 @@ class Locacao extends Model
         $query = $this->dashboardSimpleLocacoesBaseQuery()
             ->where('l.status', '=', 'A')
             ->whereNull('l.data_chegada')
-            ->whereRaw('l.data_prevista < NOW()')
+            ->where('l.data_prevista', '<', DateHelper::nowForDatabase())
             ->orderBy('l.data_prevista', 'ASC')
             ->limit($limit);
 
@@ -1731,7 +1751,7 @@ class Locacao extends Model
         $query = $this->dashboardSimpleLocacoesBaseQuery()
             ->where('l.status', '=', 'A')
             ->whereNull('l.data_chegada')
-            ->whereRaw('l.data_prevista >= NOW()')
+            ->where('l.data_prevista', '>=', DateHelper::nowForDatabase())
             ->orderBy('l.data_prevista', 'ASC')
             ->limit($limit);
 
@@ -1812,8 +1832,7 @@ class Locacao extends Model
             return '';
         }
 
-        $timestamp = strtotime($value);
-        return $timestamp ? date('d/m/Y H:i', $timestamp) : '';
+        return DateHelper::formatOperationalDateTime($value, true, 'd/m/Y H:i');
     }
 
     private function formatDashboardDueInfo(?string $value, string $status = ''): array
@@ -1827,9 +1846,9 @@ class Locacao extends Model
             return ['label' => '', 'tipo' => ''];
         }
 
-        $now = time();
-        $today = date('Y-m-d');
-        $date = date('Y-m-d', $timestamp);
+        $now = DateHelper::timestamp();
+        $today = DateHelper::todayForDatabase();
+        $date = DateHelper::formatTimestamp($timestamp, 'Y-m-d');
 
         if ($timestamp < $now) {
             if ($status === 'R') {
@@ -1871,7 +1890,7 @@ class Locacao extends Model
             ];
         }
 
-        if ($date === date('Y-m-d', strtotime('tomorrow'))) {
+        if ($date === DateHelper::addDaysForDatabase(1)) {
             return [
                 'label' => t('modules.dashboard.subtabs.tomorrow'),
                 'tipo' => 'tomorrow',
@@ -1879,7 +1898,7 @@ class Locacao extends Model
         }
 
         return [
-            'label' => date('d/m', $timestamp),
+            'label' => DateHelper::formatTimestamp($timestamp, 'd/m'),
             'tipo' => 'date',
         ];
     }
@@ -1894,8 +1913,8 @@ class Locacao extends Model
             ->table('locacoes')
             ->selectRaw('COALESCE(SUM(total_fatura), 0) AS total')
             ->whereIn('status', ['R', 'A'])
-            ->where('data_saida', '>=', date('Y-m-d 00:00:00'))
-            ->where('data_saida', '<=', date('Y-m-d 23:59:59'))
+            ->where('data_saida', '>=', DateHelper::todayForDatabase('Y-m-d 00:00:00'))
+            ->where('data_saida', '<=', DateHelper::todayForDatabase('Y-m-d 23:59:59'))
             ->first();
 
         return (float) ($row['total'] ?? 0);

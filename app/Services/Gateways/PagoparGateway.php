@@ -91,7 +91,7 @@ class PagoparGateway extends AbstractPaymentGateway
             return [
                 'success' => true,
                 'status' => $this->mapStatus($response['estado'] ?? ''),
-                'paid_at' => ($response['estado'] ?? '') === 'pagado' ? ($response['fecha_pago'] ?? date('Y-m-d H:i:s')) : null,
+                'paid_at' => ($response['estado'] ?? '') === 'pagado' ? ($response['fecha_pago'] ?? now()) : null,
                 'raw' => $response,
             ];
         } catch (\Exception $e) {

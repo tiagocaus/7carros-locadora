@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use App\Traits\DetectsCrossTenant;
+use App\Helpers\CodigoHelper;
 use App\Helpers\FilialHelper;
 use App\Core\Database;
 use App\Services\AuditLogService;
@@ -232,10 +233,12 @@ class Manutencao extends Model
                 'v.marca AS veiculo_marca',
                 'v.modelo AS veiculo_modelo',
                 'o.empresa AS oficina_nome',
+                'c.nome_rsocial AS cliente_nome',
                 'mf.nome_fantasia AS filial_nome'
             ])
             ->leftJoin('veiculos', 'v', 'm.id_veiculo', '=', 'v.id')
             ->leftJoin('oficinas', 'o', 'm.id_oficina', '=', 'o.id')
+            ->leftJoin('clientes', 'c', 'm.id_cliente', '=', 'c.id')
             ->leftJoin('matrizes_filiais', 'mf', 'm.id_matriz_filial', '=', 'mf.id')
             ->where('m.id', '=', $id)
             ->first();
@@ -261,6 +264,12 @@ class Manutencao extends Model
      */
     public function criar(array $dados): int
     {
+        $idMatrizFilial = $this->resolverIdMatrizFilial($dados);
+
+        if (empty($dados['id_matriz_filial']) && $idMatrizFilial !== null) {
+            $dados['id_matriz_filial'] = $idMatrizFilial;
+        }
+
         // Gerar OS se nao informado
         if (empty($dados['os'])) {
             $dados['os'] = $this->gerarOs($dados['chave']);
@@ -331,21 +340,48 @@ class Manutencao extends Model
     }
 
     /**
-     * Gera numero da OS sequencial
+     * Resolve a filial da manutencao a partir do formulario ou do veiculo.
+     */
+    private function resolverIdMatrizFilial(array $dados): ?int
+    {
+        if (!empty($dados['id_matriz_filial'])) {
+            return (int) $dados['id_matriz_filial'];
+        }
+
+        if (empty($dados['id_veiculo'])) {
+            return null;
+        }
+
+        $veiculo = $this->qb
+            ->table('veiculos')
+            ->select(['id_matriz_filial'])
+            ->where('id', '=', (int) $dados['id_veiculo'])
+            ->first();
+
+        return !empty($veiculo['id_matriz_filial']) ? (int) $veiculo['id_matriz_filial'] : null;
+    }
+
+    /**
+     * Gera codigo unico para a OS no mesmo principio de contratos/locacoes.
+     * Formato: MA + 7 caracteres alfanumericos.
      */
     public function gerarOs(string $chave): string
     {
-        $ultimo = $this->qb
-            ->table('manutencoes')
-            ->orderByDesc('id')
-            ->first();
+        for ($tentativa = 0; $tentativa < 20; $tentativa++) {
+            $codigo = CodigoHelper::gerarComPrefixo('MA');
 
-        $sequencia = 1;
-        if ($ultimo && preg_match('/MA(\d+)/', $ultimo['os'], $matches)) {
-            $sequencia = (int) $matches[1] + 1;
+            $existente = $this->qb
+                ->table('manutencoes')
+                ->withChave($chave)
+                ->where('os', '=', $codigo)
+                ->first();
+
+            if (!$existente) {
+                return $codigo;
+            }
         }
 
-        return 'MA' . $sequencia;
+        throw new \RuntimeException('Nao foi possivel gerar um codigo de OS unico');
     }
 
     /**
@@ -387,7 +423,7 @@ class Manutencao extends Model
             ->where('id', '=', $id)
             ->update([
                 'status' => 'A',
-                'data_enviado' => $manutencao['data_enviado'] ?? date('Y-m-d H:i:s')
+                'data_enviado' => $manutencao['data_enviado'] ?? now()
             ]);
 
         // Bloquear veiculo
@@ -422,7 +458,7 @@ class Manutencao extends Model
             ->where('id', '=', $id)
             ->update([
                 'status' => 'F',
-                'data_retorno' => $manutencao['data_retorno'] ?? date('Y-m-d H:i:s')
+                'data_retorno' => $manutencao['data_retorno'] ?? now()
             ]);
 
         // Liberar veiculo
@@ -514,7 +550,7 @@ class Manutencao extends Model
         if ($novoStatus === 'A') {
             // Preencher data de envio se nao tiver
             if (empty($manutencao['data_enviado'])) {
-                $dadosUpdate['data_enviado'] = date('Y-m-d H:i:s');
+                $dadosUpdate['data_enviado'] = now();
             }
 
             // Preencher odometro e tanque do veiculo se fornecidos
@@ -530,7 +566,7 @@ class Manutencao extends Model
 
         // Transicao para Fechada: preencher data de retorno
         if ($novoStatus === 'F' && empty($manutencao['data_retorno'])) {
-            $dadosUpdate['data_retorno'] = date('Y-m-d H:i:s');
+            $dadosUpdate['data_retorno'] = now();
         }
 
         // Atualizar manutencao
@@ -765,12 +801,15 @@ class Manutencao extends Model
             'financeiro'
         );
 
-        // Criar lancamento financeiro (Despesa)
+        $clientePaga = !empty($manutencao['id_cliente']);
+
+        // Cliente informado transforma a manutencao em conta a receber; sem cliente, segue como despesa da empresa.
         $idFinanceiro = $financeiroModel->criar([
             'chave' => $manutencao['chave'],
             'sequencia' => $sequencia,
-            'tipo' => 'D',
+            'tipo' => $clientePaga ? 'R' : 'D',
             'id_matriz_filial' => $manutencao['id_matriz_filial'],
+            'id_cliente' => $clientePaga ? (int) $manutencao['id_cliente'] : null,
             'id_fornecedor' => null, // Oficina nao e fornecedor
             'id_oficina' => $manutencao['id_oficina'] ?? null,
             'id_veiculo' => $manutencao['id_veiculo'] ?? null,
@@ -778,8 +817,8 @@ class Manutencao extends Model
             'id_conta' => $dadosFinanceiro['id_conta'] ?? null,
             'descricao' => "Manutencao OS #{$manutencao['os']}",
             'valor_subtotal' => $total,
-            'data_criada' => date('Y-m-d'),
-            'data_venci' => $dadosFinanceiro['data_vencimento'] ?? date('Y-m-d'),
+            'data_criada' => today(),
+            'data_venci' => $dadosFinanceiro['data_vencimento'] ?? today(),
             'pago' => $dadosFinanceiro['pago'] ?? 'N'
         ]);
 
@@ -855,12 +894,15 @@ class Manutencao extends Model
             'financeiro'
         );
 
-        // Criar lancamento financeiro (Despesa)
+        $clientePaga = !empty($manutencao['id_cliente']);
+
+        // Cliente informado transforma a manutencao em conta a receber; sem cliente, segue como despesa da empresa.
         $idFinanceiro = $financeiroModel->criar([
             'chave' => $manutencao['chave'],
             'sequencia' => $sequencia,
-            'tipo' => 'D',
+            'tipo' => $clientePaga ? 'R' : 'D',
             'id_matriz_filial' => $manutencao['id_matriz_filial'],
+            'id_cliente' => $clientePaga ? (int) $manutencao['id_cliente'] : null,
             'id_fornecedor' => null, // Oficina nao e fornecedor
             'id_oficina' => $manutencao['id_oficina'] ?? null,
             'id_veiculo' => $manutencao['id_veiculo'] ?? null,
@@ -868,8 +910,8 @@ class Manutencao extends Model
             'id_conta' => $dadosFinanceiro['id_conta'] ?? null,
             'descricao' => "Manutencao OS #{$manutencao['os']} - Fechamento Parcial",
             'valor_subtotal' => $total,
-            'data_criada' => date('Y-m-d'),
-            'data_venci' => $dadosFinanceiro['data_vencimento'] ?? date('Y-m-d'),
+            'data_criada' => today(),
+            'data_venci' => $dadosFinanceiro['data_vencimento'] ?? today(),
             'pago' => $dadosFinanceiro['pago'] ?? 'N'
         ]);
 
@@ -904,7 +946,7 @@ class Manutencao extends Model
 
         $numParcelas = (int) $dados['parcelas'];
         $intervaloDias = (int) ($dados['intervalo_dias'] ?? 30);
-        $dataBase = $dados['data_vencimento'] ?? date('Y-m-d');
+        $dataBase = $dados['data_vencimento'] ?? today();
 
         // Atualizar primeira parcela
         $valorParcela = round($total / $numParcelas, 2);
@@ -918,7 +960,7 @@ class Manutencao extends Model
         $financeiroPai = $financeiroModel->buscarPorId($idFinanceiro);
 
         for ($i = 2; $i <= $numParcelas; $i++) {
-            $dataVenci = date('Y-m-d', strtotime($dataBase . ' +' . ($intervaloDias * ($i - 1)) . ' days'));
+            $dataVenci = \App\Helpers\DateHelper::addDaysForDatabase($intervaloDias * ($i - 1), $dataBase);
 
             // Ultima parcela ajusta diferenca de arredondamento
             $valorParcelaAtual = $valorParcela;
@@ -939,6 +981,7 @@ class Manutencao extends Model
                 'sequencia' => $sequenciaParcela,
                 'tipo' => $financeiroPai['tipo'],
                 'id_matriz_filial' => $financeiroPai['id_matriz_filial'],
+                'id_cliente' => $financeiroPai['id_cliente'] ?? null,
                 'id_fornecedor' => $financeiroPai['id_fornecedor'],
                 'id_oficina' => $financeiroPai['id_oficina'] ?? null,
                 'id_veiculo' => $financeiroPai['id_veiculo'] ?? null,
@@ -946,7 +989,7 @@ class Manutencao extends Model
                 'id_conta' => $financeiroPai['id_conta'],
                 'descricao' => $financeiroPai['descricao'],
                 'valor_subtotal' => $valorParcelaAtual,
-                'data_criada' => date('Y-m-d'),
+                'data_criada' => today(),
                 'data_venci' => $dataVenci,
                 'pago' => 'N',
                 'parcela' => $i,

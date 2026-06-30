@@ -837,6 +837,7 @@ return [
         'livro_caixa' => [
             'title' => 'Livro de Caixa',
             'description' => 'Registro cronológico de todas as movimentações de caixa com saldo acumulado.',
+            'considerar_saldo_inicial' => 'Considerar saldo inicial',
             'saldo_inicial' => 'Saldo Inicial',
             'total_entradas' => 'Total Entradas',
             'total_saidas' => 'Total Saídas',

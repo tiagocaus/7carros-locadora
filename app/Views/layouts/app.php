@@ -676,6 +676,9 @@
                     <p class="text-xs text-slate-400">
                         <i class="fas fa-clock mr-1"></i> <?= t('modules.layout.pix.expires') ?>
                     </p>
+                    <p id="pixStatusText" class="text-xs text-slate-500 mt-2">
+                        <i class="fas fa-spinner fa-spin mr-1"></i> Aguardando confirmação do pagamento...
+                    </p>
                     <button onclick="resetPixModal()" class="text-blue-600 hover:text-blue-800 text-sm mt-3">
                         <i class="fas fa-redo mr-1"></i> <?= t('modules.layout.pix.generate_new') ?>
                     </button>
@@ -1039,6 +1042,7 @@
     <script>
         window.APP_CONFIG = window.APP_CONFIG || {};
         window.APP_CONFIG.currency = <?= json_encode(currency_config()) ?>;
+        window.APP_CONFIG.date = <?= json_encode(date_config()) ?>;
         window.APP_I18N = window.APP_I18N || {};
         window.APP_I18N.common = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('common'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.APP_I18N.dashboard = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.dashboard'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -1048,6 +1052,7 @@
     <script src="https://js.stripe.com/v3/"></script>
     <script src="<?= asset('js/api.min.js'); ?>"></script>
     <script src="<?= asset('js/currency.min.js'); ?>"></script>
+    <script src="<?= asset('js/date.min.js'); ?>"></script>
     <script src="<?= asset('js/chosen-select.min.js'); ?>"></script>
     <script src="<?= asset('js/toast.min.js'); ?>"></script>
     <script src="<?= asset('js/components.min.js'); ?>"></script>
@@ -1879,12 +1884,7 @@
 
         function formatarDataRenovacaoSync(data) {
             if (!data) return '-';
-            const str = String(data).split(' ')[0];
-            const parts = str.split('-');
-            if (parts.length !== 3) return '-';
-            const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-            if (isNaN(d.getTime())) return '-';
-            return d.toLocaleDateString((window.layoutLocale || 'pt_BR').replace('_', '-'));
+            return DateHelper.format(String(data).split(' ')[0]) || '-';
         }
 
         function labelContagemRenovacaoSync(contagem, quantidade) {
@@ -2482,8 +2482,70 @@
 
         // --- PIX ---
         let _pixRecargaMinima = 100;
+        let _pixStatusTimer = null;
+        let _pixStatusAttempts = 0;
+        let _pixCurrentTransacaoId = null;
+
+        function _setPixStatusText(message, loading = true) {
+            const el = document.getElementById('pixStatusText');
+            if (!el) return;
+            el.innerHTML = (loading ? '<i class="fas fa-spinner fa-spin mr-1"></i>' : '') + message;
+        }
+
+        function _stopPixStatusPolling() {
+            if (_pixStatusTimer) {
+                clearInterval(_pixStatusTimer);
+                _pixStatusTimer = null;
+            }
+            _pixStatusAttempts = 0;
+        }
+
+        async function _consultarStatusPix(transacaoId) {
+            try {
+                const result = await _multasFetch(`/api/multas-online/transacoes/${transacaoId}/pix/status`);
+                if (!result.success) return;
+
+                if (result.data?.paid) {
+                    _stopPixStatusPolling();
+                    _setPixStatusText('<i class="fas fa-check-circle mr-1 text-green-600"></i>Pagamento confirmado. Crédito aplicado.', false);
+                    if (window.toast) {
+                        window.toast.show('Pagamento PIX confirmado. Crédito aplicado.', 'success');
+                    }
+                    if (_multasModalSource) {
+                        _multasModalSource.postMessage({
+                            action: 'pixRecargaResult',
+                            success: true,
+                            confirmed: true,
+                            saldo_novo: result.data.saldo_novo
+                        }, '*');
+                    }
+                }
+            } catch (e) {
+                console.error('Erro ao consultar status PIX:', e);
+            }
+        }
+
+        function _startPixStatusPolling(transacaoId) {
+            _stopPixStatusPolling();
+            _pixCurrentTransacaoId = transacaoId;
+            if (!transacaoId) return;
+
+            _setPixStatusText('Aguardando confirmação do pagamento...');
+            _consultarStatusPix(transacaoId);
+            _pixStatusTimer = setInterval(function() {
+                _pixStatusAttempts++;
+                if (_pixStatusAttempts >= 60) {
+                    _stopPixStatusPolling();
+                    _setPixStatusText('<i class="fas fa-clock mr-1"></i>Pagamento ainda não confirmado. Você pode fechar este modal e acompanhar pelo histórico.', false);
+                    return;
+                }
+                _consultarStatusPix(transacaoId);
+            }, 5000);
+        }
 
         window.openPixModal = function(data, source) {
+            _stopPixStatusPolling();
+            _pixCurrentTransacaoId = null;
             _multasModalSource = source;
             _pixRecargaMinima = data.recargaMinima || 100;
             const minFmt = formatLayoutCurrency(_pixRecargaMinima);
@@ -2497,7 +2559,9 @@
         };
 
         window.openPixDataModal = function(data, source) {
+            _stopPixStatusPolling();
             _multasModalSource = source;
+            _pixCurrentTransacaoId = data.transacao_id || null;
             document.getElementById('pixFormContainer').classList.add('hidden');
             document.getElementById('pixLoadingContainer').classList.add('hidden');
             document.getElementById('pixQrcodeContainer').classList.remove('hidden');
@@ -2513,15 +2577,20 @@
 
             document.getElementById('pixCodeText').value = data.pix_code || '';
             _openModal('pixModal');
+            _startPixStatusPolling(_pixCurrentTransacaoId);
         };
 
         window.closePixModal = function() {
+            _stopPixStatusPolling();
             _closeModal('pixModal');
             if (_multasModalSource) _multasModalSource.postMessage({ action: 'pixModalClosed' }, '*');
             _multasModalSource = null;
+            _pixCurrentTransacaoId = null;
         };
 
         window.resetPixModal = function() {
+            _stopPixStatusPolling();
+            _pixCurrentTransacaoId = null;
             document.getElementById('pixQrcodeContainer').classList.add('hidden');
             document.getElementById('pixFormContainer').classList.remove('hidden');
         };
@@ -2546,6 +2615,8 @@
                             : 'data:image/png;base64,' + result.data.pix_qrcode;
                     }
                     document.getElementById('pixCodeText').value = result.data.pix_code || '';
+                    _pixCurrentTransacaoId = result.data.transacao_id || null;
+                    _startPixStatusPolling(_pixCurrentTransacaoId);
                     if (_multasModalSource) _multasModalSource.postMessage({ action: 'pixRecargaResult', success: true }, '*');
                 } else {
                     document.getElementById('pixLoadingContainer').classList.add('hidden');
@@ -3916,7 +3987,7 @@
                 idInput.value = '';
                 versaoInput.value = dados?.versao || '';
                 tipoSelect.value = '';
-                dataInput.value = new Date().toISOString().split('T')[0];
+                dataInput.value = DateHelper.todayInput();
                 mensagemTextarea.value = '';
             }
 

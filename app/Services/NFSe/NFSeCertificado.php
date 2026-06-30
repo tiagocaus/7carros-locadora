@@ -102,7 +102,7 @@ class NFSeCertificado
         }
 
         $validoAte = $certData['validTo_time_t'] ?? 0;
-        if ($validoAte < time()) {
+        if ($validoAte < \App\Helpers\DateHelper::timestamp()) {
             return ['sucesso' => false, 'mensagem' => 'O certificado digital está vencido.'];
         }
 
@@ -140,8 +140,8 @@ class NFSeCertificado
         return [
             'cnpj' => $cnpj,
             'razao_social' => $razaoSocial,
-            'valido_de' => date('Y-m-d', $certData['validFrom_time_t'] ?? 0),
-            'valido_ate' => date('Y-m-d', $certData['validTo_time_t'] ?? 0),
+            'valido_de' => \App\Helpers\DateHelper::formatTimestamp((int) ($certData['validFrom_time_t'] ?? 0), 'Y-m-d'),
+            'valido_ate' => \App\Helpers\DateHelper::formatTimestamp((int) ($certData['validTo_time_t'] ?? 0), 'Y-m-d'),
             'emissor' => $certData['issuer']['CN'] ?? '',
             'serial' => $certData['serialNumberHex'] ?? '',
         ];
@@ -268,7 +268,7 @@ class NFSeCertificado
         }
 
         $validoAte = (int) ($certData['validTo_time_t'] ?? 0);
-        $diff = $validoAte - time();
+        $diff = $validoAte - \App\Helpers\DateHelper::timestamp();
         $dias = max(0, (int) floor($diff / 86400));
         $status = $diff > 0 ? 'valido' : 'vencido';
 
@@ -276,7 +276,7 @@ class NFSeCertificado
             'status' => $status,
             'valido' => $status === 'valido',
             'dias' => $dias,
-            'validade' => $validoAte > 0 ? date('Y-m-d', $validoAte) : null,
+            'validade' => $validoAte > 0 ? \App\Helpers\DateHelper::formatTimestamp($validoAte, 'Y-m-d') : null,
             'mensagem' => $status === 'valido'
                 ? 'Certificado digital válido.'
                 : 'Certificado digital vencido.',
@@ -306,7 +306,7 @@ class NFSeCertificado
 
     private function gerarNomeArquivo(string $chave, int $idMatrizFilial, string $ext): string
     {
-        $timestamp = time();
+        $timestamp = \App\Helpers\DateHelper::timestamp();
 
         do {
             $nomeArquivo = $chave . '_' . $idMatrizFilial . '_' . $timestamp . '.' . $ext;

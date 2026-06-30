@@ -83,7 +83,7 @@ class LoginAttempt extends Model
             ->update([
                 'tentativas' => $tentativas,
                 'bloqueado_ate' => $bloqueadoAte,
-                'created_at' => date('Y-m-d H:i:s')
+                'created_at' => now()
             ]);
     }
 

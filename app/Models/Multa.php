@@ -253,6 +253,7 @@ class Multa extends Model
     {
         $pagador = $this->normalizarPagador($dados['pagador'] ?? null);
         $valor = currency_parse($dados['valor'] ?? 0);
+        $dataVencimento = $this->normalizarDataVencimento($dados['data_vencimento'] ?? null);
         $sequenciaFinanceiro = null;
         if (!empty($dados['id_matriz_filial'])) {
             $sequenciaFinanceiro = SequenciaHelper::proximaSequencia(
@@ -279,7 +280,7 @@ class Multa extends Model
                     'cidade' => $dados['cidade'] ?? '',
                     'estado' => $dados['estado'] ?? '',
                     'data_hora' => $dados['data_hora'],
-                    'data_vencimento' => $dados['data_vencimento'] ?? date('Y-m-d'),
+                    'data_vencimento' => $dataVencimento,
                     'valor' => $valor,
                     'pago' => 'N',
                     'pagador' => $pagador,
@@ -308,8 +309,8 @@ class Multa extends Model
                 'tipo' => $pagador === 'cliente' ? 'R' : 'D',
                 'pago' => 'N',
                 'descricao' => $descFinanceiro,
-                'data_criada' => date('Y-m-d'),
-                'data_venci' => $dados['data_vencimento'] ?? date('Y-m-d'),
+                'data_criada' => today(),
+                'data_venci' => $dataVencimento,
                 'valor_subtotal' => $valor,
             ];
 
@@ -354,8 +355,11 @@ class Multa extends Model
         if (isset($dados['estado'])) {
             $dadosUpdate['estado'] = $dados['estado'];
         }
-        if (isset($dados['data_vencimento'])) {
-            $dadosUpdate['data_vencimento'] = $dados['data_vencimento'];
+        if (array_key_exists('data_vencimento', $dados)) {
+            $dadosUpdate['data_vencimento'] = $this->normalizarDataVencimento(
+                $dados['data_vencimento'],
+                $multa['data_vencimento'] ?? null
+            );
         }
         if (array_key_exists('valor', $dados)) {
             $dadosUpdate['valor'] = currency_parse($dados['valor'] ?? 0);
@@ -380,7 +384,7 @@ class Multa extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = now();
 
         $result = $this->qb
             ->table('multas')
@@ -399,13 +403,27 @@ class Multa extends Model
         return in_array($pagador, ['cliente', 'empresa'], true) ? $pagador : 'cliente';
     }
 
+    private function normalizarDataVencimento(mixed $data, ?string $fallback = null): string
+    {
+        $data = trim((string) ($data ?? ''));
+        if ($data !== '') {
+            return $data;
+        }
+
+        $fallback = trim((string) ($fallback ?? ''));
+        return $fallback !== '' ? $fallback : today();
+    }
+
     private function sincronizarFinanceiroVinculado(array $multa, array $dadosUpdate): void
     {
         $pagador = $this->normalizarPagador($dadosUpdate['pagador'] ?? ($multa['pagador'] ?? 'cliente'));
         $valor = array_key_exists('valor', $dadosUpdate)
             ? (float) $dadosUpdate['valor']
             : (float) ($multa['valor'] ?? 0);
-        $dataVencimento = $dadosUpdate['data_vencimento'] ?? ($multa['data_vencimento'] ?? date('Y-m-d'));
+        $dataVencimento = $this->normalizarDataVencimento(
+            $dadosUpdate['data_vencimento'] ?? null,
+            $multa['data_vencimento'] ?? null
+        );
 
         $this->qb
             ->table('financeiro')
@@ -417,7 +435,7 @@ class Multa extends Model
                 'data_venci' => $dataVencimento,
                 'valor_subtotal' => $valor,
                 'valor_total' => $valor,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -474,7 +492,7 @@ class Multa extends Model
             ->where('id', '=', $id)
             ->update([
                 'pago' => 'S',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
 
         // Sincronizar financeiro
@@ -502,7 +520,7 @@ class Multa extends Model
             ->where('id', '=', $id)
             ->update([
                 'pago' => 'N',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
 
         if (!empty($multa['id_financeiro'])) {
@@ -525,7 +543,7 @@ class Multa extends Model
             ->where('id', '=', $id)
             ->update([
                 'pago' => 'S',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -540,7 +558,7 @@ class Multa extends Model
             ->where('id', '=', $id)
             ->update([
                 'pago' => 'N',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -553,8 +571,8 @@ class Multa extends Model
      */
     public function calcularKpis(string $filialWhere = '1=1', array $filialParams = []): array
     {
-        $hoje = date('Y-m-d');
-        $em30dias = date('Y-m-d', strtotime('+30 days'));
+        $hoje = today();
+        $em30dias = \App\Helpers\DateHelper::addDaysForDatabase(30);
         $chave = $_SESSION['chave'];
 
         $sql = "SELECT
@@ -753,8 +771,8 @@ class Multa extends Model
         }
 
         if (!empty($filtroVencimento)) {
-            $hoje = date('Y-m-d');
-            $em30dias = date('Y-m-d', strtotime('+30 days'));
+            $hoje = today();
+            $em30dias = \App\Helpers\DateHelper::addDaysForDatabase(30);
             if ($filtroVencimento === 'vencidas') {
                 $query->whereRaw("m.pago = 'N' AND m.data_vencimento < ?", [$hoje]);
             } elseif ($filtroVencimento === 'vencendo') {
@@ -804,8 +822,8 @@ class Multa extends Model
                 'local' => $dados['local'] ?? '',
                 'cidade' => $dados['cidade'] ?? '',
                 'estado' => $dados['estado'] ?? '',
-                'data_hora' => $dataHora ?? date('Y-m-d H:i:s'),
-                'data_vencimento' => $this->normalizarDataSerpro($dados['data_vencimento'] ?? null) ?? date('Y-m-d'),
+                'data_hora' => $dataHora ?? now(),
+                'data_vencimento' => $this->normalizarDataSerpro($dados['data_vencimento'] ?? null) ?? today(),
                 'valor' => (float) ($dados['valor'] ?? 0),
                 'pago' => 'N',
                 'descri' => $dados['descricao'] ?? '',
@@ -819,7 +837,7 @@ class Multa extends Model
                 'valor_desconto_40' => $dados['valor_desconto_40'] ?? null,
                 'data_notificacao_autuacao' => $this->normalizarDataSerpro($dados['data_notificacao_autuacao'] ?? null),
                 'data_notificacao_penalidade' => $this->normalizarDataSerpro($dados['data_notificacao_penalidade'] ?? null),
-                'serpro_sync_at' => $dados['serpro_sync_at'] ?? date('Y-m-d H:i:s'),
+                'serpro_sync_at' => $dados['serpro_sync_at'] ?? now(),
                 'array' => $dados['payload_serpro'] ?? null,
             ], $dadosResponsavel));
     }
@@ -866,7 +884,7 @@ class Multa extends Model
             'data_notificacao_penalidade' => $this->primeiroValor($infracao, ['dataEmissaoNotificacaoPenalidade']),
             'origem' => $dados['origem'] ?? 'serpro_consulta',
             'status_processamento' => $dados['status_processamento'] ?? 'novo',
-            'serpro_sync_at' => $dados['serpro_sync_at'] ?? date('Y-m-d H:i:s'),
+            'serpro_sync_at' => $dados['serpro_sync_at'] ?? now(),
             'indicador_foto_recebida' => $this->primeiroValor($infracao, ['indicadorFotoRecebida']),
             'id_rastreamento' => $this->primeiroValor($infracao, ['idRastreamento']),
             'tipo_evento' => $this->primeiroValor($infracao, ['tipoEvento']),
@@ -984,7 +1002,7 @@ class Multa extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = now();
 
         return $this->qb
             ->table('multas')

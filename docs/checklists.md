@@ -155,7 +155,7 @@ Todas são HTML standalone (não usam template de iframe do dashboard).
 ```sql
 id                INT UNSIGNED PK AUTO_INCREMENT
 chave             VARCHAR(45) NOT NULL          -- tenant
-codigo            VARCHAR(50)                    -- código curto (CK + id 5 dígitos + 2 letras)
+codigo            VARCHAR(50)                    -- código curto (CK + 7 alfanumericos)
 tipo              VARCHAR(1)                     -- V=vinculado, A=avulso
 momento           VARCHAR(1)                     -- S=saída, C=chegada, N=não definido
 id_locacao        INT UNSIGNED NULL FK           -- locacoes.id ON DELETE SET NULL
@@ -250,3 +250,7 @@ status    VARCHAR(1)                    -- A=ativo, I=inativo
 - **CSRF**: Token via `<meta name="csrf-token">` + header `X-CSRF-TOKEN`
 - **Multi-tenancy**: Filtro por `chave` em todas as queries
 - **Intended URL**: Se sessão expirar, redireciona para login e volta à página após autenticação
+
+## Padrao de Datas
+
+Datas de saida, chegada e vistoria (`data_saida`, `data_chegada`, `data_checklist`) sao horarios operacionais locais e devem usar `format_operational_datetime()` / `DateHelper.formatOperationalDateTime()`, sem conversao de timezone. Datas tecnicas de criacao/visualizacao (`created_at`, logs) podem usar `format_datetime()` / `DateHelper.formatDateTime()`. Nao use `date()`, `new DateTime()`, `new Date()` ou `NOW()/CURDATE()` diretamente fora das excecoes documentadas em [date.md](./date.md).

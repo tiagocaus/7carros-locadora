@@ -17,7 +17,7 @@ class VeiculoDisponibilidadeSync extends Model
                 ->where('id', '=', $veiculoId)
                 ->update([
                     'disponibilidade' => 'L',
-                    'updated_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => now(),
                 ]);
         });
     }
@@ -36,7 +36,7 @@ class VeiculoDisponibilidadeSync extends Model
                 ->where('id', '=', $veiculoId)
                 ->update([
                     'disponibilidade' => 'O',
-                    'updated_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => now(),
                 ]);
         });
     }
@@ -65,7 +65,7 @@ class VeiculoDisponibilidadeSync extends Model
                 ->where('id', '=', $veiculoId)
                 ->update([
                     'disponibilidade' => $statusLivre,
-                    'updated_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => now(),
                 ]);
         });
     }

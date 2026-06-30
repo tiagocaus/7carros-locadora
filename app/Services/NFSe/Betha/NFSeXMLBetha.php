@@ -28,11 +28,11 @@ class NFSeXMLBetha implements NFSeXMLInterface
         $xml .= '<DPS xmlns="' . self::NAMESPACE . '" versao="' . self::VERSAO . '">';
         $xml .= '<infDPS id="' . $idDPS . '">';
         $xml .= '<tpAmb>' . (int) ($dados['ambiente'] ?? 2) . '</tpAmb>';
-        $xml .= '<dhEmi>' . $this->formatarDataISO($dados['data_emissao'] ?? date('Y-m-d\TH:i:sP')) . '</dhEmi>';
+        $xml .= '<dhEmi>' . $this->formatarDataISO($dados['data_emissao'] ?? \App\Helpers\DateHelper::isoNow()) . '</dhEmi>';
         $xml .= '<verAplic>7Carros v8.3</verAplic>';
         $xml .= '<serie>' . htmlspecialchars((string) ($dados['serie'] ?? '1')) . '</serie>';
         $xml .= '<nDPS>' . (int) ($dados['numero'] ?? 0) . '</nDPS>';
-        $xml .= '<dCompet>' . htmlspecialchars((string) ($dados['data_competencia'] ?? date('Y-m-d'))) . '</dCompet>';
+        $xml .= '<dCompet>' . htmlspecialchars((string) ($dados['data_competencia'] ?? today())) . '</dCompet>';
         $xml .= '<tpEmit>1</tpEmit>';
         $xml .= '<cLocEmi>' . $this->somenteDigitos((string) ($dados['municipio_codigo'] ?? '')) . '</cLocEmi>';
 

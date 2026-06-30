@@ -35,10 +35,10 @@ class GerarComissoesMensaisJob extends BaseJob
 
         // Determinar mes de referencia (mes anterior ao atual)
         // Ex: Se executado em 01/02/2024, gera comissoes de 01/2024
-        $mesReferencia = date('Y-m', strtotime('first day of last month'));
+        $mesReferencia = \App\Helpers\DateHelper::addMonthsForDatabase(-1, null, 'Y-m');
 
         // Verificar se ja foi executado este mes (protecao extra)
-        $mesAtual = date('Y-m');
+        $mesAtual = \App\Helpers\DateHelper::todayForDatabase('Y-m');
         $ultimaExecucao = $this->getUltimaExecucao();
 
         if ($ultimaExecucao === $mesAtual) {
@@ -120,7 +120,7 @@ class GerarComissoesMensaisJob extends BaseJob
 
         $state = [
             'ultima_execucao' => $mesExecucao,
-            'timestamp' => date('Y-m-d H:i:s')
+            'timestamp' => now()
         ];
 
         file_put_contents($stateFile, json_encode($state, JSON_PRETTY_PRINT));

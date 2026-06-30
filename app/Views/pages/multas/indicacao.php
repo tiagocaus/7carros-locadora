@@ -189,7 +189,7 @@
         }
         let rows = '';
         dados.forEach(item => {
-            const dt = item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : '';
+            const dt = item.created_at ? DateHelper.formatDateTime(item.created_at) : '';
             rows += `
             <tr class="border-b border-slate-200 hover:bg-slate-50">
                 <td class="table-cell text-sm">${dt}</td>

@@ -63,6 +63,7 @@ return [
         'currency' => 'Moeda',
         'date_format' => 'Formato de Data',
         'datetime_format' => 'Formato de Data e Hora',
+        'timezone' => 'Fuso horário',
         'next_rental_number' => 'Próximo Nº Aluguer',
         'next_contract_number' => 'Próximo Nº Contrato',
         'next_financial_number' => 'Próximo Nº Financeiro',

@@ -640,25 +640,29 @@ class FinanceiroReport extends BaseReportModel
         string $filialId = '',
         string $contaId = '',
         int $page = 1,
-        int $perPage = 20
+        int $perPage = 20,
+        bool $considerarSaldoInicial = true
     ): array {
         // --- Saldo inicial (todos os pagos antes do periodo) ---
-        $querySaldoInicial = $this->qb
-            ->table('financeiro', 'f')
-            ->selectRaw("
-                COALESCE(SUM(CASE WHEN f.tipo = 'R' THEN f.valor_total ELSE 0 END), 0) -
-                COALESCE(SUM(CASE WHEN f.tipo = 'D' THEN f.valor_total ELSE 0 END), 0) AS saldo_inicial
-            ")
-            ->whereRaw('f.pago = ?', ['S'])
-            ->whereRaw('f.data_pago < ?', [$dataInicio]);
+        $saldoInicial = 0.0;
+        if ($considerarSaldoInicial) {
+            $querySaldoInicial = $this->qb
+                ->table('financeiro', 'f')
+                ->selectRaw("
+                    COALESCE(SUM(CASE WHEN f.tipo = 'R' THEN f.valor_total ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN f.tipo = 'D' THEN f.valor_total ELSE 0 END), 0) AS saldo_inicial
+                ")
+                ->whereRaw('f.pago = ?', ['S'])
+                ->whereRaw('f.data_pago < ?', [$dataInicio]);
 
-        $this->applyFilialFilter($querySaldoInicial, $filialWhere, $filialParams, $filialId);
+            $this->applyFilialFilter($querySaldoInicial, $filialWhere, $filialParams, $filialId);
 
-        if (!empty($contaId)) {
-            $querySaldoInicial->whereRaw('f.id_conta = ?', [(int) $contaId]);
+            if (!empty($contaId)) {
+                $querySaldoInicial->whereRaw('f.id_conta = ?', [(int) $contaId]);
+            }
+
+            $saldoInicial = (float) ($querySaldoInicial->first()['saldo_inicial'] ?? 0);
         }
-
-        $saldoInicial = (float) ($querySaldoInicial->first()['saldo_inicial'] ?? 0);
 
         // --- Totais do periodo ---
         $queryTotals = $this->qb
@@ -830,6 +834,7 @@ class FinanceiroReport extends BaseReportModel
                 'total_entradas' => $totalEntradas,
                 'total_saidas' => $totalSaidas,
                 'saldo_final' => $saldoFinal,
+                'considerar_saldo_inicial' => $considerarSaldoInicial,
             ],
             'details' => $details,
             'chart' => [],
@@ -1089,8 +1094,8 @@ class FinanceiroReport extends BaseReportModel
         $valorMensalContratos = (float) ($resultContratos['valor_mensal_contratos'] ?? 0);
 
         // --- Media mensal dos ultimos 3 meses (para projecao) ---
-        $tresMesesAtras = date('Y-m-d', strtotime($dataInicio . ' -3 months'));
-        $ontem = date('Y-m-d', strtotime($dataInicio . ' -1 day'));
+        $tresMesesAtras = \App\Helpers\DateHelper::addMonthsForDatabase(-3, $dataInicio);
+        $ontem = \App\Helpers\DateHelper::addDaysForDatabase(-1, $dataInicio);
 
         $queryMedia = $this->qb
             ->table('financeiro', 'f')

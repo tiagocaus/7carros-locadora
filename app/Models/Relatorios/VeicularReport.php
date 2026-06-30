@@ -158,7 +158,7 @@ class VeicularReport extends BaseReportModel
         return array_map(function ($r) {
             $diasParado = 0;
             if (!empty($r['data_enviado'])) {
-                $fim = !empty($r['data_retorno']) ? $r['data_retorno'] : date('Y-m-d H:i:s');
+                $fim = !empty($r['data_retorno']) ? $r['data_retorno'] : now();
                 $diasParado = max(0, (int) ceil((strtotime($fim) - strtotime($r['data_enviado'])) / 86400));
             }
             $kmDiff = 0;
@@ -695,7 +695,7 @@ class VeicularReport extends BaseReportModel
         $dataFim = $r['data_entrada'] ?? '';
         $dias = 0;
         if (!empty($dataIni)) {
-            $fim = !empty($dataFim) ? $dataFim : date('Y-m-d H:i:s');
+            $fim = !empty($dataFim) ? $dataFim : now();
             $dias = max(0, (int) ceil((strtotime($fim) - strtotime($dataIni)) / 86400));
         }
 
@@ -742,8 +742,8 @@ class VeicularReport extends BaseReportModel
         string $grupoId = '',
         string $statusFiltro = ''
     ): array {
-        $hoje = date('Y-m-d');
-        $limiteAlerta = date('Y-m-d', strtotime('+30 days'));
+        $hoje = today();
+        $limiteAlerta = \App\Helpers\DateHelper::addDaysForDatabase(30);
 
         $query = $this->qb
             ->table('veiculos_encargos', 've')

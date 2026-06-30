@@ -18,6 +18,7 @@ use App\Models\Fornecedor;
 use App\Models\MatrizFilial;
 use App\Models\PlanoDeContas;
 use App\Helpers\FilialHelper;
+use App\Helpers\DateHelper;
 use App\Helpers\PdfHelper;
 use App\Helpers\FileHelper;
 use App\Models\Documento;
@@ -78,6 +79,105 @@ class LocacoesController
         }
 
         return null;
+    }
+
+    private function montarContextoMensagemLocacao(array $locacao): ?array
+    {
+        if (empty($locacao['id_cliente']) || empty($locacao['id_matriz_filial_retirada'])) {
+            return null;
+        }
+
+        $cliente = (new Cliente())->buscarPorIdComContatos((int) $locacao['id_cliente']);
+        $empresa = (new MatrizFilial())->buscarPorId((int) $locacao['id_matriz_filial_retirada']);
+
+        if (!$cliente || !$empresa) {
+            return null;
+        }
+
+        $cliente['nome'] = $cliente['nome'] ?? $cliente['nome_rsocial'] ?? $locacao['cliente_nome'] ?? '';
+        $cliente['razao_social'] = $cliente['razao_social'] ?? $cliente['nome_rsocial'] ?? $cliente['nome'] ?? '';
+
+        $dataSaida = $this->formatarDataHoraMensagem($locacao['data_saida'] ?? null);
+        $dataPrevista = $this->formatarDataHoraMensagem($locacao['data_prevista'] ?? null);
+
+        $veiculo = [];
+        if (!empty($locacao['id_veiculo'])) {
+            $veiculo = (new Veiculo())->buscarPorId((int) $locacao['id_veiculo']) ?? [];
+        }
+
+        $grupoNome = $locacao['grupo_nome'] ?? ($veiculo['grupo_nome'] ?? '');
+        if ($grupoNome !== '') {
+            $veiculo['grupo_nome'] = $grupoNome;
+            $veiculo['categoria'] = $grupoNome;
+        }
+
+        $valorTotal = (float) ($locacao['total_pagar'] ?? $locacao['total_fatura'] ?? 0);
+
+        return [
+            'cliente' => $cliente,
+            'empresa' => $empresa,
+            'id_matriz_filial' => (int) $locacao['id_matriz_filial_retirada'],
+            'locacao' => [
+                'numero' => $locacao['codigo'] ?? '',
+                'data_retirada' => $dataSaida['data'],
+                'hora_retirada' => $dataSaida['hora'],
+                'local_retirada' => $locacao['filial_retirada_nome'] ?? '',
+                'data_devolucao' => $dataPrevista['data'],
+                'hora_devolucao' => $dataPrevista['hora'],
+                'local_devolucao' => $locacao['filial_devolucao_nome'] ?? '',
+                'valor_total' => $valorTotal,
+                'total_fatura' => (float) ($locacao['total_fatura'] ?? $valorTotal),
+                'valor_diaria' => (float) ($locacao['diaria_valor'] ?? 0),
+                'quantidade_dias' => (int) ($locacao['quantidade_dias'] ?? $locacao['dias'] ?? 0),
+                'grupo' => $grupoNome,
+                'grupo_descricao' => $grupoNome,
+                'plano' => $locacao['plano'] ?? '',
+                'forma_pagamento' => $locacao['forma_pagamento_descricao'] ?? '',
+            ],
+            'veiculo' => $veiculo,
+            'outros' => ['data_atual' => DateHelper::todayForDatabase()],
+        ];
+    }
+
+    private function formatarDataHoraMensagem(?string $dataHora): array
+    {
+        if (empty($dataHora)) {
+            return ['data' => '', 'hora' => ''];
+        }
+
+        try {
+            $dt = new \DateTime($dataHora);
+            return [
+                'data' => $dt->format('Y-m-d'),
+                'hora' => $dt->format('H:i'),
+            ];
+        } catch (\Throwable) {
+            return ['data' => $dataHora, 'hora' => ''];
+        }
+    }
+
+    private function dispararTemplateLocacao(string $templateSlug, array $locacao, string $logContexto): void
+    {
+        if (!function_exists('queue_template_message')) {
+            return;
+        }
+
+        try {
+            $context = $this->montarContextoMensagemLocacao($locacao);
+            if ($context === null) {
+                return;
+            }
+
+            foreach (['email', 'whatsapp', 'sms'] as $canal) {
+                try {
+                    queue_template_message($templateSlug, $canal, $context, $locacao['chave'] ?? Auth::chave());
+                } catch (\Throwable $e) {
+                    error_log("Erro ao enfileirar {$templateSlug}/{$canal}: " . $e->getMessage());
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log("Erro ao enviar {$logContexto}: " . $e->getMessage());
+        }
     }
 
     /**
@@ -552,49 +652,13 @@ class LocacoesController
             }
             $locacaoModel->sincronizarTotaisResumo($id, $dadosTotais, is_array($taxas));
 
-            // Disparar mensageria para o cliente (rental_confirmation)
-            try {
-                $locacaoCriada = $locacaoModel->buscarPorId($id);
-                $clienteModel = new Cliente();
-                $cliente = $clienteModel->buscarPorIdComContatos((int) $dados['id_cliente']);
-                $filialModel = new MatrizFilial();
-                $empresa = $filialModel->buscarPorId((int) ($dados['id_matriz_filial_retirada'] ?? $_SESSION['id_matriz_filial'] ?? 0));
-
-                $veiculoDados = null;
-                if (!empty($dados['id_veiculo'])) {
-                    $veiculoMsgModel = new Veiculo();
-                    $veiculoDados = $veiculoMsgModel->buscarPorId((int) $dados['id_veiculo']);
+            $locacaoCriada = $locacaoModel->buscarPorId($id);
+            if ($locacaoCriada) {
+                if (($locacaoCriada['status'] ?? '') === 'R') {
+                    $this->dispararTemplateLocacao('confirmacao_reserva', $locacaoCriada, 'notificacao de reserva');
+                } elseif (($locacaoCriada['status'] ?? '') === 'A') {
+                    $this->dispararTemplateLocacao('rental_confirmation', $locacaoCriada, 'notificacao de locacao');
                 }
-
-                if ($cliente && $empresa && $locacaoCriada) {
-                    $context = [
-                        'cliente' => $cliente,
-                        'empresa' => $empresa,
-                        'id_matriz_filial' => (int) ($dados['id_matriz_filial_retirada'] ?? $_SESSION['id_matriz_filial'] ?? 0),
-                        'locacao' => [
-                            'numero'          => $locacaoCriada['codigo'],
-                            'data_retirada'   => $locacaoCriada['data_saida'],
-                            'hora_retirada'   => $locacaoCriada['hora_saida'] ?? '',
-                            'local_retirada'  => $locacaoCriada['filial_retirada_nome'] ?? '',
-                            'data_devolucao'  => $locacaoCriada['data_prevista'],
-                            'hora_devolucao'  => $locacaoCriada['hora_devolucao'] ?? '',
-                            'local_devolucao' => $locacaoCriada['filial_devolucao_nome'] ?? '',
-                            'valor_total'     => $locacaoCriada['valor_total'] ?? 0,
-                            'quantidade_dias' => $locacaoCriada['quantidade_dias'] ?? 0,
-                        ],
-                        'veiculo' => $veiculoDados ?? [],
-                    ];
-
-                    foreach (['email', 'whatsapp', 'sms'] as $canal) {
-                        try {
-                            queue_template_message('rental_confirmation', $canal, $context);
-                        } catch (\Throwable $e) {
-                            error_log("Erro ao enfileirar rental_confirmation/{$canal}: " . $e->getMessage());
-                        }
-                    }
-                }
-            } catch (\Throwable $e) {
-                error_log('Erro ao enviar notificacao de locacao: ' . $e->getMessage());
             }
 
             Response::json([
@@ -661,7 +725,7 @@ class LocacoesController
             if ($fechandoLocacao) {
                 $dados['data_chegada'] = !empty($dados['data_chegada'])
                     ? (string) $dados['data_chegada']
-                    : date('Y-m-d H:i:s');
+                    : DateHelper::nowForDatabase();
                 unset($dados['data_prevista']);
 
                 if (!empty($dados['data_saida'])) {
@@ -925,7 +989,7 @@ class LocacoesController
                 }
 
                 $locacaoModel->registrarSaida($id, [
-                    'data_saida' => $dados['data_saida'] ?? date('Y-m-d H:i:s'),
+                    'data_saida' => $dados['data_saida'] ?? DateHelper::nowForDatabase(),
                     'odometro_ini' => $dados['odometro_ini'] ?? 0,
                     'combustivel_ini' => $dados['combustivel_ini'] ?? 0,
                 ]);
@@ -933,6 +997,11 @@ class LocacoesController
                 AuditLogService::registrar(
                     ($_SESSION['user_name'] ?? 'Sistema') . ", registrou saida da locacao [{$locacao['codigo']}]"
                 );
+
+                $locacaoSaida = $locacaoModel->buscarPorId($id);
+                if ($locacaoSaida) {
+                    $this->dispararTemplateLocacao('rental_confirmation', $locacaoSaida, 'notificacao de locacao');
+                }
             } elseif ($statusAnterior === 'A' && $statusNovo === 'F') {
                 // A -> F: Registrar devolucao (veiculo volta a empresa)
                 if (!Auth::can('locacoes.devolucao')) {
@@ -1000,7 +1069,7 @@ class LocacoesController
                 }
 
                 $dadosDevolucao = [
-                    'data_chegada' => $dados['data_chegada'] ?? date('Y-m-d H:i:s'),
+                    'data_chegada' => $dados['data_chegada'] ?? DateHelper::nowForDatabase(),
                     'odometro_fim' => $dados['odometro_fim'] ?? 0,
                     'combustivel_fim' => $dados['combustivel_fim'] ?? null,
                     'combustivel_valor' => $dados['combustivel_valor'] ?? null,
@@ -1359,16 +1428,18 @@ class LocacoesController
                 'id_matriz_filial' => (int) ($locacao['id_matriz_filial_retirada'] ?? 0),
                 'locacao' => [
                     'numero' => $locacao['codigo'] ?? '',
-                    'data_retirada' => date('d/m/Y', strtotime((string) $locacao['data_saida'])),
-                    'hora_retirada' => date('H:i', strtotime((string) $locacao['data_saida'])),
+                    'data_retirada' => format_date(substr((string) $locacao['data_saida'], 0, 10)),
+                    'hora_retirada' => DateHelper::formatOperationalDateTime($locacao['data_saida'] ?? null, true, 'H:i'),
                     'local_retirada' => trim(($filialRet['estado'] ?? '') . ' - ' . ($filialRet['cidade'] ?? $filialRet['nome_fantasia'] ?? ''), ' -'),
-                    'data_devolucao' => date('d/m/Y', strtotime((string) $locacao['data_prevista'])),
-                    'hora_devolucao' => date('H:i', strtotime((string) $locacao['data_prevista'])),
+                    'data_devolucao' => format_date(substr((string) $locacao['data_prevista'], 0, 10)),
+                    'hora_devolucao' => DateHelper::formatOperationalDateTime($locacao['data_prevista'] ?? null, true, 'H:i'),
                     'local_devolucao' => trim(($filialDev['estado'] ?? '') . ' - ' . ($filialDev['cidade'] ?? $filialDev['nome_fantasia'] ?? ''), ' -'),
                     'quantidade_dias' => (int) ($locacao['dias'] ?? 1),
                     'valor_total' => (float) ($locacao['total_pagar'] ?? 0),
+                    'grupo' => $locacao['grupo_nome'] ?? '',
+                    'grupo_descricao' => $locacao['grupo_nome'] ?? '',
                 ],
-                'outros' => ['data_atual' => date('d/m/Y')],
+                'outros' => ['data_atual' => format_date(DateHelper::todayForDatabase())],
             ];
 
             if (function_exists('queue_template_message')) {
@@ -1526,7 +1597,7 @@ class LocacoesController
                     'id' => $assinatura['id'],
                     'url' => $assinatura['url'] ?? '',
                     'data_assinatura' => !empty($assinatura['created_at'])
-                        ? date('d/m/Y H:i', strtotime($assinatura['created_at']))
+                        ? format_datetime($assinatura['created_at'])
                         : '-',
                     'ip' => $assinatura['ip_address'] ?? '-'
                 ]
@@ -2244,7 +2315,7 @@ class LocacoesController
                 : t('modules.locacoes.print.rental_label');
 
             // Salvar em arquivo temporario
-            $filename = strtolower($documentoLabel) . '_' . $locacao['codigo'] . '_' . time() . '.pdf';
+            $filename = strtolower($documentoLabel) . '_' . $locacao['codigo'] . '_' . DateHelper::timestamp() . '.pdf';
             $tempDir = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/storage/temp';
             if (!is_dir($tempDir)) {
                 mkdir($tempDir, 0755, true);
@@ -2486,12 +2557,12 @@ class LocacoesController
                 'data_saida' => $locacao['data_saida'] ?? '',
                 'data_prevista' => $locacao['data_prevista'] ?? '',
                 'data_retorno' => $locacao['data_retorno'] ?? '',
-                'hora_saida' => !empty($locacao['data_saida']) ? date('H:i', strtotime($locacao['data_saida'])) : '',
-                'hora_prevista' => !empty($locacao['data_prevista']) ? date('H:i', strtotime($locacao['data_prevista'])) : '',
+                'hora_saida' => !empty($locacao['data_saida']) ? DateHelper::formatOperationalDateTime($locacao['data_saida'], true, 'H:i') : '',
+                'hora_prevista' => !empty($locacao['data_prevista']) ? DateHelper::formatOperationalDateTime($locacao['data_prevista'], true, 'H:i') : '',
                 'data_retirada' => $dataRetiradaDocumento,
-                'hora_retirada' => !empty($locacao['data_saida']) ? date('H:i', strtotime($locacao['data_saida'])) : '',
+                'hora_retirada' => !empty($locacao['data_saida']) ? DateHelper::formatOperationalDateTime($locacao['data_saida'], true, 'H:i') : '',
                 'data_devolucao' => $locacao['data_prevista'] ?? '',
-                'hora_devolucao' => !empty($locacao['data_prevista']) ? date('H:i', strtotime($locacao['data_prevista'])) : '',
+                'hora_devolucao' => !empty($locacao['data_prevista']) ? DateHelper::formatOperationalDateTime($locacao['data_prevista'], true, 'H:i') : '',
                 'local_retirada' => $locacao['filial_retirada_nome'] ?? '',
                 'local_devolucao' => $locacao['filial_devolucao_nome'] ?? '',
                 'valor_total' => $valorTotalDocumento,
@@ -2509,6 +2580,7 @@ class LocacoesController
                 'fatura_a_pagar' => $locacao['total_pagar'] ?? 0,
                 'bloqueio_valor' => $bloqueioValorDocumento,
                 'deposito_valor' => $locacao['caucao_valor'] ?? 0,
+                'caucao_valor' => $locacao['caucao_valor'] ?? 0,
                 'fatura_paga' => $locacao['fatura_paga'] ?? $locacao['valor_pago'] ?? 0,
                 'grupo' => $locacao['grupo_nome'] ?? '',
                 'grupo_descricao' => $locacao['grupo_descricao'] ?? $locacao['grupo_nome'] ?? '',
@@ -3114,7 +3186,7 @@ class LocacoesController
                 'external_id' => $result['external_id'],
                 'valor' => $valor,
                 'status' => $result['status'] === 'authorized' ? 'authorized' : 'pending',
-                'autorizado_em' => $result['status'] === 'authorized' ? date('Y-m-d H:i:s') : null,
+                'autorizado_em' => $result['status'] === 'authorized' ? DateHelper::nowForDatabase() : null,
                 'expira_em' => $result['expires_at'] ?? null,
                 'payload' => $result['raw'] ?? null,
             ]);
@@ -3198,7 +3270,7 @@ class LocacoesController
 
             // Atualizar status do bloqueio
             $bloqueioModel->atualizarStatus((int) $bloqueio['id'], 'captured', [
-                'capturado_em' => date('Y-m-d H:i:s'),
+                'capturado_em' => DateHelper::nowForDatabase(),
                 'valor_capturado' => $valorEfetivo,
                 'payload' => $result['raw'] ?? null,
             ]);
@@ -3228,9 +3300,9 @@ class LocacoesController
                 'id_conta' => $idConta,
                 'id_plano_de_conta' => $planoBloqueioEntrada ? (int) $planoBloqueioEntrada['id'] : null,
                 'id_locacao' => $id,
-                'data_criada' => date('Y-m-d'),
-                'data_venci' => date('Y-m-d'),
-                'data_pago' => date('Y-m-d'),
+                'data_criada' => DateHelper::todayForDatabase(),
+                'data_venci' => DateHelper::todayForDatabase(),
+                'data_pago' => DateHelper::todayForDatabase(),
                 'valor_subtotal' => $valorEfetivo,
                 'parcela' => 1,
                 'total_parcelas' => 1,
@@ -3297,7 +3369,7 @@ class LocacoesController
 
             // Atualizar status do bloqueio
             $bloqueioModel->atualizarStatus((int) $bloqueio['id'], 'released', [
-                'liberado_em' => date('Y-m-d H:i:s'),
+                'liberado_em' => DateHelper::nowForDatabase(),
                 'payload' => $result['raw'] ?? null,
             ]);
 

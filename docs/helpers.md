@@ -6,7 +6,7 @@ O sistema possui helpers em duas camadas que se complementam:
 
 | Camada | Localização | Uso |
 |--------|-------------|-----|
-| **PHP** | `app/Helpers/helpers.php` | Backend, templates, controllers |
+| **PHP** | `app/Helpers/*.php` | Backend, templates, controllers |
 | **JavaScript** | `public/assets/js/` | Frontend, renderização dinâmica |
 
 Os helpers JavaScript são carregados automaticamente no layout `iframe.php`.
@@ -25,7 +25,26 @@ Os helpers JavaScript são carregados automaticamente no layout `iframe.php`.
 | **KM** | - | `Km.format()` | `components.js` |
 | **Combustivel** | - | `FuelLabels.isElectric()` | `components.js` |
 | **API** | - | `API.get()` / `API.post()` | `api.js` |
+| **Codigo** | `CodigoHelper::gerarComPrefixo()` | - | - |
 | **Criptografia** | `encrypt()` / `decrypt()` | - | - |
+
+## Helpers de Codigo
+
+### PHP - `CodigoHelper`
+
+Gera codigos publicos curtos no formato prefixo fixo + caracteres alfanumericos maiusculos.
+O alfabeto padrao usa `0-9` e `A-Z`; com 7 posicoes, cada prefixo tem `36^7 = 78.364.164.096` combinacoes.
+
+```php
+use App\Helpers\CodigoHelper;
+
+CodigoHelper::gerarComPrefixo('L');  // Ex: L9K3P7QA
+CodigoHelper::gerarComPrefixo('C');  // Ex: C4Z8M2TN
+CodigoHelper::gerarComPrefixo('MA'); // Ex: MA7K2P9XQ
+CodigoHelper::gerarComPrefixo('CK'); // Ex: CK8M4Z1PA
+```
+
+Os Models que salvam codigos publicos devem verificar colisao na propria tabela antes de retornar o codigo. Tokens de seguranca, links de pagamento e nomes de arquivos continuam usando geradores especificos.
 
 ## Helpers de String
 
@@ -121,8 +140,13 @@ Veja documentação completa em **[date.md](./date.md)**.
 ```php
 format_date('2024-01-15');              // "15/01/2024"
 format_datetime('2024-01-15 14:30:00'); // "15/01/2024 14:30:00"
+format_operational_datetime('2024-01-15 14:30:00'); // sem conversao de timezone
 parse_date('15/01/2024');               // "2024-01-15"
 parse_datetime('15/01/2024 14:30:00');  // "2024-01-15 14:30:00"
+today();                                // "2024-01-15"
+now();                                  // "2024-01-15 14:30:00"
+\App\Helpers\DateHelper::addDaysForDatabase(7);
+\App\Helpers\DateHelper::addMonthsForDatabase(1);
 ```
 
 ### JavaScript
@@ -132,7 +156,13 @@ DateHelper.format('2024-01-15');              // "15/01/2024"
 DateHelper.formatDateTime('2024-01-15T14:30:00'); // "15/01/2024 14:30:00"
 DateHelper.parse('15/01/2024');               // "2024-01-15"
 DateHelper.today();                           // Data atual formatada
+DateHelper.todayISO();                        // "2024-01-15"
+DateHelper.nowInput();                        // valor para datetime-local
+DateHelper.addDays('2024-01-15', 7);          // "2024-01-22"
+DateHelper.diffDateTime(inicio, fim);         // diferenca em ms
 ```
+
+Regra: codigo novo deve usar apenas `DateHelper`/helpers globais para data e hora. `date()`, `time()`, `new DateTime()`, `new Date()` e `NOW()/CURDATE()` so ficam em helpers internos, headers GMT ou componentes de calendario com excecao documentada em [date.md](./date.md).
 
 ## Helpers de Quilometragem
 

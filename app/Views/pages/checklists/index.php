@@ -159,14 +159,7 @@
 
         function formatarData(dataStr) {
             if (!dataStr) return '-';
-            const data = new Date(dataStr);
-            if (isNaN(data.getTime())) return '-';
-            const dia = String(data.getDate()).padStart(2, '0');
-            const mes = String(data.getMonth() + 1).padStart(2, '0');
-            const ano = data.getFullYear();
-            const hora = String(data.getHours()).padStart(2, '0');
-            const min = String(data.getMinutes()).padStart(2, '0');
-            return `${dia}/${mes}/${ano} ${hora}:${min}`;
+            return DateHelper.formatOperationalDateTime(dataStr) || '-';
         }
 
         function renderTabela(dados) {

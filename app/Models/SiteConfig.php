@@ -33,7 +33,7 @@ class SiteConfig extends Model
         $existing = $this->buscarPorChave();
 
         if ($existing) {
-            $dados['updated_at'] = date('Y-m-d H:i:s');
+            $dados['updated_at'] = now();
             return $this->qb
                 ->table('site_config')
                 ->where('id', '=', $existing['id'])
@@ -51,7 +51,7 @@ class SiteConfig extends Model
      */
     public function atualizar(array $dados): int
     {
-        $dados['updated_at'] = date('Y-m-d H:i:s');
+        $dados['updated_at'] = now();
         return $this->qb
             ->table('site_config')
             ->update($dados);
@@ -72,7 +72,7 @@ class SiteConfig extends Model
     {
         return $this->atualizar([
             'versao'           => $versao,
-            'ultimo_deploy_em' => date('Y-m-d H:i:s'),
+            'ultimo_deploy_em' => now(),
         ]);
     }
 

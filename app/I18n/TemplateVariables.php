@@ -437,6 +437,66 @@ class TemplateVariables
                 'label_key' => 'variables.contrato.tanque_chegada',
                 'example' => '1/2'
             ],
+            'caucao_valor' => [
+                'key' => 'contrato.caucao_valor',
+                'type' => 'currency',
+                'label_key' => 'variables.contrato.caucao_valor',
+                'example' => 'R$ 500,00'
+            ],
+            'deposito_valor' => [
+                'key' => 'contrato.deposito_valor',
+                'type' => 'currency',
+                'label_key' => 'variables.contrato.deposito_valor',
+                'example' => 'R$ 500,00'
+            ],
+            'caucao_status' => [
+                'key' => 'contrato.caucao_status',
+                'type' => 'text',
+                'label_key' => 'variables.contrato.caucao_status',
+                'example' => 'Ativa'
+            ],
+            'caucao_data_devolucao' => [
+                'key' => 'contrato.caucao_data_devolucao',
+                'type' => 'date',
+                'label_key' => 'variables.contrato.caucao_data_devolucao',
+                'example' => '25/01/2024'
+            ],
+            'caucao_prazo_devolucao' => [
+                'key' => 'contrato.caucao_prazo_devolucao',
+                'type' => 'text',
+                'label_key' => 'variables.contrato.caucao_prazo_devolucao',
+                'example' => '5'
+            ],
+            'caucao_data_prevista_devolucao' => [
+                'key' => 'contrato.caucao_data_prevista_devolucao',
+                'type' => 'date',
+                'label_key' => 'variables.contrato.caucao_data_prevista_devolucao',
+                'example' => '25/01/2024'
+            ],
+            'bloqueio_valor' => [
+                'key' => 'contrato.bloqueio_valor',
+                'type' => 'currency',
+                'label_key' => 'variables.contrato.bloqueio_valor',
+                'example' => 'R$ 1.000,00'
+            ],
+            'bloqueio_status' => [
+                'key' => 'contrato.bloqueio_status',
+                'type' => 'text',
+                'label_key' => 'variables.contrato.bloqueio_status',
+                'example' => 'Autorizado'
+            ],
+            'bloqueio_valor_capturado' => [
+                'key' => 'contrato.bloqueio_valor_capturado',
+                'type' => 'currency',
+                'label_key' => 'variables.contrato.bloqueio_valor_capturado',
+                'example' => 'R$ 300,00'
+            ],
+            'bloqueio_expira_em' => [
+                'key' => 'contrato.bloqueio_expira_em',
+                'type' => 'date',
+                'label_key' => 'variables.contrato.bloqueio_expira_em',
+                'example' => '22/01/2024'
+            ],
 
             // Veículos do Contrato
             'veiculos' => [
@@ -762,6 +822,12 @@ class TemplateVariables
                 'key' => 'locacao.deposito_valor',
                 'type' => 'currency',
                 'label_key' => 'variables.locacao.deposito_valor',
+                'example' => 'R$ 500,00'
+            ],
+            'caucao_valor' => [
+                'key' => 'locacao.caucao_valor',
+                'type' => 'currency',
+                'label_key' => 'variables.locacao.caucao_valor',
                 'example' => 'R$ 500,00'
             ],
             'cobertura_terceiros' => [

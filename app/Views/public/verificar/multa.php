@@ -2,8 +2,8 @@
 $numero = $multa['n_infracao'] ?? '';
 $ait = $multa['numero_ait'] ?? '';
 $pago = ($multa['pago'] ?? 'N') === 'S';
-$dataVenci = !empty($multa['data_vencimento']) ? date('d/m/Y', strtotime($multa['data_vencimento'])) : '-';
-$dataHora = !empty($multa['data_hora']) ? date('d/m/Y H:i', strtotime($multa['data_hora'])) : '-';
+$dataVenci = !empty($multa['data_vencimento']) ? format_date($multa['data_vencimento']) : '-';
+$dataHora = !empty($multa['data_hora']) ? format_operational_datetime($multa['data_hora']) : '-';
 $valorBR = 'R$ ' . number_format((float) ($multa['valor'] ?? 0), 2, ',', '.');
 
 if ($pago) {
@@ -11,7 +11,7 @@ if ($pago) {
     $statusBg = 'bg-green-100';
     $statusText = 'text-green-700';
 } else {
-    $hoje = strtotime(date('Y-m-d'));
+    $hoje = strtotime(today());
     $venci = !empty($multa['data_vencimento']) ? strtotime($multa['data_vencimento']) : 0;
     if ($venci && $venci < $hoje) {
         $statusLabel = 'Vencida';
@@ -110,7 +110,7 @@ if ($pago) {
             <?php endif; ?>
 
             <div class="text-xs text-gray-400">
-                <p>Verificado em <?= date('d/m/Y') ?> as <?= date('H:i') ?></p>
+                <p>Verificado em <?= format_date(today()) ?> as <?= \App\Helpers\DateHelper::todayForDatabase('H:i') ?></p>
             </div>
         </div>
     </div>

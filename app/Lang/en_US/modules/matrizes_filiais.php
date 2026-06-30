@@ -65,6 +65,7 @@ return [
         'currency' => 'Currency',
         'date_format' => 'Date Format',
         'datetime_format' => 'Date & Time Format',
+        'timezone' => 'Timezone',
         'next_rental_number' => 'Next Rental No.',
         'next_contract_number' => 'Next Contract No.',
         'next_financial_number' => 'Next Financial No.',

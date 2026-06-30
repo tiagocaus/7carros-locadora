@@ -143,6 +143,11 @@ try {
     $scheduler->job(new \App\Crons\Jobs\SerproAutoConsultaJob())
               ->dailyAt('03:30');
 
+    // Recargas PIX de saldo SERPRO - Reconciliacao Banco Inter
+    // Executa a cada 5 minutos para confirmar pagamentos que nao chegaram por webhook/modal
+    $scheduler->job(new \App\Crons\Jobs\SerproPixReconcileJob())
+              ->everyFiveMinutes();
+
     // Indicacoes de Condutor - Sincronizacao de Status
     // Executa a cada 30 minutos para atualizar status de indicacoes enviadas/processando/pendentes
     $scheduler->job(new \App\Crons\Jobs\SerproSyncIndicacoesStatusJob())
@@ -215,6 +220,12 @@ try {
         exit(0);
     }
 
+    $cronLockHandle = acquireCronLock(__DIR__ . '/storage/cron/cron.lock');
+    if ($cronLockHandle === null) {
+        echo "[SKIP] CRON ja esta em execucao. Processo atual encerrado sem executar jobs.\n";
+        exit(0);
+    }
+
     // --force: Força execução de todos (usa CronRunner legado)
     if (isset($options['force'])) {
         echo "MODO FORÇADO: Executando todos os jobs independente do schedule\n\n";
@@ -234,6 +245,7 @@ try {
         echo "Duration: {$summary['duration']}s\n";
         echo "======================================\n\n";
 
+        releaseCronLock($cronLockHandle);
         exit($runner->isSuccessful() ? 0 : 1);
     }
 
@@ -255,9 +267,14 @@ try {
     echo "======================================\n\n";
 
     // Exit with appropriate code
+    releaseCronLock($cronLockHandle);
     exit($scheduler->isSuccessful() ? 0 : 1);
 
-} catch (\Exception $e) {
+} catch (\Throwable $e) {
+    if (isset($cronLockHandle) && is_resource($cronLockHandle)) {
+        releaseCronLock($cronLockHandle);
+    }
+
     echo "\n";
     echo "======================================\n";
     echo "  FATAL ERROR\n";
@@ -281,4 +298,44 @@ try {
     file_put_contents($errorLog, $errorMessage, FILE_APPEND);
 
     exit(1);
+}
+
+/**
+ * Adquire lock global para impedir execucoes simultaneas do CRON.
+ *
+ * @return resource|null
+ */
+function acquireCronLock(string $lockFile)
+{
+    $lockDir = dirname($lockFile);
+    if (!is_dir($lockDir)) {
+        mkdir($lockDir, 0755, true);
+    }
+
+    $handle = fopen($lockFile, 'c+');
+    if ($handle === false) {
+        throw new RuntimeException('Nao foi possivel abrir arquivo de lock do CRON.');
+    }
+
+    if (!flock($handle, LOCK_EX | LOCK_NB)) {
+        fclose($handle);
+        return null;
+    }
+
+    ftruncate($handle, 0);
+    fwrite($handle, (string) getmypid());
+    fflush($handle);
+
+    return $handle;
+}
+
+/**
+ * Libera o lock global do CRON.
+ *
+ * @param resource $handle
+ */
+function releaseCronLock($handle): void
+{
+    flock($handle, LOCK_UN);
+    fclose($handle);
 }

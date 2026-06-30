@@ -60,6 +60,44 @@ class ClientesController
     }
 
     /**
+     * Valida os campos obrigatórios do cadastro de cliente.
+     */
+    private function validarCamposObrigatoriosCliente(Request $request): array
+    {
+        $filial = $request->input('id_matriz_filial', '');
+        if (is_array($filial) || is_object($filial)) {
+            throw new \InvalidArgumentException('Matriz/Filial é obrigatória');
+        }
+
+        $filial = trim((string) $filial);
+        if ($filial === '' || !ctype_digit($filial) || (int) $filial <= 0) {
+            throw new \InvalidArgumentException('Matriz/Filial é obrigatória');
+        }
+
+        $tipoCliente = $this->normalizarTipoCliente($request->input('tipo'), null);
+        if ($tipoCliente === null) {
+            throw new \InvalidArgumentException('Tipo de Pessoa é obrigatório');
+        }
+
+        $documento = $request->input('cpf_cnpj', '');
+        if (is_array($documento) || is_object($documento) || trim((string) $documento) === '') {
+            throw new \InvalidArgumentException('CPF/CNPJ é obrigatório');
+        }
+
+        $nome = $request->input('nome_rsocial', '');
+        if (is_array($nome) || is_object($nome) || trim((string) $nome) === '') {
+            throw new \InvalidArgumentException('Nome Completo é obrigatório');
+        }
+
+        return [
+            'id_matriz_filial' => (int) $filial,
+            'tipo' => $tipoCliente,
+            'cpf_cnpj' => trim((string) $documento),
+            'nome_rsocial' => trim((string) $nome),
+        ];
+    }
+
+    /**
      * Remove formatacao de CPF/CNPJ para envio aos gateways.
      */
     private function normalizarDocumentoCartao(mixed $documento): string
@@ -293,15 +331,24 @@ class ClientesController
                 return;
             }
 
+            $obrigatorios = $this->validarCamposObrigatoriosCliente($request);
+            if (!FilialHelper::temAcessoFilial($obrigatorios['id_matriz_filial'])) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Você não tem permissão para cadastrar cliente nesta filial'
+                ], 403);
+                return;
+            }
+
             // Mapear campos do formulário para campos do banco
-            $tipoCliente = $this->normalizarTipoCliente($request->input('tipo', 'PF'), 'PF');
+            $tipoCliente = $obrigatorios['tipo'];
             $dados = [
-                'id_matriz_filial' => $request->input('id_matriz_filial', 0),
+                'id_matriz_filial' => $obrigatorios['id_matriz_filial'],
                 'foto' => $request->input('foto', ''),
                 'tipo' => $tipoCliente,
-                'cpf_cnpj' => $request->input('cpf_cnpj', ''),
+                'cpf_cnpj' => $obrigatorios['cpf_cnpj'],
                 'senha' => $request->input('senha') ? password_hash($request->input('senha'), PASSWORD_ARGON2ID) : null,
-                'nome_rsocial' => $request->input('nome_rsocial', ''),
+                'nome_rsocial' => $obrigatorios['nome_rsocial'],
                 'nome_fantasia' => $request->input('nome_fantasia', ''),
                 'rg_ie' => $request->input('rg_ie', ''),
                 'nascimento' => $request->input('nascimento', null),
@@ -424,13 +471,22 @@ class ClientesController
                 return;
             }
 
+            $obrigatorios = $this->validarCamposObrigatoriosCliente($request);
+            if (!FilialHelper::temAcessoFilial($obrigatorios['id_matriz_filial'])) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Você não tem permissão para mover cliente para esta filial'
+                ], 403);
+                return;
+            }
+
             // Mapear campos do formulário para campos do banco
-            $tipoCliente = $this->normalizarTipoCliente($request->input('tipo'), null);
+            $tipoCliente = $obrigatorios['tipo'];
             $dados = [
-                'id_matriz_filial' => $request->input('id_matriz_filial'),
+                'id_matriz_filial' => $obrigatorios['id_matriz_filial'],
                 'tipo' => $tipoCliente,
-                'cpf_cnpj' => $request->input('cpf_cnpj'),
-                'nome_rsocial' => $request->input('nome_rsocial'),
+                'cpf_cnpj' => $obrigatorios['cpf_cnpj'],
+                'nome_rsocial' => $obrigatorios['nome_rsocial'],
                 'rg_ie' => $request->input('rg_ie'),
                 'nascimento' => $request->input('nascimento'),
                 'sexo' => $request->input('sexo'),
@@ -629,6 +685,61 @@ class ClientesController
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao buscar clientes: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Busca cliente por documento exato dentro do tenant atual.
+     *
+     * GET /api/clientes/por-documento?documento=xxx
+     */
+    public function buscarPorDocumento(Request $request): void
+    {
+        try {
+            if (!Auth::can('clientes.visualizar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Você não tem permissão para visualizar clientes'
+                ], 403);
+                return;
+            }
+
+            $documento = trim((string) $request->query('documento', ''));
+            if ($documento === '') {
+                Response::json([
+                    'success' => true,
+                    'exists' => false,
+                    'data' => null
+                ]);
+                return;
+            }
+
+            [$filialWhere, $filialParams] = FilialHelper::whereFiliais('id_matriz_filial');
+            $cliente = (new Cliente())->buscarPorDocumentoCadastro($documento, $filialWhere, $filialParams);
+
+            if (!$cliente) {
+                Response::json([
+                    'success' => true,
+                    'exists' => false,
+                    'data' => null
+                ]);
+                return;
+            }
+
+            Response::json([
+                'success' => true,
+                'exists' => true,
+                'data' => [
+                    'id' => (int) $cliente['id'],
+                    'nome_rsocial' => $cliente['nome_rsocial'] ?? '',
+                    'cpf_cnpj' => $cliente['cpf_cnpj'] ?? '',
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao buscar cliente por documento: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -1009,7 +1120,7 @@ class ClientesController
             // Gerar nome amigável se não fornecido
             if (empty($nome)) {
                 $extensao = pathinfo($filename, PATHINFO_EXTENSION);
-                $nome = Cliente::TIPOS_ARQUIVO[$tipo] . '_' . date('Ymd_His') . '.' . $extensao;
+                $nome = Cliente::TIPOS_ARQUIVO[$tipo] . '_' . \App\Helpers\DateHelper::systemNow('Ymd_His') . '.' . $extensao;
             }
 
             // Truncar nome se muito longo (max 50 caracteres)

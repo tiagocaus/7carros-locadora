@@ -177,7 +177,7 @@ RECARGA PIX:
                                                    ┌──────────────────┐
                                                    │ Webhook Inter    │
                                                    │ POST /webhook/   │
-                                                   │ serpro-pix       │
+                                                   │ multas-online/pix│
                                                    └────────┬─────────┘
                                                             │
                                                             ▼
@@ -573,6 +573,7 @@ INTER_CLIENT_SECRET=
 INTER_CERT_PATH=
 INTER_KEY_PATH=
 INTER_PIX_KEY=
+INTER_CONTA_CORRENTE=
 
 # Stripe (Cartao) - ja existem
 STRIPE_PUBLIC_KEY=
@@ -741,7 +742,7 @@ GET    /api/serpro/indicacoes/{id}                      → SerproIndicacaoContr
 
 ```
 POST   /webhook/serpro                → SerproWebhookController::handle()
-POST   /webhook/serpro-pix            → SerproWebhookController::pixCallback()
+POST   /webhook/multas-online/pix     → SerproWebhookController::webhookPix()
 POST   /webhook/serpro-stripe         → SerproWebhookController::stripeCallback()
 ```
 
@@ -815,13 +816,32 @@ Metodos:
 ├── verificarAutoRecarga(chave)            → Se saldo < limite, cobra Stripe automaticamente
 ├── gerarRecargaPix(chave, valor)          → InterGateway gera QR Code PIX
 ├── gerarRecargaStripe(chave, valor)       → StripeGateway cria PaymentIntent
-├── confirmarRecargaPix(txid)              → Webhook PIX → credita saldo
+├── confirmarRecargaPix(codigo/txid)       → Webhook PIX → credita saldo
+├── reconciliarRecargasPix()               → CRON consulta Inter Cobrança v3 → credita saldo
 ├── confirmarRecargaStripe(piId)           → Webhook Stripe → credita saldo
 ├── salvarCartaoStripe(chave, pmId, cusId) → Salva dados do cartao para auto-recarga
 ├── ativarAutoRecarga(chave, pmId, cusId)  → Ativa auto-recarga + salva cartao
 ├── desativarAutoRecarga(chave)            → Desativa auto-recarga
 └── listarTransacoes(chave, filtros)       → Historico paginado de transacoes
 ```
+
+### 7.3 Confirmacao de Recarga PIX Banco Inter
+
+As recargas de saldo em PIX usam a API **Cobrança v3** do Banco Inter, criada por
+`POST /cobranca/v3/cobrancas`. O identificador salvo em `serpro_transacoes.external_id`
+é o `codigoSolicitacao`.
+
+Confirmações podem ocorrer por três caminhos:
+
+- Webhook correto: `POST /webhook/multas-online/pix`.
+- Polling do modal de PIX na tela "Saldo de Consultas".
+- CRON `SerproPixReconcileJob`, executado a cada 5 minutos.
+
+Para reconciliar pagamentos, o sistema consulta
+`GET /cobranca/v3/cobrancas/{codigoSolicitacao}`. A confirmação de pagamento deve
+usar `cobranca.situacao = RECEBIDO` como status pago. O endpoint da API Pix v2
+`/pix/v2/cob/{txid}` só deve ser usado em fluxos criados diretamente pela API Pix,
+não nas recargas atuais criadas pela Cobrança v3.
 
 ---
 

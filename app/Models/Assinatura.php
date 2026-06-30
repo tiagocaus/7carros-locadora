@@ -215,7 +215,7 @@ class Assinatura extends Model
                 'longitude' => $dados['longitude'] ?? null,
                 'tipo' => $dados['tipo'] ?? 'cliente',
                 'observacao' => $dados['observacao'] ?? null,
-                'created_at' => date('Y-m-d H:i:s'),
+                'created_at' => now(),
             ]);
     }
 
@@ -375,7 +375,7 @@ class Assinatura extends Model
             ->table('assinaturas')
             ->where('id', '=', $id)
             ->update([
-                'verificado_em' => date('Y-m-d H:i:s')
+                'verificado_em' => now()
             ]) > 0;
     }
 

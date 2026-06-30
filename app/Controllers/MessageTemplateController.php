@@ -443,8 +443,8 @@ class MessageTemplateController
                 'codigo_pix' => '00020126580014br.gov.bcb.pix...',
             ],
             'outros' => [
-                'data_atual' => date('Y-m-d'),
-                'hora_atual' => date('H:i:s'),
+                'data_atual' => today(),
+                'hora_atual' => \App\Helpers\DateHelper::todayForDatabase('H:i:s'),
                 'link_portal_cliente' => 'https://exemplo.com/portal',
             ],
         ];

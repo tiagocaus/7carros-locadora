@@ -43,7 +43,7 @@ class MatrizFilial extends Model
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale']);
+            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale', 'timezone']);
 
         if (!empty($where)) {
             $query->whereRaw($where, $params);
@@ -105,6 +105,7 @@ class MatrizFilial extends Model
             'locale' => 'pt_BR',
             'currency_code' => 'BRL',
             'date_format' => 'd/m/Y H:i:s',
+            'timezone' => 'America/Sao_Paulo',
             'sequencia_locacoes' => 1,
             'sequencia_contratos' => 1,
             'sequencia_financeiro' => 1,
@@ -172,7 +173,7 @@ class MatrizFilial extends Model
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['id', 'razao_social AS text', 'razao_social AS nome', 'nome_fantasia', 'currency_code', 'locale'])
+            ->select(['id', 'razao_social AS text', 'razao_social AS nome', 'nome_fantasia', 'currency_code', 'locale', 'timezone'])
             ->where('status', '=', 'A');
 
         // Aplicar filtro de filiais permitidas
@@ -207,7 +208,7 @@ class MatrizFilial extends Model
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale']);
+            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale', 'timezone']);
 
         if (!empty($search)) {
             $searchTerm = "%{$search}%";
@@ -314,7 +315,7 @@ class MatrizFilial extends Model
         $matriz = $matrizId ? $this->buscarPorId($matrizId) : $this->listar()[0] ?? null;
 
         if (!$matriz) {
-            return $comHora ? date('d/m/Y H:i:s', strtotime($data)) : date('d/m/Y', strtotime($data));
+            return $comHora ? format_datetime($data) : format_date($data);
         }
 
         $locale = $matriz['locale'] ?? 'pt_BR';
@@ -335,7 +336,7 @@ class MatrizFilial extends Model
         }
 
         // Fallback
-        return date($formato, $timestamp);
+        return \App\Helpers\DateHelper::formatTimestamp($timestamp, $formato);
     }
 
     /**
@@ -451,13 +452,13 @@ class MatrizFilial extends Model
     /**
      * Busca configuração de data da filial principal do usuário logado
      *
-     * @return array|null ['date_format' => string, 'datetime_format' => string, 'locale' => string]
+     * @return array|null ['date_format' => string, 'datetime_format' => string, 'timezone' => string, 'locale' => string]
      */
     public function buscarConfigData(): ?array
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['date_format', 'datetime_format', 'locale']);
+            ->select(['date_format', 'datetime_format', 'timezone', 'locale']);
 
         // Usa filial principal do usuário se disponível
         if (!empty($_SESSION['id_matriz_filial'])) {
@@ -532,7 +533,8 @@ class MatrizFilial extends Model
                 'locale',
                 'currency_code',
                 'date_format',
-                'datetime_format'
+                'datetime_format',
+                'timezone'
             ])
             ->withChave($chave)
             ->where('tipo', '=', 'M')

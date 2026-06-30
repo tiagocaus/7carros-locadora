@@ -147,7 +147,8 @@ O erro mais comum em relatorios e o desalinhamento entre as chaves que o Model r
 ### Formatacao (PHP / Templates PDF)
 - Moeda: `currency_format($valor)` — funcao global do helpers.php
 - Data: `format_date($data)` — funcao global
-- Data/hora: `format_datetime($data)` — funcao global
+- Data/hora tecnica: `format_datetime($data)` — funcao global com conversao de timezone
+- Data/hora operacional: `format_operational_datetime($data)` — retirada/devolucao, checklist, multa, agenda e manutencao sem conversao de timezone
 
 ### Views
 - Usar `@include('pages.relatorios._partials.X')` — NAO usar `include __DIR__`
@@ -198,6 +199,12 @@ O erro mais comum em relatorios e o desalinhamento entre as chaves que o Model r
 | `renderPagination(pagination, cb)` | Controles de paginacao |
 | `exportPdf(url, title)` | Abre PDF no modal de impressao |
 | `COLORS` / `COLORS_ALPHA` | Paleta para Chart.js |
+
+### Padrao de Datas
+
+Relatorios devem usar `DateHelper`/helpers globais em filtros padrao, exibicao, PDF e calculos de periodo. Em JS, use `DateHelper.todayISO()`, `DateHelper.startOfCurrentMonthISO()`, `DateHelper.endOfCurrentMonthISO()`, `DateHelper.format()` e `DateHelper.formatDateTime()` para instantes tecnicos. Para horarios operacionais, use `DateHelper.formatOperationalDateTime()`. Em PHP, use `today()`, `now()`, `format_date()`, `format_datetime()`, `format_operational_datetime()` e os metodos de soma do `DateHelper`.
+
+Nao introduza `date()`, `time()`, `new DateTime()`, `new Date()` ou `NOW()/CURDATE()` em relatorios novos. Consultas legadas com `DATEDIFF`, `DATE_ADD` e `DATE_SUB` devem ser migradas para parametros calculados no helper em etapa propria, mantendo a semantica original.
 
 ### Partials (Views)
 

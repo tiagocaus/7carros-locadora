@@ -125,7 +125,7 @@ class GravacoesController
             }
 
             // Gera nome unico
-            $filename = 'gravacao_' . date('Ymd_His') . '_' . uniqid() . '.' . $extension;
+            $filename = 'gravacao_' . \App\Helpers\DateHelper::systemNow('Ymd_His') . '_' . uniqid() . '.' . $extension;
             $filepath = $uploadDir . $filename;
 
             // Move arquivo

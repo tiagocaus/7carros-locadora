@@ -91,7 +91,7 @@ class GerarEncargosFinanceiroJob extends BaseJob
             ->where('ativo', '=', 1)
             ->get();
 
-        return array_column($rows, 'chave');
+        return array_values(array_filter(array_unique(array_column($rows, 'chave'))));
     }
 
     /**
@@ -116,8 +116,8 @@ class GerarEncargosFinanceiroJob extends BaseJob
             ->whereNotNull('ve.valor')
             ->whereRaw('ve.valor > 0')
             ->whereNotNull('ve.vencimento')
-            ->whereRaw('ve.vencimento >= CURDATE()')
-            ->whereRaw('DATEDIFF(ve.vencimento, CURDATE()) <= ve.dias_antecedencia')
+            ->where('ve.vencimento', '>=', today())
+            ->whereRaw('DATEDIFF(ve.vencimento, ?) <= ve.dias_antecedencia', [today()])
             ->get();
 
         $gerados = 0;
@@ -149,7 +149,7 @@ class GerarEncargosFinanceiroJob extends BaseJob
                         'tipo' => 'D',
                         'pago' => 'N',
                         'descricao' => $descricaoFinanceiro,
-                        'data_criada' => date('Y-m-d'),
+                        'data_criada' => today(),
                         'data_venci' => $encargo['vencimento'],
                         'valor_subtotal' => $encargo['valor'],
                         'juros' => 0,
@@ -188,7 +188,7 @@ class GerarEncargosFinanceiroJob extends BaseJob
             ->where('chave', '=', $chave)
             ->where('ativo', '=', 1)
             ->whereRaw("recorrencia != 'nenhuma'")
-            ->whereRaw('vencimento < CURDATE()')
+            ->where('vencimento', '<', today())
             ->get();
 
         $renovados = 0;
@@ -254,10 +254,7 @@ class GerarEncargosFinanceiroJob extends BaseJob
             return null;
         }
 
-        $date = new \DateTime($dataAtual);
-        $date->modify("+{$meses} months");
-
-        return $date->format('Y-m-d');
+        return \App\Helpers\DateHelper::addMonthsForDatabase($meses, $dataAtual);
     }
 
     private function setContextoTenant(string $chave): void

@@ -71,7 +71,7 @@ abstract class BaseJob
      */
     protected function log(string $message, string $level = 'INFO'): void
     {
-        $timestamp = date('Y-m-d H:i:s');
+        $timestamp = now();
         $logEntry = "[{$timestamp}] [{$level}] [{$this->name}] {$message}";
         
         $this->logs[] = $logEntry;

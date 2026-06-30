@@ -241,9 +241,9 @@
         <!-- Data de Emissao -->
         <div class="data-emissao">
             <?php
-            $mesAtual = t('common.months.' . (int)date('m'));
+            $mesAtual = t('common.months.' . (int)\App\Helpers\DateHelper::todayForDatabase('m'));
             ?>
-            <?= htmlspecialchars($parcela['cliente_cidade'] ?? ($empresa['cidade'] ?? '')) ?>, <?= date('d') ?> de <?= $mesAtual ?> de <?= date('Y') ?>
+            <?= htmlspecialchars($parcela['cliente_cidade'] ?? ($empresa['cidade'] ?? '')) ?>, <?= \App\Helpers\DateHelper::todayForDatabase('d') ?> de <?= $mesAtual ?> de <?= \App\Helpers\DateHelper::todayForDatabase('Y') ?>
         </div>
     </div>
 </body>

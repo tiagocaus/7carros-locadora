@@ -2,8 +2,8 @@
 $codigo = $lancamento['codigo'] ?? '';
 $sequencia = $lancamento['sequencia'] ?? '';
 $pago = ($lancamento['pago'] ?? 'N') === 'S';
-$dataVenci = !empty($lancamento['data_venci']) ? date('d/m/Y', strtotime($lancamento['data_venci'])) : '-';
-$dataEmissao = !empty($lancamento['data_criada']) ? date('d/m/Y', strtotime($lancamento['data_criada'])) : '-';
+$dataVenci = !empty($lancamento['data_venci']) ? format_date($lancamento['data_venci']) : '-';
+$dataEmissao = !empty($lancamento['data_criada']) ? format_date($lancamento['data_criada']) : '-';
 $valorBR = 'R$ ' . number_format((float) ($lancamento['valor_total'] ?? 0), 2, ',', '.');
 
 if ($pago) {
@@ -11,7 +11,7 @@ if ($pago) {
     $statusBg = 'bg-green-100';
     $statusText = 'text-green-700';
 } else {
-    $hoje = strtotime(date('Y-m-d'));
+    $hoje = strtotime(today());
     $venci = !empty($lancamento['data_venci']) ? strtotime($lancamento['data_venci']) : 0;
     if ($venci && $venci < $hoje) {
         $statusLabel = 'Vencida';
@@ -103,7 +103,7 @@ if ($pago) {
             <?php endif; ?>
 
             <div class="text-xs text-gray-400">
-                <p>Verificado em <?= date('d/m/Y') ?> as <?= date('H:i') ?></p>
+                <p>Verificado em <?= format_date(today()) ?> as <?= \App\Helpers\DateHelper::todayForDatabase('H:i') ?></p>
             </div>
         </div>
     </div>

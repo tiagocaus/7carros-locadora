@@ -345,7 +345,7 @@ class SmtpController
                 'reply_to_name' => $replyToName,
                 'daily_limit' => $dailyLimit,
                 'status' => $validationStatus,
-                'validated_at' => $validationStatus === 'validated' ? date('Y-m-d H:i:s') : null,
+                'validated_at' => $validationStatus === 'validated' ? now() : null,
                 'last_error' => $validationError,
             ]);
 

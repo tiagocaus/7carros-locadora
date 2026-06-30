@@ -46,7 +46,7 @@
                 <div class="grid-cell label"><?= t('modules.multas.pdf.issuing_body_label') ?></div>
                 <div class="grid-cell"><?= htmlspecialchars($multa['orgao_autuador'] ?? '-') ?></div>
                 <div class="grid-cell label"><?= t('modules.multas.pdf.fine_date_label') ?></div>
-                <div class="grid-cell"><?= !empty($multa['data_hora']) ? format_datetime($multa['data_hora']) : '-' ?></div>
+                <div class="grid-cell"><?= !empty($multa['data_hora']) ? format_operational_datetime($multa['data_hora']) : '-' ?></div>
             </div>
         </div>
     </div>
@@ -67,7 +67,7 @@
 
     <div class="footer">
         <p><?= t('modules.multas.pdf.receipt_validity') ?></p>
-        <p><?= t('modules.multas.pdf.generated_at', ['datetime' => format_datetime(date('Y-m-d H:i:s'))]) ?></p>
+        <p><?= t('modules.multas.pdf.generated_at', ['datetime' => format_datetime(now())]) ?></p>
     </div>
 </body>
 </html>

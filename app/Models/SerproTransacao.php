@@ -107,8 +107,8 @@ class SerproTransacao extends Model
                 'descricao' => $descricao,
                 'referencia' => $referencia,
                 'status' => 'confirmado',
-                'confirmado_em' => date('Y-m-d H:i:s'),
-                'created_at' => date('Y-m-d H:i:s'),
+                'confirmado_em' => now(),
+                'created_at' => now(),
             ]);
     }
 
@@ -146,25 +146,40 @@ class SerproTransacao extends Model
                 'pix_code' => $pixCode,
                 'pix_qrcode' => $pixQrcode,
                 'status' => 'pendente',
-                'created_at' => date('Y-m-d H:i:s'),
+                'created_at' => now(),
             ]);
     }
 
     /**
      * Confirma recarga (chamado por webhook)
      */
-    public function confirmarRecarga(int $id, float $saldoAnterior, float $saldoPosterior): int
+    public function confirmarRecarga(int $id, float $saldoAnterior, float $saldoPosterior, ?string $chave = null): int
     {
-        return $this->qb
+        if ($chave !== null) {
+            $mysqli = $this->getMysqli();
+            $stmt = $mysqli->prepare(
+                "UPDATE serpro_transacoes
+                 SET saldo_anterior = ?, saldo_posterior = ?, status = 'confirmado', confirmado_em = NOW()
+                 WHERE id = ? AND chave = ?"
+            );
+            $stmt->bind_param('ddis', $saldoAnterior, $saldoPosterior, $id, $chave);
+            $stmt->execute();
+            $affected = $stmt->affected_rows;
+            $stmt->close();
+
+            return $affected;
+        }
+
+        $query = $this->qb
             ->table('serpro_transacoes')
-            ->withoutChave()
-            ->where('id', '=', $id)
-            ->update([
-                'saldo_anterior' => $saldoAnterior,
-                'saldo_posterior' => $saldoPosterior,
-                'status' => 'confirmado',
-                'confirmado_em' => date('Y-m-d H:i:s'),
-            ]);
+            ->where('id', '=', $id);
+
+        return $query->update([
+            'saldo_anterior' => $saldoAnterior,
+            'saldo_posterior' => $saldoPosterior,
+            'status' => 'confirmado',
+            'confirmado_em' => now(),
+        ]);
     }
 
     /**
@@ -207,6 +222,30 @@ class SerproTransacao extends Model
     }
 
     /**
+     * Bloqueia uma recarga para confirmacao idempotente dentro de transacao.
+     */
+    public function bloquearRecargaParaConfirmacao(int $id, ?string $chave = null): ?array
+    {
+        $mysqli = $this->getMysqli();
+        $chaveBusca = $chave ?? ($_SESSION['chave'] ?? '');
+
+        if ($chaveBusca === '') {
+            throw new \RuntimeException('Chave do tenant obrigatoria para confirmar recarga');
+        }
+
+        $stmt = $mysqli->prepare(
+            "SELECT * FROM serpro_transacoes WHERE id = ? AND chave = ? LIMIT 1 FOR UPDATE"
+        );
+        $stmt->bind_param('is', $id, $chaveBusca);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $registro = $result->fetch_assoc() ?: null;
+        $stmt->close();
+
+        return $registro;
+    }
+
+    /**
      * Busca dados de PIX de uma recarga do tenant atual
      */
     public function buscarPixRecargaPorId(int $id): ?array
@@ -227,6 +266,36 @@ class SerproTransacao extends Model
             ->where('id', '=', $id)
             ->where('tipo', '=', 'recarga_pix')
             ->first();
+    }
+
+    /**
+     * Lista recargas PIX pendentes para reconciliacao via CRON.
+     *
+     * Contexto cross-tenant documentado: o cron precisa localizar cobrancas de
+     * todos os tenants para recuperar pagamentos que nao chegaram por webhook.
+     */
+    public function listarRecargasPixPendentesParaReconciliacao(int $limit = 50): array
+    {
+        $limit = max(1, min($limit, 200));
+        $mysqli = $this->getMysqli();
+
+        $stmt = $mysqli->prepare(
+            "SELECT id, chave, valor_total, external_id, referencia, status, created_at
+             FROM serpro_transacoes
+             WHERE tipo = 'recarga_pix'
+               AND status = 'pendente'
+               AND external_id IS NOT NULL
+               AND external_id <> ''
+             ORDER BY created_at ASC, id ASC
+             LIMIT ?"
+        );
+        $stmt->bind_param('i', $limit);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $rows = $result->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        return $rows;
     }
 
     /**

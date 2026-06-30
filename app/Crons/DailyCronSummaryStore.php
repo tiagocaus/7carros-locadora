@@ -13,6 +13,11 @@ class DailyCronSummaryStore
             'time' => '00:05',
             'order' => 10,
         ],
+        \App\Crons\Jobs\CalculateOverdueFeesJob::class => [
+            'label' => 'Juros e Multa Financeiro',
+            'time' => '00:15',
+            'order' => 15,
+        ],
         \App\Crons\Jobs\CleanupOldRecordingsJob::class => [
             'label' => 'Limpeza de Gravacoes',
             'time' => '01:00',
@@ -59,7 +64,7 @@ class DailyCronSummaryStore
             return;
         }
 
-        $date = date('Y-m-d');
+        $date = today();
         $summary = $this->read($date);
         $meta = self::EXPECTED_JOBS[$jobId];
 
@@ -68,7 +73,7 @@ class DailyCronSummaryStore
             'job' => $result['job'] ?? $meta['label'],
             'label' => $meta['label'],
             'expected_time' => $meta['time'],
-            'executed_at' => date('Y-m-d H:i:s'),
+            'executed_at' => now(),
             'success' => (bool) ($result['success'] ?? false),
             'message' => (string) ($result['message'] ?? ''),
             'duration' => (float) ($result['duration'] ?? 0),
@@ -77,13 +82,13 @@ class DailyCronSummaryStore
             'schedule' => (string) ($result['schedule'] ?? ''),
         ];
 
-        $summary['updated_at'] = date('Y-m-d H:i:s');
+        $summary['updated_at'] = now();
         $this->write($date, $summary);
     }
 
     public function read(?string $date = null): array
     {
-        $date = $date ?: date('Y-m-d');
+        $date = $date ?: today();
         $path = $this->path($date);
 
         if (!file_exists($path)) {

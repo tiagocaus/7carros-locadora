@@ -42,8 +42,10 @@ class BlockedIp extends Model
      */
     public function bloquear(string $ipAddress, string $reason, ?int $duracao = null): void
     {
-        $now = date('Y-m-d H:i:s');
-        $blockedUntil = $duracao ? date('Y-m-d H:i:s', time() + $duracao) : null;
+        $now = now();
+        $blockedUntil = $duracao
+            ? \App\Helpers\DateHelper::formatTimestamp(\App\Helpers\DateHelper::timestamp() + $duracao, 'Y-m-d H:i:s', false)
+            : null;
         $permanent = $duracao === null ? 1 : 0;
 
         $sql = "INSERT INTO security_blocked_ips

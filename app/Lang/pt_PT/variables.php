@@ -154,6 +154,16 @@ return [
 
         // Assinatura do Cliente
         'assinatura_cliente' => 'Assinatura do Cliente',
+        'caucao_valor' => 'Valor da Caução',
+        'deposito_valor' => 'Valor do Depósito',
+        'caucao_status' => 'Estado da Caução',
+        'caucao_data_devolucao' => 'Data Efetiva de Devolução da Caução',
+        'caucao_prazo_devolucao' => 'Prazo de Devolução da Caução',
+        'caucao_data_prevista_devolucao' => 'Data Prevista de Devolução da Caução',
+        'bloqueio_valor' => 'Valor do Bloqueio',
+        'bloqueio_status' => 'Estado do Bloqueio',
+        'bloqueio_valor_capturado' => 'Valor Capturado do Bloqueio',
+        'bloqueio_expira_em' => 'Expiração do Bloqueio',
     ],
 
     // Variáveis da Locação
@@ -189,6 +199,7 @@ return [
         'total_fatura' => 'Total da Fatura',
         'bloqueio_valor' => 'Valor do Bloqueio',
         'deposito_valor' => 'Valor do Depósito',
+        'caucao_valor' => 'Valor da Caução',
         'cobertura_terceiros' => 'Cobertura de Terceiros',
         'fatura_paga' => 'Fatura Paga',
         'forma_pagamento' => 'Forma de Pagamento',

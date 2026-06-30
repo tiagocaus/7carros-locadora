@@ -1,6 +1,6 @@
 # Sistema de Data Multi-tenant
 
-O sistema de formatacao de data permite que cada empresa tenha sua configuracao de formato, enquanto mantem o formato internacional (Y-m-d) no banco de dados.
+O sistema de formatacao de data permite que cada empresa tenha sua configuracao de formato e timezone, enquanto mantem o formato internacional (Y-m-d) no banco de dados.
 
 ## Conceito
 
@@ -11,15 +11,19 @@ O sistema de formatacao de data permite que cada empresa tenha sua configuracao 
 
 - **Armazenamento**: Sempre no formato internacional (`DATE` -> `Y-m-d`)
 - **Exibicao**: Formatado conforme configuracao da empresa (`d/m/Y` para pt_BR)
+- **Timezone**: Campos de data/hora (`DATETIME`) sao exibidos no timezone configurado da matriz/filial
 
 ## Configuracao por Empresa
 
-As configuracoes sao armazenadas na tabela `matrizes_filiais`:
+As configuracoes sao armazenadas na tabela `matrizes_filiais`, na aba Configuracoes > Localizacao e Formatacao:
 
 | Coluna | Tipo | Padrao | Descricao |
 |--------|------|--------|-----------|
 | `date_format` | VARCHAR(20) | d/m/Y | Formato de data |
 | `datetime_format` | VARCHAR(20) | d/m/Y H:i:s | Formato de data/hora |
+| `timezone` | VARCHAR(64) | America/Sao_Paulo | Timezone IANA usado para exibicao e parse de data/hora |
+
+O valor de `timezone` deve ser um identificador IANA valido, por exemplo `America/Sao_Paulo`, `America/Manaus`, `Europe/Lisbon` ou `UTC`. Quando nao houver configuracao, o sistema usa `America/Sao_Paulo` como fallback. O timezone global `APP_TIMEZONE` continua sendo o timezone da aplicacao e referencia para valores `DATETIME` armazenados sem offset.
 
 ### Formatos Suportados
 
@@ -52,6 +56,7 @@ As configuracoes sao armazenadas na tabela `matrizes_filiais`:
 // Formatar para exibicao
 format_date('2024-01-15');              // "15/01/2024"
 format_datetime('2024-01-15 14:30:00'); // "15/01/2024 14:30:00"
+format_operational_datetime('2024-01-15 14:30:00'); // sem conversao de timezone
 
 // Converter para salvar no BD
 parse_date('15/01/2024');               // "2024-01-15"
@@ -59,7 +64,12 @@ parse_datetime('15/01/2024 14:30:00');  // "2024-01-15 14:30:00"
 
 // Obter configuracao da empresa
 $config = date_config();
-// ['date_format' => 'd/m/Y', 'datetime_format' => 'd/m/Y H:i:s']
+// [
+//   'date_format' => 'd/m/Y',
+//   'datetime_format' => 'd/m/Y H:i:s',
+//   'timezone' => 'America/Sao_Paulo',
+//   'app_timezone' => 'America/Sao_Paulo'
+// ]
 ```
 
 ### Uso no Controller
@@ -96,7 +106,57 @@ DateHelper::isValidDateTimeFormat('15/01/2024 14:30:00'); // true
 
 // Limpar cache de configuracao
 DateHelper::clearCache();
+
+// Data/hora atual e calculos
+DateHelper::todayForDatabase();      // Y-m-d no timezone da matriz/filial
+DateHelper::nowForDatabase();        // Y-m-d H:i:s no timezone tecnico da aplicacao
+DateHelper::systemToday();           // data tecnica
+DateHelper::systemNow();             // data/hora tecnica
+DateHelper::addDaysForDatabase(7);   // soma dias no timezone de negocio
+DateHelper::addMonthsForDatabase(1); // soma meses no timezone de negocio
+DateHelper::timestamp();             // timestamp tecnico
+DateHelper::isoNow();                // ISO 8601 tecnico
+DateHelper::formatTimestamp($ts, 'd/m/Y H:i');
 ```
+
+`formatDateTime()` interpreta o valor do banco no timezone da aplicacao (`app_timezone`) e converte para o timezone da matriz/filial. `parseDateTime()` faz o caminho inverso antes de retornar o formato `Y-m-d H:i:s`.
+
+### Datas/Horas Operacionais
+
+Campos que representam horario local escolhido pelo usuario **nao devem converter timezone**. Exemplos: retirada/devolucao de locacao, inicio/fim de contrato, checklist de saida/chegada, multa, agenda e manutencao programada. Para esses casos, o valor do banco e a fonte de verdade e deve ser apenas formatado:
+
+```php
+format_operational_datetime('2025-09-04 10:00:00'); // "04/09/2025 10:00"
+DateHelper::formatOperationalDateTime('2025-09-04 10:00:00');
+```
+
+```javascript
+DateHelper.formatOperationalDateTime('2025-09-04 10:00:00'); // "04/09/2025 10:00"
+DateHelper.toOperationalDateTimeInput('2025-09-04 10:00:00'); // "2025-09-04T10:00"
+```
+
+Use `format_datetime()` / `DateHelper.formatDateTime()` para instantes tecnicos: `created_at`, `updated_at`, logs, auditoria, assinaturas, expiracoes, tokens, eventos de gateway e integracoes.
+
+### Regra de Uso
+
+Nao use `date()`, `time()`, `new DateTime()`, `new Date()` ou `NOW()/CURDATE()` diretamente em regra de negocio, exibicao, filtros de usuario, documentos, mensagens, locacoes, contratos, financeiro, checklists ou relatorios.
+
+Use `today()` / `now()` ou `DateHelper::todayForDatabase()` / `DateHelper::nowForDatabase()` para valores atuais, `format_date()` / `format_datetime()` para exibicao tecnica, `format_operational_datetime()` para horarios operacionais, `parse_date()` / `parse_datetime()` ao receber formularios e `DateHelper::addDaysForDatabase()` / `DateHelper::addMonthsForDatabase()` para vencimentos, expiracoes e parcelas.
+
+Em CRONs e rotinas cross-tenant, nunca aplique filtro por data dependente de
+timezone antes de carregar o contexto do tenant. Primeiro liste os tenants
+candidatos, depois defina `$_SESSION['chave']`, calcule `today()` /
+`DateHelper::todayForDatabase()` e use parametros SQL para comparacoes como
+vencido, vence amanha, autorrenovar, renovar encargo ou calcular juros.
+`NOW()`/`CURDATE()` do banco nao representam necessariamente a data de negocio
+do cliente.
+
+Excecoes tecnicas aceitas:
+
+- O proprio `DateHelper` pode usar `DateTimeImmutable`, `DateTimeZone`, `DateTime` e `time()` internamente.
+- Headers HTTP que exigem GMT podem usar `gmdate()`.
+- Componentes visuais de calendario que dependem de matematica de grade em JavaScript podem usar `Date` internamente enquanto nao houver wrapper equivalente no `DateHelper`; entrada, saida e exibicao devem passar pelo helper.
+- SQL legado com agregacoes complexas (`DATEDIFF`, `DATE_ADD`, `DATE_SUB`) deve ser migrado em etapa dedicada, substituindo `CURDATE()/NOW()` por parametros do `DateHelper` sem alterar a semantica da consulta.
 
 ## Uso no JavaScript (Frontend)
 
@@ -114,6 +174,17 @@ DateHelper.parseDateTime('15/01/2024 14:30:00'); // "2024-01-15 14:30:00"
 // Data/hora atual
 DateHelper.today();  // "15/01/2024"
 DateHelper.now();    // "15/01/2024 14:30:00"
+DateHelper.todayISO();     // "2024-01-15"
+DateHelper.nowISO();       // "2024-01-15 14:30:00"
+DateHelper.todayInput();   // valor para input date
+DateHelper.nowInput();     // valor para input datetime-local
+DateHelper.currentYear();  // ano atual de negocio
+DateHelper.currentMonth(); // mes atual de negocio
+DateHelper.addDays('2024-01-15', 7);
+DateHelper.addMonths('2024-01-15', 1);
+DateHelper.diffDays('2024-01-15', '2024-01-20');
+DateHelper.diffDateTime('2024-01-15T10:00', '2024-01-15T12:00');
+DateHelper.timestamp();
 
 // Aplicar mascara em input
 DateHelper.applyMask('#dataInput');
@@ -201,6 +272,8 @@ tbody.innerHTML = faturas.map(f => {
 3. **Use a classe `date-mask`** em inputs de data para mascara automatica
 4. **O banco armazena DATE/DATETIME** - sempre formato internacional
 5. **Nao armazene formatos locais** no banco de dados
+6. **Use `format_operational_datetime()` / `DateHelper.formatOperationalDateTime()`** para horarios locais operacionais gravados no banco
+7. **Nao use `date()`, `time()`, `new DateTime()`, `new Date()` ou `NOW()/CURDATE()` diretamente** fora dos helpers ou excecoes tecnicas documentadas
 
 ## Comparacao com Currency
 

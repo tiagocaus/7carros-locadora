@@ -156,7 +156,7 @@ class PromissoriaTemplateService
 
         if ($existing) {
             // Atualizar
-            $templateData['updated_at'] = date('Y-m-d H:i:s');
+            $templateData['updated_at'] = now();
             if ($userId) {
                 $templateData['updated_by'] = $userId;
             }
@@ -172,7 +172,7 @@ class PromissoriaTemplateService
             $templateData['chave'] = $this->chave;
             $templateData['template_type_id'] = $type['id'];
             $templateData['locale'] = $locale;
-            $templateData['created_at'] = date('Y-m-d H:i:s');
+            $templateData['created_at'] = now();
             if ($userId) {
                 $templateData['created_by'] = $userId;
             }

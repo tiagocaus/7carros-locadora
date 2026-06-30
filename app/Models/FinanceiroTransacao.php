@@ -119,7 +119,7 @@ class FinanceiroTransacao extends Model
     ): int {
         $dados = [
             'status' => $status,
-            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_at' => now(),
         ];
 
         if ($paidAt !== null) {
@@ -192,7 +192,7 @@ class FinanceiroTransacao extends Model
             ->withoutChave()
             ->where('external_id', '=', $externalId)
             ->where('type', '!=', 'webhook')
-            ->update(['webhook_received_at' => date('Y-m-d H:i:s')]);
+            ->update(['webhook_received_at' => now()]);
 
         // Criar registro do webhook
         return $this->qb

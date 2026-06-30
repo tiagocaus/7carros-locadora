@@ -297,7 +297,7 @@ class ProcessMessageQueueJob extends BaseJob
     {
         $data = [
             'status' => $status,
-            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_at' => now(),
         ];
 
         if ($errorMessage !== null) {
@@ -309,7 +309,7 @@ class ProcessMessageQueueJob extends BaseJob
         }
 
         if ($setProcessedAt) {
-            $data['processed_at'] = date('Y-m-d H:i:s');
+            $data['processed_at'] = now();
         }
 
         $this->qb->table('messages_queue')->where('id', '=', $messageId)->update($data);
@@ -327,7 +327,7 @@ class ProcessMessageQueueJob extends BaseJob
         // Atualiza
         $this->qb->table('messages_queue')->where('id', '=', $messageId)->update([
             'attempts' => $attempts,
-            'updated_at' => date('Y-m-d H:i:s'),
+            'updated_at' => now(),
         ]);
 
         return $attempts;
@@ -347,9 +347,9 @@ class ProcessMessageQueueJob extends BaseJob
                     status = 'failed'
                     AND error_message LIKE 'Erro ao publicar na fila:%'
                     AND attempts < ?
-                    AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    AND created_at >= ?
                 )
-            )", [$this->maxAttempts])
+            )", [$this->maxAttempts, $this->technicalDaysAgo(7)])
             ->count() > 0;
     }
 
@@ -513,7 +513,7 @@ class ProcessMessageQueueJob extends BaseJob
             ->where('status', '=', 'failed')
             ->whereRaw("error_message LIKE 'Erro ao publicar na fila:%'")
             ->whereRaw('attempts < ?', [$this->maxAttempts])
-            ->whereRaw('created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)')
+            ->where('created_at', '>=', $this->technicalDaysAgo(7))
             ->limit(20)
             ->get();
     }
@@ -525,7 +525,7 @@ class ProcessMessageQueueJob extends BaseJob
             ->table('messages_queue')
             ->select(['id', 'type', 'status', 'payload', 'chave', 'batch_id'])
             ->where('status', '=', 'pending')
-            ->whereRaw('updated_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE)')
+            ->where('updated_at', '<', $this->technicalMinutesAgo(2))
             ->limit(20)
             ->get();
     }
@@ -612,15 +612,15 @@ class ProcessMessageQueueJob extends BaseJob
                 status = 'pending'
                 OR (
                     status = 'processing'
-                    AND updated_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+                    AND updated_at < ?
                 )
                 OR (
                     status = 'failed'
                     AND error_message LIKE 'Erro ao publicar na fila:%'
                     AND attempts < ?
-                    AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    AND created_at >= ?
                 )
-            )", [$this->maxAttempts])
+            )", [$this->technicalMinutesAgo(10), $this->maxAttempts, $this->technicalDaysAgo(7)])
             ->orderBy('id', 'ASC')
             ->limit($limit)
             ->get();
@@ -638,7 +638,7 @@ class ProcessMessageQueueJob extends BaseJob
                 'error_message' => $wasFailed
                     ? 'Re-publicada apos falha de conexao com RabbitMQ'
                     : 'Re-publicada (mensagem pendente no banco)',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -651,7 +651,7 @@ class ProcessMessageQueueJob extends BaseJob
             ->update([
                 'status' => 'failed',
                 'error_message' => $errorMessage,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -685,7 +685,25 @@ class ProcessMessageQueueJob extends BaseJob
             'port' => (int) Database::env('RABBITMQ_PORT', '5672'),
             'vhost' => Database::env('RABBITMQ_VHOST', '/'),
             'queue' => Database::env('RABBITMQ_QUEUE_NAME', 'messages_queue'),
-            'time' => date('c'),
+            'time' => \App\Helpers\DateHelper::isoNow(),
         ], $context), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    private function technicalDaysAgo(int $days): string
+    {
+        return \App\Helpers\DateHelper::formatTimestamp(
+            \App\Helpers\DateHelper::timestamp() - ($days * 86400),
+            'Y-m-d H:i:s',
+            false
+        );
+    }
+
+    private function technicalMinutesAgo(int $minutes): string
+    {
+        return \App\Helpers\DateHelper::formatTimestamp(
+            \App\Helpers\DateHelper::timestamp() - ($minutes * 60),
+            'Y-m-d H:i:s',
+            false
+        );
     }
 }

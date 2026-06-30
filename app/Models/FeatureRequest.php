@@ -318,7 +318,7 @@ class FeatureRequest extends Model
         if ($resposta !== null) {
             $dadosUpdate['resposta_admin'] = $resposta;
             $dadosUpdate['respondido_por'] = $respondidoPor;
-            $dadosUpdate['respondido_em'] = date('Y-m-d H:i:s');
+            $dadosUpdate['respondido_em'] = now();
         }
 
         return $this->qb

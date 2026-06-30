@@ -402,15 +402,14 @@
         document.getElementById('parcelaValor').value = '';
 
         // Data padrao: ultimo vencimento + 30 dias ou hoje
-        let dataVencimento = new Date();
+        let dataVencimento = DateHelper.todayISO();
         if (parcelasData.length > 0) {
             const ultimaParcela = parcelasData[parcelasData.length - 1];
             if (ultimaParcela.data_vencimento) {
-                dataVencimento = new Date(ultimaParcela.data_vencimento + 'T12:00:00');
-                dataVencimento.setDate(dataVencimento.getDate() + 30);
+                dataVencimento = DateHelper.addDays(ultimaParcela.data_vencimento, 30);
             }
         }
-        document.getElementById('parcelaVencimento').value = dataVencimento.toISOString().split('T')[0];
+        document.getElementById('parcelaVencimento').value = dataVencimento;
 
         document.getElementById('modalParcela').classList.remove('hidden');
     }

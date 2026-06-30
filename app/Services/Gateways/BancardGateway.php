@@ -93,7 +93,7 @@ class BancardGateway extends AbstractPaymentGateway
             return [
                 'success' => true,
                 'status' => $this->mapStatus($confirmation['response_code'] ?? ''),
-                'paid_at' => $confirmation['response_code'] === '00' ? date('Y-m-d H:i:s') : null,
+                'paid_at' => $confirmation['response_code'] === '00' ? now() : null,
                 'raw' => $response,
             ];
         } catch (\Exception $e) {
@@ -135,7 +135,7 @@ class BancardGateway extends AbstractPaymentGateway
             'event' => 'payment_confirmed',
             'external_id' => $operation['shop_process_id'] ?? '',
             'status' => $this->mapStatus($operation['response_code'] ?? ''),
-            'paid_at' => ($operation['response_code'] ?? '') === '00' ? date('Y-m-d H:i:s') : null,
+            'paid_at' => ($operation['response_code'] ?? '') === '00' ? now() : null,
             'raw' => $payload,
         ];
     }

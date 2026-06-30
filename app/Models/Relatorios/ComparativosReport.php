@@ -35,8 +35,8 @@ class ComparativosReport extends BaseReportModel
         // Calcular período anterior automaticamente se não informado
         if (empty($dataInicioAnterior) || empty($dataFimAnterior)) {
             $diasPeriodo = max(1, $this->daysBetween($dataInicio, $dataFim));
-            $dataFimAnterior = date('Y-m-d', strtotime($dataInicio . ' -1 day'));
-            $dataInicioAnterior = date('Y-m-d', strtotime($dataFimAnterior . ' -' . ($diasPeriodo - 1) . ' days'));
+            $dataFimAnterior = \App\Helpers\DateHelper::addDaysForDatabase(-1, $dataInicio);
+            $dataInicioAnterior = \App\Helpers\DateHelper::addDaysForDatabase(-($diasPeriodo - 1), $dataFimAnterior);
         }
 
         $atual = $this->indicadoresPeriodo($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId);

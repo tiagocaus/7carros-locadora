@@ -53,7 +53,7 @@
         <tbody>
             <?php foreach ($lista as $row): ?>
             <tr>
-                <td class="center"><?= !empty($row['data_checklist']) ? format_datetime($row['data_checklist']) : '-' ?></td>
+                <td class="center"><?= !empty($row['data_checklist']) ? format_operational_datetime($row['data_checklist']) : '-' ?></td>
                 <td class="center"><?= htmlspecialchars($momentoLabels[$row['momento']] ?? $row['momento']) ?></td>
                 <td><strong><?= htmlspecialchars($row['placa'] ?? '-') ?></strong> <span style="color:#64748b; font-size:8pt;"><?= htmlspecialchars($row['veiculo_modelo'] ?? '') ?></span></td>
                 <td><?= htmlspecialchars($row['locacao_codigo'] ?? '-') ?></td>

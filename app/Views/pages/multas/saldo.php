@@ -287,9 +287,7 @@
 
     function formatarData(dt) {
         if (!dt) return '';
-        const d = new Date(dt);
-        if (isNaN(d.getTime())) return dt;
-        return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        return DateHelper.formatOperationalDateTime(dt) || dt;
     }
 
     function ocultarNomeProvedor(texto) {
@@ -404,6 +402,7 @@
             if (result.success && result.data) {
                 window.parent.postMessage({
                     action: 'openPixDataModal',
+                    transacao_id: result.data.transacao_id,
                     pix_code: result.data.pix_code,
                     pix_qrcode: result.data.pix_qrcode,
                     valor: result.data.valor,

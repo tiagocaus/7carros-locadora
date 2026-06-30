@@ -197,7 +197,7 @@ class AuthController
         if (!$csrfToken) {
             $csrfToken = bin2hex(random_bytes(32));
             Session::set('csrf_token', $csrfToken);
-            Session::set('csrf_token_time', time());
+            Session::set('csrf_token_time', \App\Helpers\DateHelper::timestamp());
         }
 
         echo $this->renderResetPage([
@@ -329,7 +329,11 @@ class AuthController
 
             // Bloqueia por 15 minutos após 5 tentativas
             if ($newAttempts >= self::MAX_LOGIN_ATTEMPTS) {
-                $bloqueadoAte = date('Y-m-d H:i:s', strtotime('+' . self::LOGIN_BLOCK_MINUTES . ' minutes'));
+                $bloqueadoAte = \App\Helpers\DateHelper::formatTimestamp(
+                    \App\Helpers\DateHelper::timestamp() + (self::LOGIN_BLOCK_MINUTES * 60),
+                    'Y-m-d H:i:s',
+                    false
+                );
             }
 
             $this->loginAttemptModel->incrementar($username, $ip, $newAttempts, $bloqueadoAte);
@@ -396,7 +400,7 @@ class AuthController
             return 0;
         }
 
-        return max(0, $blockedUntilTimestamp - time());
+        return max(0, $blockedUntilTimestamp - \App\Helpers\DateHelper::timestamp());
     }
 
     /**

@@ -471,7 +471,7 @@ class AsaasGateway extends AbstractPaymentGateway
         }
 
         $timestamp = strtotime($value);
-        return $timestamp === false ? null : date('Y-m-d H:i:s', $timestamp);
+        return $timestamp === false ? null : \App\Helpers\DateHelper::formatTimestamp($timestamp, 'Y-m-d H:i:s', false);
     }
 
     /**

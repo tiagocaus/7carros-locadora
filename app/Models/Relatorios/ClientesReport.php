@@ -719,7 +719,7 @@ class ClientesReport extends BaseReportModel
                 ->first();
 
             $diasInativo = !empty($r['ultima_locacao'])
-                ? (int) ((time() - strtotime((string) $r['ultima_locacao'])) / 86400)
+                ? (int) ((\App\Helpers\DateHelper::timestamp() - strtotime((string) $r['ultima_locacao'])) / 86400)
                 : null;
 
             $details[] = [

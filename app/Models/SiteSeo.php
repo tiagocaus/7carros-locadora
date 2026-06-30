@@ -61,7 +61,7 @@ class SiteSeo extends Model
             ->first();
 
         if ($existing) {
-            $dados['updated_at'] = date('Y-m-d H:i:s');
+            $dados['updated_at'] = now();
             return $this->qb
                 ->table('site_seo')
                 ->where('id', '=', $existing['id'])

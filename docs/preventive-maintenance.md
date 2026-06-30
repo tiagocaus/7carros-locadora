@@ -101,7 +101,7 @@ Depois: {"motor_oleo": "30.000"}  (20k + 10k intervalo)
 |-------|-----------|
 | R1 | **Margem**: OS gerada quando `diferença ≤ MANUTENCAO_MARGEM_KM` (padrão 500) |
 | R2 | **Desativados**: Intervalo = 0 ignora o item |
-| R3 | **Código OS**: `MA` + 5 dígitos + `id_filial` |
+| R3 | **Código OS**: `MA` + 7 caracteres alfanumericos maiusculos |
 | R4 | **Status**: OS criada com status `C` |
 | R5 | **Exclusão**: Plano com veículos vinculados não pode ser excluído |
 | R6 | **Multi-tenancy**: Isolamento total por `chave` |
@@ -144,7 +144,7 @@ APP_COMPANY_EMAIL=admin@x.com    # Email para resumo diario centralizado
 ```
 1. Diferença: 20.000 - 19.600 = 400 km
 2. Margem: 400 ≤ 500? SIM → Pendente!
-3. Gera OS código MA789451
+3. Gera OS código MA7K2P9XQ
 4. Atualiza: 20.000 + 10.000 = 30.000 km
 5. Notifica usuários
 ```

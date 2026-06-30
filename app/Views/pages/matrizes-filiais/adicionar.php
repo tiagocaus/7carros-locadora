@@ -256,7 +256,7 @@
             <div class="form-section mb-6">
                 <h3 class="form-section-title"><?= t('modules.matrizes_filiais.sections.locale_formatting') ?></h3>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="form-input-group">
                         <label for="locale" class="form-label-group"><?= t('modules.matrizes_filiais.fields.locale') ?></label>
                         <select id="locale" name="locale" class="form-input-group-field">
@@ -290,6 +290,34 @@
                             <option value="d/m/Y H:i:s"><?= t('modules.matrizes_filiais.format_options.datetime_dmy') ?></option>
                             <option value="m/d/Y H:i:s"><?= t('modules.matrizes_filiais.format_options.datetime_mdy') ?></option>
                             <option value="Y-m-d H:i:s"><?= t('modules.matrizes_filiais.format_options.datetime_ymd') ?></option>
+                        </select>
+                    </div>
+
+                    <div class="form-input-group">
+                        <label for="timezone" class="form-label-group"><?= t('modules.matrizes_filiais.fields.timezone') ?></label>
+                        <select id="timezone" name="timezone" class="form-input-group-field">
+                            <?php
+                            $timezones = [
+                                'America/Sao_Paulo',
+                                'America/Manaus',
+                                'America/Cuiaba',
+                                'America/Campo_Grande',
+                                'America/Belem',
+                                'America/Fortaleza',
+                                'America/Recife',
+                                'America/Bahia',
+                                'America/Rio_Branco',
+                                'America/New_York',
+                                'America/Mexico_City',
+                                'Europe/Lisbon',
+                                'Europe/Madrid',
+                                'Europe/Rome',
+                                'UTC',
+                            ];
+                            ?>
+                            <?php foreach ($timezones as $timezone): ?>
+                                <option value="<?= htmlspecialchars($timezone) ?>"><?= htmlspecialchars($timezone) ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                 </div>
@@ -1056,6 +1084,13 @@
             if (data.currency_code) document.getElementById('currency_code').value = data.currency_code;
             if (data.date_format) document.getElementById('date_format').value = data.date_format;
             if (data.datetime_format) document.getElementById('datetime_format').value = data.datetime_format;
+            if (data.timezone) {
+                const timezoneSelect = document.getElementById('timezone');
+                if (![...timezoneSelect.options].some(option => option.value === data.timezone)) {
+                    timezoneSelect.add(new Option(data.timezone, data.timezone));
+                }
+                timezoneSelect.value = data.timezone;
+            }
             if (data.sequencia_locacoes) document.getElementById('sequencia_locacoes').value = data.sequencia_locacoes;
             if (data.sequencia_contratos) document.getElementById('sequencia_contratos').value = data.sequencia_contratos;
             if (data.sequencia_financeiro) document.getElementById('sequencia_financeiro').value = data.sequencia_financeiro;

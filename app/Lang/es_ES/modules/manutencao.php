@@ -121,6 +121,7 @@ return [
         'branch' => 'Matriz/Sucursal',
         'vehicle' => 'Vehículo',
         'workshop' => 'Taller',
+        'client' => 'Cliente',
         'send_date' => 'Fecha Envío',
         'send_odometer' => 'Odómetro Envío',
         'send_tank' => 'Tanque Envío',
@@ -145,6 +146,10 @@ return [
         'installments' => 'Cuotas',
         'first_due_date' => '1er Vencimiento',
         'interval_days' => 'Intervalo (días)',
+    ],
+
+    'helpers' => [
+        'client_payer' => 'Seleccione un cliente cuando él sea el responsable de pagar este mantenimiento.',
     ],
 
     // Opciones de estado

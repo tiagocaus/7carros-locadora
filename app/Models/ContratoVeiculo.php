@@ -180,7 +180,7 @@ class ContratoVeiculo extends Model
                 'id_contrato' => (int) $dados['id_contrato'],
                 'id_veiculo' => (int) $dados['id_veiculo'],
                 'id_grupo' => !empty($dados['id_grupo']) ? (int) $dados['id_grupo'] : null,
-                'data_saida' => $dados['data_saida'] ?? date('Y-m-d H:i:s'),
+                'data_saida' => $dados['data_saida'] ?? now(),
                 'data_entrada' => $dados['data_entrada'] ?? null,
                 'plano' => $dados['plano'] ?? 'KL',
                 'valor_plano_km_pago' => \currency_parse($dados['valor_plano_km_pago'] ?? 0),
@@ -310,7 +310,7 @@ class ContratoVeiculo extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = now();
 
         return $this->qb
             ->table('contratos_veiculos')
@@ -330,7 +330,7 @@ class ContratoVeiculo extends Model
      */
     public function devolver(int $id, int $odometroEntrada, ?int $combustivelEntrada = null, ?string $motivo = null, ?string $dataEntrada = null): int
     {
-        $agora = date('Y-m-d H:i:s');
+        $agora = now();
 
         return $this->qb
             ->table('contratos_veiculos')
@@ -361,7 +361,7 @@ class ContratoVeiculo extends Model
             throw new \InvalidArgumentException('Veiculo do contrato nao encontrado');
         }
 
-        $agora = date('Y-m-d H:i:s');
+        $agora = now();
 
         // Registrar devolucao do veiculo antigo (veiculo entra na empresa)
         $this->qb

@@ -319,7 +319,7 @@ if (!function_exists('now')) {
      */
     function now(string $format = 'Y-m-d H:i:s'): string
     {
-        return date($format);
+        return \App\Helpers\DateHelper::nowForDatabase($format);
     }
 }
 
@@ -332,7 +332,7 @@ if (!function_exists('today')) {
      */
     function today(string $format = 'Y-m-d'): string
     {
-        return date($format);
+        return \App\Helpers\DateHelper::todayForDatabase($format);
     }
 }
 
@@ -820,11 +820,11 @@ if (!function_exists('date_config')) {
      *
      * Útil para passar ao front-end via JSON.
      *
-     * @return array {date_format, datetime_format}
+     * @return array {date_format, datetime_format, timezone, app_timezone}
      *
      * @example
      * $config = date_config();
-     * // ['date_format' => 'd/m/Y', 'datetime_format' => 'd/m/Y H:i:s']
+     * // ['date_format' => 'd/m/Y', 'datetime_format' => 'd/m/Y H:i:s', 'timezone' => 'America/Sao_Paulo']
      */
     function date_config(): array
     {
@@ -861,6 +861,20 @@ if (!function_exists('format_datetime')) {
     function format_datetime(?string $datetime): string
     {
         return \App\Helpers\DateHelper::formatDateTime($datetime);
+    }
+}
+
+if (!function_exists('format_operational_datetime')) {
+    /**
+     * Formata data/hora operacional sem converter timezone.
+     *
+     * Use para horarios locais escolhidos pelo usuario e gravados no banco como
+     * valor operacional: retirada/devolucao, inicio/fim de contrato, checklist,
+     * multas, agenda e manutencoes programadas.
+     */
+    function format_operational_datetime(?string $datetime, bool $withoutSeconds = true, ?string $format = null): string
+    {
+        return \App\Helpers\DateHelper::formatOperationalDateTime($datetime, $withoutSeconds, $format);
     }
 }
 

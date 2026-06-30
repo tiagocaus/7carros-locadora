@@ -15,6 +15,8 @@ use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
 class InterGateway extends AbstractPaymentGateway
 {
     private string $grantedScopes = '';
+    private ?string $accessToken = null;
+    private int $accessTokenExpiresAt = 0;
 
     /**
      * {@inheritdoc}
@@ -406,13 +408,21 @@ class InterGateway extends AbstractPaymentGateway
             if (strlen($externalId) <= 35 && !str_contains($externalId, '-')) {
                 $response = $this->makeApiRequest('GET', "/pix/v2/cob/{$externalId}", [], $token);
             } else {
-                $response = $this->makeApiRequest('GET', "/cobranca/v3/cobrancas/{$externalId}", [], $token);
+                return $this->getCobrancaV3ChargeStatus($externalId);
+            }
+
+            if (($response['_http_code'] ?? 0) >= 400) {
+                return [
+                    'success' => false,
+                    'message' => $response['detail'] ?? $response['message'] ?? $response['title'] ?? 'Erro ao consultar cobrança no Banco Inter',
+                    'raw' => $response,
+                ];
             }
 
             return [
                 'success' => true,
-                'status' => $this->mapStatus($response['status'] ?? $response['situacao'] ?? ''),
-                'paid_at' => $response['dataPagamento'] ?? null,
+                'status' => $this->mapStatus($this->extractGatewayStatus($response)),
+                'paid_at' => $this->extractPaidAt($response),
                 'raw' => $response,
             ];
 
@@ -420,6 +430,51 @@ class InterGateway extends AbstractPaymentGateway
             return [
                 'success' => false,
                 'message' => 'Erro ao consultar: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Consulta uma cobranca emitida pela API Cobranca v3 usando codigoSolicitacao.
+     */
+    public function getCobrancaV3ChargeStatus(string $codigoSolicitacao): array
+    {
+        try {
+            $token = $this->getAccessToken();
+            if (!$token) {
+                return ['success' => false, 'message' => 'Não foi possível autenticar'];
+            }
+
+            $endpoint = '/cobranca/v3/cobrancas/' . rawurlencode($codigoSolicitacao);
+            $response = $this->makeApiRequest('GET', $endpoint, [], $token);
+
+            if (in_array((int) ($response['_http_code'] ?? 0), [401, 403], true)) {
+                $token = $this->getAccessToken(true);
+                if (!$token) {
+                    return ['success' => false, 'message' => 'Não foi possível autenticar'];
+                }
+                $response = $this->makeApiRequest('GET', $endpoint, [], $token);
+            }
+
+            if (($response['_http_code'] ?? 0) >= 400) {
+                return [
+                    'success' => false,
+                    'message' => $response['detail'] ?? $response['message'] ?? $response['title'] ?? 'Erro ao consultar cobrança no Banco Inter',
+                    'raw' => $response,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'status' => $this->mapStatus($this->extractGatewayStatus($response)),
+                'gateway_status' => $this->extractGatewayStatus($response),
+                'paid_at' => $this->extractPaidAt($response),
+                'raw' => $response,
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erro ao consultar cobrança: ' . $e->getMessage(),
             ];
         }
     }
@@ -566,6 +621,24 @@ class InterGateway extends AbstractPaymentGateway
         };
     }
 
+    private function extractGatewayStatus(array $response): string
+    {
+        return (string) (
+            $response['cobranca']['situacao']
+            ?? $response['status']
+            ?? $response['situacao']
+            ?? ''
+        );
+    }
+
+    private function extractPaidAt(array $response): ?string
+    {
+        return $response['cobranca']['dataSituacao']
+            ?? $response['dataPagamento']
+            ?? $response['horario']
+            ?? null;
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -674,8 +747,12 @@ class InterGateway extends AbstractPaymentGateway
     /**
      * Obtém token de acesso OAuth
      */
-    private function getAccessToken(): ?string
+    private function getAccessToken(bool $forceRefresh = false): ?string
     {
+        if (!$forceRefresh && $this->accessToken && time() < $this->accessTokenExpiresAt) {
+            return $this->accessToken;
+        }
+
         $clientId = $this->credentials['client_id'] ?? '';
         $clientSecret = $this->credentials['client_secret'] ?? '';
 
@@ -691,7 +768,13 @@ class InterGateway extends AbstractPaymentGateway
         $token = $response['access_token'] ?? null;
 
         if ($token) {
+            $expiresIn = max(60, (int) ($response['expires_in'] ?? 3600));
+            $this->accessToken = $token;
+            $this->accessTokenExpiresAt = time() + $expiresIn - 30;
             $this->grantedScopes = $response['scope'] ?? '';
+        } else {
+            $this->accessToken = null;
+            $this->accessTokenExpiresAt = 0;
         }
 
         return $token;

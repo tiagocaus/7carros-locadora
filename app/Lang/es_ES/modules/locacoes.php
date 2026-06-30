@@ -372,6 +372,7 @@ return [
         'no_installments' => 'Ninguna cuota generada',
         'save_before_add_payment' => 'Guarda la reserva/alquiler para poder agregar un pago.',
         'total_launched' => 'Total Registrado',
+        'total_damages' => 'Averías cobradas',
         'total_paid' => 'Total Pagado',
         'total_pending' => 'Total Pendiente',
         'total_refunded' => 'Valor Reembolsado',

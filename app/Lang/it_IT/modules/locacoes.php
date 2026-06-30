@@ -372,6 +372,7 @@ return [
         'no_installments' => 'Nessuna rata generata',
         'save_before_add_payment' => 'Salva la prenotazione/noleggio per poter aggiungere un pagamento.',
         'total_launched' => 'Totale Registrato',
+        'total_damages' => 'Danni addebitati',
         'total_paid' => 'Totale Pagato',
         'total_pending' => 'Totale Pendenti',
         'total_refunded' => 'Importo Rimborsato',

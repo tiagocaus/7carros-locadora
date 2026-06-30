@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let notificationCountsRetryAfterUntil = 0;
 
     async function refreshNotificationCounts() {
-        const now = Date.now();
+        const now = DateHelper.timestamp();
         if (notificationCountsRequestInFlight || now < notificationCountsRetryAfterUntil) {
             return;
         }
@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             const result = await API.get('/api/notifications/counts');
             if (result.rate_limited && result.retry_after) {
-                notificationCountsRetryAfterUntil = Date.now() + (parseInt(result.retry_after, 10) * 1000);
+                notificationCountsRetryAfterUntil = DateHelper.timestamp() + (parseInt(result.retry_after, 10) * 1000);
                 return;
             }
 
@@ -732,7 +732,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function loadDashboardSimpleSubtab(targetContentElement, config) {
-        const requestId = String(Date.now());
+        const requestId = String(DateHelper.timestamp());
         targetContentElement.dataset.requestId = requestId;
         targetContentElement.innerHTML = renderDashboardSubtabLoading(config);
 

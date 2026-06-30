@@ -18,7 +18,7 @@
                 <div class="grid-cell label w25"><?= t('modules.multas.pdf.ait_label') ?></div>
                 <div class="grid-cell w25"><?= htmlspecialchars($multa['numero_ait'] ?? '-') ?></div>
                 <div class="grid-cell label w25"><?= t('modules.multas.pdf.fine_date_label') ?></div>
-                <div class="grid-cell w25"><?= !empty($multa['data_hora']) ? format_datetime($multa['data_hora']) : '-' ?></div>
+                <div class="grid-cell w25"><?= !empty($multa['data_hora']) ? format_operational_datetime($multa['data_hora']) : '-' ?></div>
             </div>
             <div class="grid-row">
                 <div class="grid-cell label"><?= t('modules.multas.pdf.location_label') ?></div>
@@ -115,7 +115,7 @@
 
     <div class="footer">
         <p><?= t('modules.multas.pdf.indication_footer') ?></p>
-        <p><?= t('modules.multas.pdf.generated_at', ['datetime' => format_datetime(date('Y-m-d H:i:s'))]) ?></p>
+        <p><?= t('modules.multas.pdf.generated_at', ['datetime' => format_datetime(now())]) ?></p>
     </div>
 </body>
 </html>

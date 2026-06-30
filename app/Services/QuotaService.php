@@ -144,7 +144,7 @@ class QuotaService
                     : 0,
             ],
             'plano' => $this->plano,
-            'date' => date('Y-m-d'),
+            'date' => today(),
         ];
     }
 

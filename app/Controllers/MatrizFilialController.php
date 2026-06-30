@@ -783,6 +783,8 @@ class MatrizFilialController
      */
     private function mapearDados(Request $request): array
     {
+        $timezone = $this->normalizarTimezone($request->input('timezone'));
+
         return [
             // Dados básicos
             'tipo' => $request->input('tipo'),
@@ -817,6 +819,7 @@ class MatrizFilialController
             'currency_code' => $request->input('currency_code'),
             'date_format' => $request->input('date_format'),
             'datetime_format' => $request->input('datetime_format'),
+            'timezone' => $timezone,
             'sequencia_locacoes' => $request->input('sequencia_locacoes'),
             'sequencia_contratos' => $request->input('sequencia_contratos'),
             'sequencia_financeiro' => $request->input('sequencia_financeiro'),
@@ -831,6 +834,24 @@ class MatrizFilialController
             'impressao_variavel_negrito' => $request->input('impressao_variavel_negrito'),
             'impressao_remover_tarja_amarela' => $request->input('impressao_remover_tarja_amarela'),
         ];
+    }
+
+    /**
+     * Normaliza e valida timezone IANA recebido do formulário.
+     */
+    private function normalizarTimezone(?string $timezone): string
+    {
+        $timezone = trim((string) $timezone);
+
+        if ($timezone === '') {
+            return 'America/Sao_Paulo';
+        }
+
+        if (!in_array($timezone, \DateTimeZone::listIdentifiers(), true)) {
+            throw new \InvalidArgumentException('Timezone inválido');
+        }
+
+        return $timezone;
     }
 
     /**

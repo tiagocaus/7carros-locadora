@@ -69,7 +69,7 @@ class SiteBanner extends Model
      */
     public function atualizar(int $id, array $dados): int
     {
-        $dados['updated_at'] = date('Y-m-d H:i:s');
+        $dados['updated_at'] = now();
         return $this->qb
             ->table('site_banners')
             ->where('id', '=', $id)
@@ -100,7 +100,7 @@ class SiteBanner extends Model
                 ->where('id', '=', (int) $id)
                 ->update([
                     'ordem'      => (int) $ordem,
-                    'updated_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => now(),
                 ]);
         }
     }

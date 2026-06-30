@@ -144,7 +144,7 @@ class EfipayGateway extends AbstractPaymentGateway
             $client = new EfiPay($options);
 
             // Tenta listar cobranças como teste
-            $params = ['begin_date' => date('Y-m-d'), 'end_date' => date('Y-m-d')];
+            $params = ['begin_date' => today(), 'end_date' => today()];
             $client->listCharges($params);
 
             return [
@@ -249,7 +249,7 @@ class EfipayGateway extends AbstractPaymentGateway
                 null,
                 $qrCode['qrcode'] ?? null,
                 null,
-                date('Y-m-d H:i:s', strtotime('+24 hours'))
+                \App\Helpers\DateHelper::addDaysForDatabase(1, null, 'Y-m-d H:i:s')
             );
 
             return [

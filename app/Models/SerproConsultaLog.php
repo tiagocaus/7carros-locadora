@@ -43,7 +43,7 @@ class SerproConsultaLog extends Model
                 'erro_mensagem' => $erroMensagem,
                 'id_serpro_transacao' => $idSerproTransacao,
                 'duracao_ms' => $duracaoMs,
-                'created_at' => date('Y-m-d H:i:s'),
+                'created_at' => now(),
             ]);
     }
 

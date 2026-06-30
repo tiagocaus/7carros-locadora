@@ -171,6 +171,22 @@
         `;
         }
 
+        function getHojeISO() {
+            return window.DateHelper && typeof DateHelper.todayISO === 'function'
+                ? DateHelper.todayISO()
+                : new Date().toISOString().split('T')[0];
+        }
+
+        function diffDias(inicio, fim) {
+            if (window.DateHelper && typeof DateHelper.diffDays === 'function') {
+                return DateHelper.diffDays(inicio, fim);
+            }
+
+            const inicioDate = new Date(inicio + 'T00:00:00');
+            const fimDate = new Date(fim + 'T00:00:00');
+            return Math.ceil((fimDate.getTime() - inicioDate.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
         function renderLocacoes(locacoes) {
             if (!locacoes || locacoes.length === 0) {
                 tbody.innerHTML = `
@@ -184,8 +200,7 @@
             }
 
             let tableRows = '';
-            const hoje = new Date();
-            hoje.setHours(0, 0, 0, 0);
+            const hoje = getHojeISO();
 
             locacoes.forEach(loc => {
                 const sequencia = loc.sequencia || '-';
@@ -204,9 +219,7 @@
                 } else if (loc.status === 'A') {
                     // Verificar se esta atrasado
                     if (loc.data_prevista) {
-                        const dataPrev = new Date(loc.data_prevista);
-                        dataPrev.setHours(0, 0, 0, 0);
-                        if (dataPrev < hoje) {
+                        if (diffDias(hoje, loc.data_prevista.substring(0, 10)) < 0) {
                             statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">${i18n.statusLate}</span>`;
                         } else {
                             statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">${i18n.statusOpen}</span>`;
@@ -569,11 +582,7 @@
 
         function formatarDataHora(data) {
             if (!data) return '-';
-            try {
-                return DateHelper.formatDateTime(data) || '-';
-            } catch {
-                return data;
-            }
+            return DateHelper.formatOperationalDateTime(data) || '-';
         }
 
         // Initialization

@@ -152,7 +152,7 @@ class AuthPasswordResetService
             ->insert([
                 'chave' => $funcionario['chave'],
                 'id_funcionario' => (int) $funcionario['id'],
-                'data' => date('Y-m-d H:i:s'),
+                'data' => now(),
                 'ip' => $ipAddress,
                 'mensagem' => '[Auth] Redefinicao de senha de funcionario ' . $status . ' via tela de login para usuario: ' . $funcionario['usuario'],
                 'campos_alterados' => null,
@@ -175,8 +175,8 @@ class AuthPasswordResetService
                 'preferred_locale' => $funcionario['ui_locale'] ?? null,
             ],
             'outros' => [
-                'data_atual' => date('d/m/Y'),
-                'hora_atual' => date('H:i'),
+                'data_atual' => format_date(today()),
+                'hora_atual' => \App\Helpers\DateHelper::todayForDatabase('H:i'),
                 'reset_url' => $resetUrl,
                 'reset_expira_em' => FuncionarioPasswordReset::TTL_MINUTES . ' minutos',
             ],

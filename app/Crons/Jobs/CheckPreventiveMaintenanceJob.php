@@ -4,6 +4,7 @@ namespace App\Crons\Jobs;
 
 use App\Classes\QueryBuilder;
 use App\Core\Database;
+use App\Helpers\CodigoHelper;
 use App\Services\AuditLogService;
 use mysqli;
 
@@ -95,6 +96,8 @@ class CheckPreventiveMaintenanceJob extends BaseJob
                 );
 
                 if (!empty($itensPendentes)) {
+                    $mysqli->begin_transaction();
+
                     try {
                         // Gera OS
                         $osInfo = $this->gerarOS($qb, $veiculo, $itensPendentes);
@@ -102,10 +105,14 @@ class CheckPreventiveMaintenanceJob extends BaseJob
                         // Atualiza próximos km no JSON
                         $this->atualizarPlanoVeiculo($qb, $veiculo, $itensPendentes, $planoIntervalos);
 
+                        $mysqli->commit();
+
                         $osCriadas[] = $osInfo;
                         $osGeradas++;
                         $osGeradasNoTenant++;
-                    } catch (\Exception $e) {
+                    } catch (\Throwable $e) {
+                        $mysqli->rollback();
+
                         $erros[] = [
                             'tenant' => $chave,
                             'placa' => $veiculo['placa'],
@@ -208,10 +215,10 @@ class CheckPreventiveMaintenanceJob extends BaseJob
      */
     private function carregarVeiculosPorTenant(QueryBuilder $qb, string $chave): array
     {
-        return $qb->withoutChave()
+        return $qb
             ->table('veiculos')
+            ->withChave($chave)
             ->select(['id', 'chave', 'id_matriz_filial', 'placa', 'odometro', 'id_plano_manutencao', 'plano_manutencao_array'])
-            ->where('chave', '=', $chave)
             ->whereNotNull('plano_manutencao_array')
             ->whereRaw("plano_manutencao_array != ''")
             ->get();
@@ -266,9 +273,10 @@ class CheckPreventiveMaintenanceJob extends BaseJob
     {
         $servicos = [];
         $itensParaLog = [];
+        $ordem = 1;
 
         foreach ($itensPendentes as $item => $dados) {
-            $servicos[] = ["0", $dados['label'], "1", "0.00", "0.00"];
+            $servicos[] = [(string) $ordem, $dados['label'], "1", "0.00", "0.00"];
 
             // Monta array detalhado para o log
             $itensParaLog[] = [
@@ -279,12 +287,13 @@ class CheckPreventiveMaintenanceJob extends BaseJob
                 'diferenca_km' => $dados['diferenca'],
                 'proximo_intervalo' => $dados['intervalo'],
             ];
+
+            $ordem++;
         }
 
-        // Padrão existente: MA + 5 dígitos + id_filial
-        $codigo = "MA" . rand(10000, 99999) . $veiculo['id_matriz_filial'];
+        $codigo = $this->gerarCodigoOs($qb, (string) $veiculo['chave']);
 
-        $qb->table('manutencoes')->insert([
+        $osId = $qb->table('manutencoes')->insert([
             'chave' => $veiculo['chave'],
             'os' => $codigo,
             'id_matriz_filial' => $veiculo['id_matriz_filial'],
@@ -295,11 +304,12 @@ class CheckPreventiveMaintenanceJob extends BaseJob
             'status' => 'C',
         ]);
 
-        $osId = $qb->getLastInsertId();
+        $this->criarItensOS($qb, $osId, (string) $veiculo['chave'], $itensPendentes);
 
         // Log no console do CRON (padrão BaseJob)
         $this->log(t('modules.manutencao.cron.os_generated', [
             'codigo' => $codigo,
+            'código' => $codigo,
             'placa' => $veiculo['placa']
         ]));
 
@@ -320,6 +330,47 @@ class CheckPreventiveMaintenanceJob extends BaseJob
             'codigo' => $codigo,
             'placa' => $veiculo['placa'],
         ];
+    }
+
+    private function criarItensOS(QueryBuilder $qb, int $osId, string $chave, array $itensPendentes): void
+    {
+        $ordem = 1;
+
+        foreach ($itensPendentes as $dados) {
+            $qb->table('manutencoes_itens')->insert([
+                'chave' => $chave,
+                'id_manutencao' => $osId,
+                'id_estoque' => null,
+                'descricao' => $dados['label'],
+                'quantidade' => 1,
+                'valor_unitario' => 0,
+                'desconto' => 0,
+                'valor_total' => 0,
+                'pago' => 'N',
+                'ordem' => $ordem,
+            ]);
+
+            $ordem++;
+        }
+    }
+
+    private function gerarCodigoOs(QueryBuilder $qb, string $chave): string
+    {
+        for ($tentativa = 0; $tentativa < 20; $tentativa++) {
+            $codigo = CodigoHelper::gerarComPrefixo('MA');
+
+            $existente = $qb
+                ->table('manutencoes')
+                ->withChave($chave)
+                ->where('os', '=', $codigo)
+                ->first();
+
+            if (!$existente) {
+                return $codigo;
+            }
+        }
+
+        throw new \RuntimeException('Nao foi possivel gerar um codigo de OS unico');
     }
 
     /**
@@ -344,7 +395,7 @@ class CheckPreventiveMaintenanceJob extends BaseJob
         }
 
         $qb->table('veiculos')
-            ->withoutChave()
+            ->withChave((string) $veiculo['chave'])
             ->where('id', '=', $veiculo['id'])
             ->update(['plano_manutencao_array' => json_encode($planoAtual)]);
 
@@ -364,14 +415,15 @@ class CheckPreventiveMaintenanceJob extends BaseJob
      */
     private function buscarUsuariosComPermissao(QueryBuilder $qb, string $chave, string $permission): array
     {
-        return $qb->withoutChave()
+        return $qb
             ->table('funcionarios', 'f')
+            ->withChave($chave)
             ->select(['f.id', 'f.nome', 'f.email', 'f.tel_cel as telefone', 'f.id_matriz_filial'])
             ->distinct()
             ->innerJoin('funcionarios_roles', 'r', 'f.id_role', '=', 'r.id')
             ->innerJoin('funcionarios_role_permissions', 'rp', 'r.id', '=', 'rp.role_id')
             ->innerJoin('permissions', 'p', 'rp.permission_id', '=', 'p.id')
-            ->whereRaw('f.chave = ? AND f.status = ? AND p.`key` = ?', [$chave, 'A', $permission])
+            ->whereRaw('f.status = ? AND p.`key` = ?', ['A', $permission])
             ->get();
     }
 

@@ -851,6 +851,27 @@
         }, '*');
     }
 
+    function isIsoDateValida(dateStr) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+        return DateHelper.parse(DateHelper.format(dateStr)) === dateStr;
+    }
+
+    function normalizarDataParaIso(dateStr) {
+        const value = String(dateStr || '').trim();
+        if (!value) return '';
+
+        if (isIsoDateValida(value)) {
+            return value;
+        }
+
+        if (typeof DateHelper === 'undefined') {
+            return null;
+        }
+
+        const parsed = DateHelper.parse(value);
+        return parsed && isIsoDateValida(parsed) ? parsed : null;
+    }
+
     function normalizarPlaca(placa) {
         return String(placa || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     }
@@ -1790,13 +1811,6 @@
         'anual': '{{ t("modules.veiculos.fields.recurrence_annual") }}'
     };
 
-    const datePlaceholder = (typeof DateHelper !== 'undefined')
-        ? DateHelper.config.date_format
-            .replace('d', 'dd').replace('j', 'd')
-            .replace('m', 'mm').replace('n', 'm')
-            .replace('Y', 'yyyy').replace('y', 'yy')
-        : 'dd/mm/aaaa';
-
     window.carregarEncargos = async function(idVeiculo) {
         const tbody = document.getElementById('encargos-tbody');
         const emptyMsg = document.getElementById('encargos-empty');
@@ -1823,6 +1837,7 @@
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid #bcc7d8';
         tr.dataset.encargoId = enc.id;
+        tr.dataset.vencimento = enc.vencimento || '';
 
         tr.innerHTML = `
             <td class="py-2 px-2 font-medium">${escapeHtml(enc.nome)}</td>
@@ -1862,7 +1877,7 @@
             <td class="py-1 px-2"><input type="text" class="form-input-group-field text-xs py-1" data-field="nome" maxlength="100" placeholder="Ex: IPVA, Seguro..." required></td>
             <td class="py-1 px-2"><input type="text" class="form-input-group-field text-xs py-1" data-field="descricao" maxlength="500" placeholder="Detalhes..."></td>
             <td class="py-1 px-2"><input type="text" class="form-input-group-field text-xs py-1 input-moeda" data-field="valor" placeholder="0,00"></td>
-            <td class="py-1 px-2"><input type="text" class="form-input-group-field text-xs py-1" data-field="vencimento" placeholder="${datePlaceholder}"></td>
+            <td class="py-1 px-2"><input type="date" class="form-input-group-field text-xs py-1" data-field="vencimento"></td>
             <td class="py-1 px-2">${recorrenciaSelect}</td>
             <td class="py-1 px-2"><input type="number" class="form-input-group-field text-xs py-1 text-center" data-field="dias_antecedencia" value="30" min="0" max="365"></td>
             <td class="py-1 px-2 text-center whitespace-nowrap">
@@ -1881,11 +1896,6 @@
         if (valorInput && typeof Currency !== 'undefined') {
             Currency.applyMask(valorInput);
         }
-        const vencimentoInput = tr.querySelector('[data-field="vencimento"]');
-        if (vencimentoInput && typeof DateHelper !== 'undefined') {
-            DateHelper.applyMask(vencimentoInput);
-        }
-
         tr.querySelector('[data-field="nome"]').focus();
     };
 
@@ -1912,11 +1922,20 @@
         }
 
         const vencimentoRaw = tr.querySelector('[data-field="vencimento"]').value.trim();
+        const vencimento = normalizarDataParaIso(vencimentoRaw);
+        if (vencimentoRaw && vencimento === null) {
+            window.parent.postMessage({
+                action: 'openAlert',
+                message: 'Informe uma data de vencimento valida.'
+            }, '*');
+            return;
+        }
+
         const dados = {
             nome: nome,
             descricao: tr.querySelector('[data-field="descricao"]').value.trim(),
             valor: tr.querySelector('[data-field="valor"]').value,
-            vencimento: vencimentoRaw || '',
+            vencimento: vencimento || '',
             recorrencia: tr.querySelector('[data-field="recorrencia"]').value,
             dias_antecedencia: tr.querySelector('[data-field="dias_antecedencia"]').value || 30
         };
@@ -1959,7 +1978,7 @@
         const nome = cells[0].textContent.trim();
         const descricao = cells[1].textContent.trim() === '-' ? '' : cells[1].textContent.trim();
         const valorText = cells[2].textContent.trim();
-        const vencimentoText = cells[3].textContent.trim();
+        const vencimentoValue = tr.dataset.vencimento || '';
         const diasAntecedencia = cells[5].textContent.trim();
 
         // Descobrir recorrencia atual pelo texto
@@ -1983,7 +2002,7 @@
             <td class="py-1 px-2"><input type="text" class="form-input-group-field text-xs py-1" data-field="nome" maxlength="100" value="${escapeHtml(nome)}"></td>
             <td class="py-1 px-2"><input type="text" class="form-input-group-field text-xs py-1" data-field="descricao" maxlength="500" value="${escapeHtml(descricao)}"></td>
             <td class="py-1 px-2"><input type="text" class="form-input-group-field text-xs py-1 input-moeda" data-field="valor" value="${valorText === '-' ? '' : valorText}"></td>
-            <td class="py-1 px-2"><input type="text" class="form-input-group-field text-xs py-1" data-field="vencimento" value="${vencimentoText === '-' ? '' : vencimentoText}" placeholder="${datePlaceholder}"></td>
+            <td class="py-1 px-2"><input type="date" class="form-input-group-field text-xs py-1" data-field="vencimento" value="${escapeHtml(vencimentoValue)}"></td>
             <td class="py-1 px-2">${recorrenciaSelect}</td>
             <td class="py-1 px-2"><input type="number" class="form-input-group-field text-xs py-1 text-center" data-field="dias_antecedencia" value="${diasAntecedencia}" min="0" max="365"></td>
             <td class="py-1 px-2 text-center whitespace-nowrap">
@@ -1999,15 +2018,6 @@
         const valorInput = tr.querySelector('[data-field="valor"]');
         if (valorInput && typeof Currency !== 'undefined') {
             Currency.applyMask(valorInput);
-        }
-        const vencimentoInput = tr.querySelector('[data-field="vencimento"]');
-        if (vencimentoInput && typeof DateHelper !== 'undefined') {
-            DateHelper.applyMask(vencimentoInput);
-            // Converter valor ISO para formato local se necessário
-            if (vencimentoInput.value && /^\d{4}-\d{2}-\d{2}$/.test(vencimentoInput.value)) {
-                const formatted = DateHelper.format(vencimentoInput.value);
-                if (formatted) vencimentoInput.value = formatted;
-            }
         }
     };
 

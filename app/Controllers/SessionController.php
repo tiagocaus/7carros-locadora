@@ -15,7 +15,7 @@ class SessionController
     public function refresh(Request $request): void
     {
         Session::set('csrf_token', bin2hex(random_bytes(32)));
-        Session::set('csrf_token_time', time());
+        Session::set('csrf_token_time', \App\Helpers\DateHelper::timestamp());
 
         Response::json([
             'success' => true,

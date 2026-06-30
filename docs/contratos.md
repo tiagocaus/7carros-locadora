@@ -96,7 +96,7 @@ Model principal com trait `Auditable` para auditoria automatica.
 - `buscarPorId($id)` - Busca com JOINs de cliente, filial, conta, forma pagamento
 - `buscarCompleto($id)` - Busca com veiculos e taxas
 - `buscarPorCodigo($codigo)` - Busca pelo codigo unico
-- `criar($dados)` - Cria contrato com codigo automatico
+- `criar($dados)` - Cria contrato com codigo automatico (`C` + 7 alfanumericos, ex: `C4Z8M2TN`)
 - `atualizar($id, $dados)` - Atualiza campos do contrato
 - `deletar($id)` - Remove contrato e dados relacionados
 - `salvarAssinatura($id, $assinatura, $ip)` - Salva assinatura digital
@@ -292,6 +292,7 @@ edicao especial de valores.
 - `data_renovacao` representa a proxima data em que a autorenovacao deve ser executada.
 - Ao renovar, o sistema deve avancar somente `data_renovacao`, usando `contagem` e `dias`.
 - Para geracao financeira, o periodo de cobranca da renovacao e calculado a partir de `data_renovacao` atual ate a nova `data_renovacao`; esse periodo nao deve sobrescrever `data_ini` nem `data_fim`.
+- O CRON de autorrenovacao deve descobrir tenants candidatos sem filtro por data dependente de timezone; depois deve setar o contexto do tenant, calcular `today()` e aplicar `data_renovacao <= hoje` com parametro SQL.
 - Se for necessario corrigir historico em que `data_ini`/`data_fim` foram deslocadas por autorenovacao, use `scripts/corrigir-datas-contratos-autorenovacao.php` primeiro em `--dry-run` e aplique apenas apos conferir os candidatos.
 
 ## Auditoria
@@ -411,3 +412,7 @@ A tabela `contratos` tem coluna `id_bloqueio_ativo` (FK para `contratos_bloqueio
 ### Na Fatura PDF
 
 A secao GARANTIAS aparece automaticamente na fatura do contrato quando existe bloqueio com valor > 0, mostrando descricao, status e valor.
+
+## Padrao de Datas
+
+Datas de inicio/fim, renovacao e devolucao de contrato sao horarios operacionais locais e devem ser exibidas com `format_operational_datetime()` / `DateHelper.formatOperationalDateTime()`, sem conversao de timezone. Caucao, bloqueio, documentos, mensagens e PDFs devem usar `DateHelper`/helpers globais conforme o tipo de dado (`format_datetime()` para instantes tecnicos, `format_operational_datetime()` para horarios operacionais). Evite `date()`, `time()`, `new DateTime()`, `new Date()` e `NOW()/CURDATE()` em regras de negocio, exibicao e filtros. Para queries, calcule a data no helper e passe como parametro sempre que a regra for tenant-scoped.

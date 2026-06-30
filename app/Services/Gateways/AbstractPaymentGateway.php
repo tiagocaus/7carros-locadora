@@ -146,7 +146,7 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
      */
     protected function resolveDueDate(?string $dueDate = null): string
     {
-        $today = date('Y-m-d');
+        $today = today();
 
         if (empty($dueDate)) {
             return $today;
@@ -157,7 +157,7 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
             return $today;
         }
 
-        $normalized = date('Y-m-d', $timestamp);
+        $normalized = \App\Helpers\DateHelper::formatTimestamp($timestamp, 'Y-m-d');
         return $normalized < $today ? $today : $normalized;
     }
 

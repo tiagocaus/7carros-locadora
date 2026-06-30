@@ -21,6 +21,7 @@ use App\Models\HorarioFuncionamento;
 use App\Models\HorarioExcecao;
 use App\Models\Feriado;
 use App\Models\LocacaoDocumento;
+use App\Helpers\DateHelper;
 use App\Helpers\ImageHelper;
 use App\Helpers\FileHelper;
 use App\Services\WebsiteReservaCalcService;
@@ -62,7 +63,7 @@ class PublicWebsiteController
             ];
 
             $feriadoModel = new Feriado();
-            $anoAtual     = (int) date('Y');
+            $anoAtual     = (int) DateHelper::todayForDatabase('Y');
 
             $filiaisFormatadas = [];
             foreach ($filiais as $f) {
@@ -522,7 +523,7 @@ class PublicWebsiteController
                     'obs'                        => json_encode($obs, JSON_UNESCAPED_UNICODE),
                     'total_fatura'               => $totalCalculado,
                     'total_pagar'                => $totalCalculado,
-                    'created_at'                 => date('Y-m-d H:i:s'),
+                    'created_at'                 => DateHelper::nowForDatabase(),
                 ]);
 
             // Vincula a reserva ao grupo (sem veiculo especifico ainda).
@@ -592,17 +593,17 @@ class PublicWebsiteController
                 'id_matriz_filial' => (int) $dados['filial_retirada_id'],
                 'locacao' => [
                     'numero' => $codigo,
-                    'data_retirada' => date('d/m/Y', strtotime($dados['data_saida'])),
+                    'data_retirada' => format_date($dados['data_saida']),
                     'hora_retirada' => $dados['hora_saida'],
                     'local_retirada' => trim(($filialRet['estado'] ?? '') . ' - ' . ($filialRet['cidade'] ?? $filialRet['nome_fantasia'] ?? ''), ' -'),
-                    'data_devolucao' => date('d/m/Y', strtotime($dados['data_chegada'])),
+                    'data_devolucao' => format_date($dados['data_chegada']),
                     'hora_devolucao' => $dados['hora_chegada'],
                     'local_devolucao' => trim(($filialDev['estado'] ?? '') . ' - ' . ($filialDev['cidade'] ?? $filialDev['nome_fantasia'] ?? ''), ' -'),
                     'quantidade_dias' => $dias,
                     'valor_total' => $totalCalculado,
                 ],
                 'outros' => [
-                    'data_atual' => date('d/m/Y'),
+                    'data_atual' => format_date(DateHelper::todayForDatabase()),
                 ],
             ];
 
@@ -613,8 +614,8 @@ class PublicWebsiteController
             $pagamentoAntecipado = !empty($config['pagamento_antecipado']);
             $pagamentoUrl = null;
             if ($pagamentoAntecipado) {
-                $hoje = date('Y-m-d');
-                $vencimento = date('Y-m-d', strtotime('+2 days'));
+                $hoje = DateHelper::todayForDatabase();
+                $vencimento = DateHelper::addDaysForDatabase(2);
                 $idFinanceiro = $configModel->queryTable('financeiro')
                     ->insert([
                         'chave'            => $chave,
@@ -671,7 +672,7 @@ class PublicWebsiteController
                     . "Codigo: *{$codigo}*\n"
                     . "Cliente: " . ($clienteInfo['nome'] ?? '-') . "\n"
                     . "Telefone: " . ($clienteInfo['telefone'] ?? '-') . "\n"
-                    . "Retirada: " . date('d/m/Y', strtotime($dados['data_saida'])) . " {$dados['hora_saida']}\n"
+                    . "Retirada: " . format_date($dados['data_saida']) . " {$dados['hora_saida']}\n"
                     . ($requerConfirmacao ? "\n⚠️ Aguarda sua confirmacao no painel." : '')
                     . ($pagamentoAntecipado ? "\n💳 Aguarda pagamento do cliente." : '');
                 try {
@@ -832,7 +833,7 @@ class PublicWebsiteController
                             'email' => $cliente['email'],
                         ],
                         'outros' => [
-                            'data_atual' => date('d/m/Y'),
+                            'data_atual' => format_date(DateHelper::todayForDatabase()),
                             'reset_url' => $resetUrl,
                             'reset_expira_em' => \App\Models\ClientePasswordReset::TTL_MINUTES . ' minutos',
                         ],
@@ -1372,7 +1373,7 @@ HTML;
     {
         $lista = (new HorarioExcecao())->listarPorMatriz(
             $idFilial,
-            date('Y-m-d'),
+            DateHelper::todayForDatabase(),
             null
         );
         $out = [];

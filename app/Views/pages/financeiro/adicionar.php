@@ -587,7 +587,7 @@
         }
 
         // Definir datas padrao (hoje)
-        const hoje = new Date().toISOString().split('T')[0];
+        const hoje = DateHelper.todayInput();
         document.getElementById('dataCriada').value = hoje;
         document.getElementById('dataVenci').value = hoje;
         document.getElementById('dataPago').value = hoje;
@@ -785,7 +785,7 @@
                 // Se não tiver data preenchida, usar data de hoje
                 const dataPago = document.getElementById('dataPago');
                 if (!dataPago.value) {
-                    const hoje = new Date().toISOString().split('T')[0];
+                    const hoje = DateHelper.todayInput();
                     dataPago.value = hoje;
                 }
             } else {
@@ -931,7 +931,7 @@
         const diferenca = valorTotal - (valorParcelaArredondado * numParcelas);
 
         parcelasPreview = [];
-        let dataAtual = new Date(dataPrimeira + 'T00:00:00');
+        let dataAtual = dataPrimeira;
 
         for (let i = 0; i < numParcelas; i++) {
             let valor = valorParcelaArredondado;
@@ -943,7 +943,7 @@
             parcelasPreview.push({
                 parcela: i + 1,
                 totalParcelas: numParcelas,
-                dataVenci: formatarDataISO(dataAtual),
+                dataVenci: dataAtual,
                 valor: valor
             });
 
@@ -955,29 +955,21 @@
     }
 
     function adicionarIntervalo(data, valor, tipo) {
-        const novaData = new Date(data);
         switch (tipo) {
             case 'dias':
-                novaData.setDate(novaData.getDate() + valor);
-                break;
+                return DateHelper.addDays(data, valor);
             case 'semanas':
-                novaData.setDate(novaData.getDate() + (valor * 7));
-                break;
+                return DateHelper.addDays(data, valor * 7);
             case 'meses':
-                novaData.setMonth(novaData.getMonth() + valor);
-                break;
+                return DateHelper.addMonths(data, valor);
             case 'anos':
-                novaData.setFullYear(novaData.getFullYear() + valor);
-                break;
+                return DateHelper.addMonths(data, valor * 12);
         }
-        return novaData;
+        return data;
     }
 
     function formatarDataISO(data) {
-        const ano = data.getFullYear();
-        const mes = String(data.getMonth() + 1).padStart(2, '0');
-        const dia = String(data.getDate()).padStart(2, '0');
-        return `${ano}-${mes}-${dia}`;
+        return data;
     }
 
     function formatarDataBR(dataISO) {

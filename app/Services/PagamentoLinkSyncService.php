@@ -63,7 +63,7 @@ class PagamentoLinkSyncService
             'id_cliente' => $financeiro['id_cliente'] ?? null,
             'valor' => $financeiro['valor_total'],
             'descricao' => $dadosExtras['descricao'] ?? $financeiro['descricao'],
-            'expires_at' => date('Y-m-d H:i:s', strtotime("+{$diasExpiracao} days")),
+            'expires_at' => \App\Helpers\DateHelper::addDaysForDatabase($diasExpiracao, null, 'Y-m-d H:i:s'),
         ]);
 
         $novoLink = $this->linkModel->buscarPorId($linkId);
@@ -227,8 +227,8 @@ class PagamentoLinkSyncService
     private function sincronizarLinkComFinanceiro(array $link, array $financeiro, int $diasExpiracao = 30, array $dadosExtras = []): void
     {
         $expiresAt = $link['expires_at'] ?? null;
-        if (empty($expiresAt) || strtotime((string) $expiresAt) < time() || ($link['status'] ?? '') !== 'pending') {
-            $expiresAt = date('Y-m-d H:i:s', strtotime("+{$diasExpiracao} days"));
+        if (empty($expiresAt) || strtotime((string) $expiresAt) < \App\Helpers\DateHelper::timestamp() || ($link['status'] ?? '') !== 'pending') {
+            $expiresAt = \App\Helpers\DateHelper::addDaysForDatabase($diasExpiracao, null, 'Y-m-d H:i:s');
         }
 
         $dados = [
@@ -301,7 +301,7 @@ class PagamentoLinkSyncService
     private function tratarStatusTerminal(array $transacao, string $status, ?string $paidAt = null): bool
     {
         if ($status === 'paid') {
-            $this->transacaoModel->atualizarStatusPorId((int) $transacao['id'], 'paid', $paidAt ?: date('Y-m-d H:i:s'));
+            $this->transacaoModel->atualizarStatusPorId((int) $transacao['id'], 'paid', $paidAt ?: now());
             throw new \RuntimeException('A cobranca antiga ja consta como paga no gateway. Atualize o financeiro pelo fluxo de pagamento antes de gerar outro link.');
         }
 

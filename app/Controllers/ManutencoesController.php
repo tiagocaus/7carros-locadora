@@ -6,6 +6,7 @@ use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
+use App\Models\Cliente;
 use App\Models\Manutencao;
 use App\Models\ManutencaoItem;
 use App\Models\MatrizFilial;
@@ -103,8 +104,8 @@ class ManutencoesController
                 $m['total_servicos_formatted'] = currency_format((float) $m['total_servicos']);
                 $m['total_pago_formatted'] = currency_format((float) $m['total_pago']);
                 $m['total_pendente_formatted'] = currency_format((float) $m['total_pendente']);
-                $m['data_enviado_formatted'] = $m['data_enviado'] ? date('d/m/Y H:i', strtotime($m['data_enviado'])) : '';
-                $m['data_retorno_formatted'] = $m['data_retorno'] ? date('d/m/Y H:i', strtotime($m['data_retorno'])) : '';
+                $m['data_enviado_formatted'] = $m['data_enviado'] ? format_operational_datetime($m['data_enviado']) : '';
+                $m['data_retorno_formatted'] = $m['data_retorno'] ? format_operational_datetime($m['data_retorno']) : '';
                 $m['tem_financeiro_vinculado'] = !empty($m['id_financeiro_principal']) || (int) ($m['qtd_financeiros_itens'] ?? 0) > 0;
                 $m['tem_estoque_utilizado'] = (int) ($m['qtd_itens_estoque'] ?? 0) > 0;
 
@@ -217,6 +218,10 @@ class ManutencoesController
                 return;
             }
 
+            if (!$this->validarClienteOpcional($dados['id_cliente'] ?? null)) {
+                return;
+            }
+
             $model = new Manutencao();
             $statusSolicitado = $dados['status'] ?? 'C';
 
@@ -302,6 +307,10 @@ class ManutencoesController
             // Validar acesso a filial
             if (!empty($dados['id_matriz_filial']) && !FilialHelper::temAcessoFilial((int) $dados['id_matriz_filial'])) {
                 Response::json(['success' => false, 'message' => 'Sem acesso a esta filial'], 403);
+                return;
+            }
+
+            if (!$this->validarClienteOpcional($dados['id_cliente'] ?? null)) {
                 return;
             }
 
@@ -473,6 +482,32 @@ class ManutencoesController
         }
 
         return in_array(strtolower((string) $value), ['1', 'true', 's', 'sim', 'yes', 'on'], true);
+    }
+
+    private function validarClienteOpcional(mixed $idCliente): bool
+    {
+        if (empty($idCliente)) {
+            return true;
+        }
+
+        $cliente = (new Cliente())->buscarPorId((int) $idCliente);
+        if (!$cliente) {
+            Response::json(['success' => false, 'message' => 'Cliente nao encontrado'], 404);
+            return false;
+        }
+
+        if ($cliente['chave'] !== Auth::chave()) {
+            CrossTenantDetectionService::check('clientes', (int) $idCliente);
+            Response::json(['success' => false, 'message' => 'Cliente nao encontrado'], 404);
+            return false;
+        }
+
+        if (!empty($cliente['id_matriz_filial']) && !FilialHelper::temAcessoFilial((int) $cliente['id_matriz_filial'])) {
+            Response::json(['success' => false, 'message' => 'Sem acesso a filial do cliente'], 403);
+            return false;
+        }
+
+        return true;
     }
 
     // ===== ACOES DE NEGOCIO =====

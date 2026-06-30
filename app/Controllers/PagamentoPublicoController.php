@@ -49,7 +49,7 @@ class PagamentoPublicoController
         }
 
         // Verificar se expirou
-        if (!empty($link['expires_at']) && strtotime($link['expires_at']) < time()) {
+        if (!empty($link['expires_at']) && strtotime($link['expires_at']) < \App\Helpers\DateHelper::timestamp()) {
             $linkModel->marcarComoExpirado($link['id']);
             $this->renderErro('Link expirado', 'Este link de pagamento expirou. Solicite um novo link.');
             return;
@@ -171,7 +171,7 @@ class PagamentoPublicoController
             return;
         }
 
-        if (!empty($link['expires_at']) && strtotime($link['expires_at']) < time()) {
+        if (!empty($link['expires_at']) && strtotime($link['expires_at']) < \App\Helpers\DateHelper::timestamp()) {
             $linkModel->marcarComoExpirado($link['id']);
             Response::json([
                 'success' => false,
@@ -338,8 +338,8 @@ class PagamentoPublicoController
         }
 
         $expiresAt = $link['expires_at'] ?? null;
-        if (empty($expiresAt) || strtotime((string) $expiresAt) < time() || ($link['status'] ?? '') !== 'pending') {
-            $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
+        if (empty($expiresAt) || strtotime((string) $expiresAt) < \App\Helpers\DateHelper::timestamp() || ($link['status'] ?? '') !== 'pending') {
+            $expiresAt = \App\Helpers\DateHelper::addDaysForDatabase(30, null, 'Y-m-d H:i:s');
         }
 
         $linkModel->atualizarDadosCobranca((int) $link['id'], [
@@ -359,7 +359,7 @@ class PagamentoPublicoController
 
     private function resolveGatewayDueDate(?string $financeiroVencimento): string
     {
-        $hoje = date('Y-m-d');
+        $hoje = today();
 
         if (empty($financeiroVencimento)) {
             return $hoje;
@@ -370,7 +370,7 @@ class PagamentoPublicoController
             return $hoje;
         }
 
-        $vencimento = date('Y-m-d', $timestamp);
+        $vencimento = \App\Helpers\DateHelper::formatTimestamp($timestamp, 'Y-m-d');
         return $vencimento < $hoje ? $hoje : $vencimento;
     }
 
@@ -443,7 +443,7 @@ class PagamentoPublicoController
                             $transacaoModel->atualizarPorExternalId(
                                 $transacao['external_id'],
                                 $status,
-                                $status === 'paid' ? date('Y-m-d H:i:s') : null
+                                $status === 'paid' ? now() : null
                             );
 
                             // Se pagou, atualizar link
@@ -644,7 +644,7 @@ class PagamentoPublicoController
             $paidAt = null;
 
             if ($newStatus === 'paid') {
-                $paidAt = $parsedPayload['paid_at'] ?? date('Y-m-d H:i:s');
+                $paidAt = $parsedPayload['paid_at'] ?? now();
             }
 
             $transacaoModel->atualizarPorExternalId($externalId, $newStatus, $paidAt);
@@ -1015,15 +1015,15 @@ class PagamentoPublicoController
                 'id_matriz_filial' => (int) ($locacao['id_matriz_filial_retirada'] ?? 0),
                 'locacao' => [
                     'numero'          => $locacao['codigo'] ?? '',
-                    'data_retirada'   => !empty($locacao['data_saida']) ? date('d/m/Y', strtotime($locacao['data_saida'])) : '',
-                    'hora_retirada'   => !empty($locacao['data_saida']) ? date('H:i', strtotime($locacao['data_saida'])) : '',
-                    'data_devolucao'  => !empty($locacao['data_prevista']) ? date('d/m/Y', strtotime($locacao['data_prevista'])) : '',
-                    'hora_devolucao'  => !empty($locacao['data_prevista']) ? date('H:i', strtotime($locacao['data_prevista'])) : '',
+                    'data_retirada'   => !empty($locacao['data_saida']) ? format_date($locacao['data_saida']) : '',
+                    'hora_retirada'   => !empty($locacao['data_saida']) ? \App\Helpers\DateHelper::formatOperationalDateTime($locacao['data_saida'], true, 'H:i') : '',
+                    'data_devolucao'  => !empty($locacao['data_prevista']) ? format_date($locacao['data_prevista']) : '',
+                    'hora_devolucao'  => !empty($locacao['data_prevista']) ? \App\Helpers\DateHelper::formatOperationalDateTime($locacao['data_prevista'], true, 'H:i') : '',
                     'quantidade_dias' => (int) ($locacao['dias'] ?? 0),
                     'valor_total'     => (float) ($locacao['total_pagar'] ?? $locacao['total_fatura'] ?? 0),
                 ],
                 'outros' => [
-                    'data_atual' => date('d/m/Y'),
+                    'data_atual' => format_date(today()),
                 ],
             ];
 

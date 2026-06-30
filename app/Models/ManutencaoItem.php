@@ -372,7 +372,7 @@ class ManutencaoItem extends Model
             ->update([
                 'pago' => 'S',
                 'id_financeiro' => $idFinanceiro,
-                'data_pagamento' => date('Y-m-d H:i:s')
+                'data_pagamento' => now()
             ]);
     }
 

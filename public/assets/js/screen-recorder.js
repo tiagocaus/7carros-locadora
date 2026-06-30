@@ -167,7 +167,7 @@ const ScreenRecorder = (function() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `gravacao_${formatDate(new Date())}.webm`;
+        a.download = `gravacao_${DateHelper.nowISO().replace(/[-: ]/g, '').substring(0, 14)}.webm`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

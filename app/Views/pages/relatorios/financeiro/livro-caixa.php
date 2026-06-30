@@ -39,6 +39,13 @@
                 <option value=""><?= t('modules.relatorios.common.all') ?></option>
             </select>
         </div>
+        <div class="flex-1 min-w-[180px] max-w-[220px]">
+            <label for="filterConsiderarSaldoInicial" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.financeiro.livro_caixa.considerar_saldo_inicial') ?></label>
+            <select id="filterConsiderarSaldoInicial" class="form-input-focus w-full text-sm">
+                <option value="1" selected><?= t('common.labels.yes') ?></option>
+                <option value="0"><?= t('common.labels.no') ?></option>
+            </select>
+        </div>
         <div class="flex items-end gap-2">
             <button id="btnAplicar" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
                 <i class="fas fa-search mr-2"></i><?= t('modules.relatorios.common.apply') ?>
@@ -105,7 +112,13 @@
 
         document.getElementById('btnAplicar')?.addEventListener('click', () => { currentPage = 1; carregarRelatorio(); });
         document.getElementById('btnLimpar')?.addEventListener('click', limparFiltros);
-        document.getElementById('btnExportPdf')?.addEventListener('click', () => ReportUtils.exportPdf('/relatorios/financeiro/livro-caixa/pdf', '<?= t("modules.relatorios.financeiro.livro_caixa.title") ?>'));
+        document.getElementById('btnExportPdf')?.addEventListener('click', () => {
+            const considerarSaldoInicial = document.getElementById('filterConsiderarSaldoInicial')?.value || '1';
+            ReportUtils.exportPdf(
+                `/relatorios/financeiro/livro-caixa/pdf?considerar_saldo_inicial=${encodeURIComponent(considerarSaldoInicial)}`,
+                '<?= t("modules.relatorios.financeiro.livro_caixa.title") ?>'
+            );
+        });
     }
 
     async function carregarRelatorio() {
@@ -117,6 +130,7 @@
                 data_fim: document.getElementById('filterDataFim').value,
                 filial: document.getElementById('filterFilial').value,
                 conta: document.getElementById('filterConta').value,
+                considerar_saldo_inicial: document.getElementById('filterConsiderarSaldoInicial').value,
                 page: currentPage,
                 perPage: perPage,
             };
@@ -140,7 +154,10 @@
     }
 
     function renderTotals(totals) {
-        document.getElementById('reportTotals').innerHTML = ReportUtils.buildTotalCards(totals, totalsConfig);
+        const config = document.getElementById('filterConsiderarSaldoInicial')?.value === '0'
+            ? totalsConfig.filter(item => item.key !== 'saldo_inicial')
+            : totalsConfig;
+        document.getElementById('reportTotals').innerHTML = ReportUtils.buildTotalCards(totals, config);
     }
 
     function renderTable(data) {
@@ -186,6 +203,7 @@
         ReportUtils.setDefaultPeriod();
         document.getElementById('filterFilial').value = '';
         document.getElementById('filterConta').value = '';
+        document.getElementById('filterConsiderarSaldoInicial').value = '1';
         ReportUtils.hideContent();
     }
 

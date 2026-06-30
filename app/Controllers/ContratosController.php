@@ -20,6 +20,7 @@ use App\Models\TaxaServico;
 use App\Models\ContatoEmail;
 use App\Models\ContatoTelefone;
 use App\Helpers\FilialHelper;
+use App\Helpers\DateHelper;
 use App\Helpers\PdfHelper;
 use App\Models\Documento;
 use App\Models\Cliente;
@@ -264,7 +265,7 @@ class ContratosController
         $html = Template::render('pages.contratos.offcanvas-odometro', [
             'contrato' => $contrato,
             'veiculos' => $veiculos,
-            'hoje' => date('Y-m-d'),
+            'hoje' => DateHelper::todayForDatabase(),
         ]);
         Response::html($html);
     }
@@ -430,7 +431,7 @@ class ContratosController
             $dados = $request->all();
             $contratoVeiculoId = (int) ($dados['id_contrato_veiculo'] ?? 0);
             $odometro = $this->normalizarOdometroContrato($dados['odometro'] ?? 0);
-            $data = date('Y-m-d');
+            $data = DateHelper::todayForDatabase();
             $obs = trim((string) ($dados['obs'] ?? ''));
             $obs = $obs !== '' ? mb_substr($obs, 0, 255) : null;
 
@@ -501,7 +502,7 @@ class ContratosController
                     'odometro' => $odometro,
                     'odometro_formatado' => number_format($odometro, 0, '', '.') . ' km',
                     'data' => $data,
-                    'data_formatada' => date('d/m/Y'),
+                    'data_formatada' => format_date(DateHelper::todayForDatabase()),
                     'km_rodado' => $kmRodado,
                     'km_excedente' => $kmExcedente,
                     'valor_excedente_estimado' => $kmExcedente * $valorKmExcedente,
@@ -1185,7 +1186,7 @@ class ContratosController
                     : null;
                 $observacao = $vData['observacao'] ?? $vData['motivo_saida'] ?? null;
 
-                $dataEntradaEfetiva = $dataEntrada ?: date('Y-m-d H:i:s');
+                $dataEntradaEfetiva = $dataEntrada ?: DateHelper::nowForDatabase();
                 if ($ultimaDataEntrada === null || $dataEntradaEfetiva > $ultimaDataEntrada) {
                     $ultimaDataEntrada = $dataEntradaEfetiva;
                 }
@@ -1284,7 +1285,7 @@ class ContratosController
             $veiculosAtivosCount = $veiculoModel->contarAtivos($id);
             if ($veiculosAtivosCount === 0) {
                 $contratoModel->atualizarStatus($id, 'F', [
-                    'data_fim' => $ultimaDataEntrada ?? date('Y-m-d H:i:s')
+                    'data_fim' => $ultimaDataEntrada ?? DateHelper::nowForDatabase()
                 ]);
             }
 
@@ -1760,7 +1761,7 @@ class ContratosController
                     'id' => $assinatura['id'],
                     'url' => $assinatura['url'] ?? '',
                     'data_assinatura' => !empty($assinatura['created_at'])
-                        ? date('d/m/Y H:i', strtotime($assinatura['created_at']))
+                        ? format_datetime($assinatura['created_at'])
                         : '-',
                     'ip' => $assinatura['ip_address'] ?? '-'
                 ]
@@ -2088,7 +2089,7 @@ class ContratosController
             $pdfContent = $this->gerarPdfString($id, $tipo, $idDocumento, $idChecklistModelo, $idChecklistDigital);
 
             // Salvar em arquivo temporario
-            $filename = 'contrato_' . $contrato['codigo'] . '_' . time() . '.pdf';
+            $filename = 'contrato_' . $contrato['codigo'] . '_' . DateHelper::timestamp() . '.pdf';
             $tempDir = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/storage/temp';
             if (!is_dir($tempDir)) {
                 mkdir($tempDir, 0755, true);
@@ -2225,6 +2226,12 @@ class ContratosController
         $kmChegadaDocumento = $veiculo ? ($veiculo['odometro_entrada'] ?? '') : '';
         $tanqueSaidaDocumento = $this->formatarNivelTanqueDocumento($veiculo['combustivel_saida'] ?? null);
         $tanqueChegadaDocumento = $this->formatarNivelTanqueDocumento($veiculo['combustivel_entrada'] ?? null);
+        $caucaoValorDocumento = $contrato['caucao_valor'] ?? 0;
+        $caucaoDataPrevistaDevolucao = $this->calcularDataPrevistaDevolucaoCaucaoContrato($contrato);
+        $bloqueioValorDocumento = $this->primeiroValorMonetarioPositivoDocumento([
+            $contrato['bloqueio_hold_valor'] ?? null,
+            $contrato['bloqueio_valor'] ?? null,
+        ]);
 
         return [
             'cliente' => [
@@ -2277,8 +2284,8 @@ class ContratosController
                 'numero' => $contrato['codigo'] ?? '',
                 'data_inicio' => $contrato['data_ini'] ?? '',
                 'data_fim' => $contrato['data_fim'] ?? '',
-                'hora_inicio' => !empty($contrato['data_ini']) ? date('H:i', strtotime($contrato['data_ini'])) : '',
-                'hora_fim' => !empty($contrato['data_fim']) ? date('H:i', strtotime($contrato['data_fim'])) : '',
+                'hora_inicio' => !empty($contrato['data_ini']) ? DateHelper::formatOperationalDateTime($contrato['data_ini'], true, 'H:i') : '',
+                'hora_fim' => !empty($contrato['data_fim']) ? DateHelper::formatOperationalDateTime($contrato['data_fim'], true, 'H:i') : '',
                 'valor_total' => $contrato['total_pagar'] ?? 0,
                 'valor_diaria' => $contrato['total_fatura'] ?? 0,
                 'quantidade_dias' => $contrato['dias'] ?? 0,
@@ -2305,6 +2312,16 @@ class ContratosController
                 'km_chegada' => $kmChegadaDocumento,
                 'tanque_saida' => $tanqueSaidaDocumento,
                 'tanque_chegada' => $tanqueChegadaDocumento,
+                'caucao_valor' => $caucaoValorDocumento,
+                'deposito_valor' => $caucaoValorDocumento,
+                'caucao_status' => $this->formatarStatusCaucaoDocumento($contrato['caucao_status'] ?? ''),
+                'caucao_data_devolucao' => $this->dataValidaDocumento($contrato['caucao_data_devolucao'] ?? null),
+                'caucao_prazo_devolucao' => $contrato['caucao_prazo_devolucao'] ?? '',
+                'caucao_data_prevista_devolucao' => $caucaoDataPrevistaDevolucao,
+                'bloqueio_valor' => $bloqueioValorDocumento,
+                'bloqueio_status' => $this->formatarStatusBloqueioDocumento($contrato['bloqueio_status'] ?? ''),
+                'bloqueio_valor_capturado' => $contrato['bloqueio_valor_capturado'] ?? 0,
+                'bloqueio_expira_em' => $this->dataValidaDocumento($contrato['bloqueio_expira_em'] ?? null),
                 'filial' => [
                     'endereco' => $empresa['rua'] ?? '',
                     'numero' => $empresa['num'] ?? '',
@@ -2342,6 +2359,78 @@ class ContratosController
             ] : [],
             'fornecedor' => $this->formatarFornecedorDocumento($fornecedorData),
         ];
+    }
+
+    private function calcularDataPrevistaDevolucaoCaucaoContrato(array $contrato): string
+    {
+        $dataEfetiva = $this->dataValidaDocumento($contrato['caucao_data_devolucao'] ?? null);
+        if ($dataEfetiva !== '') {
+            return $dataEfetiva;
+        }
+
+        if (isset($contrato['caucao_prazo_devolucao']) && $contrato['caucao_prazo_devolucao'] !== '') {
+            $prazo = (int) $contrato['caucao_prazo_devolucao'];
+            $dataBase = $this->dataValidaDocumento($contrato['data_fim'] ?? null);
+            if ($dataBase !== '') {
+                try {
+                    return (new \DateTimeImmutable($dataBase))
+                        ->modify("+{$prazo} days")
+                        ->format('Y-m-d');
+                } catch (\Exception) {
+                    return '';
+                }
+            }
+        }
+
+        return '';
+    }
+
+    private function primeiroValorMonetarioPositivoDocumento(array $valores): mixed
+    {
+        foreach ($valores as $valor) {
+            if ($valor !== null && $valor !== '' && (float) $valor > 0) {
+                return $valor;
+            }
+        }
+
+        return 0;
+    }
+
+    private function dataValidaDocumento(mixed $data): string
+    {
+        if (!is_string($data) || trim($data) === '') {
+            return '';
+        }
+
+        $data = trim($data);
+        if ($data === '0000-00-00' || $data === '0000-00-00 00:00:00') {
+            return '';
+        }
+
+        return $data;
+    }
+
+    private function formatarStatusCaucaoDocumento(mixed $status): string
+    {
+        return match ((string) $status) {
+            'ativa' => 'Ativa',
+            'devolvida' => 'Devolvida',
+            'cancelada' => 'Cancelada',
+            default => (string) $status,
+        };
+    }
+
+    private function formatarStatusBloqueioDocumento(mixed $status): string
+    {
+        return match ((string) $status) {
+            'pending' => 'Pendente',
+            'authorized' => 'Autorizado',
+            'captured' => 'Capturado',
+            'released' => 'Liberado',
+            'expired' => 'Expirado',
+            'failed' => 'Falhou',
+            default => (string) $status,
+        };
     }
 
     private function formatarNivelTanqueDocumento(mixed $nivel): string
@@ -2977,7 +3066,7 @@ class ContratosController
                 $parcela['total_parcelas'] = count($parcelasParaSalvar);
                 $parcela['id_conta'] = $parcela['id_conta'] ?? ($dados['id_conta'] ?? null);
                 $parcela['id_forma_pagamento'] = $parcela['id_forma_pagamento'] ?? ($dados['id_forma_pagamento'] ?? null);
-                $parcela['data_venci'] = $parcela['data_venci'] ?? ($preview['parcelas'][$i]['data_venci'] ?? date('Y-m-d'));
+                $parcela['data_venci'] = $parcela['data_venci'] ?? ($preview['parcelas'][$i]['data_venci'] ?? DateHelper::todayForDatabase());
                 $parcela['valor_subtotal'] = $parcela['valor_subtotal'] ?? ($parcela['valor'] ?? $preview['parcelas'][$i]['valor_subtotal'] ?? 0);
                 $parcela['valor_total'] = $parcela['valor_total'] ?? $parcela['valor_subtotal'];
             }
@@ -3601,7 +3690,7 @@ class ContratosController
                 'external_id' => $result['external_id'],
                 'valor' => $valor,
                 'status' => $result['status'] === 'authorized' ? 'authorized' : 'pending',
-                'autorizado_em' => $result['status'] === 'authorized' ? date('Y-m-d H:i:s') : null,
+                'autorizado_em' => $result['status'] === 'authorized' ? DateHelper::nowForDatabase() : null,
                 'expira_em' => $result['expires_at'] ?? null,
                 'payload' => $result['raw'] ?? null,
             ]);
@@ -3685,7 +3774,7 @@ class ContratosController
 
             // Atualizar status do bloqueio
             $bloqueioModel->atualizarStatus((int) $bloqueio['id'], 'captured', [
-                'capturado_em' => date('Y-m-d H:i:s'),
+                'capturado_em' => DateHelper::nowForDatabase(),
                 'valor_capturado' => $valorEfetivo,
                 'payload' => $result['raw'] ?? null,
             ]);
@@ -3715,9 +3804,9 @@ class ContratosController
                 'id_conta' => $idConta,
                 'id_plano_de_conta' => $planoBloqueioEntrada ? (int) $planoBloqueioEntrada['id'] : null,
                 'id_contrato' => $id,
-                'data_criada' => date('Y-m-d'),
-                'data_venci' => date('Y-m-d'),
-                'data_pago' => date('Y-m-d'),
+                'data_criada' => DateHelper::todayForDatabase(),
+                'data_venci' => DateHelper::todayForDatabase(),
+                'data_pago' => DateHelper::todayForDatabase(),
                 'valor_subtotal' => $valorEfetivo,
                 'parcela' => 1,
                 'total_parcelas' => 1,
@@ -3784,7 +3873,7 @@ class ContratosController
 
             // Atualizar status do bloqueio
             $bloqueioModel->atualizarStatus((int) $bloqueio['id'], 'released', [
-                'liberado_em' => date('Y-m-d H:i:s'),
+                'liberado_em' => DateHelper::nowForDatabase(),
                 'payload' => $result['raw'] ?? null,
             ]);
 

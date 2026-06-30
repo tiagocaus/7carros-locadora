@@ -99,7 +99,7 @@
             if (result.success) {
                 document.getElementById('versaoAtual').textContent = result.versao_atual || '-';
                 document.getElementById('versaoTemplate').textContent = result.versao_template || '-';
-                document.getElementById('ultimoDeploy').textContent = result.ultimo_deploy_em ? new Date(result.ultimo_deploy_em).toLocaleString() : '-';
+                document.getElementById('ultimoDeploy').textContent = result.ultimo_deploy_em ? DateHelper.formatDateTime(result.ultimo_deploy_em) : '-';
 
                 if (result.update_disponivel) {
                     document.getElementById('alertaUpdate').classList.remove('hidden');
@@ -127,7 +127,7 @@
             vazio.classList.add('hidden');
             tbody.innerHTML = result.data.map(d => `
                 <tr class="border-t border-slate-100 hover:bg-slate-50">
-                    <td class="px-4 py-3">${new Date(d.created_at).toLocaleString()}</td>
+                    <td class="px-4 py-3">${DateHelper.formatDateTime(d.created_at)}</td>
                     <td class="px-4 py-3">${tipoLabels[d.tipo] || d.tipo}</td>
                     <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs ${statusClasses[d.status] || ''}">${statusLabels[d.status] || d.status}</span></td>
                     <td class="px-4 py-3 font-mono text-xs">${d.versao}</td>

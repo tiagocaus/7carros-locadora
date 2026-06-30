@@ -501,7 +501,7 @@ class WebsiteBuilderService
 
         $dominio = $config['dominio'] ?? 'exemplo.com';
         $baseUrl = 'https://' . $dominio;
-        $today = date('Y-m-d');
+        $today = today();
         $paginas = ['index.php', 'sobre.php', 'veiculos.php', 'contato.php'];
 
         if (!empty($config['reserva_online'])) {

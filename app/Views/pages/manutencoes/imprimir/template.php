@@ -258,7 +258,7 @@
                     </tr>
                     <tr>
                         <td class="sub-label"><?= t('modules.manutencao.fields.send_date') ?>:</td>
-                        <td class="sub-value"><?= !empty($manutencao['data_enviado']) ? date('d/m/Y H:i', strtotime($manutencao['data_enviado'])) : '-' ?></td>
+                        <td class="sub-value"><?= !empty($manutencao['data_enviado']) ? format_operational_datetime($manutencao['data_enviado']) : '-' ?></td>
                     </tr>
                     <tr>
                         <td class="sub-label"><?= t('modules.manutencao.fields.odometer') ?>:</td>
@@ -278,7 +278,7 @@
                     </tr>
                     <tr>
                         <td class="sub-label"><?= t('modules.manutencao.fields.return_date') ?>:</td>
-                        <td class="sub-value"><?= !empty($manutencao['data_retorno']) ? date('d/m/Y H:i', strtotime($manutencao['data_retorno'])) : '-' ?></td>
+                        <td class="sub-value"><?= !empty($manutencao['data_retorno']) ? format_operational_datetime($manutencao['data_retorno']) : '-' ?></td>
                     </tr>
                     <tr>
                         <td class="sub-label"><?= t('modules.manutencao.fields.odometer') ?>:</td>

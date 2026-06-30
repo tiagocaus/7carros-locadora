@@ -196,8 +196,8 @@ class Role extends Model
                 'chave' => $chave,
                 'name' => $nome,
                 'description' => $descricao,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'created_at' => now(),
+                'updated_at' => now()
             ]);
     }
 
@@ -213,7 +213,7 @@ class Role extends Model
             ->update([
                 'name' => $nome,
                 'description' => $descricao,
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => now()
             ]);
     }
 
@@ -228,7 +228,7 @@ class Role extends Model
             ->where('id', '=', $id)
             ->update([
                 'description' => $descricao,
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => now()
             ]);
     }
 

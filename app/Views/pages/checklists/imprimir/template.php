@@ -242,7 +242,7 @@
                         -
                     <?php endif; ?>
                 </div>
-                <div class="doc-detalhe"><strong><?= t('modules.checklists.print.date') ?>:</strong> <?= !empty($checklist['created_at']) ? date('d/m/Y H:i', strtotime($checklist['created_at'])) : '-' ?></div>
+                <div class="doc-detalhe"><strong><?= t('modules.checklists.print.date') ?>:</strong> <?= !empty($checklist['created_at']) ? format_datetime($checklist['created_at']) : '-' ?></div>
             </td>
             <td style="width: 15%; text-align: right; vertical-align: top;">
                 <?php if (!empty($qrPath)): ?>
@@ -292,7 +292,7 @@
         array $vistoria
     ): void {
     ?>
-    <div class="section-title"><?= $titulo ?> <?= !empty($data) ? '- ' . date('d/m/Y H:i', strtotime($data)) : '' ?></div>
+    <div class="section-title"><?= $titulo ?> <?= !empty($data) ? '- ' . format_operational_datetime($data) : '' ?></div>
 
     <?php if (!empty($questoes)): ?>
     <table class="questoes-table">

@@ -784,7 +784,7 @@ class FaturasReport extends BaseReportModel
     private function statusConta(?string $pago, ?string $dataVenci): string
     {
         if ($pago === 'S') return 'pago';
-        if ($dataVenci && $dataVenci < date('Y-m-d')) return 'vencida';
+        if ($dataVenci && $dataVenci < today()) return 'vencida';
         return 'pendente';
     }
 

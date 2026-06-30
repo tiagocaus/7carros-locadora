@@ -103,7 +103,7 @@
 
         <div class="footer">
             <p><?= t('modules.contratos.pdf.receipt_validity') ?></p>
-            <p><?= t('modules.contratos.pdf.generated_at', ['datetime' => format_datetime(date('Y-m-d H:i:s'))]) ?></p>
+            <p><?= t('modules.contratos.pdf.generated_at', ['datetime' => format_datetime(now())]) ?></p>
         </div>
     </div>
 </body>

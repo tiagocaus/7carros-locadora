@@ -344,7 +344,7 @@ class SquareGateway extends AbstractPaymentGateway
             return [
                 'success' => true,
                 'status' => $status,
-                'paid_at' => $status === 'paid' ? date('Y-m-d H:i:s') : null,
+                'paid_at' => $status === 'paid' ? now() : null,
                 'raw' => json_decode(json_encode($payment), true),
             ];
 
@@ -496,7 +496,7 @@ class SquareGateway extends AbstractPaymentGateway
             'event' => $eventType,
             'external_id' => $externalId,
             'status' => $status,
-            'paid_at' => $status === 'paid' ? date('Y-m-d H:i:s') : null,
+            'paid_at' => $status === 'paid' ? now() : null,
             'raw' => $payload,
         ];
     }

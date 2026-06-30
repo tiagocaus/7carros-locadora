@@ -220,8 +220,8 @@ class NFSe extends Model
             }
 
             if ($usarMesAtualPadrao && empty($dataInicio) && empty($dataFim)) {
-                $q->where('data_emissao', '>=', date('Y-m-01') . ' 00:00:00')
-                  ->where('data_emissao', '<=', date('Y-m-t') . ' 23:59:59');
+                $q->where('data_emissao', '>=', \App\Helpers\DateHelper::todayForDatabase('Y-m-01') . ' 00:00:00')
+                  ->where('data_emissao', '<=', \App\Helpers\DateHelper::todayForDatabase('Y-m-t') . ' 23:59:59');
             }
 
             return $q;
@@ -291,7 +291,7 @@ class NFSe extends Model
                 'codigo_verificacao' => $dados['codigo_verificacao'] ?? null,
                 'chave_acesso' => $dados['chave_acesso'] ?? null,
                 'xml_retorno' => $dados['xml_retorno'] ?? null,
-                'data_emissao' => $dados['data_emissao'] ?? date('Y-m-d H:i:s'),
+                'data_emissao' => $dados['data_emissao'] ?? now(),
                 'codigo_rejeicao' => null,
                 'motivo_rejeicao' => null,
             ]);
@@ -322,7 +322,7 @@ class NFSe extends Model
             ->where('id', '=', $id)
             ->update([
                 'status' => 'cancelada',
-                'data_cancelamento' => date('Y-m-d H:i:s'),
+                'data_cancelamento' => now(),
                 'motivo_cancelamento' => $motivo,
             ]);
     }
@@ -354,7 +354,7 @@ class NFSe extends Model
             ->table('nfse')
             ->where('id', '=', $id)
             ->update([
-                'email_enviado' => date('Y-m-d H:i:s'),
+                'email_enviado' => now(),
                 'email_destinatario' => $email,
             ]);
     }

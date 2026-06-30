@@ -469,7 +469,7 @@ class PromissoriasController
                 return;
             }
 
-            $dataPago = date('Y-m-d');
+            $dataPago = today();
 
             // Marcar todas as parcelas como pagas
             $qtdAtualizadas = $promissoriaModel->marcarTodasPagas($codigo, $dataPago);
@@ -802,7 +802,7 @@ class PromissoriasController
                 return;
             }
 
-            $dataPago = date('Y-m-d');
+            $dataPago = today();
 
             // Marcar parcela como paga
             $promissoriaModel->marcarParcelaPaga($id, $dataPago);

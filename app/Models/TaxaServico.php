@@ -245,7 +245,7 @@ class TaxaServico extends Model
         }
 
         if (!empty($dadosUpdate)) {
-            $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+            $dadosUpdate['updated_at'] = now();
         }
 
         if (empty($dadosUpdate)) {

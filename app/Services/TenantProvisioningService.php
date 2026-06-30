@@ -565,7 +565,7 @@ class TenantProvisioningService
                 ->insert([
                     'chave' => $chave,
                     'id_funcionario' => $idFuncionario ?? 0,
-                    'data' => date('Y-m-d H:i:s'),
+                    'data' => now(),
                     'ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
                     'mensagem' => '[WHMCS] ' . $mensagem,
                     'campos_alterados' => null,
@@ -592,7 +592,7 @@ class TenantProvisioningService
             }
 
             $linha = json_encode([
-                'timestamp' => date('c'),
+                'timestamp' => \App\Helpers\DateHelper::isoNow(),
                 'acao' => $acao,
                 'chave' => $chave,
                 'ip' => $_SERVER['REMOTE_ADDR'] ?? null,

@@ -149,7 +149,7 @@ class LocacaoVeiculo extends Model
                 'id_locacao' => (int) $dados['id_locacao'],
                 'id_veiculo' => !empty($dados['id_veiculo']) ? (int) $dados['id_veiculo'] : null,
                 'id_grupo' => !empty($dados['id_grupo']) ? (int) $dados['id_grupo'] : null,
-                'data_saida' => $dados['data_saida'] ?? date('Y-m-d H:i:s'),
+                'data_saida' => $dados['data_saida'] ?? now(),
                 'data_entrada' => $dados['data_entrada'] ?? null,
                 'plano' => $dados['plano'] ?? 'KL',
                 'valor_plano_km_pago' => currency_parse($dados['valor_plano_km_pago'] ?? 0),
@@ -258,7 +258,7 @@ class LocacaoVeiculo extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = now();
 
         return $this->qb
             ->table('locacoes_veiculos')
@@ -316,7 +316,7 @@ class LocacaoVeiculo extends Model
             ->table('locacoes_veiculos')
             ->where('id', '=', $id)
             ->update([
-                'data_entrada' => $dadosDevolucao['data_entrada'] ?? date('Y-m-d H:i:s'),
+                'data_entrada' => $dadosDevolucao['data_entrada'] ?? now(),
                 'odometro_entrada' => $odometroEntrada ?: null,
                 'combustivel_entrada' => $combustivelEntrada,
                 'odometro_usado' => $odometroUsado,
@@ -324,7 +324,7 @@ class LocacaoVeiculo extends Model
                 'combustivel_usado' => $combustivelUsado,
                 'combustivel_valor' => $combustivelValor,
                 'motivo_saida' => $dadosDevolucao['motivo_saida'] ?? null,
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => now()
             ]);
     }
 
@@ -344,7 +344,7 @@ class LocacaoVeiculo extends Model
             throw new \InvalidArgumentException('Veículo da locação não encontrado');
         }
 
-        $agora = date('Y-m-d H:i:s');
+        $agora = now();
 
         // Registrar saida do veiculo antigo
         $this->devolver($idVeiculoAntigo, array_merge($dadosSaida, [

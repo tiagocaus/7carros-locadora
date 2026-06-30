@@ -98,7 +98,7 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 |--------|------|-----------|
 | id | INT UNSIGNED | Chave primaria |
 | chave | VARCHAR(45) | Identificador do tenant |
-| codigo | VARCHAR(15) | Codigo unico gerado (ex: L123AB) |
+| codigo | VARCHAR(15) | Codigo unico gerado (`L` + 7 alfanumericos, ex: `L9K3P7QA`) |
 | sequencia | INT | Sequencia incremental por tenant |
 | status | CHAR(1) | R = Reserva, A = Aberto, F = Fechado |
 | id_cliente | INT UNSIGNED | FK para clientes |
@@ -333,18 +333,20 @@ $locacao->adicionarParcela($locacaoId, [
 
 ```php
 $resumo = $locacao->resumoFinanceiro($locacaoId);
-// Retorna: total_locacao, total_lancado, total_receitas, total_credito_devolucao,
-// total_pago, total_pendente, total_atrasado, diferenca
+// Retorna: total_locacao, total_avarias, total_esperado, total_lancado,
+// total_receitas, total_credito_devolucao, total_pago, total_pendente,
+// total_atrasado, diferenca
 ```
 
 Na tela de locacao:
 
 - `Total a pagar`: total final da locacao/fatura, incluindo diarias, taxas, descontos e encargos de devolucao
-- `Total lancado`: saldo financeiro efetivo da locacao (receitas menos creditos de devolucao)
+- `Avarias cobradas`: total de receitas de avaria (`financeiro.tipo = R`, plano `4.2.2.01`) vinculadas a locacao; entra no total cobrado do cliente
+- `Total lancado`: saldo financeiro efetivo da locacao (receitas menos creditos de devolucao), sem lancamentos vinculados a multas
 - `Valor reembolsado`: total de creditos de devolucao (`financeiro.tipo = D`, plano `3.4.1.22`) vinculados a locacao
-- `Diferenca`: total final simulado menos total lancado; indica quanto ainda precisa ser lancado no financeiro
+- `Diferenca`: total final simulado, somado as avarias cobradas, menos total lancado; indica quanto ainda precisa ser lancado no financeiro
 - `Valor pago`: soma das parcelas ja pagas
-- `Saldo a pagar`: total final simulado menos valor pago; indica quanto ainda falta receber
+- `Saldo a pagar`: total final simulado, somado as avarias cobradas, menos valor pago e reembolsos; indica quanto ainda falta receber
 - Em nova locacao/reserva ainda nao salva, a secao Pagamentos deve aparecer
   sem botoes ou acoes, exibindo apenas a orientacao para salvar antes de
   adicionar pagamento.
@@ -359,10 +361,10 @@ lista de pagamentos recebidos.
 |--------|-----------|
 | `gerarParcelas($id, $dados, $chave)` | Gera parcelas do saldo restante da locacao |
 | `adicionarParcela($id, $dados, $chave)` | Adiciona parcela avulsa |
-| `listarParcelas($id)` | Lista parcelas com status de pagamento |
+| `listarParcelas($id)` | Lista parcelas com status de pagamento, sem lancamentos vinculados a multas |
 | `atualizarParcela($id, $idParcela, $dados)` | Atualiza parcela pendente |
 | `removerParcela($id, $idParcela)` | Remove parcela pendente |
-| `resumoFinanceiro($id)` | Totais: pago, pendente, atrasado, diferenca |
+| `resumoFinanceiro($id)` | Totais: pago, pendente, atrasado, diferenca, sem lancamentos vinculados a multas |
 | `criarCreditoDevolucao($id, $valor, $chave)` | Cria fatura de devolucao/reembolso para excesso financeiro |
 
 ## API Endpoints
@@ -477,3 +479,7 @@ cancelamento/exclusao.
 | Financeiro | saldo restante gerado em parcelas | Estrutura mais complexa |
 | Intervenientes | JSON (condutor, fiador, avalista, testemunha) | Campos dedicados |
 | Impressao | 8 tipos de PDF (combos) | Tipos similares |
+
+## Padrao de Datas
+
+Datas de reserva, retirada e devolucao (`data_saida`, `data_prevista`, `data_chegada`) sao horarios operacionais locais e devem ser exibidas com `format_operational_datetime()` / `DateHelper.formatOperationalDateTime()`, sem conversao de timezone. Vencimentos, mensagens, PDFs e filtros devem usar `DateHelper`/helpers globais conforme o tipo de dado (`format_date()`, `format_datetime()` para instantes tecnicos, `DateHelper::addDaysForDatabase()`, `DateHelper::addMonthsForDatabase()`). Nao use `date()`, `time()`, `new DateTime()`, `new Date()` ou `NOW()/CURDATE()` diretamente em regra de negocio ou exibicao.

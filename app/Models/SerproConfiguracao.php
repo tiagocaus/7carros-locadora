@@ -53,7 +53,7 @@ class SerproConfiguracao extends Model
                 return 0;
             }
 
-            $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+            $dadosUpdate['updated_at'] = now();
 
             return $this->qb
                 ->table('serpro_configuracoes')
@@ -70,7 +70,7 @@ class SerproConfiguracao extends Model
                 'intervalo_dias_consulta' => max(1, (int) ($dados['intervalo_dias_consulta'] ?? 7)),
                 'auto_eventos_ativo' => (int) ($dados['auto_eventos_ativo'] ?? 0),
                 'webhook_registrado' => 0,
-                'created_at' => date('Y-m-d H:i:s'),
+                'created_at' => now(),
             ]);
     }
 
@@ -82,8 +82,8 @@ class SerproConfiguracao extends Model
         return $this->qb
             ->table('serpro_configuracoes')
             ->update([
-                'ultima_consulta_em' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s'),
+                'ultima_consulta_em' => now(),
+                'updated_at' => now(),
             ]);
     }
 
@@ -96,7 +96,7 @@ class SerproConfiguracao extends Model
             ->table('serpro_configuracoes')
             ->update([
                 'webhook_registrado' => $registrado ? 1 : 0,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 

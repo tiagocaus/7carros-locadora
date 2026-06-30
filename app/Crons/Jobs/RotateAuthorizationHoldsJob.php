@@ -49,8 +49,8 @@ class RotateAuthorizationHoldsJob extends BaseJob
         $erros = [];
 
         // 1. Buscar holds que expiram nos proximos DAYS_BEFORE_EXPIRY dias
-        $limiteExpiracao = date('Y-m-d H:i:s', strtotime('+' . self::DAYS_BEFORE_EXPIRY . ' days'));
-        $agora = date('Y-m-d H:i:s');
+        $limiteExpiracao = \App\Helpers\DateHelper::addDaysForDatabase(self::DAYS_BEFORE_EXPIRY, null, 'Y-m-d H:i:s');
+        $agora = now();
 
         $holdsParaRotacionar = $qb->withoutChave()
             ->table('locacoes_bloqueios')
@@ -198,7 +198,7 @@ class RotateAuthorizationHoldsJob extends BaseJob
         // Atualizar status do hold antigo
         $bloqueioModel = new LocacaoBloqueio();
         $bloqueioModel->atualizarStatus((int) $hold['id'], 'released', [
-            'liberado_em' => date('Y-m-d H:i:s'),
+            'liberado_em' => now(),
             'payload' => $releaseResult['raw'] ?? null,
         ]);
 
@@ -233,7 +233,7 @@ class RotateAuthorizationHoldsJob extends BaseJob
             'valor' => (float) $hold['valor'],
             'moeda' => $hold['moeda'] ?? 'BRL',
             'status' => $createResult['status'] === 'authorized' ? 'authorized' : 'pending',
-            'autorizado_em' => $createResult['status'] === 'authorized' ? date('Y-m-d H:i:s') : null,
+            'autorizado_em' => $createResult['status'] === 'authorized' ? now() : null,
             'expira_em' => $createResult['expires_at'] ?? null,
             'payload' => $createResult['raw'] ?? null,
         ]);
@@ -281,7 +281,7 @@ class RotateAuthorizationHoldsJob extends BaseJob
 
         $bloqueioModel = new ContratoBloqueio();
         $bloqueioModel->atualizarStatus((int) $hold['id'], 'released', [
-            'liberado_em' => date('Y-m-d H:i:s'),
+            'liberado_em' => now(),
             'payload' => $releaseResult['raw'] ?? null,
         ]);
 
@@ -316,7 +316,7 @@ class RotateAuthorizationHoldsJob extends BaseJob
             'valor' => (float) $hold['valor'],
             'moeda' => $hold['moeda'] ?? 'BRL',
             'status' => $createResult['status'] === 'authorized' ? 'authorized' : 'pending',
-            'autorizado_em' => $createResult['status'] === 'authorized' ? date('Y-m-d H:i:s') : null,
+            'autorizado_em' => $createResult['status'] === 'authorized' ? now() : null,
             'expira_em' => $createResult['expires_at'] ?? null,
             'payload' => $createResult['raw'] ?? null,
         ]);

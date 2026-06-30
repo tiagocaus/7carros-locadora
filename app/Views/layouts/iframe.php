@@ -45,7 +45,7 @@
     <script src="<?= asset('js/api.js'); ?>"></script>
     <script src="<?= asset('js/currency.js'); ?>"></script>
     <script src="<?= asset('js/percent.min.js'); ?>"></script>
-    <script src="<?= asset('js/date.js'); ?>"></script>
+    <script src="<?= asset('js/date.min.js'); ?>"></script>
     <script src="<?= asset('js/chosen-select.min.js'); ?>"></script>
     <script src="<?= asset('js/country-data.min.js'); ?>"></script>
     <script src="<?= asset('js/intl-phone.min.js'); ?>"></script>

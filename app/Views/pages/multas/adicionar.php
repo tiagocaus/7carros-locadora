@@ -97,8 +97,8 @@
                     </div>
 
                     <div class="form-input-group">
-                        <label for="data_vencimento" class="form-label-group"><?= t('modules.multas.fields.due_date') ?></label>
-                        <input type="date" id="data_vencimento" name="data_vencimento" class="form-input-group-field">
+                        <label for="data_vencimento" class="form-label-group"><?= t('modules.multas.fields.due_date') ?> <span class="text-red-500">*</span></label>
+                        <input type="date" id="data_vencimento" name="data_vencimento" class="form-input-group-field" required>
                     </div>
 
                     <div class="form-input-group">
@@ -128,29 +128,29 @@
 
                     <!-- Linha 2: N. Infracao, Orgao Autuador -->
                     <div class="form-input-group">
-                        <label for="n_infracao" class="form-label-group"><?= t('modules.multas.fields.infraction_number') ?></label>
-                        <input type="text" id="n_infracao" name="n_infracao" class="form-input-group-field" maxlength="10">
+                        <label for="n_infracao" class="form-label-group"><?= t('modules.multas.fields.infraction_number') ?> <span class="text-red-500">*</span></label>
+                        <input type="text" id="n_infracao" name="n_infracao" class="form-input-group-field" maxlength="10" required>
                     </div>
 
                     <div id="orgaoAutuadorGroup" class="form-input-group md:col-span-3">
-                        <label for="orgao_autuador" class="form-label-group"><?= t('modules.multas.fields.issuing_body') ?></label>
-                        <input type="text" id="orgao_autuador" name="orgao_autuador" class="form-input-group-field" maxlength="150" placeholder="Ex: DETRAN, PRF, DNIT...">
+                        <label for="orgao_autuador" class="form-label-group"><?= t('modules.multas.fields.issuing_body') ?> <span class="text-red-500">*</span></label>
+                        <input type="text" id="orgao_autuador" name="orgao_autuador" class="form-input-group-field" maxlength="150" placeholder="Ex: DETRAN, PRF, DNIT..." required>
                     </div>
 
                     <!-- Linha 3: Local, Cidade, Estado -->
                     <div class="form-input-group md:col-span-2">
-                        <label for="local" class="form-label-group"><?= t('modules.multas.fields.location') ?></label>
-                        <input type="text" id="local" name="local" class="form-input-group-field" maxlength="150">
+                        <label for="local" class="form-label-group"><?= t('modules.multas.fields.location') ?> <span class="text-red-500">*</span></label>
+                        <input type="text" id="local" name="local" class="form-input-group-field" maxlength="150" required>
                     </div>
 
                     <div class="form-input-group">
-                        <label for="cidade" class="form-label-group"><?= t('modules.multas.fields.city') ?></label>
-                        <input type="text" id="cidade" name="cidade" class="form-input-group-field" maxlength="50">
+                        <label for="cidade" class="form-label-group"><?= t('modules.multas.fields.city') ?> <span class="text-red-500">*</span></label>
+                        <input type="text" id="cidade" name="cidade" class="form-input-group-field" maxlength="50" required>
                     </div>
 
                     <div class="form-input-group">
-                        <label for="estado" class="form-label-group"><?= t('modules.multas.fields.state') ?></label>
-                        <input type="text" id="estado" name="estado" class="form-input-group-field" maxlength="50">
+                        <label for="estado" class="form-label-group"><?= t('modules.multas.fields.state') ?> <span class="text-red-500">*</span></label>
+                        <input type="text" id="estado" name="estado" class="form-input-group-field uppercase" maxlength="2" placeholder="ES" required>
                     </div>
 
                     <!-- Linha 4: Descricao -->
@@ -218,16 +218,23 @@
             btnSave: '<?= addslashes(t('common.buttons.save')) ?>',
             btnSearch: '<?= addslashes(t('modules.multas.buttons.search_responsible')) ?>',
             btnContinue: '<?= addslashes(t('modules.multas.buttons.continue')) ?>',
+            btnAddManualResponsible: '<?= addslashes(t('modules.multas.buttons.add_manual_responsible')) ?>',
+            btnContinueManual: '<?= addslashes(t('modules.multas.buttons.continue_manual')) ?>',
             typeContract: '<?= addslashes(t('modules.multas.badges.type_contract')) ?>',
             typeRental: '<?= addslashes(t('modules.multas.badges.type_rental')) ?>',
+            typeManual: '<?= addslashes(t('modules.multas.fields.manual_responsible')) ?>',
             branch: '<?= addslashes(t('modules.multas.fields.branch')) ?>',
             client: '<?= addslashes(t('modules.multas.fields.client')) ?>',
             vehicle: '<?= addslashes(t('modules.multas.fields.vehicle')) ?>',
+            manualResponsibleHint: '<?= addslashes(t('modules.multas.messages.manual_responsible_hint')) ?>',
+            selectManualResponsible: '<?= addslashes(t('modules.multas.messages.select_manual_responsible')) ?>',
+            searchClientPlaceholder: '<?= addslashes(t('modules.multas.messages.search_client_placeholder')) ?>',
         };
 
         let registroId = null;
         let veiculoDaBusca = null;
         let responsavelDaBusca = null;
+        let clienteManualDaBusca = null;
         let statusPagoOriginal = null;
 
         function navegarPara(page) {
@@ -362,12 +369,63 @@
                 <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <div class="flex items-start">
                         <i class="fas fa-exclamation-triangle text-amber-500 mr-3 text-lg mt-0.5"></i>
-                        <div>
+                        <div class="flex-1">
                             <p class="font-medium text-amber-800">${i18n.responsibleNotFound}</p>
                             <p class="text-sm text-amber-600 mt-1">${i18n.vehicle}: ${escapeHtml(veiculo.placa)} - ${escapeHtml(veiculo.marca)} ${escapeHtml(veiculo.modelo)}</p>
+                            <button type="button" id="btnAdicionarResponsavelManual" class="mt-3 btn-blue py-2 px-6 rounded-md text-sm font-medium">
+                                <i class="fas fa-user-plus mr-2"></i>${i18n.btnAddManualResponsible}
+                            </button>
+                            <div id="manualResponsavelArea" class="hidden mt-4 border-t border-amber-200 pt-4">
+                                <p class="text-sm text-amber-700 mb-3">${i18n.manualResponsibleHint}</p>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="form-input-group md:col-span-2 bg-white">
+                                        <label for="manual_cliente_id" class="form-label-group">${i18n.client} <span class="text-red-500">*</span></label>
+                                        <select id="manual_cliente_id" class="form-input-group-field chosen-select"
+                                                data-chosen-type="server-side"
+                                                data-chosen-search-url="/api/clientes/buscar"
+                                                data-chosen-placeholder="${escapeHtml(i18n.searchClientPlaceholder)}">
+                                            <option value="">${escapeHtml(i18n.selectManualResponsible)}</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-end">
+                                        <button type="button" id="btnContinuarManual" class="btn-blue py-2 px-6 rounded-md text-sm font-medium w-full" disabled>
+                                            <i class="fas fa-arrow-right mr-2"></i>${i18n.btnContinueManual}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>`;
+
+            document.getElementById('btnAdicionarResponsavelManual').addEventListener('click', mostrarSelecaoResponsavelManual);
+        }
+
+        function mostrarSelecaoResponsavelManual() {
+            const area = document.getElementById('manualResponsavelArea');
+            if (!area) return;
+
+            area.classList.remove('hidden');
+
+            if (window.initChosenSelects) {
+                window.initChosenSelects();
+            }
+
+            const select = document.getElementById('manual_cliente_id');
+            const btnContinuar = document.getElementById('btnContinuarManual');
+
+            if (select && !select.dataset.manualBound) {
+                select.dataset.manualBound = '1';
+                select.addEventListener('change', function() {
+                    clienteManualDaBusca = null;
+                    btnContinuar.disabled = !this.value;
+                });
+            }
+
+            if (btnContinuar && !btnContinuar.dataset.manualBound) {
+                btnContinuar.dataset.manualBound = '1';
+                btnContinuar.addEventListener('click', preencherFormularioManual);
+            }
         }
 
         // ===== STEP 2: PREENCHER FORMULARIO =====
@@ -405,6 +463,64 @@
             document.getElementById('step2').classList.remove('hidden');
         }
 
+        async function preencherFormularioManual() {
+            const select = document.getElementById('manual_cliente_id');
+            const clienteId = select ? parseInt(select.value || '0', 10) : 0;
+
+            if (!clienteId || !veiculoDaBusca) {
+                mostrarAlerta(i18n.requiredFields + '\n\n- ' + i18n.selectManualResponsible);
+                return;
+            }
+
+            const btnContinuar = document.getElementById('btnContinuarManual');
+            if (btnContinuar) {
+                btnContinuar.disabled = true;
+                btnContinuar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + i18n.searching;
+            }
+
+            try {
+                const result = await API.get(`/api/clientes/${clienteId}`);
+                if (!result.success || !result.data) {
+                    mostrarAlerta(result.message || i18n.loadError);
+                    return;
+                }
+
+                clienteManualDaBusca = result.data;
+                const veiculo = veiculoDaBusca;
+                const dataHora = document.getElementById('busca_data_hora').value;
+
+                document.getElementById('tipo').value = '';
+                document.getElementById('id_contrato').value = '';
+                document.getElementById('id_locacao').value = '';
+                document.getElementById('id_cliente').value = clienteManualDaBusca.id;
+                document.getElementById('id_veiculo').value = veiculo.id;
+                document.getElementById('id_matriz_filial').value = veiculo.id_matriz_filial || '';
+
+                document.getElementById('disp_filial').value = veiculo.filial_nome || '';
+                document.getElementById('disp_tipo').value = i18n.typeManual;
+                document.getElementById('disp_codigo').value = '-';
+                document.getElementById('disp_cliente').value = (clienteManualDaBusca.nome_rsocial || '') + (clienteManualDaBusca.cpf_cnpj ? ' (' + clienteManualDaBusca.cpf_cnpj + ')' : '');
+                document.getElementById('disp_veiculo').value = veiculo.placa + ' - ' + veiculo.marca + ' ' + veiculo.modelo;
+
+                document.getElementById('data_hora').value = dataHora;
+
+                if (typeof Currency !== 'undefined' && Currency.config) {
+                    document.getElementById('valorPrefix').textContent = Currency.config.symbol;
+                }
+
+                document.getElementById('step1').classList.add('hidden');
+                document.getElementById('step2').classList.remove('hidden');
+            } catch (error) {
+                console.error('Erro ao carregar cliente manual:', error);
+                mostrarAlerta(error.message || i18n.loadError);
+            } finally {
+                if (btnContinuar) {
+                    btnContinuar.disabled = false;
+                    btnContinuar.innerHTML = '<i class="fas fa-arrow-right mr-2"></i>' + i18n.btnContinueManual;
+                }
+            }
+        }
+
         // ===== EDICAO =====
 
         async function carregarDados(id) {
@@ -439,8 +555,8 @@
 
             // Display readonly
             document.getElementById('disp_filial').value = data.filial_nome || '';
-            document.getElementById('disp_tipo').value = data.tipo === 'C' ? i18n.typeContract : (data.tipo === 'L' ? i18n.typeRental : '');
-            document.getElementById('disp_codigo').value = data.contrato_codigo || data.locacao_codigo || '';
+            document.getElementById('disp_tipo').value = data.tipo === 'C' ? i18n.typeContract : (data.tipo === 'L' ? i18n.typeRental : i18n.typeManual);
+            document.getElementById('disp_codigo').value = data.contrato_codigo || data.locacao_codigo || '-';
             document.getElementById('disp_cliente').value = (data.cliente_nome || '') + (data.cliente_cpf_cnpj ? ' (' + data.cliente_cpf_cnpj + ')' : '');
             document.getElementById('disp_veiculo').value = (data.veiculo_placa || '') + ' - ' + (data.veiculo_marca || '') + ' ' + (data.veiculo_modelo || '');
 
@@ -612,12 +728,23 @@
             const form = document.getElementById('formMulta');
             const formData = new FormData(form);
             const dados = Object.fromEntries(formData.entries());
+            dados.estado = (dados.estado || '').trim().toUpperCase();
+            document.getElementById('estado').value = dados.estado;
 
             // Validacao
             const erros = [];
             if (!dados.data_hora) erros.push('- Data e Hora');
+            if (!dados.data_vencimento) erros.push('- Data de Vencimento');
             if (!dados.id_veiculo) erros.push('- Veiculo');
             if (!dados.id_cliente) erros.push('- Cliente');
+            if (!dados.n_infracao?.trim()) erros.push('- N. Infracao');
+            if (!dados.orgao_autuador?.trim()) erros.push('- Orgao Autuador');
+            if (!dados.local?.trim()) erros.push('- Local');
+            if (!dados.cidade?.trim()) erros.push('- Cidade');
+            if (!dados.estado) erros.push('- Estado');
+            if (dados.estado && !/^[A-Z]{2}$/.test(dados.estado)) {
+                erros.push('- Estado deve ser uma UF com 2 letras');
+            }
 
             const valorInput = document.getElementById('valor');
             if (!valorInput.value || valorInput.value.trim() === '' || valorInput.value === '0,00') {
@@ -699,6 +826,10 @@
             document.getElementById('formMulta').addEventListener('submit', salvar);
 
             document.getElementById('btnBuscar').addEventListener('click', buscarResponsavel);
+
+            document.getElementById('estado').addEventListener('input', function() {
+                this.value = this.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+            });
 
             // Enter na placa tambem busca
             document.getElementById('busca_placa').addEventListener('keypress', function(e) {

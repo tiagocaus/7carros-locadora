@@ -252,7 +252,7 @@ class Estoque extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = now();
 
         return $this->qb
             ->table('estoque')
@@ -314,7 +314,7 @@ class Estoque extends Model
             ->where('id', '=', $id)
             ->update([
                 'status' => 'I',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -331,7 +331,7 @@ class Estoque extends Model
             ->where('id', '=', $id)
             ->update([
                 'status' => 'A',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 

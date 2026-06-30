@@ -85,7 +85,7 @@ class SyncWhatsappStatusJob extends BaseJob
                         ->where('id', '=', $conexao['id'])
                         ->update([
                             'status' => 'disconnected',
-                            'updated_at' => date('Y-m-d H:i:s'),
+                            'updated_at' => now(),
                         ]);
 
                     $updated++;

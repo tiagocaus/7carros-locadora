@@ -4,13 +4,13 @@
 
 @section('content')
 <?php
-$hojePagamento = date('Y-m-d');
+$hojePagamento = today();
 $vencimentoFinanceiro = $link['financeiro_vencimento'] ?? null;
 $vencimentoGateway = $hojePagamento;
 if (!empty($vencimentoFinanceiro)) {
     $timestampVencimento = strtotime($vencimentoFinanceiro);
     if ($timestampVencimento !== false) {
-        $vencimentoNormalizado = date('Y-m-d', $timestampVencimento);
+        $vencimentoNormalizado = \App\Helpers\DateHelper::formatTimestamp($timestampVencimento, 'Y-m-d');
         $vencimentoGateway = $vencimentoNormalizado < $hojePagamento ? $hojePagamento : $vencimentoNormalizado;
     }
 }
@@ -60,7 +60,7 @@ if (!empty($vencimentoFinanceiro)) {
         @if(!empty($link['financeiro_vencimento']))
             <div class="flex items-center mt-3 text-sm text-slate-600">
                 <i class="fas fa-calendar-alt mr-2 text-slate-400"></i>
-                Vencimento: <?= date('d/m/Y', strtotime($link['financeiro_vencimento'])) ?>
+                Vencimento: <?= format_date($link['financeiro_vencimento']) ?>
             </div>
         @endif
 
@@ -123,7 +123,7 @@ if (!empty($vencimentoFinanceiro)) {
                         </div>
                         <div class="flex-1">
                             <p class="font-semibold text-slate-800">Boleto Bancario</p>
-                            <p class="text-sm text-slate-500">Vencimento: <?= date('d/m/Y', strtotime($vencimentoGateway)) ?></p>
+                            <p class="text-sm text-slate-500">Vencimento: <?= format_date($vencimentoGateway) ?></p>
                         </div>
                         <i class="fas fa-chevron-right text-slate-400"></i>
                     </div>

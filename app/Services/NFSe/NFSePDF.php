@@ -44,7 +44,7 @@ class NFSePDF
             $html = $this->gerarHTML($dadosNFSe);
 
             // Nome do arquivo
-            $nomeArquivo = "nfse_{$numero}_{$serie}_" . time() . '.pdf';
+            $nomeArquivo = "nfse_{$numero}_{$serie}_" . \App\Helpers\DateHelper::timestamp() . '.pdf';
             $caminhoCompleto = $dir . '/' . $nomeArquivo;
 
             // Salvar PDF

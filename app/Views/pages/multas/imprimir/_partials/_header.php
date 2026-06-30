@@ -47,7 +47,7 @@ $qrPath = $qrPath ?? '';
             <?php if (!empty($multa['numero_ait'])): ?>
             <div class="doc-detalhe" style="font-size: 9pt; text-align: right; color: #555;"><strong>AIT:</strong> <?= htmlspecialchars($multa['numero_ait']) ?></div>
             <?php endif; ?>
-            <div class="doc-detalhe" style="font-size: 9pt; text-align: right; color: #555;"><strong><?= t('modules.multas.pdf.date_label') ?></strong> <?= date('d/m/Y', strtotime($multa['created_at'] ?? 'now')) ?></div>
+            <div class="doc-detalhe" style="font-size: 9pt; text-align: right; color: #555;"><strong><?= t('modules.multas.pdf.date_label') ?></strong> <?= !empty($multa['created_at']) ? format_date($multa['created_at']) : format_date(today()) ?></div>
         </td>
         <td style="width: 15%; text-align: right; vertical-align: top; padding: 0;">
             <?php if (!empty($qrPath)): ?>

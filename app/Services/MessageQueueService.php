@@ -147,8 +147,8 @@ class MessageQueueService
                 'payload' => json_encode($payload, JSON_UNESCAPED_UNICODE),
                 'attempts' => 0,
                 'error_message' => 'Bloqueado em desenvolvimento (tenant não autorizado)',
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s'),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             return $messageId;
@@ -163,8 +163,8 @@ class MessageQueueService
             'payload' => json_encode($payload, JSON_UNESCAPED_UNICODE),
             'attempts' => 0,
             'error_message' => null,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         // Prepara mensagem para RabbitMQ
@@ -209,7 +209,7 @@ class MessageQueueService
                 ->update([
                     'status' => 'failed',
                     'error_message' => 'Erro ao publicar na fila: ' . $e->getMessage(),
-                    'updated_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => now(),
                 ]);
 
             error_log("Erro ao publicar mensagem na fila RabbitMQ: " . $e->getMessage());
@@ -289,7 +289,7 @@ class MessageQueueService
             'port' => $this->port,
             'vhost' => $this->vhost,
             'queue' => $this->queueName,
-            'time' => date('c'),
+            'time' => \App\Helpers\DateHelper::isoNow(),
         ], $context), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 

@@ -45,9 +45,9 @@
             <tr>
                 <td><strong><?= htmlspecialchars($row['placa'] ?? '-') ?></strong> <span style="color:#64748b; font-size:8pt;"><?= htmlspecialchars($row['veiculo_modelo'] ?? '') ?></span></td>
                 <td><?= htmlspecialchars($row['locacao_anterior'] ?? '-') ?></td>
-                <td class="center"><?= !empty($row['data_chegada']) ? format_datetime($row['data_chegada']) : '-' ?></td>
+                <td class="center"><?= !empty($row['data_chegada']) ? format_operational_datetime($row['data_chegada']) : '-' ?></td>
                 <td><?= htmlspecialchars($row['proxima_locacao'] ?? '-') ?></td>
-                <td class="center"><?= !empty($row['data_saida_proxima']) ? format_datetime($row['data_saida_proxima']) : '-' ?></td>
+                <td class="center"><?= !empty($row['data_saida_proxima']) ? format_operational_datetime($row['data_saida_proxima']) : '-' ?></td>
                 <td class="center" style="font-weight:bold;"><?= htmlspecialchars($fmt) ?></td>
             </tr>
             <?php endforeach; ?>

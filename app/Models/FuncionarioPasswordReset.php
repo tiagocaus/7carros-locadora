@@ -16,7 +16,11 @@ class FuncionarioPasswordReset extends Model
     {
         $tokenPlano = bin2hex(random_bytes(32));
         $tokenHash = hash('sha256', $tokenPlano);
-        $expiresAt = date('Y-m-d H:i:s', time() + (self::TTL_MINUTES * 60));
+        $expiresAt = \App\Helpers\DateHelper::formatTimestamp(
+            \App\Helpers\DateHelper::timestamp() + (self::TTL_MINUTES * 60),
+            'Y-m-d H:i:s',
+            false
+        );
 
         $this->qb
             ->withoutChave()
@@ -24,7 +28,7 @@ class FuncionarioPasswordReset extends Model
             ->where('chave', '=', $chave)
             ->where('id_funcionario', '=', $idFuncionario)
             ->whereNull('used_at')
-            ->update(['used_at' => date('Y-m-d H:i:s')]);
+            ->update(['used_at' => now()]);
 
         $this->qb
             ->withoutChave()
@@ -60,7 +64,7 @@ class FuncionarioPasswordReset extends Model
             return null;
         }
 
-        if (strtotime($row['expires_at']) < time()) {
+        if (strtotime($row['expires_at']) < \App\Helpers\DateHelper::timestamp()) {
             return null;
         }
 
@@ -73,6 +77,6 @@ class FuncionarioPasswordReset extends Model
             ->withoutChave()
             ->table('funcionario_password_resets')
             ->where('id', '=', $id)
-            ->update(['used_at' => date('Y-m-d H:i:s')]);
+            ->update(['used_at' => now()]);
     }
 }

@@ -88,7 +88,7 @@ $checklistModeloQuestoes = $checklistModeloQuestoes ?? [];
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr>
                         <td class="section-title" style="background: #e8e8e8;">
-                            <?= t('modules.contratos.pdf.departure') ?><?= !empty($checklist['data_saida']) ? ' - ' . date('d/m/Y H:i', strtotime($checklist['data_saida'])) : '' ?>
+                            <?= t('modules.contratos.pdf.departure') ?><?= !empty($checklist['data_saida']) ? ' - ' . format_operational_datetime($checklist['data_saida']) : '' ?>
                         </td>
                     </tr>
                 </table>
@@ -98,7 +98,7 @@ $checklistModeloQuestoes = $checklistModeloQuestoes ?? [];
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr>
                         <td class="section-title" style="background: #e8e8e8;">
-                            <?= t('modules.contratos.pdf.arrival') ?><?= !empty($checklist['data_chegada']) ? ' - ' . date('d/m/Y H:i', strtotime($checklist['data_chegada'])) : '' ?>
+                            <?= t('modules.contratos.pdf.arrival') ?><?= !empty($checklist['data_chegada']) ? ' - ' . format_operational_datetime($checklist['data_chegada']) : '' ?>
                         </td>
                     </tr>
                 </table>

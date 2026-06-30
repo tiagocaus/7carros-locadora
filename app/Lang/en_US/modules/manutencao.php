@@ -121,6 +121,7 @@ return [
         'branch' => 'Parent/Branch',
         'vehicle' => 'Vehicle',
         'workshop' => 'Workshop',
+        'client' => 'Client',
         'send_date' => 'Send Date',
         'send_odometer' => 'Send Odometer',
         'send_tank' => 'Send Tank',
@@ -145,6 +146,10 @@ return [
         'installments' => 'Installments',
         'first_due_date' => '1st Due Date',
         'interval_days' => 'Interval (days)',
+    ],
+
+    'helpers' => [
+        'client_payer' => 'Select a client when they are responsible for paying this maintenance.',
     ],
 
     // Status options

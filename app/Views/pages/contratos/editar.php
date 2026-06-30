@@ -413,11 +413,17 @@
 
             <!-- SECAO: CAUCAO (Deposito de Garantia) -->
             <div id="secaoCaucao" class="form-section mb-4">
-                <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center justify-between cursor-pointer" id="toggleCaucao">
                     <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-shield-alt mr-2"></i><?= t('modules.contratos.deposit.title') ?></h3>
-                    <span id="caucaoStatusBadge" class="hidden inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"></span>
+                    <div class="flex items-center gap-2">
+                        <span id="caucaoStatusBadge" class="hidden inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"></span>
+                        <button type="button" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <i class="fas fa-chevron-down" id="iconCaucao"></i>
+                        </button>
+                    </div>
                 </div>
 
+                <div id="conteudoCaucao" class="mt-4 hidden">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div class="md:col-span-3 form-input-group">
                         <label for="id_conta_caucao" class="form-label-group"><?= t('modules.contratos.deposit.account') ?></label>
@@ -456,6 +462,7 @@
                         <label for="caucao_observacoes" class="form-label-group"><?= t('modules.contratos.deposit.notes') ?></label>
                         <input type="text" id="caucao_observacoes" name="caucao_observacoes" class="form-input-group-field">
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -638,8 +645,14 @@
 
             <!-- SECAO: BLOQUEIO (Pre-autorizacao no Cartao) -->
             <div id="secaoBloqueio" class="form-section mb-4">
-                <h3 class="form-section-title"><i class="fas fa-lock mr-2"></i><?= t('modules.contratos.block.title') ?></h3>
+                <div class="flex justify-between items-center cursor-pointer" id="toggleBloqueio">
+                    <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-lock mr-2"></i><?= t('modules.contratos.block.title') ?></h3>
+                    <button type="button" class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <i class="fas fa-chevron-down" id="iconBloqueio"></i>
+                    </button>
+                </div>
 
+                <div id="conteudoBloqueio" class="mt-4 hidden">
                 <!-- Aviso se nao tem gateway compativel -->
                 <div id="bloqueioSemGateway" class="hidden bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
                     <p class="text-amber-700 text-sm"><i class="fas fa-exclamation-triangle mr-1"></i> <?= t('modules.contratos.block.no_gateway') ?></p>
@@ -733,6 +746,7 @@
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -1098,9 +1112,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             data.valor ? fmtCurrency(parseFloat(data.valor)) : '';
 
         if (data.expires_at) {
-            const dt = new Date(data.expires_at);
             document.getElementById('bloqueioExpiraInfo').textContent =
-                `${<?= $jsT('modules.contratos.block.expires_at') ?>}: ${DateHelper.format(dt)}`;
+                `${<?= $jsT('modules.contratos.block.expires_at') ?>}: ${DateHelper.formatDateTime(data.expires_at)}`;
         }
 
         const canAct = data.status === 'authorized';

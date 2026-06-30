@@ -130,6 +130,11 @@ class MultasController
                 return;
             }
 
+            $filialVeiculo = null;
+            if (!empty($veiculo['id_matriz_filial'])) {
+                $filialVeiculo = (new MatrizFilial())->buscarPorId((int) $veiculo['id_matriz_filial']);
+            }
+
             // Buscar responsavel
             $multaModel = new Multa();
             $responsavel = $multaModel->buscarResponsavel((int) $veiculo['id'], $dataHora);
@@ -142,6 +147,8 @@ class MultasController
                         'placa' => $veiculo['placa'],
                         'modelo' => $veiculo['modelo'] ?? '',
                         'marca' => $veiculo['marca'] ?? '',
+                        'id_matriz_filial' => !empty($veiculo['id_matriz_filial']) ? (int) $veiculo['id_matriz_filial'] : null,
+                        'filial_nome' => $filialVeiculo['nome_fantasia'] ?? $filialVeiculo['nome'] ?? '',
                     ],
                     'responsavel' => $responsavel,
                 ]
@@ -173,21 +180,10 @@ class MultasController
             $dados = $request->all();
             $dados['chave'] = Auth::chave();
             $dados['pagador'] = $this->normalizarPagadorMulta($dados['pagador'] ?? null);
+            $dados['estado'] = $this->normalizarEstadoMulta($dados['estado'] ?? '');
 
             // Validar campos obrigatorios
-            $erros = [];
-            if (empty($dados['data_hora'])) {
-                $erros[] = '- Data e Hora';
-            }
-            if (empty($dados['id_veiculo'])) {
-                $erros[] = '- Veiculo';
-            }
-            if (empty($dados['valor']) || $dados['valor'] === '0,00' || $dados['valor'] === '0.00') {
-                $erros[] = '- Valor';
-            }
-            if (empty($dados['id_cliente'])) {
-                $erros[] = '- Cliente';
-            }
+            $erros = $this->validarCamposObrigatoriosMulta($dados);
 
             if (!empty($erros)) {
                 Response::json([
@@ -273,6 +269,16 @@ class MultasController
 
             $dados = $request->all();
             $dados['pagador'] = $this->normalizarPagadorMulta($dados['pagador'] ?? null);
+            $dados['estado'] = $this->normalizarEstadoMulta($dados['estado'] ?? '');
+
+            $erros = $this->validarCamposObrigatoriosMulta($dados);
+            if (!empty($erros)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Preencha os campos obrigatorios:\n\n' . implode('\n', $erros)
+                ], 400);
+                return;
+            }
 
             // Processar upload de foto (nova ou substituicao)
             if (!empty($dados['foto_base64'])) {
@@ -383,6 +389,46 @@ class MultasController
     private function normalizarPagadorMulta(?string $pagador): string
     {
         return in_array($pagador, ['cliente', 'empresa'], true) ? $pagador : 'cliente';
+    }
+
+    private function normalizarEstadoMulta(?string $estado): string
+    {
+        return strtoupper(trim((string) $estado));
+    }
+
+    /**
+     * Valida campos obrigatorios do cadastro manual de multas.
+     *
+     * @return array<int,string>
+     */
+    private function validarCamposObrigatoriosMulta(array $dados): array
+    {
+        $campos = [
+            'data_hora' => 'Data e Hora',
+            'data_vencimento' => 'Data de Vencimento',
+            'id_veiculo' => 'Veiculo',
+            'id_cliente' => 'Cliente',
+            'valor' => 'Valor',
+            'n_infracao' => 'N. Infracao',
+            'orgao_autuador' => 'Orgao Autuador',
+            'local' => 'Local',
+            'cidade' => 'Cidade',
+            'estado' => 'Estado',
+        ];
+
+        $erros = [];
+        foreach ($campos as $campo => $label) {
+            $valor = trim((string) ($dados[$campo] ?? ''));
+            if ($valor === '' || ($campo === 'valor' && in_array($valor, ['0,00', '0.00'], true))) {
+                $erros[] = '- ' . $label;
+            }
+        }
+
+        if (!empty($dados['estado']) && !preg_match('/^[A-Z]{2}$/', (string) $dados['estado'])) {
+            $erros[] = '- Estado deve ser uma UF com 2 letras';
+        }
+
+        return $erros;
     }
 
     /**
@@ -499,7 +545,7 @@ class MultasController
                 return;
             }
 
-            $model->marcarPago($id, date('Y-m-d'));
+            $model->marcarPago($id, today());
 
             AuditLogService::registrar(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", marcou multa [#{$id}] como paga"
@@ -747,7 +793,7 @@ class MultasController
 
         } catch (\Throwable $e) {
             $logFile = APP_ROOT . '/storage/logs/multas-imprimir-error.log';
-            @file_put_contents($logFile, date('Y-m-d H:i:s') . ' [' . get_class($e) . '] ' . $e->getMessage() . ' em ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString() . "\n\n", FILE_APPEND);
+            @file_put_contents($logFile, now() . ' [' . get_class($e) . '] ' . $e->getMessage() . ' em ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString() . "\n\n", FILE_APPEND);
             Response::html('<h1>Erro ao gerar impressao</h1><pre>' . htmlspecialchars(get_class($e) . ': ' . $e->getMessage() . ' em ' . $e->getFile() . ':' . $e->getLine()) . '</pre>', 500);
         }
     }
@@ -878,7 +924,7 @@ class MultasController
                 $pdfContent = PdfHelper::generateAsString($html, $pdfOptionsEnvio);
             }
 
-            $filename = 'multa_' . ($multa['n_infracao'] ?: $multa['id']) . '_' . $tipo . '_' . time() . '.pdf';
+            $filename = 'multa_' . ($multa['n_infracao'] ?: $multa['id']) . '_' . $tipo . '_' . \App\Helpers\DateHelper::timestamp() . '.pdf';
             $tempDir = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__ . '/../../public', '/') . '/storage/temp';
             if (!is_dir($tempDir)) {
                 mkdir($tempDir, 0755, true);

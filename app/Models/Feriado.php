@@ -141,8 +141,8 @@ class Feriado extends Model
     public function isFeriado(string $data, ?string $estado = null, ?string $cidade = null, ?string $pais = null): ?array
     {
         $timestamp = strtotime($data);
-        $mes = (int) date('n', $timestamp);
-        $dia = (int) date('j', $timestamp);
+        $mes = (int) \App\Helpers\DateHelper::formatTimestamp($timestamp, 'n');
+        $dia = (int) \App\Helpers\DateHelper::formatTimestamp($timestamp, 'j');
 
         $query = $this->qb
             ->table('feriados')
@@ -273,7 +273,7 @@ class Feriado extends Model
                 'id' => $f['id'],
                 'nome' => $f['nome'],
                 'data' => $data,
-                'data_formatada' => date('d/m/Y', strtotime($data)),
+                'data_formatada' => format_date($data),
                 'tipo' => $f['tipo'],
                 'tipo_nome' => self::TIPOS[$f['tipo']] ?? $f['tipo'],
             ];
@@ -311,7 +311,7 @@ class Feriado extends Model
                     'id' => $f['id'],
                     'nome' => $f['nome'],
                     'data' => $data,
-                    'data_formatada' => date('d/m/Y', strtotime($data)),
+                    'data_formatada' => format_date($data),
                     'tipo' => $f['tipo'],
                     'tipo_nome' => self::TIPOS[$f['tipo']] ?? $f['tipo'],
                     'mes' => $f['mes'],
@@ -331,7 +331,7 @@ class Feriado extends Model
                     'id' => $f['id'],
                     'nome' => $f['nome'],
                     'data' => $data,
-                    'data_formatada' => date('d/m/Y', strtotime($data)),
+                    'data_formatada' => format_date($data),
                     'tipo' => $f['tipo'],
                     'tipo_nome' => self::TIPOS[$f['tipo']] ?? $f['tipo'],
                     'mes' => $f['mes'],

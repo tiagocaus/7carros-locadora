@@ -75,7 +75,7 @@ class Promissoria extends Model
         }
 
         // Fallback: usa timestamp para garantir unicidade
-        return 'PRO' . time() . mt_rand(100, 999);
+        return 'PRO' . \App\Helpers\DateHelper::timestamp() . mt_rand(100, 999);
     }
 
     /**
@@ -406,7 +406,7 @@ class Promissoria extends Model
                         'total_parcelas' => $numParcelas,
                         'valor_parcela' => $valor,
                         'data_vencimento' => $dataVenci->format('Y-m-d'),
-                        'data_criada' => date('Y-m-d'),
+                        'data_criada' => today(),
                         'pago' => 'N',
                         'obs' => $dados['obs'] ?? null,
                     ]);
@@ -472,7 +472,7 @@ class Promissoria extends Model
                 'total_parcelas' => $novoTotal,
                 'valor_parcela' => currency_parse($dadosParcela['valor_parcela']),
                 'data_vencimento' => $dadosParcela['data_vencimento'],
-                'data_criada' => date('Y-m-d'),
+                'data_criada' => today(),
                 'pago' => 'N',
                 'obs' => $parcelaExistente['obs'],
             ]);

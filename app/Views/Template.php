@@ -247,7 +247,7 @@ class Template
     {
         // Regenerar token CSRF periodicamente (a cada 15 minutos)
         $lastRegeneration = Session::get('csrf_token_time', 0);
-        $now = time();
+        $now = \App\Helpers\DateHelper::timestamp();
 
         if (!Session::has('csrf_token') || ($now - $lastRegeneration) > 900) {
             Session::set('csrf_token', bin2hex(random_bytes(32)));
@@ -265,7 +265,7 @@ class Template
     {
         // Regenerar token CSRF periodicamente (a cada 15 minutos)
         $lastRegeneration = Session::get('csrf_token_time', 0);
-        $now = time();
+        $now = \App\Helpers\DateHelper::timestamp();
 
         if (!Session::has('csrf_token') || ($now - $lastRegeneration) > 900) {
             Session::set('csrf_token', bin2hex(random_bytes(32)));

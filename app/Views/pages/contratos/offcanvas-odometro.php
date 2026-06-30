@@ -11,7 +11,7 @@ $fmtData = static function (?string $data): string {
         return '-';
     }
     $ts = strtotime($data);
-    return $ts ? date('d/m/Y', $ts) : $data;
+    return $ts ? \App\Helpers\DateHelper::formatTimestamp($ts, 'd/m/Y') : $data;
 };
 $planos = [
     'KMC' => 'Km Controlado',

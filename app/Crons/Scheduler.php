@@ -101,9 +101,10 @@ class Scheduler
 
                 // Marca como executado
                 $this->markAsRun($jobId, $state);
+                $this->saveState($state, true);
                 $executed++;
 
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $entry = [
                     'job' => $job->getName(),
                     'job_id' => $jobId,
@@ -124,8 +125,8 @@ class Scheduler
             echo "---\n";
         }
 
-        // Salva estado atualizado
-        $this->saveState($state);
+        // Salva estado atualizado sem regredir last_run caso outro processo tenha gravado antes.
+        $this->saveState($state, true);
 
         $totalDuration = round(microtime(true) - $startTime, 2);
 
@@ -215,10 +216,55 @@ class Scheduler
     /**
      * Salva o estado de execução dos jobs
      */
-    private function saveState(array $state): void
+    private function saveState(array $state, bool $mergeExisting = false): void
     {
+        if ($mergeExisting) {
+            $state = $this->mergeStateWithCurrent($state);
+        }
+
         $json = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        file_put_contents($this->stateFile, $json);
+        if ($json === false) {
+            throw new \RuntimeException('Erro ao serializar estado do Scheduler.');
+        }
+
+        $tmpFile = tempnam($this->stateDir, 'schedule-state.');
+        if ($tmpFile === false) {
+            throw new \RuntimeException('Erro ao criar arquivo temporario do estado do Scheduler.');
+        }
+
+        if (file_put_contents($tmpFile, $json, LOCK_EX) === false) {
+            @unlink($tmpFile);
+            throw new \RuntimeException('Erro ao gravar estado temporario do Scheduler.');
+        }
+
+        if (!rename($tmpFile, $this->stateFile)) {
+            @unlink($tmpFile);
+            throw new \RuntimeException('Erro ao atualizar estado do Scheduler.');
+        }
+    }
+
+    /**
+     * Preserva entradas mais recentes caso o Scheduler seja executado fora do cron.php.
+     */
+    private function mergeStateWithCurrent(array $state): array
+    {
+        $current = $this->loadState();
+
+        foreach ($current as $jobId => $currentEntry) {
+            if (!isset($state[$jobId])) {
+                $state[$jobId] = $currentEntry;
+                continue;
+            }
+
+            $currentLastRun = (string) ($currentEntry['last_run'] ?? '');
+            $newLastRun = (string) ($state[$jobId]['last_run'] ?? '');
+
+            if ($currentLastRun !== '' && ($newLastRun === '' || $currentLastRun > $newLastRun)) {
+                $state[$jobId] = $currentEntry;
+            }
+        }
+
+        return $state;
     }
 
     /**
@@ -231,7 +277,7 @@ class Scheduler
         }
 
         $lastRun = $state[$jobId]['last_run'];
-        $currentMinute = date('Y-m-d H:i');
+        $currentMinute = \App\Helpers\DateHelper::systemNow('Y-m-d H:i');
         $lastRunMinute = substr($lastRun, 0, 16); // "YYYY-MM-DD HH:MM"
 
         return $currentMinute === $lastRunMinute;
@@ -242,7 +288,7 @@ class Scheduler
      */
     private function markAsRun(string $jobId, array &$state): void
     {
-        $now = date('Y-m-d H:i:s');
+        $now = now();
 
         // Encontra o ScheduledJob para calcular próxima execução
         $nextRun = null;
@@ -309,7 +355,7 @@ class Scheduler
             'successful' => $successful,
             'failed' => $failed,
             'duration' => $totalDuration,
-            'timestamp' => date('Y-m-d H:i:s'),
+            'timestamp' => now(),
             'results' => $this->results,
         ];
     }

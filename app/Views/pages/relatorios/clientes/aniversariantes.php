@@ -14,7 +14,7 @@
             <select id="filterMes" class="form-input-focus w-full text-sm">
                 <?php $meses = [1=>'Janeiro',2=>'Fevereiro',3=>'Março',4=>'Abril',5=>'Maio',6=>'Junho',7=>'Julho',8=>'Agosto',9=>'Setembro',10=>'Outubro',11=>'Novembro',12=>'Dezembro']; ?>
                 <?php foreach ($meses as $n => $nome): ?>
-                <option value="<?= $n ?>" <?= $n === (int) date('n') ? 'selected' : '' ?>><?= $nome ?></option>
+                <option value="<?= $n ?>" <?= $n === (int) \App\Helpers\DateHelper::todayForDatabase('n') ? 'selected' : '' ?>><?= $nome ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -129,7 +129,7 @@
         </tr>`).join('');
     }
 
-    function limpar() { document.getElementById('filterMes').value = new Date().getMonth() + 1; document.getElementById('filterDia').value = ''; document.getElementById('filterFilial').value = ''; ReportUtils.hideContent(); }
+    function limpar() { document.getElementById('filterMes').value = DateHelper.currentMonth(); document.getElementById('filterDia').value = ''; document.getElementById('filterFilial').value = ''; ReportUtils.hideContent(); }
     init();
 })();
 </script>

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use App\Traits\DetectsCrossTenant;
+use App\Helpers\DateHelper;
 use App\Helpers\FilialHelper;
 
 /**
@@ -60,6 +61,7 @@ class Financeiro extends Model
      * @param string $filialId Filtro de filial especifica (opcional)
      * @param string $ano Filtro de ano (opcional)
      * @param string $mes Filtro de mes (opcional)
+     * @param string $tipo Filtro de tipo (R receita, D despesa)
      * @return array Lista de lancamentos
      */
     public function listarPaginado(
@@ -72,7 +74,8 @@ class Financeiro extends Model
         string $filialId = '',
         string $ano = '',
         string $mes = '',
-        string $status = ''
+        string $status = '',
+        string $tipo = ''
     ): array {
         $query = $this->qb
             ->table('financeiro', 'f')
@@ -167,6 +170,9 @@ class Financeiro extends Model
         // Filtro de status (pago/em aberto/vencido/vence hoje)
         $this->aplicarFiltroStatus($query, $status);
 
+        // Filtro de tipo (receita/despesa)
+        $this->aplicarFiltroTipo($query, $tipo);
+
         return $query
             ->orderByDesc('f.data_venci')
             ->orderByDesc('f.id')
@@ -235,6 +241,7 @@ class Financeiro extends Model
      * @param string $filialId Filtro de filial especifica (opcional)
      * @param string $ano Filtro de ano (opcional)
      * @param string $mes Filtro de mes (opcional)
+     * @param string $tipo Filtro de tipo (R receita, D despesa)
      * @return int Total de registros
      */
     public function contar(
@@ -245,7 +252,8 @@ class Financeiro extends Model
         string $filialId = '',
         string $ano = '',
         string $mes = '',
-        string $status = ''
+        string $status = '',
+        string $tipo = ''
     ): int {
         // Mesmo schema da listagem (com JOINs) para que a busca por
         // cliente/fornecedor/funcionario funcione tambem na contagem.
@@ -280,7 +288,20 @@ class Financeiro extends Model
         // Filtro de status (pago/em aberto/vencido/vence hoje)
         $this->aplicarFiltroStatus($query, $status);
 
+        // Filtro de tipo (receita/despesa)
+        $this->aplicarFiltroTipo($query, $tipo);
+
         return $query->count();
+    }
+
+    /**
+     * Aplica filtro por tipo do lancamento.
+     */
+    private function aplicarFiltroTipo($query, string $tipo): void
+    {
+        if (in_array($tipo, ['R', 'D'], true)) {
+            $query->where('f.tipo', '=', $tipo);
+        }
     }
 
     /**
@@ -288,25 +309,27 @@ class Financeiro extends Model
      *
      * Valores aceitos:
      * - 'paid'      → pago = 'S'
-     * - 'overdue'   → pago = 'N' AND data_venci < CURDATE()
-     * - 'due_today' → pago = 'N' AND data_venci = CURDATE()
-     * - 'open'      → pago = 'N' AND data_venci > CURDATE()
+     * - 'overdue'   → pago = 'N' AND data_venci < hoje do tenant
+     * - 'due_today' → pago = 'N' AND data_venci = hoje do tenant
+     * - 'open'      → pago = 'N' AND data_venci > hoje do tenant
      * - ''          → sem filtro
      */
     private function aplicarFiltroStatus($query, string $status): void
     {
+        $hoje = DateHelper::todayForDatabase();
+
         switch ($status) {
             case 'paid':
                 $query->where('f.pago', '=', 'S');
                 break;
             case 'overdue':
-                $query->where('f.pago', '=', 'N')->whereRaw('f.data_venci < CURDATE()');
+                $query->where('f.pago', '=', 'N')->where('f.data_venci', '<', $hoje);
                 break;
             case 'due_today':
-                $query->where('f.pago', '=', 'N')->whereRaw('f.data_venci = CURDATE()');
+                $query->where('f.pago', '=', 'N')->where('f.data_venci', '=', $hoje);
                 break;
             case 'open':
-                $query->where('f.pago', '=', 'N')->whereRaw('f.data_venci > CURDATE()');
+                $query->where('f.pago', '=', 'N')->where('f.data_venci', '>', $hoje);
                 break;
         }
     }
@@ -328,18 +351,22 @@ class Financeiro extends Model
         $term = '%' . $search . '%';
         $searchLower = mb_strtolower(trim($search));
         $placaTerm = '%' . str_replace(['-', ' '], '', mb_strtoupper(trim($search))) . '%';
+        $hoje = DateHelper::todayForDatabase();
 
         // Detecta palavra-chave de status e monta branch SQL adicional
         $statusBranch = null;
+        $statusBranchParams = [];
         if (in_array($searchLower, ['paga', 'pago', 'pagas'], true)) {
             $statusBranch = "f.pago = 'S'";
         } elseif (in_array($searchLower, ['vencida', 'vencidas', 'venceu', 'vencido'], true)) {
-            $statusBranch = "f.pago = 'N' AND f.data_venci < CURDATE()";
+            $statusBranch = "f.pago = 'N' AND f.data_venci < ?";
+            $statusBranchParams = [$hoje];
         } elseif (in_array($searchLower, ['pendente', 'em aberto', 'aberto', 'a vencer'], true)) {
-            $statusBranch = "f.pago = 'N' AND f.data_venci >= CURDATE()";
+            $statusBranch = "f.pago = 'N' AND f.data_venci >= ?";
+            $statusBranchParams = [$hoje];
         }
 
-        $query->whereNested(function ($q) use ($term, $placaTerm, $statusBranch) {
+        $query->whereNested(function ($q) use ($term, $placaTerm, $statusBranch, $statusBranchParams) {
             $q->where('f.descricao', 'LIKE', $term)
               ->orWhere('f.documento', 'LIKE', $term)
               ->orWhere('f.codigo', 'LIKE', $term)
@@ -380,7 +407,7 @@ class Financeiro extends Model
               );
 
             if ($statusBranch !== null) {
-                $q->orWhereRaw('(' . $statusBranch . ')');
+                $q->orWhereRaw('(' . $statusBranch . ')', $statusBranchParams);
             }
         });
     }
@@ -492,9 +519,9 @@ class Financeiro extends Model
                 'total_parcelas' => $totalParcelasLancamento,
                 'documento' => $dados['documento'] ?? null,
                 'descricao' => $dados['descricao'] ?? null,
-                'data_criada' => $dados['data_criada'] ?? date('Y-m-d'),
-                'data_venci' => $dados['data_venci'] ?? date('Y-m-d'),
-                'data_pago' => $pago === 'S' ? ($dados['data_pago'] ?? date('Y-m-d')) : null,
+                'data_criada' => $dados['data_criada'] ?? DateHelper::todayForDatabase(),
+                'data_venci' => $dados['data_venci'] ?? DateHelper::todayForDatabase(),
+                'data_pago' => $pago === 'S' ? ($dados['data_pago'] ?? DateHelper::todayForDatabase()) : null,
                 'valor_subtotal' => currency_parse($dados['valor_subtotal'] ?? 0),
                 'juros' => currency_parse($dados['juros'] ?? 0),
                 'multa' => currency_parse($dados['multa'] ?? 0),
@@ -657,7 +684,7 @@ class Financeiro extends Model
             $dadosUpdate['pago'] = $dados['pago'];
             // Se marcou como pago e nao tem data_pago, usar hoje
             if ($dados['pago'] === 'S' && empty($dados['data_pago'])) {
-                $dadosUpdate['data_pago'] = date('Y-m-d');
+                $dadosUpdate['data_pago'] = DateHelper::todayForDatabase();
             }
         }
         if (array_key_exists('parcela', $dados)) {
@@ -731,7 +758,7 @@ class Financeiro extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = DateHelper::systemNow();
 
         return $this->qb
             ->table('financeiro')
@@ -856,7 +883,7 @@ class Financeiro extends Model
                     'desconto' => 0,
                     'valor_total' => $valorPago,
                     'valor_taxa' => $valorTaxaPago,
-                    'updated_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => DateHelper::systemNow(),
                 ]);
 
             if (!empty($itensPago)) {
@@ -889,7 +916,7 @@ class Financeiro extends Model
                 'total_parcelas' => 0,
                 'documento' => $lancamento['documento'] ?? null,
                 'descricao' => mb_substr($descricaoDiferenca, 0, 5000),
-                'data_criada' => date('Y-m-d'),
+                'data_criada' => DateHelper::todayForDatabase(),
                 'data_venci' => $dataVenciDiferenca,
                 'data_pago' => null,
                 'valor_subtotal' => $valorDiferenca,
@@ -1377,8 +1404,8 @@ class Financeiro extends Model
                     'id_financeiro_origem' => $idOrigem,
                     'documento' => $dadosBase['documento'] ?? null,
                     'descricao' => $dadosBase['descricao'] ?? null,
-                    'data_criada' => $dadosBase['data_criada'] ?? date('Y-m-d'),
-                    'data_venci' => $parcela['dataVenci'] ?? date('Y-m-d'),
+                    'data_criada' => $dadosBase['data_criada'] ?? DateHelper::todayForDatabase(),
+                    'data_venci' => $parcela['dataVenci'] ?? DateHelper::todayForDatabase(),
                     'data_pago' => null,
                     'valor_subtotal' => currency_parse($parcela['valor'] ?? 0),
                     'juros' => 0,
@@ -1423,7 +1450,7 @@ class Financeiro extends Model
         if (isset($campos['pago'])) {
             $dadosUpdate['pago'] = $campos['pago'];
             if ($campos['pago'] === 'S' && empty($campos['data_pago'])) {
-                $dadosUpdate['data_pago'] = date('Y-m-d');
+                $dadosUpdate['data_pago'] = DateHelper::todayForDatabase();
             } elseif ($campos['pago'] === 'N') {
                 $dadosUpdate['data_pago'] = null;
             }
@@ -1437,7 +1464,7 @@ class Financeiro extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = DateHelper::systemNow();
 
         return $this->qb
             ->table('financeiro')
@@ -1566,7 +1593,7 @@ class Financeiro extends Model
         return $this->qb
             ->table('financeiro')
             ->where('pago', '=', 'N')
-            ->whereRaw('data_venci < CURDATE()')
+            ->where('data_venci', '<', DateHelper::todayForDatabase())
             ->count();
     }
 
@@ -1587,7 +1614,7 @@ class Financeiro extends Model
             ->leftJoin('clientes', 'c', 'f.id_cliente', '=', 'c.id')
             ->leftJoin('fornecedores', 'fo', 'f.id_fornecedor', '=', 'fo.id')
             ->where('f.pago', '=', 'N')
-            ->whereRaw('f.data_venci < CURDATE()')
+            ->where('f.data_venci', '<', DateHelper::todayForDatabase())
             ->orderBy('f.data_venci', 'ASC')
             ->limit($limit)
             ->offset($offset)
@@ -1603,13 +1630,16 @@ class Financeiro extends Model
      */
     public function dashboardFinancialSummary(string $chave): array
     {
+        $hoje = DateHelper::todayForDatabase();
+        $mesAtual = DateHelper::todayForDatabase('Y-m');
+
         $row = $this->qb
             ->table('financeiro')
             ->selectRaw("
-                COALESCE(SUM(CASE WHEN tipo='R' AND pago='S' AND DATE_FORMAT(data_pago, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') THEN valor_total ELSE 0 END), 0) AS revenue,
-                COALESCE(SUM(CASE WHEN tipo='D' AND pago='S' AND DATE_FORMAT(data_pago, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') THEN valor_total ELSE 0 END), 0) AS expenses,
-                COALESCE(SUM(CASE WHEN tipo='R' AND pago='N' AND data_venci < CURDATE() THEN valor_total ELSE 0 END), 0) AS overdue_total,
-                COALESCE(SUM(CASE WHEN tipo='R' AND pago='N' AND data_venci < CURDATE() THEN 1 ELSE 0 END), 0) AS overdue_count
+                COALESCE(SUM(CASE WHEN tipo='R' AND pago='S' AND DATE_FORMAT(data_pago, '%Y-%m') = '{$mesAtual}' THEN valor_total ELSE 0 END), 0) AS revenue,
+                COALESCE(SUM(CASE WHEN tipo='D' AND pago='S' AND DATE_FORMAT(data_pago, '%Y-%m') = '{$mesAtual}' THEN valor_total ELSE 0 END), 0) AS expenses,
+                COALESCE(SUM(CASE WHEN tipo='R' AND pago='N' AND data_venci < '{$hoje}' THEN valor_total ELSE 0 END), 0) AS overdue_total,
+                COALESCE(SUM(CASE WHEN tipo='R' AND pago='N' AND data_venci < '{$hoje}' THEN 1 ELSE 0 END), 0) AS overdue_count
             ")
             ->first();
 
@@ -1637,7 +1667,7 @@ class Financeiro extends Model
             ->leftJoin('clientes', 'cl', 'f.id_cliente', '=', 'cl.id')
             ->where('f.tipo', '=', 'R')
             ->where('f.pago', '=', 'N')
-            ->whereRaw('f.data_venci < CURDATE()')
+            ->where('f.data_venci', '<', DateHelper::todayForDatabase())
             ->whereNotNull('f.id_cliente')
             ->groupBy(['f.id_cliente', 'cl.nome_rsocial'])
             ->orderByRaw('valor DESC')
@@ -1657,12 +1687,15 @@ class Financeiro extends Model
      */
     public function dashboardUpcomingDue(string $chave, int $limit = 5, int $days = 30): array
     {
+        $hoje = DateHelper::todayForDatabase();
+        $dataLimite = DateHelper::addDaysForDatabase($days);
+
         $rows = $this->qb
             ->table('financeiro')
             ->select(['descricao', 'valor_total', 'data_venci'])
             ->where('tipo', '=', 'D')
             ->where('pago', '=', 'N')
-            ->whereRaw('data_venci BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)', [$days])
+            ->whereRaw('data_venci BETWEEN ? AND ?', [$hoje, $dataLimite])
             ->orderBy('data_venci', 'ASC')
             ->limit($limit)
             ->get();

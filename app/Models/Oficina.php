@@ -180,7 +180,7 @@ class Oficina extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = now();
 
         return $this->qb
             ->table('oficinas')

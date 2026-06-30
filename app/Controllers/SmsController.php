@@ -264,7 +264,7 @@ class SmsController
                 'username' => $username,
                 'api_key' => $encryptedApiKey,
                 'status' => $validationStatus,
-                'validated_at' => $validationStatus === 'validated' ? date('Y-m-d H:i:s') : null,
+                'validated_at' => $validationStatus === 'validated' ? now() : null,
                 'last_error' => $validationError,
             ]);
 

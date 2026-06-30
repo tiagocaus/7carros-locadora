@@ -28,7 +28,8 @@ class RenovarContratosJob extends BaseJob
         $qb = new QueryBuilder($mysqli);
         $qb->withoutChave();
 
-        // Buscar chaves distintas que possuem contratos para renovar
+        // Buscar chaves distintas que possuem contratos com autorrenovacao ativa.
+        // A data de corte e aplicada depois, ja com o timezone do tenant carregado.
         $chaves = $this->carregarChavesComContratosVencidos($qb);
 
         $renovados = 0;
@@ -41,11 +42,12 @@ class RenovarContratosJob extends BaseJob
 
             $this->log("Processando tenant {$chave}");
 
-            $contratos = $this->carregarContratosParaRenovar($qb, $chave);
+            $hoje = today();
+            $contratos = $this->carregarContratosParaRenovar($qb, $chave, $hoje);
 
             foreach ($contratos as $contrato) {
                 try {
-                    $envios = $this->renovarContrato($contrato, $chave);
+                    $envios = $this->renovarContrato($contrato, $chave, $hoje);
                     $renovados++;
                     $this->log("Contrato #{$contrato['codigo']} renovado com sucesso");
                     foreach ($envios as $envio) {
@@ -91,16 +93,15 @@ class RenovarContratosJob extends BaseJob
             ->whereRaw("status = 'A'")
             ->whereNotNull('data_renovacao')
             ->whereRaw("data_renovacao <> '0000-00-00'")
-            ->whereRaw('data_renovacao <= ?', [date('Y-m-d')])
             ->orderBy('chave')
             ->get();
-        return array_column($rows, 'chave');
+        return array_values(array_filter(array_unique(array_column($rows, 'chave'))));
     }
 
     /**
      * Carrega contratos de um tenant prontos para renovação
      */
-    private function carregarContratosParaRenovar(QueryBuilder $qb, string $chave): array
+    private function carregarContratosParaRenovar(QueryBuilder $qb, string $chave, string $hoje): array
     {
         return $qb->withoutChave()
             ->table('contratos')
@@ -110,7 +111,7 @@ class RenovarContratosJob extends BaseJob
             ->whereRaw("status = 'A'")
             ->whereNotNull('data_renovacao')
             ->whereRaw("data_renovacao <> '0000-00-00'")
-            ->whereRaw('data_renovacao <= ?', [date('Y-m-d')])
+            ->whereRaw('data_renovacao <= ?', [$hoje])
             ->orderBy('data_renovacao', 'ASC')
             ->get();
     }
@@ -118,10 +119,10 @@ class RenovarContratosJob extends BaseJob
     /**
      * Executa a renovação de um contrato individual
      */
-    private function renovarContrato(array $contrato, string $chave): array
+    private function renovarContrato(array $contrato, string $chave, string $hoje): array
     {
         $contratoModel = new Contrato();
-        $regularizacao = $contratoModel->calcularRegularizacaoAutorenovacao($contrato);
+        $regularizacao = $contratoModel->calcularRegularizacaoAutorenovacao($contrato, $hoje);
         $idsParcelas = [];
         $envios = [];
 

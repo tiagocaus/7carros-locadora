@@ -299,7 +299,7 @@ class Smtp extends Model
         $dados = ['status' => $status];
 
         if ($status === 'validated') {
-            $dados['validated_at'] = date('Y-m-d H:i:s');
+            $dados['validated_at'] = now();
             $dados['last_error'] = null;
         } elseif ($status === 'invalid') {
             $dados['last_error'] = $error;

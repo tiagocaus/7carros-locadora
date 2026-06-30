@@ -50,8 +50,8 @@
                     <!-- Grid: Matriz/Filial + Situação -->
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                         <div class="md:col-span-7 form-input-group">
-                            <label for="clienteMatriz" class="form-label-group">{{ t('modules.clientes.fields.branch') }}</label>
-                            <select id="clienteMatriz" name="id_matriz_filial" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/matrizes-filiais/buscar" data-chosen-placeholder="{{ t('modules.clientes.placeholders.search_branch') }}">
+                            <label for="clienteMatriz" class="form-label-group">{{ t('modules.clientes.fields.branch') }} <span class="text-red-500">*</span></label>
+                            <select id="clienteMatriz" name="id_matriz_filial" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/matrizes-filiais/buscar" data-chosen-placeholder="{{ t('modules.clientes.placeholders.search_branch') }}" required>
                                 <option value="">{{ t('common.labels.select_option') }}...</option>
                             </select>
                         </div>
@@ -69,8 +69,8 @@
                     <!-- Grid: Tipo | Documento | Nome | Nome Fantasia -->
                     <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 mt-4">
                         <div class="form-input-group sm:col-span-2">
-                            <label for="clienteTipo" class="form-label-group">{{ t('modules.clientes.fields.type') }}</label>
-                            <select id="clienteTipo" name="tipo" class="form-input-group-field">
+                            <label for="clienteTipo" class="form-label-group">{{ t('modules.clientes.fields.type') }} <span class="text-red-500">*</span></label>
+                            <select id="clienteTipo" name="tipo" class="form-input-group-field" required>
                                 <option value="">{{ t('common.labels.select_option') }}...</option>
                                 <option value="PF">{{ t('modules.clientes.fields.type_pf') }}</option>
                                 <option value="PJ">{{ t('modules.clientes.fields.type_pj') }}</option>
@@ -79,13 +79,13 @@
                         </div>
 
                         <div class="form-input-group sm:col-span-3" id="campoDocumento">
-                            <label for="clienteCPF" class="form-label-group">{{ t('modules.clientes.fields.cpf') }}</label>
-                            <input type="text" id="clienteCPF" name="cpf_cnpj" class="form-input-group-field" placeholder="000.000.000-00">
+                            <label for="clienteCPF" class="form-label-group">{{ t('modules.clientes.fields.cpf') }} <span class="text-red-500">*</span></label>
+                            <input type="text" id="clienteCPF" name="cpf_cnpj" class="form-input-group-field" placeholder="000.000.000-00" required>
                         </div>
 
                         <div class="form-input-group sm:col-span-5" id="campoNome">
-                            <label for="clienteNome" class="form-label-group">{{ t('modules.clientes.fields.full_name') }}</label>
-                            <input type="text" id="clienteNome" name="nome_rsocial" class="form-input-group-field">
+                            <label for="clienteNome" class="form-label-group">{{ t('modules.clientes.fields.full_name') }} <span class="text-red-500">*</span></label>
+                            <input type="text" id="clienteNome" name="nome_rsocial" class="form-input-group-field" required>
                         </div>
                     </div>
 
@@ -682,6 +682,9 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
             creditCardTitle: <?= $jsText(t("modules.clientes.credit_cards.title")) ?>,
             cardDefault: <?= $jsText(t("modules.clientes.credit_cards.default")) ?>,
             selectOption: <?= $jsText(t("common.labels.select_option")) ?>,
+            duplicateDocumentTitle: <?= $jsText(t("modules.clientes.messages.duplicate_document_title")) ?>,
+            duplicateDocumentMessage: <?= $jsText(t("modules.clientes.messages.duplicate_document_message")) ?>,
+            duplicateDocumentConfirm: <?= $jsText(t("modules.clientes.messages.duplicate_document_confirm")) ?>,
         };
 
         // Botão voltar - Navega de volta para lista de clientes
@@ -1083,6 +1086,9 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
         let viewMode = false;
         let editMode = false;
         let registroId = null;
+        let clienteDuplicadoPendente = null;
+        let ultimoDocumentoDuplicadoConsultado = '';
+        let sequenciaConsultaDocumento = 0;
 
         // Verificar se está em modo de edição
         const urlParams = new URLSearchParams(window.location.search);
@@ -1097,6 +1103,49 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
             renderizarEmails();
             renderizarTelefones();
         }
+
+        async function verificarClienteExistentePorDocumento() {
+            if (editMode) {
+                return;
+            }
+
+            const campoDocumento = document.getElementById('clienteCPF');
+            const documento = campoDocumento?.value?.trim() || '';
+            if (!documento || documento === ultimoDocumentoDuplicadoConsultado) {
+                return;
+            }
+
+            ultimoDocumentoDuplicadoConsultado = documento;
+            const consultaAtual = ++sequenciaConsultaDocumento;
+
+            try {
+                const result = await API.get('/api/clientes/por-documento', { documento });
+                if (consultaAtual !== sequenciaConsultaDocumento || campoDocumento.value.trim() !== documento) {
+                    return;
+                }
+
+                if (!result.success || !result.exists || !result.data?.id) {
+                    return;
+                }
+
+                clienteDuplicadoPendente = result.data;
+                const nomeCliente = result.data.nome_rsocial || result.data.cpf_cnpj || documento;
+                const message = i18n.duplicateDocumentMessage.replace(':name', nomeCliente);
+
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        action: 'openGenericConfirmModal',
+                        title: i18n.duplicateDocumentTitle,
+                        message: message,
+                        confirmText: i18n.duplicateDocumentConfirm
+                    }, '*');
+                }
+            } catch (error) {
+                console.error('Erro ao verificar cliente por documento:', error);
+            }
+        }
+
+        document.getElementById('clienteCPF')?.addEventListener('blur', verificarClienteExistentePorDocumento);
 
         // Carregar dados do cliente para edição
         async function carregarDadosCliente(id) {
@@ -1333,6 +1382,26 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
 
         // Listener para confirmação de exclusão do parent (apenas faturas, ignora quando há customAction)
         window.addEventListener('message', function(event) {
+            if (event.data && event.data.action === 'genericModalClosed' && clienteDuplicadoPendente?.id) {
+                clienteDuplicadoPendente = null;
+                return;
+            }
+
+            if (event.data && event.data.action === 'genericConfirmed' && clienteDuplicadoPendente?.id) {
+                const clienteId = clienteDuplicadoPendente.id;
+                clienteDuplicadoPendente = null;
+
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        action: 'navigate',
+                        page: `/pages/clientes/adicionar?id=${clienteId}`
+                    }, '*');
+                } else {
+                    window.location.href = `/pages/clientes/adicionar?id=${clienteId}`;
+                }
+                return;
+            }
+
             if (event.data && event.data.action === 'confirmDelete' && !event.data.customAction) {
                 excluirFatura(event.data.recordId);
             }
@@ -1738,6 +1807,10 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
         // Interceptar submit do formulário para adicionar contatos
         document.getElementById('formCliente')?.addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            if (window.FormValidator && !window.FormValidator.validate(this)) {
+                return;
+            }
 
             sincronizarContatosDoFormulario();
 
@@ -2651,18 +2724,14 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
         // ========== BOTÃO "SALVAR E ENVIAR DOCUMENTOS" ==========
 
         btnSalvarEnviarDocs?.addEventListener('click', async function() {
-            // Validar campos obrigatórios
-            const nome = document.getElementById('clienteNome')?.value?.trim();
-            const documento = document.getElementById('clienteCPF')?.value?.trim();
+            const form = document.getElementById('formCliente');
 
-            if (!nome) {
-                mostrarAlerta(i18n.fillNameBeforeSave);
-                document.getElementById('clienteNome')?.focus();
+            if (form && window.FormValidator && !window.FormValidator.validate(form)) {
+                form.requestSubmit();
                 return;
             }
 
             // Coletar dados do formulário
-            const form = document.getElementById('formCliente');
             const formData = new FormData(form);
             const dados = {};
 

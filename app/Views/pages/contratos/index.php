@@ -178,6 +178,22 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         `;
         }
 
+        function getHojeISO() {
+            return window.DateHelper && typeof DateHelper.todayISO === 'function'
+                ? DateHelper.todayISO()
+                : new Date().toISOString().split('T')[0];
+        }
+
+        function diffDias(inicio, fim) {
+            if (window.DateHelper && typeof DateHelper.diffDays === 'function') {
+                return DateHelper.diffDays(inicio, fim);
+            }
+
+            const inicioDate = new Date(inicio + 'T00:00:00');
+            const fimDate = new Date(fim + 'T00:00:00');
+            return Math.ceil((fimDate.getTime() - inicioDate.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
         function renderContratos(contratos) {
             if (!contratos || contratos.length === 0) {
                 tbody.innerHTML = `
@@ -191,8 +207,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }
 
             let tableRows = '';
-            const hoje = new Date();
-            hoje.setHours(0, 0, 0, 0);
+            const hoje = getHojeISO();
 
             contratos.forEach(c => {
                 const sequencia = c.sequencia || '-';
@@ -221,9 +236,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 } else {
                     // Verificar vencimento (apenas para ativos com autorenovacao)
                     if (c.auto_renovacao === 'auto' && c.data_renovacao) {
-                        const dataRenov = new Date(c.data_renovacao);
-                        dataRenov.setHours(0, 0, 0, 0);
-                        const diffDays = Math.ceil((dataRenov - hoje) / (1000 * 60 * 60 * 24));
+                        const diffDays = diffDias(hoje, c.data_renovacao.substring(0, 10));
 
                         if (diffDays < 0) {
                             autorenovacaoVencida = true;
@@ -609,11 +622,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         function formatarData(data) {
             if (!data) return '-';
-            try {
-                return DateHelper.format(data);
-            } catch {
-                return data;
-            }
+            return DateHelper.formatOperationalDateTime(data) || '-';
         }
 
         // Inicializacao

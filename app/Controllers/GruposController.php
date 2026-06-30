@@ -105,7 +105,7 @@ class GruposController
         $valor = str_replace('T', ' ', trim($valor));
         $timestamp = strtotime($valor);
 
-        return $timestamp ? date('Y-m-d H:i:s', $timestamp) : null;
+        return $timestamp ? \App\Helpers\DateHelper::formatTimestamp($timestamp, 'Y-m-d H:i:s', false) : null;
     }
 
     /**

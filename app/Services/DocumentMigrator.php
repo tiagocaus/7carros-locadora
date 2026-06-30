@@ -145,7 +145,7 @@ class DocumentMigrator
                     ->whereRaw('id = ?', [$doc['id']])
                     ->update([
                         'texto' => $conversion['text'],
-                        'updated_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => now(),
                     ]);
             }
 
@@ -341,7 +341,7 @@ class DocumentMigrator
             ->whereRaw('id = ?', [$documentId])
             ->update([
                 'texto' => $originalText,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]) > 0;
     }
 
@@ -351,7 +351,7 @@ class DocumentMigrator
     private function log(string $message, string $level = 'info'): void
     {
         $this->logs[] = [
-            'timestamp' => date('Y-m-d H:i:s'),
+            'timestamp' => now(),
             'level' => $level,
             'message' => $message,
         ];

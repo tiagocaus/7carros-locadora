@@ -30,7 +30,7 @@ class SendDailyCronSummaryJob extends BaseJob
         $summary = $store->read();
         $stats = $this->calculateStats($summary);
         $subjectPrefix = ($stats['failed'] > 0 || $stats['missing'] > 0) ? '[ERRO] ' : '';
-        $subject = $subjectPrefix . 'Resumo Diario dos CRONs - ' . date('d/m/Y');
+        $subject = $subjectPrefix . 'Resumo Diario dos CRONs - ' . format_date(today());
 
         $emailService = new EmailService();
         $result = $emailService->send([
@@ -97,7 +97,7 @@ class SendDailyCronSummaryJob extends BaseJob
 
     private function buildHtml(array $summary, array $stats): string
     {
-        $date = $this->formatDate($summary['date'] ?? date('Y-m-d'));
+        $date = $this->formatDate($summary['date'] ?? today());
         $statusColor = ($stats['failed'] > 0 || $stats['missing'] > 0) ? '#dc2626' : '#059669';
         $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
             body{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f3f4f6;color:#1f2937}
@@ -139,7 +139,7 @@ class SendDailyCronSummaryJob extends BaseJob
     {
         $lines = [
             'RESUMO DIARIO DOS CRONs',
-            'Data: ' . $this->formatDate($summary['date'] ?? date('Y-m-d')),
+            'Data: ' . $this->formatDate($summary['date'] ?? today()),
             '',
             'Jobs esperados: ' . $stats['expected'],
             'Executados: ' . $stats['executed'],
@@ -244,6 +244,6 @@ class SendDailyCronSummaryJob extends BaseJob
     private function formatDate(string $date): string
     {
         $timestamp = strtotime($date);
-        return $timestamp ? date('d/m/Y', $timestamp) : $date;
+        return $timestamp ? \App\Helpers\DateHelper::formatTimestamp($timestamp, 'd/m/Y') : $date;
     }
 }

@@ -93,7 +93,7 @@ class CronRunner
             'successful' => $successful,
             'failed' => $failed,
             'duration' => $totalDuration,
-            'timestamp' => date('Y-m-d H:i:s'),
+            'timestamp' => now(),
             'results' => $this->results,
         ];
     }

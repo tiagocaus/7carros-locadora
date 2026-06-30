@@ -642,7 +642,7 @@
                 if (result.data) {
                     pedido = { ...pedido, ...result.data };
                 } else {
-                    const agora = new Date().toISOString();
+                    const agora = DateHelper.nowISO();
                     pedido.status = status;
                     pedido.prioridade = prioridade;
                     pedido.resposta_admin = resposta;
@@ -675,8 +675,7 @@
     // ===== HELPERS =====
     function formatarData(dataStr) {
         if (!dataStr) return '-';
-        const data = new Date(dataStr);
-        return data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        return DateHelper.formatDateTime(dataStr);
     }
 
     function escapeHtml(text) {

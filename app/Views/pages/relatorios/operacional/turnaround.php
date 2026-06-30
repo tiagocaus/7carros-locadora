@@ -96,9 +96,9 @@
             return `<tr class="hover:bg-slate-50">
                 <td class="table-cell"><strong>${r.placa || '-'}</strong> <span class="text-xs text-slate-500">${r.veiculo_modelo || ''}</span></td>
                 <td class="table-cell text-slate-600 text-xs">${r.locacao_anterior || '-'}</td>
-                <td class="table-cell text-center">${r.data_chegada ? DateHelper.formatDateTime(r.data_chegada) : '-'}</td>
+                <td class="table-cell text-center">${r.data_chegada ? DateHelper.formatOperationalDateTime(r.data_chegada) : '-'}</td>
                 <td class="table-cell text-slate-600 text-xs">${r.proxima_locacao || '-'}</td>
-                <td class="table-cell text-center">${r.data_saida_proxima ? DateHelper.formatDateTime(r.data_saida_proxima) : '-'}</td>
+                <td class="table-cell text-center">${r.data_saida_proxima ? DateHelper.formatOperationalDateTime(r.data_saida_proxima) : '-'}</td>
                 <td class="table-cell text-center font-semibold ${cls}">${fmt}</td>
             </tr>`;
         }).join('');

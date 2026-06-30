@@ -337,7 +337,7 @@ class SmtpService
      */
     private function getTestEmailHtml(string $fromName): string
     {
-        $date = date('d/m/Y H:i:s');
+        $date = format_datetime(now());
 
         return <<<HTML
 <!DOCTYPE html>

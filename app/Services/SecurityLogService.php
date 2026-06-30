@@ -183,7 +183,7 @@ class SecurityLogService
             [
                 'reason' => $reason,
                 'duration_seconds' => $duration,
-                'blocked_until' => date('Y-m-d H:i:s', time() + $duration),
+                'blocked_until' => \App\Helpers\DateHelper::formatTimestamp(\App\Helpers\DateHelper::timestamp() + $duration, 'Y-m-d H:i:s', false),
             ],
             100,
             'blocked',

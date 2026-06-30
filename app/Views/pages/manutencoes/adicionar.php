@@ -82,7 +82,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
                     <!-- Oficina -->
-                    <div class="md:col-span-12 form-input-group">
+                    <div class="md:col-span-6 form-input-group">
                         <label for="id_oficina" class="form-label-group"><?= t('modules.manutencao.fields.workshop') ?></label>
                         <select id="id_oficina" name="id_oficina"
                                 class="form-input-group-field chosen-select"
@@ -90,6 +90,21 @@
                                 data-chosen-search-url="/api/oficinas/buscar"
                                 data-chosen-placeholder="<?= t('modules.manutencao.placeholders.search_type') ?>">
                             <option value=""><?= t('modules.manutencao.placeholders.select') ?></option>
+                        </select>
+                    </div>
+
+                    <!-- Cliente pagador -->
+                    <div class="md:col-span-6 form-input-group">
+                        <label for="id_cliente" class="form-label-group">
+                            <?= t('modules.manutencao.fields.client') ?>
+                            <?= aviso(t('modules.manutencao.helpers.client_payer')) ?>
+                        </label>
+                        <select id="id_cliente" name="id_cliente"
+                                class="form-input-group-field chosen-select"
+                                data-chosen-type="server-side"
+                                data-chosen-search-url="/api/clientes/buscar"
+                                data-chosen-placeholder="<?= t('common.labels.optional') ?>">
+                            <option value=""><?= t('common.labels.optional') ?></option>
                         </select>
                     </div>
                 </div>
@@ -532,6 +547,9 @@ window.manutencoesAuditI18n = <?= json_encode([
         if (m.id_oficina) {
             setChosenValue('id_oficina', m.id_oficina, m.oficina_nome);
         }
+        if (m.id_cliente) {
+            setChosenValue('id_cliente', m.id_cliente, m.cliente_nome);
+        }
 
         // Itens
         if (m.itens) {
@@ -685,8 +703,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         // Preencher data de envio com data/hora atual
         const dataEnviado = document.getElementById('data_enviado');
         if (dataEnviado && !dataEnviado.value) {
-            const now = new Date();
-            dataEnviado.value = now.toISOString().slice(0, 16);
+            dataEnviado.value = DateHelper.nowInput();
         }
     }
 
@@ -807,18 +824,27 @@ window.manutencoesAuditI18n = <?= json_encode([
             tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-slate-500">${i18n.noItems}</td></tr>`;
             document.getElementById('totalDescontos').textContent = Currency.format(0, true);
             document.getElementById('totalServicos').textContent = Currency.format(0, true);
+            document.getElementById('totalPago').textContent = Currency.format(0, true);
+            document.getElementById('totalPendente').textContent = Currency.format(0, true);
             return;
         }
 
         let html = '';
         let total = 0;
         let totalDescontos = 0;
+        let totalPago = 0;
+        let totalPendente = 0;
 
         itensData.forEach((item, index) => {
             const valorTotal = parseFloat(item.valor_total) || 0;
             const desconto = parseFloat(item.desconto) || 0;
             total += valorTotal;
             totalDescontos += desconto;
+            if (item.pago === 'S') {
+                totalPago += valorTotal;
+            } else {
+                totalPendente += valorTotal;
+            }
 
             const statusBadge = item.pago === 'S'
                 ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">${i18n.badgePaid}</span>`
@@ -850,6 +876,8 @@ window.manutencoesAuditI18n = <?= json_encode([
         tbody.innerHTML = html;
         document.getElementById('totalDescontos').textContent = Currency.format(totalDescontos, true);
         document.getElementById('totalServicos').textContent = Currency.format(total, true);
+        document.getElementById('totalPago').textContent = Currency.format(totalPago, true);
+        document.getElementById('totalPendente').textContent = Currency.format(totalPendente, true);
     }
 
     document.getElementById('btnAdicionarItem')?.addEventListener('click', function() {
@@ -1390,6 +1418,15 @@ window.manutencoesAuditI18n = <?= json_encode([
         }
     }
 
+    function setCamposFinanceiroHabilitados(habilitado) {
+        ['fin_forma_pagamento', 'fin_parcelas', 'fin_data_vencimento', 'fin_intervalo'].forEach(id => {
+            const campo = document.getElementById(id);
+            if (campo) {
+                campo.disabled = !habilitado;
+            }
+        });
+    }
+
     document.getElementById('btnLancamentoCompleto')?.addEventListener('click', function() {
         tipoLancamento = 'completo';
         // Marcar todos os itens pendentes para ilustrar o que sera incluido
@@ -1398,6 +1435,7 @@ window.manutencoesAuditI18n = <?= json_encode([
             checkAll.checked = true;
             checkAll.dispatchEvent(new Event('change'));
         }
+        setCamposFinanceiroHabilitados(true);
         document.getElementById('configFinanceiro').style.display = 'block';
     });
 
@@ -1408,11 +1446,13 @@ window.manutencoesAuditI18n = <?= json_encode([
             return;
         }
         tipoLancamento = 'parcial';
+        setCamposFinanceiroHabilitados(true);
         document.getElementById('configFinanceiro').style.display = 'block';
     });
 
     document.getElementById('btnCancelarLancamento')?.addEventListener('click', function() {
         document.getElementById('configFinanceiro').style.display = 'none';
+        setCamposFinanceiroHabilitados(false);
         tipoLancamento = null;
     });
 
@@ -1524,6 +1564,7 @@ window.manutencoesAuditI18n = <?= json_encode([
             if (result.success) {
                 toast.success(i18n.entryCreated);
                 document.getElementById('configFinanceiro').style.display = 'none';
+                setCamposFinanceiroHabilitados(false);
                 carregarDados(id); // Recarregar
             } else {
                 toast.error(result.message || i18n.genericError);
@@ -1549,6 +1590,7 @@ window.manutencoesAuditI18n = <?= json_encode([
             id_matriz_filial: document.getElementById('id_matriz_filial').value,
             id_veiculo: document.getElementById('id_veiculo').value,
             id_oficina: document.getElementById('id_oficina').value,
+            id_cliente: document.getElementById('id_cliente').value,
             motivo: document.getElementById('motivo').value,
             data_enviado: document.getElementById('data_enviado').value?.replace('T', ' ') || null,
             data_retorno: document.getElementById('data_retorno').value?.replace('T', ' ') || null,
@@ -1610,7 +1652,8 @@ window.manutencoesAuditI18n = <?= json_encode([
     carregarFormasPagamento();
 
     // Data padrao para vencimento
-    document.getElementById('fin_data_vencimento').value = new Date().toISOString().split('T')[0];
+    document.getElementById('fin_data_vencimento').value = DateHelper.todayInput();
+    setCamposFinanceiroHabilitados(false);
 
     // ===== LISTENER PARA MODAL DE CONFIRMACAO =====
 

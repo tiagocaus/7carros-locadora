@@ -285,7 +285,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     // ==================== INICIALIZACAO ====================
 
     function init() {
-        const agora = formatarDatetimeLocal(new Date());
+        const agora = DateHelper.nowInput();
 
         // Atualizar FuelLabels e labels dinamicos para cada veiculo
         veiculosAtivos.forEach((v, i) => {

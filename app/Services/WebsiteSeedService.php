@@ -34,7 +34,7 @@ class WebsiteSeedService
         $this->seedPath        = APP_ROOT . '/storage/templates/website/seed';
         $this->defaultsPath    = APP_ROOT . '/storage/templates/website/defaults';
         $this->uploadsBasePath = APP_ROOT . '/storage/uploads';
-        $this->suffix          = date('YmdHis');
+        $this->suffix          = \App\Helpers\DateHelper::systemNow('YmdHis');
     }
 
     /**

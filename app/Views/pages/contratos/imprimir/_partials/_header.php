@@ -41,7 +41,7 @@ $_showQrCode = $_showQrCode ?? true;
         <td style="width: 20%; vertical-align: top; padding: 0;">
             <div class="doc-titulo" style="font-size: 13pt; font-weight: bold; text-align: right; margin-bottom: 5px;"><?= htmlspecialchars($_docTitulo) ?></div>
             <div class="doc-detalhe" style="font-size: 9pt; text-align: right; color: #555;"><strong><?= t('modules.contratos.pdf.contract_label') ?></strong> <?= htmlspecialchars($contrato['codigo']) ?>-<?= htmlspecialchars($contrato['sequencia'] ?? '') ?></div>
-            <div class="doc-detalhe" style="font-size: 9pt; text-align: right; color: #555;"><strong><?= t('modules.contratos.pdf.date_label') ?></strong> <?= date('d/m/Y', strtotime($contrato['created_at'])) ?></div>
+            <div class="doc-detalhe" style="font-size: 9pt; text-align: right; color: #555;"><strong><?= t('modules.contratos.pdf.date_label') ?></strong> <?= !empty($contrato['created_at']) ? format_date($contrato['created_at']) : format_date(today()) ?></div>
             <div class="doc-detalhe" style="font-size: 9pt; text-align: right; color: #555;"><strong><?= t('modules.contratos.pdf.status_label') ?></strong> <?= $contrato['status'] === 'A' ? t('modules.contratos.status.active') : t('modules.contratos.status.finalized') ?></div>
         </td>
         <td style="width: 15%; text-align: right; vertical-align: top; padding: 0;">

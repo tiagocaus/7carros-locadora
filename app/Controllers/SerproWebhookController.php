@@ -326,7 +326,7 @@ class SerproWebhookController
                     ->where('chave', '=', $chave)
                     ->update([
                         'stripe_payment_method_id' => $paymentMethodId,
-                        'updated_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => now(),
                     ]);
             }
         } catch (\Exception $e) {

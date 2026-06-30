@@ -9,6 +9,15 @@
  *   $_faturaStandalone (bool) - true: usa htmlpagefooter do mPDF; false: assinatura inline
  */
 $_faturaStandalone = $_faturaStandalone ?? false;
+$_formatarDataContratoFatura = static function($valor, bool $comHora = false): string {
+    if (empty($valor)) {
+        return '-';
+    }
+
+    $formatado = $comHora ? format_operational_datetime((string) $valor) : format_date((string) $valor);
+
+    return $formatado !== '' ? $formatado : '-';
+};
 $_formatarCombustivelContratoFatura = static function($nivel, array $item): string {
     if ($nivel === null || $nivel === '') {
         return '-';
@@ -92,9 +101,9 @@ $_formatarCombustivelContratoFatura = static function($nivel, array $item): stri
     <table class="data-table">
         <tr>
             <td style="width: 12%;"><strong><?= t('modules.contratos.pdf.start_label') ?></strong></td>
-            <td style="width: 22%;"><?= date('d/m/Y H:i', strtotime($contrato['data_ini'])) ?></td>
+            <td style="width: 22%;"><?= $_formatarDataContratoFatura($contrato['data_ini'] ?? null, true) ?></td>
             <td style="width: 12%;"><strong><?= t('modules.contratos.pdf.end_label') ?></strong></td>
-            <td style="width: 22%;"><?= !empty($contrato['auto_renovacao']) && $contrato['auto_renovacao'] === 'auto' ? t('modules.contratos.pdf.indeterminate') : date('d/m/Y H:i', strtotime($contrato['data_fim'])) ?></td>
+            <td style="width: 22%;"><?= !empty($contrato['auto_renovacao']) && $contrato['auto_renovacao'] === 'auto' ? t('modules.contratos.pdf.indeterminate') : $_formatarDataContratoFatura($contrato['data_fim'] ?? null, true) ?></td>
             <td style="width: 8%;"><strong><?= htmlspecialchars($periodoLabel) ?>:</strong></td>
             <td style="width: 8%;"><?= (int) $contrato['dias'] ?></td>
             <td style="width: 8%;"><strong><?= t('modules.contratos.pdf.method_label') ?></strong></td>
@@ -105,7 +114,7 @@ $_formatarCombustivelContratoFatura = static function($nivel, array $item): stri
             <td><?= $autoRenovacaoNome ?></td>
             <?php if (!empty($contrato['data_renovacao'])): ?>
             <td><strong><?= t('modules.contratos.pdf.next_label') ?></strong></td>
-            <td colspan="5"><?= date('d/m/Y', strtotime($contrato['data_renovacao'])) ?></td>
+            <td colspan="5"><?= $_formatarDataContratoFatura($contrato['data_renovacao']) ?></td>
             <?php else: ?>
             <td colspan="6"></td>
             <?php endif; ?>
@@ -135,7 +144,7 @@ $_formatarCombustivelContratoFatura = static function($nivel, array $item): stri
                 <td><?= htmlspecialchars($c['nome'] ?? '-') ?></td>
                 <td><?= htmlspecialchars($c['cc'] ?? '-') ?></td>
                 <td><?= htmlspecialchars($c['cn'] ?? '-') ?></td>
-                <td><?= !empty($c['va']) ? date('d/m/Y', strtotime($c['va'])) : '-' ?></td>
+                <td><?= $_formatarDataContratoFatura($c['va'] ?? null) ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

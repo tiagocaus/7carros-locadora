@@ -263,7 +263,7 @@ class CaucaoDeposito extends Model
             return 'ativa';
         }
 
-        $hoje = strtotime(date('Y-m-d'));
+        $hoje = strtotime(today());
         if ($prevista < $hoje) {
             return 'vencida';
         }

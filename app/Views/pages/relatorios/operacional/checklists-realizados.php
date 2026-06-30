@@ -140,7 +140,7 @@
         if (!lista || lista.length === 0) { cont.style.display = 'none'; return; }
         cont.style.display = 'block';
         tb.innerHTML = lista.map(r => `<tr class="hover:bg-slate-50">
-            <td class="table-cell text-center">${r.data_checklist ? DateHelper.formatDateTime(r.data_checklist) : '-'}</td>
+            <td class="table-cell text-center">${r.data_checklist ? DateHelper.formatOperationalDateTime(r.data_checklist) : '-'}</td>
             <td class="table-cell text-center text-xs">${MOMENTO_LABEL[r.momento] || r.momento || '-'}</td>
             <td class="table-cell"><strong>${r.placa || '-'}</strong> <span class="text-xs text-slate-500">${r.veiculo_modelo || ''}</span></td>
             <td class="table-cell text-slate-600 text-xs">${r.locacao_codigo || '-'}</td>

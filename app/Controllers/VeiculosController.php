@@ -668,8 +668,8 @@ class VeiculosController
             // Formatar valores
             foreach ($manutencoes as &$m) {
                 $m['total_servicos_formatted'] = currency_format($m['total_servicos'] ?? 0);
-                $m['data_enviado_formatted'] = $m['data_enviado'] ? date('d/m/Y H:i', strtotime($m['data_enviado'])) : '';
-                $m['data_retorno_formatted'] = $m['data_retorno'] ? date('d/m/Y H:i', strtotime($m['data_retorno'])) : '';
+                $m['data_enviado_formatted'] = $m['data_enviado'] ? format_operational_datetime($m['data_enviado']) : '';
+                $m['data_retorno_formatted'] = $m['data_retorno'] ? format_operational_datetime($m['data_retorno']) : '';
 
                 $statusMap = ['C' => 'Criada', 'A' => 'Aberta', 'F' => 'Fechada'];
                 $m['status_label'] = $statusMap[$m['status']] ?? $m['status'];
@@ -729,7 +729,7 @@ class VeiculosController
                 if (($fatura['pago'] ?? 'N') === 'S') {
                     $fatura['status'] = 'paid';
                     $fatura['status_label'] = 'Pago';
-                } elseif (!empty($fatura['data_venci']) && $fatura['data_venci'] < date('Y-m-d')) {
+                } elseif (!empty($fatura['data_venci']) && $fatura['data_venci'] < today()) {
                     $fatura['status'] = 'overdue';
                     $fatura['status_label'] = 'Vencido';
                 } else {
@@ -955,7 +955,16 @@ class VeiculosController
 
             // Converter data
             if (!empty($dados['vencimento'])) {
-                $dados['vencimento'] = parse_date($dados['vencimento']);
+                $vencimento = $this->normalizarVencimentoEncargo($dados['vencimento']);
+                if ($vencimento === null) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Informe uma data de vencimento valida'
+                    ], 422);
+                    return;
+                }
+
+                $dados['vencimento'] = $vencimento;
             }
 
             $dados['chave'] = $chave;
@@ -1005,7 +1014,20 @@ class VeiculosController
 
             // Converter data
             if (isset($dados['vencimento'])) {
-                $dados['vencimento'] = !empty($dados['vencimento']) ? parse_date($dados['vencimento']) : null;
+                if (!empty($dados['vencimento'])) {
+                    $vencimento = $this->normalizarVencimentoEncargo($dados['vencimento']);
+                    if ($vencimento === null) {
+                        Response::json([
+                            'success' => false,
+                            'message' => 'Informe uma data de vencimento valida'
+                        ], 422);
+                        return;
+                    }
+
+                    $dados['vencimento'] = $vencimento;
+                } else {
+                    $dados['vencimento'] = null;
+                }
             }
 
             $model->atualizar($encargoId, $dados);
@@ -1054,5 +1076,37 @@ class VeiculosController
                 'message' => 'Erro ao excluir encargo: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function normalizarVencimentoEncargo(?string $vencimento): ?string
+    {
+        $vencimento = trim((string) $vencimento);
+        if ($vencimento === '') {
+            return null;
+        }
+
+        $iso = \DateTime::createFromFormat('!Y-m-d', $vencimento);
+        $isoErrors = \DateTime::getLastErrors();
+        if ($iso !== false
+            && ($isoErrors === false || ($isoErrors['warning_count'] === 0 && $isoErrors['error_count'] === 0))
+            && $iso->format('Y-m-d') === $vencimento) {
+            return $vencimento;
+        }
+
+        preg_match_all('/\d+/', $vencimento, $matches);
+        if (count($matches[0]) < 3) {
+            return null;
+        }
+
+        $config = date_config();
+        $format = $config['date_format'] ?? 'd/m/Y';
+        $date = \DateTime::createFromFormat('!' . $format, $vencimento);
+        $errors = \DateTime::getLastErrors();
+
+        if ($date === false || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+            return null;
+        }
+
+        return $date->format('Y-m-d');
     }
 }

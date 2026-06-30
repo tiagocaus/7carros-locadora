@@ -48,7 +48,7 @@ class HorarioExcecao extends Model
             return [
                 'id' => $e['id'],
                 'data' => $e['data'],
-                'data_formatada' => date('d/m/Y', strtotime($e['data'])),
+                'data_formatada' => format_date($e['data']),
                 'tipo' => $e['tipo'],
                 'tipo_nome' => self::TIPOS[$e['tipo']] ?? $e['tipo'],
                 'abertura' => $e['abertura'] ? substr($e['abertura'], 0, 5) : null,
@@ -94,7 +94,7 @@ class HorarioExcecao extends Model
         return [
             'id' => $e['id'],
             'data' => $e['data'],
-            'data_formatada' => date('d/m/Y', strtotime($e['data'])),
+            'data_formatada' => format_date($e['data']),
             'tipo' => $e['tipo'],
             'tipo_nome' => self::TIPOS[$e['tipo']] ?? $e['tipo'],
             'abertura' => $e['abertura'] ? substr($e['abertura'], 0, 5) : null,
@@ -236,7 +236,7 @@ class HorarioExcecao extends Model
      */
     public function listarFuturas(int $matrizFilialId, int $limite = 10): array
     {
-        $hoje = date('Y-m-d');
+        $hoje = today();
         return $this->listarPorMatriz($matrizFilialId, $hoje, null);
     }
 

@@ -420,7 +420,7 @@ class VeicularController extends BaseRelatorioController
         );
 
         // Disponibilidade não usa período — passa data atual nos dois lados pro header
-        $hoje = date('Y-m-d');
+        $hoje = today();
         $this->renderPdf(
             'disponibilidade.php',
             t('modules.relatorios.veicular.disponibilidade.title'),

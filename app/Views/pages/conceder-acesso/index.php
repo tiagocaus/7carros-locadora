@@ -172,8 +172,7 @@
         estadoComUsuario.classList.remove('hidden');
         usuarioNome.textContent = usuario;
         if (dataCreated) {
-            const data = new Date(dataCreated);
-            criadoEm.textContent = i18n.createdAt + ' ' + data.toLocaleString('pt-BR');
+            criadoEm.textContent = i18n.createdAt + ' ' + DateHelper.formatDateTime(dataCreated);
         }
     }
 

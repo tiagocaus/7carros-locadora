@@ -45,14 +45,10 @@ const ReportUtils = {
      * Define período padrão (mês atual)
      */
     setDefaultPeriod() {
-        const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
         const inicio = document.getElementById('filterDataInicio');
         const fim = document.getElementById('filterDataFim');
-        if (inicio) inicio.value = this.formatDateISO(firstDay);
-        if (fim) fim.value = this.formatDateISO(lastDay);
+        if (inicio) inicio.value = DateHelper.startOfCurrentMonthISO();
+        if (fim) fim.value = DateHelper.endOfCurrentMonthISO();
     },
 
     /**

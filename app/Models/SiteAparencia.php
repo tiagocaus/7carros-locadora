@@ -33,7 +33,7 @@ class SiteAparencia extends Model
         $existing = $this->buscarPorChave();
 
         if ($existing) {
-            $dados['updated_at'] = date('Y-m-d H:i:s');
+            $dados['updated_at'] = now();
             return $this->qb
                 ->table('site_aparencia')
                 ->where('id', '=', $existing['id'])
@@ -55,7 +55,7 @@ class SiteAparencia extends Model
             $dados['cores_customizadas'] = json_encode($dados['cores_customizadas']);
         }
 
-        $dados['updated_at'] = date('Y-m-d H:i:s');
+        $dados['updated_at'] = now();
         return $this->qb
             ->table('site_aparencia')
             ->update($dados);
@@ -77,7 +77,7 @@ class SiteAparencia extends Model
             ->update([
                 'css_customizado_backup' => $current['css_customizado'],
                 'css_customizado'        => null,
-                'updated_at'             => date('Y-m-d H:i:s'),
+                'updated_at'             => now(),
             ]);
     }
 
@@ -97,7 +97,7 @@ class SiteAparencia extends Model
             ->update([
                 'css_customizado'        => $current['css_customizado_backup'],
                 'css_customizado_backup' => null,
-                'updated_at'             => date('Y-m-d H:i:s'),
+                'updated_at'             => now(),
             ]);
     }
 }

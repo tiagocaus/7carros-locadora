@@ -29,11 +29,11 @@ class NFSeXMLNacional implements NFSeXMLInterface
 
         // Identificacao
         $xml .= '<tpAmb>' . ($dados['ambiente'] ?? 2) . '</tpAmb>';
-        $xml .= '<dhEmi>' . $this->formatarDataISO($dados['data_emissao'] ?? date('Y-m-d\TH:i:sP')) . '</dhEmi>';
+        $xml .= '<dhEmi>' . $this->formatarDataISO($dados['data_emissao'] ?? \App\Helpers\DateHelper::isoNow()) . '</dhEmi>';
         $xml .= '<verAplic>7Carros v8.3</verAplic>';
         $xml .= '<serie>' . $this->escapeXml($serie) . '</serie>';
         $xml .= '<nDPS>' . (int) ($dados['numero'] ?? 0) . '</nDPS>';
-        $xml .= '<dCompet>' . $this->escapeXml((string) ($dados['data_competencia'] ?? date('Y-m-d'))) . '</dCompet>';
+        $xml .= '<dCompet>' . $this->escapeXml((string) ($dados['data_competencia'] ?? today())) . '</dCompet>';
         $xml .= '<tpEmit>1</tpEmit>';
         $xml .= '<cLocEmi>' . $this->somenteDigitos((string) ($dados['municipio_codigo'] ?? '')) . '</cLocEmi>';
 
@@ -141,7 +141,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $xml .= '<infPedReg Id="' . $this->escapeXml($id) . '">';
         $xml .= '<tpAmb>' . (int) ($dados['ambiente'] ?? 2) . '</tpAmb>';
         $xml .= '<chNFSe>' . $this->escapeXml($chaveAcesso) . '</chNFSe>';
-        $xml .= '<dhEvento>' . date('Y-m-d\TH:i:sP') . '</dhEvento>';
+        $xml .= '<dhEvento>' . \App\Helpers\DateHelper::isoNow() . '</dhEvento>';
         $xml .= '<tpEvento>101101</tpEvento>';
         $xml .= '<xDescEvento>Cancelamento de NFS-e</xDescEvento>';
         $xml .= '<detEvento><evCancNFSe><xJust>' . $this->textoMaiusculo($motivo) . '</xJust></evCancNFSe></detEvento>';

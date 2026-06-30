@@ -95,7 +95,7 @@ class ContratoCaucao extends Model
             $this->qb
                 ->table('contratos_caucoes')
                 ->where('id', '=', (int) $caucao['id'])
-                ->update(array_merge($payload, ['updated_at' => date('Y-m-d H:i:s')]));
+                ->update(array_merge($payload, ['updated_at' => now()]));
             $idCaucao = (int) $caucao['id'];
         } else {
             $idCaucao = $this->qb
@@ -143,7 +143,7 @@ class ContratoCaucao extends Model
                 'id_financeiro_devolucao' => $idFinanceiro,
                 'data_devolucao' => $dataDevolucao,
                 'status' => 'devolvida',
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -159,7 +159,7 @@ class ContratoCaucao extends Model
                     ->where('id', '=', (int) $caucao['id'])
                     ->update([
                         'id_financeiro_entrada' => null,
-                        'updated_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => now(),
                     ]);
             }
             return;
@@ -185,7 +185,7 @@ class ContratoCaucao extends Model
             'parcela' => 1,
             'total_parcelas' => 1,
             'descricao' => $descricao,
-            'data_venci' => date('Y-m-d'),
+            'data_venci' => today(),
             'valor_subtotal' => $caucao['valor'],
             'valor_total' => $caucao['valor'],
         ];
@@ -231,7 +231,7 @@ class ContratoCaucao extends Model
             ->where('id', '=', (int) $caucao['id'])
             ->update([
                 'id_financeiro_entrada' => $idFinanceiro,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 
@@ -317,7 +317,7 @@ class ContratoCaucao extends Model
             return $value;
         }
 
-        return date('Y-m-d');
+        return today();
     }
 
     private function cancelarCaucao(array $caucao): void
@@ -332,7 +332,7 @@ class ContratoCaucao extends Model
             ->update([
                 'status' => 'cancelada',
                 'id_financeiro_entrada' => null,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => now(),
             ]);
     }
 

@@ -37,8 +37,8 @@ class UserQuota extends Model
      */
     public function garantirQuotaHoje(int $userId, string $chave): void
     {
-        $now = date('Y-m-d H:i:s');
-        $today = date('Y-m-d');
+        $now = now();
+        $today = today();
 
         // INSERT IGNORE - não faz nada se já existir
         $sql = "INSERT IGNORE INTO security_user_quotas
@@ -121,7 +121,7 @@ class UserQuota extends Model
      */
     public function limparAntigas(int $dias = 30): int
     {
-        $cutoff = date('Y-m-d', strtotime("-{$dias} days"));
+        $cutoff = \App\Helpers\DateHelper::addDaysForDatabase(-$dias);
 
         return $this->qb
             ->table('security_user_quotas')

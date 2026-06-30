@@ -34,6 +34,7 @@ O sistema de CRON permite executar tarefas agendadas de forma automática e orga
 ✅ **Multi-tenant**: Respeita isolamento por `chave`
 ✅ **Idempotente**: Seguro executar múltiplas vezes
 ✅ **Scheduler interno**: Cada job define sua própria frequência (diário, horário, etc.)
+✅ **Lock global**: impede duas execuções simultâneas do `cron.php`
 
 ### Execução
 
@@ -45,6 +46,23 @@ O sistema de CRON permite executar tarefas agendadas de forma automática e orga
   - `php cron.php --list` - Lista todos os jobs e suas frequências
   - `php cron.php --force` - Força execução de todos os jobs
   - `php cron.php --help` - Exibe ajuda
+
+### Datas em Jobs Multi-tenant
+
+Jobs que processam regras de negocio por tenant devem calcular datas no PHP com
+`DateHelper` depois de definir o contexto do tenant (`$_SESSION['chave']`). Nao
+use `CURDATE()` ou `NOW()` em SQL para vencimentos, autorrenovacao, encargos,
+cobrancas, faturas ou notificacoes.
+
+- Regras de negocio por data: use `today()` / `DateHelper::todayForDatabase()`
+  e passe a data como parametro da query.
+- Proximos vencimentos: use `DateHelper::addDaysForDatabase()` ou
+  `DateHelper::addMonthsForDatabase()` com o contexto do tenant ativo.
+- Instantes tecnicos de fila, logs, expiracao de link e status internos: use
+  `now()` / `DateHelper::systemNow()` e tambem passe como parametro da query.
+- Jobs cross-tenant devem primeiro carregar tenants candidatos sem filtro por
+  data dependente de timezone; em seguida, processar cada tenant com seu proprio
+  contexto e sua data de referencia.
 
 ---
 
@@ -71,6 +89,7 @@ project-root/
 │
 ├── storage/
 │   ├── cron/
+│   │   ├── cron.lock                 # Lock global via flock
 │   │   └── schedule-state.json       # Estado de execução (última execução por job)
 │   │
 │   └── logs/
@@ -94,34 +113,38 @@ project-root/
    ↓
 2. cron.php carrega autoloader e ambiente (.env)
    ↓
-3. Cria instância de Scheduler
+3. Em execução normal/--force, adquire lock global em storage/cron/cron.lock
+   - Se outro processo estiver ativo, encerra sem executar jobs
    ↓
-4. Registra jobs com suas frequências:
+4. Cria instância de Scheduler
+   ↓
+5. Registra jobs com suas frequências:
    - ProcessMessageQueueJob -> everyMinute()
    - CheckPreventiveMaintenanceJob -> dailyAt('00:05')
    - RotateAuthorizationHoldsJob -> dailyAt('03:00')
    - SendDailyCronSummaryJob -> dailyAt('04:30')
    ↓
-5. Scheduler verifica cada job:
+6. Scheduler verifica cada job:
    - isDue()? Verifica se é hora de executar (expressão cron)
    - wasRecentlyRun()? Evita duplicatas no mesmo minuto
    ↓
-6. Para cada job que deve executar:
+7. Para cada job que deve executar:
    - Executa método handle()
    - Registra logs
    - Marca como executado (salva em schedule-state.json)
    ↓
-7. Jobs que não estão no horário são pulados (SKIP)
+8. Jobs que não estão no horário são pulados (SKIP)
    ↓
-8. Scheduler gera sumário de execução
+9. Scheduler gera sumário de execução
    ↓
-9. Script termina com exit code (0 = sucesso, 1 = erro)
+10. Script libera o lock e termina com exit code (0 = sucesso, 1 = erro)
 ```
 
 ### Componentes Principais
 
 **1. cron.php** (Entry Point)
 - Carrega ambiente e dependências
+- Controla lock global com `flock`
 - Cria instância de Scheduler
 - Registra jobs com frequências
 - Executa e exibe sumário
@@ -249,6 +272,10 @@ O Scheduler salva o estado de execução em `storage/cron/schedule-state.json`:
 ```
 
 Isso evita que o mesmo job seja executado múltiplas vezes no mesmo minuto, mesmo que o crontab rode mais de uma vez.
+O estado e gravado de forma atomica. Em execucao normal, o lock global do
+`cron.php` impede concorrencia; se o Scheduler for usado diretamente fora do
+entrypoint, o salvamento faz merge com o estado atual e preserva `last_run` mais
+recente para evitar regressao de agenda.
 
 ---
 
@@ -680,22 +707,11 @@ mkdir -p storage/logs/cron
 
 **Causa**: CRON executando mais de uma vez ao mesmo tempo
 
-**Solução**: Adicionar lock file
-
-```php
-// No início do cron.php
-$lockFile = __DIR__ . '/storage/cron.lock';
-
-if (file_exists($lockFile)) {
-    echo "CRON já está em execução.\n";
-    exit(0);
-}
-
-file_put_contents($lockFile, getmypid());
-
-// No final do cron.php (ou em try/finally)
-unlink($lockFile);
-```
+**Solução**: O `cron.php` oficial ja usa `flock` em `storage/cron/cron.lock`.
+Nao substitua por verificacao simples com `file_exists()`, pois ela deixa lock
+preso quando um processo morre. Se aparecer `[SKIP] CRON ja esta em execucao`,
+significa que havia outro processo ativo e a execucao nova saiu sem processar
+jobs.
 
 ---
 

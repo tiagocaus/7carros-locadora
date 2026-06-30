@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use App\Traits\DetectsCrossTenant;
+use App\Helpers\CodigoHelper;
+use App\Helpers\DateHelper;
 use App\Helpers\FilialHelper;
 
 /**
@@ -539,8 +541,8 @@ class Contrato extends Model
                 'sequencia' => $sequencia,
                 'codigo' => $codigo,
                 'id_matriz_filial_retirada' => !empty($dados['id_matriz_filial_retirada']) ? (int) $dados['id_matriz_filial_retirada'] : null,
-                'data_ini' => $dados['data_ini'] ?? date('Y-m-d H:i:s'),
-                'data_fim' => $dados['data_fim'] ?? date('Y-m-d H:i:s'),
+                'data_ini' => $dados['data_ini'] ?? DateHelper::nowForDatabase(),
+                'data_fim' => $dados['data_fim'] ?? DateHelper::nowForDatabase(),
                 'data_renovacao' => !empty($dados['data_renovacao']) ? $dados['data_renovacao'] : null,
                 'contagem' => $dados['contagem'] ?? 'dia',
                 'dias' => (int) ($dados['dias'] ?? 1),
@@ -665,7 +667,7 @@ class Contrato extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = DateHelper::systemNow();
 
         return $this->qb
             ->table('contratos')
@@ -733,22 +735,29 @@ class Contrato extends Model
     }
 
     /**
-     * Gera codigo unico para o contrato
-     * Formato: C + ID (padded) + 2 letras aleatorias
+     * Gera codigo unico para o contrato.
+     * Formato: C + 7 caracteres alfanumericos.
      *
      * @param string $chave Chave do tenant
      * @return string Codigo gerado
      */
     public function gerarCodigo(string $chave): string
     {
-        $maxId = $this->qb
-            ->table('contratos')
-            ->max('id');
+        for ($tentativa = 0; $tentativa < 20; $tentativa++) {
+            $codigo = CodigoHelper::gerarComPrefixo('C');
 
-        $proximoId = ($maxId ?? 0) + 1;
-        $letras = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 2);
+            $existente = $this->qb
+                ->table('contratos')
+                ->withChave($chave)
+                ->where('codigo', '=', $codigo)
+                ->first();
 
-        return 'C' . str_pad($proximoId, 5, '0', STR_PAD_LEFT) . $letras;
+            if (!$existente) {
+                return $codigo;
+            }
+        }
+
+        throw new \RuntimeException('Nao foi possivel gerar um codigo de contrato unico');
     }
 
     /**
@@ -778,7 +787,7 @@ class Contrato extends Model
     {
         $dadosUpdate = array_merge($dadosExtras, [
             'status' => $status,
-            'updated_at' => date('Y-m-d H:i:s')
+            'updated_at' => DateHelper::systemNow()
         ]);
 
         return $this->qb
@@ -936,7 +945,7 @@ class Contrato extends Model
             ->update([
                 'total_fatura' => $totalFatura,
                 'total_pagar' => $totalPagar,
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => DateHelper::systemNow()
             ]);
 
         return [
@@ -959,7 +968,7 @@ class Contrato extends Model
      */
     public function listarProximosVencer(string $chave, int $diasAntecedencia = 7): array
     {
-        $dataLimite = date('Y-m-d', strtotime("+{$diasAntecedencia} days"));
+        $dataLimite = DateHelper::addDaysForDatabase($diasAntecedencia);
 
         return $this->qb
             ->table('contratos', 'c')
@@ -973,7 +982,7 @@ class Contrato extends Model
             ->where('c.auto_renovacao', '=', 'auto')
             ->whereNotNull('c.data_renovacao')
             ->where('c.data_renovacao', '<=', $dataLimite)
-            ->where('c.data_renovacao', '>=', date('Y-m-d'))
+            ->where('c.data_renovacao', '>=', DateHelper::todayForDatabase())
             ->orderBy('c.data_renovacao', 'ASC')
             ->get();
     }
@@ -996,7 +1005,7 @@ class Contrato extends Model
             ->where('c.status', '=', 'A')
             ->where('c.auto_renovacao', '=', 'auto')
             ->whereNotNull('c.data_renovacao')
-            ->where('c.data_renovacao', '<', date('Y-m-d'))
+            ->where('c.data_renovacao', '<', DateHelper::todayForDatabase())
             ->orderBy('c.data_renovacao', 'ASC')
             ->get();
     }
@@ -1029,7 +1038,7 @@ class Contrato extends Model
 
         $quantidade = max(1, (int) ($contrato['dias'] ?? 1));
         $contagem = $contrato['contagem'] ?? 'dia';
-        $referencia = new \DateTime($dataReferencia ?? date('Y-m-d'));
+        $referencia = new \DateTime($dataReferencia ?? DateHelper::todayForDatabase());
         $referencia->setTime(0, 0, 0);
 
         $dataIniOriginal = new \DateTime($contrato['data_ini']);
@@ -1179,7 +1188,7 @@ class Contrato extends Model
             throw new \InvalidArgumentException('Parcela não encontrada ou já paga');
         }
 
-        $dadosUpdate = ['updated_at' => date('Y-m-d H:i:s')];
+        $dadosUpdate = ['updated_at' => DateHelper::systemNow()];
 
         if (isset($dados['valor'])) {
             $valor = currency_parse($dados['valor']);
@@ -1249,8 +1258,8 @@ class Contrato extends Model
 
         $dadosUpdate = [
             'pago' => 'S',
-            'data_pago' => !empty($dados['data_pago']) ? $dados['data_pago'] : date('Y-m-d'),
-            'updated_at' => date('Y-m-d H:i:s'),
+            'data_pago' => !empty($dados['data_pago']) ? $dados['data_pago'] : DateHelper::todayForDatabase(),
+            'updated_at' => DateHelper::systemNow(),
         ];
 
         if (!empty($dados['id_forma_pagamento'])) {
@@ -1292,7 +1301,7 @@ class Contrato extends Model
             ->update([
                 'pago' => 'N',
                 'data_pago' => null,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_at' => DateHelper::systemNow(),
             ]);
     }
 
@@ -1309,6 +1318,8 @@ class Contrato extends Model
             return [];
         }
 
+        $hoje = DateHelper::todayForDatabase();
+
         // Buscar totais das parcelas
         $queryTotais = $this->qb
             ->table('financeiro')
@@ -1317,7 +1328,7 @@ class Contrato extends Model
                 SUM(valor_total) AS total_lancado,
                 SUM(CASE WHEN pago = "S" THEN valor_total ELSE 0 END) AS total_pago,
                 SUM(CASE WHEN pago = "N" THEN valor_total ELSE 0 END) AS total_pendente,
-                SUM(CASE WHEN pago = "N" AND data_venci < CURDATE() THEN valor_total ELSE 0 END) AS total_atrasado
+                SUM(CASE WHEN pago = "N" AND data_venci < "' . $hoje . '" THEN valor_total ELSE 0 END) AS total_atrasado
             ')
             ->where('id_contrato', '=', $contratoId);
 
@@ -1362,19 +1373,19 @@ class Contrato extends Model
                 throw new \InvalidArgumentException('Contrato não encontrado');
             }
             $valorTotal = (float) $contrato['total_pagar'];
-            $dataFim = $config['data_fim'] ?? $contrato['data_fim'] ?? date('Y-m-d');
+            $dataFim = $config['data_fim'] ?? $contrato['data_fim'] ?? DateHelper::todayForDatabase();
         } else {
             // Modo stateless: valores vem do config (contrato ainda nao salvo)
             $contrato = [];
             $valorTotal = (float) ($config['total_pagar'] ?? 0);
-            $dataFim = $config['data_fim'] ?? date('Y-m-d');
+            $dataFim = $config['data_fim'] ?? DateHelper::todayForDatabase();
         }
 
         $valorDesconto = currency_parse($config['valor_desconto'] ?? 0);
         $valorBase = $valorTotal - $valorDesconto;
         $idFormaPagamento = (int) ($config['id_forma_pagamento'] ?? 0);
         $idConta = (int) ($config['id_conta'] ?? 0);
-        $primeiroVencimento = $config['primeiro_vencimento'] ?? date('Y-m-d');
+        $primeiroVencimento = $config['primeiro_vencimento'] ?? DateHelper::todayForDatabase();
 
         // Buscar comando de parcelas
         $formaPagamento = new FormaPagamento();
@@ -1455,7 +1466,7 @@ class Contrato extends Model
                 'id_forma_pagamento' => (int) $overrideForma,
                 'forma_pagamento_nome' => $formaNome,
                 'conta_nome' => $contaNome,
-                'data_venci' => $datas[$i] ?? date('Y-m-d'),
+                'data_venci' => $datas[$i] ?? DateHelper::todayForDatabase(),
                 'valor_subtotal' => $valor,
                 'valor_total' => $valor,
             ];
@@ -1665,7 +1676,7 @@ class Contrato extends Model
                 ->update([
                     'valor_subtotal' => $novoValor,
                     'valor_total' => $novoValor,
-                    'updated_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => DateHelper::systemNow(),
                 ]);
 
             $ajusteAcumulado += $ajuste;
@@ -1804,11 +1815,14 @@ class Contrato extends Model
      */
     public function dashboardSummary(string $chave): array
     {
+        $hoje = DateHelper::todayForDatabase();
+        $limite = DateHelper::addDaysForDatabase(7);
+
         $row = $this->qb
             ->table('contratos')
             ->selectRaw("
                 COALESCE(SUM(CASE WHEN status='A' THEN 1 ELSE 0 END), 0) AS active,
-                COALESCE(SUM(CASE WHEN status='A' AND data_fim BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END), 0) AS expiring_soon
+                COALESCE(SUM(CASE WHEN status='A' AND data_fim BETWEEN '{$hoje}' AND '{$limite}' THEN 1 ELSE 0 END), 0) AS expiring_soon
             ")
             ->first();
 
@@ -1900,8 +1914,7 @@ class Contrato extends Model
             return '';
         }
 
-        $timestamp = strtotime($value);
-        return $timestamp ? date('d/m/Y H:i', $timestamp) : '';
+        return DateHelper::formatOperationalDateTime($value, true, 'd/m/Y H:i');
     }
 
     private function normalizarDataBusca(string $search): ?string
@@ -1925,7 +1938,7 @@ class Contrato extends Model
             return ['label' => '', 'tipo' => ''];
         }
 
-        $days = (int) floor(max(0, time() - $timestamp) / 86400);
+        $days = (int) floor(max(0, DateHelper::timestamp() - $timestamp) / 86400);
         if ($days < 1) {
             return [
                 'label' => t('modules.dashboard.subtabs.contract_duration_today'),
@@ -1950,9 +1963,9 @@ class Contrato extends Model
             return ['label' => '', 'tipo' => ''];
         }
 
-        $now = time();
-        $today = date('Y-m-d');
-        $date = date('Y-m-d', $timestamp);
+        $now = DateHelper::timestamp();
+        $today = DateHelper::todayForDatabase();
+        $date = DateHelper::formatTimestamp($timestamp, 'Y-m-d');
 
         if ($timestamp < $now) {
             $secondsLate = max(60, $now - $timestamp);
@@ -1984,10 +1997,10 @@ class Contrato extends Model
             return ['label' => t('modules.dashboard.subtabs.today'), 'tipo' => 'today'];
         }
 
-        if ($date === date('Y-m-d', strtotime('+1 day'))) {
+        if ($date === DateHelper::addDaysForDatabase(1)) {
             return ['label' => t('modules.dashboard.subtabs.tomorrow'), 'tipo' => 'tomorrow'];
         }
 
-        return ['label' => date('d/m', $timestamp), 'tipo' => ''];
+        return ['label' => DateHelper::formatTimestamp($timestamp, 'd/m'), 'tipo' => ''];
     }
 }

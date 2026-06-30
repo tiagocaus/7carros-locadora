@@ -50,6 +50,14 @@
                 <option value="overdue"><?= t('modules.financeiro.filters.status_overdue') ?></option>
             </select>
         </div>
+        <div class="flex-1 min-w-[150px] max-w-[180px]">
+            <label for="filterTipo" class="block text-xs text-slate-500 mb-1"><?= t('modules.financeiro.fields.type') ?></label>
+            <select id="filterTipo" class="form-input-focus w-full text-sm">
+                <option value=""><?= t('common.labels.all') ?></option>
+                <option value="R"><?= t('modules.financeiro.fields.type_revenue') ?></option>
+                <option value="D"><?= t('modules.financeiro.fields.type_expense') ?></option>
+            </select>
+        </div>
         <div class="flex items-end">
             <button id="btnLimparFiltros" class="text-sm text-slate-500 hover:text-slate-700 px-3 py-2" title="<?= t('modules.financeiro.filters.clear_title') ?>">
                 <i class="fas fa-times mr-1"></i><?= t('common.buttons.clear') ?>
@@ -149,9 +157,10 @@ $i18nFinanceiro = [
 
     // Estado dos filtros
     let filterFilial = '';
-    let filterAno = new Date().getFullYear().toString();
-    let filterMes = (new Date().getMonth() + 1).toString();
+    let filterAno = DateHelper.todayISO().substring(0, 4);
+    let filterMes = String(parseInt(DateHelper.todayISO().substring(5, 7), 10));
     let filterStatus = '';
+    let filterTipo = '';
 
     // Elementos
     const tbody = document.getElementById('financeirosTableBody');
@@ -217,7 +226,7 @@ $i18nFinanceiro = [
         const select = document.getElementById('filterAno');
         if (!select) return;
 
-        const anoAtual = new Date().getFullYear();
+        const anoAtual = DateHelper.currentYear();
 
         // Gerar ultimos 5 anos + proximo ano
         for (let ano = anoAtual + 1; ano >= anoAtual - 4; ano--) {
@@ -249,6 +258,7 @@ $i18nFinanceiro = [
             if (filterAno) params.ano = filterAno;
             if (filterMes) params.mes = filterMes;
             if (filterStatus) params.status = filterStatus;
+            if (filterTipo) params.tipo = filterTipo;
 
             const result = await API.get('/api/financeiro', params);
 
@@ -298,8 +308,7 @@ $i18nFinanceiro = [
         }
 
         let tableRows = '';
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
+        const hoje = DateHelper.todayISO();
 
         lancamentos.forEach(l => {
             const tipo = l.tipo || 'D';
@@ -346,12 +355,7 @@ $i18nFinanceiro = [
                 statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700"><i class="fas fa-check mr-1"></i>${i18n.statusPaid}</span>`;
             } else {
                 // Calcular diferenca de dias
-                const [ano, mes, dia] = l.data_venci.split('-').map(Number);
-                const dataVenciObj = new Date(ano, mes - 1, dia);
-                dataVenciObj.setHours(0, 0, 0, 0);
-
-                const diffTime = dataVenciObj.getTime() - hoje.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const diffDays = DateHelper.diffDays(hoje, l.data_venci);
 
                 if (diffDays > 0) {
                     // Vence no futuro
@@ -489,8 +493,7 @@ $i18nFinanceiro = [
 
     function formatarData(dataStr) {
         if (!dataStr) return '-';
-        const data = new Date(dataStr + 'T00:00:00');
-        return data.toLocaleDateString('pt-BR');
+        return DateHelper.format(dataStr);
     }
 
     // ===== PAGINACAO =====
@@ -615,16 +618,24 @@ $i18nFinanceiro = [
         carregarLancamentos(currentPage, perPage, searchTerm);
     });
 
+    document.getElementById('filterTipo')?.addEventListener('change', function (e) {
+        filterTipo = e.target.value;
+        currentPage = 1;
+        carregarLancamentos(currentPage, perPage, searchTerm);
+    });
+
     // Botao Limpar Filtros
     document.getElementById('btnLimparFiltros')?.addEventListener('click', function () {
         document.getElementById('filterFilial').value = '';
         document.getElementById('filterAno').value = '';
         document.getElementById('filterMes').value = '';
         document.getElementById('filterStatus').value = '';
+        document.getElementById('filterTipo').value = '';
         filterFilial = '';
         filterAno = '';
         filterMes = '';
         filterStatus = '';
+        filterTipo = '';
         currentPage = 1;
         carregarLancamentos(currentPage, perPage, searchTerm);
     });

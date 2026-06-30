@@ -194,6 +194,102 @@ class SerproSaldoController
     }
 
     /**
+     * Consulta o Banco Inter e confirma uma recarga PIX quando o pagamento ja foi recebido.
+     *
+     * GET /api/multas-online/transacoes/{id}/pix/status
+     */
+    public function statusPixRecarga(Request $request, int $id): void
+    {
+        try {
+            $model = new SerproTransacao();
+            $transacao = $model->buscarPixRecargaPorId($id);
+
+            if (!$transacao) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Recarga PIX não encontrada.',
+                ], 404);
+                return;
+            }
+
+            $saldoService = new SerproSaldoService();
+
+            if ($transacao['status'] === 'confirmado') {
+                Response::json([
+                    'success' => true,
+                    'data' => [
+                        'status' => 'confirmado',
+                        'paid' => true,
+                        'saldo_novo' => $saldoService->getSaldo(),
+                    ],
+                ]);
+                return;
+            }
+
+            if ($transacao['status'] !== 'pendente') {
+                Response::json([
+                    'success' => true,
+                    'data' => [
+                        'status' => $transacao['status'],
+                        'paid' => false,
+                    ],
+                ]);
+                return;
+            }
+
+            if (empty($transacao['external_id'])) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Identificador da cobrança PIX não encontrado.',
+                ], 422);
+                return;
+            }
+
+            $interGateway = $this->criarInterGateway();
+            $status = $interGateway->getCobrancaV3ChargeStatus((string) $transacao['external_id']);
+
+            if (empty($status['success'])) {
+                Response::json([
+                    'success' => false,
+                    'message' => $status['message'] ?? 'Não foi possível consultar o status do PIX.',
+                ], 502);
+                return;
+            }
+
+            if (($status['status'] ?? '') !== 'paid') {
+                Response::json([
+                    'success' => true,
+                    'data' => [
+                        'status' => 'pendente',
+                        'gateway_status' => $status['status'] ?? 'pending',
+                        'paid' => false,
+                    ],
+                ]);
+                return;
+            }
+
+            $resultado = $saldoService->confirmarRecarga((int) $transacao['id']);
+
+            Response::json([
+                'success' => true,
+                'message' => 'Recarga confirmada com sucesso!',
+                'data' => [
+                    'status' => 'confirmado',
+                    'paid' => true,
+                    'saldo_anterior' => $resultado['saldo_anterior'],
+                    'saldo_novo' => $resultado['saldo_posterior'],
+                    'paid_at' => $status['paid_at'] ?? null,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao consultar status do PIX: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Cria recarga via PIX (Banco Inter)
      *
      * POST /multas-online/saldo/recarregar-pix

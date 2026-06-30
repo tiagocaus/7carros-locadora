@@ -377,10 +377,22 @@
     let dashboardRequestInFlight = false;
     let dashboardRetryAfterUntil = 0;
 
+    function dateNowLabel() {
+        return window.DateHelper && typeof DateHelper.now === 'function'
+            ? DateHelper.now()
+            : new Date().toLocaleString('pt-BR');
+    }
+
+    function timestampMs() {
+        return window.DateHelper && typeof DateHelper.timestamp === 'function'
+            ? DateHelper.timestamp()
+            : Date.now();
+    }
+
     function updateTimestamp() {
         const el = document.getElementById('dashTimestamp');
         if (el) {
-            el.textContent = new Date().toLocaleString('pt-BR');
+            el.textContent = dateNowLabel();
         }
     }
 
@@ -540,7 +552,7 @@
     }
 
     async function loadDashboardData() {
-        if (dashboardRequestInFlight || Date.now() < dashboardRetryAfterUntil) {
+        if (dashboardRequestInFlight || timestampMs() < dashboardRetryAfterUntil) {
             return;
         }
 
@@ -550,7 +562,7 @@
             const result = await API.get('/api/dashboard/stats');
             if (result.rate_limited) {
                 const retryAfter = Math.max(1, Number(result.retry_after || 1));
-                dashboardRetryAfterUntil = Date.now() + (retryAfter * 1000);
+                dashboardRetryAfterUntil = timestampMs() + (retryAfter * 1000);
                 return;
             }
 

@@ -53,7 +53,7 @@
                     <div class="flex justify-between items-center border-b border-gray-200 pb-2">
                         <span class="text-sm text-gray-500">Data</span>
                         <span class="text-sm font-semibold text-gray-900">
-                            <?= !empty($checklist['created_at']) ? date('d/m/Y H:i', strtotime($checklist['created_at'])) : '-' ?>
+                            <?= !empty($checklist['created_at']) ? format_datetime($checklist['created_at']) : '-' ?>
                         </span>
                     </div>
 
@@ -103,7 +103,7 @@
             <?php endif; ?>
 
             <div class="text-xs text-gray-400">
-                <p>Verificado em <?= date('d/m/Y') ?> as <?= date('H:i') ?></p>
+                <p>Verificado em <?= format_date(today()) ?> as <?= \App\Helpers\DateHelper::todayForDatabase('H:i') ?></p>
             </div>
         </div>
     </div>

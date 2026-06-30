@@ -461,7 +461,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     async function init() {
         const dataSubstituicao = document.getElementById('dataSubstituicao');
         if (dataSubstituicao && !dataSubstituicao.value) {
-            dataSubstituicao.value = formatarDatetimeLocal(new Date());
+            dataSubstituicao.value = DateHelper.nowInput();
         }
 
         // Definir veiculo atual

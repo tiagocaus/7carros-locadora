@@ -83,8 +83,8 @@ class RequestFingerprint extends Model
      */
     public function registrar(array $dados): int
     {
-        $dados['created_at'] = $dados['created_at'] ?? date('Y-m-d H:i:s');
-        $dados['updated_at'] = $dados['updated_at'] ?? date('Y-m-d H:i:s');
+        $dados['created_at'] = $dados['created_at'] ?? now();
+        $dados['updated_at'] = $dados['updated_at'] ?? now();
 
         return $this->qb
             ->table('security_request_fingerprints')
@@ -100,7 +100,11 @@ class RequestFingerprint extends Model
      */
     public function limparAntigos(int $horas = 24): int
     {
-        $cutoff = date('Y-m-d H:i:s', strtotime("-{$horas} hours"));
+        $cutoff = \App\Helpers\DateHelper::formatTimestamp(
+            \App\Helpers\DateHelper::timestamp() - ($horas * 3600),
+            'Y-m-d H:i:s',
+            false
+        );
 
         return $this->qb
             ->table('security_request_fingerprints')

@@ -233,6 +233,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     // API Clientes (com proteção anti-scraping e CSRF)
     $router->get('/api/clientes', [ClientesController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/clientes/buscar', [ClientesController::class, 'buscar'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/clientes/por-documento', [ClientesController::class, 'buscarPorDocumento'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/clientes/{id}/financeiro', [ClientesController::class, 'financeiro'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/clientes/financeiro/{id}/cobranca', [ClientesController::class, 'enviarCobrancaFinanceiro'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/clientes/{id}', [ClientesController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
@@ -606,6 +607,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/api/multas-online/saldo', [SerproSaldoController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/multas-online/transacoes', [SerproSaldoController::class, 'transacoes'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/multas-online/transacoes/{id}/pix', [SerproSaldoController::class, 'pixRecarga'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/multas-online/transacoes/{id}/pix/status', [SerproSaldoController::class, 'statusPixRecarga'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Recargas Saldo
     $router->post('/multas-online/saldo/recarregar-pix', [SerproSaldoController::class, 'recarregarPix'], ['csrf', 'rate_limit']);

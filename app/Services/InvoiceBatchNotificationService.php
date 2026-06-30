@@ -115,7 +115,7 @@ class InvoiceBatchNotificationService
         $resultado = [];
         $email = trim((string) ($cliente['email'] ?? ''));
         $telefone = trim((string) ($cliente['telefone'] ?? $cliente['celular'] ?? ''));
-        $batchId = 'invoice_batch_' . date('YmdHis') . '_' . bin2hex(random_bytes(3));
+        $batchId = 'invoice_batch_' . \App\Helpers\DateHelper::systemNow('YmdHis') . '_' . bin2hex(random_bytes(3));
         $origemLabel = trim((string) ($options['origem_label'] ?? ''));
 
         foreach ($canais as $canal => $ativo) {

@@ -803,7 +803,7 @@ class SerproConsultaController
                 'placa' => $placa,
                 'origem' => 'serpro_consulta',
                 'status_processamento' => 'novo',
-                'serpro_sync_at' => date('Y-m-d H:i:s'),
+                'serpro_sync_at' => now(),
             ]));
 
             $codigoOrgao = $dadosMulta['codigo_orgao'] ?? '';

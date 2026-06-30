@@ -177,7 +177,7 @@ class AssinaturaController
                     'message' => t('modules.assinatura.success_message', ['type' => $tipoLabel]),
                     'data' => [
                         'codigo' => $codigo,
-                        'data_assinatura' => format_datetime(date('Y-m-d H:i:s')),
+                        'data_assinatura' => format_datetime(now()),
                         'ip' => $ip,
                     ],
                 ];

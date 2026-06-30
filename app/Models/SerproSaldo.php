@@ -70,7 +70,7 @@ class SerproSaldo extends Model
                 'auto_recarga_ativo' => 0,
                 'auto_recarga_valor' => (float) env('SERPRO_AUTO_RECARGA_VALOR', 100.00),
                 'auto_recarga_limite' => (float) env('SERPRO_AUTO_RECARGA_LIMITE', 10.00),
-                'created_at' => date('Y-m-d H:i:s'),
+                'created_at' => now(),
             ]);
     }
 
@@ -147,7 +147,7 @@ class SerproSaldo extends Model
                 ->insert([
                     'chave' => $chave,
                     'saldo' => $valor,
-                    'created_at' => date('Y-m-d H:i:s'),
+                    'created_at' => now(),
                 ]);
 
             return [
@@ -199,7 +199,7 @@ class SerproSaldo extends Model
             return 0;
         }
 
-        $dadosUpdate['updated_at'] = date('Y-m-d H:i:s');
+        $dadosUpdate['updated_at'] = now();
 
         return $this->qb
             ->table('serpro_saldo')

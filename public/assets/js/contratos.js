@@ -96,18 +96,11 @@
         atualizarTotais();
     }
 
-    // Formato para datetime-local: YYYY-MM-DDTHH:MM
-    function formatDateTimeLocal(d) {
-        const pad = n => n.toString().padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
-
     function definirDatasPadrao() {
-        const agora = new Date();
         const dataIni = document.getElementById('data_ini');
 
         // Apenas data inicio preenchida, data fim e dias ficam vazios
-        dataIni.value = formatDateTimeLocal(agora);
+        dataIni.value = DateHelper.nowInput();
     }
 
     // ===== FUNCOES DE CALCULO DE PERIODO =====
@@ -635,9 +628,7 @@
 
     function formatDateTimeForInput(dateStr) {
         if (!dateStr) return '';
-        const d = new Date(dateStr);
-        const pad = n => n.toString().padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        return DateHelper.toOperationalDateTimeInput(dateStr);
     }
 
     // ===== VEICULOS =====
@@ -781,9 +772,7 @@
 
     function formatarDataBr(data) {
         if (!data) return '';
-        const d = new Date(data + 'T00:00:00');
-        if (isNaN(d.getTime())) return '';
-        return d.toLocaleDateString('pt-BR');
+        return DateHelper.format(data);
     }
 
     function montarEnderecoCompleto(cliente) {
@@ -823,7 +812,7 @@
             card.querySelector('.pessoa-validade').value = formatarDataBr(dados.va);
 
             // Verificar CNH vencida
-            if (dados.va && new Date(dados.va) < new Date()) {
+            if (dados.va && DateHelper.diffDays(DateHelper.todayISO(), dados.va) < 0) {
                 card.querySelector('.pessoa-cnh-alerta')?.classList.remove('hidden');
             }
         }
@@ -881,7 +870,7 @@
 
                 // Verificar CNH vencida
                 const alertaCnh = card.querySelector('.pessoa-cnh-alerta');
-                if (cliente.cnh_validade && new Date(cliente.cnh_validade) < new Date()) {
+                if (cliente.cnh_validade && DateHelper.diffDays(DateHelper.todayISO(), cliente.cnh_validade) < 0) {
                     alertaCnh.classList.remove('hidden');
                 } else {
                     alertaCnh.classList.add('hidden');
@@ -1680,7 +1669,7 @@
 
                 if (dataIni && dias > 0) {
                     const dataRenovacao = calcularDataFimPorPeriodo(dataIni, dias, contagem);
-                    inputDataRenovacao.value = dataRenovacao.toISOString().substring(0, 10);
+                    inputDataRenovacao.value = String(dataRenovacao).substring(0, 10);
                 }
             }
         } else {
@@ -1985,8 +1974,7 @@
         function formatDtLocal(val) {
             if (!val) return '';
             try {
-                const d = new Date(val);
-                return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                return DateHelper.formatOperationalDateTime(val);
             } catch { return val; }
         }
 
@@ -2190,7 +2178,7 @@
         // Validacao de datas
         const dataIni = document.getElementById('data_ini')?.value;
         const dataFim = document.getElementById('data_fim')?.value;
-        if (dataIni && dataFim && new Date(dataFim) <= new Date(dataIni)) {
+        if (dataIni && dataFim && DateHelper.diffDateTime(dataIni, dataFim) <= 0) {
             window.parent.postMessage({ action: 'openAlert', message: 'A data fim deve ser posterior a data inicio' }, '*');
             return;
         }
@@ -2296,6 +2284,15 @@
                     await salvarParcelas();
                 }
 
+                const deveAtualizarPagamentosCaucao = editando
+                    && registroId
+                    && document.getElementById('caucao_valor')
+                    && document.getElementById('caucao_lancar_financeiro');
+
+                if (deveAtualizarPagamentosCaucao) {
+                    await carregarParcelasContrato();
+                }
+
                 if (window.parent !== window) {
                     window.parent.postMessage({
                         action: 'showToast',
@@ -2303,6 +2300,11 @@
                         message: editando ? (i18n.contractUpdated || 'Contrato atualizado com sucesso!') : (i18n.contractCreated || 'Contrato criado com sucesso!')
                     }, '*');
                 }
+
+                if (deveAtualizarPagamentosCaucao) {
+                    return;
+                }
+
                 voltar();
             } else {
                 window.parent.postMessage({ action: 'openAlert', message: result.message || (i18n.saveError || 'Erro ao salvar') }, '*');
@@ -2508,11 +2510,15 @@
                     renderizarParcelas();
 
                     // Mostrar botao "Regenerar Pendentes" se ha parcelas pendentes
-                    const temPendentes = parcelas.some(p => p.status !== 'pago');
-                    if (elBtnRegenerar && temPendentes) elBtnRegenerar.classList.remove('hidden');
+                    const temPendentes = parcelas.some(p => p.pago !== 'S' && p.status !== 'pago');
+                    if (elBtnRegenerar) elBtnRegenerar.classList.toggle('hidden', !temPendentes);
                 } else {
                     // Estado vazio (sem parcelas)
+                    if (elParcelasGeradas) elParcelasGeradas.classList.add('hidden');
+                    if (elBtnLimpar) elBtnLimpar.classList.add('hidden');
+                    if (elBtnRegenerar) elBtnRegenerar.classList.add('hidden');
                     if (elSemParcelas) elSemParcelas.classList.remove('hidden');
+                    renderizarParcelas();
                 }
 
                 // Verificar diferenca
@@ -2564,7 +2570,7 @@
 
             const isPago = parcela.pago === 'S';
             const temId = !!parcela.id;
-            const isAtrasado = !isPago && parcela.data_venci && parcela.data_venci < new Date().toISOString().slice(0, 10);
+            const isAtrasado = !isPago && parcela.data_venci && parcela.data_venci < DateHelper.todayISO();
             const descricao = parcela.descricao || (i18n.installmentLabel || 'Parcela :num').replace(':num', parcela.parcela || (index + 1));
             const contaNome = obterNomeContaParcela(parcela);
             const formaNome = obterNomeFormaPagamentoParcela(parcela);
@@ -2675,8 +2681,7 @@
 
     function formatarDataTabela(data) {
         if (!data) return '-';
-        const d = new Date(`${data}T00:00:00`);
-        return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR');
+        return DateHelper.format(data) || '-';
     }
 
     function obterTextoSelectSelecionado(id) {
@@ -2801,7 +2806,7 @@
         const descricao = parcela.descricao || (i18n.installmentLabel || 'Parcela :num').replace(':num', parcela.parcela || (index + 1));
         document.getElementById('pagar_id_parcela_contrato').value = parcela.id || '';
         document.getElementById('pagar_descricao_contrato').textContent = descricao;
-        document.getElementById('pagar_data_pago_contrato').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('pagar_data_pago_contrato').value = DateHelper.todayInput();
         popularSelectSimples('pagar_id_conta_contrato', contasBancariasList, parcela.id_conta);
         popularSelectSimples('pagar_id_forma_pagamento_contrato', formasPagamentoList, parcela.id_forma_pagamento);
         inserirFormularioAbaixoLinhaContrato('formMarcarPagoContrato', linhaReferencia);
@@ -3173,19 +3178,15 @@
             // Definir data padrao do primeiro vencimento
             const primeiroVencimento = document.getElementById('primeiro_vencimento');
             if (primeiroVencimento && !primeiroVencimento.value) {
-                const hoje = new Date();
-                primeiroVencimento.value = hoje.toISOString().split('T')[0];
+                primeiroVencimento.value = DateHelper.todayInput();
             }
         }
     }
 
-    /**
-     * Toggle colapsavel da secao de configuracao de pagamento (modo edicao)
-     */
-    function configurarToggleConfigPagamento() {
-        const toggle = document.getElementById('toggleConfigPagamento');
-        const conteudo = document.getElementById('conteudoConfigPagamento');
-        const icon = document.getElementById('iconConfigPagamento');
+    function configurarToggleSecao(toggleId, conteudoId, iconId) {
+        const toggle = document.getElementById(toggleId);
+        const conteudo = document.getElementById(conteudoId);
+        const icon = document.getElementById(iconId);
 
         if (!toggle || !conteudo) return;
 
@@ -3197,6 +3198,15 @@
                 icon.classList.toggle('fa-chevron-up', isHidden);
             }
         });
+    }
+
+    /**
+     * Toggle colapsavel das secoes financeiras (modo edicao)
+     */
+    function configurarToggleConfigPagamento() {
+        configurarToggleSecao('toggleConfigPagamento', 'conteudoConfigPagamento', 'iconConfigPagamento');
+        configurarToggleSecao('toggleCaucao', 'conteudoCaucao', 'iconCaucao');
+        configurarToggleSecao('toggleBloqueio', 'conteudoBloqueio', 'iconBloqueio');
 
         // Preencher dados read-only da config original
         const contrato = window.contratoData;

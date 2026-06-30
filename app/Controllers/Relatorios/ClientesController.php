@@ -62,7 +62,7 @@ class ClientesController extends BaseRelatorioController
     {
         try {
             if (!$this->checkPermission('relatorios.clientes.aniversariantes')) return;
-            $mes = (int) $request->query('mes', date('n'));
+            $mes = (int) $request->query('mes', \App\Helpers\DateHelper::todayForDatabase('n'));
             $dia = $request->query('dia') !== '' ? (int) $request->query('dia') : null;
             $filial = $request->query('filial', '');
             if (!$this->validateFilialAccess($filial)) return;
@@ -75,7 +75,7 @@ class ClientesController extends BaseRelatorioController
     public function aniversariantesPdf(Request $request): void
     {
         if (!$this->checkPermission('relatorios.clientes.aniversariantes')) return;
-        $mes = (int) $request->query('mes', date('n'));
+        $mes = (int) $request->query('mes', \App\Helpers\DateHelper::todayForDatabase('n'));
         $dia = $request->query('dia') !== '' ? (int) $request->query('dia') : null;
         $filial = $request->query('filial', '');
 

@@ -286,6 +286,7 @@ class FinanceiroController extends BaseRelatorioController
             [$filialWhere, $filialParams] = $this->getFilialFilter();
 
             $conta = $request->query('conta', '');
+            $considerarSaldoInicial = $request->query('considerar_saldo_inicial', '1') !== '0';
             $page = max(1, (int) $request->query('page', 1));
             $perPage = max(1, min(100, (int) $request->query('perPage', 20)));
 
@@ -298,7 +299,8 @@ class FinanceiroController extends BaseRelatorioController
                 $filters['filial'],
                 $conta,
                 $page,
-                $perPage
+                $perPage,
+                $considerarSaldoInicial
             );
 
             $this->reportPaginatedResponse(
@@ -737,7 +739,8 @@ class FinanceiroController extends BaseRelatorioController
 
         [$filialWhere, $filialParams] = $this->getFilialFilter();
         $model = new FinanceiroReport();
-        $result = $model->livroCaixa($filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams, $filters['filial'], $request->query('conta', ''), 1, 0);
+        $considerarSaldoInicial = $request->query('considerar_saldo_inicial', '1') !== '0';
+        $result = $model->livroCaixa($filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams, $filters['filial'], $request->query('conta', ''), 1, 0, $considerarSaldoInicial);
 
         $this->renderPdf('livro-caixa.php', t('modules.relatorios.financeiro.livro_caixa.title'), t('modules.relatorios.financeiro.livro_caixa.description'), $result['totals'], $result['details'], $filters['data_inicio'], $filters['data_fim']);
     }

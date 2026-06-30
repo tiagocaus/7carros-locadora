@@ -438,10 +438,7 @@ $saldoTitleJson = htmlspecialchars(json_encode(t('modules.multas.saldo.title'), 
 
     function getVencimentoBadge(dataVenc, pago) {
         if (!dataVenc || pago === 'S') return formatarDataCurta(dataVenc);
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
-        const venc = new Date(dataVenc + 'T00:00:00');
-        const diff = Math.ceil((venc - hoje) / (1000 * 60 * 60 * 24));
+        const diff = DateHelper.diffDays(DateHelper.todayISO(), dataVenc);
 
         if (diff < 0) return `<span class="text-red-600 font-medium">${formatarDataCurta(dataVenc)}</span>`;
         if (diff <= 30) return `<span class="text-amber-600 font-medium">${formatarDataCurta(dataVenc)}</span>`;
@@ -657,16 +654,12 @@ $saldoTitleJson = htmlspecialchars(json_encode(t('modules.multas.saldo.title'), 
 
     function formatarData(dt) {
         if (!dt) return '';
-        const d = new Date(dt);
-        if (isNaN(d.getTime())) return dt;
-        return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        return DateHelper.formatOperationalDateTime(dt) || dt;
     }
 
     function formatarDataCurta(dt) {
         if (!dt) return '-';
-        const d = new Date(dt + (dt.includes('T') ? '' : 'T00:00:00'));
-        if (isNaN(d.getTime())) return dt;
-        return d.toLocaleDateString('pt-BR');
+        return DateHelper.format(dt) || dt;
     }
 
     function escapeHtml(t) {

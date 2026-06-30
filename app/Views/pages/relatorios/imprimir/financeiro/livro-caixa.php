@@ -3,14 +3,17 @@
 <head><meta charset="UTF-8"><style><?php include __DIR__ . '/../kpis/_css.php'; ?> .descricao-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 230px; max-width: 230px; }</style></head>
 <body>
     <?php include __DIR__ . '/../kpis/_header.php'; ?>
+    <?php $considerarSaldoInicial = !in_array($totals['considerar_saldo_inicial'] ?? true, [false, 0, '0'], true); ?>
 
     <!-- Totalizadores -->
     <table class="totals-table">
         <tr>
+            <?php if ($considerarSaldoInicial): ?>
             <td>
                 <div class="totals-label"><?= t('modules.relatorios.financeiro.livro_caixa.saldo_inicial') ?></div>
                 <div class="totals-value"><?= currency_format($totals['saldo_inicial']) ?></div>
             </td>
+            <?php endif; ?>
             <td>
                 <div class="totals-label"><?= t('modules.relatorios.financeiro.livro_caixa.total_entradas') ?></div>
                 <div class="totals-value"><?= currency_format($totals['total_entradas']) ?></div>

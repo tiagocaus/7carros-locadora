@@ -80,12 +80,12 @@
                     <div class="flex justify-between items-center border-b border-gray-200 pb-2">
                         <span class="text-sm text-gray-500">Periodo</span>
                         <span class="text-sm font-semibold text-gray-900">
-                            <?= !empty($contrato['data_ini']) ? date('d/m/Y', strtotime($contrato['data_ini'])) : '-' ?>
+                            <?= !empty($contrato['data_ini']) ? format_date($contrato['data_ini']) : '-' ?>
                             a
                             <?php if (!empty($contrato['auto_renovacao']) && $contrato['auto_renovacao'] === 'auto'): ?>
                                 Indeterminado
                             <?php else: ?>
-                                <?= !empty($contrato['data_fim']) ? date('d/m/Y', strtotime($contrato['data_fim'])) : '-' ?>
+                                <?= !empty($contrato['data_fim']) ? format_date($contrato['data_fim']) : '-' ?>
                             <?php endif; ?>
                         </span>
                     </div>
@@ -93,7 +93,7 @@
                     <div class="flex justify-between items-center">
                         <span class="text-sm text-gray-500">Emissao</span>
                         <span class="text-sm font-semibold text-gray-900">
-                            <?= !empty($contrato['created_at']) ? date('d/m/Y H:i', strtotime($contrato['created_at'])) : '-' ?>
+                            <?= !empty($contrato['created_at']) ? format_datetime($contrato['created_at']) : '-' ?>
                         </span>
                     </div>
                 </div>
@@ -106,7 +106,7 @@
             <?php endif; ?>
 
             <div class="text-xs text-gray-400">
-                <p>Verificado em <?= date('d/m/Y') ?> as <?= date('H:i') ?></p>
+                <p>Verificado em <?= format_date(today()) ?> as <?= \App\Helpers\DateHelper::todayForDatabase('H:i') ?></p>
             </div>
         </div>
     </div>
