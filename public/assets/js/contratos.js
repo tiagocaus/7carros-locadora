@@ -105,6 +105,12 @@
 
     // ===== FUNCOES DE CALCULO DE PERIODO =====
 
+    function formatDateTimeLocal(date) {
+        const pad = value => String(value).padStart(2, '0');
+        const operationalDateTime = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+        return DateHelper.toOperationalDateTimeInput(operationalDateTime);
+    }
+
     // Atualiza o texto do label baseado na contagem
     function atualizarLabelDias(contagem) {
         const labels = i18n.periodLabels || {
