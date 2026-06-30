@@ -26,7 +26,7 @@
                     <th class="table-header hidden lg:table-cell">{{ t('modules.veiculos.fields.group') }}</th>
                     <th class="table-header hidden lg:table-cell">{{ t('modules.veiculos.fields.branch_short') }}</th>
                     <th class="table-header">{{ t('modules.veiculos.fields.availability') }}</th>
-                    <th class="table-header px-2 w-32 text-center">{{ t('common.labels.actions') }}</th>
+                    <th class="table-header px-2 w-48 text-center">{{ t('common.labels.actions') }}</th>
                 </tr>
             </thead>
             <tbody id="veiculosTableBody" class="bg-white divide-y divide-slate-200">
@@ -78,6 +78,7 @@ $i18nVeiculos = [
     'noVehicles' => t('modules.veiculos.messages.no_vehicles'),
     'loadError' => t('modules.veiculos.messages.load_error'),
     'connectionError' => t('modules.veiculos.messages.connection_error'),
+    'duplicateBtn' => t('modules.veiculos.duplicate_title'),
     'editBtn' => t('common.buttons.edit'),
     'deleteBtn' => t('common.buttons.delete'),
     'consultCrlv' => t('modules.veiculos.fields.consult_crlv'),
@@ -206,8 +207,9 @@ $i18nVeiculos = [
                     <td class="table-cell">
                         <span class="px-2 py-1 text-xs font-medium rounded-full ${dispInfo.class}">${dispInfo.label}</span>
                     </td>
-                    <td class="table-cell px-2 w-36 text-right">
+                    <td class="table-cell px-2 w-48 text-right whitespace-nowrap">
                         <button title="${i18n.consultCrlv}" class="btn-icon text-sky-600 hover:text-sky-800 btn-crlv" data-placa="${placa}"><i class="fas fa-id-card"></i></button>
+                        <button title="${i18n.duplicateBtn}" class="btn-icon text-emerald-600 hover:text-emerald-800 btn-duplicate" data-id="${v.id}"><i class="fas fa-copy"></i></button>
                         <button title="${i18n.editBtn}" class="btn-icon text-amber-600 hover:text-amber-800 btn-edit" data-id="${v.id}"><i class="fas fa-edit"></i></button>
                         <button title="${i18n.deleteBtn}" class="btn-icon text-red-600 hover:text-red-800 btn-delete" data-id="${v.id}" data-name="${placa}"><i class="fas fa-trash"></i></button>
                     </td>
@@ -228,6 +230,12 @@ $i18nVeiculos = [
         tbody.querySelectorAll('.btn-crlv').forEach(button => {
             button.addEventListener('click', function () {
                 consultarCrlv(this.getAttribute('data-placa'), this);
+            });
+        });
+
+        tbody.querySelectorAll('.btn-duplicate').forEach(button => {
+            button.addEventListener('click', function () {
+                duplicarVeiculo(this.getAttribute('data-id'));
             });
         });
 
@@ -283,6 +291,25 @@ $i18nVeiculos = [
                 button.innerHTML = originalHtml;
             }
         }
+    }
+
+    async function verificarLimitePlanoVeiculos() {
+        const limiteResult = await API.get('/api/plano/verificar-limite', { recurso: 'veiculos' });
+        if (limiteResult && !limiteResult.pode_adicionar) {
+            if (limiteResult.redirect_url) {
+                navegarPara(limiteResult.redirect_url);
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+    async function duplicarVeiculo(id) {
+        if (!id) return;
+        if (!await verificarLimitePlanoVeiculos()) return;
+
+        navegarPara('/pages/veiculos/adicionar?duplicar=' + encodeURIComponent(id));
     }
 
     function abrirPdfBase64(pdfBase64, fileName) {
@@ -406,14 +433,7 @@ $i18nVeiculos = [
 
     // Botao Novo Veiculo - Navega para pagina de adicionar (com verificação de limite do plano)
     document.getElementById('btnNovoVeiculo')?.addEventListener('click', async function () {
-        // Verificar limite do plano
-        const limiteResult = await API.get('/api/plano/verificar-limite', { recurso: 'veiculos' });
-        if (limiteResult && !limiteResult.pode_adicionar) {
-            if (limiteResult.redirect_url) {
-                navegarPara(limiteResult.redirect_url);
-            }
-            return;
-        }
+        if (!await verificarLimitePlanoVeiculos()) return;
 
         navegarPara('/pages/veiculos/adicionar');
     });

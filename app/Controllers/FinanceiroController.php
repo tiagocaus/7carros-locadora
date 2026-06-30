@@ -12,6 +12,8 @@ use App\Models\MatrizFilial;
 use App\Models\PlanoDeContas;
 use App\Models\Cliente;
 use App\Models\Fornecedor;
+use App\Models\FormaPagamento;
+use App\Models\GatewayPagamento;
 use App\Models\Whatsapp;
 use App\Models\Sms;
 use App\Helpers\FilialHelper;
@@ -1277,9 +1279,13 @@ class FinanceiroController
         $tipoReceita = ($lancamento['tipo'] ?? '') === 'R';
         $contraparte = $tipoReceita ? $cliente : $fornecedor;
 
-        // Link de pagamento (apenas para receitas em aberto)
+        // Link de pagamento (apenas para receitas em aberto com gateway vinculado)
         $linkPagamento = null;
-        if (($lancamento['tipo'] ?? '') === 'R' && ($lancamento['pago'] ?? 'N') !== 'S') {
+        if (
+            ($lancamento['tipo'] ?? '') === 'R'
+            && ($lancamento['pago'] ?? 'N') !== 'S'
+            && $this->formaPagamentoPermitePagamentoOnline($lancamento, $chave)
+        ) {
             $link = (new PagamentoLinkSyncService())->obterOuCriarLinkAtualizado((int) $lancamento['id'], $chave);
             $linkPagamento = $link['url'] ?? null;
         }
@@ -1290,6 +1296,22 @@ class FinanceiroController
         ob_start();
         include __DIR__ . '/../Views/pages/financeiro/imprimir/fatura.php';
         return ob_get_clean();
+    }
+
+    private function formaPagamentoPermitePagamentoOnline(array $lancamento, string $chave): bool
+    {
+        $formaPagamentoId = (int) ($lancamento['id_forma_pagamento'] ?? 0);
+        if ($formaPagamentoId <= 0) {
+            return false;
+        }
+
+        $gatewaysVinculados = (new FormaPagamento())->buscarGateways($formaPagamentoId);
+        $idsVinculados = array_column($gatewaysVinculados, 'id');
+        if (empty($idsVinculados)) {
+            return false;
+        }
+
+        return !empty((new GatewayPagamento())->listarParaPagamentoPublicoPorIds($chave, $idsVinculados));
     }
 
     /**

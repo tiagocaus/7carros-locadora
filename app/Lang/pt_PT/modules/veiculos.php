@@ -10,6 +10,7 @@ return [
     'title_singular' => 'Veículo',
     'new_title' => 'Novo Veículo',
     'edit_title' => 'Editar Veículo',
+    'duplicate_title' => 'Duplicar Veículo',
 
     // Campos do formulário
     'fields' => [

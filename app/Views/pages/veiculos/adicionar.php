@@ -684,6 +684,7 @@
     // Estado
     let editando = false;
     let registroId = null;
+    let duplicarOrigemId = null;
     let fotoBase64 = null;
     let removerFoto = false;
     const fotoPadrao = '<?= image("assets/img/veiculo_padrao.png") ?>';
@@ -704,6 +705,7 @@
     // Traducoes JS
     const i18n = {
         editTitle: '<?= t('modules.veiculos.edit_title') ?>',
+        duplicateTitle: '<?= t('modules.veiculos.duplicate_title') ?>',
         selectPlanFirst: '<?= t('modules.veiculos.messages.select_plan_first') ?>',
         invalidImage: <?= js_t('modules.veiculos.messages.invalid_image') ?>,
         imageTooLarge: <?= js_t('modules.veiculos.messages.image_too_large') ?>,
@@ -813,11 +815,13 @@
         // Verificar se estamos editando
         const urlParams = new URLSearchParams(window.location.search);
         registroId = urlParams.get('id');
+        duplicarOrigemId = urlParams.get('duplicar');
 
         // Verificar rota com ID
         const pathMatch = window.location.pathname.match(/\/veiculos\/(\d+)\/editar/);
         if (pathMatch) {
             registroId = pathMatch[1];
+            duplicarOrigemId = null;
         }
 
         if (registroId) {
@@ -830,6 +834,9 @@
             document.getElementById('tabBtnFaturas').style.display = '';
             carregarManutencoesVeiculo(registroId);
             carregarFaturasVeiculo(registroId);
+        } else if (duplicarOrigemId) {
+            pageTitle.textContent = i18n.duplicateTitle;
+            await carregarDadosDuplicacao(duplicarOrigemId);
         }
 
         configurarEventos();
@@ -1471,9 +1478,27 @@
                 return;
             }
 
-            preencherFormulario(result.data);
+            await preencherFormulario(result.data);
         } catch (error) {
             console.error('Erro ao carregar dados:', error);
+            mostrarAlerta(i18n.loadDataError);
+            voltar();
+        }
+    }
+
+    async function carregarDadosDuplicacao(id) {
+        try {
+            const result = await API.get(`/api/veiculos/${id}`);
+
+            if (!result.success) {
+                mostrarAlerta(result.message || i18n.loadDataError);
+                voltar();
+                return;
+            }
+
+            await preencherFormulario(result.data, { duplicar: true });
+        } catch (error) {
+            console.error('Erro ao carregar dados para duplicacao:', error);
             mostrarAlerta(i18n.loadDataError);
             voltar();
         }
@@ -1500,8 +1525,10 @@
         return '';
     }
 
-    function preencherFormulario(data) {
-        inputId.value = data.id || '';
+    async function preencherFormulario(data, opcoes = {}) {
+        const modoDuplicacao = opcoes.duplicar === true;
+
+        inputId.value = modoDuplicacao ? '' : (data.id || '');
 
         // Dados basicos - campos chosen-select server-side
         if (data.id_matriz_filial && data.filial_nome) {
@@ -1522,11 +1549,11 @@
             select.dispatchEvent(new Event('change'));
         }
 
-        document.getElementById('placa').value = data.placa || '';
-        document.getElementById('renavam').value = data.renavam || '';
-        document.getElementById('chassi').value = data.chassi || '';
-        document.getElementById('odometro').value = data.odometro ? Km.format(data.odometro) : '';
-        document.getElementById('disponibilidade').value = data.disponibilidade || 'D';
+        document.getElementById('placa').value = modoDuplicacao ? '' : (data.placa || '');
+        document.getElementById('renavam').value = modoDuplicacao ? '' : (data.renavam || '');
+        document.getElementById('chassi').value = modoDuplicacao ? '' : (data.chassi || '');
+        document.getElementById('odometro').value = modoDuplicacao ? '' : (data.odometro ? Km.format(data.odometro) : '');
+        document.getElementById('disponibilidade').value = modoDuplicacao ? 'D' : (data.disponibilidade || 'D');
 
         // Caracteristicas
         document.getElementById('marca').value = data.marca || '';
@@ -1548,18 +1575,22 @@
         document.getElementById('tipo_combustivel').value = data.tipo_combustivel || '';
         atualizarLabelsCombustivel();
         document.getElementById('tanque_litros').value = data.tanque_litros || '';
-        document.getElementById('tanque_fracao').value = data.tanque_fracao || '';
-        document.getElementById('valor_por_fracao').value = data.valor_por_fracao ? Currency.format(data.valor_por_fracao) : '';
+        document.getElementById('tanque_fracao').value = modoDuplicacao ? '' : (data.tanque_fracao || '');
+        document.getElementById('valor_por_fracao').value = modoDuplicacao ? '' : (data.valor_por_fracao ? Currency.format(data.valor_por_fracao) : '');
 
         // Compra/Venda
-        document.getElementById('data_compra').value = converterDataParaInput(data.data_compra_formatted || '');
-        document.getElementById('valor_compra').value = data.valor_compra ? Currency.format(data.valor_compra) : '';
-        document.getElementById('vender').checked = data.vender === 'S';
-        document.getElementById('data_venda').value = converterDataParaInput(data.data_venda_formatted || '');
-        document.getElementById('valor_venda').value = data.valor_venda ? Currency.format(data.valor_venda) : '';
+        document.getElementById('data_compra').value = modoDuplicacao ? '' : converterDataParaInput(data.data_compra_formatted || '');
+        document.getElementById('valor_compra').value = modoDuplicacao ? '' : (data.valor_compra ? Currency.format(data.valor_compra) : '');
+        document.getElementById('vender').checked = modoDuplicacao ? false : data.vender === 'S';
+        document.getElementById('data_venda').value = modoDuplicacao ? '' : converterDataParaInput(data.data_venda_formatted || '');
+        document.getElementById('valor_venda').value = modoDuplicacao ? '' : (data.valor_venda ? Currency.format(data.valor_venda) : '');
 
         // Encargos do Veiculo
-        carregarEncargos(data.id);
+        if (modoDuplicacao) {
+            limparEncargosFormulario();
+        } else {
+            carregarEncargos(data.id);
+        }
 
         // Descricao
         document.getElementById('descricao').value = data.descricao || '';
@@ -1575,13 +1606,29 @@
         }
 
         // Valores salvos do plano (proxima km de cada item)
-        if (data.plano_manutencao_array) {
+        if (!modoDuplicacao && data.plano_manutencao_array) {
             preencherPlanoManutencaoSalvo(data.plano_manutencao_array);
+        } else if (modoDuplicacao && data.id_plano_manutencao) {
+            await calcularPlanoManutencao(data.id_plano_manutencao, true);
         }
 
         // Foto
-        if (data.foto_url) {
+        if (modoDuplicacao) {
+            resetarFoto();
+        } else if (data.foto_url) {
             mostrarPreviewFoto(data.foto_url);
+        }
+    }
+
+    function limparEncargosFormulario() {
+        const tbody = document.getElementById('encargos-tbody');
+        const emptyMsg = document.getElementById('encargos-empty');
+
+        if (tbody) {
+            tbody.innerHTML = '';
+        }
+        if (emptyMsg) {
+            emptyMsg.style.display = 'block';
         }
     }
 
