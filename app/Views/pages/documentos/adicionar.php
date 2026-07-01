@@ -429,10 +429,13 @@
                         title: 'Preview: ' + result.data.titulo,
                         large: true,
                         body: `
-                            <div style="background: white; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 500px; overflow-y: auto;">
+                            <div style="background: #ffffff; color: #111827; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 500px; overflow-y: auto;">
                                 ${result.data.conteudo}
                             </div>
                             <style>
+                                html, body {
+                                    background: #ffffff !important;
+                                }
                                 .template-preview-var {
                                     background: #dbeafe;
                                     padding: 1px 4px;
@@ -459,12 +462,14 @@
                         <head>
                             <title>Preview: ${result.data.titulo}</title>
                             <style>
-                                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; }
+                                html, body { background: #ffffff !important; min-height: 100%; }
+                                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; margin: 0; padding: 20px; }
+                                .documento-preview-wrapper { background: #ffffff; min-height: calc(100vh - 40px); }
                                 .template-preview-var { background: #dbeafe; padding: 1px 4px; border-radius: 3px; color: #1e40af; font-weight: 500; }
                                 .template-preview-unknown { background: #fee2e2; padding: 1px 4px; border-radius: 3px; color: #991b1b; }
                             </style>
                         </head>
-                        <body>${result.data.conteudo}</body>
+                        <body><div class="documento-preview-wrapper">${result.data.conteudo}</div></body>
                         </html>
                     `);
                 }

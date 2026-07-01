@@ -624,6 +624,21 @@ Esse lancamento compensa o saldo financeiro efetivo da locacao, mas nao altera n
 remove a receita original. Devolucoes de caucao continuam usando `1.1.6.02` e nao
 devem ser tratadas como credito de diaria/taxa de locacao.
 
+### Valores Cobrados na Devolucao de Contrato
+
+Quando a devolucao de um contrato apura valor que o cliente deve pagar (km
+excedente, combustivel/carga ou taxas e servicos extras), o sistema deve criar
+automaticamente uma receita:
+
+- `financeiro.tipo = R`
+- `financeiro.id_contrato` preenchido
+- `financeiro.id_cliente` preenchido a partir do contrato
+- `financeiro.id_veiculo` preenchido apenas quando a devolucao envolver um unico veiculo
+- `pago = S` somente quando o usuario marcar o recebimento na tela
+
+Nao registrar esse caso como contas a pagar (`tipo = D`), pois e uma cobranca ao
+cliente.
+
 ### Multas
 
 Multas cadastradas manualmente geram um lançamento financeiro vinculado por

@@ -382,6 +382,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
 
     // API Logs (com proteção anti-scraping e CSRF)
     $router->get('/api/logs', [LogsController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/logs/envios', [LogsController::class, 'envios'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Paginas iframe - Temporadas
     $router->get('/pages/temporadas', [TemporadasController::class, 'view']);

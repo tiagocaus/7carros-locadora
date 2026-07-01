@@ -14,10 +14,37 @@
         </div>
     </div>
 
+    <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="inline-flex rounded-md border border-slate-200 bg-white p-1 w-full sm:w-auto">
+            <button type="button" id="tabAuditoria" class="px-3 py-2 text-sm font-medium rounded bg-sky-600 text-white flex-1 sm:flex-none">
+                <?= t('modules.logs.tabs.audit') ?>
+            </button>
+            <button type="button" id="tabEnvios" class="px-3 py-2 text-sm font-medium rounded text-slate-600 hover:bg-slate-100 flex-1 sm:flex-none">
+                <?= t('modules.logs.tabs.messages') ?>
+            </button>
+        </div>
+
+        <div id="enviosFilters" class="hidden flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select id="typeFilter" class="form-input-focus select-pagination">
+                <option value=""><?= t('modules.logs.filters.all_channels') ?></option>
+                <option value="email"><?= t('modules.logs.channels.email') ?></option>
+                <option value="whatsapp"><?= t('modules.logs.channels.whatsapp') ?></option>
+                <option value="sms"><?= t('modules.logs.channels.sms') ?></option>
+            </select>
+            <select id="statusFilter" class="form-input-focus select-pagination">
+                <option value=""><?= t('modules.logs.filters.all_statuses') ?></option>
+                <option value="pending"><?= t('modules.logs.status.pending') ?></option>
+                <option value="processing"><?= t('modules.logs.status.processing') ?></option>
+                <option value="sent"><?= t('modules.logs.status.sent') ?></option>
+                <option value="failed"><?= t('modules.logs.status.failed') ?></option>
+            </select>
+        </div>
+    </div>
+
     <div class="bg-white shadow-md rounded-lg overflow-x-auto">
         <table class="w-full min-w-full divide-y divide-slate-200">
             <thead class="table-header-custom">
-                <tr>
+                <tr id="tableHeaderRow">
                     <th class="table-header"><?= t('modules.logs.table.date') ?></th>
                     <th class="table-header hidden md:table-cell"><?= t('modules.logs.table.user') ?></th>
                     <th class="table-header"><?= t('modules.logs.table.message') ?></th>
@@ -76,12 +103,44 @@
             noDetails: <?= json_encode(t('modules.logs.no_details'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             showingPagination: <?= json_encode(t('modules.logs.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             showingLazy: <?= json_encode(t('modules.logs.pagination.showing_lazy'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            sentHint: <?= json_encode(t('modules.logs.messages.sent_hint'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            payloadTitle: <?= json_encode(t('modules.logs.payload_title'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            auditTab: <?= json_encode(t('modules.logs.tabs.audit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            messagesTab: <?= json_encode(t('modules.logs.tabs.messages'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            table: {
+                date: <?= json_encode(t('modules.logs.table.date'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                user: <?= json_encode(t('modules.logs.table.user'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                message: <?= json_encode(t('modules.logs.table.message'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                ip: <?= json_encode(t('modules.logs.table.ip'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                actions: <?= json_encode(t('modules.logs.table.actions'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                channel: <?= json_encode(t('modules.logs.table.channel'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                recipient: <?= json_encode(t('modules.logs.table.recipient'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                status: <?= json_encode(t('modules.logs.table.status'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                error: <?= json_encode(t('modules.logs.table.error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                processedAt: <?= json_encode(t('modules.logs.table.processed_at'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            },
+            channels: {
+                email: <?= json_encode(t('modules.logs.channels.email'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                whatsapp: <?= json_encode(t('modules.logs.channels.whatsapp'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                sms: <?= json_encode(t('modules.logs.channels.sms'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            },
+            status: {
+                pending: <?= json_encode(t('modules.logs.status.pending'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                processing: <?= json_encode(t('modules.logs.status.processing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                sent: <?= json_encode(t('modules.logs.status.sent'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                failed: <?= json_encode(t('modules.logs.status.failed'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+                skipped: <?= json_encode(t('modules.logs.status.skipped'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            },
         };
 
         let currentPage = 1;
         let perPage = 10;
         let searchTerm = '';
         let searchTimeout = null;
+        let activeView = 'audit';
+        let typeFilter = '';
+        let statusFilter = '';
+        let enviosDetalhes = new Map();
 
         function showLoading() {
             document.getElementById('loadingOverlay')?.classList.remove('hidden');
@@ -89,6 +148,50 @@
 
         function hideLoading() {
             document.getElementById('loadingOverlay')?.classList.add('hidden');
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function atualizarCabecalhoTabela() {
+            const row = document.getElementById('tableHeaderRow');
+            if (!row) return;
+
+            if (activeView === 'messages') {
+                row.innerHTML = `
+                    <th class="table-header">${i18n.table.date}</th>
+                    <th class="table-header">${i18n.table.channel}</th>
+                    <th class="table-header">${i18n.table.recipient}</th>
+                    <th class="table-header">${i18n.table.message}</th>
+                    <th class="table-header hidden lg:table-cell">${i18n.table.status}</th>
+                    <th class="table-header hidden xl:table-cell">${i18n.table.processedAt}</th>
+                    <th class="table-header px-2 w-20 text-center">${i18n.table.actions}</th>
+                `;
+                return;
+            }
+
+            row.innerHTML = `
+                <th class="table-header">${i18n.table.date}</th>
+                <th class="table-header hidden md:table-cell">${i18n.table.user}</th>
+                <th class="table-header">${i18n.table.message}</th>
+                <th class="table-header hidden lg:table-cell">${i18n.table.ip}</th>
+                <th class="table-header px-2 w-20 text-center">${i18n.table.actions}</th>
+            `;
+        }
+
+        function carregarAtual(page = currentPage) {
+            if (activeView === 'messages') {
+                carregarEnvios(page, perPage, searchTerm);
+                return;
+            }
+
+            carregarLogs(page, perPage, searchTerm);
         }
 
         async function carregarLogs(page = 1, recordsPerPage = 10, search = '') {
@@ -117,13 +220,42 @@
             }
         }
 
+        async function carregarEnvios(page = 1, recordsPerPage = 10, search = '') {
+            showLoading();
+
+            try {
+                const result = await API.get('/api/logs/envios', {
+                    page: page,
+                    perPage: recordsPerPage,
+                    search: search,
+                    type: typeFilter,
+                    status: statusFilter
+                });
+
+                if (result.success) {
+                    renderEnvios(result.data);
+                    atualizarPaginacao(result.pagination);
+                    atualizarInfoRegistros(result.pagination);
+                } else {
+                    console.error('Erro ao carregar envios:', result.message);
+                    mostrarMensagemErro(i18n.loadError);
+                }
+            } catch (error) {
+                console.error('Erro ao buscar envios:', error);
+                mostrarMensagemErro(error.message || i18n.serverError);
+            } finally {
+                hideLoading();
+            }
+        }
+
         function mostrarMensagemErro(mensagem) {
             const tbody = document.querySelector('#logsTableBody');
             if (!tbody) return;
+            const colspan = activeView === 'messages' ? 7 : 5;
             tbody.innerHTML = `
             <tr>
-                <td colspan="5" class="table-cell text-center text-red-600">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>${mensagem}
+                <td colspan="${colspan}" class="table-cell text-center text-red-600">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>${escapeHtml(mensagem)}
                 </td>
             </tr>
         `;
@@ -185,6 +317,115 @@
                 button.addEventListener('click', function() {
                     const detalhes = this.getAttribute('data-detalhes');
                     abrirPainel(detalhes);
+                });
+            });
+        }
+
+        function resumoEnvio(envio) {
+            return envio.assunto || envio.mensagem_texto || envio.legenda || '-';
+        }
+
+        function limitarTexto(texto, limite = 180) {
+            texto = String(texto || '');
+            return texto.length > limite ? texto.substring(0, limite - 1) + '...' : texto;
+        }
+
+        function statusClass(status) {
+            const classes = {
+                sent: 'bg-green-100 text-green-700',
+                failed: 'bg-red-100 text-red-700',
+                pending: 'bg-amber-100 text-amber-700',
+                processing: 'bg-sky-100 text-sky-700',
+                skipped: 'bg-slate-100 text-slate-700',
+            };
+
+            return classes[status] || 'bg-slate-100 text-slate-700';
+        }
+
+        function renderEnvios(envios) {
+            const tbody = document.querySelector('#logsTableBody');
+            if (!tbody) return;
+
+            if (envios.length === 0) {
+                tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="table-cell text-center text-slate-500">
+                        <i class="fas fa-inbox mr-2"></i>${i18n.noRecords}
+                    </td>
+                </tr>
+            `;
+                return;
+            }
+
+            enviosDetalhes.clear();
+            let tableRows = '';
+            envios.forEach(envio => {
+                const status = envio.status || '-';
+                const canal = envio.type || '-';
+                const resumo = resumoEnvio(envio);
+                const erro = envio.error_message || '';
+                let payloadDetalhado = null;
+                try {
+                    payloadDetalhado = envio.payload ? JSON.parse(envio.payload) : null;
+                } catch (e) {
+                    payloadDetalhado = envio.payload || null;
+                }
+
+                const detalhes = {
+                    id: envio.id,
+                    canal: canal,
+                    status: status,
+                    destinatario: envio.destinatario || '',
+                    destinatario_nome: envio.destinatario_nome || '',
+                    resumo: resumo,
+                    erro: erro,
+                    tentativas: envio.attempts,
+                    criado_em: envio.created_at,
+                    processado_em: envio.processed_at,
+                    lote: envio.batch_id || '',
+                    observacao: canal === 'whatsapp' && status === 'sent' ? i18n.sentHint : '',
+                    payload: payloadDetalhado,
+                };
+                enviosDetalhes.set(String(envio.id), detalhes);
+                const resumoSeguro = escapeHtml(limitarTexto(resumo));
+                const erroSeguro = escapeHtml(erro);
+                const destinatario = envio.destinatario_nome
+                    ? `${escapeHtml(envio.destinatario_nome)}<br><span class="text-xs text-slate-500">${escapeHtml(envio.destinatario || '-')}</span>`
+                    : escapeHtml(envio.destinatario || '-');
+
+                tableRows += `
+                <tr class="border-b border-slate-200 hover:bg-slate-50">
+                    <td class="table-cell whitespace-nowrap">${formatarData(envio.created_at)}</td>
+                    <td class="table-cell">
+                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                            ${escapeHtml(i18n.channels[canal] || canal)}
+                        </span>
+                    </td>
+                    <td class="table-cell">${destinatario}</td>
+                    <td class="table-cell">
+                        <div>${resumoSeguro}</div>
+                        ${erro ? `<div class="mt-1 text-xs text-red-600">${erroSeguro}</div>` : ''}
+                    </td>
+                    <td class="table-cell hidden lg:table-cell">
+                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ${statusClass(status)}">
+                            ${escapeHtml(i18n.status[status] || status)}
+                        </span>
+                    </td>
+                    <td class="table-cell hidden xl:table-cell whitespace-nowrap">${formatarData(envio.processed_at)}</td>
+                    <td class="table-cell px-2 w-20 text-right">
+                        <button title="${i18n.viewDetails}" class="btn-icon text-sky-600 hover:text-sky-800 btn-ver-envio" data-id="${escapeHtml(envio.id)}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            });
+
+            tbody.innerHTML = tableRows;
+
+            tbody.querySelectorAll('.btn-ver-envio').forEach(button => {
+                button.addEventListener('click', function() {
+                    abrirPainelEnvio(enviosDetalhes.get(this.getAttribute('data-id')));
                 });
             });
         }
@@ -326,6 +567,64 @@
             }
         }
 
+        function abrirPainelEnvio(detalhesInput) {
+            let detalhes = detalhesInput || {};
+
+            if (typeof detalhesInput === 'string') {
+                try {
+                    detalhes = JSON.parse(detalhesInput || '{}');
+                } catch (e) {
+                    detalhes = { erro: detalhesInput || '' };
+                }
+            }
+
+            const rows = [
+                [i18n.table.channel, i18n.channels[detalhes.canal] || detalhes.canal || '-'],
+                [i18n.table.status, i18n.status[detalhes.status] || detalhes.status || '-'],
+                [i18n.table.recipient, detalhes.destinatario_nome ? `${detalhes.destinatario_nome} (${detalhes.destinatario})` : (detalhes.destinatario || '-')],
+                [i18n.table.message, detalhes.resumo || '-'],
+                [i18n.table.error, detalhes.erro || '-'],
+                [i18n.table.date, detalhes.criado_em ? formatarData(detalhes.criado_em) : '-'],
+                [i18n.table.processedAt, detalhes.processado_em ? formatarData(detalhes.processado_em) : '-'],
+                ['ID', detalhes.id || '-'],
+                ['Batch', detalhes.lote || '-'],
+                ['Tentativas', detalhes.tentativas ?? '-'],
+            ];
+
+            let html = '<div class="space-y-4">';
+            if (detalhes.observacao) {
+                html += `<div class="rounded border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">${escapeHtml(detalhes.observacao)}</div>`;
+            }
+
+            html += '<div class="border border-slate-200 rounded-lg overflow-hidden">';
+            rows.forEach(([label, value]) => {
+                html += `
+                    <div class="grid grid-cols-3 border-b border-slate-100 last:border-b-0">
+                        <div class="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">${escapeHtml(label)}</div>
+                        <div class="col-span-2 px-3 py-2 text-sm text-slate-800 break-words">${escapeHtml(value)}</div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            if (detalhes.payload) {
+                html += '<div class="border border-slate-200 rounded-lg overflow-hidden">';
+                html += `<div class="bg-slate-100 px-3 py-2 font-medium text-slate-700 text-sm">${escapeHtml(i18n.payloadTitle)}</div>`;
+                html += '<pre class="p-3 text-xs text-slate-700 whitespace-pre-wrap overflow-auto">' + escapeHtml(JSON.stringify(detalhes.payload, null, 2)) + '</pre>';
+                html += '</div>';
+            }
+            html += '</div>';
+
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    action: 'openOffcanvasContent',
+                    content: html,
+                    title: i18n.payloadTitle,
+                    width: '40%'
+                }, '*');
+            }
+        }
+
         function atualizarInfoRegistros(pagination) {
             const infoElement = document.getElementById('registrosInfo');
             if (!infoElement) return;
@@ -403,13 +702,13 @@
 
         window.irParaPagina = function(page) {
             currentPage = page;
-            carregarLogs(currentPage, perPage, searchTerm);
+            carregarAtual(currentPage);
         };
 
         document.getElementById('rowsPerPage')?.addEventListener('change', function(e) {
             perPage = parseInt(e.target.value);
             currentPage = 1;
-            carregarLogs(currentPage, perPage, searchTerm);
+            carregarAtual(currentPage);
         });
 
         document.getElementById('searchInput')?.addEventListener('input', function(e) {
@@ -420,11 +719,55 @@
             searchTimeout = setTimeout(() => {
                 searchTerm = e.target.value;
                 currentPage = 1;
-                carregarLogs(currentPage, perPage, searchTerm);
+                carregarAtual(currentPage);
             }, 300);
         });
 
-        carregarLogs(currentPage, perPage, searchTerm);
+        function ativarAba(view) {
+            activeView = view;
+            currentPage = 1;
+            const isMessages = view === 'messages';
+            const tabAuditoria = document.getElementById('tabAuditoria');
+            const tabEnvios = document.getElementById('tabEnvios');
+            const enviosFilters = document.getElementById('enviosFilters');
+
+            tabAuditoria?.classList.toggle('bg-sky-600', !isMessages);
+            tabAuditoria?.classList.toggle('text-white', !isMessages);
+            tabAuditoria?.classList.toggle('text-slate-600', isMessages);
+            tabAuditoria?.classList.toggle('hover:bg-slate-100', isMessages);
+
+            tabEnvios?.classList.toggle('bg-sky-600', isMessages);
+            tabEnvios?.classList.toggle('text-white', isMessages);
+            tabEnvios?.classList.toggle('text-slate-600', !isMessages);
+            tabEnvios?.classList.toggle('hover:bg-slate-100', !isMessages);
+
+            enviosFilters?.classList.toggle('hidden', !isMessages);
+            atualizarCabecalhoTabela();
+            carregarAtual(currentPage);
+        }
+
+        document.getElementById('tabAuditoria')?.addEventListener('click', function() {
+            ativarAba('audit');
+        });
+
+        document.getElementById('tabEnvios')?.addEventListener('click', function() {
+            ativarAba('messages');
+        });
+
+        document.getElementById('typeFilter')?.addEventListener('change', function(e) {
+            typeFilter = e.target.value;
+            currentPage = 1;
+            carregarAtual(currentPage);
+        });
+
+        document.getElementById('statusFilter')?.addEventListener('change', function(e) {
+            statusFilter = e.target.value;
+            currentPage = 1;
+            carregarAtual(currentPage);
+        });
+
+        atualizarCabecalhoTabela();
+        carregarAtual(currentPage);
     })();
 </script>
 @endsection

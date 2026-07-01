@@ -10,6 +10,8 @@
         'KMC' => t('modules.contratos.vehicles.plan_km_controlled'),
         'KL' => t('modules.contratos.vehicles.plan_km_free'),
     ];
+    $filialRetiradaId = (int) ($contrato['id_matriz_filial_retirada'] ?? 0);
+    $hojeInput = \App\Helpers\DateHelper::todayForDatabase();
 ?>
 <div class="pl-1 pr-2 py-0">
     <!-- Cabecalho -->
@@ -190,11 +192,64 @@
             <?php endforeach; ?>
         </div>
 
+        <!-- Taxas e servicos da devolucao -->
+        <div class="form-section mb-6">
+            <button type="button" id="toggleTaxasDevolucao" class="w-full flex items-center justify-between text-left">
+                <span class="form-section-title mb-0">
+                    <i class="fas fa-receipt mr-2 text-slate-500"></i>Taxas e servicos
+                </span>
+                <i class="fas fa-chevron-down text-slate-400" id="iconTaxasDevolucao"></i>
+            </button>
+            <div id="conteudoTaxasDevolucao" class="hidden mt-4 pl-0 md:pl-4">
+                <div class="bg-slate-50 p-4 rounded-md mb-3">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div class="md:col-span-4 form-input-group">
+                            <label class="form-label-group">Taxa/servico</label>
+                            <select id="taxa_select"
+                                    class="chosen-select form-input-group-field"
+                                    data-chosen-type="server-side"
+                                    data-chosen-search-url="/api/taxas-e-servicos/buscar"
+                                    data-chosen-placeholder="<?= t('common.labels.type_to_search') ?>"
+                                    data-chosen-min-chars="2">
+                                <option value="">Selecione</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-3 form-input-group">
+                            <label class="form-label-group">Nome</label>
+                            <input type="text" id="taxa_nome" class="form-input-group-field bg-slate-100" placeholder="Nome" readonly>
+                        </div>
+                        <div class="md:col-span-1 form-input-group">
+                            <label class="form-label-group">Qtd</label>
+                            <input type="number" id="taxa_qtd" class="form-input-group-field bg-slate-100" value="1" min="1" readonly>
+                        </div>
+                        <div class="md:col-span-2 form-input-group">
+                            <label class="form-label-group">Valor unitario</label>
+                            <div class="relative">
+                                <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500 text-xs">R$</span>
+                                <input type="text" id="taxa_valor" class="form-input-group-field pl-8 input-moeda bg-slate-100" readonly>
+                            </div>
+                        </div>
+                        <div class="md:col-span-2 form-input-group flex items-end">
+                            <button type="button" id="btnAdicionarTaxa" class="btn-secondary py-2 px-3 rounded-md text-sm font-medium w-full">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="listaTaxas" class="space-y-2"></div>
+            </div>
+        </div>
+
         <!-- Resumo geral -->
-        <div id="resumoGeral" class="form-section bg-green-50 border border-green-200 <?= $singleMode ? '' : 'hidden' ?> mb-6" style="margin-bottom: 0;">
-            <h3 class="form-section-title text-green-800">
-                <i class="fas fa-receipt mr-2 text-green-600"></i><?= t('modules.contratos.return_page.summary_title') ?>
-            </h3>
+        <div id="resumoGeral" class="form-section bg-green-50 border border-green-200 <?= $singleMode ? '' : 'hidden' ?> my-6">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <h3 class="form-section-title text-green-800 mb-0">
+                    <i class="fas fa-receipt mr-2 text-green-600"></i><?= t('modules.contratos.return_page.summary_title') ?>
+                </h3>
+                <button type="button" id="btnGerarPagamento" class="btn-secondary py-2 px-3 rounded-md text-sm font-medium hidden">
+                    <i class="fas fa-dollar-sign mr-2"></i>Gerar pagamento
+                </button>
+            </div>
             <div id="resumoContent"></div>
         </div>
 
@@ -210,6 +265,13 @@
 
         <!-- Hidden fields -->
         <input type="hidden" id="contratoId" value="<?= (int) $contrato['id'] ?>">
+        <input type="hidden" id="financeiroIdConta" value="<?= !empty($contrato['id_conta']) ? (int) $contrato['id_conta'] : '' ?>">
+        <input type="hidden" id="financeiroContaTexto" value="<?= htmlspecialchars($contrato['conta_descricao'] ?? '') ?>">
+        <input type="hidden" id="financeiroIdFormaPagamento" value="<?= !empty($contrato['id_forma_pagamento']) ? (int) $contrato['id_forma_pagamento'] : '' ?>">
+        <input type="hidden" id="financeiroFormaPagamentoTexto" value="<?= htmlspecialchars($contrato['forma_pagamento_descricao'] ?? '') ?>">
+        <input type="hidden" id="financeiroDataVenci" value="<?= htmlspecialchars($hojeInput) ?>">
+        <input type="hidden" id="financeiroPago" value="N">
+        <input type="hidden" id="financeiroDataPago" value="">
     </form>
 </div>
 @endsection
@@ -267,6 +329,12 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     const veiculosAtivos = <?= json_encode($veiculosAtivos, JSON_UNESCAPED_UNICODE) ?>;
     const contratoId = document.getElementById('contratoId').value;
     const singleMode = veiculosAtivos.length === 1;
+    const filialRetiradaId = <?= (int) $filialRetiradaId ?>;
+    const hojeInput = <?= json_encode($hojeInput, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const taxasExtrasState = [];
+    let taxasDisponiveis = [];
+    let taxaSelecionadaAtual = null;
+    let totalGeralAtual = 0;
 
     // Estado por veiculo
     const veiculoState = {};
@@ -322,6 +390,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         });
 
         configurarEventos();
+        carregarTaxasDisponiveis();
+        renderizarTaxasDevolucao();
 
         if (singleMode) {
             atualizarResumoGeral();
@@ -470,6 +540,369 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         atualizarResumoGeral();
     }
 
+    // ==================== TAXAS EXTRAS ====================
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function calcularTotalTaxasExtras() {
+        return taxasExtrasState.reduce((total, taxa) => {
+            return total + ((parseInt(taxa.quantidade) || 1) * (parseFloat(taxa.valor_unitario) || 0));
+        }, 0);
+    }
+
+    async function carregarTaxasDisponiveis() {
+        try {
+            const params = {};
+            if (filialRetiradaId > 0) {
+                params.id_filial = filialRetiradaId;
+            }
+
+            const result = await API.get('/api/taxas-e-servicos/buscar', params);
+            if (result.success && Array.isArray(result.data)) {
+                taxasDisponiveis = result.data;
+            }
+        } catch (error) {
+            console.error('Erro ao buscar taxas:', error);
+        }
+    }
+
+    async function obterTaxaSelecionada(idTaxa) {
+        let taxa = taxasDisponiveis.find(t => String(t.id) === String(idTaxa));
+        if (taxa) {
+            return taxa;
+        }
+
+        try {
+            const result = await API.get(`/api/taxas-e-servicos/${idTaxa}`);
+            if (result.success && result.data) {
+                taxa = {
+                    id: result.data.id,
+                    text: result.data.nome,
+                    valor: result.data.valor,
+                    base_calculo: result.data.base_calculo,
+                    tipo_valor: result.data.tipo_valor,
+                };
+                taxasDisponiveis.push(taxa);
+                return taxa;
+            }
+        } catch (error) {
+            console.error('Erro ao buscar taxa selecionada:', error);
+        }
+
+        return null;
+    }
+
+    async function preencherTaxaSelecionada(idTaxa) {
+        const simboloEl = document.querySelector('#taxa_valor')?.parentElement?.querySelector('.currency-symbol');
+        const inputValor = document.getElementById('taxa_valor');
+
+        if (!idTaxa) {
+            taxaSelecionadaAtual = null;
+            document.getElementById('taxa_nome').value = '';
+            document.getElementById('taxa_qtd').value = '1';
+            document.getElementById('taxa_valor').value = '';
+            if (simboloEl) simboloEl.textContent = 'R$';
+            inputValor?.classList.add('input-moeda');
+            return;
+        }
+
+        const taxa = await obterTaxaSelecionada(idTaxa);
+        if (!taxa) {
+            taxaSelecionadaAtual = null;
+            return;
+        }
+
+        taxaSelecionadaAtual = {
+            id: taxa.id,
+            nome: taxa.text || taxa.nome || '',
+            valor: parseFloat(taxa.valor) || 0,
+            base_calculo: taxa.base_calculo || 'FIX',
+            tipo_valor: taxa.tipo_valor || 'MON',
+        };
+
+        document.getElementById('taxa_nome').value = taxaSelecionadaAtual.nome;
+        document.getElementById('taxa_qtd').value = 1;
+
+        if (taxaSelecionadaAtual.tipo_valor === 'POR') {
+            if (simboloEl) simboloEl.textContent = '%';
+            if (inputValor) {
+                inputValor.value = taxaSelecionadaAtual.valor ? String(taxaSelecionadaAtual.valor).replace('.', ',') : '';
+                inputValor.classList.remove('input-moeda');
+            }
+        } else {
+            if (simboloEl) simboloEl.textContent = 'R$';
+            if (inputValor) {
+                inputValor.value = taxaSelecionadaAtual.valor ? Currency.format(taxaSelecionadaAtual.valor) : '';
+                inputValor.classList.add('input-moeda');
+            }
+        }
+    }
+
+    function adicionarTaxaDevolucao() {
+        const select = document.getElementById('taxa_select');
+        const nome = document.getElementById('taxa_nome')?.value.trim() || '';
+        const quantidade = Math.max(1, parseInt(document.getElementById('taxa_qtd')?.value || '1'));
+        const valorUnitario = Currency.parse(document.getElementById('taxa_valor')?.value || '0');
+
+        if (!nome || !select?.value) {
+            window.parent.postMessage({ action: 'openAlert', message: 'Selecione uma taxa ou servico' }, '*');
+            return;
+        }
+
+        taxasExtrasState.push({
+            id_taxa: parseInt(select.value),
+            nome,
+            base_calculo: taxaSelecionadaAtual?.base_calculo || 'FIX',
+            tipo_valor: taxaSelecionadaAtual?.tipo_valor || 'MON',
+            quantidade,
+            valor_unitario: valorUnitario,
+        });
+
+        taxaSelecionadaAtual = null;
+        if (select.chosenSelect) {
+            select.chosenSelect.clear();
+        } else {
+            select.value = '';
+        }
+        document.getElementById('taxa_nome').value = '';
+        document.getElementById('taxa_qtd').value = '1';
+        document.getElementById('taxa_valor').value = '';
+        const simboloEl = document.querySelector('#taxa_valor')?.parentElement?.querySelector('.currency-symbol');
+        if (simboloEl) simboloEl.textContent = 'R$';
+
+        renderizarTaxasDevolucao();
+        atualizarResumoGeral();
+    }
+
+    function renderizarTaxasDevolucao() {
+        const lista = document.getElementById('listaTaxas');
+        if (!lista) return;
+
+        if (taxasExtrasState.length === 0) {
+            lista.innerHTML = '<p class="text-sm text-slate-500">Nenhuma taxa adicional selecionada.</p>';
+            return;
+        }
+
+        lista.innerHTML = taxasExtrasState.map((taxa, index) => {
+            const total = (parseInt(taxa.quantidade) || 1) * (parseFloat(taxa.valor_unitario) || 0);
+            return `
+                <div class="flex items-center justify-between bg-white border border-slate-200 rounded-md px-4 py-3">
+                    <div>
+                        <p class="font-medium text-slate-800">${escapeHtml(taxa.nome)}</p>
+                        <p class="text-sm text-slate-500">${taxa.quantidade} x ${Currency.format(taxa.valor_unitario, true)}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <strong class="text-slate-800">${Currency.format(total, true)}</strong>
+                        <button type="button" class="text-red-600 hover:text-red-800 btn-remover-taxa-devolucao" data-index="${index}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        lista.querySelectorAll('.btn-remover-taxa-devolucao').forEach(btn => {
+            btn.addEventListener('click', function() {
+                taxasExtrasState.splice(parseInt(this.dataset.index), 1);
+                renderizarTaxasDevolucao();
+                atualizarResumoGeral();
+            });
+        });
+    }
+
+    function atualizarFinanceiroDevolucao() {
+        const btn = document.getElementById('btnGerarPagamento');
+        if (!btn) return;
+
+        btn.classList.toggle('hidden', totalGeralAtual <= 0);
+    }
+
+    function optionLabel(item) {
+        return item.text || item.descricao || item.nome || item.nome_rsocial || item.titulo || item.label || '';
+    }
+
+    function financeiroValue(id) {
+        return document.getElementById(id)?.value || '';
+    }
+
+    function setFinanceiroValue(id, value) {
+        const input = document.getElementById(id);
+        if (input) input.value = value || '';
+    }
+
+    function montarOptionsOffcanvas(itens, selectedValue, selectedText) {
+        const map = new Map();
+        if (selectedValue) {
+            map.set(String(selectedValue), selectedText || 'Selecionado');
+        }
+
+        (itens || []).forEach(item => {
+            if (!item || item.id === undefined || item.id === null) return;
+            map.set(String(item.id), optionLabel(item));
+        });
+
+        let html = '<option value="">Selecione</option>';
+        map.forEach((label, value) => {
+            html += `<option value="${escapeHtml(value)}" ${String(value) === String(selectedValue) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+        });
+        return html;
+    }
+
+    async function carregarSelectOffcanvas(selector, url, selectedValue, selectedText) {
+        const doc = window.parent?.document;
+        const select = doc?.querySelector(selector);
+        if (!select) return;
+
+        select.innerHTML = montarOptionsOffcanvas([], selectedValue, selectedText);
+
+        try {
+            const result = await API.get(url);
+            if (result.success && Array.isArray(result.data)) {
+                select.innerHTML = montarOptionsOffcanvas(result.data, selectedValue, selectedText);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar dados do pagamento:', error);
+        }
+    }
+
+    function configurarEventosOffcanvasPagamento() {
+        const doc = window.parent?.document;
+        if (!doc) return;
+
+        const pagoSelect = doc.getElementById('offFinanceiroPago');
+        const dataPagoGroup = doc.getElementById('offFinanceiroDataPagoGroup');
+        if (!pagoSelect || !dataPagoGroup) return;
+
+        const toggleDataPago = () => {
+            dataPagoGroup.classList.toggle('hidden', pagoSelect.value !== 'S');
+        };
+
+        pagoSelect.addEventListener('change', toggleDataPago);
+        toggleDataPago();
+    }
+
+    function abrirOffcanvasPagamento() {
+        const idConta = financeiroValue('financeiroIdConta');
+        const contaTexto = financeiroValue('financeiroContaTexto');
+        const idFormaPagamento = financeiroValue('financeiroIdFormaPagamento');
+        const formaPagamentoTexto = financeiroValue('financeiroFormaPagamentoTexto');
+        const dataVenci = financeiroValue('financeiroDataVenci') || hojeInput;
+        const pago = financeiroValue('financeiroPago') || 'N';
+        const dataPago = financeiroValue('financeiroDataPago') || hojeInput;
+
+        const content = `
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="form-input-group">
+                        <label class="form-label-group">Conta bancaria <span class="text-red-500">*</span></label>
+                        <select id="offFinanceiroIdConta" class="form-input-group-field">
+                            ${montarOptionsOffcanvas([], idConta, contaTexto)}
+                        </select>
+                    </div>
+                    <div class="form-input-group">
+                        <label class="form-label-group">Forma de pagamento <span class="text-red-500">*</span></label>
+                        <select id="offFinanceiroIdFormaPagamento" class="form-input-group-field">
+                            ${montarOptionsOffcanvas([], idFormaPagamento, formaPagamentoTexto)}
+                        </select>
+                    </div>
+                    <div class="form-input-group">
+                        <label class="form-label-group">Vencimento <span class="text-red-500">*</span></label>
+                        <input type="date" id="offFinanceiroDataVenci" class="form-input-group-field" value="${escapeHtml(dataVenci)}">
+                    </div>
+                    <div class="form-input-group">
+                        <label class="form-label-group">Pago?</label>
+                        <select id="offFinanceiroPago" class="form-input-group-field">
+                            <option value="N" ${pago !== 'S' ? 'selected' : ''}>Nao</option>
+                            <option value="S" ${pago === 'S' ? 'selected' : ''}>Sim</option>
+                        </select>
+                    </div>
+                    <div class="form-input-group ${pago === 'S' ? '' : 'hidden'}" id="offFinanceiroDataPagoGroup">
+                        <label class="form-label-group">Data de pagamento <span class="text-red-500">*</span></label>
+                        <input type="date" id="offFinanceiroDataPago" class="form-input-group-field" value="${escapeHtml(dataPago)}">
+                    </div>
+                    <div class="bg-green-50 border border-green-200 rounded-md p-4">
+                        <p class="text-sm text-green-700">Total da cobranca</p>
+                        <p class="text-2xl font-bold text-green-800 mt-1">${Currency.format(totalGeralAtual, true)}</p>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" id="btnCancelarPagamentoDevolucao" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">Cancelar</button>
+                    <button type="button" id="btnAplicarPagamentoDevolucao" class="btn-green py-2 px-4 rounded-md text-sm font-medium">Aplicar</button>
+                </div>
+            </div>
+        `;
+
+        window.parent.postMessage({
+            action: 'openOffcanvasContent',
+            title: 'Gerar pagamento',
+            width: '420px',
+            content
+        }, '*');
+
+        setTimeout(() => {
+            carregarSelectOffcanvas('#offFinanceiroIdConta', '/api/contas-bancarias/buscar', idConta, contaTexto);
+            carregarSelectOffcanvas('#offFinanceiroIdFormaPagamento', '/api/formas-pagamento/select', idFormaPagamento, formaPagamentoTexto);
+            configurarEventosOffcanvasPagamento();
+        }, 150);
+    }
+
+    function aplicarPagamentoOffcanvas(data) {
+        if (!data.offFinanceiroIdConta) {
+            window.parent.postMessage({ action: 'openAlert', message: 'Selecione a conta bancaria' }, '*');
+            return;
+        }
+
+        if (!data.offFinanceiroIdFormaPagamento) {
+            window.parent.postMessage({ action: 'openAlert', message: 'Selecione a forma de pagamento' }, '*');
+            return;
+        }
+
+        if (!data.offFinanceiroDataVenci) {
+            window.parent.postMessage({ action: 'openAlert', message: 'Informe o vencimento' }, '*');
+            return;
+        }
+
+        if (data.offFinanceiroPago === 'S' && !data.offFinanceiroDataPago) {
+            window.parent.postMessage({ action: 'openAlert', message: 'Informe a data de pagamento' }, '*');
+            return;
+        }
+
+        const doc = window.parent?.document;
+        const contaSelect = doc?.getElementById('offFinanceiroIdConta');
+        const formaSelect = doc?.getElementById('offFinanceiroIdFormaPagamento');
+
+        setFinanceiroValue('financeiroIdConta', data.offFinanceiroIdConta);
+        setFinanceiroValue('financeiroContaTexto', contaSelect?.selectedOptions?.[0]?.textContent || '');
+        setFinanceiroValue('financeiroIdFormaPagamento', data.offFinanceiroIdFormaPagamento);
+        setFinanceiroValue('financeiroFormaPagamentoTexto', formaSelect?.selectedOptions?.[0]?.textContent || '');
+        setFinanceiroValue('financeiroDataVenci', data.offFinanceiroDataVenci);
+        setFinanceiroValue('financeiroPago', data.offFinanceiroPago === 'S' ? 'S' : 'N');
+        setFinanceiroValue('financeiroDataPago', data.offFinanceiroPago === 'S' ? data.offFinanceiroDataPago : '');
+
+        atualizarResumoGeral();
+        window.parent.postMessage({ action: 'closeOffcanvas' }, '*');
+    }
+
+    function handleOffcanvasPagamentoMessage(event) {
+        if (!event.data || event.data.action !== 'offcanvasButtonClick') return;
+
+        if (event.data.buttonId === 'btnCancelarPagamentoDevolucao') {
+            window.parent.postMessage({ action: 'closeOffcanvas' }, '*');
+            return;
+        }
+
+        if (event.data.buttonId === 'btnAplicarPagamentoDevolucao') {
+            aplicarPagamentoOffcanvas(event.data);
+        }
+    }
+
     // ==================== RESUMO GERAL ====================
 
     function atualizarResumoGeral() {
@@ -501,23 +934,47 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             `;
         });
 
-        const totalGeral = totalGeralKm + totalGeralCombustivel;
+        const totalTaxasExtras = calcularTotalTaxasExtras();
+        const totalGeral = totalGeralKm + totalGeralCombustivel + totalTaxasExtras;
+        totalGeralAtual = totalGeral;
         const resumoEl = document.getElementById('resumoGeral');
         const resumoContent = document.getElementById('resumoContent');
 
         if (selecionados > 0) {
             resumoEl.classList.remove('hidden');
             const corTotal = totalGeral > 0 ? 'text-red-600' : 'text-green-600';
-            const labelExtra = totalGeral > 0 ? i18n.summaryCharge : i18n.summaryNoCharge;
-            resumoContent.innerHTML = htmlLinhas + `
+            const htmlTaxas = totalTaxasExtras > 0 ? `
+                <div class="flex justify-between text-sm py-1">
+                    <span class="text-slate-700">Taxas e servicos</span>
+                    <span class="text-slate-600"><strong>${Currency.format(totalTaxasExtras, true)}</strong></span>
+                </div>
+            ` : '';
+            const pagamentoPago = totalGeral > 0 && financeiroValue('financeiroPago') === 'S';
+            const htmlTotais = pagamentoPago ? `
+                <div class="border-t border-green-300 pt-2 mt-2 space-y-1">
+                    <div class="flex justify-between text-base font-bold text-green-700">
+                        <span>VALOR PAGO:</span>
+                        <span>${Currency.format(totalGeral, true)}</span>
+                    </div>
+                    <div class="flex justify-between text-base font-bold text-green-800">
+                        <span>TOTAL A PAGAR:</span>
+                        <span>${Currency.format(0, true)}</span>
+                    </div>
+                </div>
+            ` : `
                 <div class="flex justify-between border-t border-green-300 pt-2 mt-2 text-base font-bold ${corTotal}">
                     <span>${i18n.summaryTotal}:</span>
-                    <span>${Currency.format(totalGeral, true)} <span class="text-xs font-normal">(${labelExtra})</span></span>
+                    <span>${Currency.format(totalGeral, true)}</span>
                 </div>
             `;
+
+            resumoContent.innerHTML = htmlLinhas + htmlTaxas + htmlTotais;
         } else {
+            totalGeralAtual = 0;
             resumoEl.classList.add('hidden');
         }
+
+        atualizarFinanceiroDevolucao();
     }
 
     // ==================== BOTAO CONFIRMAR ====================
@@ -588,12 +1045,52 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }
         }
 
+        const gerarFinanceiro = totalGeralAtual > 0;
+        const financeiroPayload = {
+            gerar_financeiro: gerarFinanceiro ? 1 : 0,
+            id_conta: document.getElementById('financeiroIdConta')?.value || '',
+            id_forma_pagamento: document.getElementById('financeiroIdFormaPagamento')?.value || '',
+            data_venci: document.getElementById('financeiroDataVenci')?.value || '',
+            pago: document.getElementById('financeiroPago')?.value || 'N',
+            data_pago: document.getElementById('financeiroDataPago')?.value || '',
+        };
+
+        if (gerarFinanceiro) {
+            if (!financeiroPayload.id_conta) {
+                window.parent.postMessage({ action: 'openAlert', message: 'Selecione a conta bancaria' }, '*');
+                return;
+            }
+
+            if (!financeiroPayload.id_forma_pagamento) {
+                window.parent.postMessage({ action: 'openAlert', message: 'Selecione a forma de pagamento' }, '*');
+                return;
+            }
+
+            if (!financeiroPayload.data_venci) {
+                window.parent.postMessage({ action: 'openAlert', message: 'Informe o vencimento' }, '*');
+                return;
+            }
+
+            if (financeiroPayload.pago === 'S' && !financeiroPayload.data_pago) {
+                window.parent.postMessage({ action: 'openAlert', message: 'Informe a data de pagamento' }, '*');
+                return;
+            }
+        }
+
         const btnConfirmar = document.getElementById('btnConfirmar');
         btnConfirmar.disabled = true;
         btnConfirmar.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${i18n.processing}`;
 
         try {
-            const result = await API.post(`/contratos/${contratoId}/devolver`, { veiculos: veiculosPayload });
+            const result = await API.post(`/contratos/${contratoId}/devolver`, {
+                veiculos: veiculosPayload,
+                taxas_extras: taxasExtrasState.map(taxa => ({
+                    id_taxa: taxa.id_taxa,
+                    quantidade: taxa.quantidade,
+                    valor_unitario: taxa.valor_unitario,
+                })),
+                ...financeiroPayload,
+            });
 
             if (result.success) {
                 window.parent.postMessage({
@@ -685,10 +1182,31 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             });
         });
 
+        document.getElementById('taxa_select')?.addEventListener('change', function() {
+            preencherTaxaSelecionada(this.value);
+        });
+
+        document.getElementById('btnAdicionarTaxa')?.addEventListener('click', adicionarTaxaDevolucao);
+
+        document.getElementById('toggleTaxasDevolucao')?.addEventListener('click', function() {
+            const conteudo = document.getElementById('conteudoTaxasDevolucao');
+            const icon = document.getElementById('iconTaxasDevolucao');
+            if (!conteudo) return;
+
+            const isHidden = conteudo.classList.contains('hidden');
+            conteudo.classList.toggle('hidden', !isHidden);
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down', !isHidden);
+                icon.classList.toggle('fa-chevron-up', isHidden);
+            }
+        });
+
         // Botoes
         document.getElementById('btnVoltar').addEventListener('click', voltar);
         document.getElementById('btnCancelar').addEventListener('click', voltar);
         document.getElementById('btnConfirmar').addEventListener('click', confirmarDevolucao);
+        document.getElementById('btnGerarPagamento')?.addEventListener('click', abrirOffcanvasPagamento);
+        window.addEventListener('message', handleOffcanvasPagamentoMessage);
     }
 
     // Inicializar

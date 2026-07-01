@@ -335,12 +335,37 @@ const response = await Api.post('/contratos/salvar', {
 ### Registrar devolucao
 ```javascript
 await Api.post(`/contratos/${contratoId}/devolver`, {
-    id_contrato_veiculo: 123,
-    odometro_saida: 52500,
-    combustivel_saida: 6,
-    motivo_saida: 'Devolucao normal ao final do contrato'
+    veiculos: [{
+        id_contrato_veiculo: 123,
+        data_entrada: '2026-07-01T15:30',
+        odometro_entrada: 52500,
+        combustivel_entrada: 6,
+        acao_veiculo: 'disponivel',
+        observacao: 'Devolucao normal ao final do contrato'
+    }],
+    taxas_extras: [{
+        id_taxa: 5,
+        quantidade: 1,
+        valor_unitario: 50.00
+    }],
+    id_conta: 2,
+    id_forma_pagamento: 3,
+    data_venci: '2026-07-01',
+    pago: 'N'
 });
 ```
+
+Quando a devolucao gera valores a cobrar do cliente (km, combustivel/carga ou
+taxas extras), o backend cria automaticamente uma receita em `financeiro`
+vinculada ao contrato (`tipo = R`). O total e recalculado a partir das regras
+oficiais e dos snapshots gravados em `contratos_taxaseservicos`; o total enviado
+pela tela nao deve ser usado como fonte de verdade.
+
+Na tela de devolucao, os dados do lancamento financeiro sao configurados pelo
+botao **Gerar pagamento** dentro do **Resumo da Devolucao**. O offcanvas coleta
+conta bancaria, forma de pagamento, vencimento e status pago; quando `pago = S`,
+tambem exige data de pagamento. Esses dados sao apenas estado de tela ate o
+usuario confirmar a devolucao.
 
 ### Substituir veiculo
 ```javascript

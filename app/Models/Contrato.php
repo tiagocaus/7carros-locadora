@@ -1565,6 +1565,55 @@ class Contrato extends Model
     }
 
     /**
+     * Cria uma receita avulsa referente aos valores cobrados na devolucao.
+     */
+    public function criarFinanceiroDevolucao(int $contratoId, array $dados, string $chave): int
+    {
+        $contrato = $this->buscarPorId($contratoId);
+        if (!$contrato || ($contrato['chave'] ?? '') !== $chave) {
+            throw new \InvalidArgumentException('Contrato nao encontrado');
+        }
+
+        $valorTotal = currency_parse($dados['valor_total'] ?? 0);
+        if ($valorTotal <= 0) {
+            throw new \InvalidArgumentException('Valor da devolucao deve ser maior que zero');
+        }
+
+        $idMatrizFilial = (int) ($contrato['id_matriz_filial_retirada'] ?? 0);
+        $pago = ($dados['pago'] ?? 'N') === 'S' ? 'S' : 'N';
+        $dataVencimento = $dados['data_venci'] ?? DateHelper::todayForDatabase();
+        $dataPagamento = $pago === 'S'
+            ? ($dados['data_pago'] ?? DateHelper::todayForDatabase())
+            : null;
+
+        $financeiro = new Financeiro();
+
+        return $financeiro->criar([
+            'chave' => $chave,
+            'sequencia' => $idMatrizFilial > 0
+                ? \App\Helpers\SequenciaHelper::proximaSequencia($chave, $idMatrizFilial, 'financeiro')
+                : null,
+            'codigo' => $contrato['codigo'] ?? null,
+            'id_contrato' => $contratoId,
+            'id_veiculo' => !empty($dados['id_veiculo']) ? (int) $dados['id_veiculo'] : null,
+            'id_cliente' => !empty($contrato['id_cliente']) ? (int) $contrato['id_cliente'] : null,
+            'id_matriz_filial' => $idMatrizFilial ?: null,
+            'id_conta' => !empty($dados['id_conta']) ? (int) $dados['id_conta'] : null,
+            'id_forma_pagamento' => !empty($dados['id_forma_pagamento']) ? (int) $dados['id_forma_pagamento'] : null,
+            'tipo' => 'R',
+            'pago' => $pago,
+            'parcela' => 1,
+            'total_parcelas' => 1,
+            'descricao' => $dados['descricao'] ?? "Contrato #{$contrato['codigo']} - Devolucao",
+            'data_criada' => DateHelper::todayForDatabase(),
+            'data_venci' => $dataVencimento,
+            'data_pago' => $dataPagamento,
+            'valor_subtotal' => $valorTotal,
+            'valor_total' => $valorTotal,
+        ]);
+    }
+
+    /**
      * Busca parcela financeira ja existente para a mesma competencia do contrato.
      *
      * A comparacao por contrato + vencimento + valor evita recriar como pendente

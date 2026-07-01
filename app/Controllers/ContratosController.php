@@ -1102,10 +1102,19 @@ class ContratosController
                 return;
             }
 
+            if (($contrato['status'] ?? '') !== 'A') {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Contrato nao esta ativo para devolucao'
+                ], 400);
+                return;
+            }
+
             $dados = $request->all();
             $veiculoModel = new ContratoVeiculo();
             $veiculoModelGeral = new Veiculo();
             $contratoTaxaModel = new ContratoTaxaServico();
+            $taxaServicoModel = new TaxaServico();
 
             // Normalizar para array de veiculos (batch ou legado)
             $veiculos = [];
@@ -1136,8 +1145,53 @@ class ContratosController
                 return;
             }
 
+            $validarFinanceiro = !empty($dados['gerar_financeiro']);
+            $idContaFinanceiro = (int) ($dados['id_conta'] ?? 0);
+            $idFormaPagamentoFinanceiro = (int) ($dados['id_forma_pagamento'] ?? 0);
+            $dataVencimentoFinanceiro = $this->normalizarDataFinanceiroContrato($dados['data_venci'] ?? null);
+            $pagoFinanceiro = ($dados['pago'] ?? 'N') === 'S' ? 'S' : 'N';
+            $dataPagamentoFinanceiro = $pagoFinanceiro === 'S'
+                ? $this->normalizarDataFinanceiroContrato($dados['data_pago'] ?? null)
+                : null;
+
+            if ($validarFinanceiro) {
+                if ($idContaFinanceiro <= 0) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Selecione a conta bancaria para gerar o financeiro'
+                    ], 422);
+                    return;
+                }
+
+                if ($idFormaPagamentoFinanceiro <= 0) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Selecione a forma de pagamento para gerar o financeiro'
+                    ], 422);
+                    return;
+                }
+
+                if ($dataVencimentoFinanceiro === null) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Informe um vencimento valido para gerar o financeiro'
+                    ], 422);
+                    return;
+                }
+
+                if ($pagoFinanceiro === 'S' && $dataPagamentoFinanceiro === null) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Informe uma data de pagamento valida'
+                    ], 422);
+                    return;
+                }
+            }
+
             $resultados = [];
             $ultimaDataEntrada = null;
+            $totalCobrancaDevolucao = 0.0;
+            $idsVeiculosDevolvidos = [];
 
             foreach ($veiculos as $vData) {
                 $idCv = (int) ($vData['id_contrato_veiculo'] ?? 0);
@@ -1194,6 +1248,7 @@ class ContratosController
                 // 1. Registrar devolucao
                 $veiculoModel->devolver($idCv, $odometroEntrada, $combustivelEntrada, $observacao, $dataEntradaEfetiva);
                 $veiculoModelGeral->atualizarOdometro((int) $veiculoContrato['id_veiculo'], $odometroEntrada);
+                $idsVeiculosDevolvidos[] = (int) $veiculoContrato['id_veiculo'];
 
                 // 2. Atualizar disponibilidade do veiculo
                 $acaoVeiculo = $vData['acao_veiculo'] ?? 'disponivel';
@@ -1268,6 +1323,7 @@ class ContratosController
                     'total_km' => $totalKmCobranca,
                     'total_combustivel' => $totalCombustivelCobranca,
                 ];
+                $totalCobrancaDevolucao += $totalKmCobranca + $totalCombustivelCobranca;
             }
 
             if (empty($resultados)) {
@@ -1278,8 +1334,110 @@ class ContratosController
                 return;
             }
 
+            $taxasExtrasCriadas = [];
+            if (!empty($dados['taxas_extras']) && is_array($dados['taxas_extras'])) {
+                $filialRetirada = !empty($contrato['id_matriz_filial_retirada'])
+                    ? (int) $contrato['id_matriz_filial_retirada']
+                    : null;
+
+                foreach ($dados['taxas_extras'] as $taxaExtra) {
+                    $idTaxa = (int) ($taxaExtra['id_taxa'] ?? 0);
+                    if ($idTaxa <= 0) {
+                        continue;
+                    }
+
+                    $taxaOriginal = $taxaServicoModel->buscarPorId($idTaxa);
+                    if (!$taxaOriginal || ($taxaOriginal['chave'] ?? '') !== $chave) {
+                        continue;
+                    }
+
+                    $filiaisTaxa = $taxaOriginal['filiais'] ?? [];
+                    if ($filialRetirada && !empty($filiaisTaxa)) {
+                        $idsFiliaisTaxa = array_map(static fn($filial) => (int) ($filial['id'] ?? 0), $filiaisTaxa);
+                        if (!in_array($filialRetirada, $idsFiliaisTaxa, true)) {
+                            continue;
+                        }
+                    }
+
+                    $quantidade = max(1, (int) ($taxaExtra['quantidade'] ?? 1));
+                    $valorUnitario = Auth::can('contratos.editar_valor_taxas')
+                        ? currency_parse($taxaExtra['valor_unitario'] ?? $taxaOriginal['valor'])
+                        : $taxaServicoModel->resolverValor($taxaOriginal, $filialRetirada);
+
+                    if ($valorUnitario <= 0) {
+                        continue;
+                    }
+
+                    $contratoTaxaModel->adicionar($id, [
+                        'id_taxa' => $idTaxa,
+                        'nome' => $taxaOriginal['nome'],
+                        'base_calculo' => $taxaOriginal['base_calculo'],
+                        'tipo_valor' => $taxaOriginal['tipo_valor'],
+                        'quantidade' => $quantidade,
+                        'valor_unitario' => $valorUnitario,
+                    ], $chave);
+
+                    $totalTaxa = $quantidade * $valorUnitario;
+                    $totalCobrancaDevolucao += $totalTaxa;
+                    $taxasExtrasCriadas[] = [
+                        'id_taxa' => $idTaxa,
+                        'nome' => $taxaOriginal['nome'],
+                        'quantidade' => $quantidade,
+                        'valor_unitario' => $valorUnitario,
+                        'valor_total' => $totalTaxa,
+                    ];
+                }
+            }
+
             // 5. Recalcular totais do contrato (inclui novas taxas)
             $contratoModel->recalcularTotais($id);
+
+            $idFinanceiroDevolucao = null;
+            if ($totalCobrancaDevolucao > 0) {
+                if ($idContaFinanceiro <= 0) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Selecione a conta bancaria para gerar o financeiro'
+                    ], 422);
+                    return;
+                }
+
+                if ($idFormaPagamentoFinanceiro <= 0) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Selecione a forma de pagamento para gerar o financeiro'
+                    ], 422);
+                    return;
+                }
+
+                if ($dataVencimentoFinanceiro === null) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Informe um vencimento valido para gerar o financeiro'
+                    ], 422);
+                    return;
+                }
+
+                if ($pagoFinanceiro === 'S' && $dataPagamentoFinanceiro === null) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Informe uma data de pagamento valida'
+                    ], 422);
+                    return;
+                }
+
+                $idsVeiculosUnicos = array_values(array_unique($idsVeiculosDevolvidos));
+                $idFinanceiroDevolucao = $contratoModel->criarFinanceiroDevolucao($id, [
+                    'valor_total' => $totalCobrancaDevolucao,
+                    'id_conta' => $idContaFinanceiro,
+                    'id_forma_pagamento' => $idFormaPagamentoFinanceiro,
+                    'data_venci' => $dataVencimentoFinanceiro,
+                    'pago' => $pagoFinanceiro,
+                    'data_pago' => $dataPagamentoFinanceiro,
+                    'id_veiculo' => count($idsVeiculosUnicos) === 1 ? $idsVeiculosUnicos[0] : null,
+                    'descricao' => "Contrato #{$contrato['codigo']} - Devolucao",
+                ], $chave);
+            }
 
             // 6. Verificar se ainda ha veiculos ativos
             $veiculosAtivosCount = $veiculoModel->contarAtivos($id);
@@ -1296,6 +1454,9 @@ class ContratosController
                 'data' => [
                     'veiculos_ativos' => $veiculosAtivosCount,
                     'devolvidos' => $resultados,
+                    'taxas_extras' => $taxasExtrasCriadas,
+                    'total_cobranca_devolucao' => $totalCobrancaDevolucao,
+                    'id_financeiro_devolucao' => $idFinanceiroDevolucao,
                 ]
             ]);
         } catch (\Exception $e) {
@@ -3954,6 +4115,21 @@ class ContratosController
             if ($data instanceof \DateTimeImmutable && $data->format($formato) === $valor) {
                 return $data->format('Y-m-d H:i:s');
             }
+        }
+
+        return null;
+    }
+
+    private function normalizarDataFinanceiroContrato(mixed $valor): ?string
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '') {
+            return null;
+        }
+
+        $data = \DateTimeImmutable::createFromFormat('Y-m-d', $valor);
+        if ($data instanceof \DateTimeImmutable && $data->format('Y-m-d') === $valor) {
+            return $valor;
         }
 
         return null;
