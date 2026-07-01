@@ -359,19 +359,7 @@ class PagamentoPublicoController
 
     private function resolveGatewayDueDate(?string $financeiroVencimento): string
     {
-        $hoje = today();
-
-        if (empty($financeiroVencimento)) {
-            return $hoje;
-        }
-
-        $timestamp = strtotime($financeiroVencimento);
-        if ($timestamp === false) {
-            return $hoje;
-        }
-
-        $vencimento = \App\Helpers\DateHelper::formatTimestamp($timestamp, 'Y-m-d');
-        return $vencimento < $hoje ? $hoje : $vencimento;
+        return \App\Helpers\DateHelper::normalizeDueDateForGateway($financeiroVencimento);
     }
 
     /**

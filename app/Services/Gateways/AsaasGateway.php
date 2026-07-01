@@ -216,6 +216,16 @@ class AsaasGateway extends AbstractPaymentGateway
                 }
             }
 
+            $boletoInfo = null;
+            if ($billingType === 'BOLETO' && !empty($result->id)) {
+                try {
+                    $boletoInfo = $this->client->Cobranca()->getInfoBoleto($result->id);
+                } catch (\Exception $e) {
+                    // Linha digitavel pode nao estar disponivel imediatamente.
+                }
+            }
+            $barcode = $this->resolveBoletoBarcode($result, $boletoInfo);
+
             // Log da transação
             $transactionId = $this->logTransaction(
                 $data['chave'] ?? '',
@@ -228,7 +238,7 @@ class AsaasGateway extends AbstractPaymentGateway
                 (array) $result,
                 $result->invoiceUrl ?? null,
                 $pixCode,
-                $result->bankSlipUrl ?? null,
+                $barcode,
                 $this->normalizeAsaasDateTime($result->dueDate ?? null)
             );
 
@@ -239,7 +249,7 @@ class AsaasGateway extends AbstractPaymentGateway
                 'payment_url' => $result->invoiceUrl ?? null,
                 'pix_code' => $pixCode,
                 'pix_qrcode' => $pixQrCode,
-                'barcode' => $result->nossoNumero ?? null,
+                'barcode' => $barcode,
                 'boleto_url' => $result->bankSlipUrl ?? null,
                 'expires_at' => $result->dueDate ?? null,
                 'transaction_id' => $transactionId,
@@ -392,7 +402,7 @@ class AsaasGateway extends AbstractPaymentGateway
             'paid_at' => $paymentDate ?? $clientPaymentDate ?? $confirmedDate,
             'payment_url' => $payment['invoiceUrl'] ?? null,
             'boleto_url' => $payment['bankSlipUrl'] ?? $payment['boletoUrl'] ?? null,
-            'barcode' => $payment['nossoNumero'] ?? null,
+            'barcode' => $this->resolveBoletoBarcode((object) $payment),
             'raw' => $payload,
         ];
     }
@@ -436,6 +446,38 @@ class AsaasGateway extends AbstractPaymentGateway
         return $this->sandbox
             ? 'https://sandbox.asaas.com/api/v3'
             : 'https://api.asaas.com/api/v3';
+    }
+
+    private function resolveBoletoBarcode(mixed $payment, mixed $boletoInfo = null): ?string
+    {
+        foreach ([$boletoInfo, $payment] as $source) {
+            $value = $this->readAsaasField($source, 'identificationField')
+                ?? $this->readAsaasField($source, 'barCode')
+                ?? $this->readAsaasField($source, 'barcode');
+
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        return $this->readAsaasField($payment, 'nossoNumero');
+    }
+
+    private function readAsaasField(mixed $source, string $field): ?string
+    {
+        if ($source === null) {
+            return null;
+        }
+
+        $value = null;
+        if (is_array($source) && array_key_exists($field, $source)) {
+            $value = $source[$field];
+        } elseif (is_object($source) && isset($source->{$field})) {
+            $value = $source->{$field};
+        }
+
+        $value = trim((string) $value);
+        return $value === '' ? null : $value;
     }
 
     /**

@@ -82,6 +82,24 @@ class DateHelper
     }
 
     /**
+     * Normaliza vencimento de cobranca externa sem converter campos DATE por timezone.
+     *
+     * Datas de financeiro sao armazenadas como DATE (Y-m-d), entao devem ser
+     * comparadas como data civil. Se o vencimento ja passou, o gateway recebe hoje.
+     */
+    public static function normalizeDueDateForGateway(?string $dueDate = null, ?string $today = null): string
+    {
+        $today = self::normalizeDateOnly($today) ?? self::todayForDatabase();
+        $normalized = self::normalizeDateOnly($dueDate);
+
+        if ($normalized === null) {
+            return $today;
+        }
+
+        return $normalized < $today ? $today : $normalized;
+    }
+
+    /**
      * Retorna o instante atual para gravacao em campos DATETIME do banco.
      *
      * DATETIME sem offset permanece referenciado no timezone da aplicacao para
@@ -161,6 +179,26 @@ class DateHelper
         $timezone = new \DateTimeZone($businessTimezone ? $config['timezone'] : $config['app_timezone']);
 
         return (new \DateTimeImmutable('@' . $timestamp))->setTimezone($timezone)->format($format);
+    }
+
+    private static function normalizeDateOnly(?string $date): ?string
+    {
+        $date = trim((string) $date);
+        if ($date === '' || $date === '0000-00-00') {
+            return null;
+        }
+
+        if (!preg_match('/^(\d{4}-\d{2}-\d{2})(?:[ T].*)?$/', $date, $matches)) {
+            return null;
+        }
+
+        $normalized = $matches[1];
+        $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $normalized);
+        if (!$dt || $dt->format('Y-m-d') !== $normalized) {
+            return null;
+        }
+
+        return $normalized;
     }
 
     /**

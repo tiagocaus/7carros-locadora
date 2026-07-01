@@ -114,6 +114,7 @@ DateHelper::systemToday();           // data tecnica
 DateHelper::systemNow();             // data/hora tecnica
 DateHelper::addDaysForDatabase(7);   // soma dias no timezone de negocio
 DateHelper::addMonthsForDatabase(1); // soma meses no timezone de negocio
+DateHelper::normalizeDueDateForGateway('2026-07-02'); // vencimento de cobranca externa
 DateHelper::timestamp();             // timestamp tecnico
 DateHelper::isoNow();                // ISO 8601 tecnico
 DateHelper::formatTimestamp($ts, 'd/m/Y H:i');

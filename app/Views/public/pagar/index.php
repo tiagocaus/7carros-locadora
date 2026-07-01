@@ -6,14 +6,7 @@
 <?php
 $hojePagamento = today();
 $vencimentoFinanceiro = $link['financeiro_vencimento'] ?? null;
-$vencimentoGateway = $hojePagamento;
-if (!empty($vencimentoFinanceiro)) {
-    $timestampVencimento = strtotime($vencimentoFinanceiro);
-    if ($timestampVencimento !== false) {
-        $vencimentoNormalizado = \App\Helpers\DateHelper::formatTimestamp($timestampVencimento, 'Y-m-d');
-        $vencimentoGateway = $vencimentoNormalizado < $hojePagamento ? $hojePagamento : $vencimentoNormalizado;
-    }
-}
+$vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencimentoFinanceiro, $hojePagamento);
 ?>
 <!-- Header com logo da empresa -->
 <div class="text-center mb-6">
@@ -864,7 +857,7 @@ if (!empty($vencimentoFinanceiro)) {
 
                     ${data.barcode ? `
                         <div class="mb-4">
-                            <p class="text-xs text-slate-500 mb-2">Codigo de barras</p>
+                            <p class="text-xs text-slate-500 mb-2">Linha digitavel</p>
                             <div class="pix-code mb-2">${escapeHtml(data.barcode)}</div>
                             <button onclick="copiarCodigo('${escapeHtml(data.barcode)}')" class="btn-primary w-full mb-2">
                                 <i class="fas fa-copy mr-2"></i>Copiar codigo

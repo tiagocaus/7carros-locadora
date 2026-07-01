@@ -146,19 +146,7 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
      */
     protected function resolveDueDate(?string $dueDate = null): string
     {
-        $today = today();
-
-        if (empty($dueDate)) {
-            return $today;
-        }
-
-        $timestamp = strtotime($dueDate);
-        if ($timestamp === false) {
-            return $today;
-        }
-
-        $normalized = \App\Helpers\DateHelper::formatTimestamp($timestamp, 'Y-m-d');
-        return $normalized < $today ? $today : $normalized;
+        return \App\Helpers\DateHelper::normalizeDueDateForGateway($dueDate);
     }
 
     /**
