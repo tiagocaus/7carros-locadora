@@ -9,7 +9,19 @@
     </div>
     <p class="text-sm text-slate-500 mb-3"><?= t('modules.relatorios.veicular.veiculo_cliente.description') ?></p>
 
-    @include('pages.relatorios._partials.filters', ['showGrupoFilter' => true])
+    <?php
+        $statusFilterHtml = '
+            <div class="flex-1 min-w-[160px] max-w-[220px]">
+                <label for="filterStatus" class="block text-xs text-slate-500 mb-1">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.filter_status'), ENT_QUOTES, 'UTF-8') . '</label>
+                <select id="filterStatus" class="form-input-focus w-full text-sm">
+                    <option value="">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.status_all'), ENT_QUOTES, 'UTF-8') . '</option>
+                    <option value="locado">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.status_locado'), ENT_QUOTES, 'UTF-8') . '</option>
+                    <option value="nao_locado">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.status_nao_locado'), ENT_QUOTES, 'UTF-8') . '</option>
+                </select>
+            </div>
+        ';
+    ?>
+    @include('pages.relatorios._partials.filters', ['showGrupoFilter' => true, 'extraFiltersAfterFilial' => $statusFilterHtml])
     @include('pages.relatorios._partials.export-buttons')
     @include('pages.relatorios._partials.totalizadores')
     @include('pages.relatorios._partials.empty-state')
@@ -74,6 +86,7 @@
             data_fim: document.getElementById('filterDataFim').value,
             filial: document.getElementById('filterFilial').value,
             grupo: document.getElementById('filterGrupo')?.value || '',
+            status: document.getElementById('filterStatus')?.value || '',
         };
     }
 
@@ -119,6 +132,7 @@
         ReportUtils.setDefaultPeriod();
         document.getElementById('filterFilial').value = '';
         const g = document.getElementById('filterGrupo'); if (g) g.value = '';
+        const s = document.getElementById('filterStatus'); if (s) s.value = '';
         ReportUtils.hideContent();
     }
 

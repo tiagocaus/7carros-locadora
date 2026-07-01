@@ -238,6 +238,10 @@ return [
         'veiculo_cliente' => [
             'title' => 'Veículo / Cliente',
             'description' => 'Histórico de locações e contratos por veículo no período, mostrando os clientes que utilizaram cada veículo.',
+            'filter_status' => 'Status',
+            'status_all' => 'Todos',
+            'status_locado' => 'Locados',
+            'status_nao_locado' => 'Não locados',
             'qtd_locacoes' => 'Locações/Contratos',
             'qtd_clientes' => 'Clientes Únicos',
             'receita_total' => 'Receita Total',

@@ -579,7 +579,8 @@ class VeicularReport extends BaseReportModel
         string $filialId = '',
         string $grupoId = '',
         string $veiculoId = '',
-        string $clienteId = ''
+        string $clienteId = '',
+        string $status = ''
     ): array {
         $rows = [];
 
@@ -615,6 +616,11 @@ class VeicularReport extends BaseReportModel
         if (!empty($grupoId)) $queryL->where('lv.id_grupo', '=', (int) $grupoId);
         if (!empty($veiculoId)) $queryL->where('lv.id_veiculo', '=', (int) $veiculoId);
         if (!empty($clienteId)) $queryL->where('l.id_cliente', '=', (int) $clienteId);
+        if ($status === 'locado') {
+            $queryL->where('v.disponibilidade', '=', 'L');
+        } elseif ($status === 'nao_locado') {
+            $queryL->where('v.disponibilidade', '!=', 'L');
+        }
 
         $locacoes = $queryL->orderBy('lv.data_saida', 'DESC')->get();
 
@@ -654,6 +660,11 @@ class VeicularReport extends BaseReportModel
         if (!empty($grupoId)) $queryC->where('cv.id_grupo', '=', (int) $grupoId);
         if (!empty($veiculoId)) $queryC->where('cv.id_veiculo', '=', (int) $veiculoId);
         if (!empty($clienteId)) $queryC->where('c.id_cliente', '=', (int) $clienteId);
+        if ($status === 'locado') {
+            $queryC->where('v.disponibilidade', '=', 'L');
+        } elseif ($status === 'nao_locado') {
+            $queryC->where('v.disponibilidade', '!=', 'L');
+        }
 
         $contratos = $queryC->orderBy('cv.data_saida', 'DESC')->get();
 

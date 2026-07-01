@@ -277,7 +277,8 @@ class VeicularController extends BaseRelatorioController
                 $filters['filial'],
                 $request->query('grupo', ''),
                 $request->query('veiculo', ''),
-                $request->query('cliente', '')
+                $request->query('cliente', ''),
+                $request->query('status', '')
             );
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
@@ -301,7 +302,8 @@ class VeicularController extends BaseRelatorioController
             $filters['filial'],
             $request->query('grupo', ''),
             $request->query('veiculo', ''),
-            $request->query('cliente', '')
+            $request->query('cliente', ''),
+            $request->query('status', '')
         );
 
         $this->renderPdf(
