@@ -21,6 +21,7 @@ class GatewayFactory
         'cora' => CoraGateway::class,
         'efipay' => EfipayGateway::class,
         'inter' => InterGateway::class,
+        'sicoob' => SicoobGateway::class,
         'bradesco' => BradescoGateway::class,
         'itau' => ItauGateway::class,
         'bancard' => BancardGateway::class,

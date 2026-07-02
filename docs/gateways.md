@@ -2,7 +2,7 @@
 
 ## Visao Geral
 
-Sistema multi-gateway para processamento de pagamentos online com link publico de pagamento. Suporta 10 gateways (Brasil, Paraguai e Internacional) com arquitetura baseada em Interface + Factory Pattern.
+Sistema multi-gateway para processamento de pagamentos online com link publico de pagamento. Suporta 11 gateways (Brasil, Paraguai e Internacional) com arquitetura baseada em Interface + Factory Pattern.
 
 ## Gateways Disponiveis
 
@@ -14,6 +14,7 @@ Sistema multi-gateway para processamento de pagamentos online com link publico d
 | **Cora** | `cora` | BR | PIX, Boleto | REST com mTLS |
 | **EfiPay** | `efipay` | BR | PIX, Boleto | `efipay/sdk-php-apis-efi` |
 | **Inter** | `inter` | BR | PIX, Boleto | REST com mTLS |
+| **Sicoob** | `sicoob` | BR | PIX, Boleto | REST com OAuth2 + mTLS |
 | **Bradesco** | `bradesco` | BR | PIX, Boleto | REST com certificado .pfx |
 | **Itau** | `itau` | BR | PIX, Boleto | REST com mTLS (BoleCode) |
 | **Bancard** | `bancard` | PY | Cartao | REST (vPOS 2.0) |
@@ -34,6 +35,7 @@ app/Services/Gateways/
 ├── CoraGateway.php
 ├── EfipayGateway.php
 ├── InterGateway.php
+├── SicoobGateway.php
 ├── BradescoGateway.php
 ├── ItauGateway.php
 ├── BancardGateway.php
@@ -207,7 +209,7 @@ GET  /webhook/{gateway_code}    # Diagnostico para abertura no navegador
 POST /webhook/{gateway_code}    # Recebe notificacoes de cada gateway
 ```
 
-Rotas individuais por gateway: `/webhook/asaas`, `/webhook/stripe`, `/webhook/square`, `/webhook/cora`, `/webhook/efipay`, `/webhook/inter`, `/webhook/bradesco`, `/webhook/itau`, `/webhook/bancard`, `/webhook/pagopar`.
+Rotas individuais por gateway: `/webhook/asaas`, `/webhook/stripe`, `/webhook/square`, `/webhook/cora`, `/webhook/efipay`, `/webhook/inter`, `/webhook/sicoob`, `/webhook/bradesco`, `/webhook/itau`, `/webhook/bancard`, `/webhook/pagopar`.
 
 No controller, cada rota individual `POST` deve ter um wrapper (`webhookAsaas`, `webhookStripe`, etc.) chamando o handler generico `PagamentoPublicoController::webhook($request, $gatewayCode)`. Isso evita erro 500 por metodo inexistente e centraliza idempotencia, validacao de assinatura e atualizacao de transacao.
 

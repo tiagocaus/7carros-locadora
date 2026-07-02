@@ -808,6 +808,16 @@ class PagamentoPublicoController
         $this->renderWebhookInfo('inter');
     }
 
+    public function webhookSicoob(Request $request): void
+    {
+        $this->webhook($request, 'sicoob');
+    }
+
+    public function webhookSicoobInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('sicoob');
+    }
+
     public function webhookBradesco(Request $request): void
     {
         $this->webhook($request, 'bradesco');
