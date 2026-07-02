@@ -2468,13 +2468,12 @@ class LocacoesController
         $isReservaConfirmada = ($locacao['status'] ?? '') === 'R';
         $tipo = trim($tipo);
         $tipoPadrao = $isReservaConfirmada ? 'voucher' : 'fatura';
-        $tiposValidos = $isReservaConfirmada
-            ? ['voucher', 'voucher_checklist']
-            : [
-                'fatura', 'documento', 'fatura_documento',
-                'fatura_checklist', 'fatura_checklist_documento',
-                'documento_checklist', 'checklist', 'recibo'
-            ];
+        $tiposValidos = [
+            'fatura', 'documento', 'fatura_documento',
+            'fatura_checklist', 'fatura_checklist_documento',
+            'documento_checklist', 'checklist', 'recibo',
+            'voucher', 'voucher_checklist',
+        ];
 
         return in_array($tipo, $tiposValidos, true) ? $tipo : $tipoPadrao;
     }

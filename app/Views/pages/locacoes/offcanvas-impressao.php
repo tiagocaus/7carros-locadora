@@ -1,6 +1,12 @@
 <?php
 $isReservaConfirmada = ($locacao['status'] ?? '') === 'R';
 $printPageTitle = $isReservaConfirmada ? t('modules.locacoes.print.reservation_title') : t('modules.locacoes.print.title');
+$invoiceLabel = $isReservaConfirmada ? t('modules.locacoes.print.voucher') : t('modules.locacoes.print.invoice');
+$invoiceDocumentLabel = str_replace(t('modules.locacoes.print.invoice'), $invoiceLabel, t('modules.locacoes.print.invoice_document'));
+$invoiceChecklistLabel = str_replace(t('modules.locacoes.print.invoice'), $invoiceLabel, t('modules.locacoes.print.invoice_checklist'));
+$invoiceChecklistDocumentLabel = str_replace(t('modules.locacoes.print.invoice'), $invoiceLabel, t('modules.locacoes.print.invoice_checklist_document'));
+$plainInvoiceTipo = $isReservaConfirmada ? 'voucher' : 'fatura';
+$invoiceChecklistTipo = $isReservaConfirmada ? 'voucher_checklist' : 'fatura_checklist';
 ?>
 
 @extends('layouts.iframe')
@@ -32,34 +38,11 @@ $printPageTitle = $isReservaConfirmada ? t('modules.locacoes.print.reservation_t
     <div class="mb-4">
         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2"><?= t('modules.locacoes.print.print_type') ?></p>
         <div class="space-y-2" id="printOptions">
-            <?php if ($isReservaConfirmada): ?>
-            <label class="print-option" data-tipo="voucher">
-                <input type="radio" name="tipoImpressao" value="voucher" checked class="hidden">
-                <div class="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
-                    <i class="fas fa-ticket-alt text-blue-500 w-5 text-center mr-3"></i>
-                    <span class="text-sm font-medium"><?= t('modules.locacoes.print.voucher') ?></span>
-                </div>
-            </label>
-
-            <label class="print-option" data-tipo="voucher_checklist">
-                <input type="radio" name="tipoImpressao" value="voucher_checklist" class="hidden">
-                <div class="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
-                    <i class="fas fa-clipboard-check text-green-500 w-5 text-center mr-3"></i>
-                    <span class="text-sm font-medium"><?= t('modules.locacoes.print.voucher_checklist') ?></span>
-                    <?php if ($temChecklistDigital): ?>
-                    <span class="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><?= t('modules.locacoes.print.digital') ?></span>
-                    <?php else: ?>
-                    <span class="ml-auto text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full"><?= t('modules.locacoes.print.printed') ?></span>
-                    <?php endif; ?>
-                </div>
-            </label>
-
-            <?php else: ?>
-            <label class="print-option" data-tipo="fatura">
-                <input type="radio" name="tipoImpressao" value="fatura" checked class="hidden">
+            <label class="print-option" data-tipo="<?= $plainInvoiceTipo ?>">
+                <input type="radio" name="tipoImpressao" value="<?= $plainInvoiceTipo ?>" checked class="hidden">
                 <div class="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
                     <i class="fas fa-file-invoice text-blue-500 w-5 text-center mr-3"></i>
-                    <span class="text-sm font-medium"><?= t('modules.locacoes.print.invoice') ?></span>
+                    <span class="text-sm font-medium"><?= $invoiceLabel ?></span>
                 </div>
             </label>
 
@@ -67,7 +50,7 @@ $printPageTitle = $isReservaConfirmada ? t('modules.locacoes.print.reservation_t
                 <input type="radio" name="tipoImpressao" value="fatura_documento" class="hidden">
                 <div class="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
                     <i class="fas fa-file-contract text-blue-500 w-5 text-center mr-3"></i>
-                    <span class="text-sm font-medium"><?= t('modules.locacoes.print.invoice_document') ?></span>
+                    <span class="text-sm font-medium"><?= $invoiceDocumentLabel ?></span>
                 </div>
             </label>
 
@@ -79,11 +62,11 @@ $printPageTitle = $isReservaConfirmada ? t('modules.locacoes.print.reservation_t
                 </div>
             </label>
 
-            <label class="print-option" data-tipo="fatura_checklist">
-                <input type="radio" name="tipoImpressao" value="fatura_checklist" class="hidden">
+            <label class="print-option" data-tipo="<?= $invoiceChecklistTipo ?>">
+                <input type="radio" name="tipoImpressao" value="<?= $invoiceChecklistTipo ?>" class="hidden">
                 <div class="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
                     <i class="fas fa-tasks text-green-500 w-5 text-center mr-3"></i>
-                    <span class="text-sm font-medium"><?= t('modules.locacoes.print.invoice_checklist') ?></span>
+                    <span class="text-sm font-medium"><?= $invoiceChecklistLabel ?></span>
                     <?php if ($temChecklistDigital): ?>
                     <span class="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><?= t('modules.locacoes.print.digital') ?></span>
                     <?php else: ?>
@@ -96,7 +79,7 @@ $printPageTitle = $isReservaConfirmada ? t('modules.locacoes.print.reservation_t
                 <input type="radio" name="tipoImpressao" value="fatura_checklist_documento" class="hidden">
                 <div class="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
                     <i class="fas fa-layer-group text-purple-500 w-5 text-center mr-3"></i>
-                    <span class="text-sm font-medium"><?= t('modules.locacoes.print.invoice_checklist_document') ?></span>
+                    <span class="text-sm font-medium"><?= $invoiceChecklistDocumentLabel ?></span>
                 </div>
             </label>
 
@@ -128,7 +111,6 @@ $printPageTitle = $isReservaConfirmada ? t('modules.locacoes.print.reservation_t
                     <span class="text-sm font-medium"><?= t('modules.locacoes.print.receipt') ?></span>
                 </div>
             </label>
-            <?php endif; ?>
         </div>
     </div>
 
