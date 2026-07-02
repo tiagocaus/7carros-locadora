@@ -49,7 +49,7 @@ class NFSeConfiguracao extends Model
         $codigoMunicipio = preg_replace('/\D/', '', (string) ($dados['codigo_municipio'] ?? ''));
         $codigoServico = trim((string) ($dados['codigo_servico'] ?? ''));
 
-        if (!in_array($tipoEmissao, ['nacional', 'betha'], true)) {
+        if (!in_array($tipoEmissao, ['nacional', 'betha', 'issnet'], true)) {
             throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado.');
         }
 
@@ -61,6 +61,15 @@ class NFSeConfiguracao extends Model
         }
         if ($ativo === 'S' && $codigoServico === '') {
             throw new \InvalidArgumentException('Código do serviço é obrigatório quando a emissão está ativa.');
+        }
+        if ($ativo === 'S' && $tipoEmissao === 'issnet') {
+            if (trim((string) ($dados['item_lista_servico'] ?? '')) === '') {
+                throw new \InvalidArgumentException('Item da lista de serviço é obrigatório para ISSNet.');
+            }
+            if (trim((string) ($dados['inscricao_municipal'] ?? '')) === '' && trim((string) ($dados['enviar_im'] ?? 'N')) !== 'S') {
+                // ISSNet/ABRASF exige IM no cadastro do prestador; o valor vem da matriz/filial.
+                $dados['enviar_im'] = 'S';
+            }
         }
 
         $campos = [
@@ -84,6 +93,9 @@ class NFSeConfiguracao extends Model
             'enviar_im' => $dados['enviar_im'] ?? 'N',
             'incentivo_fiscal' => $dados['incentivo_fiscal'] ?? 'N',
             'numero_atual' => (int) ($dados['numero_atual'] ?? 0),
+            'item_lista_servico' => trim((string) ($dados['item_lista_servico'] ?? '')) ?: null,
+            'codigo_cnae' => preg_replace('/\D/', '', (string) ($dados['codigo_cnae'] ?? '')) ?: null,
+            'codigo_tributacao_municipio' => trim((string) ($dados['codigo_tributacao_municipio'] ?? '')) ?: null,
         ];
 
         if ($existing) {

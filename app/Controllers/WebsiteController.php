@@ -531,6 +531,8 @@ class WebsiteController
      */
     public function updateBanner(Request $request, int $id): void
     {
+        $novoArquivo = '';
+
         try {
             if (!$this->canManageWebsite()) {
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
@@ -561,21 +563,31 @@ class WebsiteController
 
             $fotoBase64 = $request->input('foto_base64', '');
             if (!empty($fotoBase64)) {
-                $filename = FileHelper::save($fotoBase64, 'banner');
-                if (!$filename) {
+                $novoArquivo = FileHelper::save($fotoBase64, 'banner') ?: '';
+                if ($novoArquivo === '') {
                     Response::json(['success' => false, 'message' => t('messages.error.upload_failed')], 422);
                     return;
                 }
-                $dados['foto'] = $filename;
+                $dados['foto'] = $novoArquivo;
             }
 
-            $model->atualizar($id, $dados);
-            if (!empty($dados['foto']) && !empty($atual['foto'])) {
+            $atualizados = $model->atualizar($id, $dados);
+            if ($novoArquivo !== '' && $atualizados < 1) {
+                FileHelper::delete($novoArquivo);
+                $novoArquivo = '';
+                Response::json(['success' => false, 'message' => t('messages.error.upload_failed')], 422);
+                return;
+            }
+
+            if ($novoArquivo !== '' && !empty($atual['foto']) && $atual['foto'] !== $novoArquivo) {
                 FileHelper::delete($atual['foto']);
             }
 
             Response::json(['success' => true, 'message' => t('common.messages.saved')]);
         } catch (\Throwable $e) {
+            if ($novoArquivo !== '') {
+                FileHelper::delete($novoArquivo);
+            }
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }

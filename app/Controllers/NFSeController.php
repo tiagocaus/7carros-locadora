@@ -834,6 +834,7 @@ class NFSeController
                 $api = match ($tipoEmissao) {
                     'nacional' => new \App\Services\NFSe\Nacional\NFSeAPINacional(),
                     'betha' => new \App\Services\NFSe\Betha\NFSeAPIBetha(),
+                    'issnet' => new \App\Services\NFSe\ISSNet\NFSeAPIISSNet($config),
                     default => throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado: ' . $tipoEmissao),
                 };
 

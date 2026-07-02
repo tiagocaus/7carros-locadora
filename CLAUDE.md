@@ -31,6 +31,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 5. **Modais fullscreen devem estar no `app.php`** - NAO no iframe (veja `docs/modals.md`)
 6. **Se existir documentacao, siga-a** - nao assuma que codigo existente esta correto
 7. **SEMPRE ACESSE BD via terminal** - Sempre use isso, quando precisar analizar qualquer coisa na tabela ou bd
+8. **DEFINER MySQL em producao deve ser `7carros_locador@localhost`** - triggers, views, routines e events nao podem usar usuario pessoal, IP externo, wildcard `%` ou usuario inexistente. Recrie o objeto conectado como `7carros_locador@localhost` (veja `docs/database.md`).
 
 ## Diretrizes de Comunicação
 - Priorizar respostas técnicas honestas sobre validação de opiniões

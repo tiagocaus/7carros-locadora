@@ -14,6 +14,11 @@ use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
  */
 class SicoobGateway extends AbstractPaymentGateway
 {
+    private const PRODUCTION_API_BASE_URL = 'https://api.sicoob.com.br';
+    private const SANDBOX_API_BASE_URL = 'https://api.sicoob.com.br';
+    private const PRODUCTION_AUTH_URL = 'https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token';
+    private const SANDBOX_AUTH_URL = 'https://auth-hom.homologacao.com.br/auth/realms/cooperado/protocol/openid-connect/token';
+
     private ?string $accessToken = null;
     private int $accessTokenExpiresAt = 0;
 
@@ -54,27 +59,6 @@ class SicoobGateway extends AbstractPaymentGateway
                 'placeholder' => 'Opcional',
                 'help' => 'Informe apenas se o aplicativo Sicoob exigir secret no token OAuth',
             ],
-            'certificate_path' => [
-                'type' => 'string',
-                'required' => true,
-                'label' => 'Caminho do Certificado',
-                'placeholder' => '/path/to/certificate.pem',
-                'help' => 'Certificado mTLS em formato PEM/CRT',
-            ],
-            'private_key_path' => [
-                'type' => 'string',
-                'required' => true,
-                'label' => 'Caminho da Chave Privada',
-                'placeholder' => '/path/to/private_key.key',
-                'help' => 'Chave privada do certificado mTLS',
-            ],
-            'private_key_password' => [
-                'type' => 'password',
-                'required' => false,
-                'label' => 'Senha da Chave',
-                'placeholder' => 'Opcional',
-                'help' => 'Senha da chave privada, se houver',
-            ],
             'pix_key' => [
                 'type' => 'string',
                 'required' => true,
@@ -103,35 +87,14 @@ class SicoobGateway extends AbstractPaymentGateway
                 'placeholder' => '1',
                 'help' => 'Modalidade de cobrança. Normalmente 1 = simples com registro',
             ],
-            'api_base_url' => [
-                'type' => 'string',
-                'required' => false,
-                'label' => 'URL Base da API',
-                'placeholder' => 'https://api.sicoob.com.br',
-                'help' => 'Opcional. Use para homologação/sandbox quando a URL for fornecida pelo Sicoob',
-            ],
-            'auth_url' => [
-                'type' => 'string',
-                'required' => false,
-                'label' => 'URL OAuth Token',
-                'placeholder' => 'https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token',
-                'help' => 'Opcional. Use para homologação/sandbox quando a URL for fornecida pelo Sicoob',
-            ],
-            'x_client_certificate' => [
-                'type' => 'textarea',
-                'required' => false,
-                'label' => 'X-Client-Certificate',
-                'placeholder' => '-----BEGIN CERTIFICATE-----...',
-                'help' => 'Opcional. Alguns ambientes exigem o certificado público também neste header',
-            ],
         ];
     }
 
     public function validateCredentials(array $credentials): array
     {
-        foreach (['client_id', 'certificate_path', 'private_key_path'] as $field) {
+        foreach (['client_id', 'certificado_arquivo', 'certificado_senha'] as $field) {
             if (empty($credentials[$field])) {
-                return ['valid' => false, 'message' => 'Client ID, certificado e chave privada são obrigatórios'];
+                return ['valid' => false, 'message' => 'Client ID e certificado digital são obrigatórios'];
             }
         }
 
@@ -327,12 +290,7 @@ class SicoobGateway extends AbstractPaymentGateway
 
     protected function getBaseUrl(): string
     {
-        $configured = trim((string) ($this->credentials['api_base_url'] ?? ''));
-        if ($configured !== '') {
-            return rtrim($configured, '/');
-        }
-
-        return 'https://api.sicoob.com.br';
+        return $this->sandbox ? self::SANDBOX_API_BASE_URL : self::PRODUCTION_API_BASE_URL;
     }
 
     private function createPixCharge(array $data, string $token): array
@@ -591,12 +549,7 @@ class SicoobGateway extends AbstractPaymentGateway
 
     private function getAuthUrl(): string
     {
-        $configured = trim((string) ($this->credentials['auth_url'] ?? ''));
-        if ($configured !== '') {
-            return $configured;
-        }
-
-        return 'https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token';
+        return $this->sandbox ? self::SANDBOX_AUTH_URL : self::PRODUCTION_AUTH_URL;
     }
 
     private function makeApiRequest(
@@ -608,6 +561,7 @@ class SicoobGateway extends AbstractPaymentGateway
     ): array {
         $url = str_starts_with($endpoint, 'http') ? $endpoint : $this->getBaseUrl() . $endpoint;
         $headers = ['Accept: application/json'];
+        $pem = null;
 
         if ($isAuthRequest) {
             $headers[] = 'Content-Type: application/x-www-form-urlencoded';
@@ -622,11 +576,6 @@ class SicoobGateway extends AbstractPaymentGateway
             $headers[] = "Authorization: Bearer {$token}";
         }
 
-        if (!empty($this->credentials['x_client_certificate'])) {
-            $certHeader = preg_replace('/\s+/', ' ', trim((string) $this->credentials['x_client_certificate']));
-            $headers[] = 'X-Client-Certificate: ' . $certHeader;
-        }
-
         $ch = curl_init();
         $curlOptions = [
             CURLOPT_URL => $url,
@@ -637,19 +586,15 @@ class SicoobGateway extends AbstractPaymentGateway
             CURLOPT_SSL_VERIFYHOST => 2,
         ];
 
-        $certPath = (string) ($this->credentials['certificate_path'] ?? '');
-        $keyPath = (string) ($this->credentials['private_key_path'] ?? '');
-        $keyPassword = $this->credentials['private_key_password'] ?? null;
-
-        if ($certPath !== '' && file_exists($certPath)) {
-            $curlOptions[CURLOPT_SSLCERT] = $certPath;
-        }
-
-        if ($keyPath !== '' && file_exists($keyPath)) {
-            $curlOptions[CURLOPT_SSLKEY] = $keyPath;
-            if ($keyPassword !== null && $keyPassword !== '') {
-                $curlOptions[CURLOPT_SSLKEYPASSWD] = (string) $keyPassword;
-            }
+        if (!empty($this->credentials['certificado_arquivo']) && !empty($this->credentials['certificado_senha'])) {
+            $pem = (new GatewayCertificateService())->extractPem(
+                (string) $this->credentials['certificado_arquivo'],
+                (string) $this->credentials['certificado_senha']
+            );
+            $curlOptions[CURLOPT_SSLCERT] = $pem['certPath'];
+            $curlOptions[CURLOPT_SSLKEY] = $pem['keyPath'];
+            $headers[] = 'X-Client-Certificate: ' . preg_replace('/\s+/', ' ', trim($pem['publicCert']));
+            $curlOptions[CURLOPT_HTTPHEADER] = $headers;
         }
 
         switch (strtoupper($method)) {
@@ -673,12 +618,18 @@ class SicoobGateway extends AbstractPaymentGateway
                 break;
         }
 
-        curl_setopt_array($ch, $curlOptions);
+        try {
+            curl_setopt_array($ch, $curlOptions);
 
-        $response = curl_exec($ch);
-        $error = curl_error($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+            $response = curl_exec($ch);
+            $error = curl_error($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        } finally {
+            curl_close($ch);
+            if ($pem !== null) {
+                (new GatewayCertificateService())->cleanupPem($pem['certPath'], $pem['keyPath']);
+            }
+        }
 
         if ($error) {
             throw new \RuntimeException("Erro cURL: {$error}");

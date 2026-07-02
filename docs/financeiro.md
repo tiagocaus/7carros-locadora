@@ -86,6 +86,12 @@ O campo `valor_total` eh mantido automaticamente por triggers:
 - `trg_financeiro_itens_after_update`: Recalcula ao atualizar item
 - `trg_financeiro_itens_after_delete`: Recalcula ao excluir item
 
+Em producao, esses triggers devem ser criados/recriados conectado como
+`7carros_locador@localhost`, sem `CREATE DEFINER=...` explicito no SQL. Isso
+mantem o `DEFINER` no padrao documentado em `docs/database.md` e evita erros do
+tipo "The user specified as a definer ... does not exist" ao atualizar
+lancamentos.
+
 Formula do trigger:
 ```sql
 valor_total = (

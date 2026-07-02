@@ -8,6 +8,7 @@ use App\Core\Response;
 use App\Views\Template;
 use App\Models\GatewayPagamento;
 use App\Services\AuditLogService;
+use App\Services\Gateways\GatewayCertificateService;
 use App\Services\Gateways\GatewayFactory;
 
 /**
@@ -255,6 +256,11 @@ class GatewaysPagamentoController
             }
 
             // Mascarar credenciais sensíveis
+            $credentialsRaw = $gateway['credentials'] ?? [];
+            if (($gateway['gateway_code'] ?? '') === 'sicoob') {
+                $gateway['certificado'] = $this->getGatewayCertificateInfo($credentialsRaw);
+            }
+
             if (!empty($gateway['credentials'])) {
                 $gateway['credentials'] = $this->maskCredentials($gateway['credentials']);
             }
@@ -317,6 +323,10 @@ class GatewaysPagamentoController
 
             // Gerar webhook URL e secret
             $model = new GatewayPagamento();
+            $dados['credentials'] = $this->normalizeCredentialsForGateway(
+                (string) $dados['gateway_code'],
+                is_array($dados['credentials'] ?? null) ? $dados['credentials'] : []
+            );
             $dados['webhook_url'] = $model->gerarWebhookUrl(0, $dados['gateway_code']);
             $dados['webhook_secret'] = $model->gerarWebhookSecret();
 
@@ -394,6 +404,12 @@ class GatewaysPagamentoController
                         }
                     }
                 }
+
+                $dados['credentials'] = $this->normalizeCredentialsForGateway(
+                    (string) $gateway['gateway_code'],
+                    $dados['credentials'],
+                    $credsExistentes
+                );
             }
 
             $model->atualizar($id, $dados);
@@ -447,6 +463,14 @@ class GatewaysPagamentoController
                     'message' => 'Você não pode excluir este gateway'
                 ], 403);
                 return;
+            }
+
+            if (($gateway['gateway_code'] ?? '') === 'sicoob') {
+                $gatewayComCreds = $model->buscarPorIdComCredenciais($id);
+                $credentials = $gatewayComCreds['credentials'] ?? [];
+                if (!empty($credentials['certificado_arquivo'])) {
+                    (new GatewayCertificateService())->remove((string) $credentials['certificado_arquivo']);
+                }
             }
 
             $model->excluir($id);
@@ -527,6 +551,118 @@ class GatewaysPagamentoController
                 'success' => false,
                 'message' => 'Erro ao testar gateway: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Envia certificado digital do gateway Sicoob.
+     *
+     * POST /gateways-pagamento/{id}/certificado
+     */
+    public function uploadCertificado(Request $request, int $id): void
+    {
+        try {
+            $model = new GatewayPagamento();
+            $gateway = $model->buscarPorIdComCredenciais($id);
+
+            if (!$gateway || $gateway['chave'] !== Auth::chave()) {
+                Response::json(['success' => false, 'message' => 'Gateway não encontrado'], 404);
+                return;
+            }
+
+            if (($gateway['gateway_code'] ?? '') !== 'sicoob') {
+                Response::json(['success' => false, 'message' => 'Certificado disponível apenas para o Sicoob'], 400);
+                return;
+            }
+
+            $senha = (string) $request->input('certificado_senha', '');
+            if ($senha === '') {
+                Response::json(['success' => false, 'message' => 'Senha do certificado é obrigatória'], 400);
+                return;
+            }
+
+            if (!isset($_FILES['certificado']) || $_FILES['certificado']['error'] !== UPLOAD_ERR_OK) {
+                Response::json(['success' => false, 'message' => 'Arquivo do certificado não enviado'], 400);
+                return;
+            }
+
+            $certService = new GatewayCertificateService();
+            $credentials = $gateway['credentials'] ?? [];
+
+            if (!empty($credentials['certificado_arquivo'])) {
+                $certService->remove((string) $credentials['certificado_arquivo']);
+            }
+
+            $result = $certService->upload($_FILES['certificado'], $id, Auth::chave(), $senha);
+            if (!$result['success']) {
+                Response::json(['success' => false, 'message' => $result['message']], 422);
+                return;
+            }
+
+            $credentials['certificado_arquivo'] = $result['filename'];
+            $credentials['certificado_senha'] = $result['password_encrypted'];
+            $credentials['certificado_validade'] = $result['data']['valido_ate'] ?? null;
+            $credentials['certificado_razao_social'] = $result['data']['razao_social'] ?? null;
+            $credentials['certificado_documento'] = $result['data']['documento'] ?? null;
+            $credentials['certificado_emissor'] = $result['data']['emissor'] ?? null;
+            $credentials['certificado_serial'] = $result['data']['serial'] ?? null;
+            $credentials['certificado_subject'] = $result['data']['subject'] ?? null;
+
+            $model->atualizar($id, ['credentials' => $this->normalizeCredentialsForGateway('sicoob', $credentials)]);
+
+            AuditLogService::registrar(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", atualizou certificado do gateway [{$gateway['nome']}]"
+            );
+
+            Response::json([
+                'success' => true,
+                'message' => $result['message'],
+                'data' => $this->getGatewayCertificateInfo($credentials),
+            ]);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao enviar certificado: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Remove certificado digital do gateway Sicoob.
+     *
+     * POST /gateways-pagamento/{id}/certificado/remover
+     */
+    public function removerCertificado(Request $request, int $id): void
+    {
+        try {
+            $model = new GatewayPagamento();
+            $gateway = $model->buscarPorIdComCredenciais($id);
+
+            if (!$gateway || $gateway['chave'] !== Auth::chave()) {
+                Response::json(['success' => false, 'message' => 'Gateway não encontrado'], 404);
+                return;
+            }
+
+            if (($gateway['gateway_code'] ?? '') !== 'sicoob') {
+                Response::json(['success' => false, 'message' => 'Certificado disponível apenas para o Sicoob'], 400);
+                return;
+            }
+
+            $credentials = $gateway['credentials'] ?? [];
+            if (!empty($credentials['certificado_arquivo'])) {
+                (new GatewayCertificateService())->remove((string) $credentials['certificado_arquivo']);
+            }
+
+            foreach ($this->getCertificateCredentialKeys() as $key) {
+                unset($credentials[$key]);
+            }
+
+            $model->atualizar($id, ['credentials' => $this->normalizeCredentialsForGateway('sicoob', $credentials)]);
+
+            AuditLogService::registrar(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", removeu certificado do gateway [{$gateway['nome']}]"
+            );
+
+            Response::json(['success' => true, 'message' => 'Certificado removido com sucesso']);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao remover certificado: ' . $e->getMessage()], 500);
         }
     }
 
@@ -618,5 +754,60 @@ class GatewaysPagamentoController
         // Verifica se o valor contém apenas asteriscos ou padrão de mascaramento
         return preg_match('/^\*+$/', $value) === 1 ||
                preg_match('/^.{4}\*+.{4}$/', $value) === 1;
+    }
+
+    /**
+     * @param array<string, mixed> $credentials
+     * @param array<string, mixed> $existing
+     * @return array<string, mixed>
+     */
+    private function normalizeCredentialsForGateway(string $gatewayCode, array $credentials, array $existing = []): array
+    {
+        $normalized = array_merge($existing, $credentials);
+
+        if ($gatewayCode === 'sicoob') {
+            foreach (['certificate_path', 'private_key_path', 'private_key_password', 'api_base_url', 'auth_url', 'x_client_certificate'] as $key) {
+                unset($normalized[$key]);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, mixed> $credentials
+     * @return array<string, mixed>|null
+     */
+    private function getGatewayCertificateInfo(array $credentials): ?array
+    {
+        if (empty($credentials['certificado_arquivo'])) {
+            return null;
+        }
+
+        return [
+            'arquivo' => $credentials['certificado_arquivo'] ?? null,
+            'validade' => $credentials['certificado_validade'] ?? null,
+            'razao_social' => $credentials['certificado_razao_social'] ?? null,
+            'documento' => $credentials['certificado_documento'] ?? null,
+            'emissor' => $credentials['certificado_emissor'] ?? null,
+            'serial' => $credentials['certificado_serial'] ?? null,
+        ];
+    }
+
+    /**
+     * @return array<string>
+     */
+    private function getCertificateCredentialKeys(): array
+    {
+        return [
+            'certificado_arquivo',
+            'certificado_senha',
+            'certificado_validade',
+            'certificado_razao_social',
+            'certificado_documento',
+            'certificado_emissor',
+            'certificado_serial',
+            'certificado_subject',
+        ];
     }
 }

@@ -636,6 +636,7 @@
 
     function getTipoEmissaoLabel(tipo) {
         if (tipo === 'betha') return 'Betha Cloud';
+        if (tipo === 'issnet') return 'ISSNet';
         return 'Nacional';
     }
 

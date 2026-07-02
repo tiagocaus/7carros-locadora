@@ -29,6 +29,7 @@ app/Services/Gateways/
 ├── PaymentGatewayInterface.php  # Interface com metodos padronizados
 ├── AbstractPaymentGateway.php   # Classe base com helpers HTTP, logging, validacao
 ├── GatewayFactory.php           # Factory para instanciar gateways
+├── GatewayCertificateService.php # Upload/validacao/extracao de certificados A1
 ├── AsaasGateway.php
 ├── StripeGateway.php
 ├── SquareGateway.php
@@ -137,6 +138,19 @@ $existe = GatewayFactory::exists('stripe'); // true
 | ordem | INT UNSIGNED | Ordem de exibicao |
 
 **Criptografia**: Credenciais sao criptografadas com AES-256-CBC usando `hash('sha256', APP_KEY)`. IV de 16 bytes aleatorios eh prefixado ao ciphertext e tudo codificado em base64.
+
+### Certificados Bancarios
+
+Gateways bancarios que exigem mTLS devem armazenar apenas o arquivo enviado pelo usuario e metadados no JSON de `credentials`. Para o Sicoob, o certificado deve ser A1 em `.pfx` ou `.p12`, enviado pela tela do gateway depois que o registro ja existir. O sistema valida o certificado com a senha informada, armazena o arquivo em `storage/certificates/gateways` e guarda a senha criptografada em `credentials`.
+
+Nao cadastre manualmente caminho de certificado, caminho de chave privada, URL base da API, URL de token OAuth ou `X-Client-Certificate` para Sicoob. A URL base e a URL OAuth sao definidas pelo codigo conforme o campo `ambiente`. Durante cada chamada mTLS, `GatewayCertificateService` extrai temporariamente o certificado publico e a chave privada do `.pfx/.p12`, aplica `CURLOPT_SSLCERT`/`CURLOPT_SSLKEY`, gera o header `X-Client-Certificate` a partir do certificado publico e remove os arquivos temporarios ao final.
+
+Rotas autenticadas para certificado Sicoob:
+
+| Rota | Metodo | Descricao |
+|------|--------|-----------|
+| `/gateways-pagamento/{id}/certificado` | POST multipart | Envia/substitui certificado `.pfx/.p12` |
+| `/gateways-pagamento/{id}/certificado/remover` | POST | Remove certificado e metadados do gateway |
 
 ### Tabela `gateways_filiais`
 
@@ -303,7 +317,7 @@ do mesmo boleto ja gerado.
 - **Webhooks**: Validacao de assinatura especifica por gateway (HMAC, token, mTLS)
 - **Idempotencia**: Verificacao se webhook ja foi processado (`webhookJaProcessado`)
 - **Mascaramento**: Credenciais sao mascaradas na API de leitura (nunca expostas no frontend)
-- **mTLS**: Gateways bancarios (Cora, Inter, Bradesco, Itau) usam certificados mutuos
+- **mTLS**: Gateways bancarios (Cora, Inter, Sicoob, Bradesco, Itau) usam certificados mutuos
 
 ---
 
@@ -386,3 +400,8 @@ $model->atualizarExpirados();
 | `app/Database/migrations/00203_migrate_formas_gateway_data.php` | Migra dados legado |
 | `app/Database/migrations/00204_create_gateways_filiais.php` | Cria tabela filiais |
 | `app/Database/migrations/00210_create_formas_pagamento_gateways.php` | Vinculo formas x gateways |
+| `app/Database/migrations/00396_drop_formas_gateway.php` | Remove tabela legada `formas_gateway` |
+
+### Legado Removido
+
+A tabela `formas_gateway` era a estrutura antiga de configuracao de gateways por tenant/filial. Os dados foram migrados para `gateways_pagamento` pela migration `00203_migrate_formas_gateway_data.php`, e os vinculos atuais sao mantidos por `gateways_filiais` e `formas_pagamento_gateways`. A tabela legada foi removida pela migration `00396_drop_formas_gateway.php`.

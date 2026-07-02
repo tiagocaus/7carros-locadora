@@ -296,7 +296,8 @@
         document.getElementById('infoCompetencia').textContent = n.data_competencia ? DateHelper.format(n.data_competencia) : '-';
         const tiposEmissao = {
             nacional: '<?= t('modules.nfse.tipo_emissao.nacional') ?>',
-            betha: '<?= t('modules.nfse.tipo_emissao.betha') ?>'
+            betha: '<?= t('modules.nfse.tipo_emissao.betha') ?>',
+            issnet: '<?= t('modules.nfse.tipo_emissao.issnet') ?>'
         };
         document.getElementById('infoTipoEmissao').textContent = tiposEmissao[n.tipo_emissao] || n.tipo_emissao || '-';
 

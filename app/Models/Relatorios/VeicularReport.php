@@ -583,6 +583,7 @@ class VeicularReport extends BaseReportModel
         string $status = ''
     ): array {
         $rows = [];
+        $statusFiltro = $this->normalizarStatusVeiculoCliente($status);
 
         // Locações
         $queryL = $this->qb
@@ -606,8 +607,16 @@ class VeicularReport extends BaseReportModel
             ->leftJoinRaw('clientes', 'cl', 'cl.id = l.id_cliente AND cl.chave = l.chave')
             ->leftJoin('veiculos', 'v', 'lv.id_veiculo', '=', 'v.id')
             ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
-            ->whereIn('l.status', ['A', 'F'])
             ->whereBetween('lv.data_saida', $dataInicio . ' 00:00:00', $dataFim . ' 23:59:59');
+
+        if ($statusFiltro !== '') {
+            $queryL->where('l.status', '=', $statusFiltro);
+        } else {
+            $queryL->whereIn('l.status', ['A', 'F']);
+        }
+        if ($statusFiltro === 'A') {
+            $queryL->whereNull('lv.data_entrada');
+        }
 
         if (!empty($filialWhere)) {
             $queryL->whereRaw(str_replace('id_matriz_filial', 'l.id_matriz_filial_retirada', $filialWhere), $filialParams);
@@ -616,11 +625,6 @@ class VeicularReport extends BaseReportModel
         if (!empty($grupoId)) $queryL->where('lv.id_grupo', '=', (int) $grupoId);
         if (!empty($veiculoId)) $queryL->where('lv.id_veiculo', '=', (int) $veiculoId);
         if (!empty($clienteId)) $queryL->where('l.id_cliente', '=', (int) $clienteId);
-        if ($status === 'locado') {
-            $queryL->where('v.disponibilidade', '=', 'L');
-        } elseif ($status === 'nao_locado') {
-            $queryL->where('v.disponibilidade', '!=', 'L');
-        }
 
         $locacoes = $queryL->orderBy('lv.data_saida', 'DESC')->get();
 
@@ -628,48 +632,63 @@ class VeicularReport extends BaseReportModel
             $rows[] = $this->mapearLinhaVeiculoCliente($r, 'L');
         }
 
-        // Contratos
+        // Contratos: o contrato e o registro principal; contratos_veiculos
+        // entra apenas para identificar os veiculos usados no contrato.
         $queryC = $this->qb
-            ->table('contratos_veiculos', 'cv')
+            ->table('contratos', 'c')
             ->select([
-                'cv.id_veiculo',
-                'cv.data_saida',
-                'cv.data_entrada',
-                'cv.odometro_saida',
-                'cv.odometro_entrada',
                 'c.id AS id_contrato',
                 'c.codigo',
                 'c.id_cliente',
+                'c.data_ini AS data_saida',
+                'c.data_fim AS data_entrada',
                 'c.total_fatura',
             ])
             ->selectRaw("'C' AS origem")
             ->selectRaw("COALESCE(cl.nome_rsocial, '-') AS cliente_nome")
-            ->selectRaw('v.placa, v.marca, v.modelo')
-            ->selectRaw('g.nome AS grupo_nome')
-            ->innerJoin('contratos', 'c', 'cv.id_contrato', '=', 'c.id')
             ->leftJoinRaw('clientes', 'cl', 'cl.id = c.id_cliente AND cl.chave = c.chave')
-            ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
-            ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
-            ->whereIn('c.status', ['A', 'F'])
-            ->whereBetween('cv.data_saida', $dataInicio . ' 00:00:00', $dataFim . ' 23:59:59');
+            ->whereRaw('c.data_ini <= ?', [$dataFim . ' 23:59:59'])
+            ->whereRaw('COALESCE(c.data_fim, ?) >= ?', [$dataInicio . ' 00:00:00', $dataInicio . ' 00:00:00']);
+
+        if ($statusFiltro !== '') {
+            $queryC->where('c.status', '=', $statusFiltro);
+        } else {
+            $queryC->whereIn('c.status', ['A', 'F']);
+        }
 
         if (!empty($filialWhere)) {
             $queryC->whereRaw(str_replace('id_matriz_filial', 'c.id_matriz_filial_retirada', $filialWhere), $filialParams);
         }
         if (!empty($filialId)) $queryC->where('c.id_matriz_filial_retirada', '=', (int) $filialId);
-        if (!empty($grupoId)) $queryC->where('cv.id_grupo', '=', (int) $grupoId);
-        if (!empty($veiculoId)) $queryC->where('cv.id_veiculo', '=', (int) $veiculoId);
-        if (!empty($clienteId)) $queryC->where('c.id_cliente', '=', (int) $clienteId);
-        if ($status === 'locado') {
-            $queryC->where('v.disponibilidade', '=', 'L');
-        } elseif ($status === 'nao_locado') {
-            $queryC->where('v.disponibilidade', '!=', 'L');
+        if (!empty($grupoId)) {
+            $vinculoAtivoSql = $statusFiltro === 'A' ? ' AND cvf.data_entrada IS NULL' : '';
+            $queryC->whereRaw(
+                'EXISTS (SELECT 1 FROM contratos_veiculos cvf WHERE cvf.id_contrato = c.id AND cvf.chave = c.chave AND cvf.id_grupo = ?' . $vinculoAtivoSql . ')',
+                [(int) $grupoId]
+            );
         }
+        if (!empty($veiculoId)) {
+            $vinculoAtivoSql = $statusFiltro === 'A' ? ' AND cvf.data_entrada IS NULL' : '';
+            $queryC->whereRaw(
+                'EXISTS (SELECT 1 FROM contratos_veiculos cvf WHERE cvf.id_contrato = c.id AND cvf.chave = c.chave AND cvf.id_veiculo = ?' . $vinculoAtivoSql . ')',
+                [(int) $veiculoId]
+            );
+        }
+        if (!empty($clienteId)) $queryC->where('c.id_cliente', '=', (int) $clienteId);
 
-        $contratos = $queryC->orderBy('cv.data_saida', 'DESC')->get();
+        $contratos = $queryC->orderBy('c.data_ini', 'DESC')->get();
 
         foreach ($contratos as $r) {
-            $rows[] = $this->mapearLinhaVeiculoCliente($r, 'C');
+            $veiculosContrato = $this->veiculosDoContratoCliente(
+                (int) $r['id_contrato'],
+                $grupoId,
+                $veiculoId,
+                $statusFiltro === 'A'
+            );
+            if (empty($veiculosContrato)) {
+                continue;
+            }
+            $rows[] = $this->mapearLinhaVeiculoClienteContrato($r, $veiculosContrato);
         }
 
         usort($rows, fn($a, $b) => strcmp($b['data_inicio'] ?? '', $a['data_inicio'] ?? ''));
@@ -730,6 +749,75 @@ class VeicularReport extends BaseReportModel
             'km_rodado' => $kmRodado,
             'valor' => round((float) ($r['total_fatura'] ?? 0), 2),
         ];
+    }
+
+    private function mapearLinhaVeiculoClienteContrato(array $r, array $veiculos): array
+    {
+        $linha = $this->mapearLinhaVeiculoCliente($r, 'C');
+
+        $kmTotal = 0;
+        foreach ($veiculos as $veiculo) {
+            $kmTotal += (int) ($veiculo['km_rodado'] ?? 0);
+        }
+
+        $primeiro = $veiculos[0] ?? [];
+        $linha['placa'] = count($veiculos) === 1 ? ($primeiro['placa'] ?? '-') : 'Múltiplos';
+        $linha['veiculo'] = count($veiculos) === 1 ? ($primeiro['veiculo'] ?? '-') : count($veiculos) . ' veículos';
+        $linha['km_rodado'] = $kmTotal;
+        $linha['veiculos'] = $veiculos;
+
+        return $linha;
+    }
+
+    private function veiculosDoContratoCliente(int $contratoId, string $grupoId, string $veiculoId, bool $apenasAtivos = false): array
+    {
+        $query = $this->qb
+            ->table('contratos_veiculos', 'cv')
+            ->select([
+                'cv.id_veiculo',
+                'cv.data_saida',
+                'cv.data_entrada',
+                'cv.odometro_saida',
+                'cv.odometro_entrada',
+            ])
+            ->selectRaw('v.placa, v.marca, v.modelo')
+            ->leftJoinRaw('veiculos', 'v', 'v.id = cv.id_veiculo AND v.chave = cv.chave')
+            ->where('cv.id_contrato', '=', $contratoId);
+
+        if (!empty($grupoId)) $query->where('cv.id_grupo', '=', (int) $grupoId);
+        if (!empty($veiculoId)) $query->where('cv.id_veiculo', '=', (int) $veiculoId);
+        if ($apenasAtivos) $query->whereNull('cv.data_entrada');
+
+        $rows = $query
+            ->orderBy('cv.data_saida', 'ASC')
+            ->get();
+
+        $veiculos = [];
+        foreach ($rows as $r) {
+            $dataIni = $r['data_saida'] ?? '';
+            $dataFim = $r['data_entrada'] ?? '';
+            $kmIni = (int) ($r['odometro_saida'] ?? 0);
+            $kmFim = (int) ($r['odometro_entrada'] ?? 0);
+
+            $veiculos[] = [
+                'placa' => $r['placa'] ?? '-',
+                'veiculo' => trim(($r['marca'] ?? '') . ' ' . ($r['modelo'] ?? '')) ?: '-',
+                'data_inicio' => $dataIni,
+                'data_fim' => $dataFim,
+                'km_rodado' => ($kmFim > 0 && $kmFim >= $kmIni) ? ($kmFim - $kmIni) : 0,
+            ];
+        }
+
+        return $veiculos;
+    }
+
+    private function normalizarStatusVeiculoCliente(string $status): string
+    {
+        return match (strtolower(trim($status))) {
+            'a', 'aberto', 'abertos' => 'A',
+            'f', 'fechado', 'fechados' => 'F',
+            default => '',
+        };
     }
 
     // =====================================================

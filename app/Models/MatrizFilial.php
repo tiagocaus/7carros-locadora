@@ -369,7 +369,6 @@ class MatrizFilial extends Model
             ['table' => 'taxaseservicos_filiais', 'column' => 'id_matriz_filial', 'label' => 'configuracao(oes) de taxa/servico'],
             ['table' => 'taxaseservicos_valores_filiais', 'column' => 'id_matriz_filial', 'label' => 'valor(es) de taxa/servico por filial'],
             ['table' => 'formas_pagamento_filiais', 'column' => 'id_matriz_filial', 'label' => 'forma(s) de pagamento por filial'],
-            ['table' => 'formas_gateway', 'column' => 'id_matriz_filial', 'label' => 'gateway(s) em forma de pagamento'],
             ['table' => 'gateways_filiais', 'column' => 'id_matriz_filial', 'label' => 'gateway(s) por filial'],
             ['table' => 'sms_filiais', 'column' => 'id_matriz_filial', 'label' => 'conexao(oes) SMS por filial'],
             ['table' => 'smtp_filiais', 'column' => 'id_matriz_filial', 'label' => 'conexao(oes) SMTP por filial'],

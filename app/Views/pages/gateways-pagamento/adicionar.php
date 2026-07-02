@@ -168,6 +168,48 @@
             </div>
         </div>
 
+        <!-- Secao: Certificado Sicoob -->
+        <div class="form-section mb-6" id="sectionCertificadoSicoob" style="display: none;">
+            <h3 class="form-section-title"><i class="fas fa-certificate mr-2"></i>Certificado Digital Sicoob</h3>
+            <p class="text-sm text-slate-600 mb-4">Envie o certificado A1 (.pfx ou .p12) do cooperado. O sistema extrai a chave privada automaticamente durante as chamadas mTLS.</p>
+
+            <div id="sicoobCertSaveFirst" class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4" style="display: none;">
+                Salve o gateway primeiro para habilitar o envio do certificado.
+            </div>
+
+            <div id="sicoobCertInfo" class="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 mb-4" style="display: none;">
+                <div class="font-medium text-slate-800 mb-1">Certificado configurado</div>
+                <div id="sicoobCertDetails"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div class="md:col-span-5 form-input-group">
+                    <label class="form-label-group">Arquivo do Certificado <span class="text-red-500">*</span></label>
+                    <label for="sicoobCertFile" class="flex items-center gap-3 cursor-pointer border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50">
+                        <span class="inline-flex items-center px-3 py-1 bg-slate-100 border border-slate-300 rounded text-sm text-slate-700">
+                            <i class="fas fa-paperclip mr-1"></i> Escolher arquivo
+                        </span>
+                        <span id="sicoobCertFileName" class="text-sm text-slate-500">Nenhum arquivo selecionado</span>
+                    </label>
+                    <input type="file" id="sicoobCertFile" accept=".pfx,.p12" class="sr-only">
+                </div>
+
+                <div class="md:col-span-4 form-input-group">
+                    <label for="sicoobCertPassword" class="form-label-group">Senha do Certificado <span class="text-red-500">*</span></label>
+                    <input type="password" id="sicoobCertPassword" class="form-input-group-field" placeholder="Senha do .pfx/.p12">
+                </div>
+
+                <div class="md:col-span-3 form-input-group flex items-end gap-2">
+                    <button type="button" id="btnUploadSicoobCert" class="btn-blue py-2 px-4 rounded-md text-sm flex-1">
+                        <i class="fas fa-upload mr-1"></i>Enviar
+                    </button>
+                    <button type="button" id="btnRemoveSicoobCert" class="btn-secondary py-2 px-3 rounded-md text-sm" style="display: none;" title="Remover certificado">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Secao: Webhook -->
         <div class="form-section mb-6" id="sectionWebhook" style="display: none;">
             <h3 class="form-section-title"><i class="fas fa-satellite-dish mr-2"></i><?= t('modules.gateways_pagamento.sections.webhook') ?></h3>
@@ -244,6 +286,7 @@
         let filiaisSelecionadas = [];
         let dropdownFiliaisAberto = false;
         let dropdownMoedasAberto = false;
+        let certificadoSicoobAtual = null;
 
         function navegarPara(page) {
             if (window.parent !== window) {
@@ -448,6 +491,7 @@
 
             if (!option || !option.value) {
                 document.getElementById('sectionCredenciais').style.display = 'none';
+                document.getElementById('sectionCertificadoSicoob').style.display = 'none';
                 document.getElementById('sectionWebhook').style.display = 'none';
                 document.getElementById('btnTestar').style.display = 'none';
                 atualizarMetodosSuportados([]);
@@ -475,6 +519,7 @@
 
             // Gerar campos de credenciais
             gerarCamposCredenciais(schema);
+            atualizarSecaoCertificadoSicoob();
 
             // Mostrar link da documentacao
             if (docUrl) {
@@ -693,6 +738,46 @@
             }
         }
 
+        function atualizarSecaoCertificadoSicoob() {
+            const section = document.getElementById('sectionCertificadoSicoob');
+            const saveFirst = document.getElementById('sicoobCertSaveFirst');
+            const info = document.getElementById('sicoobCertInfo');
+            const details = document.getElementById('sicoobCertDetails');
+            const btnUpload = document.getElementById('btnUploadSicoobCert');
+            const btnRemove = document.getElementById('btnRemoveSicoobCert');
+
+            if (!gatewayAtual || gatewayAtual.code !== 'sicoob') {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            const hasRegistro = !!registroId;
+            saveFirst.style.display = hasRegistro ? 'none' : 'block';
+            btnUpload.disabled = !hasRegistro;
+            document.getElementById('sicoobCertFile').disabled = !hasRegistro;
+            document.getElementById('sicoobCertPassword').disabled = !hasRegistro;
+
+            if (certificadoSicoobAtual) {
+                const validade = certificadoSicoobAtual.validade || '-';
+                const nome = certificadoSicoobAtual.razao_social || '-';
+                const documento = certificadoSicoobAtual.documento || '-';
+                const emissor = certificadoSicoobAtual.emissor || '-';
+                details.innerHTML = `
+                    <div>Validade: <strong>${escapeHtml(validade)}</strong></div>
+                    <div>Titular: ${escapeHtml(nome)}</div>
+                    <div>Documento: ${escapeHtml(documento)}</div>
+                    <div>Emissor: ${escapeHtml(emissor)}</div>
+                `;
+                info.style.display = 'block';
+                btnRemove.style.display = hasRegistro ? 'inline-flex' : 'none';
+            } else {
+                details.innerHTML = '';
+                info.style.display = 'none';
+                btnRemove.style.display = 'none';
+            }
+        }
+
         // Carregar registro para edicao
         async function carregarRegistro(id) {
             try {
@@ -732,6 +817,7 @@
 
             // Salvar credenciais originais (mascaradas)
             credenciaisOriginais = dados.credentials || {};
+            certificadoSicoobAtual = dados.certificado || null;
 
             // Desabilitar troca de gateway na edicao
             document.getElementById('gateway_code').disabled = true;
@@ -754,6 +840,7 @@
 
             document.getElementById('pageTitle').textContent = i18n.editTitle;
             document.getElementById('btnTestar').style.display = 'inline-flex';
+            atualizarSecaoCertificadoSicoob();
         }
 
         // Salvar
@@ -818,6 +905,17 @@
                 const result = await API.post(url, dados);
 
                 if (result.success) {
+                    if (!registroId && gatewayCode === 'sicoob' && result.data && result.data.id) {
+                        registroId = String(result.data.id);
+                        document.getElementById('registroId').value = registroId;
+                        document.getElementById('gateway_code').disabled = true;
+                        document.getElementById('pageTitle').textContent = i18n.editTitle;
+                        document.getElementById('btnTestar').style.display = 'inline-flex';
+                        atualizarSecaoCertificadoSicoob();
+                        window.parent.postMessage({ action: 'showToast', message: 'Gateway salvo. Envie o certificado digital Sicoob.' }, '*');
+                        return;
+                    }
+
                     window.parent.postMessage({ action: 'showToast', message: result.message || i18n.saveSuccess }, '*');
                     navegarPara('/pages/gateways-pagamento');
                 } else {
@@ -830,6 +928,94 @@
                 btnSalvar.disabled = false;
                 btnSalvar.innerHTML = `<i class="fas fa-save mr-2"></i>${i18n.btnSave}`;
             }
+        }
+
+        async function uploadCertificadoSicoob() {
+            if (!registroId || !gatewayAtual || gatewayAtual.code !== 'sicoob') {
+                mostrarAlerta('Salve o gateway Sicoob antes de enviar o certificado.');
+                return;
+            }
+
+            const fileInput = document.getElementById('sicoobCertFile');
+            const passwordInput = document.getElementById('sicoobCertPassword');
+            const btn = document.getElementById('btnUploadSicoobCert');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                mostrarAlerta('Selecione o arquivo .pfx ou .p12 do certificado.');
+                return;
+            }
+
+            if (!passwordInput.value) {
+                mostrarAlerta('Informe a senha do certificado.');
+                passwordInput.focus();
+                return;
+            }
+
+            const formData = new FormData();
+            const csrf = document.querySelector('input[name="_token"]');
+            if (csrf) {
+                formData.append('_token', csrf.value);
+            }
+            formData.append('certificado', fileInput.files[0]);
+            formData.append('certificado_senha', passwordInput.value);
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Enviando...';
+
+            try {
+                const result = await API.postForm(`/gateways-pagamento/${registroId}/certificado`, formData);
+                if (result.success) {
+                    certificadoSicoobAtual = result.data || null;
+                    fileInput.value = '';
+                    passwordInput.value = '';
+                    document.getElementById('sicoobCertFileName').textContent = 'Nenhum arquivo selecionado';
+                    atualizarSecaoCertificadoSicoob();
+                    window.parent.postMessage({ action: 'showToast', message: result.message || 'Certificado enviado com sucesso.' }, '*');
+                } else {
+                    mostrarAlerta(result.message || 'Erro ao enviar certificado.');
+                }
+            } catch (error) {
+                console.error('Erro ao enviar certificado:', error);
+                mostrarAlerta('Erro ao enviar certificado.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-upload mr-1"></i>Enviar';
+            }
+        }
+
+        function removerCertificadoSicoob() {
+            if (!registroId || !gatewayAtual || gatewayAtual.code !== 'sicoob') {
+                return;
+            }
+
+            window.parent.postMessage({
+                action: 'openGenericConfirmModal',
+                title: 'Remover certificado',
+                message: 'Deseja remover o certificado digital Sicoob deste gateway?',
+                confirmText: 'Remover'
+            }, '*');
+
+            window.addEventListener('message', async function handler(event) {
+                if (!event.data || event.data.action !== 'genericConfirmed') {
+                    return;
+                }
+
+                window.removeEventListener('message', handler);
+
+                try {
+                    const result = await API.post(`/gateways-pagamento/${registroId}/certificado/remover`);
+                    if (result.success) {
+                        certificadoSicoobAtual = null;
+                        atualizarSecaoCertificadoSicoob();
+                        window.parent.postMessage({ action: 'showToast', message: result.message || 'Certificado removido.' }, '*');
+                    } else {
+                        mostrarAlerta(result.message || 'Erro ao remover certificado.');
+                    }
+                } catch (error) {
+                    console.error('Erro ao remover certificado:', error);
+                    mostrarAlerta('Erro ao remover certificado.');
+                }
+            });
         }
 
         // Testar conexao
@@ -899,6 +1085,13 @@
         });
 
         document.getElementById('btnTestar')?.addEventListener('click', testarConexao);
+        document.getElementById('btnUploadSicoobCert')?.addEventListener('click', uploadCertificadoSicoob);
+        document.getElementById('btnRemoveSicoobCert')?.addEventListener('click', removerCertificadoSicoob);
+        document.getElementById('sicoobCertFile')?.addEventListener('change', function() {
+            document.getElementById('sicoobCertFileName').textContent = this.files && this.files.length > 0
+                ? this.files[0].name
+                : 'Nenhum arquivo selecionado';
+        });
 
         // Inicializacao
         async function init() {

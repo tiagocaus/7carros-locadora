@@ -30,6 +30,61 @@ mysqldump -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora > backup.sql
 mysql -u7carros_locadora -pwCz5Ex9jQ0Xped7 7carros_locadora < backup.sql
 ```
 
+### Padrao de DEFINER em Producao
+
+Objetos MySQL executaveis, como triggers, views, routines e events, devem usar
+um `DEFINER` estavel da aplicacao. Em producao, o padrao obrigatorio e:
+
+```sql
+`7carros_locador`@`localhost`
+```
+
+Nunca crie ou mantenha objetos de banco com `DEFINER` de usuario pessoal, IP
+externo, wildcard `%` ou usuario inexistente. Exemplos proibidos:
+
+```sql
+`7carros_tiago`@`148.69.54.134`
+`7carros_locador`@`%`
+```
+
+Para criar ou recriar triggers, views, routines ou events em producao, conecte
+no MySQL como o usuario da aplicacao (`7carros_locador@localhost`) e execute o
+DDL a partir dessa sessao. O MySQL gravara o `DEFINER` correto automaticamente
+quando a instrucao nao declarar `CREATE DEFINER=...`.
+
+Antes e depois de qualquer ajuste operacional, valide os definers pelo
+`information_schema`:
+
+```sql
+SELECT 'TRIGGER' AS tipo, TRIGGER_SCHEMA AS schema_nome, TRIGGER_NAME AS objeto, DEFINER
+FROM information_schema.TRIGGERS
+WHERE TRIGGER_SCHEMA = DATABASE()
+UNION ALL
+SELECT 'VIEW' AS tipo, TABLE_SCHEMA AS schema_nome, TABLE_NAME AS objeto, DEFINER
+FROM information_schema.VIEWS
+WHERE TABLE_SCHEMA = DATABASE()
+UNION ALL
+SELECT 'ROUTINE' AS tipo, ROUTINE_SCHEMA AS schema_nome, ROUTINE_NAME AS objeto, DEFINER
+FROM information_schema.ROUTINES
+WHERE ROUTINE_SCHEMA = DATABASE()
+UNION ALL
+SELECT 'EVENT' AS tipo, EVENT_SCHEMA AS schema_nome, EVENT_NAME AS objeto, DEFINER
+FROM information_schema.EVENTS
+WHERE EVENT_SCHEMA = DATABASE();
+```
+
+Se algum objeto estiver com `DEFINER` invalido, nao corrija criando o usuario
+antigo. Recrie o objeto conectado como `7carros_locador@localhost`. Para os
+triggers de `financeiro_itens` e `manutencoes_itens`, use as definicoes mais
+recentes nas migrations correspondentes ou o script operacional
+`scripts/fix-production-financeiro-definers.sql`.
+
+Execucao do script operacional em producao:
+
+```bash
+mysql -u7carros_locador -p 7carros_locador < scripts/fix-production-financeiro-definers.sql
+```
+
 ## Convenções de Nomenclatura
 
 ### Tabelas

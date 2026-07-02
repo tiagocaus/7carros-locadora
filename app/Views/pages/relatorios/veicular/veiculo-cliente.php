@@ -15,8 +15,8 @@
                 <label for="filterStatus" class="block text-xs text-slate-500 mb-1">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.filter_status'), ENT_QUOTES, 'UTF-8') . '</label>
                 <select id="filterStatus" class="form-input-focus w-full text-sm">
                     <option value="">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.status_all'), ENT_QUOTES, 'UTF-8') . '</option>
-                    <option value="locado">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.status_locado'), ENT_QUOTES, 'UTF-8') . '</option>
-                    <option value="nao_locado">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.status_nao_locado'), ENT_QUOTES, 'UTF-8') . '</option>
+                    <option value="aberto">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.status_aberto'), ENT_QUOTES, 'UTF-8') . '</option>
+                    <option value="fechado">' . htmlspecialchars(t('modules.relatorios.veicular.veiculo_cliente.status_fechado'), ENT_QUOTES, 'UTF-8') . '</option>
                 </select>
             </div>
         ';
@@ -113,19 +113,50 @@
         cont.style.display = 'block';
         tbody.innerHTML = data.map(row => {
             const tipoCls = row.tipo === 'Locação' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800';
+            const veiculos = Array.isArray(row.veiculos) ? row.veiculos : [];
+            const detalhesVeiculos = veiculos.length > 1 ? renderVeiculosContrato(veiculos) : '';
             return `<tr class="hover:bg-slate-50">
-                <td class="table-cell"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tipoCls}">${row.tipo}</span></td>
-                <td class="table-cell font-medium">${row.codigo || '-'}</td>
-                <td class="table-cell">${row.placa || '-'}</td>
-                <td class="table-cell hidden md:table-cell">${row.veiculo || '-'}</td>
-                <td class="table-cell">${row.cliente || '-'}</td>
+                <td class="table-cell"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tipoCls}">${escapeHtml(row.tipo)}</span></td>
+                <td class="table-cell font-medium">${escapeHtml(row.codigo || '-')}</td>
+                <td class="table-cell">${escapeHtml(row.placa || '-')}</td>
+                <td class="table-cell hidden md:table-cell">${escapeHtml(row.veiculo || '-')}</td>
+                <td class="table-cell">${escapeHtml(row.cliente || '-')}</td>
                 <td class="table-cell hidden sm:table-cell">${row.data_inicio ? DateHelper.format(row.data_inicio) : '-'}</td>
                 <td class="table-cell hidden sm:table-cell">${row.data_fim ? DateHelper.format(row.data_fim) : '<span class="text-amber-600">Em uso</span>'}</td>
                 <td class="table-cell text-center">${row.dias}</td>
                 <td class="table-cell text-center hidden md:table-cell">${Number(row.km_rodado).toLocaleString('pt-BR')}</td>
                 <td class="table-cell text-right font-medium">${Currency.format(row.valor, true)}</td>
-            </tr>`;
+            </tr>${detalhesVeiculos}`;
         }).join('');
+    }
+
+    function renderVeiculosContrato(veiculos) {
+        const linhas = veiculos.map(v => `
+            <tr class="bg-slate-50">
+                <td class="table-cell"></td>
+                <td class="table-cell text-xs text-slate-500">Veículo</td>
+                <td class="table-cell">${escapeHtml(v.placa || '-')}</td>
+                <td class="table-cell hidden md:table-cell">${escapeHtml(v.veiculo || '-')}</td>
+                <td class="table-cell"></td>
+                <td class="table-cell hidden sm:table-cell">${v.data_inicio ? DateHelper.format(v.data_inicio) : '-'}</td>
+                <td class="table-cell hidden sm:table-cell">${v.data_fim ? DateHelper.format(v.data_fim) : '<span class="text-amber-600">Em uso</span>'}</td>
+                <td class="table-cell text-center">-</td>
+                <td class="table-cell text-center hidden md:table-cell">${Number(v.km_rodado || 0).toLocaleString('pt-BR')}</td>
+                <td class="table-cell"></td>
+            </tr>
+        `).join('');
+
+        return linhas;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char]));
     }
 
     function limpar() {

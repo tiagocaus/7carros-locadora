@@ -63,6 +63,22 @@
                 <td class="center"><?= number_format((int) $row['km_rodado'], 0, ',', '.') ?></td>
                 <td class="right"><?= currency_format($row['valor']) ?></td>
             </tr>
+            <?php if (($row['tipo'] ?? '') === 'Contrato' && count($row['veiculos'] ?? []) > 1): ?>
+                <?php foreach ($row['veiculos'] as $veiculo): ?>
+                <tr>
+                    <td></td>
+                    <td><small>Veículo</small></td>
+                    <td><?= htmlspecialchars($veiculo['placa'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($veiculo['veiculo'] ?? '-') ?></td>
+                    <td></td>
+                    <td class="center"><?= !empty($veiculo['data_inicio']) ? format_date($veiculo['data_inicio']) : '-' ?></td>
+                    <td class="center"><?= !empty($veiculo['data_fim']) ? format_date($veiculo['data_fim']) : 'Em uso' ?></td>
+                    <td class="center">-</td>
+                    <td class="center"><?= number_format((int) ($veiculo['km_rodado'] ?? 0), 0, ',', '.') ?></td>
+                    <td></td>
+                </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
             <?php endforeach; ?>
         </tbody>
     </table>

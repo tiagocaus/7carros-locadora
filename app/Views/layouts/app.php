@@ -1500,7 +1500,7 @@
                 }
 
                 const result = id
-                    ? await API.put('/api/website/banners/' + id, dados)
+                    ? await API.post('/api/website/banners/' + id, { ...dados, _method: 'PUT' })
                     : await API.post('/api/website/banners', dados);
 
                 if (result.success) {

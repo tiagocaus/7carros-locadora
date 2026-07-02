@@ -89,6 +89,9 @@ class LocacaoCaucao extends Model
 
         if ($caucao && ($caucao['status'] ?? '') === 'devolvida') {
             if (!$this->caucaoDevolvidaEquivalePayload($caucao, $payload)) {
+                if ($this->regularizarCaucaoDevolvida($caucao, $payload)) {
+                    return $this->buscarAtualPorLocacao($locacaoId);
+                }
                 throw new \RuntimeException('Nao e possivel alterar a caucao ja devolvida');
             }
             return $caucao;
@@ -378,6 +381,99 @@ class LocacaoCaucao extends Model
             && (int) ($caucao['id_conta'] ?? 0) === (int) ($payload['id_conta'] ?? 0)
             && (int) ($caucao['id_forma_pagamento'] ?? 0) === (int) ($payload['id_forma_pagamento'] ?? 0)
             && (int) ($caucao['id_cliente'] ?? 0) === (int) ($payload['id_cliente'] ?? 0);
+    }
+
+    /**
+     * Permite apenas completar conta/forma de pagamento que ficaram vazias em
+     * caucoes ja devolvidas, sem alterar valores ou reabrir a caucao.
+     */
+    private function regularizarCaucaoDevolvida(array $caucao, array $payload): bool
+    {
+        if (!$this->dadosCriticosCaucaoDevolvidaConferem($caucao, $payload)) {
+            return false;
+        }
+
+        $updates = [];
+        foreach (['id_conta', 'id_forma_pagamento'] as $campo) {
+            $atual = (int) ($caucao[$campo] ?? 0);
+            $novo = (int) ($payload[$campo] ?? 0);
+
+            if ($atual === $novo) {
+                continue;
+            }
+
+            if ($atual !== 0 || $novo <= 0) {
+                return false;
+            }
+
+            $updates[$campo] = $novo;
+        }
+
+        if (empty($updates)) {
+            return false;
+        }
+
+        foreach (['id_financeiro_entrada', 'id_financeiro_devolucao'] as $campoFinanceiro) {
+            if (!empty($caucao[$campoFinanceiro])) {
+                $this->regularizarFinanceiroVinculado((int) $caucao[$campoFinanceiro], $caucao, $updates);
+            }
+        }
+
+        $this->qb
+            ->table('locacoes_caucoes')
+            ->where('id', '=', (int) $caucao['id'])
+            ->update(array_merge($updates, ['updated_at' => now()]));
+
+        return true;
+    }
+
+    private function dadosCriticosCaucaoDevolvidaConferem(array $caucao, array $payload): bool
+    {
+        return (float) ($caucao['valor'] ?? 0) === (float) ($payload['valor'] ?? 0)
+            && (int) ($caucao['id_cliente'] ?? 0) === (int) ($payload['id_cliente'] ?? 0)
+            && (int) ($caucao['id_cartao'] ?? 0) === (int) ($payload['id_cartao'] ?? 0)
+            && (int) ($caucao['lancar_financeiro'] ?? 0) === (int) ($payload['lancar_financeiro'] ?? 0)
+            && (int) ($caucao['prazo_devolucao'] ?? 0) === (int) ($payload['prazo_devolucao'] ?? 0)
+            && trim((string) ($caucao['observacoes'] ?? '')) === trim((string) ($payload['observacoes'] ?? ''));
+    }
+
+    /**
+     * @param array<string, int> $updates
+     */
+    private function regularizarFinanceiroVinculado(int $idFinanceiro, array $caucao, array $updates): void
+    {
+        $financeiro = (new Financeiro())->buscarPorId($idFinanceiro);
+        if (!$financeiro) {
+            return;
+        }
+
+        if ((int) ($financeiro['id_locacao'] ?? 0) !== (int) ($caucao['id_locacao'] ?? 0)) {
+            throw new \RuntimeException('Financeiro vinculado a caucao pertence a outra locacao');
+        }
+
+        $financeiroUpdates = [];
+        foreach ($updates as $campo => $novo) {
+            $atual = (int) ($financeiro[$campo] ?? 0);
+            if ($atual === $novo) {
+                continue;
+            }
+
+            if ($atual !== 0) {
+                throw new \RuntimeException('Nao e possivel regularizar a caucao: financeiro vinculado ja possui dados divergentes');
+            }
+
+            $financeiroUpdates[$campo] = $novo;
+        }
+
+        if (empty($financeiroUpdates)) {
+            return;
+        }
+
+        $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $idFinanceiro)
+            ->where('id_locacao', '=', (int) $caucao['id_locacao'])
+            ->update(array_merge($financeiroUpdates, ['updated_at' => now()]));
     }
 
     private function booleanFromInput(mixed $value): bool

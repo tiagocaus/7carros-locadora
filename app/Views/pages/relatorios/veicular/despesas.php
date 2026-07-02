@@ -3,13 +3,25 @@
 @section('title', t('modules.relatorios.veicular.despesas.title'))
 
 @section('content')
+<?php ob_start(); ?>
+<div class="flex-1 min-w-[180px] max-w-[250px]">
+    <label for="filterVeiculo" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.veicular.despesas.col_placa') ?></label>
+    <select id="filterVeiculo"
+            class="form-input-focus w-full text-sm chosen-select"
+            data-chosen-type="server-side"
+            data-chosen-search-url="/api/veiculos/buscar"
+            data-chosen-placeholder="<?= htmlspecialchars(t('modules.relatorios.common.all_vehicles') ?? '', ENT_QUOTES, 'UTF-8') ?>">
+        <option value=""><?= t('modules.relatorios.common.all_vehicles') ?></option>
+    </select>
+</div>
+<?php $veiculoFilter = ob_get_clean(); ?>
 <div class="pl-1 pr-2 py-0">
     <div class="flex flex-col sm:flex-row justify-between items-center">
         <h2 class="title-section mb-0"><?= t('modules.relatorios.veicular.despesas.title') ?></h2>
     </div>
     <p class="text-sm text-slate-500 mb-3"><?= t('modules.relatorios.veicular.despesas.description') ?></p>
 
-    @include('pages.relatorios._partials.filters', ['showGrupoFilter' => true])
+    @include('pages.relatorios._partials.filters', ['showGrupoFilter' => true, 'extraFiltersAfterFilial' => $veiculoFilter])
     @include('pages.relatorios._partials.export-buttons')
     @include('pages.relatorios._partials.totalizadores')
 
@@ -79,6 +91,7 @@
             data_inicio: document.getElementById('filterDataInicio').value,
             data_fim: document.getElementById('filterDataFim').value,
             filial: document.getElementById('filterFilial').value,
+            veiculo: document.getElementById('filterVeiculo')?.value || '',
             grupo: document.getElementById('filterGrupo')?.value || '',
         };
     }
@@ -139,9 +152,20 @@
 
     function limpar() {
         ReportUtils.setDefaultPeriod();
-        document.getElementById('filterFilial').value = '';
-        const g = document.getElementById('filterGrupo'); if (g) g.value = '';
+        clearChosen('filterFilial');
+        clearChosen('filterVeiculo');
+        clearChosen('filterGrupo');
         ReportUtils.hideContent();
+    }
+
+    function clearChosen(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.chosenSelect && typeof el.chosenSelect.clear === 'function') {
+            el.chosenSelect.clear();
+            return;
+        }
+        el.value = '';
     }
 
     init();

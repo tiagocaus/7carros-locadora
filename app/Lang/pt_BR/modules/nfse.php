@@ -62,6 +62,7 @@ return [
     'tipo_emissao' => [
         'nacional' => 'Nacional (SEFIN)',
         'betha' => 'Betha Cloud',
+        'issnet' => 'ISSNet',
     ],
 
     // Secoes
@@ -142,6 +143,7 @@ return [
         'serie_required_active' => 'Informe a série da NFS-e antes de ativar a emissão.',
         'codigo_municipio_required_active' => 'Informe o código IBGE do município com 7 dígitos antes de ativar a emissão.',
         'codigo_servico_required_active' => 'Informe o código do serviço antes de ativar a emissão.',
+        'item_lista_servico_required_active' => 'Informe o item da lista de serviço para ISSNet antes de ativar a emissão.',
         'error_correction' => 'Como corrigir',
         'error_technical_code' => 'Código técnico',
     ],
@@ -177,7 +179,10 @@ return [
         'enviar_email_hint' => 'Enviar PDF da NFS-e por e-mail automaticamente',
         'codigo_municipio' => 'Código IBGE do Município',
         'codigo_servico' => 'Código NBS do Serviço',
-        'codigo_servico_hint' => 'Informe o código do serviço conforme o tipo de emissão configurado. Para Betha, use o código aceito pelo município/provedor. Para Nacional, use o código NBS/código nacional do serviço.',
+        'codigo_servico_hint' => 'Informe o código do serviço conforme o tipo de emissão configurado. Para ISSNet, preencha também o item da lista e os códigos municipais exigidos.',
+        'item_lista_servico' => 'Item da lista de serviço',
+        'codigo_cnae' => 'Código CNAE',
+        'codigo_tributacao_municipio' => 'Código tributação município',
         'descricao_servico' => 'Descrição padrão do Serviço',
         'regime_tributario' => 'Regime Tributário',
         'regime_simples' => 'Simples Nacional',

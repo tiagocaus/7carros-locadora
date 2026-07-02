@@ -486,6 +486,8 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/gateways-pagamento/{id}/atualizar', [GatewaysPagamentoController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/gateways-pagamento/{id}/excluir', [GatewaysPagamentoController::class, 'destroy'], ['csrf', 'rate_limit']);
     $router->post('/gateways-pagamento/{id}/status', [GatewaysPagamentoController::class, 'alterarStatus'], ['csrf', 'rate_limit']);
+    $router->post('/gateways-pagamento/{id}/certificado', [GatewaysPagamentoController::class, 'uploadCertificado'], ['csrf', 'rate_limit']);
+    $router->post('/gateways-pagamento/{id}/certificado/remover', [GatewaysPagamentoController::class, 'removerCertificado'], ['csrf', 'rate_limit']);
     $router->post('/api/gateways-pagamento/{id}/testar', [GatewaysPagamentoController::class, 'testar'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API Links de Pagamento

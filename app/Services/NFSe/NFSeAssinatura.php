@@ -128,7 +128,8 @@ class NFSeAssinatura
             $signatureDoc->loadXML($signatureXml);
 
             $signatureNode = $doc->importNode($signatureDoc->documentElement, true);
-            $doc->documentElement->appendChild($signatureNode);
+            $parentNode = $node->parentNode instanceof DOMElement ? $node->parentNode : $doc->documentElement;
+            $parentNode->appendChild($signatureNode);
 
             $xmlAssinado = $doc->saveXML();
 

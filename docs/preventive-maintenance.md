@@ -159,6 +159,16 @@ OS geradas (preventivas ou manuais) podem ter **itens vinculados a produtos do e
 
 Ver documentação completa: [Estoque](estoque.md)
 
+## Triggers de Totais
+
+Os totais de `manutencoes` sao mantidos automaticamente pelos triggers
+`trg_manutencoes_itens_after_insert`, `trg_manutencoes_itens_after_update` e
+`trg_manutencoes_itens_after_delete`.
+
+Em producao, esses triggers devem ser criados/recriados conectado como
+`7carros_locador@localhost`, sem `CREATE DEFINER=...` explicito no SQL. Isso
+mantem o `DEFINER` no padrao documentado em `docs/database.md`.
+
 ## Arquivos
 
 | Tipo | Arquivo |

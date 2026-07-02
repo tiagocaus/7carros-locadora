@@ -555,6 +555,7 @@
                             <select name="tipo_emissao" id="inputTipoEmissao" class="form-input-group-field">
                                 <option value="nacional"><?= t('modules.nfse.tipo_emissao.nacional') ?></option>
                                 <option value="betha"><?= t('modules.nfse.tipo_emissao.betha') ?></option>
+                                <option value="issnet"><?= t('modules.nfse.tipo_emissao.issnet') ?></option>
                             </select>
                         </div>
                         <div class="md:col-span-3 form-input-group">
@@ -595,6 +596,18 @@
                         <div class="md:col-span-4 form-input-group">
                             <label class="form-label-group"><?= t('modules.nfse.config.codigo_servico') ?> <?= aviso(t('modules.nfse.config.codigo_servico_hint')) ?></label>
                             <input type="text" name="codigo_servico" id="inputCodigoServico" class="form-input-group-field" placeholder="1.1101.11" maxlength="20">
+                        </div>
+                        <div class="md:col-span-4 form-input-group field-issnet">
+                            <label class="form-label-group"><?= t('modules.nfse.config.item_lista_servico') ?></label>
+                            <input type="text" name="item_lista_servico" id="inputItemListaServico" class="form-input-group-field" placeholder="17.09" maxlength="10">
+                        </div>
+                        <div class="md:col-span-4 form-input-group field-issnet">
+                            <label class="form-label-group"><?= t('modules.nfse.config.codigo_cnae') ?></label>
+                            <input type="text" name="codigo_cnae" id="inputCodigoCnae" class="form-input-group-field" placeholder="7711000" maxlength="10">
+                        </div>
+                        <div class="md:col-span-4 form-input-group field-issnet">
+                            <label class="form-label-group"><?= t('modules.nfse.config.codigo_tributacao_municipio') ?></label>
+                            <input type="text" name="codigo_tributacao_municipio" id="inputCodigoTributacaoMunicipio" class="form-input-group-field" maxlength="30">
                         </div>
                         <div class="md:col-span-4 form-input-group">
                             <label class="form-label-group"><?= t('modules.nfse.config.regime_tributario') ?></label>
@@ -1993,7 +2006,7 @@
                 // Campos gerais
                 document.getElementById('inputAtivo').checked = config.ativo === 'S';
                 document.getElementById('inputAmbiente').value = config.ambiente || '2';
-                document.getElementById('inputTipoEmissao').value = ['nacional', 'betha'].includes(config.tipo_emissao) ? config.tipo_emissao : 'nacional';
+                document.getElementById('inputTipoEmissao').value = ['nacional', 'betha', 'issnet'].includes(config.tipo_emissao) ? config.tipo_emissao : 'nacional';
                 document.getElementById('inputSerie').value = config.serie || '';
                 document.getElementById('inputNumeroAtual').value = config.numero_atual || 0;
                 document.getElementById('inputEmissaoAuto').checked = config.emissao_auto === 'S';
@@ -2002,6 +2015,9 @@
                 // Fiscais
                 document.getElementById('inputCodigoMunicipio').value = config.codigo_municipio || '';
                 document.getElementById('inputCodigoServico').value = config.codigo_servico || '';
+                document.getElementById('inputItemListaServico').value = config.item_lista_servico || '';
+                document.getElementById('inputCodigoCnae').value = config.codigo_cnae || '';
+                document.getElementById('inputCodigoTributacaoMunicipio').value = config.codigo_tributacao_municipio || '';
                 document.getElementById('inputDescricaoServico').value = config.descricao_servico || '';
                 document.getElementById('inputRegimeTributario').value = config.regime_tributario || '1';
                 document.getElementById('inputRegApuracaoSN').value = config.reg_apuracao_sn || '1';
@@ -2057,15 +2073,22 @@
 
             function nfseToggleDpsFields() {
                 const isDps = inputTipoEmissao.value === 'nacional' || inputTipoEmissao.value === 'betha';
+                const isIssnet = inputTipoEmissao.value === 'issnet';
                 const isSimples = document.getElementById('inputRegimeTributario').value === '1';
                 const preencherIBSCBS = document.getElementById('inputPreencherIBSCBS').checked;
                 document.getElementById('fieldNumeroAtual').style.display = 'block';
-                document.getElementById('fieldEnviarIM').style.display = isDps ? 'block' : 'none';
+                document.getElementById('fieldEnviarIM').style.display = (isDps || isIssnet) ? 'block' : 'none';
                 document.getElementById('fieldRegApuracaoSN').style.display = isDps && isSimples ? 'block' : 'none';
                 document.getElementById('sectionIBSCBS').style.display = isDps ? 'block' : 'none';
                 document.getElementById('fieldPreencherIBSCBS').style.display = 'block';
                 document.getElementById('fieldAliquotaIBS').style.display = isDps && preencherIBSCBS ? 'block' : 'none';
                 document.getElementById('fieldAliquotaCBS').style.display = isDps && preencherIBSCBS ? 'block' : 'none';
+                tabNfse.querySelectorAll('.field-issnet').forEach(el => {
+                    el.style.display = isIssnet ? 'block' : 'none';
+                });
+                if (isIssnet) {
+                    document.getElementById('inputEnviarIM').checked = true;
+                }
             }
 
             async function nfseUploadCertificado(e) {
@@ -2131,18 +2154,27 @@
                     window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.codigo_servico_required_active') ?> }, '*');
                     return;
                 }
+                const tipoEmissao = document.getElementById('inputTipoEmissao').value;
+                const itemListaServico = document.getElementById('inputItemListaServico').value.trim();
+                if (document.getElementById('inputAtivo').checked && tipoEmissao === 'issnet' && !itemListaServico) {
+                    window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.item_lista_servico_required_active') ?> }, '*');
+                    return;
+                }
 
                 const dados = {
                     id_matriz_filial: registroId,
                     ativo: document.getElementById('inputAtivo').checked ? 'S' : 'N',
                     ambiente: document.getElementById('inputAmbiente').value,
-                    tipo_emissao: document.getElementById('inputTipoEmissao').value,
+                    tipo_emissao: tipoEmissao,
                     serie: serie,
                     numero_atual: document.getElementById('inputNumeroAtual').value,
                     emissao_auto: document.getElementById('inputEmissaoAuto').checked ? 'S' : 'N',
                     enviar_email: document.getElementById('inputEnviarEmail').checked ? 'S' : 'N',
                     codigo_municipio: codigoMunicipio,
                     codigo_servico: codigoServico,
+                    item_lista_servico: itemListaServico,
+                    codigo_cnae: document.getElementById('inputCodigoCnae').value,
+                    codigo_tributacao_municipio: document.getElementById('inputCodigoTributacaoMunicipio').value,
                     descricao_servico: document.getElementById('inputDescricaoServico').value,
                     regime_tributario: document.getElementById('inputRegimeTributario').value,
                     reg_apuracao_sn: document.getElementById('inputRegApuracaoSN').value,

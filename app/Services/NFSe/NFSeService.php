@@ -12,6 +12,8 @@ use App\Services\NFSe\Nacional\NFSeXMLNacional;
 use App\Services\NFSe\Nacional\NFSeAPINacional;
 use App\Services\NFSe\Betha\NFSeXMLBetha;
 use App\Services\NFSe\Betha\NFSeAPIBetha;
+use App\Services\NFSe\ISSNet\NFSeXMLISSNet;
+use App\Services\NFSe\ISSNet\NFSeAPIISSNet;
 
 /**
  * NFSeService - Orquestrador principal de NFS-e
@@ -110,6 +112,7 @@ class NFSeService
         return match ($tipoEmissao) {
             'nacional' => $this->emitirNacional($dados, $config, $chave),
             'betha' => $this->emitirBetha($dados, $config, $chave),
+            'issnet' => $this->emitirISSNet($dados, $config, $chave),
             default => $this->erro('Tipo de emissão NFS-e não suportado: ' . $tipoEmissao, 'CONFIGURACAO_INCOMPLETA'),
         };
     }
@@ -165,6 +168,7 @@ class NFSeService
         return match ($tipoEmissao) {
             'nacional' => $this->cancelarNacional($nfse, $motivo, $config, $chave),
             'betha' => $this->cancelarBetha($nfse, $motivo, $config, $chave),
+            'issnet' => $this->cancelarISSNet($nfse, $motivo, $config, $chave),
             default => $this->erro('Tipo de emissão NFS-e não suportado: ' . $tipoEmissao, 'CONFIGURACAO_INCOMPLETA'),
         };
     }
@@ -187,8 +191,13 @@ class NFSeService
         $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
 
         try {
-            $api = $this->resolverAPI($nfse['tipo_emissao'] ?? 'nacional');
-            if (($nfse['tipo_emissao'] ?? 'nacional') === 'betha' && $api instanceof NFSeAPIBetha) {
+            $tipoEmissao = $nfse['tipo_emissao'] ?? 'nacional';
+            $api = $this->resolverAPI($tipoEmissao, $config);
+            if ($tipoEmissao === 'issnet' && $api instanceof NFSeAPIISSNet) {
+                $xmlGenerator = new NFSeXMLISSNet();
+                $xmlConsulta = $xmlGenerator->gerarXMLConsultaPorRps($nfse, $config);
+                $resultado = $api->consultarPorRps($xmlConsulta, $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+            } elseif ($tipoEmissao === 'betha' && $api instanceof NFSeAPIBetha) {
                 $resultado = $api->consultarStatusDps(
                     (string) ($nfse['protocolo'] ?? ''),
                     (string) ($config['codigo_municipio'] ?? ''),
@@ -199,6 +208,18 @@ class NFSeService
                 );
             } else {
                 $resultado = $api->consultar((string) ($nfse['chave_acesso'] ?? ''), $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+            }
+
+            if ($tipoEmissao === 'issnet') {
+                $retorno = (new NFSeXMLISSNet())->parseRetorno($resultado['resposta'] ?? '');
+                if ($retorno['sucesso']) {
+                    $this->nfseModel->atualizarAutorizada($idNFSe, [
+                        'numero' => $retorno['numero'] ?: $nfse['numero'],
+                        'codigo_verificacao' => $retorno['codigo_verificacao'],
+                        'chave_acesso' => $retorno['chave_acesso'],
+                        'xml_retorno' => $retorno['xml_retorno'] ?? $resultado['resposta'],
+                    ]);
+                }
             }
 
             $this->eventoModel->registrar($idNFSe, 'consulta', null, 'Consulta de status realizada', $resultado['resposta'] ?? null);
@@ -287,7 +308,7 @@ class NFSeService
                 if (empty($xml)) {
                     return $this->erro('XML de envio não encontrado.', 'XML_INVALIDO');
                 }
-                $api = $this->resolverAPI($tipoEmissao);
+                $api = $this->resolverAPI($tipoEmissao, $config);
                 $this->nfseModel->incrementarTentativas($idNFSe);
                 if ($tentativaExtraManual) {
                     $this->eventoModel->registrar(
@@ -465,6 +486,34 @@ class NFSeService
         }
     }
 
+    private function emitirISSNet(array $dados, array $config, string $chave): array
+    {
+        $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
+        $idNFSe = null;
+
+        try {
+            $preparado = $this->prepararXMLAssinado('issnet', $dados, $config, $chave, $pem);
+            if (!$preparado['sucesso']) {
+                return $this->erro($preparado['mensagem'], $preparado['codigo']);
+            }
+
+            $idNFSe = $this->criarRegistroNFSe($dados, $config, $chave);
+            $this->nfseModel->marcarProntaParaEnvio($idNFSe, $preparado['xml']);
+
+            $resultado = $preparado['api']->enviar($preparado['xml'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+
+            return $this->processarRetornoEmissao($idNFSe, $resultado, $preparado['xml_parser'], $chave);
+        } catch (\Throwable $e) {
+            if ($idNFSe !== null) {
+                $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $e->getMessage(), 'CONN_CURL');
+                $this->eventoModel->registrar($idNFSe, 'erro', 'CONN_CURL', $e->getMessage());
+            }
+            return $this->erro('Erro na comunicação ISSNet: ' . $e->getMessage(), 'CONN_CURL');
+        } finally {
+            $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
+        }
+    }
+
     // ==========================================
     // METODOS PRIVADOS - Cancelamento
     // ==========================================
@@ -532,6 +581,46 @@ class NFSeService
             return $this->erro($erroMsg, NFSeErros::mapearErroAPI($erroCod));
         } catch (\Throwable $e) {
             return $this->erro('Erro no cancelamento Betha: ' . $e->getMessage(), 'CONN_CURL');
+        } finally {
+            $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
+        }
+    }
+
+    private function cancelarISSNet(array $nfse, string $motivo, array $config, string $chave): array
+    {
+        $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
+        $idNFSe = (int) $nfse['id'];
+
+        try {
+            $xmlGenerator = new NFSeXMLISSNet();
+            $xml = $xmlGenerator->gerarXMLCancelamento((string) ($nfse['chave_acesso'] ?? ''), $motivo, [
+                'numero' => $nfse['numero'] ?? null,
+                'prestador_cnpj' => $nfse['prestador_cnpj'] ?? null,
+                'prestador_inscricao_municipal' => $nfse['prestador_inscricao_municipal'] ?? null,
+                'codigo_municipio' => $config['codigo_municipio'] ?? null,
+            ]);
+
+            $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], 'InfPedidoCancelamento', 'sha1', 'Id');
+            if (!$assinado['sucesso']) {
+                return $this->erro($assinado['mensagem'], 'XML_ASSINATURA');
+            }
+
+            $api = new NFSeAPIISSNet($config);
+            $resultado = $api->cancelar($assinado['xml'], (string) ($nfse['chave_acesso'] ?? ''), $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+            $retorno = $xmlGenerator->parseRetornoCancelamento($resultado['resposta'] ?? '');
+
+            if ($retorno['sucesso'] || (($resultado['sucesso'] ?? false) && empty($retorno['erros']))) {
+                $this->nfseModel->atualizarCancelada($idNFSe, $motivo);
+                $this->eventoModel->registrar($idNFSe, 'cancelamento', null, $motivo, $resultado['resposta'] ?? null);
+                return ['sucesso' => true, 'mensagem' => 'NFS-e cancelada com sucesso.'];
+            }
+
+            $erroMsg = $retorno['erros'][0]['mensagem'] ?? ($resultado['erro'] ?? 'Erro desconhecido ao cancelar no ISSNet.');
+            $erroCod = $retorno['erros'][0]['codigo'] ?? ($resultado['codigoErro'] ?? 'ERRO_DESCONHECIDO');
+            $this->eventoModel->registrar($idNFSe, 'erro', $erroCod, $erroMsg, $resultado['resposta'] ?? null);
+            return $this->erro($erroMsg, NFSeErros::mapearErroAPI($erroCod));
+        } catch (\Throwable $e) {
+            return $this->erro('Erro no cancelamento ISSNet: ' . $e->getMessage(), 'CONN_CURL');
         } finally {
             $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
         }
@@ -687,6 +776,9 @@ class NFSeService
             ],
             'servico' => [
                 'codigo' => $config['codigo_servico'] ?? '1.1101.11',
+                'item_lista_servico' => $config['item_lista_servico'] ?? '',
+                'codigo_cnae' => $config['codigo_cnae'] ?? '',
+                'codigo_tributacao_municipio' => $config['codigo_tributacao_municipio'] ?? '',
                 'descricao' => $dadosExtras['descricao_servico'] ?? $config['descricao_servico'] ?? 'Locação de veículo automotor sem condutor.',
             ],
             'valores' => [
@@ -697,12 +789,14 @@ class NFSeService
                 'valor_iss' => $valorISS,
                 'trib_issqn' => $tribISSQN,
                 'preencher_ibscbs' => 'N',
+                'exigibilidade_iss' => (int) ($config['exigibilidade_iss'] ?? 1),
                 'aliquota_ibs' => $aliquotaIBS,
                 'valor_ibs' => $valorIBS,
                 'aliquota_cbs' => $aliquotaCBS,
                 'valor_cbs' => $valorCBS,
                 'iss_retido' => $dadosExtras['iss_retido'] ?? 'N',
             ],
+            'incentivo_fiscal' => $config['incentivo_fiscal'] ?? 'N',
             'itens_nao_tributaveis' => $itensNaoTributaveis,
         ];
     }
@@ -852,11 +946,12 @@ class NFSeService
         ];
     }
 
-    private function resolverAPI(string $tipo): NFSeAPIInterface
+    private function resolverAPI(string $tipo, array $config = []): NFSeAPIInterface
     {
         return match ($tipo) {
             'nacional' => new NFSeAPINacional(),
             'betha' => new NFSeAPIBetha(),
+            'issnet' => new NFSeAPIISSNet($config),
             default => throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado: ' . $tipo),
         };
     }
@@ -866,31 +961,38 @@ class NFSeService
         return match ($tipo) {
             'nacional' => new NFSeXMLNacional(),
             'betha' => new NFSeXMLBetha(),
+            'issnet' => new NFSeXMLISSNet(),
             default => throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado: ' . $tipo),
         };
     }
 
     private function prepararXMLAssinado(string $tipoEmissao, array &$dados, array $config, string $chave, array $pem): array
     {
-        if (!in_array($tipoEmissao, ['nacional', 'betha'], true)) {
+        if (!in_array($tipoEmissao, ['nacional', 'betha', 'issnet'], true)) {
             return ['sucesso' => false, 'mensagem' => 'Tipo de emissão NFS-e não suportado: ' . $tipoEmissao, 'codigo' => 'CONFIGURACAO_INCOMPLETA'];
         }
 
         $idMatrizFilial = (int) $config['id_matriz_filial'];
 
         try {
-            $this->validarDPS($dados);
+            if ($tipoEmissao === 'issnet') {
+                $this->validarISSNet($dados);
+            } else {
+                $this->validarDPS($dados);
+            }
         } catch (\InvalidArgumentException $e) {
             return ['sucesso' => false, 'mensagem' => $e->getMessage(), 'codigo' => $this->codigoValidacaoDPS($e->getMessage())];
         }
 
         $xmlGenerator = $this->resolverXML($tipoEmissao);
         $idAttribute = $tipoEmissao === 'betha' ? 'id' : 'Id';
+        $tagToSign = $tipoEmissao === 'issnet' ? 'InfDeclaracaoPrestacaoServico' : 'infDPS';
+        $algoritmo = $tipoEmissao === 'issnet' ? 'sha1' : 'sha256';
 
         for ($tentativa = 0; $tentativa < 3; $tentativa++) {
             $dados['numero'] = $this->configModel->consultarProximoNumero($idMatrizFilial, $chave);
             $xml = $xmlGenerator->gerarXML($dados);
-            $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], 'infDPS', 'sha256', $idAttribute);
+            $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], $tagToSign, $algoritmo, $idAttribute);
 
             if (!$assinado['sucesso']) {
                 return ['sucesso' => false, 'mensagem' => $assinado['mensagem'], 'codigo' => 'XML_ASSINATURA'];
@@ -900,7 +1002,7 @@ class NFSeService
                 return [
                     'sucesso' => true,
                     'xml' => $assinado['xml'],
-                    'api' => $this->resolverAPI($tipoEmissao),
+                    'api' => $this->resolverAPI($tipoEmissao, $config),
                     'xml_parser' => $xmlGenerator,
                     'numero' => $dados['numero'],
                 ];
@@ -994,6 +1096,23 @@ class NFSeService
         }
         if (!in_array(strlen($cpfCnpj), [11, 14], true)) {
             throw new \InvalidArgumentException(NFSeErros::getInstrucao('TOMADOR_DOCUMENTO_AUSENTE'));
+        }
+    }
+
+    private function validarISSNet(array $dados): void
+    {
+        $this->validarDPS($dados);
+
+        $prestador = $dados['prestador'] ?? [];
+        $servico = $dados['servico'] ?? [];
+
+        $im = preg_replace('/\D/', '', (string) ($prestador['inscricao_municipal'] ?? ''));
+        if ($im === '') {
+            throw new \InvalidArgumentException('Inscrição Municipal do prestador é obrigatória para ISSNet.');
+        }
+
+        if (trim((string) ($servico['item_lista_servico'] ?? '')) === '') {
+            throw new \InvalidArgumentException('Item da lista de serviço é obrigatório para ISSNet.');
         }
     }
 

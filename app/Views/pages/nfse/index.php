@@ -335,7 +335,8 @@ $i18nNfse = [
         const valor = Currency.format(parseFloat(n.valor_servicos || 0), true);
         const tiposEmissao = {
             nacional: 'Nacional',
-            betha: 'Betha'
+            betha: 'Betha',
+            issnet: 'ISSNet'
         };
         const tipo = tiposEmissao[n.tipo_emissao] || n.tipo_emissao || '-';
         const statusBadge = getStatusBadge(n);

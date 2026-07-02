@@ -16,6 +16,7 @@ Tipos de emissao suportados:
 |--------------|--------|-----------|-----|------------|-------|
 | `nacional` | Sistema Nacional SEFIN | REST + mTLS | DPS | SHA256 | Sincrono |
 | `betha` | Betha Cloud DPS | SOAP 1.1 + mTLS | DPS Betha | SHA256 | Assincrono |
+| `issnet` | ISSNet/ABRASF 2.04 | SOAP 1.1 + mTLS | RPS ABRASF | SHA1 | Sincrono |
 
 Nao use fallback entre emissores. Se `tipo_emissao` nao for suportado, o sistema deve falhar com erro claro.
 
@@ -47,6 +48,8 @@ app/Services/NFSe/Nacional/NFSeXMLNacional.php
 app/Services/NFSe/Nacional/NFSeAPINacional.php
 app/Services/NFSe/Betha/NFSeXMLBetha.php
 app/Services/NFSe/Betha/NFSeAPIBetha.php
+app/Services/NFSe/ISSNet/NFSeXMLISSNet.php
+app/Services/NFSe/ISSNet/NFSeAPIISSNet.php
 app/Crons/Jobs/NFSeEmitirAutoJob.php
 app/Crons/Jobs/NFSeReenviarJob.php
 app/Crons/Jobs/NFSeConsultarBethaJob.php
@@ -79,12 +82,15 @@ Campos principais:
 
 | Campo | Uso |
 |-------|-----|
-| `tipo_emissao` | `nacional` ou `betha` |
+| `tipo_emissao` | `nacional`, `betha` ou `issnet` |
 | `ambiente` | `1=Producao`, `2=Homologacao` |
 | `serie` | Serie DPS/RPS |
 | `numero_atual` | Contador Nacional/Betha |
 | `codigo_municipio` | Codigo IBGE de 7 digitos do prestador |
 | `codigo_servico` | NBS/codigo de servico conforme emissor |
+| `item_lista_servico` | Item da lista de servico ABRASF/ISSNet |
+| `codigo_cnae` | CNAE ABRASF/ISSNet quando exigido |
+| `codigo_tributacao_municipio` | Codigo de tributacao municipal ABRASF/ISSNet quando exigido |
 | `regime_tributario` | `1=Simples ME/EPP`, `4=MEI`, `2=Lucro Presumido`, `3=Lucro Real` |
 | `reg_apuracao_sn` | Regime de apuracao do Simples, quando aplicavel |
 | `trib_issqn` | Tributacao ISSQN |
@@ -169,6 +175,37 @@ Exemplo:
 ```
 DPS5300108212345678000199DPS00000000000000123
 ```
+
+---
+
+## ISSNet / ABRASF 2.04
+
+Usado quando `tipo_emissao = issnet`.
+
+Padrao:
+
+- SOAP 1.1 com `nfseCabecMsg` e `nfseDadosMsg`.
+- Namespace das mensagens de dados: `http://www.abrasf.org.br/nfse.xsd`.
+- Cabecalho ABRASF: `versao="2.04"` e `versaoDados=2.04`.
+- Emissao sincronica por `GerarNfse`.
+- Consulta por RPS via `ConsultarNfsePorRps`.
+- Cancelamento via `CancelarNfse`.
+- Assinatura XMLDSIG SHA1 no elemento `InfDeclaracaoPrestacaoServico`; cancelamento assina `InfPedidoCancelamento`.
+
+Endpoint DF conhecido:
+
+- Producao: `https://df.issnetonline.com.br/webservicenfse204/nfse.asmx`
+- Homologacao: `https://www.issnetonline.com.br/homologa/webservicenfse204/nfse.asmx`
+
+O endpoint e definido no codigo pelo emissor e escolhido pelo campo `ambiente`; nao deve ser configurado por tenant.
+
+Antes de ativar ISSNet em producao:
+
+- Confirmar certificado cadastrado/liberado no ISSNet.
+- Confirmar AIDF ativa, serie e faixa de RPS autorizada.
+- Preencher IM da matriz/filial.
+- Preencher `item_lista_servico`; preencher CNAE e codigo de tributacao municipal quando o ente exigir.
+- Confirmar com ISSNet/ente municipal se o ambiente de homologacao esta liberado antes de testes fiscais.
 
 ---
 
