@@ -1157,10 +1157,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const saida = document.getElementById('data_saida')?.value;
             const prevista = document.getElementById('data_prevista')?.value;
             if (saida && prevista) {
-                const status = document.getElementById('locacaoStatus')?.value || 'R';
-                const toleranciaMinutos = status === 'F'
-                    ? (parseInt(document.getElementById('minuto_tolerancia')?.value, 10) || 0)
-                    : 0;
+                const toleranciaMinutos = parseInt(document.getElementById('minuto_tolerancia')?.value, 10) || 0;
                 const diffMs = Math.max(0, DateHelper.diffDateTime(saida, prevista));
                 const minutosCobradosMs = Math.max(0, diffMs - (toleranciaMinutos * 60 * 1000));
                 const diff = Math.ceil(minutosCobradosMs / (1000 * 60 * 60 * 24));

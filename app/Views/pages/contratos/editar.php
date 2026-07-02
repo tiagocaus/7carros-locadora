@@ -368,11 +368,12 @@
                 <div id="conteudoConfigPagamento" class="mt-4 hidden">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div class="md:col-span-3 form-input-group">
-                            <label class="form-label-group">
-                                <?= t('modules.contratos.fields.bank_account') ?> <i class="fas fa-lock text-slate-400 text-xs ml-1"></i>
+                            <label for="id_conta" class="form-label-group">
+                                <?= t('modules.contratos.fields.bank_account') ?>
                             </label>
-                            <input type="text" id="configContaDisplay" class="form-input-group-field bg-slate-100 text-sm" readonly>
-                            <input type="hidden" id="id_conta" name="id_conta" value="<?= $contrato['id_conta'] ?? '' ?>">
+                            <select id="id_conta" name="id_conta" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contas-bancarias/buscar" data-chosen-placeholder="<?= t('common.labels.select_account') ?>">
+                                <option value=""><?= t('common.labels.select') ?></option>
+                            </select>
                         </div>
                         <div class="md:col-span-3 form-input-group">
                             <label for="id_forma_pagamento" class="form-label-group">

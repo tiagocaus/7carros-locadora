@@ -263,7 +263,7 @@ edicao especial de valores.
 - As leituras intermediarias sao gravadas em `contratos_odometros`, uma por contrato/veiculo/data. Nova leitura no mesmo dia atualiza o registro existente.
 - Ao salvar, o sistema atualiza tambem `veiculos.odometro`, permitindo que a manutencao preventiva considere a km atual do veiculo.
 - `contratos_veiculos.odometro_saida` permanece como km inicial e `contratos_veiculos.odometro_entrada` permanece reservado para devolucao/substituicao.
-- Para plano `KMC`, o offcanvas exibe km rodado, franquia, excedente e valor estimado. Nao gera cobranca automatica; a cobranca oficial continua na devolucao/substituicao.
+- Para plano `KMC`, o offcanvas exibe km rodado, franquia efetiva proporcional ao tempo de uso do veiculo, excedente e valor estimado. Nao gera cobranca automatica; a cobranca oficial continua na devolucao/substituicao.
 
 ## Planos de Veiculo
 
@@ -278,6 +278,30 @@ edicao especial de valores.
 - `KP` persiste o valor principal em `valor_plano_km_pago`.
 - Ao salvar/adicionar/substituir veiculo, os campos de valores de outros planos sao zerados para evitar reaproveitamento de valor antigo oculto na interface.
 - `valor_km_excedente` e `km_franquia` permanecem independentes e sao usados nos calculos de km controlado/pago conforme a devolucao ou substituicao.
+
+### Franquia efetiva no plano KMC
+
+Em contratos, `contratos_veiculos.km_franquia` representa a franquia da unidade de contagem do contrato, nao uma franquia fixa vitalicia do vinculo do veiculo. A franquia efetiva usada para estimativa e cobranca e proporcional ao tempo de uso do veiculo.
+
+Bases de contagem:
+- `dia` = 1 dia
+- `semana` = 7 dias
+- `mes` = 30 dias
+- `ano` = 365 dias
+
+Formula oficial:
+```text
+franquia efetiva = ceil((km_franquia / base da contagem) * dias de uso do veiculo)
+km excedente = max(0, km rodados - franquia efetiva)
+valor km = km excedente * valor_km_excedente
+```
+
+O periodo de uso do veiculo vai de `contratos_veiculos.data_saida` ate a data de referencia do calculo. O sistema usa no minimo 1 dia de uso. Essa regra vale para registro rapido de odometro, devolucao e substituicao.
+
+Exemplos para contrato mensal `KMC` com `km_franquia = 3.000`:
+- 15 dias de uso: franquia efetiva de 1.500 km
+- 30 dias de uso: franquia efetiva de 3.000 km
+- 90 dias de uso: franquia efetiva de 9.000 km
 
 ## Autorenovacao
 

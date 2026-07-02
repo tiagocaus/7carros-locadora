@@ -533,6 +533,7 @@ class Contrato extends Model
 
         // Gerar sequencia
         $sequencia = $this->gerarSequencia($dados['chave']);
+        $dataRenovacao = $this->resolverDataRenovacaoInicial($dados);
 
         return $this->qb
             ->table('contratos')
@@ -543,7 +544,7 @@ class Contrato extends Model
                 'id_matriz_filial_retirada' => !empty($dados['id_matriz_filial_retirada']) ? (int) $dados['id_matriz_filial_retirada'] : null,
                 'data_ini' => $dados['data_ini'] ?? DateHelper::nowForDatabase(),
                 'data_fim' => $dados['data_fim'] ?? DateHelper::nowForDatabase(),
-                'data_renovacao' => !empty($dados['data_renovacao']) ? $dados['data_renovacao'] : null,
+                'data_renovacao' => $dataRenovacao,
                 'contagem' => $dados['contagem'] ?? 'dia',
                 'dias' => (int) ($dados['dias'] ?? 1),
                 'auto_renovacao' => !empty($dados['auto_renovacao']) ? $dados['auto_renovacao'] : null,
@@ -621,6 +622,13 @@ class Contrato extends Model
         if (array_key_exists('auto_renovacao', $dados)) {
             $dadosUpdate['auto_renovacao'] = !empty($dados['auto_renovacao']) ? $dados['auto_renovacao'] : null;
         }
+        if (
+            array_key_exists('data_renovacao', $dados)
+            || array_key_exists('auto_renovacao', $dados)
+            || array_key_exists('data_fim', $dados)
+        ) {
+            $dadosUpdate['data_renovacao'] = $this->resolverDataRenovacaoInicial(array_merge($contrato, $dados));
+        }
 
         // Arrays JSON
         if (array_key_exists('condutor_adicional', $dados)) {
@@ -673,6 +681,27 @@ class Contrato extends Model
             ->table('contratos')
             ->where('id', '=', $id)
             ->update($dadosUpdate);
+    }
+
+    /**
+     * Data Renovacao e preenchida automaticamente para contratos com autorenovacao.
+     * A primeira renovacao acompanha o fim do primeiro periodo contratual.
+     */
+    private function resolverDataRenovacaoInicial(array $dados): ?string
+    {
+        if (empty($dados['auto_renovacao'])) {
+            return null;
+        }
+
+        $data = !empty($dados['data_renovacao'])
+            ? (string) $dados['data_renovacao']
+            : (string) ($dados['data_fim'] ?? '');
+
+        if (!preg_match('/^(\d{4}-\d{2}-\d{2})/', $data, $match)) {
+            return null;
+        }
+
+        return $match[1];
     }
 
     /**

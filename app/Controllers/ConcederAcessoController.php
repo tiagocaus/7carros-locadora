@@ -32,7 +32,7 @@ class ConcederAcessoController
 
     private function authorize(): bool
     {
-        if (!Auth::can('configuracoes.editar')) {
+        if (!Auth::can('suporte.gerenciar') && !Auth::can('configuracoes.editar')) {
             Response::json([
                 'success' => false,
                 'message' => 'Sem permissao para gerenciar acesso de suporte'

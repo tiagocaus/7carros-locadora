@@ -783,8 +783,12 @@ class FinanceiroReport extends BaseReportModel
             ])
             ->selectRaw('cl.nome_rsocial AS cliente_nome')
             ->selectRaw('fo.nome_rsocial AS fornecedor_nome')
+            ->selectRaw('cb.nome AS conta_nome')
+            ->selectRaw('fp.nome AS forma_pagamento_nome')
             ->leftJoin('clientes', 'cl', 'f.id_cliente', '=', 'cl.id')
             ->leftJoin('fornecedores', 'fo', 'f.id_fornecedor', '=', 'fo.id')
+            ->leftJoin('contas_bancarias', 'cb', 'f.id_conta', '=', 'cb.id')
+            ->leftJoin('formas_pagamento', 'fp', 'f.id_forma_pagamento', '=', 'fp.id')
             ->whereRaw('f.pago = ?', ['S'])
             ->whereRaw('f.data_pago BETWEEN ? AND ?', [$dataInicio, $dataFim])
             ->orderByRaw('f.data_pago ASC, f.id ASC');
@@ -814,6 +818,8 @@ class FinanceiroReport extends BaseReportModel
             $pessoaNome = $row['tipo'] === 'R'
                 ? ($row['cliente_nome'] ?? '')
                 : ($row['fornecedor_nome'] ?? '');
+            $contaNome = trim((string) ($row['conta_nome'] ?? ''));
+            $formaPagamentoNome = trim((string) ($row['forma_pagamento_nome'] ?? ''));
 
             $details[] = [
                 'id' => (int) $row['id'],
@@ -822,6 +828,8 @@ class FinanceiroReport extends BaseReportModel
                 'pessoa_nome' => $pessoaNome,
                 'descricao' => $row['descricao'] ?? '',
                 'historico' => $row['descricao'] ?? '',
+                'conta' => $contaNome !== '' ? $contaNome : '-',
+                'forma_pagamento' => $formaPagamentoNome !== '' ? $formaPagamentoNome : '-',
                 'entrada' => $entrada,
                 'saida' => $saida,
                 'saldo' => round($saldoCorrente, 2),

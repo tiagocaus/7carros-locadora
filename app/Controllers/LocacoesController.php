@@ -259,6 +259,36 @@ class LocacoesController
         return max(1, (int) ceil($minutosCobrados / 1440));
     }
 
+    private function aplicarDiasComTolerancia(array &$dados, array $fallback = []): void
+    {
+        $status = (string) ($dados['status'] ?? $fallback['status'] ?? 'R');
+        $dataSaida = $dados['data_saida'] ?? $fallback['data_saida'] ?? null;
+        $dataFinal = $status === 'F'
+            ? ($dados['data_chegada'] ?? $fallback['data_chegada'] ?? null)
+            : ($dados['data_prevista'] ?? $fallback['data_prevista'] ?? null);
+
+        if ($status === 'F' && empty($dataFinal)) {
+            $dataFinal = $dados['data_prevista'] ?? $fallback['data_prevista'] ?? null;
+        }
+
+        if (empty($dataSaida) || empty($dataFinal)) {
+            return;
+        }
+
+        $minutosTolerancia = (int) (
+            $dados['minuto_tolerancia']
+            ?? $fallback['minuto_tolerancia']
+            ?? $fallback['minutos_tolerancia']
+            ?? 0
+        );
+
+        $dados['dias'] = $this->calcularDiasComTolerancia(
+            (string) $dataSaida,
+            (string) $dataFinal,
+            $minutosTolerancia
+        );
+    }
+
     private function validarVeiculoDisponivelParaSaida(int $veiculoId, string $chave): void
     {
         $veiculo = (new Veiculo())->buscarPorId($veiculoId);
@@ -546,6 +576,8 @@ class LocacoesController
                 return;
             }
 
+            $this->aplicarDiasComTolerancia($dados);
+
             $erroCaucao = $this->validarCaucaoLocacao($dados);
             if ($erroCaucao !== null) {
                 Response::json(['success' => false, 'message' => $erroCaucao], 400);
@@ -727,20 +759,6 @@ class LocacoesController
                     ? (string) $dados['data_chegada']
                     : DateHelper::nowForDatabase();
                 unset($dados['data_prevista']);
-
-                if (!empty($dados['data_saida'])) {
-                    $minutosTolerancia = (int) (
-                        $dados['minuto_tolerancia']
-                        ?? $locacao['minuto_tolerancia']
-                        ?? $locacao['minutos_tolerancia']
-                        ?? 0
-                    );
-                    $dados['dias'] = $this->calcularDiasComTolerancia(
-                        (string) $dados['data_saida'],
-                        (string) $dados['data_chegada'],
-                        $minutosTolerancia
-                    );
-                }
             }
             $dataPrincipalEhChegada = $statusNovoValidacao === 'F';
 
@@ -748,6 +766,8 @@ class LocacoesController
                 Response::json(['success' => false, 'message' => $dataPrincipalEhChegada ? $this->apiMessage('dates_arrival_required') : $this->apiMessage('dates_required')], 400);
                 return;
             }
+
+            $this->aplicarDiasComTolerancia($dados, $locacao);
 
             if (empty($dados['id_matriz_filial_retirada'])) {
                 Response::json(['success' => false, 'message' => $this->apiMessage('pickup_location_required')], 400);

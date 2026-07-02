@@ -59,7 +59,7 @@ $singleMode = count($veiculos) === 1;
                 $ultima = $veiculo['ultima_leitura'] ?? null;
                 $plano = $veiculo['plano'] ?? 'KL';
                 $kmRodado = (int) ($veiculo['km_rodado_atual'] ?? 0);
-                $kmFranquia = (int) ($veiculo['km_franquia'] ?? 0);
+                $kmFranquia = (int) ($veiculo['km_franquia_efetiva'] ?? $veiculo['km_franquia'] ?? 0);
                 $valorKm = (float) ($veiculo['valor_km_excedente'] ?? 0);
                 $kmExcedente = $plano === 'KMC' ? max(0, $kmRodado - $kmFranquia) : 0;
                 $diasUso = max(1, (int) ($veiculo['dias_uso'] ?? 1));

@@ -51,6 +51,17 @@ $_formatarCombustivelContratoFatura = static function($nivel, array $item): stri
 
     return $labels[(int) $nivel] ?? '-';
 };
+$_formatarVeiculoContratoFatura = static function(array $item): string {
+    $placa = trim((string) ($item['veiculo_placa'] ?? ''));
+    $nome = trim((string) (($item['veiculo_marca'] ?? '') . ' ' . ($item['veiculo_modelo'] ?? '')));
+    $grupo = trim((string) ($item['grupo_nome'] ?? ''));
+
+    if ($placa !== '' || $nome !== '') {
+        return trim($placa . ($nome !== '' ? ' - ' . $nome : ''));
+    }
+
+    return $grupo !== '' ? t('modules.contratos.pdf.group_header') . ': ' . $grupo : '-';
+};
 ?>
 
 <!-- HEADER -->
@@ -252,6 +263,43 @@ $_formatarCombustivelContratoFatura = static function($nivel, array $item): stri
                 </td>
             </tr>
             <?php endif; ?>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
+<!-- HISTORICO DE VEICULOS / SUBSTITUICOES -->
+<?php
+    $historicoVeiculosContratoPdf = is_array($contrato['veiculos'] ?? null) ? $contrato['veiculos'] : [];
+    $mostrarHistoricoVeiculosContratoPdf = count($historicoVeiculosContratoPdf) > 1;
+    foreach ($historicoVeiculosContratoPdf as $historicoVeiculoContratoPdf) {
+        if (!empty($historicoVeiculoContratoPdf['data_entrada']) || !empty($historicoVeiculoContratoPdf['motivo_saida'])) {
+            $mostrarHistoricoVeiculosContratoPdf = true;
+            break;
+        }
+    }
+?>
+<?php if ($mostrarHistoricoVeiculosContratoPdf): ?>
+<div class="section" style="margin-top: 12px;">
+    <div class="section-title"><?= t('modules.contratos.pdf.vehicle_history_substitutions') ?></div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 38%;"><?= t('modules.contratos.pdf.vehicle_header') ?></th>
+                <th style="width: 18%;"><?= t('modules.contratos.pdf.checkout_header') ?></th>
+                <th style="width: 18%;"><?= t('modules.contratos.pdf.return_header') ?></th>
+                <th style="width: 26%;"><?= t('modules.contratos.pdf.reason_header') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($historicoVeiculosContratoPdf as $historicoVeiculoContratoPdf): ?>
+            <tr>
+                <td><?= htmlspecialchars($_formatarVeiculoContratoFatura($historicoVeiculoContratoPdf)) ?></td>
+                <td><?= $_formatarDataContratoFatura($historicoVeiculoContratoPdf['data_saida'] ?? null, true) ?></td>
+                <td><?= !empty($historicoVeiculoContratoPdf['data_entrada']) ? $_formatarDataContratoFatura($historicoVeiculoContratoPdf['data_entrada'], true) : t('modules.contratos.pdf.current_vehicle_label') ?></td>
+                <td><?= htmlspecialchars(!empty($historicoVeiculoContratoPdf['motivo_saida']) ? $historicoVeiculoContratoPdf['motivo_saida'] : (!empty($historicoVeiculoContratoPdf['data_entrada']) ? t('modules.contratos.pdf.returned_vehicle_label') : t('modules.contratos.pdf.current_vehicle_label'))) ?></td>
+            </tr>
             <?php endforeach; ?>
         </tbody>
     </table>

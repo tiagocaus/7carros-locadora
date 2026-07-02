@@ -437,6 +437,8 @@ Este documento especifica o comportamento e as informações que cada relatório
 |-------|-----------|
 | Data/Hora | Momento da movimentação |
 | Histórico | Descrição da operação |
+| Conta | Conta bancária/caixa da movimentação |
+| Forma de pag. | Forma de pagamento da movimentação |
 | Entrada | Valor de entrada |
 | Saída | Valor de saída |
 | Saldo | Saldo acumulado |

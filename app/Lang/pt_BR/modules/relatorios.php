@@ -850,6 +850,8 @@ return [
             'col_pessoa' => 'Cliente/Fornecedor',
             'col_descricao' => 'Descrição',
             'col_historico' => 'Descrição',
+            'col_conta' => 'Conta',
+            'col_forma_pagamento' => 'Forma de pag.',
             'col_entrada' => 'Entrada',
             'col_saida' => 'Saída',
             'col_saldo' => 'Saldo',

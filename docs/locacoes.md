@@ -129,6 +129,10 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 | created_at | TIMESTAMP | Data de criacao |
 | updated_at | DATETIME | Data de atualizacao |
 
+### Minutos de Tolerancia
+
+O campo `minuto_tolerancia` reduz o tempo cobrado no calculo de `dias` em todos os status da locacao. Para reservas, pendentes e locacoes abertas (`R`, `P`, `A`), o calculo usa o intervalo entre `data_saida` e `data_prevista`; para locacoes fechadas (`F`), usa `data_saida` e `data_chegada`. Alteracoes no campo na tela devem recalcular imediatamente dias, diaria e resumo.
+
 ### Tabela `locacoes_caucoes`
 
 Armazena o deposito de garantia da locacao. Substitui as colunas legadas de caucao em

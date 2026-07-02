@@ -328,6 +328,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     // Dados do servidor
     const veiculosAtivos = <?= json_encode($veiculosAtivos, JSON_UNESCAPED_UNICODE) ?>;
     const contratoId = document.getElementById('contratoId').value;
+    const contratoContagem = <?= json_encode($contrato['contagem'] ?? 'dia', JSON_UNESCAPED_UNICODE) ?>;
     const singleMode = veiculosAtivos.length === 1;
     const filialRetiradaId = <?= (int) $filialRetiradaId ?>;
     const hojeInput = <?= json_encode($hojeInput, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -448,7 +449,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         card.querySelector('.calculo-section').classList.remove('hidden');
 
         const plano = v.plano;
-        const kmFranquiaVal = parseInt(v.km_franquia) || 0;
         const valorKmExcVal = parseFloat(v.valor_km_excedente) || 0;
         const combustivelSaida = parseInt(v.combustivel_saida) || 0;
 
@@ -463,12 +463,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             `;
             totalKm = 0;
         } else if (plano === 'KMC') {
-            const kmExcedente = Math.max(0, kmRodados - kmFranquiaVal);
+            const kmFranquiaEfetiva = calcularFranquiaKmEfetiva(v, card.querySelector('.data-devolucao')?.value || '');
+            const kmExcedente = Math.max(0, kmRodados - kmFranquiaEfetiva);
             totalKm = kmExcedente * valorKmExcVal;
             htmlKm = `
                 <p class="text-sm text-slate-600 mb-2">${i18n.calcPlanKMC}</p>
                 <div class="space-y-1 text-sm">
-                    <div class="flex justify-between"><span class="text-slate-500">${i18n.calcFranchise}:</span><strong>${Km.format(kmFranquiaVal)} km</strong></div>
+                    <div class="flex justify-between"><span class="text-slate-500">${i18n.calcFranchise}:</span><strong>${Km.format(kmFranquiaEfetiva)} km</strong></div>
                     <div class="flex justify-between"><span class="text-slate-500">${i18n.calcKmDriven}:</span><strong>${Km.format(kmRodados)} km</strong></div>
                     <div class="flex justify-between"><span class="text-slate-500">${i18n.calcKmExcess}:</span><strong>${Km.format(kmExcedente)} km</strong></div>
                     <div class="flex justify-between"><span class="text-slate-500">${i18n.calcValuePerKm}:</span><strong>${Currency.format(valorKmExcVal, true)}</strong></div>
@@ -538,6 +539,31 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         card.querySelector('.calc-subtotal-content').innerHTML = htmlSubtotal;
 
         atualizarResumoGeral();
+    }
+
+    function diasPorContagemContrato() {
+        const mapa = { semana: 7, mes: 30, ano: 365 };
+        return mapa[contratoContagem] || 1;
+    }
+
+    function calcularDiasUsoVeiculo(v, dataReferencia) {
+        const saidaRaw = v.data_saida || '';
+        if (!saidaRaw || !dataReferencia) return 1;
+
+        const saida = new Date(String(saidaRaw).replace(' ', 'T'));
+        const referencia = new Date(String(dataReferencia).replace(' ', 'T'));
+        if (Number.isNaN(saida.getTime()) || Number.isNaN(referencia.getTime()) || referencia < saida) {
+            return 1;
+        }
+
+        return Math.max(1, Math.floor((referencia.getTime() - saida.getTime()) / 86400000));
+    }
+
+    function calcularFranquiaKmEfetiva(v, dataReferencia) {
+        const kmFranquia = parseInt(v.km_franquia, 10) || 0;
+        if ((v.plano || '') !== 'KMC' || kmFranquia <= 0) return 0;
+
+        return Math.ceil((kmFranquia / diasPorContagemContrato()) * calcularDiasUsoVeiculo(v, dataReferencia));
     }
 
     // ==================== TAXAS EXTRAS ====================
@@ -1178,6 +1204,12 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         document.querySelectorAll('.tanque-chegada').forEach(select => {
             select.addEventListener('change', function() {
+                calcularDiferencasVeiculo(parseInt(this.dataset.index));
+            });
+        });
+
+        document.querySelectorAll('.data-devolucao').forEach(input => {
+            input.addEventListener('change', function() {
                 calcularDiferencasVeiculo(parseInt(this.dataset.index));
             });
         });

@@ -497,8 +497,8 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
             <?php foreach ($historicoVeiculosPdf as $historicoVeiculoPdf): ?>
             <tr>
                 <td><?= htmlspecialchars($_formatarVeiculoFatura($historicoVeiculoPdf)) ?></td>
-                <td><?= $_formatarDataFatura($historicoVeiculoPdf['data_saida'] ?? null) ?></td>
-                <td><?= !empty($historicoVeiculoPdf['data_entrada']) ? $_formatarDataFatura($historicoVeiculoPdf['data_entrada']) : t('modules.locacoes.pdf.current_vehicle_label') ?></td>
+                <td><?= $_formatarDataFatura($historicoVeiculoPdf['data_saida'] ?? null, true) ?></td>
+                <td><?= !empty($historicoVeiculoPdf['data_entrada']) ? $_formatarDataFatura($historicoVeiculoPdf['data_entrada'], true) : t('modules.locacoes.pdf.current_vehicle_label') ?></td>
                 <td><?= htmlspecialchars(!empty($historicoVeiculoPdf['motivo_saida']) ? $historicoVeiculoPdf['motivo_saida'] : (!empty($historicoVeiculoPdf['data_entrada']) ? t('modules.locacoes.pdf.returned_vehicle_label') : t('modules.locacoes.pdf.current_vehicle_label'))) ?></td>
             </tr>
             <?php endforeach; ?>

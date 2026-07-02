@@ -105,6 +105,22 @@
 
     // ===== FUNCOES DE CALCULO DE PERIODO =====
 
+    function parseOperationalDateTimeInput(value) {
+        if (!value) return null;
+
+        const match = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+        if (!match) return null;
+
+        return new Date(
+            parseInt(match[1], 10),
+            parseInt(match[2], 10) - 1,
+            parseInt(match[3], 10),
+            parseInt(match[4] || '0', 10),
+            parseInt(match[5] || '0', 10),
+            parseInt(match[6] || '0', 10)
+        );
+    }
+
     function formatDateTimeLocal(date) {
         const pad = value => String(value).padStart(2, '0');
         const operationalDateTime = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
@@ -125,7 +141,9 @@
 
     // Calcula data fim baseado na quantidade de períodos (calendário real)
     function calcularDataFimPorPeriodo(dataIni, quantidade, contagem) {
-        const inicio = new Date(dataIni);
+        const inicio = parseOperationalDateTimeInput(dataIni);
+        if (!inicio) return null;
+
         const resultado = new Date(inicio);
 
         switch (contagem) {
@@ -148,8 +166,12 @@
 
     // Calcula quantidade de períodos entre duas datas e verifica se é exato
     function calcularQuantidadePeriodos(dataIni, dataFim, contagem) {
-        const inicio = new Date(dataIni);
-        const fim = new Date(dataFim);
+        const inicio = parseOperationalDateTimeInput(dataIni);
+        const fim = parseOperationalDateTimeInput(dataFim);
+
+        if (!inicio || !fim) {
+            return { quantidade: 0, exato: false };
+        }
 
         // Diferença em milissegundos
         const diffMs = fim - inicio;
@@ -181,7 +203,7 @@
 
                 // Verifica se dia e horário coincidem
                 const dataEsperada = calcularDataFimPorPeriodo(dataIni, meses, 'mes');
-                const isExatoMes = dataEsperada.getTime() === fim.getTime();
+                const isExatoMes = dataEsperada && dataEsperada.getTime() === fim.getTime();
 
                 return { quantidade: meses, exato: isExatoMes };
 
@@ -191,7 +213,7 @@
 
                 // Verifica se mês, dia e horário coincidem
                 const dataEsperadaAno = calcularDataFimPorPeriodo(dataIni, anos, 'ano');
-                const isExatoAno = dataEsperadaAno.getTime() === fim.getTime();
+                const isExatoAno = dataEsperadaAno && dataEsperadaAno.getTime() === fim.getTime();
 
                 return { quantidade: anos, exato: isExatoAno };
 
@@ -520,8 +542,9 @@
 
         // Primeiro vencimento (campo date, não moeda)
         const primeiroVenc = document.getElementById('primeiro_vencimento');
-        if (primeiroVenc && data.primeiro_pagamento) {
-            primeiroVenc.value = data.primeiro_pagamento.substring(0, 10);
+        const primeiroVencimento = data.primeiro_vencimento || data.data_primeiro_vencimento || '';
+        if (primeiroVenc && /^\d{4}-\d{2}-\d{2}/.test(String(primeiroVencimento))) {
+            primeiroVenc.value = String(primeiroVencimento).substring(0, 10);
         }
         const valorDescontoEl = document.getElementById('valor_desconto');
         if (valorDescontoEl) valorDescontoEl.value = data.valor_desconto ? Currency.format(data.valor_desconto) : '0,00';
@@ -532,7 +555,7 @@
 
         // Veiculos
         if (data.veiculos && data.veiculos.length > 0) {
-            data.veiculos.forEach(v => {
+            data.veiculos.filter(v => !v.data_entrada).forEach(v => {
                 adicionarVeiculoNaLista({
                     id_veiculo: v.id_veiculo,
                     id_grupo: v.id_grupo,
@@ -551,6 +574,7 @@
                     valor_seguro_carro: v.valor_seguro_carro,
                     seguro_terceiros: v.seguro_terceiros,
                     valor_seguro_terceiros: v.valor_seguro_terceiros,
+                    data_entrada: v.data_entrada || null,
                     _salvo: true
                 });
             });
@@ -1658,24 +1682,35 @@
 
     // ===== RENOVACAO =====
 
-    function toggleDataRenovacao() {
+    function atualizarDataRenovacaoAutomatica(force = false) {
         const autoRenovacao = document.getElementById('auto_renovacao')?.value;
         const divDataRenovacao = document.getElementById('divDataRenovacao');
         const inputDataRenovacao = document.getElementById('data_renovacao');
+
+        if (!inputDataRenovacao || !divDataRenovacao) return;
 
         if (autoRenovacao) {
             divDataRenovacao.style.display = 'block';
             inputDataRenovacao.required = true;
 
-            // Calcular data renovacao baseado em data_ini + contagem/dias
-            if (!inputDataRenovacao.value) {
-                const dataIni = document.getElementById('data_ini')?.value;
-                const dias = parseInt(document.getElementById('dias')?.value) || 1;
-                const contagem = document.getElementById('contagem')?.value;
+            if (!force && inputDataRenovacao.value) {
+                return;
+            }
 
-                if (dataIni && dias > 0) {
-                    const dataRenovacao = calcularDataFimPorPeriodo(dataIni, dias, contagem);
-                    inputDataRenovacao.value = String(dataRenovacao).substring(0, 10);
+            const dataFim = document.getElementById('data_fim')?.value;
+            if (dataFim) {
+                inputDataRenovacao.value = dataFim.substring(0, 10);
+                return;
+            }
+
+            const dataIni = document.getElementById('data_ini')?.value;
+            const dias = parseInt(document.getElementById('dias')?.value) || 1;
+            const contagem = document.getElementById('contagem')?.value;
+
+            if (dataIni && dias > 0) {
+                const dataRenovacao = calcularDataFimPorPeriodo(dataIni, dias, contagem);
+                if (dataRenovacao) {
+                    inputDataRenovacao.value = formatDateTimeLocal(dataRenovacao).substring(0, 10);
                 }
             }
         } else {
@@ -1683,6 +1718,10 @@
             inputDataRenovacao.required = false;
             inputDataRenovacao.value = '';
         }
+    }
+
+    function toggleDataRenovacao() {
+        atualizarDataRenovacaoAutomatica(false);
     }
 
     // ===== ABAS =====
@@ -1781,7 +1820,7 @@
             if (dataIni && dias) {
                 const novaDataFim = calcularDataFimPorPeriodo(dataIni, parseInt(dias), this.value);
                 const dataFimEl = document.getElementById('data_fim');
-                if (dataFimEl) dataFimEl.value = formatDateTimeLocal(novaDataFim);
+                if (dataFimEl && novaDataFim) dataFimEl.value = formatDateTimeLocal(novaDataFim);
             }
             // Se tem data fim mas não tem dias, valida o período
             else if (dataIni && dataFim) {
@@ -1806,7 +1845,7 @@
             // Recalcular data renovacao se ativo
             const dataRenovacaoEl = document.getElementById('data_renovacao');
             if (dataRenovacaoEl) dataRenovacaoEl.value = '';
-            toggleDataRenovacao();
+            atualizarDataRenovacaoAutomatica(true);
         });
 
         // Data fim muda -> calcular quantidade de períodos
@@ -1832,6 +1871,7 @@
                 const diasEl = document.getElementById('dias');
                 if (diasEl) diasEl.value = resultado.quantidade;
                 recalcularTaxasEPeriodo();
+                atualizarDataRenovacaoAutomatica(true);
             }
         });
 
@@ -1844,7 +1884,7 @@
             if (dataIni && dias > 0) {
                 const novaDataFim = calcularDataFimPorPeriodo(dataIni, dias, contagem);
                 const dataFimEl = document.getElementById('data_fim');
-                if (dataFimEl) dataFimEl.value = formatDateTimeLocal(novaDataFim);
+                if (dataFimEl && novaDataFim) dataFimEl.value = formatDateTimeLocal(novaDataFim);
             }
 
             recalcularTaxasEPeriodo();
@@ -1852,7 +1892,7 @@
             // Recalcular data renovacao se ativo
             const dataRenovacaoEl = document.getElementById('data_renovacao');
             if (dataRenovacaoEl) dataRenovacaoEl.value = '';
-            toggleDataRenovacao();
+            atualizarDataRenovacaoAutomatica(true);
         });
 
         // Data início muda -> recalcular data fim se dias preenchido
@@ -1863,13 +1903,13 @@
             if (this.value && dias > 0) {
                 const novaDataFim = calcularDataFimPorPeriodo(this.value, dias, contagem);
                 const dataFimEl = document.getElementById('data_fim');
-                if (dataFimEl) dataFimEl.value = formatDateTimeLocal(novaDataFim);
+                if (dataFimEl && novaDataFim) dataFimEl.value = formatDateTimeLocal(novaDataFim);
             }
 
             // Recalcular data renovacao se ativo
             const dataRenovacaoEl = document.getElementById('data_renovacao');
             if (dataRenovacaoEl) dataRenovacaoEl.value = '';
-            toggleDataRenovacao();
+            atualizarDataRenovacaoAutomatica(true);
         });
 
         // Cliente selecionado
@@ -2205,6 +2245,8 @@
         btnSalvar.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${i18n.saving || 'Salvando...'}`;
 
         try {
+            atualizarDataRenovacaoAutomatica(false);
+
             const formData = new FormData(form);
             const dados = Object.fromEntries(formData.entries());
 
@@ -2220,7 +2262,7 @@
             dados.caucao_lancar_financeiro = document.getElementById('caucao_lancar_financeiro')?.value === '1' ? '1' : '0';
 
             // Veiculos
-            dados.veiculos = veiculos.map(v => normalizarValoresPlanoVeiculo({
+            dados.veiculos = veiculos.filter(v => !v.data_entrada).map(v => normalizarValoresPlanoVeiculo({
                 id_veiculo: v.id_veiculo,
                 id_grupo: v.id_grupo,
                 plano: v.plano,
@@ -2693,6 +2735,7 @@
     function obterTextoSelectSelecionado(id) {
         const select = document.getElementById(id);
         if (!select) return '';
+        if (select.selectedIndex < 0) return '';
         const option = select.options[select.selectedIndex];
         return option && option.value ? option.text.trim() : '';
     }
@@ -3214,12 +3257,9 @@
         configurarToggleSecao('toggleCaucao', 'conteudoCaucao', 'iconCaucao');
         configurarToggleSecao('toggleBloqueio', 'conteudoBloqueio', 'iconBloqueio');
 
-        // Preencher dados read-only da config original
+        // Preencher dados da config original
         const contrato = window.contratoData;
         if (contrato) {
-            const configConta = document.getElementById('configContaDisplay');
-            if (configConta) configConta.value = contrato.conta_descricao || '-';
-
             const primeiroVenc = document.getElementById('primeiro_vencimento');
             if (primeiroVenc && contrato.primeiro_vencimento) primeiroVenc.value = contrato.primeiro_vencimento;
 

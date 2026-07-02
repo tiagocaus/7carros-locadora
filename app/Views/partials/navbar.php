@@ -27,7 +27,7 @@
                         <a href="#" onclick="openOrSwitchToTab('/pages/programa-indicacao', '<?= t('menu.sistema.referral_program') ?>', 'fas fa-users'); return false;">{{ t('menu.sistema.referral_program') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/feature-requests', '<?= t('menu.sistema.feature_request') ?>', 'fas fa-lightbulb'); return false;">{{ t('menu.sistema.feature_request') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/logs', '<?= t('menu.sistema.activity_logs') ?>', 'fas fa-history'); return false;">{{ t('menu.sistema.activity_logs') }}</a>
-                        <?php if (\App\Core\Auth::can('configuracoes.editar')): ?>
+                        <?php if (\App\Core\Auth::can('suporte.gerenciar') || \App\Core\Auth::can('configuracoes.editar')): ?>
                             <a href="#" onclick="openOrSwitchToTab('/pages/conceder-acesso', '<?= t('menu.sistema.grant_access') ?>', 'fas fa-user-shield'); return false;">{{ t('menu.sistema.grant_access') }}</a>
                         <?php endif; ?>
                         <a href="#" onclick="openOrSwitchToTab('/pages/configuracoes/gerais', '<?= t('menu.sistema.settings') ?>', 'fas fa-cog'); return false;">{{ t('menu.sistema.settings') }}</a>

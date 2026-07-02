@@ -78,6 +78,52 @@ class ContratosController
         return null;
     }
 
+    private function diasPorContagemContrato(?string $contagem): int
+    {
+        return match ($contagem) {
+            'semana' => 7,
+            'mes' => 30,
+            'ano' => 365,
+            default => 1,
+        };
+    }
+
+    private function calcularDiasUsoVeiculoContrato(array $veiculoContrato, ?string $dataReferencia = null): int
+    {
+        try {
+            $saidaRaw = $veiculoContrato['data_saida'] ?? null;
+            if (empty($saidaRaw)) {
+                return 1;
+            }
+
+            $saida = new \DateTimeImmutable((string) $saidaRaw);
+            $referencia = !empty($dataReferencia)
+                ? new \DateTimeImmutable((string) $dataReferencia)
+                : new \DateTimeImmutable(DateHelper::nowForDatabase());
+
+            if ($referencia < $saida) {
+                return 1;
+            }
+
+            return max(1, (int) $saida->diff($referencia)->format('%a'));
+        } catch (\Throwable $e) {
+            return 1;
+        }
+    }
+
+    private function calcularFranquiaKmEfetiva(array $contrato, array $veiculoContrato, ?string $dataReferencia = null): int
+    {
+        $kmFranquia = (int) ($veiculoContrato['km_franquia'] ?? 0);
+        if ($kmFranquia <= 0 || ($veiculoContrato['plano'] ?? '') !== 'KMC') {
+            return 0;
+        }
+
+        $diasBase = $this->diasPorContagemContrato($contrato['contagem'] ?? null);
+        $diasUso = $this->calcularDiasUsoVeiculoContrato($veiculoContrato, $dataReferencia);
+
+        return (int) ceil(($kmFranquia / $diasBase) * $diasUso);
+    }
+
     /**
      * Renderiza a pagina de listagem de contratos
      *
@@ -240,17 +286,7 @@ class ContratosController
             $odometroSaida = (int) ($veiculo['odometro_saida'] ?? 0);
             $odometroCadastro = (int) ($veiculo['veiculo_odometro'] ?? 0);
             $ultimaOdometro = (int) ($ultima['odometro'] ?? 0);
-            $diasUso = 1;
-
-            if (!empty($veiculo['data_saida'])) {
-                try {
-                    $dataSaida = new \DateTimeImmutable((string) $veiculo['data_saida']);
-                    $hoje = new \DateTimeImmutable('today');
-                    $diasUso = max(1, (int) $dataSaida->diff($hoje)->format('%a'));
-                } catch (\Throwable $e) {
-                    $diasUso = 1;
-                }
-            }
+            $diasUso = $this->calcularDiasUsoVeiculoContrato($veiculo, DateHelper::nowForDatabase());
 
             $veiculo['ultima_leitura'] = $ultima;
             $veiculo['odometro_minimo'] = max($odometroSaida, $odometroCadastro, $ultimaOdometro);
@@ -259,6 +295,7 @@ class ContratosController
             $veiculo['media_km_dia'] = $veiculo['km_rodado_atual'] / $diasUso;
             $veiculo['media_km_semana'] = $veiculo['media_km_dia'] * 7;
             $veiculo['media_km_mes'] = $veiculo['media_km_dia'] * 30;
+            $veiculo['km_franquia_efetiva'] = $this->calcularFranquiaKmEfetiva($contrato, $veiculo, DateHelper::nowForDatabase());
         }
         unset($veiculo);
 
@@ -372,6 +409,12 @@ class ContratosController
                 ], 403);
                 return;
             }
+
+            // A tela de edicao deve manipular apenas veiculos ativos. Historico
+            // de substituicoes permanece no contrato, mas nao pode voltar ao
+            // payload editavel nem entrar no calculo do formulario.
+            $contrato['veiculos_historico'] = $contrato['veiculos'] ?? [];
+            $contrato['veiculos'] = (new ContratoVeiculo())->listarAtivos($id);
 
             Response::json([
                 'success' => true,
@@ -490,7 +533,7 @@ class ContratosController
             ]);
 
             $kmRodado = max(0, $odometro - $odometroSaida);
-            $kmFranquia = (int) ($veiculoContrato['km_franquia'] ?? 0);
+            $kmFranquia = $this->calcularFranquiaKmEfetiva($contrato, $veiculoContrato, DateHelper::nowForDatabase());
             $kmExcedente = ($veiculoContrato['plano'] ?? '') === 'KMC' ? max(0, $kmRodado - $kmFranquia) : 0;
             $valorKmExcedente = (float) ($veiculoContrato['valor_km_excedente'] ?? 0);
 
@@ -504,6 +547,7 @@ class ContratosController
                     'data' => $data,
                     'data_formatada' => format_date(DateHelper::todayForDatabase()),
                     'km_rodado' => $kmRodado,
+                    'km_franquia_efetiva' => $kmFranquia,
                     'km_excedente' => $kmExcedente,
                     'valor_excedente_estimado' => $kmExcedente * $valorKmExcedente,
                 ],
@@ -777,6 +821,8 @@ class ContratosController
                 // Buscar veiculos atualmente ativos no contrato
                 $veiculosAtivos = $veiculoModel->listarAtivos($id);
                 $idsAtivos = array_map('intval', array_column($veiculosAtivos, 'id_veiculo'));
+                $veiculosDoContrato = $veiculoModel->listarPorContrato($id);
+                $idsDoContrato = array_map('intval', array_column($veiculosDoContrato, 'id_veiculo'));
 
                 foreach ($dados['veiculos'] as $veiculo) {
                     if (empty($veiculo['id_veiculo'])) {
@@ -787,6 +833,12 @@ class ContratosController
 
                     // So adicionar veiculos NOVOS (que nao estao ativos no contrato)
                     if (!in_array($idVeiculo, $idsAtivos, true)) {
+                        // Se o veiculo ja existe no contrato apenas como historico
+                        // (substituido/devolvido), nao recriar como ativo via edicao.
+                        if (in_array($idVeiculo, $idsDoContrato, true)) {
+                            continue;
+                        }
+
                         // Verificar se veiculo nao esta alugado em outro contrato
                         $alugado = $veiculoModel->veiculoEstaAlugado($idVeiculo, $id);
                         if ($alugado) {
@@ -1286,7 +1338,7 @@ class ContratosController
                 $valorKmExcedente = (float) ($veiculoContrato['valor_km_excedente'] ?? 0);
 
                 if ($plano === 'KMC') {
-                    $kmFranquia = (int) ($veiculoContrato['km_franquia'] ?? 0);
+                    $kmFranquia = $this->calcularFranquiaKmEfetiva($contrato, $veiculoContrato, $dataEntradaEfetiva);
                     $kmExcedente = max(0, $kmRodados - $kmFranquia);
                     if ($kmExcedente > 0 && $valorKmExcedente > 0) {
                         $totalKmCobranca = $kmExcedente * $valorKmExcedente;
@@ -1667,7 +1719,7 @@ class ContratosController
             $valorKmExcedente = (float) ($veiculoAntigo['valor_km_excedente'] ?? 0);
 
             if ($planoAntigo === 'KMC') {
-                $kmFranquia = (int) ($veiculoAntigo['km_franquia'] ?? 0);
+                $kmFranquia = $this->calcularFranquiaKmEfetiva($contrato, $veiculoAntigo, $dadosSaida['data_entrada'] ?? null);
                 $kmExcedente = max(0, $kmRodados - $kmFranquia);
                 if ($kmExcedente > 0 && $valorKmExcedente > 0) {
                     $totalKmCobranca = $kmExcedente * $valorKmExcedente;

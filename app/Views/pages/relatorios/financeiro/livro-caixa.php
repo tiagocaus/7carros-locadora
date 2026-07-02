@@ -73,6 +73,8 @@
                     <th class="table-header"><?= t('modules.relatorios.financeiro.livro_caixa.col_data') ?></th>
                     <th class="table-header"><?= t('modules.relatorios.financeiro.livro_caixa.col_pessoa') ?></th>
                     <th class="table-header w-[360px] max-w-[360px]"><?= t('modules.relatorios.financeiro.livro_caixa.col_descricao') ?></th>
+                    <th class="table-header"><?= t('modules.relatorios.financeiro.livro_caixa.col_conta') ?></th>
+                    <th class="table-header"><?= t('modules.relatorios.financeiro.livro_caixa.col_forma_pagamento') ?></th>
                     <th class="table-header text-right"><?= t('modules.relatorios.financeiro.livro_caixa.col_entrada') ?></th>
                     <th class="table-header text-right"><?= t('modules.relatorios.financeiro.livro_caixa.col_saida') ?></th>
                     <th class="table-header text-right"><?= t('modules.relatorios.financeiro.livro_caixa.col_saldo') ?></th>
@@ -187,11 +189,15 @@
             const pessoaLabel = pessoaLabels[row.pessoa_tipo] || '';
             const pessoa = row.pessoa_nome ? `${pessoaLabel}: ${row.pessoa_nome}` : '-';
             const descricao = row.descricao || row.historico || '';
+            const conta = row.conta || '-';
+            const formaPagamento = row.forma_pagamento || '-';
 
             return `<tr class="hover:bg-slate-50">
                 <td class="table-cell">${DateHelper.format(row.data)}</td>
                 <td class="table-cell min-w-[180px] whitespace-nowrap">${esc(pessoa)}</td>
                 <td class="table-cell w-[360px] max-w-[360px] truncate" title="${esc(descricao)}">${esc(descricao || '-')}</td>
+                <td class="table-cell min-w-[150px]">${esc(conta)}</td>
+                <td class="table-cell min-w-[150px]">${esc(formaPagamento)}</td>
                 <td class="table-cell text-right ${entrada > 0 ? 'text-green-600' : ''}">${entrada > 0 ? cf(entrada) : '-'}</td>
                 <td class="table-cell text-right ${saida > 0 ? 'text-red-600' : ''}">${saida > 0 ? cf(saida) : '-'}</td>
                 <td class="table-cell text-right font-medium ${saldoColor}">${cf(saldo)}</td>

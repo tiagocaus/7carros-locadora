@@ -734,6 +734,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         // Tanque de chegada mudou -> recalcular diferencas
         document.getElementById('tanqueChegada').addEventListener('change', calcularDiferencas);
+        document.getElementById('dataSubstituicao')?.addEventListener('change', calcularDiferencas);
 
         // Plano mudou -> mostrar/ocultar campos
         selectPlano.addEventListener('change', function() {
@@ -795,11 +796,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         const odometroAtual = Km.parse(inputOdometroAtual.value || '0');
         const kmRodados = Math.max(0, odometroAtual - odometroInicialRaw);
         const plano = veiculoAtualData.plano;
-        const kmFranquiaVal = parseInt(veiculoAtualData.km_franquia) || 0;
         const valorKmExcVal = parseFloat(veiculoAtualData.valor_km_excedente) || 0;
 
         if (plano === 'KL') return 0;
-        if (plano === 'KMC') return Math.max(0, kmRodados - kmFranquiaVal) * valorKmExcVal;
+        if (plano === 'KMC') return Math.max(0, kmRodados - calcularFranquiaKmEfetiva(veiculoAtualData)) * valorKmExcVal;
         if (plano === 'KP') return kmRodados * valorKmExcVal;
         return 0;
     }
@@ -830,7 +830,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         const kmRodados = Math.max(0, odometroAtual - odometroInicialRaw);
         const planoAtual = veiculoAtualData.plano;
-        const kmFranquiaVal = parseInt(veiculoAtualData.km_franquia) || 0;
         const valorKmExcVal = parseFloat(veiculoAtualData.valor_km_excedente) || 0;
         const combustivelEntrada = parseInt(veiculoAtualData.combustivel_saida) || 0;
 
@@ -845,12 +844,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             `;
             totalKm = 0;
         } else if (planoAtual === 'KMC') {
-            const kmExcedente = Math.max(0, kmRodados - kmFranquiaVal);
+            const kmFranquiaEfetiva = calcularFranquiaKmEfetiva(veiculoAtualData);
+            const kmExcedente = Math.max(0, kmRodados - kmFranquiaEfetiva);
             totalKm = kmExcedente * valorKmExcVal;
             htmlKm = `
                 <p class="text-sm text-slate-600 mb-2">${i18n.calcPlanKMC}</p>
                 <div class="space-y-1 text-sm">
-                    <div class="flex justify-between"><span class="text-slate-500">${i18n.calcFranchise}:</span><strong>${Km.format(kmFranquiaVal)} km</strong></div>
+                    <div class="flex justify-between"><span class="text-slate-500">${i18n.calcFranchise}:</span><strong>${Km.format(kmFranquiaEfetiva)} km</strong></div>
                     <div class="flex justify-between"><span class="text-slate-500">${i18n.calcKmDriven}:</span><strong>${Km.format(kmRodados)} km</strong></div>
                     <div class="flex justify-between"><span class="text-slate-500">${i18n.calcKmExcess}:</span><strong>${Km.format(kmExcedente)} km</strong></div>
                     <div class="flex justify-between"><span class="text-slate-500">${i18n.calcValuePerKm}:</span><strong>${Currency.format(valorKmExcVal, true)}</strong></div>
@@ -1016,6 +1016,27 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             btnConfirmar.disabled = false;
             btnConfirmar.innerHTML = `<i class="fas fa-check mr-2"></i>${i18n.confirmSubstitution}`;
         }
+    }
+
+    function calcularDiasUsoVeiculo(v) {
+        const dataReferencia = document.getElementById('dataSubstituicao')?.value || '';
+        const saidaRaw = v?.data_saida || '';
+        if (!saidaRaw || !dataReferencia) return 1;
+
+        const saida = new Date(String(saidaRaw).replace(' ', 'T'));
+        const referencia = new Date(String(dataReferencia).replace(' ', 'T'));
+        if (Number.isNaN(saida.getTime()) || Number.isNaN(referencia.getTime()) || referencia < saida) {
+            return 1;
+        }
+
+        return Math.max(1, Math.floor((referencia.getTime() - saida.getTime()) / 86400000));
+    }
+
+    function calcularFranquiaKmEfetiva(v) {
+        const kmFranquia = parseInt(v?.km_franquia, 10) || 0;
+        if ((v?.plano || '') !== 'KMC' || kmFranquia <= 0) return 0;
+
+        return Math.ceil((kmFranquia / multiplicador) * calcularDiasUsoVeiculo(v));
     }
 
     // Inicializar

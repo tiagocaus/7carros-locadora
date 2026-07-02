@@ -37,6 +37,8 @@
                 <th><?= t('modules.relatorios.financeiro.livro_caixa.col_data') ?></th>
                 <th><?= t('modules.relatorios.financeiro.livro_caixa.col_pessoa') ?></th>
                 <th><?= t('modules.relatorios.financeiro.livro_caixa.col_descricao') ?></th>
+                <th><?= t('modules.relatorios.financeiro.livro_caixa.col_conta') ?></th>
+                <th><?= t('modules.relatorios.financeiro.livro_caixa.col_forma_pagamento') ?></th>
                 <th class="right"><?= t('modules.relatorios.financeiro.livro_caixa.col_entrada') ?></th>
                 <th class="right"><?= t('modules.relatorios.financeiro.livro_caixa.col_saida') ?></th>
                 <th class="right"><?= t('modules.relatorios.financeiro.livro_caixa.col_saldo') ?></th>
@@ -52,11 +54,15 @@
                     ? $pessoaLabel . ': ' . $row['pessoa_nome']
                     : '-';
                 $descricao = $row['descricao'] ?? $row['historico'] ?? '-';
+                $conta = $row['conta'] ?? '-';
+                $formaPagamento = $row['forma_pagamento'] ?? '-';
             ?>
             <tr>
                 <td><?= format_date($row['data'] ?? '') ?></td>
                 <td><?= htmlspecialchars($pessoa) ?></td>
                 <td class="descricao-cell"><?= htmlspecialchars($descricao) ?></td>
+                <td><?= htmlspecialchars($conta) ?></td>
+                <td><?= htmlspecialchars($formaPagamento) ?></td>
                 <td class="right" style="color: #166534;"><?= ($row['entrada'] ?? 0) > 0 ? currency_format($row['entrada']) : '-' ?></td>
                 <td class="right" style="color: #991b1b;"><?= ($row['saida'] ?? 0) > 0 ? currency_format($row['saida']) : '-' ?></td>
                 <td class="right" style="font-weight: bold;"><?= currency_format($row['saldo'] ?? 0) ?></td>
