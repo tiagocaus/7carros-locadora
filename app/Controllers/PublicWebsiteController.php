@@ -21,6 +21,8 @@ use App\Models\HorarioFuncionamento;
 use App\Models\HorarioExcecao;
 use App\Models\Feriado;
 use App\Models\LocacaoDocumento;
+use App\Models\FormaPagamento;
+use App\Models\Financeiro;
 use App\Helpers\DateHelper;
 use App\Helpers\ImageHelper;
 use App\Helpers\FileHelper;
@@ -141,6 +143,14 @@ class PublicWebsiteController
                 $s['valor'] = (float) $s['valor'];
             }
 
+            $formasPagamentoSitePorFilial = [];
+            $formaPagamentoModel = new FormaPagamento();
+            foreach ($filiaisFormatadas as $filial) {
+                $formasPagamentoSitePorFilial[(int) $filial['id']] = $this->formatarFormasPagamentoSite(
+                    $formaPagamentoModel->listarParaPagamentoSite($chave, (int) $filial['id'])
+                );
+            }
+
             // Empresa (matriz principal) via MatrizFilial
             $empresaRaw = $mfModel->buscarMatriz();
             $empresa = $empresaRaw ? [
@@ -167,6 +177,8 @@ class PublicWebsiteController
                 'doc_rg_obrigatorio' => (bool) ($config['doc_rg_obrigatorio'] ?? false),
                 'doc_comprovante_obrigatorio' => (bool) ($config['doc_comprovante_obrigatorio'] ?? false),
                 'reserva_requer_confirmacao' => (bool) ($config['reserva_requer_confirmacao'] ?? false),
+                'pagamento_antecipado' => (bool) ($config['pagamento_antecipado'] ?? false),
+                'formas_pagamento_site' => $formasPagamentoSitePorFilial,
             ]);
 
         } catch (\Exception $e) {
@@ -614,24 +626,41 @@ class PublicWebsiteController
             $pagamentoAntecipado = !empty($config['pagamento_antecipado']);
             $pagamentoUrl = null;
             if ($pagamentoAntecipado) {
+                $idFormaPagamento = (int) ($dados['id_forma_pagamento'] ?? 0);
+                if ($idFormaPagamento > 0) {
+                    $formaPagamentoSite = (new FormaPagamento())->buscarFormaPagamentoSite(
+                        $idFormaPagamento,
+                        $chave,
+                        (int) $dados['filial_retirada_id']
+                    );
+                    if (!$formaPagamentoSite) {
+                        $this->restoreTenantContext();
+                        Response::json(['success' => false, 'message' => 'Selecione uma forma de pagamento valida para o site.'], 422);
+                        return;
+                    }
+                }
+
                 $hoje = DateHelper::todayForDatabase();
                 $vencimento = DateHelper::addDaysForDatabase(2);
-                $idFinanceiro = $configModel->queryTable('financeiro')
-                    ->insert([
-                        'chave'            => $chave,
-                        'id_matriz_filial' => (int) $dados['filial_retirada_id'],
-                        'id_cliente'       => $clienteIdFinal,
-                        'id_locacao'       => $locacaoId,
-                        'descricao'        => 'Reserva ' . $codigo . ' — pagamento antecipado',
-                        'tipo'             => 'R',
-                        'pago'             => 'N',
-                        'data_criada'      => $hoje,
-                        'data_venci'       => $vencimento,
-                        'parcela'          => 1,
-                        'total_parcelas'   => 1,
-                        'valor_total'      => $totalCalculado,
-                        'valor_subtotal'  => $totalCalculado,
-                    ]);
+                $dadosFinanceiro = [
+                    'chave'                => $chave,
+                    'id_matriz_filial'     => (int) $dados['filial_retirada_id'],
+                    'id_cliente'           => $clienteIdFinal,
+                    'id_locacao'           => $locacaoId,
+                    'descricao'            => 'Reserva ' . $codigo . ' — pagamento antecipado',
+                    'tipo'                 => 'R',
+                    'pago'                 => 'N',
+                    'data_criada'          => $hoje,
+                    'data_venci'           => $vencimento,
+                    'parcela'              => 1,
+                    'total_parcelas'       => 1,
+                    'valor_total'          => $totalCalculado,
+                    'valor_subtotal'       => $totalCalculado,
+                ];
+                if ($idFormaPagamento > 0) {
+                    $dadosFinanceiro['id_forma_pagamento'] = $idFormaPagamento;
+                }
+                $idFinanceiro = (new Financeiro())->criar($dadosFinanceiro);
 
                 $link = (new PagamentoLinkSyncService())->obterOuCriarLinkAtualizado($idFinanceiro, $chave, 2, [
                     'id_locacao' => $locacaoId,
@@ -1363,6 +1392,21 @@ HTML;
             ];
         }
         return $out;
+    }
+
+    private function formatarFormasPagamentoSite(array $formas): array
+    {
+        return array_map(static function (array $forma): array {
+            return [
+                'id' => (int) $forma['id'],
+                'nome' => (string) $forma['nome'],
+                'metodos' => array_values($forma['metodos'] ?? []),
+                'gateways' => array_map(static fn(array $gateway): array => [
+                    'id' => (int) $gateway['id'],
+                    'nome' => (string) $gateway['nome'],
+                ], $forma['gateways'] ?? []),
+            ];
+        }, $formas);
     }
 
     /**

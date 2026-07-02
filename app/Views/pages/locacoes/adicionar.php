@@ -863,7 +863,6 @@
                     <table class="w-full text-sm" id="tabelaParcelas">
                         <thead class="bg-slate-100">
                             <tr class="text-xs text-slate-500 uppercase">
-                                <th class="px-3 py-2 text-left">#</th>
                                 <th class="px-3 py-2 text-left"><?= t('modules.locacoes.installments.description') ?></th>
                                 <th class="px-3 py-2 text-center"><?= t('modules.locacoes.installments.due_date') ?></th>
                                 <th class="px-3 py-2 text-right"><?= t('modules.locacoes.installments.value') ?></th>
@@ -872,7 +871,7 @@
                             </tr>
                         </thead>
                         <tbody id="parcelasBody">
-                            <tr><td colspan="6" class="px-3 py-4 text-center text-slate-400"><?= t('modules.locacoes.installments.no_installments') ?></td></tr>
+                            <tr><td colspan="5" class="px-3 py-4 text-center text-slate-400"><?= t('modules.locacoes.installments.no_installments') ?></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -3476,11 +3475,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             esconderFormularioBaixaLocacao();
 
             if (parcelasData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-3 py-4 text-center text-slate-400">${i18n.installments.noInstallments}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="px-3 py-4 text-center text-slate-400">${i18n.installments.noInstallments}</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = parcelasData.map((p, idx) => {
+            const parcelasExibicao = parcelasOrdenadasPorVencimentoDesc(parcelasData);
+
+            tbody.innerHTML = parcelasExibicao.map((p, idx) => {
                 const pago = p.pago === 'S';
                 const statusBadge = pago
                     ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">${i18n.installments.paid}</span>`
@@ -3500,7 +3501,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 const descricao = p.descricao || i18n.installments.installmentLabel.replace(':num', p.parcela || (idx + 1));
 
                 return `<tr class="border-b border-slate-100">
-                    <td class="px-3 py-2 text-slate-500">${p.parcela || (idx + 1)}</td>
                     <td class="px-3 py-2">${descricao}</td>
                     <td class="px-3 py-2 text-center">${vencimento}</td>
                     <td class="px-3 py-2 text-right font-medium">${valor}</td>
@@ -3556,6 +3556,23 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                         confirmText: i18n.installments.reverseConfirm
                     }, '*');
                 });
+            });
+        }
+
+        function parcelasOrdenadasPorVencimentoDesc(lista) {
+            return [...lista].sort((a, b) => {
+                const dataA = a.data_venci || '';
+                const dataB = b.data_venci || '';
+
+                if (dataA && dataB && dataA !== dataB) return dataB.localeCompare(dataA);
+                if (dataA && !dataB) return -1;
+                if (!dataA && dataB) return 1;
+
+                const idA = parseInt(a.id || 0, 10);
+                const idB = parseInt(b.id || 0, 10);
+                if (idA !== idB) return idB - idA;
+
+                return parseInt(b.parcela || 0, 10) - parseInt(a.parcela || 0, 10);
             });
         }
 

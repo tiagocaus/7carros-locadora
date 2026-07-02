@@ -29,6 +29,7 @@ $docCpfObr        = !empty($dados['doc_cpf_obrigatorio']);
 $docRgObr         = !empty($dados['doc_rg_obrigatorio']);
 $docCompObr       = !empty($dados['doc_comprovante_obrigatorio']);
 $requerConfirmacao = !empty($dados['reserva_requer_confirmacao']);
+$pagamentoAntecipado = !empty($dados['pagamento_antecipado']);
 
 // Pré-preenchimento vindo da query string (form de index.php)
 $preLocRet   = (int) ($_GET['localRetirada'] ?? 0);
@@ -406,6 +407,21 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
 
                         <input type="hidden" id="reserva_requer_confirmacao" value="<?= $requerConfirmacao ? '1' : '0' ?>">
                         <input type="hidden" id="cliente_logado_flag" value="<?= $clienteLogado ? '1' : '0' ?>">
+                        <input type="hidden" id="id_forma_pagamento_site" value="">
+
+                        <?php if ($pagamentoAntecipado): ?>
+                        <div class="card p-3 mb-4" id="formasPagamentoSiteBox">
+                            <h4 class="mb-2">Forma de pagamento</h4>
+                            <p class="text-muted mb-3">Escolha como deseja pagar para concluir o pedido de reserva.</p>
+                            <div id="formasPagamentoSiteLista" class="row"></div>
+                            <div id="formasPagamentoSiteVazio" class="alert alert-warning mb-0" style="display:none;">
+                                Nenhuma forma de pagamento online esta disponivel para a filial selecionada.
+                            </div>
+                            <div id="formasPagamentoSiteFeedback" class="text-danger small mt-2" style="display:none;">
+                                Selecione a forma de pagamento.
+                            </div>
+                        </div>
+                        <?php endif; ?>
 
                         <div class="row pb-4 d-none d-md-flex">
                             <div class="col">

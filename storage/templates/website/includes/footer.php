@@ -72,6 +72,11 @@ $iconesFa4 = [
         array_column($dados['filiais'] ?? [], null, 'id'),
         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
     ) ?>;
+    window.FORMAS_PAGAMENTO_SITE = <?= json_encode(
+        $dados['formas_pagamento_site'] ?? [],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+    ) ?>;
+    window.PAGAMENTO_ANTECIPADO_SITE = <?= !empty($dados['pagamento_antecipado']) ? 'true' : 'false' ?>;
     window.I18N_WEBSITE = {
         diaria: <?= json_encode(t('reserva.diaria_sufixo'), JSON_UNESCAPED_UNICODE) ?>,
         plano_km_livre: <?= json_encode(t('reserva.plano_km_livre'), JSON_UNESCAPED_UNICODE) ?>,

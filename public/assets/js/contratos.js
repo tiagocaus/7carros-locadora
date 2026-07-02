@@ -2597,6 +2597,25 @@
         if (elAtrasado) elAtrasado.textContent = Currency.format(resumo.total_atrasado || 0);
     }
 
+    function parcelasOrdenadasPorVencimentoDesc(lista) {
+        return [...lista]
+            .map((parcela, index) => ({ parcela, index }))
+            .sort((a, b) => {
+                const dataA = a.parcela.data_venci || '';
+                const dataB = b.parcela.data_venci || '';
+
+                if (dataA && dataB && dataA !== dataB) return dataB.localeCompare(dataA);
+                if (dataA && !dataB) return -1;
+                if (!dataA && dataB) return 1;
+
+                const idA = parseInt(a.parcela.id || 0, 10);
+                const idB = parseInt(b.parcela.id || 0, 10);
+                if (idA !== idB) return idB - idA;
+
+                return parseInt(b.parcela.parcela || 0, 10) - parseInt(a.parcela.parcela || 0, 10);
+            });
+    }
+
     // Renderiza tabela de parcelas
     function renderizarParcelas() {
         const tbody = document.getElementById('tabelaParcelasBody');
@@ -2605,14 +2624,15 @@
         tbody.innerHTML = '';
 
         if (parcelas.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="px-3 py-4 text-center text-slate-400">${i18n.noInstallments || 'Nenhuma parcela gerada'}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="px-3 py-4 text-center text-slate-400">${i18n.noInstallments || 'Nenhuma parcela gerada'}</td></tr>`;
             atualizarTotalParcelas();
             return;
         }
 
         let total = 0;
+        const parcelasExibicao = parcelasOrdenadasPorVencimentoDesc(parcelas);
 
-        parcelas.forEach((parcela, index) => {
+        parcelasExibicao.forEach(({ parcela, index }) => {
             const valor = parseFloat(parcela.valor_total || parcela.valor_subtotal || 0);
             total += valor;
 
@@ -2648,7 +2668,6 @@
             const tr = document.createElement('tr');
             tr.className = 'border-b border-slate-100 hover:bg-slate-50';
             tr.innerHTML = `
-                <td class="px-3 py-2 text-slate-500">${parcela.parcela || (index + 1)}</td>
                 <td class="px-3 py-2">${escapeHtml(descricao)}</td>
                 <td class="px-3 py-2">${escapeHtml(contaNome || '-')}</td>
                 <td class="px-3 py-2">${escapeHtml(formaNome || '-')}</td>

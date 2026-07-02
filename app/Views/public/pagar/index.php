@@ -282,6 +282,7 @@ $vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencim
     const codigo = '<?= htmlspecialchars($codigo) ?>';
     let metodoSelecionado = null;
     let gatewaySelecionado = null;
+    let formaPagamentoSelecionada = <?= !empty($link['id_forma_pagamento']) ? (int) $link['id_forma_pagamento'] : 'null' ?>;
     let gatewayCapabilities = null;
     let savedCards = [];
     let selectedSavedCard = null;
@@ -302,7 +303,7 @@ $vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencim
 
             // Se tem apenas um gateway, usar direto
             if (gateways.length === 1) {
-                selecionarGateway(metodo, gateways[0].id);
+                selecionarGateway(metodo, gateways[0].id, gateways[0].id_forma_pagamento || null);
             } else {
                 // Mostrar selecao de gateway
                 mostrarSelecaoGateway(metodo, gateways);
@@ -356,8 +357,9 @@ $vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencim
         gateways.forEach(gw => {
             html += `
                 <button class="w-full text-left p-3 border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors gateway-option"
-                        data-metodo="${metodo}" data-gateway-id="${gw.id}">
+                        data-metodo="${metodo}" data-gateway-id="${gw.id}" data-forma-id="${gw.id_forma_pagamento || ''}">
                     <span class="font-medium">${escapeHtml(gw.nome)}</span>
+                    ${gw.forma_pagamento_nome ? `<span class="block text-sm text-slate-500">${escapeHtml(gw.forma_pagamento_nome)}</span>` : ''}
                 </button>
             `;
         });
@@ -374,13 +376,16 @@ $vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencim
         // Adicionar event listeners para os botoes de gateway
         document.querySelectorAll('.gateway-option').forEach(btn => {
             btn.addEventListener('click', function() {
-                selecionarGateway(this.dataset.metodo, parseInt(this.dataset.gatewayId));
+                selecionarGateway(this.dataset.metodo, parseInt(this.dataset.gatewayId), this.dataset.formaId || null);
             });
         });
     }
 
-    async function selecionarGateway(metodo, gatewayId) {
+    async function selecionarGateway(metodo, gatewayId, formaPagamentoId = null) {
         gatewaySelecionado = gatewayId;
+        if (formaPagamentoId) {
+            formaPagamentoSelecionada = parseInt(formaPagamentoId);
+        }
 
         // Se nao for cartao, processar direto
         if (metodo !== 'credit_card') {
@@ -589,6 +594,7 @@ $vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencim
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         gateway_id: gatewaySelecionado,
+                        id_forma_pagamento: formaPagamentoSelecionada,
                         payment_method_id: paymentMethod.id,
                         holder: holder,
                         cpf: cpf
@@ -627,6 +633,7 @@ $vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencim
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         gateway_id: gatewaySelecionado,
+                        id_forma_pagamento: formaPagamentoSelecionada,
                         holder: holder,
                         number: number,
                         expiry_month: expiryMonth,
@@ -652,6 +659,7 @@ $vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencim
                 body: JSON.stringify({
                     metodo: 'credit_card',
                     gateway_id: gatewaySelecionado,
+                    id_forma_pagamento: formaPagamentoSelecionada,
                     card_token: tokenResult.data.token
                 })
             });
@@ -708,6 +716,7 @@ $vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencim
                 body: JSON.stringify({
                     metodo: 'credit_card',
                     gateway_id: gatewaySelecionado,
+                    id_forma_pagamento: formaPagamentoSelecionada,
                     card_token: selectedSavedCard.token
                 })
             });
@@ -782,7 +791,8 @@ $vencimentoGateway = \App\Helpers\DateHelper::normalizeDueDateForGateway($vencim
                 },
                 body: JSON.stringify({
                     metodo: metodo,
-                    gateway_id: gatewayId
+                    gateway_id: gatewayId,
+                    id_forma_pagamento: formaPagamentoSelecionada
                 })
             });
 

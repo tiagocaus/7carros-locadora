@@ -12,6 +12,156 @@ namespace App\Models;
 class FormaPagamento extends Model
 {
     /**
+     * Lista formas ativas para pagamento no site, com gateway ativo e filial compatível.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarParaPagamentoSite(string $chave, ?int $filialId = null): array
+    {
+        $mysqli = $this->getMysqli();
+        $sql = "
+            SELECT
+                fp.id AS forma_id,
+                fp.nome AS forma_nome,
+                fp.onde_exibir,
+                fp.taxa_fixa,
+                fp.taxa_fixa_parcela,
+                fp.taxa_percentual_parcela,
+                gp.id AS gateway_id,
+                gp.nome AS gateway_nome,
+                gp.pix_enabled,
+                gp.boleto_enabled,
+                gp.credit_card_enabled,
+                gp.debit_card_enabled,
+                gp.currencies
+            FROM formas_pagamento fp
+            INNER JOIN formas_pagamento_gateways fpg
+                ON fpg.id_forma_pagamento = fp.id
+                AND fpg.chave = fp.chave
+            INNER JOIN gateways_pagamento gp
+                ON gp.id = fpg.id_gateway
+                AND gp.chave = fp.chave
+                AND gp.status = 'A'
+            WHERE fp.chave = ?
+                AND fp.status = 'A'
+                AND FIND_IN_SET('1', fp.onde_exibir)
+        ";
+
+        if ($filialId !== null) {
+            $sql .= "
+                AND EXISTS (
+                    SELECT 1
+                    FROM formas_pagamento_filiais fpf
+                    WHERE fpf.chave = fp.chave
+                        AND fpf.id_forma_pagamento = fp.id
+                        AND fpf.id_matriz_filial = ?
+                )
+            ";
+        }
+
+        $sql .= " ORDER BY fp.nome ASC, gp.nome ASC";
+
+        $stmt = $mysqli->prepare($sql);
+        if ($filialId !== null) {
+            $stmt->bind_param('si', $chave, $filialId);
+        } else {
+            $stmt->bind_param('s', $chave);
+        }
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $formas = [];
+        while ($row = $result->fetch_assoc()) {
+            $formaId = (int) $row['forma_id'];
+            if (!isset($formas[$formaId])) {
+                $formas[$formaId] = [
+                    'id' => $formaId,
+                    'nome' => $row['forma_nome'],
+                    'onde_exibir' => $row['onde_exibir'],
+                    'taxa_fixa' => (float) $row['taxa_fixa'],
+                    'taxa_fixa_parcela' => (float) $row['taxa_fixa_parcela'],
+                    'taxa_percentual_parcela' => (float) $row['taxa_percentual_parcela'],
+                    'metodos' => $this->inferirMetodosDaForma((string) $row['forma_nome']),
+                    'gateways' => [],
+                ];
+            }
+
+            $formas[$formaId]['gateways'][] = [
+                'id' => (int) $row['gateway_id'],
+                'nome' => $row['gateway_nome'],
+                'pix_enabled' => (int) $row['pix_enabled'],
+                'boleto_enabled' => (int) $row['boleto_enabled'],
+                'credit_card_enabled' => (int) $row['credit_card_enabled'],
+                'debit_card_enabled' => (int) $row['debit_card_enabled'],
+                'currencies' => $row['currencies'] ?? '["BRL"]',
+            ];
+        }
+
+        $stmt->close();
+
+        return array_values($formas);
+    }
+
+    public function buscarFormaPagamentoSite(int $id, string $chave, ?int $filialId = null): ?array
+    {
+        foreach ($this->listarParaPagamentoSite($chave, $filialId) as $forma) {
+            if ((int) $forma['id'] === $id) {
+                return $forma;
+            }
+        }
+
+        return null;
+    }
+
+    public function formaPermiteGatewayMetodo(array $forma, int $gatewayId, string $metodo): bool
+    {
+        $metodosPermitidos = $forma['metodos'] ?? [];
+        if (!in_array($metodo, $metodosPermitidos, true)) {
+            return false;
+        }
+
+        $flagMetodo = match ($metodo) {
+            'pix' => 'pix_enabled',
+            'boleto' => 'boleto_enabled',
+            'credit_card' => 'credit_card_enabled',
+            'debit_card' => 'debit_card_enabled',
+            default => null,
+        };
+
+        if ($flagMetodo === null) {
+            return false;
+        }
+
+        foreach ($forma['gateways'] ?? [] as $gateway) {
+            if ((int) ($gateway['id'] ?? 0) === $gatewayId && !empty($gateway[$flagMetodo])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function inferirMetodosDaForma(string $nome): array
+    {
+        $normalizado = strtolower(iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $nome) ?: $nome);
+
+        if (str_contains($normalizado, 'pix')) {
+            return ['pix'];
+        }
+        if (str_contains($normalizado, 'boleto')) {
+            return ['boleto'];
+        }
+        if (str_contains($normalizado, 'debito')) {
+            return ['debit_card'];
+        }
+        if (str_contains($normalizado, 'cartao') || str_contains($normalizado, 'credito')) {
+            return ['credit_card'];
+        }
+
+        return ['pix', 'boleto', 'credit_card', 'debit_card'];
+    }
+
+    /**
      * Lista todas as formas de pagamento do tenant
      *
      * @return array Lista de formas de pagamento

@@ -72,13 +72,30 @@ class PagamentoPublicoController
 
         if (!empty($link['id_forma_pagamento'])) {
             $formaPagamentoModel = new FormaPagamento();
-            $gatewaysVinculados = $formaPagamentoModel->buscarGateways((int) $link['id_forma_pagamento']);
-            $idsVinculados = array_column($gatewaysVinculados, 'id');
+            $formaSite = $formaPagamentoModel->buscarFormaPagamentoSite(
+                (int) $link['id_forma_pagamento'],
+                (string) $link['chave'],
+                !empty($link['id_matriz_filial']) ? (int) $link['id_matriz_filial'] : null
+            );
 
-            if (!empty($idsVinculados)) {
-                $gatewayModel = new GatewayPagamento();
-                $gateways = $gatewayModel->listarParaPagamentoPublicoPorIds($link['chave'], $idsVinculados);
+            if ($formaSite) {
+                $gateways = $this->gatewaysDasFormasPagamentoSite([$formaSite]);
+            } else {
+                $gatewaysVinculados = $formaPagamentoModel->buscarGateways((int) $link['id_forma_pagamento']);
+                $idsVinculados = array_column($gatewaysVinculados, 'id');
+
+                if (!empty($idsVinculados)) {
+                    $gatewayModel = new GatewayPagamento();
+                    $gateways = $gatewayModel->listarParaPagamentoPublicoPorIds($link['chave'], $idsVinculados);
+                }
             }
+        } elseif (!empty($link['id_financeiro'])) {
+            $formaPagamentoModel = new FormaPagamento();
+            $formasSite = $formaPagamentoModel->listarParaPagamentoSite(
+                (string) $link['chave'],
+                !empty($link['id_matriz_filial']) ? (int) $link['id_matriz_filial'] : null
+            );
+            $gateways = $this->gatewaysDasFormasPagamentoSite($formasSite);
         }
         // Se não há forma de pagamento definida ou nenhum gateway vinculado,
         // $gateways permanece vazio - não exibe opções de pagamento online
@@ -104,13 +121,13 @@ class PagamentoPublicoController
                 continue;
             }
 
-            if ($gw['pix_enabled']) {
+            if ($this->gatewayPermiteMetodoPorForma($gw, 'pix')) {
                 $gatewaysPix[] = $gw;
             }
-            if ($gw['boleto_enabled']) {
+            if ($this->gatewayPermiteMetodoPorForma($gw, 'boleto')) {
                 $gatewaysBoleto[] = $gw;
             }
-            if ($gw['credit_card_enabled'] || $gw['debit_card_enabled']) {
+            if ($this->gatewayPermiteMetodoPorForma($gw, 'credit_card') || $this->gatewayPermiteMetodoPorForma($gw, 'debit_card')) {
                 $gatewaysCartao[] = $gw;
             }
         }
@@ -183,11 +200,54 @@ class PagamentoPublicoController
         $dados = $request->all();
         $metodo = $dados['metodo'] ?? '';
         $gatewayId = (int) ($dados['gateway_id'] ?? 0);
+        $formaPagamentoId = !empty($link['id_forma_pagamento'])
+            ? (int) $link['id_forma_pagamento']
+            : (int) ($dados['id_forma_pagamento'] ?? 0);
 
         if (empty($metodo) || empty($gatewayId)) {
             Response::json([
                 'success' => false,
                 'message' => 'Método de pagamento e gateway são obrigatórios'
+            ], 400);
+            return;
+        }
+
+        if (empty($formaPagamentoId)) {
+            Response::json([
+                'success' => false,
+                'message' => 'Forma de pagamento obrigatória'
+            ], 400);
+            return;
+        }
+
+        $formaPagamentoModel = new FormaPagamento();
+        $formaSite = $formaPagamentoModel->buscarFormaPagamentoSite(
+            $formaPagamentoId,
+            (string) $link['chave'],
+            !empty($link['id_matriz_filial']) ? (int) $link['id_matriz_filial'] : null
+        );
+
+        if ($formaSite) {
+            if (!$formaPagamentoModel->formaPermiteGatewayMetodo($formaSite, $gatewayId, $metodo)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Forma de pagamento indisponível para este link'
+                ], 400);
+                return;
+            }
+        } elseif (!empty($link['id_forma_pagamento'])) {
+            $idsVinculados = array_column($formaPagamentoModel->buscarGateways((int) $link['id_forma_pagamento']), 'id');
+            if (!in_array($gatewayId, array_map('intval', $idsVinculados), true)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Forma de pagamento indisponível para este link'
+                ], 400);
+                return;
+            }
+        } else {
+            Response::json([
+                'success' => false,
+                'message' => 'Forma de pagamento indisponível para este link'
             ], 400);
             return;
         }
@@ -230,6 +290,11 @@ class PagamentoPublicoController
         }
 
         try {
+            if (empty($link['id_forma_pagamento']) && !empty($link['id_financeiro'])) {
+                $this->vincularFormaPagamentoAoFinanceiro($link, $formaSite);
+                $link = $linkModel->buscarPorCodigo($codigo) ?? $link;
+            }
+
             if (!empty($link['id_financeiro'])) {
                 (new PagamentoLinkSyncService())->invalidarLinksPendentes((int) $link['id_financeiro'], (string) $link['chave']);
                 $link = $linkModel->buscarPorCodigo($codigo) ?? $link;
@@ -1311,5 +1376,66 @@ class PagamentoPublicoController
                 'message' => 'Erro ao salvar cartão: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $formas
+     * @return array<int, array<string, mixed>>
+     */
+    private function gatewaysDasFormasPagamentoSite(array $formas): array
+    {
+        $gateways = [];
+        foreach ($formas as $forma) {
+            $metodos = $forma['metodos'] ?? [];
+            foreach ($forma['gateways'] ?? [] as $gateway) {
+                $gateway['id_forma_pagamento'] = (int) $forma['id'];
+                $gateway['forma_pagamento_nome'] = (string) $forma['nome'];
+                $gateway['metodos_forma_pagamento'] = $metodos;
+                $gateways[] = $gateway;
+            }
+        }
+
+        return $gateways;
+    }
+
+    private function gatewayPermiteMetodoPorForma(array $gateway, string $metodo): bool
+    {
+        $metodosForma = $gateway['metodos_forma_pagamento'] ?? [];
+        if (!empty($metodosForma) && !in_array($metodo, $metodosForma, true)) {
+            return false;
+        }
+
+        return match ($metodo) {
+            'pix' => !empty($gateway['pix_enabled']),
+            'boleto' => !empty($gateway['boleto_enabled']),
+            'credit_card' => !empty($gateway['credit_card_enabled']),
+            'debit_card' => !empty($gateway['debit_card_enabled']),
+            default => false,
+        };
+    }
+
+    private function vincularFormaPagamentoAoFinanceiro(array $link, array $forma): void
+    {
+        if (empty($link['id_financeiro'])) {
+            return;
+        }
+
+        $financeiroModel = new Financeiro();
+        $valorParcela = (float) ($link['financeiro_valor_subtotal'] ?? $link['financeiro_valor_total'] ?? $link['valor'] ?? 0);
+        $valorTaxa = $financeiroModel->calcularTaxaParcela($forma, $valorParcela, 1);
+
+        $dadosUpdate = [
+            'id_forma_pagamento' => (int) $forma['id'],
+            'valor_taxa' => $valorTaxa,
+            'taxa_percentual_snapshot' => $forma['taxa_percentual_parcela'] ?? 0,
+            'taxa_fixa_snapshot' => $forma['taxa_fixa'] ?? 0,
+            'taxa_fixa_parcela_snapshot' => $forma['taxa_fixa_parcela'] ?? 0,
+        ];
+
+        if (!empty($link['id_locacao'])) {
+            $dadosUpdate['id_locacao'] = (int) $link['id_locacao'];
+        }
+
+        $financeiroModel->atualizar((int) $link['id_financeiro'], $dadosUpdate);
     }
 }

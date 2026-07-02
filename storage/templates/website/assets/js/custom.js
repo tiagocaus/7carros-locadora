@@ -213,6 +213,71 @@ function inicializarFormReserva() {
     window.__locValFilialId = locValFilialId;
     window.__locValLocalId = locValLocalId;
 
+    function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, function (ch) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[ch];
+        });
+    }
+
+    function metodoPagamentoLabel(metodos) {
+        metodos = metodos || [];
+        if (metodos.indexOf('pix') !== -1) return 'Pagamento instantaneo';
+        if (metodos.indexOf('boleto') !== -1) return 'Boleto bancario';
+        if (metodos.indexOf('credit_card') !== -1) return 'Pagamento online';
+        if (metodos.indexOf('debit_card') !== -1) return 'Cartao de debito';
+        return 'Pagamento online';
+    }
+
+    function formasPagamentoSiteFilialAtual() {
+        var filialId = locValFilialId($('#localRetirada'));
+        if (!filialId || !window.FORMAS_PAGAMENTO_SITE) return [];
+        return window.FORMAS_PAGAMENTO_SITE[filialId] || window.FORMAS_PAGAMENTO_SITE[String(filialId)] || [];
+    }
+
+    function renderFormasPagamentoSite() {
+        var $box = $('#formasPagamentoSiteBox');
+        if (!$box.length || !window.PAGAMENTO_ANTECIPADO_SITE) return;
+
+        var formas = formasPagamentoSiteFilialAtual();
+        var $lista = $('#formasPagamentoSiteLista');
+        var $vazio = $('#formasPagamentoSiteVazio');
+        var $feedback = $('#formasPagamentoSiteFeedback');
+        $('#id_forma_pagamento_site').val('');
+        $lista.empty();
+        $feedback.hide();
+
+        if (!formas.length) {
+            $vazio.show();
+            return;
+        }
+
+        $vazio.hide();
+        formas.forEach(function (forma, index) {
+            var gateways = (forma.gateways || []).map(function (g) { return g.nome; }).join(', ');
+            var checked = formas.length === 1 ? ' checked' : '';
+            var html = ''
+                + '<div class="col-md-6 mb-3">'
+                + '  <label class="border rounded p-3 d-block h-100" style="cursor:pointer;">'
+                + '    <div class="custom-control custom-radio">'
+                + '      <input type="radio" class="custom-control-input forma-pagamento-site-radio" name="forma_pagamento_site" id="forma_pagamento_site_' + forma.id + '" value="' + forma.id + '"' + checked + '>'
+                + '      <span class="custom-control-label font-weight-bold">' + escapeHtml(forma.nome) + '</span>'
+                + '    </div>'
+                + '    <div class="small text-muted mt-2">' + escapeHtml(metodoPagamentoLabel(forma.metodos)) + '</div>'
+                + (gateways ? '    <div class="small text-muted">Processado por ' + escapeHtml(gateways) + '</div>' : '')
+                + '  </label>'
+                + '</div>';
+            $lista.append(html);
+        });
+
+        var selecionada = $('input[name="forma_pagamento_site"]:checked').val() || '';
+        $('#id_forma_pagamento_site').val(selecionada);
+    }
+
+    $(document).on('change', 'input[name="forma_pagamento_site"]', function () {
+        $('#id_forma_pagamento_site').val($(this).val() || '');
+        $('#formasPagamentoSiteFeedback').hide();
+    });
+
     // Regra 9: botão começa desabilitado
     $btnContinuar.prop('disabled', true);
 
@@ -222,6 +287,7 @@ function inicializarFormReserva() {
     $locRet.on('change', function () {
         var filialId = $(this).val();
         if (!filialId) return;
+        renderFormasPagamentoSite();
 
         // Habilitar data de saída
         $dataSaida.prop('disabled', false).attr('min', getHojeDateString()).val('');
@@ -1073,6 +1139,16 @@ $(function () {
             }
         }
 
+        var idFormaPagamentoSite = 0;
+        if (window.PAGAMENTO_ANTECIPADO_SITE) {
+            idFormaPagamentoSite = parseInt($('#id_forma_pagamento_site').val() || $('input[name="forma_pagamento_site"]:checked').val() || '0');
+            if (!idFormaPagamentoSite) {
+                $('#formasPagamentoSiteFeedback').show();
+                document.getElementById('formasPagamentoSiteBox')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+        }
+
         $btn.prop('disabled', true);
 
         try {
@@ -1098,6 +1174,9 @@ $(function () {
                 cliente: cliente,
                 documentos: documentos,
             };
+            if (idFormaPagamentoSite) {
+                payload.id_forma_pagamento = idFormaPagamentoSite;
+            }
 
             var resp = await $.ajax({
                 url: 'ajax-reserva.php',
@@ -1163,6 +1242,7 @@ $(function () {
     if ($('.servico-preco').length && window.__locValFilialId && window.__locValFilialId($('#localRetirada'))) {
         renderPrecosServicos();
     }
+    renderFormasPagamentoSite();
 });
 
 // ---- FUNÇÕES AUXILIARES ----

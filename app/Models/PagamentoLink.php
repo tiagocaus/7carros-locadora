@@ -95,6 +95,7 @@ class PagamentoLink extends Model
                 'f.documento AS financeiro_documento',
                 'f.data_venci AS financeiro_vencimento',
                 'f.id_forma_pagamento AS id_forma_pagamento',
+                'f.id_matriz_filial AS id_matriz_filial',
                 'f.tipo AS financeiro_tipo',
                 'f.pago AS financeiro_pago',
                 'f.valor_subtotal AS financeiro_valor_subtotal',

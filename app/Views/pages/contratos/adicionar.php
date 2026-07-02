@@ -429,7 +429,6 @@
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
-                                <th class="px-3 py-2 text-center w-12"><?= t('modules.contratos.financial.installment_header_num') ?></th>
                                 <th class="px-3 py-2 text-left"><?= t('modules.contratos.financial.installment_header_description') ?></th>
                                 <th class="px-3 py-2 text-left"><?= t('modules.contratos.financial.installment_header_account') ?></th>
                                 <th class="px-3 py-2 text-left"><?= t('modules.contratos.financial.installment_header_method') ?></th>
@@ -444,7 +443,7 @@
                         </tbody>
                         <tfoot>
                             <tr class="bg-slate-50 font-semibold">
-                                <td colspan="5" class="px-3 py-2 text-right"><?= t('modules.contratos.financial.total_label') ?></td>
+                                <td colspan="4" class="px-3 py-2 text-right"><?= t('modules.contratos.financial.total_label') ?></td>
                                 <td id="totalParcelas" class="px-3 py-2 text-right">R$ 0,00</td>
                                 <td colspan="2"></td>
                             </tr>
