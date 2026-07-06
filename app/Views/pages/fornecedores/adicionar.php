@@ -232,6 +232,22 @@
                         </select>
                     </div>
                 </div>
+
+                <div class="mt-6 border-t border-slate-200 pt-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-800">
+                                <?= t('modules.fornecedores.commission_rules.title') ?> {!! aviso(t('modules.fornecedores.commission_rules.help')) !!}
+                            </h4>
+                            <p class="text-xs text-slate-500 mt-1"><?= t('modules.fornecedores.commission_rules.description') ?></p>
+                        </div>
+                        <button type="button" id="btnAdicionarRegraComissao" class="btn-secondary text-sm w-full sm:w-72">
+                            <i class="fas fa-plus mr-2"></i><?= t('modules.fornecedores.commission_rules.add_group_rule') ?>
+                        </button>
+                    </div>
+
+                    <div id="regrasComissao" class="space-y-3"></div>
+                </div>
             </div>
         </div>
 
@@ -276,11 +292,18 @@
         labelRg: '<?= addslashes(t('modules.fornecedores.fields.rg')) ?>',
         labelStateRegistration: '<?= addslashes(t('modules.fornecedores.fields.state_registration')) ?>',
         btnSave: '<?= addslashes(t('common.buttons.save')) ?>',
+        commissionDefault: '<?= addslashes(t('modules.fornecedores.commission_rules.default_rule')) ?>',
+        commissionGroup: '<?= addslashes(t('modules.fornecedores.commission_rules.group_rule')) ?>',
+        commissionGroupPlaceholder: '<?= addslashes(t('modules.fornecedores.commission_rules.group_placeholder')) ?>',
+        commissionTypePlaceholder: '<?= addslashes(t('modules.fornecedores.commission_rules.type_placeholder')) ?>',
+        commissionValue: '<?= addslashes(t('modules.fornecedores.commission_rules.value')) ?>',
+        commissionRemove: '<?= addslashes(t('modules.fornecedores.commission_rules.remove')) ?>',
     };
 
     // Estado
     let editando = false;
     let registroId = null;
+    let gruposComissao = [];
 
     // Elementos do formulario
     const form = document.getElementById('formFornecedor');
@@ -307,6 +330,9 @@
     // ===== INICIALIZACAO =====
 
     async function init() {
+        await carregarGruposComissao();
+        renderizarRegrasComissao([]);
+
         // Verificar se estamos editando
         const urlParams = new URLSearchParams(window.location.search);
         registroId = urlParams.get('id');
@@ -390,6 +416,7 @@
         document.getElementById('banco_agencia').value = data.banco_agencia || '';
         document.getElementById('banco_conta').value = data.banco_conta || '';
         document.getElementById('banco_tipo').value = data.banco_tipo || '';
+        renderizarRegrasComissao(data.comissao_regras || []);
 
         // Observacoes
         document.getElementById('obs').value = data.obs || '';
@@ -410,8 +437,25 @@
             const campos = document.getElementById('camposInvestidor');
             if (this.checked) {
                 campos.classList.remove('hidden');
+                if (!document.querySelector('#regrasComissao .regra-comissao')) {
+                    renderizarRegrasComissao([]);
+                }
             } else {
                 campos.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('btnAdicionarRegraComissao')?.addEventListener('click', function() {
+            adicionarRegraComissao();
+        });
+
+        document.getElementById('regrasComissao')?.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-remover-regra]');
+            if (!btn) return;
+
+            const row = btn.closest('.regra-comissao');
+            if (row && row.dataset.tipo !== 'padrao') {
+                row.remove();
             }
         });
 
@@ -520,6 +564,9 @@
                 dados.banco_agencia = '';
                 dados.banco_conta = '';
                 dados.banco_tipo = '';
+                dados.comissao_regras = [];
+            } else {
+                dados.comissao_regras = coletarRegrasComissao();
             }
 
             let url, method;
@@ -551,6 +598,112 @@
             btnSalvar.disabled = false;
             btnSalvar.innerHTML = '<i class="fas fa-save mr-2"></i>' + i18n.btnSave;
         }
+    }
+
+    async function carregarGruposComissao() {
+        try {
+            let page = 1;
+            let todos = [];
+            let hasNext = true;
+
+            while (hasNext && page <= 20) {
+                const result = await API.get('/api/grupos', { q: '', perPage: 50, page });
+                todos = todos.concat(Array.isArray(result.data) ? result.data : []);
+                hasNext = !!result.pagination?.hasNext;
+                page++;
+            }
+
+            gruposComissao = todos;
+        } catch (error) {
+            gruposComissao = [];
+        }
+    }
+
+    function renderizarRegrasComissao(regras) {
+        const container = document.getElementById('regrasComissao');
+        if (!container) return;
+
+        container.innerHTML = '';
+        const lista = Array.isArray(regras) ? regras : [];
+        const regraPadrao = lista.find(regra => !regra.id_grupo) || {};
+
+        adicionarRegraComissao({
+            id_grupo: '',
+            comissao_tipo: regraPadrao.comissao_tipo || '',
+            comissao_valor: regraPadrao.comissao_valor || ''
+        }, true);
+
+        lista
+            .filter(regra => regra.id_grupo)
+            .forEach(regra => adicionarRegraComissao(regra, false));
+    }
+
+    function adicionarRegraComissao(regra = {}, padrao = false) {
+        const container = document.getElementById('regrasComissao');
+        if (!container) return;
+
+        const row = document.createElement('div');
+        row.className = 'regra-comissao grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-3 bg-slate-50 border border-slate-200 rounded';
+        row.dataset.tipo = padrao ? 'padrao' : 'grupo';
+
+        row.innerHTML = `
+            <div class="md:col-span-3 form-input-group">
+                <label class="form-label-group">${padrao ? i18n.commissionDefault : i18n.commissionGroup}</label>
+                ${padrao ? `
+                    <input type="text" class="form-input-group-field bg-slate-100" value="${escapeHtml(i18n.commissionDefault)}" disabled>
+                    <input type="hidden" class="regra-grupo" value="">
+                ` : `
+                    <select class="form-input-group-field regra-grupo">
+                        <option value="">${escapeHtml(i18n.commissionGroupPlaceholder)}</option>
+                        ${gruposComissao.map(grupo => `<option value="${grupo.id}">${escapeHtml(grupo.nome || ('#' + grupo.id))}</option>`).join('')}
+                    </select>
+                `}
+            </div>
+            <div class="md:col-span-4 form-input-group">
+                <label class="form-label-group">${i18n.commissionTypePlaceholder}</label>
+                <select class="form-input-group-field regra-tipo">
+                    <option value="">${escapeHtml(i18n.commissionTypePlaceholder)}</option>
+                    <option value="percentual_locadora">Percentual da locadora (%)</option>
+                    <option value="fixo_locadora">Valor fixo da locadora por fatura</option>
+                    <option value="fixo_locadora_mensal">Valor fixo mensal para locadora</option>
+                    <option value="fixo_investidor_mensal">Valor fixo mensal para investidor</option>
+                </select>
+            </div>
+            <div class="md:col-span-3 form-input-group">
+                <label class="form-label-group">${i18n.commissionValue}</label>
+                <input type="text" class="form-input-group-field regra-valor money-input" inputmode="decimal">
+            </div>
+            <div class="md:col-span-2 form-input-group">
+                <button type="button" class="btn-secondary w-full ${padrao ? 'opacity-50 cursor-not-allowed' : ''}" ${padrao ? 'disabled' : 'data-remover-regra="1"'}>
+                    <i class="fas fa-trash mr-2"></i>${i18n.commissionRemove}
+                </button>
+            </div>
+        `;
+
+        container.appendChild(row);
+        row.querySelector('.regra-grupo').value = regra.id_grupo || '';
+        row.querySelector('.regra-tipo').value = regra.comissao_tipo || '';
+        row.querySelector('.regra-valor').value = regra.comissao_valor || '';
+    }
+
+    function coletarRegrasComissao() {
+        return Array.from(document.querySelectorAll('#regrasComissao .regra-comissao'))
+            .map(row => ({
+                id_grupo: row.querySelector('.regra-grupo')?.value || '',
+                comissao_tipo: row.querySelector('.regra-tipo')?.value || '',
+                comissao_valor: row.querySelector('.regra-valor')?.value || '',
+                ativo: 1
+            }))
+            .filter(regra => regra.comissao_tipo && regra.comissao_valor !== '');
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     // Inicializar

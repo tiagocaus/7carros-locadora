@@ -4,7 +4,7 @@ return [
     'page_title' => 'Assinatura de :type - :code',
     'main_title' => 'Assinatura Digital',
     'document_not_found_title' => 'Documento não encontrado',
-    'document_not_found_message' => 'O contrato ou locação informado não existe ou o link está incorreto.',
+    'document_not_found_message' => 'O documento informado não existe ou o link está incorreto.',
     'document_not_found_json' => 'Documento não encontrado',
     'generic_error_title' => 'Erro',
     'generic_error_message' => 'Ocorreu um erro ao processar sua solicitação.',
@@ -24,6 +24,12 @@ return [
             'lower' => 'locação',
             'summary_preposition' => 'da',
             'demonstrative' => 'desta locação',
+        ],
+        'promissoria' => [
+            'label' => 'Promissória',
+            'lower' => 'promissória',
+            'summary_preposition' => 'da',
+            'demonstrative' => 'desta promissória',
         ],
     ],
     'labels' => [

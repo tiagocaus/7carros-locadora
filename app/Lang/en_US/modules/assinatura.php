@@ -4,7 +4,7 @@ return [
     'page_title' => ':type Signature - :code',
     'main_title' => 'Digital Signature',
     'document_not_found_title' => 'Document not found',
-    'document_not_found_message' => 'The contract or rental was not found, or the link is incorrect.',
+    'document_not_found_message' => 'The document was not found, or the link is incorrect.',
     'document_not_found_json' => 'Document not found',
     'generic_error_title' => 'Error',
     'generic_error_message' => 'An error occurred while processing your request.',
@@ -24,6 +24,12 @@ return [
             'lower' => 'rental',
             'summary_preposition' => 'of the',
             'demonstrative' => 'this rental',
+        ],
+        'promissoria' => [
+            'label' => 'Promissory Note',
+            'lower' => 'promissory note',
+            'summary_preposition' => 'of the',
+            'demonstrative' => 'this promissory note',
         ],
     ],
     'labels' => [

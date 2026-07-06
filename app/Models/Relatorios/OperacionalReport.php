@@ -42,8 +42,9 @@ class OperacionalReport extends BaseReportModel
         $query = $this->qb
             ->table('checklist', 'ch')
             ->selectRaw("
-                ch.id, ch.codigo, ch.momento, ch.data_checklist, ch.tanque, ch.odometro,
-                ch.questoes, ch.vistoria, ch.id_locacao, ch.id_funcionario, ch.id_veiculo,
+                ch.id, ch.codigo, ch.tipo, ch.status, ch.data_saida, ch.data_entrada,
+                ch.questoes_saida, ch.vistoria_saida, ch.questoes_entrada, ch.vistoria_entrada,
+                ch.id_locacao, ch.id_funcionario, ch.id_veiculo,
                 v.placa, v.modelo AS veiculo_modelo,
                 f.nome AS funcionario_nome,
                 l.codigo AS locacao_codigo, l.cliente_nome
@@ -51,12 +52,13 @@ class OperacionalReport extends BaseReportModel
             ->leftJoin('veiculos', 'v', 'ch.id_veiculo', '=', 'v.id')
             ->leftJoin('funcionarios', 'f', 'ch.id_funcionario', '=', 'f.id')
             ->leftJoin('locacoes', 'l', 'ch.id_locacao', '=', 'l.id')
-            ->whereRaw('ch.data_checklist BETWEEN ? AND ?', [$dataInicio . ' 00:00:00', $dataFim . ' 23:59:59'])
-            ->orderByRaw('ch.data_checklist DESC');
-
-        if (!empty($tipoMomento)) {
-            $query->whereRaw('ch.momento = ?', [$tipoMomento]);
-        }
+            ->whereRaw('(ch.data_saida BETWEEN ? AND ? OR ch.data_entrada BETWEEN ? AND ?)', [
+                $dataInicio . ' 00:00:00',
+                $dataFim . ' 23:59:59',
+                $dataInicio . ' 00:00:00',
+                $dataFim . ' 23:59:59',
+            ])
+            ->orderByRaw('COALESCE(ch.data_entrada, ch.data_saida) DESC');
 
         $this->applyFilial($query, $filialWhere, $filialParams, $filialId, 'id_matriz_filial', 'v');
 
@@ -67,9 +69,32 @@ class OperacionalReport extends BaseReportModel
         $porFuncionario = [];
 
         foreach ($rows as $r) {
+            $etapas = [];
+            if (!empty($r['data_saida']) && $r['data_saida'] >= $dataInicio . ' 00:00:00' && $r['data_saida'] <= $dataFim . ' 23:59:59') {
+                $etapas[] = [
+                    'momento' => ($r['tipo'] ?? '') === 'V' ? 'S' : 'N',
+                    'data' => $r['data_saida'],
+                    'questoes' => $r['questoes_saida'] ?? '',
+                    'vistoria' => $r['vistoria_saida'] ?? '',
+                ];
+            }
+            if (($r['tipo'] ?? '') === 'V' && !empty($r['data_entrada']) && $r['data_entrada'] >= $dataInicio . ' 00:00:00' && $r['data_entrada'] <= $dataFim . ' 23:59:59') {
+                $etapas[] = [
+                    'momento' => 'C',
+                    'data' => $r['data_entrada'],
+                    'questoes' => $r['questoes_entrada'] ?? '',
+                    'vistoria' => $r['vistoria_entrada'] ?? '',
+                ];
+            }
+
+            foreach ($etapas as $etapa) {
+                if (!empty($tipoMomento) && $etapa['momento'] !== $tipoMomento) {
+                    continue;
+                }
+
             // Decodifica questoes (JSON)
             $itensOk = 0; $itensProb = 0; $totalItens = 0;
-            $questoes = !empty($r['questoes']) ? json_decode($r['questoes'], true) : null;
+            $questoes = !empty($etapa['questoes']) ? json_decode($etapa['questoes'], true) : null;
             if (is_array($questoes)) {
                 foreach ($questoes as $q) {
                     $totalItens++;
@@ -82,7 +107,7 @@ class OperacionalReport extends BaseReportModel
             }
 
             // Conta fotos da vistoria
-            $vistoria = !empty($r['vistoria']) ? json_decode($r['vistoria'], true) : null;
+            $vistoria = !empty($etapa['vistoria']) ? json_decode($etapa['vistoria'], true) : null;
             $qtdFotos = 0;
             if (is_array($vistoria)) {
                 foreach ($vistoria as $v) {
@@ -102,8 +127,8 @@ class OperacionalReport extends BaseReportModel
             $details[] = [
                 'id' => (int) $r['id'],
                 'codigo' => $r['codigo'] ?? '-',
-                'data_checklist' => $r['data_checklist'],
-                'momento' => $r['momento'],
+                'data_checklist' => $etapa['data'],
+                'momento' => $etapa['momento'],
                 'placa' => $r['placa'] ?? '-',
                 'veiculo_modelo' => $r['veiculo_modelo'] ?? '',
                 'locacao_codigo' => $r['locacao_codigo'] ?? '-',
@@ -113,9 +138,10 @@ class OperacionalReport extends BaseReportModel
                 'itens_problema' => $itensProb,
                 'total_itens' => $totalItens,
                 'qtd_fotos' => $qtdFotos,
-                'tanque' => $r['tanque'] ?? '',
-                'odometro' => $r['odometro'] ? (int) $r['odometro'] : null,
+                'tanque' => '',
+                'odometro' => null,
             ];
+            }
         }
 
         $totals = [
@@ -153,15 +179,21 @@ class OperacionalReport extends BaseReportModel
         $query = $this->qb
             ->table('checklist', 'ch')
             ->selectRaw("
-                ch.id, ch.codigo, ch.data_checklist, ch.momento,
-                ch.questoes, ch.vistoria, ch.obs_unica,
+                ch.id, ch.codigo, ch.tipo, ch.data_saida, ch.data_entrada,
+                ch.questoes_saida, ch.questoes_entrada,
+                ch.observacoes_saida, ch.observacoes_entrada,
                 v.placa, v.modelo AS veiculo_modelo,
                 l.codigo AS locacao_codigo, l.cliente_nome, l.id_cliente
             ")
             ->leftJoin('veiculos', 'v', 'ch.id_veiculo', '=', 'v.id')
             ->leftJoin('locacoes', 'l', 'ch.id_locacao', '=', 'l.id')
-            ->whereRaw('ch.data_checklist BETWEEN ? AND ?', [$dataInicio . ' 00:00:00', $dataFim . ' 23:59:59'])
-            ->orderByRaw('ch.data_checklist DESC');
+            ->whereRaw('(ch.data_saida BETWEEN ? AND ? OR ch.data_entrada BETWEEN ? AND ?)', [
+                $dataInicio . ' 00:00:00',
+                $dataFim . ' 23:59:59',
+                $dataInicio . ' 00:00:00',
+                $dataFim . ' 23:59:59',
+            ])
+            ->orderByRaw('COALESCE(ch.data_entrada, ch.data_saida) DESC');
 
         $this->applyFilial($query, $filialWhere, $filialParams, $filialId, 'id_matriz_filial', 'v');
 
@@ -171,8 +203,25 @@ class OperacionalReport extends BaseReportModel
         $countLeve = 0; $countMedia = 0; $countSinistro = 0;
 
         foreach ($rows as $r) {
+            $etapas = [];
+            if (!empty($r['data_saida']) && $r['data_saida'] >= $dataInicio . ' 00:00:00' && $r['data_saida'] <= $dataFim . ' 23:59:59') {
+                $etapas[] = [
+                    'data' => $r['data_saida'],
+                    'questoes' => $r['questoes_saida'] ?? '',
+                    'obs' => $r['observacoes_saida'] ?? '',
+                ];
+            }
+            if (($r['tipo'] ?? '') === 'V' && !empty($r['data_entrada']) && $r['data_entrada'] >= $dataInicio . ' 00:00:00' && $r['data_entrada'] <= $dataFim . ' 23:59:59') {
+                $etapas[] = [
+                    'data' => $r['data_entrada'],
+                    'questoes' => $r['questoes_entrada'] ?? '',
+                    'obs' => $r['observacoes_entrada'] ?? '',
+                ];
+            }
+
+            foreach ($etapas as $etapa) {
             $itensProb = [];
-            $questoes = !empty($r['questoes']) ? json_decode($r['questoes'], true) : null;
+            $questoes = !empty($etapa['questoes']) ? json_decode($etapa['questoes'], true) : null;
             if (is_array($questoes)) {
                 foreach ($questoes as $q) {
                     if (isset($q['opt']) && (string) $q['opt'] !== '1') {
@@ -182,7 +231,7 @@ class OperacionalReport extends BaseReportModel
             }
 
             // Pula checklists sem problemas
-            if (empty($itensProb) && empty($r['obs_unica'])) continue;
+            if (empty($itensProb) && empty($etapa['obs'])) continue;
 
             // Classificacao por quantidade de itens reportados
             $qtd = count($itensProb);
@@ -197,7 +246,7 @@ class OperacionalReport extends BaseReportModel
             }
 
             $details[] = [
-                'data' => $r['data_checklist'],
+                'data' => $etapa['data'],
                 'placa' => $r['placa'] ?? '-',
                 'veiculo_modelo' => $r['veiculo_modelo'] ?? '',
                 'cliente_nome' => $r['cliente_nome'] ?? '-',
@@ -205,10 +254,11 @@ class OperacionalReport extends BaseReportModel
                 'tipo' => $tipo,
                 'descricao' => !empty($itensProb)
                     ? implode(', ', array_slice($itensProb, 0, 5)) . (count($itensProb) > 5 ? '...' : '')
-                    : substr($r['obs_unica'] ?? '', 0, 200),
+                    : substr($etapa['obs'] ?? '', 0, 200),
                 'qtd_itens' => $qtd,
                 'codigo' => $r['codigo'] ?? '-',
             ];
+            }
         }
 
         $totals = [

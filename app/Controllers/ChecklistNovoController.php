@@ -2,13 +2,10 @@
 
 namespace App\Controllers;
 
-use App\Config\Planos;
 use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
-use App\Views\Template;
 use App\Models\Checklist;
-use App\Models\ChecklistModelo;
 use App\Models\Veiculo;
 use App\Helpers\FileHelper;
 use App\Helpers\FilialHelper;
@@ -42,7 +39,7 @@ class ChecklistNovoController
      *
      * @return array|null Dados do checklist ou null se invalido
      */
-    private function validarChecklist(int $id, bool $exigirPendente = true): ?array
+    private function validarChecklist(int $id, bool $exigirPendente = true, ?string $etapa = null): ?array
     {
         $chave = Auth::chave();
         $model = new Checklist();
@@ -56,10 +53,11 @@ class ChecklistNovoController
             return null;
         }
 
-        if ($exigirPendente && in_array($checklist['status'] ?? '', ['2', '4'])) {
+        $etapaAtual = $model->etapaAtual($checklist, $etapa);
+        if ($exigirPendente && $model->etapaFinalizada($checklist, $etapaAtual)) {
             Response::json([
                 'success' => false,
-                'message' => 'Checklist ja finalizado'
+                'message' => 'Esta etapa do checklist ja foi finalizada'
             ], 422);
             return null;
         }
@@ -97,6 +95,31 @@ class ChecklistNovoController
     }
 
     /**
+     * Renderiza a lista mobile de checklists vinculados pendentes.
+     */
+    public function viewVinculados(Request $request): void
+    {
+        if (!Auth::can('checklists.criar')) {
+            Response::html('<h1>Acesso negado</h1>', 403);
+            return;
+        }
+
+        $csrfToken = $_SESSION['csrf_token'] ?? '';
+        $temDashboard = Auth::can('dashboard.visualizar');
+
+        ob_start();
+        $viewPath = __DIR__ . '/../Views/pages/checklists/vinculados.php';
+        extract([
+            'csrf_token' => $csrfToken,
+            'tem_dashboard' => $temDashboard,
+        ]);
+        include $viewPath;
+        $html = ob_get_clean();
+
+        Response::html($html);
+    }
+
+    /**
      * Renderiza a pagina standalone mobile de visualizacao de checklist
      *
      * GET /checklists/visualizar/{id}
@@ -117,28 +140,12 @@ class ChecklistNovoController
             return;
         }
 
-        // Buscar par se vinculado
-        $par = null;
-        if (($checklist['tipo'] ?? '') === 'V') {
-            $par = $model->buscarPar($checklist);
-        }
-
-        // Determinar saida e chegada
-        $momento = $checklist['momento'] ?? 'S';
-        if ($momento === 'C') {
-            $regSaida = $par;
-            $regChegada = $checklist;
-        } else {
-            $regSaida = $checklist;
-            $regChegada = $par;
-        }
-
         // Decodificar dados
-        $questoesSaida = $regSaida ? (json_decode($regSaida['questoes'] ?? $regSaida['questoes_saida'] ?? '[]', true) ?: []) : [];
-        $questoesChegada = $regChegada ? (json_decode($regChegada['questoes'] ?? $regChegada['questoes_saida'] ?? '[]', true) ?: []) : [];
+        $questoesSaida = json_decode($checklist['questoes_saida'] ?? '[]', true) ?: [];
+        $questoesChegada = json_decode($checklist['questoes_entrada'] ?? '[]', true) ?: [];
 
-        $vistoriaSaida = $regSaida ? (json_decode($regSaida['vistoria'] ?? $regSaida['vistoria_saida'] ?? '[]', true) ?: []) : [];
-        $vistoriaChegada = $regChegada ? (json_decode($regChegada['vistoria'] ?? $regChegada['vistoria_saida'] ?? '[]', true) ?: []) : [];
+        $vistoriaSaida = json_decode($checklist['vistoria_saida'] ?? '[]', true) ?: [];
+        $vistoriaChegada = json_decode($checklist['vistoria_entrada'] ?? '[]', true) ?: [];
 
         // Resolver URLs das fotos
         foreach ($vistoriaSaida as &$item) {
@@ -159,8 +166,8 @@ class ChecklistNovoController
             'questoesChegada' => $questoesChegada,
             'vistoriaSaida' => $vistoriaSaida,
             'vistoriaChegada' => $vistoriaChegada,
-            'dataSaida' => $regSaida['data_checklist'] ?? $regSaida['data_saida'] ?? null,
-            'dataChegada' => $regChegada['data_checklist'] ?? $regChegada['data_saida'] ?? null,
+            'dataSaida' => $checklist['data_saida'] ?? null,
+            'dataChegada' => $checklist['data_entrada'] ?? null,
             'tem_dashboard' => $temDashboard,
         ]);
         include $viewPath;
@@ -189,7 +196,54 @@ class ChecklistNovoController
         $user = Auth::user();
         $csrfToken = $_SESSION['csrf_token'] ?? '';
         $retomarId = $request->query('retomar', '');
+        $tipo = $request->query('tipo', '');
+        $etapa = $request->query('etapa', '');
+        $vinculo = $request->query('vinculo', '');
+        $idVeiculo = $request->query('id_veiculo', '');
         $temDashboard = Auth::can('dashboard.visualizar');
+        $vinculoResolvido = null;
+        $vinculoErro = null;
+        $retomarIdResolvido = $retomarId && ctype_digit((string) $retomarId) ? (int) $retomarId : null;
+
+        if (!$retomarIdResolvido && trim((string) $retomarId) !== '') {
+            $tipo = 'V';
+            $vinculo = (string) $retomarId;
+        }
+
+        if ($tipo === 'V' && trim($vinculo) !== '') {
+            try {
+                $model = new Checklist();
+                [$filialWhereLoc, $filialParamsLoc] = FilialHelper::whereFiliais('l.id_matriz_filial_retirada');
+                [$filialWhereCt, $filialParamsCt] = FilialHelper::whereFiliais('ct.id_matriz_filial_retirada');
+                $vinculoResolvido = $model->resolverVinculoPorCodigo(
+                    $vinculo,
+                    $filialWhereLoc,
+                    $filialParamsLoc,
+                    $filialWhereCt,
+                    $filialParamsCt
+                );
+                if (!$vinculoResolvido) {
+                    $vinculoErro = 'Locacao ou contrato nao encontrado';
+                } elseif (!$retomarIdResolvido && trim((string) $retomarId) !== '') {
+                    $idVeiculoBusca = $idVeiculo ? (int) $idVeiculo : (int) ($vinculoResolvido['id_veiculo'] ?? 0);
+                    $checklistAberto = $model->buscarChecklistVinculadoAberto(
+                        ($vinculoResolvido['tipo_vinculo'] ?? '') === 'L' ? (int) $vinculoResolvido['id_vinculo'] : null,
+                        ($vinculoResolvido['tipo_vinculo'] ?? '') === 'C' ? (int) $vinculoResolvido['id_vinculo'] : null,
+                        $idVeiculoBusca
+                    );
+                    if ($checklistAberto) {
+                        if ($etapa === 'entrada') {
+                            $model->iniciarEntrada((int) $checklistAberto['id']);
+                        }
+                        $retomarIdResolvido = (int) $checklistAberto['id'];
+                    } else {
+                        $vinculoErro = 'Checklist vinculado pendente nao encontrado';
+                    }
+                }
+            } catch (\Exception $e) {
+                $vinculoErro = $e->getMessage();
+            }
+        }
 
         ob_start();
         $viewPath = __DIR__ . '/../Views/pages/checklists/novo.php';
@@ -197,7 +251,13 @@ class ChecklistNovoController
             'csrf_token' => $csrfToken,
             'user_name' => $user['name'] ?? '',
             'plano' => $user['plano'] ?? 'G',
-            'retomar_id' => $retomarId ? (int) $retomarId : null,
+            'retomar_id' => $retomarIdResolvido,
+            'tipo_inicial' => in_array($tipo, ['A', 'V'], true) ? $tipo : 'A',
+            'etapa_inicial' => in_array($etapa, ['saida', 'entrada'], true) ? $etapa : 'saida',
+            'vinculo_inicial' => $vinculo,
+            'vinculo_resolvido' => $vinculoResolvido,
+            'vinculo_erro' => $vinculoErro,
+            'id_veiculo_inicial' => $idVeiculo ? (int) $idVeiculo : null,
             'tem_dashboard' => $temDashboard,
         ]);
         include $viewPath;
@@ -228,14 +288,16 @@ class ChecklistNovoController
             $user = Auth::user();
 
             $tipo = $request->input('tipo');
-            $momento = $request->input('momento', 'N');
+            $etapa = $request->input('etapa', 'saida');
             $idModelo = (int) $request->input('id_modelo');
             $idVeiculo = $request->input('id_veiculo') ? (int) $request->input('id_veiculo') : null;
             $idLocacao = $request->input('id_locacao') ? (int) $request->input('id_locacao') : null;
             $idContrato = $request->input('id_contrato') ? (int) $request->input('id_contrato') : null;
-            $tanque = $request->input('tanque', '');
-            $odometro = $request->input('odometro') ? (int) str_replace(['.', ','], '', $request->input('odometro')) : null;
+            $vinculoCodigo = trim((string) $request->input('vinculo_codigo', ''));
+            $codigoVinculo = null;
             $obs = $request->input('obs', '');
+            $model = new Checklist();
+            $checklistVinculadoAberto = null;
 
             // Validacoes
             if (!in_array($tipo, ['V', 'A'], true)) {
@@ -244,23 +306,49 @@ class ChecklistNovoController
             }
 
             if ($tipo === 'V') {
+                if ($vinculoCodigo !== '') {
+                    [$filialWhereLoc, $filialParamsLoc] = FilialHelper::whereFiliais('l.id_matriz_filial_retirada');
+                    [$filialWhereCt, $filialParamsCt] = FilialHelper::whereFiliais('ct.id_matriz_filial_retirada');
+                    $vinculoResolvido = $model->resolverVinculoPorCodigo(
+                        $vinculoCodigo,
+                        $filialWhereLoc,
+                        $filialParamsLoc,
+                        $filialWhereCt,
+                        $filialParamsCt
+                    );
+
+                    if (!$vinculoResolvido) {
+                        Response::json(['success' => false, 'message' => 'Locacao ou contrato nao encontrado'], 422);
+                        return;
+                    }
+
+                    $codigoVinculo = (string) ($vinculoResolvido['codigo'] ?? $vinculoCodigo);
+                    $idLocacao = null;
+                    $idContrato = null;
+
+                    if (($vinculoResolvido['tipo_vinculo'] ?? '') === 'L') {
+                        $idLocacao = (int) $vinculoResolvido['id_vinculo'];
+                    } else {
+                        $idContrato = (int) $vinculoResolvido['id_vinculo'];
+                    }
+
+                    if (!$idVeiculo && !empty($vinculoResolvido['id_veiculo'])) {
+                        $idVeiculo = (int) $vinculoResolvido['id_veiculo'];
+                    }
+                }
+
                 if (!$idLocacao && !$idContrato) {
                     Response::json(['success' => false, 'message' => 'Selecione uma locacao ou contrato'], 422);
                     return;
                 }
-                if (!in_array($momento, ['S', 'C'], true)) {
-                    Response::json(['success' => false, 'message' => 'Selecione o momento (saida/chegada)'], 422);
+                if (!in_array($etapa, ['saida', 'entrada'], true)) {
+                    Response::json(['success' => false, 'message' => 'Etapa invalida'], 422);
                     return;
                 }
             } else {
-                $momento = 'N';
+                $etapa = 'saida';
                 $idLocacao = null;
                 $idContrato = null;
-            }
-
-            if (!$idModelo) {
-                Response::json(['success' => false, 'message' => 'Selecione um modelo de checklist'], 422);
-                return;
             }
 
             if (!$idVeiculo) {
@@ -268,23 +356,61 @@ class ChecklistNovoController
                 return;
             }
 
-            $model = new Checklist();
-            $codigo = $model->gerarCodigo($chave);
+            if ($tipo === 'V') {
+                $checklistVinculadoAberto = $model->buscarChecklistVinculadoAberto($idLocacao, $idContrato, $idVeiculo);
+                if ($etapa === 'entrada' && !$idModelo && $checklistVinculadoAberto && !empty($checklistVinculadoAberto['id_modelo'])) {
+                    $idModelo = (int) $checklistVinculadoAberto['id_modelo'];
+                }
+            }
+
+            if (!$idModelo) {
+                Response::json(['success' => false, 'message' => 'Selecione um modelo de checklist'], 422);
+                return;
+            }
+
+            if ($tipo === 'V' && $codigoVinculo === null) {
+                $codigoVinculo = $model->buscarCodigoVinculo($idLocacao, $idContrato);
+                if (!$codigoVinculo) {
+                    Response::json(['success' => false, 'message' => 'Codigo do vinculo nao encontrado'], 422);
+                    return;
+                }
+            }
+
+            if ($tipo === 'V') {
+                $aberto = $checklistVinculadoAberto;
+                if ($aberto) {
+                    if ($etapa === 'entrada') {
+                        $model->iniciarEntrada((int) $aberto['id']);
+                    }
+
+                    Response::json([
+                        'success' => true,
+                        'id' => (int) $aberto['id'],
+                        'codigo' => $aberto['codigo'],
+                        'retomar' => true,
+                    ]);
+                    return;
+                }
+            }
+
+            $codigo = $tipo === 'V'
+                ? $codigoVinculo
+                : $model->gerarCodigo($chave);
+            $statusInicial = $tipo === 'V'
+                ? Checklist::STATUS_VINCULADO_SAIDA_INICIADO
+                : Checklist::STATUS_AVULSO_INICIADO;
 
             $id = $model->criar([
                 'chave' => $chave,
                 'tipo' => $tipo,
-                'momento' => $momento,
                 'codigo' => $codigo,
                 'id_modelo' => $idModelo,
                 'id_veiculo' => $idVeiculo,
                 'id_locacao' => $idLocacao,
                 'id_contrato' => $idContrato,
-                'tanque' => $tanque,
-                'odometro' => $odometro,
-                'obs_unica' => $obs,
+                'observacoes_' . $etapa => $obs,
                 'id_funcionario' => $user['id'] ?? null,
-                'status' => '1',
+                'status' => $statusInicial,
             ]);
 
             AuditLogService::registrar(
@@ -317,7 +443,8 @@ class ChecklistNovoController
                 return;
             }
 
-            $checklist = $this->validarChecklist($id);
+            $etapa = $request->input('etapa', 'saida');
+            $checklist = $this->validarChecklist($id, true, $etapa);
             if (!$checklist) return;
 
             $questoes = $request->input('questoes');
@@ -327,7 +454,8 @@ class ChecklistNovoController
             }
 
             $model = new Checklist();
-            $model->atualizarQuestoes($id, json_encode($questoes, JSON_UNESCAPED_UNICODE));
+            $etapaAtual = $model->etapaAtual($checklist, $etapa);
+            $model->atualizarQuestoes($id, json_encode($questoes, JSON_UNESCAPED_UNICODE), $etapaAtual);
 
             Response::json(['success' => true]);
         } catch (\Exception $e) {
@@ -351,7 +479,8 @@ class ChecklistNovoController
                 return;
             }
 
-            $checklist = $this->validarChecklist($id);
+            $etapa = $request->input('etapa', 'saida');
+            $checklist = $this->validarChecklist($id, true, $etapa);
             if (!$checklist) return;
 
             $itemId = $request->input('item_id');
@@ -372,7 +501,9 @@ class ChecklistNovoController
             }
 
             // Atualizar JSON da vistoria com o novo filename
-            $vistoria = json_decode($checklist['vistoria'] ?? '[]', true) ?: [];
+            $model = new Checklist();
+            $etapaAtual = $model->etapaAtual($checklist, $etapa);
+            $vistoria = json_decode($checklist['vistoria_' . $etapaAtual] ?? '[]', true) ?: [];
 
             // Buscar template do modelo se vistoria esta vazia
             if (empty($vistoria)) {
@@ -393,8 +524,7 @@ class ChecklistNovoController
                 $vistoria[] = ['id' => $itemId, 'img' => $filename];
             }
 
-            $model = new Checklist();
-            $model->atualizarVistoria($id, json_encode($vistoria, JSON_UNESCAPED_UNICODE));
+            $model->atualizarVistoria($id, json_encode($vistoria, JSON_UNESCAPED_UNICODE), $etapaAtual);
 
             Response::json([
                 'success' => true,
@@ -422,11 +552,14 @@ class ChecklistNovoController
                 return;
             }
 
-            $checklist = $this->validarChecklist($id);
+            $etapa = $request->input('etapa', 'saida');
+            $checklist = $this->validarChecklist($id, true, $etapa);
             if (!$checklist) return;
 
             $chave = Auth::chave();
-            $vistoria = json_decode($checklist['vistoria'] ?? '[]', true) ?: [];
+            $model = new Checklist();
+            $etapaAtual = $model->etapaAtual($checklist, $etapa);
+            $vistoria = json_decode($checklist['vistoria_' . $etapaAtual] ?? '[]', true) ?: [];
 
             foreach ($vistoria as &$item) {
                 if ((string) ($item['id'] ?? '') === (string) $itemId && !empty($item['img'])) {
@@ -436,8 +569,7 @@ class ChecklistNovoController
                 }
             }
 
-            $model = new Checklist();
-            $model->atualizarVistoria($id, json_encode($vistoria, JSON_UNESCAPED_UNICODE));
+            $model->atualizarVistoria($id, json_encode($vistoria, JSON_UNESCAPED_UNICODE), $etapaAtual);
 
             Response::json(['success' => true]);
         } catch (\Exception $e) {
@@ -461,7 +593,8 @@ class ChecklistNovoController
                 return;
             }
 
-            $checklist = $this->validarChecklist($id);
+            $etapa = $request->input('etapa', 'saida');
+            $checklist = $this->validarChecklist($id, true, $etapa);
             if (!$checklist) return;
 
             $assinatura = $request->input('assinatura');
@@ -479,8 +612,14 @@ class ChecklistNovoController
             }
 
             $model = new Checklist();
-            $this->atualizarVeiculoDoChecklist($checklist);
-            $model->salvarAssinatura($id, $filename);
+            $etapaAtual = $model->etapaAtual($checklist, $etapa);
+            $model->salvarAssinatura($id, $filename, $etapaAtual);
+
+            if (!empty($checklist['id_veiculo']) && $this->deveAtualizarVeiculoNoChecklist($checklist, $etapaAtual)) {
+                $odometro = $this->normalizarOdometro($request->input('odometro'));
+                $tanque = trim((string) $request->input('tanque', ''));
+                (new Veiculo())->atualizarDadosChecklist((int) $checklist['id_veiculo'], $odometro, $tanque !== '' ? $tanque : null);
+            }
 
             $user = Auth::user();
             AuditLogService::registrar(
@@ -500,65 +639,6 @@ class ChecklistNovoController
     }
 
     /**
-     * Atualiza o cadastro do veiculo com odometro/tanque informados no checklist.
-     */
-    private function atualizarVeiculoDoChecklist(array $checklist): void
-    {
-        if (($checklist['tipo'] ?? '') === 'V' && ($checklist['momento'] ?? '') !== 'C') {
-            return;
-        }
-
-        $idVeiculo = (int) ($checklist['id_veiculo'] ?? 0);
-        if ($idVeiculo <= 0) {
-            return;
-        }
-
-        $odometro = isset($checklist['odometro']) && (int) $checklist['odometro'] > 0
-            ? (int) $checklist['odometro']
-            : null;
-        $tanque = isset($checklist['tanque']) && trim((string) $checklist['tanque']) !== ''
-            ? trim((string) $checklist['tanque'])
-            : null;
-
-        if ($odometro === null && $tanque === null) {
-            return;
-        }
-
-        $veiculoModel = new Veiculo();
-        $veiculoModel->atualizarDadosChecklist($idVeiculo, $odometro, $tanque);
-
-        $campos = [];
-        if ($odometro !== null) {
-            $campos[] = AuditLogService::campo(
-                'Odometro',
-                $checklist['veiculo_odometro'] ?? null,
-                $odometro,
-                'Checklist'
-            );
-        }
-
-        if ($tanque !== null) {
-            $campos[] = AuditLogService::campo(
-                'Tanque',
-                $checklist['tanque_fracao'] ?? null,
-                $tanque,
-                'Checklist'
-            );
-        }
-
-        $user = Auth::user();
-        $veiculoDescricao = trim(
-            ($checklist['placa'] ?? '') . ' - ' . ($checklist['marca'] ?? '') . ' ' . ($checklist['veiculo_modelo'] ?? '')
-        );
-        $veiculoDescricao = $veiculoDescricao !== '-' ? $veiculoDescricao : '#' . $idVeiculo;
-
-        AuditLogService::registrarComCampos(
-            ($user['nome'] ?? $user['name'] ?? 'Sistema') . ", atualizou veiculo [{$veiculoDescricao}] pelo checklist [{$checklist['codigo']}]",
-            $campos
-        );
-    }
-
-    /**
      * Retorna dados completos do checklist (para retomar preenchimento)
      *
      * GET /api/checklists/{id}
@@ -575,9 +655,11 @@ class ChecklistNovoController
             if (!$checklist) return;
 
             $chave = Auth::chave();
+            $model = new Checklist();
+            $etapa = $model->etapaAtual($checklist, $request->query('etapa', null));
 
             // Resolver URLs das fotos da vistoria
-            $vistoria = json_decode($checklist['vistoria'] ?? '[]', true) ?: [];
+            $vistoria = json_decode($checklist['vistoria_' . $etapa] ?? '[]', true) ?: [];
             foreach ($vistoria as &$item) {
                 if (!empty($item['img'])) {
                     $item['img_url'] = FileHelper::url($item['img'], $chave);
@@ -586,8 +668,8 @@ class ChecklistNovoController
 
             // Resolver URL da assinatura
             $assinaturaUrl = null;
-            if (!empty($checklist['assinatura_unica'])) {
-                $assinaturaUrl = FileHelper::url($checklist['assinatura_unica'], $chave);
+            if (!empty($checklist['assinatura_' . $etapa])) {
+                $assinaturaUrl = FileHelper::url($checklist['assinatura_' . $etapa], $chave);
             }
 
             Response::json([
@@ -596,7 +678,7 @@ class ChecklistNovoController
                     'id' => (int) $checklist['id'],
                     'codigo' => $checklist['codigo'],
                     'tipo' => $checklist['tipo'],
-                    'momento' => $checklist['momento'],
+                    'etapa' => $etapa,
                     'status' => $checklist['status'],
                     'id_modelo' => (int) $checklist['id_modelo'],
                     'modelo_nome' => $checklist['modelo_nome'],
@@ -604,15 +686,17 @@ class ChecklistNovoController
                     'modelo_vistoria' => json_decode($checklist['modelo_vistoria'] ?? '[]', true),
                     'id_veiculo' => $checklist['id_veiculo'] ? (int) $checklist['id_veiculo'] : null,
                     'veiculo' => $checklist['placa'] ? ($checklist['placa'] . ' - ' . $checklist['marca'] . ' ' . $checklist['veiculo_modelo']) : null,
+                    'tipo_combustivel' => $checklist['tipo_combustivel'] ?? 'GE',
+                    'odometro' => $checklist['odometro'] !== null ? (int) $checklist['odometro'] : null,
+                    'tanque_fracao' => $checklist['tanque_fracao'] ?? null,
                     'id_locacao' => $checklist['id_locacao'] ? (int) $checklist['id_locacao'] : null,
                     'locacao_codigo' => $checklist['locacao_codigo'],
                     'locacao_cliente' => $checklist['locacao_cliente'],
                     'id_contrato' => $checklist['id_contrato'] ? (int) $checklist['id_contrato'] : null,
                     'contrato_codigo' => $checklist['contrato_codigo'],
-                    'tanque' => $checklist['tanque'],
-                    'odometro' => $checklist['odometro'] ? (int) $checklist['odometro'] : null,
-                    'obs' => $checklist['obs_unica'],
-                    'questoes' => json_decode($checklist['questoes'] ?? '[]', true),
+                    'contrato_cliente' => $checklist['contrato_cliente'],
+                    'obs' => $checklist['observacoes_' . $etapa],
+                    'questoes' => json_decode($checklist['questoes_' . $etapa] ?? '[]', true),
                     'vistoria' => $vistoria,
                     'assinatura_url' => $assinaturaUrl,
                 ],
@@ -649,6 +733,9 @@ class ChecklistNovoController
                     'cliente' => $loc['cliente_nome'],
                     'id_veiculo' => $loc['id_veiculo'] ? (int) $loc['id_veiculo'] : null,
                     'veiculo' => $loc['placa'] ? ($loc['placa'] . ' - ' . $loc['marca'] . ' ' . $loc['veiculo_modelo']) : null,
+                    'tipo_combustivel' => $loc['tipo_combustivel'] ?? 'GE',
+                    'odometro' => $loc['odometro'] !== null ? (int) $loc['odometro'] : null,
+                    'tanque_fracao' => $loc['tanque_fracao'] ?? null,
                     'text' => $loc['codigo'] . ' - ' . $loc['cliente_nome'],
                 ];
             }
@@ -683,6 +770,9 @@ class ChecklistNovoController
                     'cliente' => $ct['cliente_nome'],
                     'id_veiculo' => $ct['id_veiculo'] ? (int) $ct['id_veiculo'] : null,
                     'veiculo' => $ct['placa'] ? ($ct['placa'] . ' - ' . $ct['marca'] . ' ' . $ct['veiculo_modelo']) : null,
+                    'tipo_combustivel' => $ct['tipo_combustivel'] ?? 'GE',
+                    'odometro' => $ct['odometro'] !== null ? (int) $ct['odometro'] : null,
+                    'tanque_fracao' => $ct['tanque_fracao'] ?? null,
                     'text' => $ct['codigo'] . ' - ' . ($ct['cliente_nome'] ?? ''),
                 ];
             }
@@ -704,10 +794,16 @@ class ChecklistNovoController
             $chave = Auth::chave();
             if (!$chave) { Response::json(['success' => false, 'message' => 'Sessao invalida'], 401); return; }
             $search = $request->query('q', '');
+            $id = (int) $request->query('id', 0);
             [$filialWhere, $filialParams] = FilialHelper::whereFiliais('v.id_matriz_filial');
 
-            $model = new Checklist();
-            $veiculos = $model->buscarVeiculos($chave, $search, $filialWhere, $filialParams);
+            if ($id > 0) {
+                $veiculo = (new Veiculo())->buscarPorId($id);
+                $veiculos = $veiculo ? [$veiculo] : [];
+            } else {
+                $model = new Checklist();
+                $veiculos = $model->buscarVeiculos($chave, $search, $filialWhere, $filialParams);
+            }
 
             $results = [];
             foreach ($veiculos as $v) {
@@ -716,9 +812,9 @@ class ChecklistNovoController
                     'placa' => $v['placa'],
                     'modelo' => $v['modelo'],
                     'marca' => $v['marca'],
-                    'odometro' => $v['odometro'] ? (int) $v['odometro'] : null,
-                    'tanque_fracao' => $v['tanque_fracao'],
                     'tipo_combustivel' => $v['tipo_combustivel'] ?? 'GE',
+                    'odometro' => $v['odometro'] !== null ? (int) $v['odometro'] : null,
+                    'tanque_fracao' => $v['tanque_fracao'] ?? null,
                     'text' => $v['placa'] . ' - ' . $v['marca'] . ' ' . $v['modelo'],
                 ];
             }
@@ -749,11 +845,16 @@ class ChecklistNovoController
 
             foreach ($locacoes as $loc) {
                 $results[] = [
-                    'id' => 'L-' . $loc['id'],
+                    'id' => $loc['codigo'],
+                    'codigo' => $loc['codigo'],
+                    'tipo_vinculo' => 'L',
+                    'id_vinculo' => (int) $loc['id'],
                     'text' => '[Locação] ' . $loc['codigo'] . ' - ' . $loc['cliente_nome'],
                     'id_veiculo' => $loc['id_veiculo'] ? (int) $loc['id_veiculo'] : null,
                     'veiculo' => $loc['placa'] ? ($loc['placa'] . ' - ' . $loc['marca'] . ' ' . $loc['veiculo_modelo']) : null,
                     'tipo_combustivel' => $loc['tipo_combustivel'] ?? 'GE',
+                    'odometro' => $loc['odometro'] !== null ? (int) $loc['odometro'] : null,
+                    'tanque_fracao' => $loc['tanque_fracao'] ?? null,
                 ];
             }
 
@@ -763,11 +864,16 @@ class ChecklistNovoController
 
             foreach ($contratos as $ct) {
                 $results[] = [
-                    'id' => 'C-' . $ct['id'],
+                    'id' => $ct['codigo'],
+                    'codigo' => $ct['codigo'],
+                    'tipo_vinculo' => 'C',
+                    'id_vinculo' => (int) $ct['id'],
                     'text' => '[Contrato] ' . $ct['codigo'] . ' - ' . ($ct['cliente_nome'] ?? ''),
                     'id_veiculo' => $ct['id_veiculo'] ? (int) $ct['id_veiculo'] : null,
                     'veiculo' => $ct['placa'] ? ($ct['placa'] . ' - ' . $ct['marca'] . ' ' . $ct['veiculo_modelo']) : null,
                     'tipo_combustivel' => $ct['tipo_combustivel'] ?? 'GE',
+                    'odometro' => $ct['odometro'] !== null ? (int) $ct['odometro'] : null,
+                    'tanque_fracao' => $ct['tanque_fracao'] ?? null,
                 ];
             }
 
@@ -778,9 +884,39 @@ class ChecklistNovoController
     }
 
     /**
+     * Lista checklists/vinculos que ainda precisam de saida ou entrada.
+     */
+    public function vinculadosPendentes(Request $request): void
+    {
+        try {
+            if (!Auth::can('checklists.criar')) {
+                Response::json(['success' => false, 'message' => 'Sem permissao'], 403);
+                return;
+            }
+
+            $search = $request->query('search', '');
+            $status = $request->query('status', '');
+
+            if ($status !== '' && !in_array($status, ['aguardando_saida', 'aguardando_chegada'], true)) {
+                Response::json(['success' => false, 'message' => 'Status invalido'], 422);
+                return;
+            }
+
+            $model = new Checklist();
+            [$filialWhere, $filialParams] = FilialHelper::whereFiliais('v.id_matriz_filial');
+            Response::json([
+                'success' => true,
+                'data' => $model->listarVinculadosPendentes($search, $status, $filialWhere, $filialParams),
+            ]);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Retorna veiculos de uma locacao/contrato com status de checklist
      *
-     * GET /api/checklists/veiculos-vinculo?tipo=L|C&id=123&momento=S|C
+     * GET /api/checklists/veiculos-vinculo?tipo=L|C&id=123&etapa=saida|entrada
      */
     public function veiculosVinculo(Request $request): void
     {
@@ -790,15 +926,18 @@ class ChecklistNovoController
 
             $tipo = $request->query('tipo', '');
             $id = (int) $request->query('id', 0);
-            $momento = $request->query('momento', 'S');
+            $etapa = $request->query('etapa', '');
+            if ($etapa === '') {
+                $etapa = $request->query('momento', 'S') === 'C' ? 'entrada' : 'saida';
+            }
 
-            if (!in_array($tipo, ['L', 'C'], true) || !$id) {
+            if (!in_array($tipo, ['L', 'C'], true) || !$id || !in_array($etapa, ['saida', 'entrada'], true)) {
                 Response::json(['success' => false, 'message' => 'Parametros invalidos'], 422);
                 return;
             }
 
             $model = new Checklist();
-            $veiculos = $model->buscarVeiculosDoVinculo($tipo, $id, $momento, $chave);
+            $veiculos = $model->buscarVeiculosDoVinculo($tipo, $id, $etapa, $chave);
 
             $results = [];
             foreach ($veiculos as $v) {
@@ -808,8 +947,8 @@ class ChecklistNovoController
                     'marca' => $v['marca'],
                     'modelo' => $v['modelo'],
                     'tipo_combustivel' => $v['tipo_combustivel'] ?? 'GE',
-                    'odometro' => $v['odometro'] ? (int) $v['odometro'] : null,
-                    'tanque_fracao' => $v['tanque_fracao'],
+                    'odometro' => $v['odometro'] !== null ? (int) $v['odometro'] : null,
+                    'tanque_fracao' => $v['tanque_fracao'] ?? null,
                     'checklist_feito' => $v['checklist_feito'],
                     'text' => $v['placa'] . ' - ' . $v['marca'] . ' ' . $v['modelo'],
                 ];
@@ -819,5 +958,25 @@ class ChecklistNovoController
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }
+    }
+
+    private function deveAtualizarVeiculoNoChecklist(array $checklist, string $etapa): bool
+    {
+        if (($checklist['tipo'] ?? '') === 'A') {
+            return true;
+        }
+
+        return ($checklist['tipo'] ?? '') === 'V' && $etapa === 'entrada';
+    }
+
+    private function normalizarOdometro($valor): ?int
+    {
+        $digits = preg_replace('/\D+/', '', (string) $valor);
+        if ($digits === '') {
+            return null;
+        }
+
+        $odometro = (int) $digits;
+        return $odometro > 0 ? $odometro : null;
     }
 }

@@ -106,6 +106,19 @@
         .form-textarea { resize: vertical; min-height: 80px; }
         .form-group { margin-bottom: 16px; }
         .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+        .form-input[readonly], .form-select:disabled, .form-textarea[readonly] { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
+        .readonly-value {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 15px;
+            background: #f1f5f9;
+            color: #475569;
+            min-height: 42px;
+        }
+        .vehicle-data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 420px) { .vehicle-data-grid { grid-template-columns: 1fr; } }
 
         /* Toggle buttons */
         .toggle-group { display: flex; gap: 0; border-radius: 8px; overflow: hidden; border: 1px solid #d1d5db; }
@@ -398,22 +411,13 @@
 <div id="tab-infor" class="tab-panel active">
     <h2 style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:16px;"><?= t('modules.checklists.digital.information') ?></h2>
 
-    <div class="form-group">
-        <label class="form-label"><?= t('modules.checklists.digital.type') ?></label>
-        <div class="toggle-group">
-            <button type="button" class="toggle-btn" data-value="A" onclick="setTipo('A')"><?= t('modules.checklists.digital.type_standalone') ?></button>
-            <button type="button" class="toggle-btn" data-value="V" onclick="setTipo('V')"><?= t('modules.checklists.digital.type_linked') ?></button>
-        </div>
-        <input type="hidden" id="infor-tipo" value="">
-    </div>
+    <input type="hidden" id="infor-tipo" value="<?= htmlspecialchars($tipo_inicial ?? 'A') ?>">
 
-    <div id="wrap-momento" class="form-group" style="display:none;">
-        <label class="form-label"><?= t('modules.checklists.digital.moment') ?></label>
-        <div class="toggle-group">
-            <button type="button" class="toggle-btn" data-value="S" onclick="setMomento('S')"><?= t('modules.checklists.digital.moment_departure') ?></button>
-            <button type="button" class="toggle-btn" data-value="C" onclick="setMomento('C')"><?= t('modules.checklists.digital.moment_arrival') ?></button>
-        </div>
-        <input type="hidden" id="infor-momento" value="">
+    <input type="hidden" id="infor-etapa" value="<?= htmlspecialchars($etapa_inicial ?? 'saida') ?>">
+
+    <div class="form-group">
+        <label class="form-label">Checklist</label>
+        <div id="infor-contexto-checklist" class="readonly-value"></div>
     </div>
 
     <div id="wrap-vinculo" class="form-group" style="display:none;">
@@ -425,6 +429,11 @@
                 data-chosen-min-chars="2">
             <option value=""><?= t('modules.checklists.digital.select') ?></option>
         </select>
+    </div>
+
+    <div id="wrap-vinculo-readonly" class="form-group" style="display:none;">
+        <label class="form-label"><?= t('modules.checklists.digital.contract_rental') ?></label>
+        <div id="infor-vinculo-readonly" class="readonly-value"></div>
     </div>
 
     <div id="wrap-veiculo-avulso" class="form-group" style="display:none;">
@@ -445,17 +454,14 @@
         </select>
     </div>
 
-    <div class="form-group">
-        <label class="form-label"><?= t('modules.checklists.digital.checklist_model') ?></label>
-        <select id="infor-modelo" class="form-select deferred-chosen"
-                data-chosen-placeholder="<?= t('modules.checklists.digital.select_model') ?>">
-            <option value=""><?= t('modules.checklists.digital.select') ?></option>
-        </select>
+    <div id="wrap-veiculo-readonly" class="form-group" style="display:none;">
+        <label class="form-label"><?= t('modules.checklists.digital.vehicle') ?></label>
+        <div id="infor-veiculo-readonly" class="readonly-value"></div>
     </div>
 
-    <div style="display:flex;gap:12px;">
-        <div class="form-group" style="flex:1;">
-            <label class="form-label" id="label-tanque"><?= t('modules.checklists.digital.tank') ?></label>
+    <div id="wrap-dados-veiculo" class="vehicle-data-grid" style="display:none;">
+        <div class="form-group">
+            <label id="label-tanque" class="form-label" for="infor-tanque"><?= t('modules.checklists.digital.tank') ?></label>
             <select id="infor-tanque" class="form-select">
                 <option value=""><?= t('modules.checklists.digital.select') ?></option>
                 <option value="8">Cheio</option>
@@ -469,11 +475,21 @@
                 <option value="0">Reserva</option>
             </select>
         </div>
-        <div class="form-group" style="flex:1;">
-            <label class="form-label"><?= t('modules.checklists.digital.odometer') ?></label>
-            <input type="text" id="infor-odometro" class="form-input" inputmode="numeric" placeholder="0" style="text-align:right;">
+        <div class="form-group">
+            <label class="form-label" for="infor-odometro"><?= t('modules.checklists.digital.odometer') ?></label>
+            <input id="infor-odometro" type="text" inputmode="numeric" class="form-input" placeholder="0">
         </div>
     </div>
+
+    <div class="form-group">
+        <label class="form-label"><?= t('modules.checklists.digital.checklist_model') ?></label>
+        <select id="infor-modelo" class="form-select deferred-chosen"
+                data-chosen-placeholder="<?= t('modules.checklists.digital.select_model') ?>">
+            <option value=""><?= t('modules.checklists.digital.select') ?></option>
+        </select>
+        <div id="infor-modelo-readonly" class="readonly-value" style="display:none;"></div>
+    </div>
+
 
     <div class="form-group">
         <label class="form-label"><?= t('modules.checklists.digital.observations') ?></label>
@@ -626,6 +642,12 @@
     let tabsCompleted = { infor: false, questoes: false, vistorias: false };
 
     const TABS = ['infor', 'questoes', 'vistorias', 'assinatura'];
+    const initialTipo = <?= json_encode($tipo_inicial ?? 'A') ?>;
+    const initialEtapa = <?= json_encode($etapa_inicial ?? 'saida') ?>;
+    const initialVinculo = <?= json_encode($vinculo_inicial ?? '') ?>;
+    const initialVinculoResolvido = <?= json_encode($vinculo_resolvido ?? null) ?>;
+    const initialVinculoErro = <?= json_encode($vinculo_erro ?? null) ?>;
+    const initialVeiculo = <?= json_encode($id_veiculo_inicial ?? null) ?>;
 
     // i18n strings para JS
     const i18n = {
@@ -739,86 +761,182 @@
     }
 
     // ============================
-    // Odometro formatting
-    // ============================
-    const odoInput = document.getElementById('infor-odometro');
-    odoInput.addEventListener('input', function() {
-        let v = this.value.replace(/\D/g, '');
-        if (v) v = parseInt(v).toLocaleString('pt-BR');
-        this.value = v;
-    });
-
-    // ============================
     // Toggle buttons: Tipo
     // ============================
-    let currentTipoCombustivel = 'GE'; // tipo de combustivel do veiculo selecionado
-
     // Dados do vinculo atual (para fluxo "proximo veiculo")
     let vinculoAtual = null; // { tipo: 'L'|'C', id: int }
     let veiculosVinculo = []; // dados do endpoint veiculos-vinculo
+    let veiculoAtual = null;
+    let vinculoBloqueado = false;
+    let modeloAtualId = null;
+
+    function veiculoLabel(data) {
+        if (!data) return '';
+        return data.text || data.veiculo || [data.placa, [data.marca, data.modelo || data.veiculo_modelo].filter(Boolean).join(' ')].filter(Boolean).join(' - ');
+    }
+
+    function etapaAtualTela() {
+        return document.getElementById('infor-etapa').value || 'saida';
+    }
+
+    function atualizarContextoChecklist() {
+        const tipo = document.getElementById('infor-tipo').value;
+        const etapa = etapaAtualTela();
+        let texto = 'Checklist avulso';
+        if (tipo === 'V') {
+            texto = etapa === 'entrada' ? 'Checklist vinculado de chegada' : 'Checklist vinculado de saída';
+        }
+        document.getElementById('infor-contexto-checklist').textContent = texto;
+    }
+
+    function dadosVeiculoEditaveis() {
+        const tipo = document.getElementById('infor-tipo').value;
+        return tipo === 'A' || (tipo === 'V' && etapaAtualTela() === 'entrada');
+    }
+
+    function isChegadaVinculada() {
+        return document.getElementById('infor-tipo').value === 'V' && etapaAtualTela() === 'entrada';
+    }
+
+    function atualizarDadosVeiculoUI(data) {
+        veiculoAtual = data || null;
+        const wrap = document.getElementById('wrap-dados-veiculo');
+        const selectTanque = document.getElementById('infor-tanque');
+        const inputOdometro = document.getElementById('infor-odometro');
+        const labelTanque = document.getElementById('label-tanque');
+        const tipoCombustivel = data?.tipo_combustivel || 'GE';
+        const editavel = dadosVeiculoEditaveis();
+
+        wrap.style.display = data ? 'grid' : 'none';
+        selectTanque.disabled = !editavel;
+        inputOdometro.readOnly = !editavel;
+        selectTanque.value = data?.tanque_fracao !== null && data?.tanque_fracao !== undefined ? String(data.tanque_fracao) : '';
+        inputOdometro.value = data?.odometro !== null && data?.odometro !== undefined ? String(data.odometro) : '';
+        labelTanque.textContent = (window.FuelLabels && FuelLabels.isElectric(tipoCombustivel)) ? i18n.batteryCharge : i18n.tank;
+        if (window.FuelLabels) {
+            FuelLabels.updateSelectOptions(selectTanque, tipoCombustivel, 'Cheio', 'Reserva');
+        }
+    }
+
+    function limparDadosChegadaVeiculo() {
+        if (!isChegadaVinculada()) return;
+        const selectTanque = document.getElementById('infor-tanque');
+        const inputOdometro = document.getElementById('infor-odometro');
+        selectTanque.value = '';
+        selectTanque.disabled = false;
+        inputOdometro.value = '';
+        inputOdometro.readOnly = false;
+    }
+
+    function garantirOpcaoModelo(id, nome) {
+        if (!id) return;
+        const select = document.getElementById('infor-modelo');
+        let option = Array.from(select.options).find(opt => String(opt.value) === String(id));
+        if (!option) {
+            option = document.createElement('option');
+            option.value = String(id);
+            option.textContent = nome || ('Modelo #' + id);
+            select.appendChild(option);
+        } else if (nome && !option.textContent.trim()) {
+            option.textContent = nome;
+        }
+        select.value = String(id);
+        if (select.chosenSelect) select.chosenSelect.refresh();
+    }
+
+    function travarModeloComoLeitura(nomeModelo = '') {
+        const select = document.getElementById('infor-modelo');
+        const readonly = document.getElementById('infor-modelo-readonly');
+        const option = select.options[select.selectedIndex];
+        readonly.textContent = nomeModelo || (option ? option.textContent : '');
+        readonly.style.display = 'block';
+
+        if (select.chosenSelect && select.chosenSelect.container) {
+            select.chosenSelect.container.style.display = 'none';
+        }
+        select.style.display = 'none';
+    }
+
+    function atualizarModeloLeituraPorEtapa(nomeModelo = '') {
+        if (isChegadaVinculada()) {
+            travarModeloComoLeitura(nomeModelo);
+            return;
+        }
+
+        const select = document.getElementById('infor-modelo');
+        const readonly = document.getElementById('infor-modelo-readonly');
+        readonly.style.display = 'none';
+        if (select.chosenSelect && select.chosenSelect.container) {
+            select.chosenSelect.container.style.display = '';
+        } else {
+            select.style.display = '';
+        }
+    }
+
+    function limparDadosVeiculo() {
+        atualizarDadosVeiculoUI(null);
+    }
+
+    function travarVinculo(vinculo) {
+        if (!vinculo) return;
+        vinculoBloqueado = true;
+        vinculoAtual = {
+            tipo: vinculo.tipo_vinculo,
+            id: parseInt(vinculo.id_vinculo),
+            codigo: vinculo.codigo,
+        };
+        document.getElementById('wrap-vinculo').style.display = 'none';
+        document.getElementById('wrap-veiculo-vinculado').style.display = 'none';
+        document.getElementById('wrap-vinculo-readonly').style.display = 'block';
+        document.getElementById('wrap-veiculo-readonly').style.display = 'block';
+        document.getElementById('infor-vinculo-readonly').textContent = '[' + (vinculo.tipo_vinculo === 'L' ? 'Locação' : 'Contrato') + '] ' + (vinculo.codigo || '-') + ' - ' + (vinculo.cliente || '-');
+        document.getElementById('infor-veiculo-readonly').textContent = veiculoLabel(vinculo) || '-';
+        const veicSelect = document.getElementById('infor-veiculo-vinculado');
+        veicSelect.innerHTML = '<option value="' + (vinculo.id_veiculo || '') + '" selected>' + escapeHtml(veiculoLabel(vinculo) || '-') + '</option>';
+        atualizarDadosVeiculoUI(vinculo);
+    }
 
     window.setTipo = function(val) {
         document.getElementById('infor-tipo').value = val;
-        document.querySelectorAll('#tab-infor .toggle-group')[0].querySelectorAll('.toggle-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.value === val);
-        });
+        atualizarContextoChecklist();
+        const tipoToggle = document.querySelectorAll('#tab-infor .toggle-group')[0];
+        if (tipoToggle) {
+            tipoToggle.querySelectorAll('.toggle-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.value === val);
+            });
+        }
 
         const isVinculado = val === 'V';
-        document.getElementById('wrap-momento').style.display = isVinculado ? 'block' : 'none';
-        document.getElementById('wrap-vinculo').style.display = isVinculado ? 'block' : 'none';
+        document.getElementById('wrap-vinculo').style.display = (isVinculado && !vinculoBloqueado) ? 'block' : 'none';
+        document.getElementById('wrap-vinculo-readonly').style.display = (isVinculado && vinculoBloqueado) ? 'block' : 'none';
+        document.getElementById('wrap-veiculo-readonly').style.display = (isVinculado && vinculoBloqueado) ? 'block' : 'none';
         document.getElementById('wrap-veiculo-avulso').style.display = !isVinculado ? 'block' : 'none';
-        document.getElementById('wrap-veiculo-vinculado').style.display = 'none';
+        document.getElementById('wrap-veiculo-vinculado').style.display = (isVinculado && !vinculoBloqueado) ? document.getElementById('wrap-veiculo-vinculado').style.display : 'none';
 
         if (!isVinculado) {
-            document.getElementById('infor-momento').value = '';
             const vinculoSel = document.getElementById('infor-vinculo');
             if (vinculoSel.chosenSelect) vinculoSel.chosenSelect.clear();
             vinculoAtual = null;
             veiculosVinculo = [];
+            vinculoBloqueado = false;
         } else {
             const veicSel = document.getElementById('infor-veiculo');
             if (veicSel.chosenSelect) veicSel.chosenSelect.clear();
         }
-        atualizarTanqueLabels('GE');
+        if (!isVinculado) limparDadosVeiculo();
     };
-
-    // ============================
-    // Toggle buttons: Momento
-    // ============================
-    window.setMomento = function(val) {
-        document.getElementById('infor-momento').value = val;
-        document.querySelectorAll('#wrap-momento .toggle-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.value === val);
-        });
-        // Recarregar veiculos do vinculo se ja tem um selecionado
-        carregarVeiculosVinculo();
-    };
-
-    // ============================
-    // Tanque: FuelLabels integration
-    // ============================
-    function atualizarTanqueLabels(tipoCombustivel) {
-        currentTipoCombustivel = tipoCombustivel || 'GE';
-        const selectTanque = document.getElementById('infor-tanque');
-        const labelTanque = document.getElementById('label-tanque');
-
-        if (typeof FuelLabels !== 'undefined') {
-            FuelLabels.updateSelectOptions(selectTanque, currentTipoCombustivel, 'Cheio', 'Reserva');
-            labelTanque.textContent = FuelLabels.isElectric(currentTipoCombustivel) ? i18n.batteryCharge : i18n.tank;
-        }
-    }
 
     // ============================
     // Chosen-select: Vinculo - ao selecionar, carregar veiculos
     // ============================
-    let veiculoDataCache = {};
     const vinculoSelect = document.getElementById('infor-vinculo');
 
-    vinculoSelect.addEventListener('change', function() {
+    vinculoSelect.addEventListener('change', async function() {
         const val = this.value;
         document.getElementById('wrap-veiculo-vinculado').style.display = 'none';
         vinculoAtual = null;
         veiculosVinculo = [];
+        limparDadosVeiculo();
 
         if (!val) return;
 
@@ -826,86 +944,90 @@
         if (match) {
             vinculoAtual = { tipo: match[1], id: parseInt(match[2]) };
             carregarVeiculosVinculo();
+            return;
+        }
+
+        try {
+            const res = await API.get('/api/checklists/buscar-vinculos', { q: val });
+            const item = (res.data || []).find(v => String(v.id) === String(val) || String(v.codigo) === String(val));
+            if (item) {
+                travarVinculo({
+                    tipo_vinculo: item.tipo_vinculo,
+                    id_vinculo: item.id_vinculo,
+                    codigo: item.codigo || item.id,
+                    cliente: (item.text || '').replace(/^\[(Locação|Contrato)\]\s*/, '').replace(String(item.codigo || item.id) + ' - ', ''),
+                    id_veiculo: item.id_veiculo,
+                    veiculo: item.veiculo,
+                    tipo_combustivel: item.tipo_combustivel,
+                    odometro: item.odometro,
+                    tanque_fracao: item.tanque_fracao,
+                });
+                await carregarVeiculosVinculo();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    });
+
+    document.getElementById('infor-veiculo-vinculado').addEventListener('change', function() {
+        const id = this.value;
+        const data = veiculosVinculo.find(v => String(v.id_veiculo) === String(id));
+        atualizarDadosVeiculoUI(data || null);
+    });
+
+    document.getElementById('infor-veiculo').addEventListener('change', async function() {
+        const id = this.value;
+        if (!id) {
+            limparDadosVeiculo();
+            return;
+        }
+        try {
+            const res = await API.get('/api/checklists/buscar-veiculos', { id });
+            atualizarDadosVeiculoUI((res.data || [])[0] || null);
+        } catch (e) {
+            console.error(e);
         }
     });
 
     async function carregarVeiculosVinculo() {
         if (!vinculoAtual) return;
-        const momento = document.getElementById('infor-momento').value;
-        if (!momento) return;
+        const etapa = document.getElementById('infor-etapa').value || 'saida';
 
         try {
             const res = await API.get('/api/checklists/veiculos-vinculo', {
                 tipo: vinculoAtual.tipo,
                 id: vinculoAtual.id,
-                momento: momento,
+                etapa: etapa,
             });
 
             if (!res.success) return;
 
             veiculosVinculo = res.data;
             const select = document.getElementById('infor-veiculo-vinculado');
+            const valorAtual = select.value;
             select.innerHTML = '<option value="">' + i18n.selectVehicle + '</option>';
 
             res.data.forEach(v => {
                 const opt = document.createElement('option');
                 opt.value = v.id_veiculo;
                 if (v.checklist_feito) {
-                    opt.textContent = v.text + ' ✓ ' + (momento === 'S' ? i18n.departureDone : i18n.arrivalDone);
+                    opt.textContent = v.text + ' ✓ ' + (etapa === 'entrada' ? i18n.arrivalDone : i18n.departureDone);
                     opt.disabled = true;
                     opt.style.color = '#9ca3af';
                 } else {
                     opt.textContent = v.text;
                 }
-                opt.dataset.tipoCombustivel = v.tipo_combustivel || 'GE';
-                opt.dataset.odometro = v.odometro || '';
                 select.appendChild(opt);
             });
+            if (valorAtual) {
+                select.value = valorAtual;
+            }
 
             document.getElementById('wrap-veiculo-vinculado').style.display = 'block';
-        } catch (e) { console.error(e); }
-    }
-
-    // Ao selecionar veiculo vinculado, preencher odometro/tanque
-    document.getElementById('infor-veiculo-vinculado').addEventListener('change', function() {
-        const opt = this.options[this.selectedIndex];
-        if (opt && opt.value) {
-            if (opt.dataset.odometro) {
-                odoInput.value = parseInt(opt.dataset.odometro).toLocaleString('pt-BR');
-            }
-            atualizarTanqueLabels(opt.dataset.tipoCombustivel || 'GE');
-        }
-    });
-
-    // ============================
-    // Chosen-select: Veiculo avulso - ao selecionar, buscar dados extras
-    // ============================
-    const veiculoSelect = document.getElementById('infor-veiculo');
-    veiculoSelect.addEventListener('change', async function() {
-        const val = this.value;
-        if (!val) return;
-
-        if (veiculoDataCache[val]) {
-            aplicarDadosVeiculo(veiculoDataCache[val]);
-            return;
-        }
-
-        try {
-            const res = await API.get('/api/checklists/buscar-veiculos', { q: '' });
-            if (res.success && res.data) {
-                res.data.forEach(item => { veiculoDataCache[String(item.id)] = item; });
-                if (veiculoDataCache[val]) {
-                    aplicarDadosVeiculo(veiculoDataCache[val]);
-                }
+            if (vinculoBloqueado) {
+                document.getElementById('wrap-veiculo-vinculado').style.display = 'none';
             }
         } catch (e) { console.error(e); }
-    });
-
-    function aplicarDadosVeiculo(item) {
-        if (item.odometro) {
-            odoInput.value = parseInt(item.odometro).toLocaleString('pt-BR');
-        }
-        atualizarTanqueLabels(item.tipo_combustivel || 'GE');
     }
 
     // ============================
@@ -947,31 +1069,35 @@
     // ============================
     window.avancarInfor = async function() {
         const tipo = document.getElementById('infor-tipo').value;
-        const momento = tipo === 'V' ? document.getElementById('infor-momento').value : 'N';
-        const idModelo = document.getElementById('infor-modelo').value;
-        const tanque = document.getElementById('infor-tanque').value;
-        const odometro = odoInput.value;
+        const etapa = document.getElementById('infor-etapa').value || 'saida';
+        const idModelo = modeloAtualId || document.getElementById('infor-modelo').value;
         const obs = document.getElementById('infor-obs').value;
         const vinculoVal = document.getElementById('infor-vinculo').value;
+        const tanqueVal = document.getElementById('infor-tanque').value;
+        const odometroVal = document.getElementById('infor-odometro').value.trim();
 
         // Validacoes
         if (!tipo) return mostrarErro(i18n.errSelectType);
-        if (tipo === 'V' && !momento) return mostrarErro(i18n.errSelectMoment);
-        if (tipo === 'V' && !vinculoVal) return mostrarErro(i18n.errSelectLink);
+        if (tipo === 'V' && !vinculoAtual && !vinculoVal) return mostrarErro(i18n.errSelectLink);
         if (tipo === 'V' && !document.getElementById('infor-veiculo-vinculado').value) return mostrarErro(i18n.errSelectVehicle);
         if (tipo === 'A' && !document.getElementById('infor-veiculo').value) return mostrarErro(i18n.errSelectVehicle);
+        if (dadosVeiculoEditaveis() && tanqueVal === '') return mostrarErro(i18n.errSelectTank);
+        if (dadosVeiculoEditaveis() && odometroVal === '') return mostrarErro(i18n.errFillOdometer);
         if (!idModelo) return mostrarErro(i18n.errSelectModel);
-        if (tanque === '') return mostrarErro(i18n.errSelectTank);
-        if (!odometro) return mostrarErro(i18n.errFillOdometer);
 
         // Extrair IDs
         let idLocacao = null, idContrato = null, idVeiculo = null;
 
-        if (tipo === 'V' && vinculoVal) {
-            const match = vinculoVal.match(/^(L|C)-(\d+)$/);
-            if (match) {
-                if (match[1] === 'L') idLocacao = parseInt(match[2]);
-                else idContrato = parseInt(match[2]);
+        if (tipo === 'V' && (vinculoAtual || vinculoVal)) {
+            if (vinculoAtual) {
+                if (vinculoAtual.tipo === 'L') idLocacao = vinculoAtual.id;
+                else idContrato = vinculoAtual.id;
+            } else {
+                const match = vinculoVal.match(/^(L|C)-(\d+)$/);
+                if (match) {
+                    if (match[1] === 'L') idLocacao = parseInt(match[2]);
+                    else idContrato = parseInt(match[2]);
+                }
             }
             idVeiculo = parseInt(document.getElementById('infor-veiculo-vinculado').value) || null;
         } else if (tipo === 'A') {
@@ -983,13 +1109,12 @@
         try {
             const payload = {
                 tipo,
-                momento,
                 id_modelo: parseInt(idModelo),
                 id_veiculo: idVeiculo,
                 id_locacao: idLocacao,
                 id_contrato: idContrato,
-                tanque,
-                odometro,
+                vinculo_codigo: vinculoAtual?.codigo || vinculoVal || '',
+                etapa,
                 obs,
             };
 
@@ -1101,6 +1226,7 @@
         try {
             const res = await API.post('/api/checklists/' + checklistId + '/questoes', {
                 questoes: questoesState,
+                etapa: document.getElementById('infor-etapa').value || 'saida',
             });
 
             if (!res.success) {
@@ -1173,6 +1299,7 @@
             const res = await API.post('/api/checklists/' + checklistId + '/vistoria/upload', {
                 item_id: itemId,
                 foto: base64,
+                etapa: document.getElementById('infor-etapa').value || 'saida',
             });
 
             if (res.success) {
@@ -1635,6 +1762,7 @@
             const res = await API.post('/api/checklists/' + checklistId + '/vistoria/upload', {
                 item_id: editorState.currentItemId,
                 foto: base64,
+                etapa: document.getElementById('infor-etapa').value || 'saida',
             });
 
             if (res.success) {
@@ -1738,7 +1866,9 @@
     window.excluirFoto = async function(idx, itemId) {
         showLoading(i18n.deletingPhoto);
         try {
-            const res = await API.post('/api/checklists/' + checklistId + '/vistoria/' + itemId + '/excluir');
+            const res = await API.post('/api/checklists/' + checklistId + '/vistoria/' + itemId + '/excluir', {
+                etapa: document.getElementById('infor-etapa').value || 'saida',
+            });
             if (res.success) {
                 vistoriaState[idx].img = null;
                 vistoriaState[idx].img_url = null;
@@ -1865,6 +1995,10 @@
     // ============================
     window.salvarChecklist = async function() {
         if (!hasSignature) { mostrarErro(i18n.errSign); return; }
+        if (dadosVeiculoEditaveis()) {
+            if (document.getElementById('infor-tanque').value === '') return mostrarErro(i18n.errSelectTank);
+            if (document.getElementById('infor-odometro').value.trim() === '') return mostrarErro(i18n.errFillOdometer);
+        }
 
         showLoading(i18n.savingChecklist);
 
@@ -1881,6 +2015,9 @@
 
             const res = await API.post('/api/checklists/' + checklistId + '/assinar', {
                 assinatura: sigData,
+                etapa: document.getElementById('infor-etapa').value || 'saida',
+                tanque: document.getElementById('infor-tanque').value,
+                odometro: document.getElementById('infor-odometro').value,
             });
 
             if (res.success) {
@@ -1955,15 +2092,13 @@
 
         // Limpar campos que precisam ser preenchidos novamente
         document.getElementById('infor-veiculo-vinculado').value = '';
-        document.getElementById('infor-tanque').value = '';
-        document.getElementById('infor-odometro').value = '';
         document.getElementById('infor-obs').value = '';
 
         // Recarregar veiculos do vinculo (para atualizar status checklist_feito)
         carregarVeiculosVinculo();
 
         // Voltar para aba Infor
-        // Tipo, momento e vinculo ficam pre-selecionados
+        // Tipo, etapa e vinculo ficam pre-selecionados
         // Modelo fica pre-selecionado (editavel)
         switchTab('infor');
     };
@@ -1980,7 +2115,10 @@
             const respondidas = questoesState.filter(q => q.opt);
             if (respondidas.length === 0) return;
             try {
-                await API.post('/api/checklists/' + checklistId + '/questoes', { questoes: questoesState });
+                await API.post('/api/checklists/' + checklistId + '/questoes', {
+                    questoes: questoesState,
+                    etapa: document.getElementById('infor-etapa').value || 'saida',
+                });
                 // Indicador discreto
                 const el = document.getElementById('auto-save-indicator');
                 if (el) { el.style.opacity = '1'; setTimeout(() => { el.style.opacity = '0'; }, 2000); }
@@ -2014,15 +2152,13 @@
             const d = res.data;
             checklistId = d.id;
             checklistCodigo = d.codigo;
+            modeloAtualId = d.id_modelo ? parseInt(d.id_modelo) : null;
 
             // Preencher aba Infor com dados salvos
             if (d.tipo) setTipo(d.tipo);
-            if (d.momento && d.tipo === 'V') setMomento(d.momento);
-            if (d.tanque !== null && d.tanque !== undefined && d.tanque !== '') {
-                document.getElementById('infor-tanque').value = String(d.tanque);
-            }
-            if (d.odometro !== null && d.odometro !== undefined && d.odometro !== 0) {
-                document.getElementById('infor-odometro').value = parseInt(d.odometro).toLocaleString('pt-BR');
+            if (d.etapa) {
+                document.getElementById('infor-etapa').value = d.etapa;
+                atualizarContextoChecklist();
             }
             if (d.obs) {
                 document.getElementById('infor-obs').value = d.obs;
@@ -2031,33 +2167,36 @@
             // Aguardar chosen-selects inicializarem e selecionar modelo
             await carregarModelos();
             if (d.id_modelo) {
-                document.getElementById('infor-modelo').value = String(d.id_modelo);
-                const modeloSelect = document.getElementById('infor-modelo');
-                if (modeloSelect.chosenSelect) modeloSelect.chosenSelect.refresh();
+                garantirOpcaoModelo(d.id_modelo, d.modelo_nome);
+                atualizarModeloLeituraPorEtapa(d.modelo_nome || '');
             }
 
             // Preencher vinculo (Locacao/Contrato) no chosen-select
             if (d.tipo === 'V' && (d.id_locacao || d.id_contrato)) {
-                const vinculoId = d.id_locacao ? 'L-' + d.id_locacao : 'C-' + d.id_contrato;
-                const vinculoText = d.id_locacao
-                    ? '[Locação] ' + (d.locacao_codigo || '') + ' - ' + (d.locacao_cliente || '')
-                    : '[Contrato] ' + (d.contrato_codigo || '');
-                const vinculoSel = document.getElementById('infor-vinculo');
-                const opt = document.createElement('option');
-                opt.value = vinculoId;
-                opt.textContent = vinculoText;
-                opt.selected = true;
-                vinculoSel.appendChild(opt);
-                if (vinculoSel.chosenSelect) vinculoSel.chosenSelect.refresh();
-
-                // Configurar vinculoAtual para carregar veiculos e pre-selecionar
-                const match = vinculoId.match(/^(L|C)-(\d+)$/);
-                if (match) {
-                    vinculoAtual = { tipo: match[1], id: parseInt(match[2]) };
-                    await carregarVeiculosVinculo();
-                    if (d.id_veiculo) {
-                        document.getElementById('infor-veiculo-vinculado').value = String(d.id_veiculo);
-                    }
+                travarVinculo({
+                    tipo_vinculo: d.id_locacao ? 'L' : 'C',
+                    id_vinculo: d.id_locacao || d.id_contrato,
+                    codigo: d.id_locacao ? d.locacao_codigo : d.contrato_codigo,
+                    cliente: d.id_locacao ? d.locacao_cliente : d.contrato_cliente,
+                    id_veiculo: d.id_veiculo,
+                    veiculo: d.veiculo,
+                    tipo_combustivel: d.tipo_combustivel,
+                    odometro: d.odometro,
+                    tanque_fracao: d.tanque_fracao,
+                });
+                await carregarVeiculosVinculo();
+                if (d.id_veiculo) {
+                    document.getElementById('infor-veiculo-vinculado').value = String(d.id_veiculo);
+                    const data = veiculosVinculo.find(v => String(v.id_veiculo) === String(d.id_veiculo));
+                    if (data) document.getElementById('infor-veiculo-readonly').textContent = veiculoLabel(data) || '-';
+                    atualizarDadosVeiculoUI(data || {
+                        id_veiculo: d.id_veiculo,
+                        veiculo: d.veiculo,
+                        tipo_combustivel: d.tipo_combustivel,
+                        odometro: d.odometro,
+                        tanque_fracao: d.tanque_fracao,
+                    });
+                    limparDadosChegadaVeiculo();
                 }
             }
 
@@ -2070,6 +2209,13 @@
                 opt.selected = true;
                 veicSel.appendChild(opt);
                 if (veicSel.chosenSelect) veicSel.chosenSelect.refresh();
+                atualizarDadosVeiculoUI({
+                    id_veiculo: d.id_veiculo,
+                    veiculo: d.veiculo,
+                    tipo_combustivel: d.tipo_combustivel,
+                    odometro: d.odometro,
+                    tanque_fracao: d.tanque_fracao,
+                });
             }
 
             // Carregar modelo para questoes/vistoria
@@ -2110,6 +2256,12 @@
 
             // Navegar para aba correta baseado no que está COMPLETO
             tabsCompleted.infor = true;
+
+            if (isChegadaVinculada()) {
+                hideLoading();
+                switchTab('infor');
+                return;
+            }
 
             if (todasQuestoesRespondidas && temVistoria) {
                 tabsCompleted.questoes = true;
@@ -2154,8 +2306,32 @@
         '</div>';
     }
 
+    async function iniciarComParametros() {
+        setTipo(initialTipo === 'V' ? 'V' : 'A');
+        document.getElementById('infor-etapa').value = initialEtapa === 'entrada' ? 'entrada' : 'saida';
+        atualizarContextoChecklist();
+
+        if (initialTipo === 'V' && initialVinculo) {
+            await carregarModelos();
+            if (initialVinculoResolvido) {
+                travarVinculo(initialVinculoResolvido);
+                await carregarVeiculosVinculo();
+                if (initialVeiculo) {
+                    document.getElementById('infor-veiculo-vinculado').value = String(initialVeiculo);
+                    const data = veiculosVinculo.find(v => String(v.id_veiculo) === String(initialVeiculo));
+                    if (data) document.getElementById('infor-veiculo-readonly').textContent = veiculoLabel(data) || '-';
+                    atualizarDadosVeiculoUI(data || initialVinculoResolvido);
+                }
+            } else {
+                mostrarErro(initialVinculoErro || 'Locacao ou contrato nao encontrado');
+            }
+        }
+    }
+
     if (retomarId) {
         retomarChecklist(retomarId);
+    } else {
+        iniciarComParametros();
     }
 
 })();

@@ -1,6 +1,6 @@
 # Sistema de Assinatura Digital
 
-Sistema de assinatura digital para contratos e locacoes, com armazenamento em tabela dedicada e arquivos WebP.
+Sistema de assinatura digital para contratos, locacoes e promissorias, com armazenamento em tabela dedicada e arquivos WebP.
 
 ## Visao Geral
 
@@ -33,9 +33,10 @@ CREATE TABLE assinaturas (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     chave VARCHAR(45) NOT NULL,
 
-    -- FKs (apenas uma preenchida: contrato OU locacao)
+    -- Vinculos (apenas um preenchido: contrato, locacao OU promissoria)
     id_contrato INT UNSIGNED NULL,
     id_locacao INT UNSIGNED NULL,
+    codigo_promissoria VARCHAR(20) NULL,
     id_cliente INT UNSIGNED NULL,
 
     -- Dados da assinatura
@@ -61,6 +62,7 @@ CREATE TABLE assinaturas (
     INDEX idx_assinaturas_chave (chave),
     INDEX idx_assinaturas_contrato (id_contrato),
     INDEX idx_assinaturas_locacao (id_locacao),
+    INDEX idx_assinaturas_promissoria (chave, codigo_promissoria),
     INDEX idx_assinaturas_cliente (id_cliente),
 
     -- FKs
@@ -76,10 +78,10 @@ CREATE TABLE assinaturas (
 
 | Metodo | Rota | Controller | Descricao |
 |--------|------|------------|-----------|
-| GET | /assinar/{codigo} | AssinaturaController@view | Pagina publica de assinatura de contrato (`C...`) ou locacao (`L...`) |
-| POST | /assinar/{codigo} | AssinaturaController@assinar | Salvar assinatura vinculando `id_contrato` ou `id_locacao` |
+| GET | /assinar/{codigo} | AssinaturaController@view | Pagina publica de assinatura de contrato (`C...`), locacao (`L...`) ou promissoria (`PRO...`) |
+| POST | /assinar/{codigo} | AssinaturaController@assinar | Salvar assinatura vinculando `id_contrato`, `id_locacao` ou `codigo_promissoria` |
 
-> A rota publica resolve o tipo pelo codigo: contratos normalmente usam prefixo `C`, locacoes usam prefixo `L`. Como a pagina pode ser aberta sem sessao autenticada (ou com sessao de outro tenant no mesmo navegador), a busca publica deve resolver o registro por codigo e usar a `chave` do proprio registro para salvar a assinatura.
+> A rota publica resolve o tipo pelo codigo: contratos normalmente usam prefixo `C`, locacoes usam prefixo `L` e promissorias usam codigo base `PRO...`. Como a pagina pode ser aberta sem sessao autenticada (ou com sessao de outro tenant no mesmo navegador), a busca publica deve resolver o registro por codigo e usar a `chave` do proprio registro para salvar a assinatura.
 
 ## Model Assinatura.php
 
@@ -99,6 +101,9 @@ $assinatura = $model->buscarPorContrato($idContrato, 'testemunha');
 
 // Buscar assinatura em locacao
 $assinatura = $model->buscarPorLocacao($idLocacao);
+
+// Buscar assinatura em promissoria agrupada
+$assinatura = $model->buscarPorPromissoria($codigoBase);
 
 // Listar todas assinaturas de um contrato
 $assinaturas = $model->listarPorContrato($idContrato);
@@ -120,6 +125,11 @@ if ($model->locacaoTemAssinatura($idLocacao)) {
     // ja assinado
 }
 
+// Verificar se promissoria tem assinatura
+if ($model->promissoriaTemAssinatura($codigoBase)) {
+    // ja assinado
+}
+
 // Verificar integridade do arquivo (hash SHA256)
 $integro = $model->verificarIntegridade($id);
 ```
@@ -130,6 +140,7 @@ $integro = $model->verificarIntegridade($id);
 $id = $model->salvar([
     'base64' => $imagemBase64,      // Obrigatorio
     'id_contrato' => $contratoId,   // OU id_locacao
+    'codigo_promissoria' => null,   // OU codigo base da promissoria
     'id_cliente' => $clienteId,     // Opcional
     'ip_address' => $ip,            // Obrigatorio
     'user_agent' => $userAgent,     // Opcional
@@ -152,6 +163,9 @@ $count = $model->excluirPorContrato($idContrato);
 
 // Excluir todas assinaturas de uma locacao
 $count = $model->excluirPorLocacao($idLocacao);
+
+// Excluir todas assinaturas de uma promissoria
+$count = $model->excluirPorPromissoria($codigoBase);
 ```
 
 ### Verificacao Externa
@@ -172,7 +186,7 @@ $model->registrarVerificacao($id);
 
 ### 1. Funcionario envia link
 
-Na listagem de contratos e locacoes, o modal "Link de Assinatura" permite copiar,
+Na listagem de contratos, locacoes e promissorias, o modal "Link de Assinatura" permite copiar,
 abrir ou enviar o link por WhatsApp.
 
 O envio por WhatsApp usa `queue_template_message('signature_request', 'whatsapp', ...)`.
@@ -182,7 +196,7 @@ O template `signature_request` tambem existe para email e SMS, usando a variavel
 ### 2. Cliente acessa pagina publica
 
 A pagina `/assinar/{codigo}` exibe:
-- Resumo do contrato ou locacao (cliente, veiculo, periodo, valor)
+- Resumo do contrato, locacao ou promissoria (cliente, periodo, valor e veiculo quando aplicavel)
 - Canvas para desenhar assinatura
 - Botoes limpar/assinar
 - Modais locais de alerta/confirmacao (pagina publica pode abrir fora do `app.php`)
@@ -214,13 +228,14 @@ fetch(window.location.pathname, {
 
 ```php
 // AssinaturaController::assinar()
-$tipo = $documento['tipo']; // contrato ou locacao
+$tipo = $documento['tipo']; // contrato, locacao ou promissoria
 $registro = $documento['registro'];
 
 $assinaturaModel->salvar([
     'base64' => $dados['assinatura'],
     'id_contrato' => $tipo === 'contrato' ? $registro['id'] : null,
     'id_locacao' => $tipo === 'locacao' ? $registro['id'] : null,
+    'codigo_promissoria' => $tipo === 'promissoria' ? $registro['codigo_base'] : null,
     'id_cliente' => $registro['id_cliente'] ?? null,
     'ip_address' => $_SERVER['REMOTE_ADDR'],
     'user_agent' => $_SERVER['HTTP_USER_AGENT'],

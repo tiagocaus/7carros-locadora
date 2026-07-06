@@ -52,7 +52,7 @@
                     <th class="table-header hidden lg:table-cell text-right"><?= t('modules.promissorias.table.total_value') ?></th>
                     <th class="table-header hidden sm:table-cell text-center"><?= t('modules.promissorias.table.installments') ?></th>
                     <th class="table-header w-28 text-center"><?= t('modules.promissorias.table.status') ?></th>
-                    <th class="table-header px-2 w-40 text-center"><?= t('modules.promissorias.table.actions') ?></th>
+                    <th class="table-header px-2 w-44 text-center"><?= t('modules.promissorias.table.actions') ?></th>
                 </tr>
             </thead>
             <tbody id="promissoriasTableBody" class="bg-white divide-y divide-slate-200">
@@ -98,6 +98,7 @@ $i18nPromissorias = [
     'tooltipEdit' => t('modules.promissorias.tooltips.edit'),
     'tooltipDelete' => t('modules.promissorias.tooltips.delete'),
     'tooltipPrint' => t('modules.promissorias.tooltips.print'),
+    'tooltipSignature' => t('modules.promissorias.tooltips.signature'),
     'tooltipMarkAllPaid' => t('modules.promissorias.tooltips.mark_all_paid'),
     'statusPaidOffLabel' => t('modules.promissorias.status.paid_off'),
     'thisPromissory' => t('modules.promissorias.messages.this_promissory'),
@@ -110,6 +111,9 @@ $i18nPromissorias = [
     'markPaidBtn' => t('modules.promissorias.messages.mark_paid_btn'),
     'markedPaid' => t('modules.promissorias.messages.marked_paid'),
     'markPaidError' => t('modules.promissorias.messages.mark_paid_error'),
+    'signatureLoadError' => t('modules.promissorias.messages.signature_load_error'),
+    'signatureRemoved' => t('modules.promissorias.messages.signature_removed'),
+    'signatureClearError' => t('modules.promissorias.messages.signature_clear_error'),
     'showing' => t('modules.promissorias.pagination.showing'),
     'showingEmpty' => t('modules.promissorias.pagination.showing_empty'),
     'recordType' => t('modules.promissorias.title_singular'),
@@ -257,6 +261,9 @@ $i18nPromissorias = [
 
             // Botoes de acao - usando codigo_base
             const codigo = escapeHtml(p.codigo_base || p.codigo);
+            const temAssinatura = !!p.id_assinatura;
+            const assinaturaClass = temAssinatura ? 'text-green-600' : 'text-slate-400';
+            const btnAssinatura = `<button onclick="assinaturaPromissoria('${codigo}', ${temAssinatura ? 'true' : 'false'})" class="${assinaturaClass} hover:text-green-700 p-1" title="${i18n.tooltipSignature}"><i class="fas fa-signature"></i></button>`;
             const btnEditar = `<button onclick="editarPromissoria('${codigo}')" class="text-blue-600 hover:text-blue-800 p-1" title="${i18n.tooltipEdit}"><i class="fas fa-edit"></i></button>`;
             const btnExcluir = `<button onclick="excluirPromissoria('${codigo}')" class="text-red-600 hover:text-red-800 p-1" title="${i18n.tooltipDelete}"><i class="fas fa-trash"></i></button>`;
             const btnImprimir = `<button onclick="imprimirPromissoria('${codigo}')" class="text-slate-600 hover:text-slate-800 p-1" title="${i18n.tooltipPrint}"><i class="fas fa-print"></i></button>`;
@@ -274,9 +281,10 @@ $i18nPromissorias = [
                     <td class="table-cell hidden lg:table-cell text-right font-medium">${valorTotal}</td>
                     <td class="table-cell hidden sm:table-cell text-center">${parcelasInfo}</td>
                     <td class="table-cell w-28 text-center">${statusBadge}</td>
-                    <td class="table-cell px-2 w-40 text-right">
+                    <td class="table-cell px-2 w-44 text-right">
                         <div class="flex items-center justify-center space-x-1">
                             ${btnMarcarPago}
+                            ${btnAssinatura}
                             ${btnImprimir}
                             ${btnEditar}
                             ${btnExcluir}
@@ -419,6 +427,67 @@ $i18nPromissorias = [
         }
     };
 
+    window.assinaturaPromissoria = function(codigo, temAssinatura) {
+        if (temAssinatura) {
+            abrirModalAssinatura(codigo);
+            return;
+        }
+
+        const linkAssinatura = window.location.origin + '/assinar/' + codigo;
+        window.parent.postMessage({
+            action: 'openSignatureLinkModal',
+            tipo: 'promissoria',
+            id: codigo,
+            codigo: codigo,
+            url: linkAssinatura
+        }, '*');
+    };
+
+    async function abrirModalAssinatura(codigo) {
+        try {
+            const result = await API.get(`/api/promissorias/${codigo}/assinatura`);
+            if (!result.success) {
+                window.parent.postMessage({
+                    action: 'openAlert',
+                    message: i18n.signatureLoadError.replace(':message', result.message || '')
+                }, '*');
+                return;
+            }
+
+            window.parent.postMessage({
+                action: 'openAssinaturaModal',
+                tipo: 'promissoria',
+                promissoriaCodigo: codigo,
+                codigo: codigo,
+                data_assinatura: result.data?.data_assinatura || '-',
+                ip: result.data?.ip || '-',
+                url: result.data?.url || ''
+            }, '*');
+        } catch (error) {
+            console.error('Erro ao carregar assinatura:', error);
+            window.parent.postMessage({
+                action: 'openAlert',
+                message: i18n.signatureLoadError.replace(':message', error.message || '')
+            }, '*');
+        }
+    }
+
+    async function limparAssinatura(codigo) {
+        try {
+            const result = await API.post(`/promissorias/${codigo}/limpar-assinatura`);
+
+            if (result.success) {
+                carregarPromissorias(currentPage, perPage, searchTerm);
+                window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.signatureRemoved }, '*');
+            } else {
+                window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.signatureClearError }, '*');
+            }
+        } catch (error) {
+            console.error('Erro ao limpar assinatura:', error);
+            window.parent.postMessage({ action: 'openAlert', message: i18n.signatureClearError }, '*');
+        }
+    }
+
     async function executarMarcarPago(codigo) {
         try {
             const result = await API.post(`/promissorias/${codigo}/marcar-pago`);
@@ -529,6 +598,10 @@ $i18nPromissorias = [
             }
             pendingAction = null;
             pendingData = null;
+        }
+
+        if (event.data.action === 'resetarAssinatura' && event.data.promissoriaCodigo) {
+            limparAssinatura(event.data.promissoriaCodigo);
         }
     });
 })();

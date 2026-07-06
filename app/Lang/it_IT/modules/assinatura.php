@@ -4,7 +4,7 @@ return [
     'page_title' => 'Firma di :type - :code',
     'main_title' => 'Firma Digitale',
     'document_not_found_title' => 'Documento non trovato',
-    'document_not_found_message' => 'Il contratto o noleggio indicato non esiste oppure il link non è corretto.',
+    'document_not_found_message' => 'Il documento indicato non esiste oppure il link non è corretto.',
     'document_not_found_json' => 'Documento non trovato',
     'generic_error_title' => 'Errore',
     'generic_error_message' => 'Si è verificato un errore durante l\'elaborazione della richiesta.',
@@ -24,6 +24,12 @@ return [
             'lower' => 'noleggio',
             'summary_preposition' => 'del',
             'demonstrative' => 'questo noleggio',
+        ],
+        'promissoria' => [
+            'label' => 'Cambiale',
+            'lower' => 'cambiale',
+            'summary_preposition' => 'della',
+            'demonstrative' => 'questa cambiale',
         ],
     ],
     'labels' => [

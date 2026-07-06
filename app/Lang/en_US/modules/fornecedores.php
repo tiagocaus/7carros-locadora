@@ -83,6 +83,19 @@ return [
         'poupanca' => 'Savings',
     ],
 
+    'commission_rules' => [
+        'title' => 'Commission rules',
+        'description' => 'The first row, "Default rule", applies to all of this investor’s groups when there is no specific exception. To set a different deal for one group, click "Add group exception".',
+        'help' => 'The "Default rule" is the investor’s general rule. Use it when this investor has the same commission for all of their vehicles, regardless of group. Example: if the default rule is 20% for the rental company, all vehicles from this investor use that rule, even if they are in different groups. If a group has a different deal, click "Add group exception", choose the group, and enter the specific commission. The system uses the group exception first; if there is no exception, it uses the investor default rule; if there is no default rule either, it uses the rule configured on the vehicle group.',
+        'add_group_rule' => 'Add group exception',
+        'default_rule' => 'Default rule',
+        'group_rule' => 'Group rule',
+        'group_placeholder' => 'Select group',
+        'type_placeholder' => 'Commission type',
+        'value' => 'Value',
+        'remove' => 'Remove',
+    ],
+
     // Placeholders
     'placeholders' => [
         'search' => 'Search...',

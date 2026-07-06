@@ -174,10 +174,12 @@ class FornecedoresReport extends BaseReportModel
                 'v.valor_compra',
                 'v.disponibilidade',
                 'g.nome AS grupo_nome',
-                'g.comissao_investidor_tipo',
-                'g.comissao_investidor_valor',
+                'COALESCE(rg.comissao_tipo, rp.comissao_tipo, g.comissao_investidor_tipo) AS comissao_investidor_tipo',
+                'COALESCE(rg.comissao_valor, rp.comissao_valor, g.comissao_investidor_valor) AS comissao_investidor_valor',
             ])
             ->leftJoinRaw('grupos', 'g', 'g.id = v.id_grupo AND g.chave = v.chave')
+            ->leftJoinRaw('fornecedores_comissoes_regras', 'rg', 'rg.chave = v.chave AND rg.id_fornecedor = v.id_fornecedor AND rg.id_grupo = v.id_grupo AND rg.ativo = 1')
+            ->leftJoinRaw('fornecedores_comissoes_regras', 'rp', 'rp.chave = v.chave AND rp.id_fornecedor = v.id_fornecedor AND rp.id_grupo IS NULL AND rp.ativo = 1')
             ->whereIn('v.id_fornecedor', $idsInvestidores)
             ->whereNotIn('v.disponibilidade', Veiculo::DISPONIBILIDADE_INATIVA);
 

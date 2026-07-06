@@ -9,7 +9,7 @@ use App\Helpers\ImageHelper;
 /**
  * Model Assinatura
  *
- * Gerencia assinaturas digitais de contratos e locacoes.
+ * Gerencia assinaturas digitais de contratos, locacoes e promissorias.
  * Armazena assinaturas em arquivos (nao base64) para melhor performance.
  */
 class Assinatura extends Model
@@ -74,6 +74,30 @@ class Assinatura extends Model
         $query = $this->qb
             ->table('assinaturas')
             ->where('id_locacao', '=', $idLocacao)
+            ->where('tipo', '=', $tipo)
+            ->orderBy('created_at', 'DESC');
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        $assinatura = $query->first();
+
+        if ($assinatura) {
+            $assinatura['url'] = $this->getUrl($assinatura);
+        }
+
+        return $assinatura;
+    }
+
+    /**
+     * Busca assinatura por promissoria agrupada pelo codigo base.
+     */
+    public function buscarPorPromissoria(string $codigoBase, string $tipo = 'cliente', ?string $chave = null): ?array
+    {
+        $query = $this->qb
+            ->table('assinaturas')
+            ->where('codigo_promissoria', '=', $codigoBase)
             ->where('tipo', '=', $tipo)
             ->orderBy('created_at', 'DESC');
 
@@ -160,6 +184,7 @@ class Assinatura extends Model
      *   - base64: string (obrigatorio) - Imagem em base64
      *   - id_contrato: int|null
      *   - id_locacao: int|null
+     *   - codigo_promissoria: string|null
      *   - id_cliente: int|null
      *   - ip_address: string (obrigatorio)
      *   - user_agent: string|null
@@ -178,8 +203,12 @@ class Assinatura extends Model
             throw new \InvalidArgumentException('Assinatura (base64) e obrigatoria');
         }
 
-        if (empty($dados['id_contrato']) && empty($dados['id_locacao'])) {
-            throw new \InvalidArgumentException('ID do contrato ou locacao e obrigatorio');
+        if (
+            empty($dados['id_contrato'])
+            && empty($dados['id_locacao'])
+            && empty($dados['codigo_promissoria'])
+        ) {
+            throw new \InvalidArgumentException('ID do contrato, locacao ou promissoria e obrigatorio');
         }
 
         $chave = $dados['chave'] ?? Auth::chave();
@@ -204,19 +233,20 @@ class Assinatura extends Model
         }
 
         return $query->insert([
-                'id_contrato' => $dados['id_contrato'] ?? null,
-                'id_locacao' => $dados['id_locacao'] ?? null,
-                'id_cliente' => $dados['id_cliente'] ?? null,
-                'arquivo' => $filename,
-                'hash_arquivo' => $hashArquivo,
-                'ip_address' => $dados['ip_address'] ?? '0.0.0.0',
-                'user_agent' => $dados['user_agent'] ?? null,
-                'latitude' => $dados['latitude'] ?? null,
-                'longitude' => $dados['longitude'] ?? null,
-                'tipo' => $dados['tipo'] ?? 'cliente',
-                'observacao' => $dados['observacao'] ?? null,
-                'created_at' => now(),
-            ]);
+            'id_contrato' => $dados['id_contrato'] ?? null,
+            'id_locacao' => $dados['id_locacao'] ?? null,
+            'codigo_promissoria' => $dados['codigo_promissoria'] ?? null,
+            'id_cliente' => $dados['id_cliente'] ?? null,
+            'arquivo' => $filename,
+            'hash_arquivo' => $hashArquivo,
+            'ip_address' => $dados['ip_address'] ?? '0.0.0.0',
+            'user_agent' => $dados['user_agent'] ?? null,
+            'latitude' => $dados['latitude'] ?? null,
+            'longitude' => $dados['longitude'] ?? null,
+            'tipo' => $dados['tipo'] ?? 'cliente',
+            'observacao' => $dados['observacao'] ?? null,
+            'created_at' => now(),
+        ]);
     }
 
     /**
@@ -277,6 +307,28 @@ class Assinatura extends Model
 
         foreach ($assinaturas as $assinatura) {
             if ($this->excluir($assinatura['id'])) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Exclui assinaturas de uma promissoria agrupada pelo codigo base.
+     */
+    public function excluirPorPromissoria(string $codigoBase): int
+    {
+        $assinaturas = $this->qb
+            ->table('assinaturas')
+            ->where('codigo_promissoria', '=', $codigoBase)
+            ->orderBy('created_at', 'ASC')
+            ->get();
+
+        $count = 0;
+
+        foreach ($assinaturas as $assinatura) {
+            if ($this->excluir((int) $assinatura['id'])) {
                 $count++;
             }
         }
@@ -355,6 +407,22 @@ class Assinatura extends Model
         $query = $this->qb
             ->table('assinaturas')
             ->where('id_locacao', '=', $idLocacao);
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        return $query->count() > 0;
+    }
+
+    /**
+     * Verifica se promissoria tem assinatura.
+     */
+    public function promissoriaTemAssinatura(string $codigoBase, ?string $chave = null): bool
+    {
+        $query = $this->qb
+            ->table('assinaturas')
+            ->where('codigo_promissoria', '=', $codigoBase);
 
         if ($chave !== null) {
             $query->withChave($chave);

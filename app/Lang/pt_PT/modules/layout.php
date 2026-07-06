@@ -29,6 +29,7 @@ $map = [
     'Consulta em lote' => 'Consulta em lote',
     'Buscar clientes, veículos, locações...' => 'Procurar clientes, veículos, alugueres...',
     'Locação' => 'Aluguer',
+    'Promissória' => 'Livrança',
     'Novo local' => 'Novo local',
     'Editar local' => 'Editar local',
     'Salvar local' => 'Guardar local',

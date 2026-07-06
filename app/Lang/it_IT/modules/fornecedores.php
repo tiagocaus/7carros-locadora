@@ -83,6 +83,19 @@ return [
         'poupanca' => 'Risparmio',
     ],
 
+    'commission_rules' => [
+        'title' => 'Regole di commissione',
+        'description' => 'La prima riga, "Regola predefinita", vale per tutti i gruppi dell’investitore quando non esiste un’eccezione specifica. Per definire un accordo diverso per un gruppo, clicca su "Aggiungi eccezione per gruppo".',
+        'help' => 'La "Regola predefinita" è la regola generale dell’investitore. Usala quando questo investitore ha la stessa commissione per tutti i suoi veicoli, indipendentemente dal gruppo. Esempio: se la regola predefinita è 20% per la locadora, tutti i veicoli di questo investitore usano questa regola, anche se sono in gruppi diversi. Se un gruppo ha un accordo diverso, clicca su "Aggiungi eccezione per gruppo", scegli il gruppo e inserisci la commissione specifica. In questo caso, il sistema usa prima l’eccezione del gruppo; se non esiste un’eccezione, usa la regola predefinita dell’investitore; se non esiste nemmeno una regola predefinita, usa la regola registrata nel gruppo del veicolo.',
+        'add_group_rule' => 'Aggiungi eccezione per gruppo',
+        'default_rule' => 'Regola predefinita',
+        'group_rule' => 'Regola per gruppo',
+        'group_placeholder' => 'Seleziona il gruppo',
+        'type_placeholder' => 'Tipo di commissione',
+        'value' => 'Valore',
+        'remove' => 'Rimuovi',
+    ],
+
     // Segnaposto
     'placeholders' => [
         'search' => 'Cerca...',

@@ -6,6 +6,8 @@ use App\Traits\Auditable;
 use App\Traits\DetectsCrossTenant;
 use App\Core\Auth;
 use App\Core\Database;
+use App\Helpers\CurrencyHelper;
+use App\Helpers\DateHelper;
 
 /**
  * Model Promissoria
@@ -115,6 +117,14 @@ class Promissoria extends Model
                 SUM(p.valor_parcela) AS valor_total,
                 COUNT(*) AS qtd_parcelas,
                 SUM(CASE WHEN p.pago = 'S' THEN 1 ELSE 0 END) AS qtd_pagas,
+                (
+                    SELECT asn.id
+                    FROM assinaturas asn
+                    WHERE asn.chave = p.chave
+                      AND asn.codigo_promissoria = p.codigo_base
+                    ORDER BY asn.created_at DESC
+                    LIMIT 1
+                ) AS id_assinatura,
                 CASE
                     WHEN SUM(CASE WHEN p.pago = 'N' THEN 1 ELSE 0 END) = 0 THEN 'S'
                     ELSE 'N'
@@ -247,6 +257,7 @@ class Promissoria extends Model
                 'c.nome_rsocial AS cliente_nome',
                 'c.cpf_cnpj AS cliente_cpf_cnpj',
                 'c.rg_ie AS cliente_rg',
+                'c.preferred_locale AS cliente_preferred_locale',
                 'mf.nome_fantasia AS filial_nome',
                 'mf.razao_social AS filial_razao_social',
                 'mf.cpf_cnpj AS filial_cnpj'
@@ -284,6 +295,16 @@ class Promissoria extends Model
             }
         }
 
+        $clienteEmail = '';
+        $clienteTelefone = '';
+
+        if (!empty($primeiraParcela['id_cliente'])) {
+            $emailPrincipal = (new ContatoEmail())->getPrincipal('cliente', (int) $primeiraParcela['id_cliente']);
+            $telefonePrincipal = (new ContatoTelefone())->getPrincipal('cliente', (int) $primeiraParcela['id_cliente']);
+            $clienteEmail = $emailPrincipal['email'] ?? '';
+            $clienteTelefone = $telefonePrincipal['telefone'] ?? '';
+        }
+
         return [
             'codigo_base' => $codigoBase,
             'id_cliente' => $primeiraParcela['id_cliente'],
@@ -292,6 +313,9 @@ class Promissoria extends Model
             'obs' => $primeiraParcela['obs'],
             'cliente_nome' => $primeiraParcela['cliente_nome'],
             'cliente_cpf_cnpj' => $primeiraParcela['cliente_cpf_cnpj'],
+            'cliente_preferred_locale' => $primeiraParcela['cliente_preferred_locale'] ?? null,
+            'cliente_email' => $clienteEmail,
+            'cliente_telefone' => $clienteTelefone,
             'filial_nome' => $primeiraParcela['filial_nome'],
             'chave' => $primeiraParcela['chave'],
             'parcelas' => $parcelas,
@@ -302,6 +326,53 @@ class Promissoria extends Model
             'total_pendente' => $totalPendente,
             'quitado' => $totalPendente === 0.0,
         ];
+    }
+
+    /**
+     * Busca promissoria por codigo base em contexto publico, sem depender da sessao atual.
+     *
+     * Usado em links publicos como /assinar/{codigo}, onde o visitante pode nao
+     * ter sessao ou pode estar logado em outro tenant no mesmo navegador.
+     */
+    public function buscarPublicoPorCodigo(string $codigoBase): ?array
+    {
+        $row = $this->qb
+            ->table('promissorias')
+            ->withoutChave()
+            ->select(['chave'])
+            ->where('codigo_base', '=', $codigoBase)
+            ->orderBy('id', 'ASC')
+            ->first();
+
+        if (!$row) {
+            return null;
+        }
+
+        return $this->buscarResumoComChaveTemporaria($codigoBase, (string) $row['chave']);
+    }
+
+    /**
+     * Executa buscarResumoPorCodigoBase usando a chave do registro publico e restaura a sessao.
+     */
+    private function buscarResumoComChaveTemporaria(string $codigoBase, string $chave): ?array
+    {
+        $hadChave = isset($_SESSION['chave']);
+        $previousChave = $_SESSION['chave'] ?? null;
+        $_SESSION['chave'] = $chave;
+        CurrencyHelper::clearCache();
+        DateHelper::clearCache();
+
+        try {
+            return $this->buscarResumoPorCodigoBase($codigoBase);
+        } finally {
+            if ($hadChave) {
+                $_SESSION['chave'] = $previousChave;
+            } else {
+                unset($_SESSION['chave']);
+            }
+            CurrencyHelper::clearCache();
+            DateHelper::clearCache();
+        }
     }
 
     /**
@@ -618,6 +689,8 @@ class Promissoria extends Model
      */
     public function excluirPorCodigoBase(string $codigoBase): int
     {
+        (new Assinatura())->excluirPorPromissoria($codigoBase);
+
         return $this->qb
             ->table('promissorias')
             ->where('codigo_base', '=', $codigoBase)

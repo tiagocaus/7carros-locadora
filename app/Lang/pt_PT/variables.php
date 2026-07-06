@@ -124,6 +124,7 @@ return [
         // Financeiro - Prestações
         'parcelas' => 'Lista de Prestações',
         'parcelas_tabela' => 'Tabela de Prestações',
+        'parcelas_tabela_status' => 'Tabela de Prestações com Estado',
         'valor_parcela' => 'Valor da Prestação',
         'total_parcelas' => 'Total de Prestações',
         'parcelas_pagas' => 'Prestações Pagas',
@@ -350,7 +351,8 @@ return [
         'contrato.taxas' => 'Lista formatada de taxas e serviços adicionais',
         'contrato.taxas_tabela' => 'Tabela HTML com taxas e serviços (ideal para impressão)',
         'contrato.parcelas' => 'Lista formatada de prestações financeiras',
-        'contrato.parcelas_tabela' => 'Tabela HTML com prestações (ideal para impressão)',
+        'contrato.parcelas_tabela' => 'Tabela HTML com prestações sem estado (Prestação, Vencimento e Valor)',
+        'contrato.parcelas_tabela_status' => 'Tabela HTML com prestações e estado (Prestação, Vencimento, Valor e Estado)',
         'contrato.valor.parcela' => 'Valor mais comum entre as prestações financeiras do contrato',
         'contrato.condutores' => 'Lista formatada de condutores adicionais com NIF e carta de condução',
         'contrato.fiadores' => 'Lista formatada de fiadores com NIF/NIPC',

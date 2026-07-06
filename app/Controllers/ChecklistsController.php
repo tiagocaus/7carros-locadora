@@ -135,46 +135,30 @@ class ChecklistsController
             // QR Code para verificacao publica (salvo em /tmp)
             $qrPath = $this->gerarQrCodePath($checklist['codigo'] ?? '');
 
-            // Pareamento: se vinculado, buscar registro oposto (saida <-> chegada)
             $isVinculado = ($checklist['tipo'] ?? '') === 'V';
-            $par = null;
-            if ($isVinculado) {
-                $par = $model->buscarPar($checklist);
-            }
-
-            // Determinar qual eh saida e qual eh chegada
-            $momento = $checklist['momento'] ?? 'S';
-            if ($momento === 'C') {
-                $regSaida = $par;
-                $regChegada = $checklist;
-            } else {
-                $regSaida = $checklist;
-                $regChegada = $par;
-            }
 
             // Decodificar JSON das questoes
-            $questoesSaida = json_decode($regSaida['questoes'] ?? $regSaida['questoes_saida'] ?? '[]', true) ?: [];
-            $questoesChegada = $regChegada ? (json_decode($regChegada['questoes'] ?? $regChegada['questoes_saida'] ?? '[]', true) ?: []) : [];
+            $questoesSaida = json_decode($checklist['questoes_saida'] ?? '[]', true) ?: [];
+            $questoesChegada = json_decode($checklist['questoes_entrada'] ?? '[]', true) ?: [];
 
             // Resolver caminhos das assinaturas
-            $assinaturaPath = PdfHelper::resolveImagePath($regSaida['assinatura_unica'] ?? $regSaida['assinatura'] ?? null, $chave);
-            $assinaturaChegadaPath = $regChegada ? PdfHelper::resolveImagePath($regChegada['assinatura_unica'] ?? $regChegada['assinatura'] ?? null, $chave) : '';
+            $assinaturaPath = PdfHelper::resolveImagePath($checklist['assinatura_saida'] ?? null, $chave);
+            $assinaturaChegadaPath = PdfHelper::resolveImagePath($checklist['assinatura_entrada'] ?? null, $chave);
 
             // Decodificar e carregar fotos da vistoria
             $vistoriaSaida = $this->carregarFotosVistoria(
-                json_decode($regSaida['vistoria'] ?? $regSaida['vistoria_saida'] ?? '[]', true) ?: [],
+                json_decode($checklist['vistoria_saida'] ?? '[]', true) ?: [],
                 $chave
             );
-            $vistoriaChegada = $regChegada ? $this->carregarFotosVistoria(
-                json_decode($regChegada['vistoria'] ?? $regChegada['vistoria_saida'] ?? '[]', true) ?: [],
+            $vistoriaChegada = $this->carregarFotosVistoria(
+                json_decode($checklist['vistoria_entrada'] ?? '[]', true) ?: [],
                 $chave
-            ) : [];
+            );
 
             // Montar dados de obs e datas para o template (compatibilidade)
-            $checklist['obs'] = $regSaida['obs_unica'] ?? $regSaida['obs'] ?? '';
-            $checklist['obs_chegada'] = $regChegada['obs_unica'] ?? $regChegada['obs'] ?? '';
-            $checklist['data_saida'] = $regSaida['data_checklist'] ?? $regSaida['data_saida'] ?? null;
-            $checklist['data_chegada'] = $regChegada['data_checklist'] ?? $regChegada['data_saida'] ?? null;
+            $checklist['obs'] = $checklist['observacoes_saida'] ?? '';
+            $checklist['obs_chegada'] = $checklist['observacoes_entrada'] ?? '';
+            $checklist['data_chegada'] = $checklist['data_entrada'] ?? null;
 
             // Selecionar template baseado no tipo e orientacao
             $orientacao = strtoupper($request->query('orientacao', ''));

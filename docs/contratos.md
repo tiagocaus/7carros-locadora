@@ -214,6 +214,7 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 - Para o tipo de combustível cadastrado no veículo, use `{{veiculo.combustivel_tipo}}`.
 - Para o valor de compra cadastrado no veículo ativo principal, use `{{veiculo.valor_compra}}`; a variável lê `veiculos.valor_compra` e é formatada como moeda pelo `TemplateRenderer`.
 - Para cláusulas que precisam citar o valor recorrente da parcela, use `{{contrato.valor.parcela}}`. A variável considera o valor mais comum entre as parcelas financeiras vinculadas ao contrato; se houver empate, usa o primeiro valor encontrado na ordem das parcelas.
+- Para tabelas de parcelas financeiras, use `{{contrato.parcelas_tabela}}` quando quiser apenas Parcela, Vencimento e Valor; use `{{contrato.parcelas_tabela_status}}` quando também precisar da coluna Status.
 
 ### Fatura + Documento (fatura_documento.php)
 - Combina os dois em paginas separadas

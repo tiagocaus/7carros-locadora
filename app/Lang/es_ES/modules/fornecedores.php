@@ -83,6 +83,19 @@ return [
         'poupanca' => 'Ahorros',
     ],
 
+    'commission_rules' => [
+        'title' => 'Reglas de comisión',
+        'description' => 'La primera línea, "Regla predeterminada", vale para todos los grupos del inversor cuando no hay una excepción específica. Para definir una negociación diferente en un grupo, haga clic en "Agregar excepción por grupo".',
+        'help' => 'La "Regla predeterminada" es la regla general del inversor. Úsela cuando este inversor tenga la misma comisión para todos sus vehículos, independientemente del grupo. Ejemplo: si la regla predeterminada es 20% para la arrendadora, todos los vehículos de este inversor usan esa regla, aunque estén en grupos diferentes. Si algún grupo tiene una negociación diferente, haga clic en "Agregar excepción por grupo", elija el grupo e informe la comisión específica. En ese caso, el sistema usa primero la excepción del grupo; si no existe excepción, usa la regla predeterminada del inversor; si tampoco existe regla predeterminada, usa la regla registrada en el grupo del vehículo.',
+        'add_group_rule' => 'Agregar excepción por grupo',
+        'default_rule' => 'Regla predeterminada',
+        'group_rule' => 'Regla por grupo',
+        'group_placeholder' => 'Seleccione el grupo',
+        'type_placeholder' => 'Tipo de comisión',
+        'value' => 'Valor',
+        'remove' => 'Eliminar',
+    ],
+
     // Marcadores de posicion
     'placeholders' => [
         'search' => 'Buscar...',

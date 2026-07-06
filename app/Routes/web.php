@@ -550,6 +550,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
 
     // Checklist Digital - Paginas standalone mobile (devem ficar ANTES das rotas com {id})
     $router->get('/checklists/digital', [ChecklistNovoController::class, 'viewDigital']);
+    $router->get('/checklists/vinculados', [ChecklistNovoController::class, 'viewVinculados']);
     $router->get('/checklists/novo', [ChecklistNovoController::class, 'viewNovo']);
     $router->get('/checklists/visualizar/{id}', [ChecklistNovoController::class, 'viewVisualizar']);
 
@@ -570,6 +571,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->get('/api/checklists/buscar-contratos', [ChecklistNovoController::class, 'buscarContratos'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/checklists/buscar-veiculos', [ChecklistNovoController::class, 'buscarVeiculos'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/checklists/buscar-vinculos', [ChecklistNovoController::class, 'buscarVinculos'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/checklists/vinculados', [ChecklistNovoController::class, 'vinculadosPendentes'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/checklists/veiculos-vinculo', [ChecklistNovoController::class, 'veiculosVinculo'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Paginas iframe - Promocoes
@@ -779,6 +781,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     // API Promissorias (com protecao anti-scraping e CSRF)
     $router->get('/api/promissorias', [PromissoriasController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/promissorias/codigo/{codigo}', [PromissoriasController::class, 'showByCodigo'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/promissorias/{codigo}/assinatura', [PromissoriasController::class, 'buscarAssinatura'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Promissorias
     $router->post('/promissorias/salvar', [PromissoriasController::class, 'store'], ['csrf', 'rate_limit']);
@@ -817,6 +820,8 @@ $router->group(['middleware' => 'auth'], function ($router) {
     $router->post('/nfse/configuracoes/testar-conexao', [NFSeController::class, 'testarConexao'], ['csrf', 'rate_limit']);
 
     // Acoes Promissorias
+    $router->post('/promissorias/{codigo}/limpar-assinatura', [PromissoriasController::class, 'limparAssinatura'], ['csrf', 'rate_limit']);
+    $router->post('/promissorias/{codigo}/enviar-link-assinatura', [PromissoriasController::class, 'enviarLinkAssinatura'], ['csrf', 'rate_limit']);
     $router->post('/promissorias/{codigo}/marcar-pago', [PromissoriasController::class, 'marcarPago'], ['csrf', 'rate_limit']);
 
     // Operacoes de Parcelas

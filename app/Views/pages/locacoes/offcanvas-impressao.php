@@ -146,7 +146,9 @@ $invoiceChecklistTipo = $isReservaConfirmada ? 'voucher_checklist' : 'fatura_che
                 <optgroup label="Checklists digitais realizados">
                 <?php foreach ($checklistsDigitais as $checklist): ?>
                 <?php
-                    $momento = ($checklist['momento'] ?? '') === 'C' ? 'Chegada' : 'Saida';
+                    $temSaida = !empty($checklist['data_saida']) || in_array((string) ($checklist['status'] ?? ''), ['4', '5', '6'], true);
+                    $temChegada = !empty($checklist['data_entrada']) || (string) ($checklist['status'] ?? '') === '6';
+                    $etapaLabel = $temSaida && $temChegada ? 'Saida/Chegada' : ($temChegada ? 'Chegada' : 'Saida');
                     $veiculoLabel = trim(implode(' ', array_filter([
                         $checklist['placa'] ?? '',
                         $checklist['marca'] ?? '',
@@ -155,7 +157,7 @@ $invoiceChecklistTipo = $isReservaConfirmada ? 'voucher_checklist' : 'fatura_che
                     $dataLabel = !empty($checklist['data_checklist'])
                         ? format_operational_datetime($checklist['data_checklist'])
                         : '';
-                    $digitalLabel = trim(implode(' - ', array_filter([$momento, $veiculoLabel, $dataLabel])));
+                    $digitalLabel = trim(implode(' - ', array_filter([$etapaLabel, $veiculoLabel, $dataLabel])));
                 ?>
                 <option value="digital:<?= (int) $checklist['id'] ?>"><?= htmlspecialchars($digitalLabel) ?></option>
                 <?php endforeach; ?>

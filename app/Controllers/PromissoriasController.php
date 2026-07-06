@@ -7,6 +7,7 @@ use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
+use App\Models\Assinatura;
 use App\Models\Promissoria;
 use App\Models\MatrizFilial;
 use App\Helpers\FilialHelper;
@@ -184,6 +185,233 @@ class PromissoriasController
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao buscar promissoria: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Busca assinatura de uma promissoria.
+     *
+     * GET /api/promissorias/{codigo}/assinatura
+     */
+    public function buscarAssinatura(Request $request, string $codigo): void
+    {
+        try {
+            if (!Auth::can('promissorias.visualizar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para visualizar promissorias'
+                ], 403);
+                return;
+            }
+
+            $promissoriaModel = new Promissoria();
+            $promissoria = $promissoriaModel->buscarResumoPorCodigoBase($codigo);
+
+            if (!$promissoria) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Promissoria nao encontrada'
+                ], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if ($promissoria['chave'] !== $chave) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Acesso negado'
+                ], 403);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($promissoria['id_matriz_filial'] ?? null)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para acessar esta promissoria'
+                ], 403);
+                return;
+            }
+
+            $assinatura = (new Assinatura())->buscarPorPromissoria($codigo);
+
+            if (!$assinatura) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Assinatura nao encontrada'
+                ], 404);
+                return;
+            }
+
+            Response::json([
+                'success' => true,
+                'data' => [
+                    'id' => $assinatura['id'],
+                    'url' => $assinatura['url'] ?? '',
+                    'data_assinatura' => !empty($assinatura['created_at'])
+                        ? format_datetime($assinatura['created_at'])
+                        : '-',
+                    'ip' => $assinatura['ip_address'] ?? '-'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao buscar assinatura: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Limpa assinatura de uma promissoria.
+     *
+     * POST /promissorias/{codigo}/limpar-assinatura
+     */
+    public function limparAssinatura(Request $request, string $codigo): void
+    {
+        try {
+            if (!Auth::can('promissorias.editar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para editar promissorias'
+                ], 403);
+                return;
+            }
+
+            $promissoriaModel = new Promissoria();
+            $promissoria = $promissoriaModel->buscarResumoPorCodigoBase($codigo);
+
+            if (!$promissoria) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Promissoria nao encontrada'
+                ], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if ($promissoria['chave'] !== $chave) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Acesso negado'
+                ], 403);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($promissoria['id_matriz_filial'] ?? null)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para editar esta promissoria'
+                ], 403);
+                return;
+            }
+
+            (new Assinatura())->excluirPorPromissoria($codigo);
+
+            $nomeUsuario = $_SESSION['user_name'] ?? 'Sistema';
+            AuditLogService::registrar("{$nomeUsuario}, limpou assinatura da promissoria {$codigo}");
+
+            Response::json([
+                'success' => true,
+                'message' => 'Assinatura removida com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao limpar assinatura: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Envia link publico de assinatura da promissoria por WhatsApp.
+     *
+     * POST /promissorias/{codigo}/enviar-link-assinatura
+     * Body JSON: { url }
+     */
+    public function enviarLinkAssinatura(Request $request, string $codigo): void
+    {
+        try {
+            if (!Auth::can('promissorias.visualizar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para visualizar promissorias'
+                ], 403);
+                return;
+            }
+
+            $promissoriaModel = new Promissoria();
+            $promissoria = $promissoriaModel->buscarResumoPorCodigoBase($codigo);
+
+            if (!$promissoria) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Promissoria nao encontrada'
+                ], 404);
+                return;
+            }
+
+            $chave = Auth::chave();
+            if ($promissoria['chave'] !== $chave) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Acesso negado'
+                ], 403);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($promissoria['id_matriz_filial'] ?? null)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para acessar esta promissoria'
+                ], 403);
+                return;
+            }
+
+            $telefone = $promissoria['cliente_telefone'] ?? '';
+            if (empty($telefone)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Cliente sem telefone cadastrado'
+                ], 400);
+                return;
+            }
+
+            $url = trim((string) ($request->input('url') ?? ''));
+            if ($url === '') {
+                $url = rtrim(env('APP_URL', ''), '/') . '/assinar/' . $promissoria['codigo_base'];
+            }
+
+            $filialId = (int) ($promissoria['id_matriz_filial'] ?? 0);
+            $empresa = [];
+            if ($filialId > 0) {
+                $empresa = (new MatrizFilial())->buscarPorId($filialId) ?? [];
+            }
+            $empresa['id'] = $empresa['id'] ?? $filialId;
+
+            queue_template_message('signature_request', 'whatsapp', [
+                'cliente' => [
+                    'nome' => $promissoria['cliente_nome'] ?? '',
+                    'email' => $promissoria['cliente_email'] ?? '',
+                    'telefone' => $telefone,
+                    'celular' => $telefone,
+                ],
+                'empresa' => $empresa,
+                'promissoria' => $promissoria,
+                'outros' => [
+                    'link_assinatura' => $url,
+                ],
+                'id_matriz_filial' => $filialId,
+            ], $chave);
+
+            Response::json([
+                'success' => true,
+                'message' => 'Link de assinatura enviado por WhatsApp'
+            ]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao enviar link: ' . $e->getMessage()
             ], 500);
         }
     }

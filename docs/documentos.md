@@ -110,6 +110,8 @@ Variável especial para contratos com múltiplos veículos:
 | Variável | Uso |
 |---|---|
 | `{{contrato.veiculos_anexo}}` | Tabela HTML completa para anexo contratual, com identificação do veículo, fornecedor/investidor, plano, valores, seguros, odômetro e combustível/carga de saída |
+| `{{contrato.parcelas_tabela}}` | Tabela HTML das parcelas financeiras com as colunas Parcela, Vencimento e Valor |
+| `{{contrato.parcelas_tabela_status}}` | Tabela HTML das parcelas financeiras com as colunas Parcela, Vencimento, Valor e Status |
 | `{{contrato.valor.parcela}}` | Valor mais comum entre as parcelas financeiras do contrato, formatado como moeda. Em empate, usa o primeiro valor encontrado na ordem das parcelas |
 
 O modelo padrão global de contrato usa `{{contrato.veiculos_anexo}}` em vez de `{{contrato.veiculos_tabela}}`, porque o anexo é mais completo para contratos com múltiplos veículos e veículos de terceiros/investidores.

@@ -80,6 +80,12 @@
             showingPagination: <?= json_encode(t('modules.checklists.pagination.showing'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             statusPending: <?= json_encode(t('modules.checklists.digital.status_pending'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             statusDone: <?= json_encode(t('modules.checklists.digital.status_done'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            statusStandaloneStarted: <?= json_encode(t('modules.checklists.digital.status_standalone_started'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            statusStandaloneDone: <?= json_encode(t('modules.checklists.digital.status_standalone_done'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            statusLinkedDepartureStarted: <?= json_encode(t('modules.checklists.digital.status_linked_departure_started'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            statusLinkedDepartureDone: <?= json_encode(t('modules.checklists.digital.status_linked_departure_done'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            statusLinkedArrivalStarted: <?= json_encode(t('modules.checklists.digital.status_linked_arrival_started'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            statusLinkedArrivalDone: <?= json_encode(t('modules.checklists.digital.status_linked_arrival_done'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             statusContinue: <?= json_encode(t('modules.checklists.digital.continue'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             mobileOnly: <?= json_encode(t('modules.checklists.messages.mobile_only'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         };
@@ -137,12 +143,27 @@
         `;
         }
 
+        function isStatusIniciado(status) {
+            return ['1', '3', '5'].includes(String(status || ''));
+        }
+
         function getStatusBadge(status) {
-            if (status === '1') {
-                return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700"><i class="fas fa-clock mr-1"></i>${i18n.statusPending}</span>`;
+            const statusCode = String(status || '');
+            const labels = {
+                '1': i18n.statusStandaloneStarted,
+                '2': i18n.statusStandaloneDone,
+                '3': i18n.statusLinkedDepartureStarted,
+                '4': i18n.statusLinkedDepartureDone,
+                '5': i18n.statusLinkedArrivalStarted,
+                '6': i18n.statusLinkedArrivalDone
+            };
+            const title = escapeHtml(labels[statusCode] || '');
+
+            if (isStatusIniciado(statusCode)) {
+                return `<span title="${title}" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700"><i class="fas fa-clock mr-1"></i>${i18n.statusPending}</span>`;
             }
-            if (status === '2') {
-                return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700"><i class="fas fa-check-circle mr-1"></i>${i18n.statusDone}</span>`;
+            if (['2', '4', '6'].includes(statusCode)) {
+                return `<span title="${title}" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700"><i class="fas fa-check-circle mr-1"></i>${i18n.statusDone}</span>`;
             }
             return '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">-</span>';
         }
@@ -197,7 +218,7 @@
                     <td class="table-cell hidden md:table-cell text-center">${getStatusBadge(item.status)}</td>
                     <td class="table-cell px-2 w-40 text-right">
                         <div class="inline-flex items-center justify-end gap-1">
-                            ${item.status === '1' ? `<button title="${i18n.statusContinue}" class="btn-icon btn-status-pending ${canChecklist ? 'text-purple-500 hover:text-purple-700' : 'text-purple-400 cursor-not-allowed'}" data-id="${item.id}"><i class="fas fa-play-circle"></i></button>` : ''}
+                            ${isStatusIniciado(item.status) ? `<button title="${i18n.statusContinue}" class="btn-icon btn-status-pending ${canChecklist ? 'text-purple-500 hover:text-purple-700' : 'text-purple-400 cursor-not-allowed'}" data-id="${item.id}" data-status="${item.status}"><i class="fas fa-play-circle"></i></button>` : ''}
                             <div class="print-dropdown-wrap">
                                 <button title="${i18n.actionPrint}" class="btn-icon text-blue-600 hover:text-blue-800 btn-print-toggle" data-id="${item.id}" data-codigo="${codigo}">
                                     <i class="fas fa-print"></i>
@@ -259,7 +280,9 @@
                 button.addEventListener('click', function() {
                     if (canChecklist) {
                         const id = this.getAttribute('data-id');
-                        window.top.location.href = '/checklists/novo?retomar=' + id;
+                        const status = String(this.getAttribute('data-status') || '');
+                        const etapa = status === '5' ? '&etapa=entrada' : '';
+                        window.top.location.href = '/checklists/novo?retomar=' + encodeURIComponent(id) + etapa;
                     } else {
                         window.parent.postMessage({ action: 'openAlert', message: i18n.mobileOnly }, '*');
                     }

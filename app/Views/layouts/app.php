@@ -492,6 +492,7 @@
                 </div>
                 <input type="hidden" id="assinaturaModalContratoId">
                 <input type="hidden" id="assinaturaModalLocacaoId">
+                <input type="hidden" id="assinaturaModalPromissoriaCodigo">
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn-secondary py-2 px-4 rounded-md" onclick="closeAssinaturaModal()"><?= t('modules.layout.buttons.close') ?></button>
@@ -2921,8 +2922,18 @@
 
         window.openAssinaturaModal = function(data, source) {
             assinaturaModalIframeSource = source;
-            const tipo = data.tipo === 'contrato' ? layoutT('signature.contract') : layoutT('signature.rental');
-            const preposicao = data.tipo === 'contrato' ? layoutT('signature.of_contract') : layoutT('signature.of_rental');
+            const tipos = {
+                contrato: layoutT('signature.contract'),
+                locacao: layoutT('signature.rental'),
+                promissoria: layoutT('signature.promissory')
+            };
+            const preposicoes = {
+                contrato: layoutT('signature.of_contract'),
+                locacao: layoutT('signature.of_rental'),
+                promissoria: layoutT('signature.of_promissory')
+            };
+            const tipo = tipos[data.tipo] || layoutT('signature.document');
+            const preposicao = preposicoes[data.tipo] || layoutT('signature.of_document');
 
             document.getElementById('assinaturaModalTipoPreposicao').textContent = preposicao;
             document.getElementById('assinaturaModalTipoTitulo').textContent = tipo;
@@ -2933,6 +2944,7 @@
             document.getElementById('assinaturaModalImagem').src = data.url || '';
             document.getElementById('assinaturaModalContratoId').value = data.contratoId || '';
             document.getElementById('assinaturaModalLocacaoId').value = data.locacaoId || '';
+            document.getElementById('assinaturaModalPromissoriaCodigo').value = data.promissoriaCodigo || '';
 
             document.getElementById('assinaturaModal').classList.add('open');
             document.body.classList.add('modal-open');
@@ -2971,10 +2983,12 @@
             if (assinaturaModalIframeSource) {
                 const contratoId = document.getElementById('assinaturaModalContratoId').value;
                 const locacaoId = document.getElementById('assinaturaModalLocacaoId').value;
+                const promissoriaCodigo = document.getElementById('assinaturaModalPromissoriaCodigo').value;
                 assinaturaModalIframeSource.postMessage({
                     action: 'resetarAssinatura',
                     contratoId: contratoId,
-                    locacaoId: locacaoId
+                    locacaoId: locacaoId,
+                    promissoriaCodigo: promissoriaCodigo
                 }, '*');
             }
             closeAssinaturaModal();
@@ -3139,7 +3153,12 @@
             const tipoEl = document.getElementById('signatureLinkModalTipo');
             if (!modal || !urlInput || !codigoEl || !tipoEl) return;
 
-            const tipo = data?.tipo === 'contrato' ? layoutT('signature.contract') : layoutT('signature.rental');
+            const tipos = {
+                contrato: layoutT('signature.contract'),
+                locacao: layoutT('signature.rental'),
+                promissoria: layoutT('signature.promissory')
+            };
+            const tipo = tipos[data?.tipo] || layoutT('signature.document');
             signatureLinkModalData = data || null;
             tipoEl.textContent = tipo;
             codigoEl.textContent = data?.codigo || '-';
@@ -3160,7 +3179,13 @@
         document.getElementById('signatureLinkModalWhatsappBtn')?.addEventListener('click', async function() {
             if (!signatureLinkModalData?.id || !signatureLinkModalData?.tipo) return;
 
-            const endpointBase = signatureLinkModalData.tipo === 'contrato' ? '/contratos/' : '/locacoes/';
+            const endpointBases = {
+                contrato: '/contratos/',
+                locacao: '/locacoes/',
+                promissoria: '/promissorias/'
+            };
+            const endpointBase = endpointBases[signatureLinkModalData.tipo];
+            if (!endpointBase) return;
             const endpoint = endpointBase + signatureLinkModalData.id + '/enviar-link-assinatura';
             const originalHtml = this.innerHTML;
             this.disabled = true;

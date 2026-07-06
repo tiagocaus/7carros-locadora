@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
 use App\Models\Fornecedor;
+use App\Models\FornecedorComissaoRegra;
 use App\Models\Pais;
 use App\Services\AuditLogService;
 
@@ -122,6 +123,13 @@ class FornecedoresController
                 return;
             }
 
+            if ((int) ($fornecedor['investidor'] ?? 0) === 1) {
+                $fornecedor['comissao_regras'] = (new FornecedorComissaoRegra())
+                    ->listarPorFornecedor($id, $chave);
+            } else {
+                $fornecedor['comissao_regras'] = [];
+            }
+
             Response::json([
                 'success' => true,
                 'data' => $fornecedor
@@ -156,6 +164,11 @@ class FornecedoresController
 
             $model = new Fornecedor();
             $id = $model->criar($dados);
+            (new FornecedorComissaoRegra())->salvarParaFornecedor(
+                $id,
+                $dados['chave'],
+                ((int) ($dados['investidor'] ?? 0) === 1) ? ($dados['comissao_regras'] ?? []) : []
+            );
 
             // Log de auditoria
             AuditLogService::registrarComAuditFrontend(
@@ -210,6 +223,11 @@ class FornecedoresController
 
             $dados = $request->all();
             $model->atualizar($id, $dados);
+            (new FornecedorComissaoRegra())->salvarParaFornecedor(
+                $id,
+                $chave,
+                ((int) ($dados['investidor'] ?? 0) === 1) ? ($dados['comissao_regras'] ?? []) : []
+            );
 
             // Log de auditoria
             AuditLogService::registrarComAuditFrontend(

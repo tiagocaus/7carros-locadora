@@ -6,6 +6,7 @@ use App\Classes\QueryBuilder;
 use App\Models\ComissaoInvestidor;
 use App\Models\Financeiro;
 use App\Models\Fornecedor;
+use App\Models\FornecedorComissaoRegra;
 use App\Models\Grupo;
 use App\Models\Model;
 
@@ -23,6 +24,7 @@ class ComissaoInvestidorService
 {
     private ComissaoInvestidor $comissaoModel;
     private Fornecedor $fornecedorModel;
+    private FornecedorComissaoRegra $regraModel;
     private Grupo $grupoModel;
     private Financeiro $financeiroModel;
     private QueryBuilder $qb;
@@ -31,6 +33,7 @@ class ComissaoInvestidorService
     {
         $this->comissaoModel = new ComissaoInvestidor();
         $this->fornecedorModel = new Fornecedor();
+        $this->regraModel = new FornecedorComissaoRegra();
         $this->grupoModel = new Grupo();
         $this->financeiroModel = new Financeiro();
         $this->qb = new QueryBuilder(Model::sharedMysqli());
@@ -62,12 +65,23 @@ class ComissaoInvestidorService
         }
 
         $grupo = $this->grupoModel->buscarPorId($veiculo['id_grupo']);
-        if (!$grupo || empty($grupo['comissao_investidor_tipo'])) {
+        if (!$grupo) {
+            return null;
+        }
+
+        $regra = $this->resolverRegraComissao(
+            $financeiro['chave'],
+            (int) $veiculo['id_fornecedor'],
+            (int) $veiculo['id_grupo'],
+            $grupo
+        );
+
+        if (!$regra) {
             return null;
         }
 
         // Tipos mensais nao sao processados por pagamento
-        if (in_array($grupo['comissao_investidor_tipo'], ['fixo_locadora_mensal', 'fixo_investidor_mensal'], true)) {
+        if (in_array($regra['comissao_tipo'], ['fixo_locadora_mensal', 'fixo_investidor_mensal'], true)) {
             return null;
         }
 
@@ -81,8 +95,8 @@ class ComissaoInvestidorService
         // Calcular valores
         $valorBase = (float) $financeiro['valor'];
         $calculo = $this->calcularValores(
-            $grupo['comissao_investidor_tipo'],
-            $grupo['comissao_investidor_valor'],
+            $regra['comissao_tipo'],
+            $regra['comissao_valor'],
             $valorBase
         );
 
@@ -97,12 +111,12 @@ class ComissaoInvestidorService
             'id_contrato' => $financeiro['id_contrato'] ?? null,
             'id_financeiro_origem' => $financeiro['id'],
             'valor_base' => $valorBase,
-            'comissao_tipo' => $grupo['comissao_investidor_tipo'],
-            'comissao_percentual' => $grupo['comissao_investidor_tipo'] === 'percentual_locadora'
-                ? $grupo['comissao_investidor_valor']
+            'comissao_tipo' => $regra['comissao_tipo'],
+            'comissao_percentual' => $regra['comissao_tipo'] === 'percentual_locadora'
+                ? $regra['comissao_valor']
                 : null,
-            'comissao_valor_fixo' => in_array($grupo['comissao_investidor_tipo'], ['fixo_locadora', 'fixo_locadora_mensal', 'fixo_investidor_mensal'], true)
-                ? $grupo['comissao_investidor_valor']
+            'comissao_valor_fixo' => in_array($regra['comissao_tipo'], ['fixo_locadora', 'fixo_locadora_mensal', 'fixo_investidor_mensal'], true)
+                ? $regra['comissao_valor']
                 : null,
             'valor_comissao_locadora' => $calculo['locadora'],
             'valor_repasse_investidor' => $calculo['investidor'],
@@ -132,13 +146,12 @@ class ComissaoInvestidorService
                 'g.comissao_investidor_valor',
                 'f.nome_rsocial AS fornecedor_nome',
             ])
-            ->innerJoin('grupos', 'g', 'g.id', '=', 'v.id_grupo')
-            ->innerJoin('fornecedores', 'f', 'f.id', '=', 'v.id_fornecedor')
+            ->leftJoinRaw('grupos', 'g', 'g.id = v.id_grupo AND g.chave = v.chave')
+            ->leftJoinRaw('fornecedores', 'f', 'f.id = v.id_fornecedor AND f.chave = v.chave')
             ->withoutChave()
             ->whereNotNull('v.id_fornecedor')
+            ->whereNotNull('v.id_grupo')
             ->where('f.investidor', '=', 1)
-            ->whereIn('g.comissao_investidor_tipo', ['fixo_locadora_mensal', 'fixo_investidor_mensal'])
-            ->where('g.comissao_investidor_valor', '>', 0)
             ->get();
 
         $geradas = 0;
@@ -147,6 +160,25 @@ class ComissaoInvestidorService
 
         foreach ($veiculos as $veiculo) {
             try {
+                $regra = $this->resolverRegraComissao(
+                    $veiculo['chave'],
+                    (int) $veiculo['id_fornecedor'],
+                    (int) ($veiculo['id_grupo'] ?? 0),
+                    [
+                        'comissao_investidor_tipo' => $veiculo['comissao_investidor_tipo'] ?? null,
+                        'comissao_investidor_valor' => $veiculo['comissao_investidor_valor'] ?? null,
+                    ]
+                );
+
+                if (
+                    !$regra
+                    || !in_array($regra['comissao_tipo'], ['fixo_locadora_mensal', 'fixo_investidor_mensal'], true)
+                    || (float) $regra['comissao_valor'] <= 0
+                ) {
+                    $ignoradas++;
+                    continue;
+                }
+
                 // Verificar se ja existe comissao para este veiculo neste mes
                 $existe = $this->qb
                     ->table('comissoes_investidores')
@@ -165,8 +197,8 @@ class ComissaoInvestidorService
 
                 // Calcular valores
                 $calculo = $this->calcularValores(
-                    $veiculo['comissao_investidor_tipo'],
-                    $veiculo['comissao_investidor_valor'],
+                    $regra['comissao_tipo'],
+                    $regra['comissao_valor'],
                     0 // Valor base 0 para tipos mensais
                 );
 
@@ -178,8 +210,8 @@ class ComissaoInvestidorService
                     'id_grupo' => $veiculo['id_grupo'],
                     'tipo_origem' => 'mensal',
                     'valor_base' => 0,
-                    'comissao_tipo' => $veiculo['comissao_investidor_tipo'],
-                    'comissao_valor_fixo' => $veiculo['comissao_investidor_valor'],
+                    'comissao_tipo' => $regra['comissao_tipo'],
+                    'comissao_valor_fixo' => $regra['comissao_valor'],
                     'valor_comissao_locadora' => $calculo['locadora'],
                     'valor_repasse_investidor' => $calculo['investidor'],
                     'status' => 'pendente',
@@ -389,6 +421,28 @@ class ComissaoInvestidorService
         return [
             'locadora' => round($locadora, 2),
             'investidor' => round($investidor, 2)
+        ];
+    }
+
+    private function resolverRegraComissao(string $chave, int $idFornecedor, ?int $idGrupo, array $grupo): ?array
+    {
+        $regraFornecedor = $this->regraModel->buscarAplicavel($chave, $idFornecedor, $idGrupo);
+        if ($regraFornecedor) {
+            return [
+                'comissao_tipo' => $regraFornecedor['comissao_tipo'],
+                'comissao_valor' => (float) $regraFornecedor['comissao_valor'],
+                'origem_regra' => $regraFornecedor['origem_regra'] ?? 'fornecedor',
+            ];
+        }
+
+        if (empty($grupo['comissao_investidor_tipo'])) {
+            return null;
+        }
+
+        return [
+            'comissao_tipo' => $grupo['comissao_investidor_tipo'],
+            'comissao_valor' => (float) ($grupo['comissao_investidor_valor'] ?? 0),
+            'origem_regra' => 'grupo',
         ];
     }
 

@@ -97,6 +97,7 @@ $map = [
     'Ativo' => 'Active',
     'Editar registros' => 'Edit records',
     'Assinatura' => 'Signature',
+    'Promissória' => 'Promissory Note',
     'Locação' => 'Rental',
     'da' => 'of the',
     'do' => 'of the',

@@ -9,6 +9,7 @@ use App\Models\Contrato;
 use App\Models\ContratoVeiculo;
 use App\Models\Locacao;
 use App\Models\MatrizFilial;
+use App\Models\Promissoria;
 use App\Helpers\CurrencyHelper;
 use App\Helpers\DateHelper;
 use App\Views\Template;
@@ -24,6 +25,7 @@ class AssinaturaController
     private Contrato $contrato;
     private ContratoVeiculo $contratoVeiculo;
     private Locacao $locacao;
+    private Promissoria $promissoria;
     private Assinatura $assinatura;
     private MatrizFilial $matrizFilial;
 
@@ -32,6 +34,7 @@ class AssinaturaController
         $this->contrato = new Contrato();
         $this->contratoVeiculo = new ContratoVeiculo();
         $this->locacao = new Locacao();
+        $this->promissoria = new Promissoria();
         $this->assinatura = new Assinatura();
         $this->matrizFilial = new MatrizFilial();
     }
@@ -64,9 +67,7 @@ class AssinaturaController
         $locale = $this->resolverLocalePublico($registro, $empresa);
         $documento['resumo'] = $this->prepararResumoTraduzido($documento, $locale);
 
-        $assinaturaData = $documento['tipo'] === 'contrato'
-            ? $this->assinatura->buscarPorContrato((int) $registro['id'], 'cliente', $chave)
-            : $this->assinatura->buscarPorLocacao((int) $registro['id'], 'cliente', $chave);
+        $assinaturaData = $this->buscarAssinaturaDocumento($documento, $chave);
         $jaAssinado = !empty($assinaturaData);
 
         $html = $this->comChaveTemporaria($chave, function () use ($locale, $documento, $registro, $empresa, $jaAssinado, $assinaturaData) {
@@ -74,6 +75,7 @@ class AssinaturaController
                 return Template::render('public.assinatura.index', [
                     'contrato' => $documento['tipo'] === 'contrato' ? $registro : null,
                     'locacao' => $documento['tipo'] === 'locacao' ? $registro : null,
+                    'promissoria' => $documento['tipo'] === 'promissoria' ? $registro : null,
                     'documento' => $documento['resumo'],
                     'veiculo' => $documento['veiculo'],
                     'empresa' => $empresa,
@@ -117,9 +119,7 @@ class AssinaturaController
         $tipoLower = t('modules.assinatura.types.' . $tipo . '.lower', [], $locale);
 
         // Verificar se ja foi assinado
-        $jaAssinado = $tipo === 'contrato'
-            ? $this->assinatura->contratoTemAssinatura((int) $registro['id'], $chave)
-            : $this->assinatura->locacaoTemAssinatura((int) $registro['id'], $chave);
+        $jaAssinado = $this->documentoTemAssinatura($documento, $chave);
 
         if ($jaAssinado) {
             $payload = $this->comLocaleTemporario($locale, function () use ($tipoLower) {
@@ -161,6 +161,7 @@ class AssinaturaController
             'base64' => $assinaturaBase64,
             'id_contrato' => $tipo === 'contrato' ? (int) $registro['id'] : null,
             'id_locacao' => $tipo === 'locacao' ? (int) $registro['id'] : null,
+            'codigo_promissoria' => $tipo === 'promissoria' ? (string) $registro['codigo_base'] : null,
             'id_cliente' => $registro['id_cliente'] ?? null,
             'ip_address' => $ip,
             'user_agent' => $extras['user_agent'] ?? null,
@@ -196,13 +197,17 @@ class AssinaturaController
         $ordem = match ($prefixo) {
             'L' => ['locacao', 'contrato'],
             'C' => ['contrato', 'locacao'],
-            default => ['contrato', 'locacao'],
+            'P' => ['promissoria', 'contrato', 'locacao'],
+            default => ['contrato', 'locacao', 'promissoria'],
         };
 
         foreach ($ordem as $tipo) {
-            $documento = $tipo === 'contrato'
-                ? $this->resolverContrato($codigo)
-                : $this->resolverLocacao($codigo);
+            $documento = match ($tipo) {
+                'contrato' => $this->resolverContrato($codigo),
+                'locacao' => $this->resolverLocacao($codigo),
+                'promissoria' => $this->resolverPromissoria($codigo),
+                default => null,
+            };
 
             if ($documento !== null) {
                 return $documento;
@@ -210,6 +215,36 @@ class AssinaturaController
         }
 
         return null;
+    }
+
+    /**
+     * Busca assinatura do documento publico resolvido.
+     */
+    private function buscarAssinaturaDocumento(array $documento, string $chave): ?array
+    {
+        $registro = $documento['registro'];
+
+        return match ($documento['tipo']) {
+            'contrato' => $this->assinatura->buscarPorContrato((int) $registro['id'], 'cliente', $chave),
+            'locacao' => $this->assinatura->buscarPorLocacao((int) $registro['id'], 'cliente', $chave),
+            'promissoria' => $this->assinatura->buscarPorPromissoria((string) $registro['codigo_base'], 'cliente', $chave),
+            default => null,
+        };
+    }
+
+    /**
+     * Verifica assinatura existente do documento publico resolvido.
+     */
+    private function documentoTemAssinatura(array $documento, string $chave): bool
+    {
+        $registro = $documento['registro'];
+
+        return match ($documento['tipo']) {
+            'contrato' => $this->assinatura->contratoTemAssinatura((int) $registro['id'], $chave),
+            'locacao' => $this->assinatura->locacaoTemAssinatura((int) $registro['id'], $chave),
+            'promissoria' => $this->assinatura->promissoriaTemAssinatura((string) $registro['codigo_base'], $chave),
+            default => false,
+        };
     }
 
     /**
@@ -269,6 +304,37 @@ class AssinaturaController
                 'data_inicio' => $locacao['data_saida'] ?? null,
                 'data_fim' => $locacao['data_chegada'] ?? $locacao['data_prevista'] ?? null,
                 'valor_total' => (float) ($locacao['total_pagar'] ?? $locacao['total_fatura'] ?? 0),
+            ],
+        ];
+    }
+
+    /**
+     * Resolve promissoria para assinatura publica.
+     */
+    private function resolverPromissoria(string $codigo): ?array
+    {
+        $promissoria = $this->promissoria->buscarPublicoPorCodigo($codigo);
+        if (!$promissoria) {
+            return null;
+        }
+
+        $parcelas = $promissoria['parcelas'] ?? [];
+        $primeiraParcela = reset($parcelas) ?: [];
+        $ultimaParcela = end($parcelas) ?: $primeiraParcela;
+
+        return [
+            'tipo' => 'promissoria',
+            'registro' => $promissoria,
+            'veiculo' => null,
+            'resumo' => [
+                'tipo' => 'promissoria',
+                'codigo' => $promissoria['codigo_base'] ?? '',
+                'cliente_nome' => $promissoria['cliente_nome'] ?? '',
+                'cliente_documento' => $promissoria['cliente_cpf_cnpj'] ?? '',
+                'veiculo_texto' => '',
+                'data_inicio' => $primeiraParcela['data_vencimento'] ?? null,
+                'data_fim' => $ultimaParcela['data_vencimento'] ?? null,
+                'valor_total' => (float) ($promissoria['valor_total'] ?? 0),
             ],
         ];
     }

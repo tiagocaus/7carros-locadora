@@ -133,7 +133,7 @@
         .legend-dot.avulso { background: #c2825a; }
 
         .btn-novo {
-            width: 100%;
+            flex: 1;
             background: #3b82f6;
             color: #fff;
             border: none;
@@ -147,6 +147,8 @@
             justify-content: center;
             gap: 6px;
         }
+        .btn-novo.avulso { background: #c2825a; }
+        .btn-actions { display: flex; gap: 10px; }
 
         .loading-more {
             text-align: center;
@@ -195,17 +197,31 @@
         <div class="legend-item"><div class="legend-dot vinculado"></div> <?= t('modules.checklists.digital.legend_linked') ?></div>
         <div class="legend-item"><div class="legend-dot avulso"></div> <?= t('modules.checklists.digital.legend_standalone') ?></div>
     </div>
-    <button class="btn-novo" onclick="window.location.href='/checklists/novo'">
-        <i class="fas fa-plus"></i> <?= t('modules.checklists.digital.new') ?>
-    </button>
+    <div class="btn-actions">
+        <button class="btn-novo avulso" onclick="window.location.href='/checklists/novo?tipo=A'">
+            <i class="fas fa-plus"></i> <?= t('modules.checklists.digital.new_standalone') ?>
+        </button>
+        <button class="btn-novo" onclick="window.location.href='/checklists/vinculados'">
+            <i class="fas fa-link"></i> <?= t('modules.checklists.digital.new_linked') ?>
+        </button>
+    </div>
 </div>
 
 <script src="/assets/js/api.min.js"></script>
+<script src="/assets/js/date.min.js"></script>
 <script>
 (function() {
     const i18n = {
         statusPending: '<?= addslashes(t('modules.checklists.digital.status_pending')) ?>',
         statusDone: '<?= addslashes(t('modules.checklists.digital.status_done')) ?>',
+        statuses: <?= json_encode([
+            '1' => t('modules.checklists.digital.status_standalone_started'),
+            '2' => t('modules.checklists.digital.status_standalone_done'),
+            '3' => t('modules.checklists.digital.status_linked_departure_started'),
+            '4' => t('modules.checklists.digital.status_linked_departure_done'),
+            '5' => t('modules.checklists.digital.status_linked_arrival_started'),
+            '6' => t('modules.checklists.digital.status_linked_arrival_done'),
+        ], JSON_UNESCAPED_UNICODE) ?>,
         continueLabel: '<?= addslashes(t('modules.checklists.digital.continue')) ?>',
         loading: '<?= addslashes(t('modules.checklists.digital.loading')) ?>',
     };
@@ -256,7 +272,7 @@
     function renderCards(dados) {
         dados.forEach(item => {
             const isVinculado = item.tipo === 'V';
-            const isPending = item.status === '1';
+            const isPending = ['1', '3', '5'].includes(String(item.status));
             const codigo = escapeHtml(item.codigo || '-');
             const placa = escapeHtml(item.placa || '-');
             const veiculoModelo = escapeHtml(item.veiculo_modelo || '');
@@ -266,9 +282,10 @@
 
             const card = document.createElement('div');
             card.className = 'ck-card';
+            const statusLabel = i18n.statuses[String(item.status)] || (isPending ? i18n.statusPending : i18n.statusDone);
             const statusHtml = isPending
-                ? '<span class="badge-pending">' + i18n.statusPending + '</span>'
-                : '<span class="badge-done">' + i18n.statusDone + '</span>';
+                ? '<span class="badge-pending">' + statusLabel + '</span>'
+                : '<span class="badge-done">' + statusLabel + '</span>';
             const actionHtml = isPending
                 ? '<button onclick="window.location.href=\'/checklists/novo?retomar=' + item.id + '\'" title="' + i18n.continueLabel + '" style="color:#a855f7"><i class="fas fa-play-circle"></i></button>'
                 : '<button onclick="abrirChecklist(' + item.id + ')" title="Visualizar"><i class="fas fa-eye"></i></button>';

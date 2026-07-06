@@ -134,6 +134,7 @@ return [
         // Financeiro - Parcelas
         'parcelas' => 'Lista de Parcelas',
         'parcelas_tabela' => 'Tabela de Parcelas',
+        'parcelas_tabela_status' => 'Tabela de Parcelas com Status',
         'valor_parcela' => 'Valor da Parcela',
         'total_parcelas' => 'Total de Parcelas',
         'parcelas_pagas' => 'Parcelas Pagas',
@@ -351,7 +352,8 @@ return [
         'contrato.taxas' => 'Lista formatada de taxas e serviços adicionais',
         'contrato.taxas_tabela' => 'Tabela HTML com taxas e serviços (ideal para impressão)',
         'contrato.parcelas' => 'Lista formatada de parcelas do financeiro',
-        'contrato.parcelas_tabela' => 'Tabela HTML com parcelas (ideal para impressão)',
+        'contrato.parcelas_tabela' => 'Tabela HTML com parcelas sem status (Parcela, Vencimento e Valor)',
+        'contrato.parcelas_tabela_status' => 'Tabela HTML com parcelas e status (Parcela, Vencimento, Valor e Status)',
         'contrato.valor.parcela' => 'Valor mais comum entre as parcelas financeiras do contrato',
         'contrato.condutores' => 'Lista formatada de condutores adicionais com CPF e CNH',
         'contrato.fiadores' => 'Lista formatada de fiadores com CPF/CNPJ',

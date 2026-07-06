@@ -2820,38 +2820,26 @@ class LocacoesController
 
     private function montarChecklistDigitalParaImpressao(Checklist $checklistModel, array $checklistCompleto, string $chave): array
     {
-        $momento = $checklistCompleto['momento'] ?? 'S';
-        $par = $checklistModel->buscarPar($checklistCompleto);
-
-        if ($momento === 'C') {
-            $regSaida = $par;
-            $regChegada = $checklistCompleto;
-        } else {
-            $regSaida = $checklistCompleto;
-            $regChegada = $par;
-        }
-
-        $base = $regSaida ?? $regChegada;
-        $vistoriaSaida = $regSaida ? $this->carregarFotosVistoria(
-            json_decode($regSaida['vistoria'] ?? $regSaida['vistoria_saida'] ?? '[]', true) ?: [],
+        $base = $checklistCompleto;
+        $vistoriaSaida = $this->carregarFotosVistoria(
+            json_decode($checklistCompleto['vistoria_saida'] ?? '[]', true) ?: [],
             $chave
-        ) : [];
-        $vistoriaChegada = $regChegada ? $this->carregarFotosVistoria(
-            json_decode($regChegada['vistoria'] ?? $regChegada['vistoria_saida'] ?? '[]', true) ?: [],
+        );
+        $vistoriaChegada = $this->carregarFotosVistoria(
+            json_decode($checklistCompleto['vistoria_entrada'] ?? '[]', true) ?: [],
             $chave
-        ) : [];
+        );
 
-        $base['obs'] = $regSaida['obs_unica'] ?? $regSaida['obs'] ?? '';
-        $base['obs_chegada'] = $regChegada['obs_unica'] ?? $regChegada['obs'] ?? '';
-        $base['data_saida'] = $regSaida['data_checklist'] ?? $regSaida['data_saida'] ?? null;
-        $base['data_chegada'] = $regChegada['data_checklist'] ?? $regChegada['data_saida'] ?? null;
+        $base['obs'] = $checklistCompleto['observacoes_saida'] ?? '';
+        $base['obs_chegada'] = $checklistCompleto['observacoes_entrada'] ?? '';
+        $base['data_chegada'] = $checklistCompleto['data_entrada'] ?? null;
 
         return [
             'digital' => true,
             'data' => [
                 'checklist' => $base,
-                'questoesSaida' => $regSaida ? (json_decode($regSaida['questoes'] ?? $regSaida['questoes_saida'] ?? '[]', true) ?: []) : [],
-                'questoesChegada' => $regChegada ? (json_decode($regChegada['questoes'] ?? $regChegada['questoes_saida'] ?? '[]', true) ?: []) : [],
+                'questoesSaida' => json_decode($checklistCompleto['questoes_saida'] ?? '[]', true) ?: [],
+                'questoesChegada' => json_decode($checklistCompleto['questoes_entrada'] ?? '[]', true) ?: [],
                 'vistoriaSaida' => $vistoriaSaida,
                 'vistoriaChegada' => $vistoriaChegada,
             ],

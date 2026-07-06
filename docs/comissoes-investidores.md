@@ -9,7 +9,13 @@ Sistema de cálculo e controle de comissões para fornecedores investidores. Inv
 - **Fase 8**: ✅ Split Service criado — interface, factory, NullSplitService, AsaasSplitService. Integração no fluxo de cobrança pendente (requer teste sandbox)
 ## Tipos de Comissão
 
-Configurados na tabela `grupos` (campos `comissao_investidor_tipo` e `comissao_investidor_valor`).
+Configurados por padrão na tabela `grupos` (campos `comissao_investidor_tipo` e `comissao_investidor_valor`).
+
+Fornecedores investidores podem ter regras específicas em `fornecedores_comissoes_regras`. A prioridade de cálculo é:
+
+1. Regra do investidor para o grupo do veículo.
+2. Regra padrão do investidor.
+3. Regra do grupo do veículo.
 
 | Tipo | Descrição | Quando Gera | Gerador |
 |------|-----------|-------------|---------|
@@ -88,6 +94,7 @@ Campos adicionais na tabela `fornecedores`:
 | `00117_create_comissoes_investidores.php` | Tabela `comissoes_investidores` |
 | `00118_add_plano_conta_comissoes.php` | Plano de conta "Comissões Investidores" |
 | `00119_add_comissoes_permissions.php` | Permissões RBAC |
+| `00400_create_fornecedores_comissoes_regras.php` | Regras específicas de comissão por investidor |
 
 ## Rotas
 
@@ -124,7 +131,7 @@ Fatura paga (manual ou webhook)
   → calcularComissaoPorPagamento($financeiro, $veiculo)
     → Verifica: veículo tem id_fornecedor?
     → Verifica: fornecedor é investidor?
-    → Verifica: grupo tem comissao_investidor_tipo?
+    → Resolve regra: investidor+grupo → investidor padrão → grupo
     → Ignora tipos mensais
     → Verifica duplicata por id_financeiro_origem (uma comissão por fatura)
     → Calcula valores → Cria comissão (status=pendente)

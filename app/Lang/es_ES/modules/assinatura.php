@@ -4,7 +4,7 @@ return [
     'page_title' => 'Firma de :type - :code',
     'main_title' => 'Firma Digital',
     'document_not_found_title' => 'Documento no encontrado',
-    'document_not_found_message' => 'El contrato o alquiler informado no existe o el enlace es incorrecto.',
+    'document_not_found_message' => 'El documento informado no existe o el enlace es incorrecto.',
     'document_not_found_json' => 'Documento no encontrado',
     'generic_error_title' => 'Error',
     'generic_error_message' => 'Se produjo un error al procesar su solicitud.',
@@ -24,6 +24,12 @@ return [
             'lower' => 'alquiler',
             'summary_preposition' => 'del',
             'demonstrative' => 'este alquiler',
+        ],
+        'promissoria' => [
+            'label' => 'Pagaré',
+            'lower' => 'pagaré',
+            'summary_preposition' => 'del',
+            'demonstrative' => 'este pagaré',
         ],
     ],
     'labels' => [

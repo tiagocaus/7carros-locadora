@@ -543,6 +543,12 @@ class TemplateVariables
                 'key' => 'contrato.parcelas_tabela',
                 'type' => 'html',
                 'label_key' => 'variables.contrato.parcelas_tabela',
+                'example' => '<table style="width:100%; border-collapse:collapse; border:1px solid #ddd;"><thead><tr style="background:#f5f5f5;"><th style="padding:8px; border:1px solid #ddd; text-align:center;">Parcela</th><th style="padding:8px; border:1px solid #ddd; text-align:center;">Vencimento</th><th style="padding:8px; border:1px solid #ddd; text-align:right;">Valor</th></tr></thead><tbody><tr><td style="padding:8px; border:1px solid #ddd; text-align:center;">1/12</td><td style="padding:8px; border:1px solid #ddd; text-align:center;">15/01/2024</td><td style="padding:8px; border:1px solid #ddd; text-align:right;">R$ 500,00</td></tr></tbody></table>'
+            ],
+            'parcelas_tabela_status' => [
+                'key' => 'contrato.parcelas_tabela_status',
+                'type' => 'html',
+                'label_key' => 'variables.contrato.parcelas_tabela_status',
                 'example' => '<table style="width:100%; border-collapse:collapse; border:1px solid #ddd;"><thead><tr style="background:#f5f5f5;"><th style="padding:8px; border:1px solid #ddd; text-align:center;">Parcela</th><th style="padding:8px; border:1px solid #ddd; text-align:center;">Vencimento</th><th style="padding:8px; border:1px solid #ddd; text-align:right;">Valor</th><th style="padding:8px; border:1px solid #ddd; text-align:center;">Status</th></tr></thead><tbody><tr><td style="padding:8px; border:1px solid #ddd; text-align:center;">1/12</td><td style="padding:8px; border:1px solid #ddd; text-align:center;">15/01/2024</td><td style="padding:8px; border:1px solid #ddd; text-align:right;">R$ 500,00</td><td style="padding:8px; border:1px solid #ddd; text-align:center;">Pago</td></tr></tbody></table>'
             ],
             'valor.parcela' => [
@@ -1676,6 +1682,9 @@ class TemplateVariables
             case 'contrato.parcelas_tabela':
                 return self::buildContratoParcelasTabela($context['contrato']['parcelas'] ?? [], $locale, $context);
 
+            case 'contrato.parcelas_tabela_status':
+                return self::buildContratoParcelasTabelaStatus($context['contrato']['parcelas'] ?? [], $locale, $context);
+
             case 'contrato.valor.parcela':
                 return self::buildContratoValorParcela($context['contrato']['parcelas'] ?? [], $locale, $context);
 
@@ -2119,6 +2128,19 @@ class TemplateVariables
      */
     private static function buildContratoParcelasTabela(array $parcelas, string $locale, array $context = []): ?string
     {
+        return self::buildContratoParcelasTabelaHtml($parcelas, $locale, $context, false);
+    }
+
+    /**
+     * Gera tabela HTML de parcelas do contrato com status
+     */
+    private static function buildContratoParcelasTabelaStatus(array $parcelas, string $locale, array $context = []): ?string
+    {
+        return self::buildContratoParcelasTabelaHtml($parcelas, $locale, $context, true);
+    }
+
+    private static function buildContratoParcelasTabelaHtml(array $parcelas, string $locale, array $context, bool $incluirStatus): ?string
+    {
         if (empty($parcelas)) {
             return null;
         }
@@ -2128,8 +2150,9 @@ class TemplateVariables
         $html .= '<th style="border:1px solid #ddd;padding:8px;text-align:center;">Parcela</th>';
         $html .= '<th style="border:1px solid #ddd;padding:8px;text-align:center;">Vencimento</th>';
         $html .= '<th style="border:1px solid #ddd;padding:8px;text-align:right;">Valor</th>';
-        $html .= '<th style="border:1px solid #ddd;padding:8px;text-align:center;">Status</th>';
-        $html .= '<th style="border:1px solid #ddd;padding:8px;text-align:center;">Pagamento</th>';
+        if ($incluirStatus) {
+            $html .= '<th style="border:1px solid #ddd;padding:8px;text-align:center;">Status</th>';
+        }
         $html .= '</tr></thead><tbody>';
 
         foreach ($parcelas as $p) {
@@ -2138,7 +2161,6 @@ class TemplateVariables
             $vencimento = !empty($p['data_venci']) ? self::formatDate($p['data_venci'], $locale) : '-';
             $valor = $p['valor_total'] ?? $p['valor_subtotal'] ?? 0;
             $pago = ($p['pago'] ?? 'N') === 'S';
-            $dataPago = !empty($p['data_pago']) ? self::formatDate($p['data_pago'], $locale) : '-';
             $statusTxt = $pago ? 'Pago' : 'Pendente';
             $statusStyle = $pago ? 'color:green;' : 'color:orange;';
 
@@ -2146,8 +2168,9 @@ class TemplateVariables
             $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;">' . $num . '/' . $total . '</td>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;">' . $vencimento . '</td>';
             $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:right;">' . self::formatCurrency((float)$valor, $locale, $context) . '</td>';
-            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;' . $statusStyle . '">' . $statusTxt . '</td>';
-            $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;">' . $dataPago . '</td>';
+            if ($incluirStatus) {
+                $html .= '<td style="border:1px solid #ddd;padding:8px;text-align:center;' . $statusStyle . '">' . $statusTxt . '</td>';
+            }
             $html .= '</tr>';
         }
 

@@ -83,6 +83,19 @@ return [
         'poupanca' => 'Poupanca',
     ],
 
+    'commission_rules' => [
+        'title' => 'Regras de comissão',
+        'description' => 'A primeira linha, "Regra padrão", vale para todos os grupos do investidor quando não houver uma exceção específica. Para definir uma negociação diferente em um grupo, clique em "Adicionar exceção por grupo".',
+        'help' => 'A "Regra padrão" é a regra geral do investidor. Use ela quando esse investidor tiver a mesma comissão para todos os veículos dele, independente do grupo. Exemplo: se a regra padrão for 20% para a locadora, todos os veículos desse investidor usam essa regra, mesmo que estejam em grupos diferentes. Se algum grupo tiver uma negociação diferente, clique em "Adicionar exceção por grupo", escolha o grupo e informe a comissão específica. Nesse caso, o sistema usa primeiro a exceção do grupo; se não existir exceção, usa a regra padrão do investidor; se também não existir regra padrão, usa a regra cadastrada no grupo do veículo.',
+        'add_group_rule' => 'Adicionar exceção por grupo',
+        'default_rule' => 'Regra padrão',
+        'group_rule' => 'Regra por grupo',
+        'group_placeholder' => 'Selecione o grupo',
+        'type_placeholder' => 'Tipo de comissão',
+        'value' => 'Valor',
+        'remove' => 'Remover',
+    ],
+
     // Placeholders
     'placeholders' => [
         'search' => 'Buscar...',

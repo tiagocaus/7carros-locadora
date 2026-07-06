@@ -59,9 +59,9 @@ Se uma chamada `/api/*` retornar `419`, descarte o CSRF atual, chame `GET /api/s
 | `POST /veiculos.php`, `xAcesso: listar` | `GET /api/checklists/buscar-veiculos` |
 | `POST /checklist.php`, `xAcesso: checklistsAvulsoAdicionar` | `POST /api/checklists/criar` + questoes + fotos + assinatura |
 | `POST /checklist.php`, `xAcesso: checklistsAvulsoAdicionarFotos` | `POST /api/checklists/{id}/vistoria/upload` |
-| `POST /checklist.php`, `xAcesso: uploadVinculadoSaida` | `POST /api/checklists/criar` com `tipo=V`, `momento=S` + etapas seguintes |
-| `POST /checklist.php`, `xAcesso: uploadVinculadoChegada` | `POST /api/checklists/criar` com `tipo=V`, `momento=C` + etapas seguintes |
-| `POST /checklist.php`, `xAcesso: listagemVinculado` | `GET /api/checklists` |
+| `POST /checklist.php`, `xAcesso: uploadVinculadoSaida` | `POST /api/checklists/criar` com `tipo=V`, `etapa=saida` + etapas seguintes |
+| `POST /checklist.php`, `xAcesso: uploadVinculadoChegada` | `POST /api/checklists/criar` ou retomar checklist existente com `tipo=V`, `etapa=entrada` + etapas seguintes |
+| `POST /checklist.php`, `xAcesso: listagemVinculado` | `GET /api/checklists/vinculados` |
 | `POST /checklist.php`, `xAcesso: uploadVinculadoSaidaFotos` | `POST /api/checklists/{id}/vistoria/upload` |
 | `POST /checklist.php`, `xAcesso: uploadVinculadoChegadaFotos` | `POST /api/checklists/{id}/vistoria/upload` |
 | `POST /appcliente.dadosiniciais.php`, `xAcesso: ver` | `GET /api/dashboard/stats` |
@@ -333,8 +333,12 @@ Telas HTML atuais:
 | Metodo | Rota | Finalidade |
 | --- | --- | --- |
 | GET | `/checklists/digital` | Listagem mobile HTML. |
+| GET | `/checklists/vinculados` | Lista mobile de checklists/vinculos aguardando saida ou chegada. |
 | GET | `/checklists/novo` | Criar checklist HTML. |
+| GET | `/checklists/novo?tipo=A` | Criar checklist avulso HTML. |
+| GET | `/checklists/novo?tipo=V&etapa=saida&vinculo=C-726&id_veiculo=123` | Iniciar checklist vinculado de saida HTML. `vinculo` deve ser o codigo visivel da locacao/contrato, nao o ID interno. |
 | GET | `/checklists/novo?retomar={id}` | Retomar pendente HTML. |
+| GET | `/checklists/novo?retomar=C-726&etapa=entrada&id_veiculo=123` | Retomar checklist vinculado na etapa de chegada usando o codigo visivel da locacao/contrato. |
 | GET | `/checklists/visualizar/{id}` | Visualizar read-only HTML. |
 
 ### Listar checklists
@@ -370,11 +374,10 @@ Response `200`:
   "data": [
     {
       "id": 27606,
-      "codigo": "CKA1B2C3D4E5F6",
+      "codigo": "C-726",
       "tipo": "V",
-      "momento": "S",
       "data_checklist": "2026-06-22 10:30:00",
-      "status": "2",
+      "status": "4",
       "created_at": "2026-06-22 10:00:00",
       "modelo_nome": "Checklist padrao",
       "placa": "ABC1D23",
@@ -394,6 +397,19 @@ Response `200`:
 }
 ```
 
+Status atuais:
+
+| Status | Significado |
+| --- | --- |
+| `1` | Avulso iniciado |
+| `2` | Avulso concluido |
+| `3` | Vinculado saida iniciado |
+| `4` | Vinculado saida concluido |
+| `5` | Vinculado chegada iniciado |
+| `6` | Vinculado chegada concluido |
+
+Observacao sobre exibicao: a API e o app devem continuar usando os status detalhados `1` a `6`. A simplificacao para **Pendente** e **Finalizado** existe apenas na listagem iframe/dashboard `Veiculos > Checklists`, para manter a tabela compacta: status `1`, `3` e `5` aparecem como **Pendente**; status `2`, `4` e `6` aparecem como **Finalizado**. Isso nao altera payloads, filtros, endpoints nem regras do app.
+
 Erros:
 
 ```json
@@ -412,16 +428,19 @@ Erros:
 - Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
 - Permissao: `checklists.criar`
 - Plano: `P3` ou `P4`
-- Efeito: salva somente a aba de informacoes e cria registro com `status = "1"` (pendente). Questoes, fotos e assinatura sao salvas nas etapas seguintes.
+- Efeito: salva somente a aba de informacoes e cria/retoma registro pendente. Questoes, fotos e assinatura sao salvas nas etapas seguintes.
 
 Persistencia da etapa:
 
 - O primeiro salvamento real do checklist acontece ao avancar da aba Informacoes.
-- O backend gera `codigo = CK...`, grava `id_funcionario` do usuario autenticado e retorna `id`/`codigo`.
-- Para checklist avulso (`tipo=A`), o backend ignora qualquer vinculo enviado e força `momento = "N"`, `id_locacao = null` e `id_contrato = null`.
-- Para checklist vinculado (`tipo=V`), o backend exige `momento = "S"` ou `"C"` e exige uma locacao ou contrato.
-- O endpoint de criacao nao salva `questoes`, `vistoria` nem `assinatura_unica`.
-- O endpoint de criacao nao bloqueia sozinho duplicidade de checklist vinculado; a tela/API de veiculos do vinculo sinaliza `checklist_feito` para o app nao permitir selecionar veiculo ja finalizado naquele momento.
+- O backend grava `id_funcionario` do usuario autenticado e retorna `id`/`codigo`.
+- Checklist avulso gera `codigo = CK...`.
+- Checklist vinculado grava em `checklist.codigo` o codigo da locacao ou contrato. Ele nao gera codigo `CK...`.
+- Em contrato com multiplos veiculos, mais de um checklist vinculado pode compartilhar o mesmo codigo do contrato.
+- Para checklist avulso (`tipo=A`), o backend ignora qualquer vinculo enviado, força `etapa = "saida"`, `id_locacao = null` e `id_contrato = null`.
+- Para checklist vinculado (`tipo=V`), o backend exige `etapa = "saida"` ou `"entrada"` e exige uma locacao ou contrato.
+- O endpoint de criacao nao salva `questoes`, `vistoria` nem assinatura; esses dados sao salvos nos endpoints seguintes da etapa.
+- Se ja existir checklist vinculado aberto para o mesmo vinculo/veiculo, o endpoint retorna o `id` existente com `retomar = true`. Se a etapa enviada for `entrada`, o backend muda o status para chegada iniciada quando a saida ja estiver concluida.
 
 Headers:
 
@@ -438,13 +457,12 @@ Request vinculado a locacao:
 ```json
 {
   "tipo": "V",
-  "momento": "S",
+  "etapa": "saida",
   "id_modelo": 10,
   "id_veiculo": 123,
   "id_locacao": 456,
   "id_contrato": null,
-  "tanque": "8",
-  "odometro": "12.345",
+  "vinculo_codigo": "L000456",
   "obs": "Observacao opcional"
 }
 ```
@@ -454,13 +472,12 @@ Request vinculado a contrato:
 ```json
 {
   "tipo": "V",
-  "momento": "C",
+  "etapa": "entrada",
   "id_modelo": 10,
   "id_veiculo": 123,
   "id_locacao": null,
   "id_contrato": 789,
-  "tanque": "4",
-  "odometro": "12345",
+  "vinculo_codigo": "C-726",
   "obs": ""
 }
 ```
@@ -470,13 +487,11 @@ Request avulso:
 ```json
 {
   "tipo": "A",
-  "momento": "N",
+  "etapa": "saida",
   "id_modelo": 10,
   "id_veiculo": 123,
   "id_locacao": null,
   "id_contrato": null,
-  "tanque": "8",
-  "odometro": "12345",
   "obs": ""
 }
 ```
@@ -486,14 +501,13 @@ Campos:
 | Campo | Tipo | Obrigatorio | Regra |
 | --- | --- | --- | --- |
 | `tipo` | string | Sim | `V` vinculado ou `A` avulso. |
-| `momento` | string | Sim para `V` | `S` saida ou `C` chegada. Para `A`, backend força `N`. |
-| `id_modelo` | int | Sim | Modelo de checklist digital. |
+| `etapa` | string | Sim para `V` | `saida` ou `entrada`. Para `A`, backend força `saida`. |
+| `id_modelo` | int | Sim, exceto chegada vinculada retomada | Modelo de checklist digital. Na chegada vinculada, se omitido, o backend reaproveita o modelo usado na saída para o mesmo vínculo/veículo. |
 | `id_veiculo` | int | Sim | Veiculo vistoriado. |
 | `id_locacao` | int/null | Condicional | Obrigatorio para `V` se `id_contrato` nao for enviado. |
 | `id_contrato` | int/null | Condicional | Obrigatorio para `V` se `id_locacao` nao for enviado. |
-| `tanque` | string | Nao | Escala usada pela UI, normalmente `0` a `8`. |
-| `odometro` | string/int | Nao | Backend remove `.` e `,` antes de converter para int. |
-| `obs` | string | Nao | Salvo em `obs_unica`. |
+| `vinculo_codigo` | string | Condicional | Alternativa para vinculado: codigo visivel da locacao/contrato. O backend resolve para `id_locacao` ou `id_contrato`. |
+| `obs` | string | Nao | Salvo em `observacoes_saida` ou `observacoes_entrada`, conforme `etapa`. |
 
 Comportamento para o app:
 
@@ -508,6 +522,27 @@ Response `200`:
   "success": true,
   "id": 27606,
   "codigo": "CKA1B2C3D4E5F6"
+}
+```
+
+No checklist vinculado, `codigo` retorna o codigo da locacao/contrato:
+
+```json
+{
+  "success": true,
+  "id": 27607,
+  "codigo": "C-726"
+}
+```
+
+Response `200` quando ja existe checklist vinculado aberto:
+
+```json
+{
+  "success": true,
+  "id": 27606,
+  "codigo": "C-726",
+  "retomar": true
 }
 ```
 
@@ -532,7 +567,7 @@ Erros `422`:
 ```
 
 ```json
-{ "success": false, "message": "Selecione o momento (saida/chegada)" }
+{ "success": false, "message": "Etapa invalida" }
 ```
 
 ```json
@@ -555,8 +590,8 @@ Erro `500`:
 - Controller: `ChecklistNovoController::salvarQuestoes()`
 - Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
 - Permissao: `checklists.criar`
-- Efeito: atualiza `checklist.questoes` com JSON das respostas.
-- Restricao: checklist precisa existir no tenant e nao pode estar finalizado.
+- Efeito: atualiza `questoes_saida` ou `questoes_entrada`, conforme `etapa`.
+- Restricao: checklist precisa existir no tenant e a etapa informada nao pode estar finalizada.
 
 Autosave atual da tela web:
 
@@ -585,6 +620,7 @@ X-Requested-With: XMLHttpRequest
 
 ```json
 {
+  "etapa": "saida",
   "questoes": [
     {
       "id": 1,
@@ -626,7 +662,7 @@ Erros:
 ```
 
 ```json
-{ "success": false, "message": "Checklist ja finalizado" }
+{ "success": false, "message": "Esta etapa do checklist ja foi finalizada" }
 ```
 
 ```json
@@ -644,15 +680,15 @@ Erros:
 - Controller: `ChecklistNovoController::uploadVistoria()`
 - Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
 - Permissao: `checklists.criar`
-- Restricao: checklist precisa existir no tenant e nao pode estar finalizado.
-- Efeito: salva imagem via `ImageHelper::save(..., 'vistoria', 'webp', 80, chave)` e atualiza o item em `checklist.vistoria`.
+- Restricao: checklist precisa existir no tenant e a etapa informada nao pode estar finalizada.
+- Efeito: salva imagem via `ImageHelper::save(..., 'vistoria', 'webp', 80, chave)` e atualiza o item em `vistoria_saida` ou `vistoria_entrada`, conforme `etapa`.
 
 Upload automatico atual:
 
 - A tela dispara o upload imediatamente apos o usuario tirar/selecionar a foto no input de camera.
 - Antes de enviar, a tela redimensiona/converte a imagem no client-side para Data URL JPEG com tamanho maximo de 1200px.
-- O backend recebe `foto` como Data URL base64, converte/salva em WebP qualidade 80 e atualiza `checklist.vistoria`.
-- Se `checklist.vistoria` ainda estiver vazio, o backend carrega os itens do template `modelo_vistoria` e preenche o item correspondente.
+- O backend recebe `foto` como Data URL base64, converte/salva em WebP qualidade 80 e atualiza a vistoria da etapa.
+- Se a vistoria da etapa ainda estiver vazia, o backend carrega os itens do template `modelo_vistoria` e preenche o item correspondente.
 - Se `item_id` nao existir no template, o backend adiciona um item novo com esse `id` e `img`.
 - O response retorna `filename` e `url`; o app deve atualizar o estado local da foto com esses valores.
 - Para avancar para assinatura, a tela atual exige pelo menos uma foto em `vistoria`.
@@ -676,6 +712,7 @@ X-Requested-With: XMLHttpRequest
 
 ```json
 {
+  "etapa": "saida",
   "item_id": "lataria_dianteira",
   "foto": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
 }
@@ -685,6 +722,7 @@ Campos:
 
 | Campo | Tipo | Obrigatorio | Regra |
 | --- | --- | --- | --- |
+| `etapa` | string | Nao | `saida` ou `entrada`. Padrao `saida`. |
 | `item_id` | string/int | Sim | Deve bater com `id` de um item do template de vistoria. Se nao existir, backend adiciona um item com esse id. |
 | `foto` | string | Sim | Data URL base64 da imagem. A UI web envia JPEG; backend converte para WebP. |
 
@@ -718,8 +756,8 @@ Erros:
 - Controller: `ChecklistNovoController::excluirVistoria()`
 - Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
 - Permissao: `checklists.criar`
-- Restricao: checklist precisa existir no tenant e nao pode estar finalizado.
-- Efeito: apaga arquivo via `FileHelper::delete()` e seta `img = null` no item.
+- Restricao: checklist precisa existir no tenant e a etapa informada nao pode estar finalizada.
+- Efeito: apaga arquivo via `FileHelper::delete()` e seta `img = null` no item da vistoria da etapa.
 
 Comportamento:
 
@@ -737,7 +775,11 @@ X-CSRF-TOKEN: <csrf_token_da_sessao>
 X-Requested-With: XMLHttpRequest
 ```
 
-Body: `{}` ou vazio.
+Body:
+
+```json
+{ "etapa": "saida" }
+```
 
 Response `200`:
 
@@ -752,7 +794,7 @@ Erros:
 ```
 
 ```json
-{ "success": false, "message": "Checklist ja finalizado" }
+{ "success": false, "message": "Esta etapa do checklist ja foi finalizada" }
 ```
 
 ```json
@@ -765,21 +807,22 @@ Erros:
 - Controller: `ChecklistNovoController::assinar()`
 - Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
 - Permissao: `checklists.criar`
-- Restricao: checklist precisa existir no tenant e nao pode estar finalizado.
-- Efeito: antes de finalizar, atualiza `veiculos.odometro` e `veiculos.tanque_fracao` somente para checklist avulso ou vinculado de chegada; depois salva assinatura em `assinatura_checklist` como WebP 90 e finaliza checklist (`status = "2"` pelo model).
+- Restricao: checklist precisa existir no tenant e a etapa informada nao pode estar finalizada.
+- Efeito: salva assinatura em `assinatura_saida` ou `assinatura_entrada` como WebP 90 e finaliza a etapa.
 
 Comportamento:
 
 - Esta e a ultima etapa do fluxo.
 - A assinatura e enviada como Data URL base64.
-- Se o checklist for avulso (`tipo=A`) e tiver `id_veiculo`, `odometro` e/ou `tanque`, o cadastro do veiculo e atualizado antes de mudar o checklist para finalizado.
-- Se o checklist for vinculado de chegada (`tipo=V`, `momento=C`) e tiver `id_veiculo`, `odometro` e/ou `tanque`, o cadastro do veiculo e atualizado antes de finalizar.
-- Se o checklist for vinculado de saida (`tipo=V`, `momento=S`), o cadastro do veiculo nao e atualizado, pois a saida vem da tela de contrato/locacao.
-- O odometro do veiculo e atualizado sempre que o checklist tiver odometro maior que zero, mesmo se for menor que o valor atual do cadastro.
-- O tanque do checklist atualiza `veiculos.tanque_fracao` quando estiver preenchido.
-- Quando houver atualizacao do veiculo, registra log de auditoria com valores anteriores e novos de Odometro/Tanque.
-- Em sucesso, o checklist deixa de ser editavel pelas rotas que exigem pendente.
-- Depois de finalizado, `POST /api/checklists/{id}/questoes`, upload/exclusao de vistoria e nova assinatura retornam erro de checklist finalizado.
+- Checklist avulso finalizado recebe status `2`.
+- Checklist vinculado de saida finalizado recebe status `4`.
+- Checklist vinculado de entrada finalizado recebe status `6`.
+- `tanque` e `odometro` nao sao salvos na tabela `checklist`.
+- Checklist avulso finalizado atualiza `veiculos.odometro` e `veiculos.tanque_fracao`.
+- Checklist vinculado de saida mostra os dados do veiculo em leitura e nao atualiza o cadastro do veiculo.
+- Checklist vinculado de entrada/chegada finalizado atualiza `veiculos.odometro` e `veiculos.tanque_fracao`.
+- Em sucesso, a etapa deixa de ser editavel pelas rotas que exigem pendente.
+- Depois de finalizada, `POST /api/checklists/{id}/questoes`, upload/exclusao de vistoria e nova assinatura retornam erro para aquela etapa.
 
 Request:
 
@@ -793,9 +836,19 @@ X-Requested-With: XMLHttpRequest
 
 ```json
 {
-  "assinatura": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
+  "etapa": "saida",
+  "assinatura": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...",
+  "tanque": "8",
+  "odometro": "12345"
 }
 ```
+
+Campos `tanque` e `odometro`:
+
+| Campo | Tipo | Obrigatorio | Regra |
+| --- | --- | --- | --- |
+| `tanque` | string/int | Sim para avulso e vinculado chegada | Nivel `0` a `8`, gravado em `veiculos.tanque_fracao`. Enviar tambem em vinculado saida nao altera o veiculo. |
+| `odometro` | string/int | Sim para avulso e vinculado chegada | Numeros do odometro atual, gravado em `veiculos.odometro`. Enviar tambem em vinculado saida nao altera o veiculo. |
 
 Response `200`:
 
@@ -827,11 +880,15 @@ Erros:
 - Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
 - Permissao: `checklists.criar`
 - Observacao: apesar do nome da rota, retorna JSON do checklist para retomar/preencher. Aceita checklist pendente ou finalizado.
+- Query opcional: `etapa=saida|entrada`. Se omitida, o backend calcula a etapa atual pelo status.
+- Para checklist vinculado de chegada (`etapa=entrada`), a tela/app deve abrir na aba Informacoes, deixar Tanque e Odometro vazios para preenchimento da devolucao e mostrar o modelo do checklist como leitura, usando o mesmo `id_modelo` da saida. Se a chamada de criacao/retomada da chegada for enviada sem `id_modelo`, o backend reaproveita o modelo do checklist de saida aberto.
+- Na tela HTML, a retomada vinculada deve usar `retomar={codigo_locacao_ou_contrato}&id_veiculo={id}`; o backend resolve internamente o checklist pendente.
+- A aba Informacoes exibe um campo de leitura com o contexto: `Checklist avulso`, `Checklist vinculado de saída` ou `Checklist vinculado de chegada`.
 
 Request:
 
 ```http
-GET /api/checklists/novo/27606
+GET /api/checklists/novo/27606?etapa=saida
 Cookie: <cookies_da_sessao>
 X-CSRF-TOKEN: <csrf_token_da_sessao>
 X-Requested-With: XMLHttpRequest
@@ -844,10 +901,10 @@ Response `200`:
   "success": true,
   "data": {
     "id": 27606,
-    "codigo": "CKA1B2C3D4E5F6",
+    "codigo": "C-726",
     "tipo": "V",
-    "momento": "S",
-    "status": "1",
+    "etapa": "saida",
+    "status": "3",
     "id_modelo": 10,
     "modelo_nome": "Checklist padrao",
     "modelo_questoes": [
@@ -858,13 +915,14 @@ Response `200`:
     ],
     "id_veiculo": 123,
     "veiculo": "ABC1D23 - Chevrolet Onix",
+    "tipo_combustivel": "GE",
+    "odometro": 12345,
+    "tanque_fracao": "8",
     "id_locacao": 456,
     "locacao_codigo": "L000456",
     "locacao_cliente": "Cliente Exemplo",
     "id_contrato": null,
     "contrato_codigo": null,
-    "tanque": "8",
-    "odometro": 12345,
     "obs": "Observacao opcional",
     "questoes": [
       { "id": 1, "content": "Farol funcionando", "opt": "1" }
@@ -985,18 +1043,28 @@ Response combinado:
   "success": true,
   "data": [
     {
-      "id": "L-456",
+      "id": "L000456",
+      "codigo": "L000456",
+      "tipo_vinculo": "L",
+      "id_vinculo": 456,
       "text": "[Locação] L000456 - Cliente Exemplo",
       "id_veiculo": 123,
       "veiculo": "ABC1D23 - Chevrolet Onix",
-      "tipo_combustivel": "GE"
+      "tipo_combustivel": "GE",
+      "odometro": 12345,
+      "tanque_fracao": "8"
     },
     {
-      "id": "C-789",
+      "id": "C-726",
+      "codigo": "C-726",
+      "tipo_vinculo": "C",
+      "id_vinculo": 789,
       "text": "[Contrato] C000789 - Cliente Exemplo",
       "id_veiculo": 124,
       "veiculo": "XYZ9A99 - Fiat Argo",
-      "tipo_combustivel": "GE"
+      "tipo_combustivel": "GE",
+      "odometro": 30000,
+      "tanque_fracao": "4"
     }
   ]
 }
@@ -1014,6 +1082,9 @@ Response de locacoes:
       "cliente": "Cliente Exemplo",
       "id_veiculo": 123,
       "veiculo": "ABC1D23 - Chevrolet Onix",
+      "tipo_combustivel": "GE",
+      "odometro": 12345,
+      "tanque_fracao": "8",
       "text": "L000456 - Cliente Exemplo"
     }
   ]
@@ -1044,9 +1115,84 @@ Erro sem sessao:
 { "success": false, "message": "Sessao invalida" }
 ```
 
+### Vinculados pendentes
+
+- Atual: `GET /api/checklists/vinculados?search=&status=`
+- Controller: `ChecklistNovoController::vinculadosPendentes()`
+- Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
+- Permissao: `checklists.criar`
+- Uso recomendado: tela/lista principal do app para iniciar checklist vinculado de saida ou retomar chegada.
+
+Request:
+
+```http
+GET /api/checklists/vinculados?search=ABC&status=aguardando_saida
+Cookie: <cookies_da_sessao>
+X-CSRF-TOKEN: <csrf_token_da_sessao>
+X-Requested-With: XMLHttpRequest
+```
+
+Query:
+
+| Param | Tipo | Obrigatorio | Regra |
+| --- | --- | --- | --- |
+| `search` | string | Nao | Busca por codigo, cliente, placa ou modelo. |
+| `status` | string | Nao | `aguardando_saida`, `aguardando_chegada` ou vazio para ambos. |
+
+Response `200`:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "checklist_id": null,
+      "tipo_vinculo": "L",
+      "id_vinculo": 456,
+      "id_veiculo": 123,
+      "codigo": "L000456",
+      "vinculo_codigo": "L000456",
+      "cliente": "Cliente Exemplo",
+      "veiculo": "ABC1D23 - Chevrolet Onix",
+      "status": "3",
+      "etapa": "saida"
+    },
+    {
+      "checklist_id": 27606,
+      "tipo_vinculo": "C",
+      "id_vinculo": 789,
+      "id_veiculo": 124,
+      "codigo": "C000789",
+      "vinculo_codigo": "C000789",
+      "cliente": "Cliente Exemplo",
+      "veiculo": "XYZ9A99 - Fiat Argo",
+      "status": "4",
+      "etapa": "entrada"
+    }
+  ]
+}
+```
+
+Regras para o app:
+
+- Se `checklist_id` for `null`, iniciar com `POST /api/checklists/criar` usando `tipo=V`, `etapa`, `id_veiculo` e `vinculo_codigo` do item; alternativamente, converter `tipo_vinculo/id_vinculo` para `id_locacao` ou `id_contrato`.
+- Se `checklist_id` vier preenchido, retomar pelo proprio ID com `GET /api/checklists/novo/{checklist_id}?etapa={etapa}`.
+- Itens com status `6` nao aparecem nessa lista.
+- Para criar a partir de um item da lista sem usar `vinculo_codigo`, converta `tipo_vinculo = "L"` em `id_locacao = id_vinculo` e `id_contrato = null`; converta `tipo_vinculo = "C"` em `id_contrato = id_vinculo` e `id_locacao = null`.
+
+Erros:
+
+```json
+{ "success": false, "message": "Sem permissao" }
+```
+
+```json
+{ "success": false, "message": "Status invalido" }
+```
+
 ### Veiculos do vinculo
 
-- Atual: `GET /api/checklists/veiculos-vinculo?tipo=L&id=456&momento=S`
+- Atual: `GET /api/checklists/veiculos-vinculo?tipo=L&id=456&etapa=saida`
 - Middleware: `auth`, `api_csrf`, `rate_limit`, `throttle`
 
 Query:
@@ -1055,7 +1201,9 @@ Query:
 | --- | --- | --- | --- |
 | `tipo` | string | Sim | `L` para locacao, `C` para contrato. |
 | `id` | int | Sim | ID da locacao ou contrato. |
-| `momento` | string | Nao | `S` ou `C`; padrao `S`. |
+| `etapa` | string | Nao | `saida` ou `entrada`; padrao efetivo `saida`. |
+
+Observacao de compatibilidade: o backend ainda aceita `momento=S|C` como fallback temporario, mas o app novo deve enviar `etapa`.
 
 Response `200`:
 
@@ -1115,9 +1263,9 @@ Response `200`:
       "placa": "ABC1D23",
       "modelo": "Onix",
       "marca": "Chevrolet",
+      "tipo_combustivel": "GE",
       "odometro": 12345,
       "tanque_fracao": "8",
-      "tipo_combustivel": "GE",
       "text": "ABC1D23 - Chevrolet Onix"
     }
   ]
@@ -1670,25 +1818,26 @@ Exemplos de campos atuais:
 
 1. `GET /api/checklist-modelos/buscar?q=`
 2. `GET /api/checklists/buscar-veiculos?q=`
-3. `POST /api/checklists/criar` com `tipo=A` ao avancar da aba Informacoes; guardar `id` e `codigo` retornados.
+3. `POST /api/checklists/criar` com `tipo=A` e `etapa=saida` ao avancar da aba Informacoes; guardar `id` e `codigo` retornados.
 4. `GET /api/checklist-modelos/{id_modelo}`.
-5. Na aba Questoes, autosalvar a cada 30s quando houver pelo menos uma resposta; ao avancar, chamar `POST /api/checklists/{id}/questoes` exigindo todas respondidas.
-6. Na aba Vistorias, chamar `POST /api/checklists/{id}/vistoria/upload` imediatamente apos cada foto capturada/selecionada; reusar o mesmo endpoint ao salvar foto editada.
-7. Se remover foto, chamar `POST /api/checklists/{id}/vistoria/{itemId}/excluir`.
-8. Ao finalizar, chamar `POST /api/checklists/{id}/assinar`.
+5. Na aba Questoes, autosalvar a cada 30s quando houver pelo menos uma resposta; ao avancar, chamar `POST /api/checklists/{id}/questoes` com `etapa=saida` exigindo todas respondidas.
+6. Na aba Vistorias, chamar `POST /api/checklists/{id}/vistoria/upload` com `etapa=saida` imediatamente apos cada foto capturada/selecionada; reusar o mesmo endpoint ao salvar foto editada.
+7. Se remover foto, chamar `POST /api/checklists/{id}/vistoria/{itemId}/excluir` com `etapa=saida`.
+8. Ao finalizar, chamar `POST /api/checklists/{id}/assinar` com `etapa=saida`.
 
 ### Checklist vinculado
 
 1. `GET /api/checklist-modelos/buscar?q=`
-2. `GET /api/checklists/buscar-vinculos?q=`
-3. Escolher `momento=S` ou `momento=C`.
-4. `GET /api/checklists/veiculos-vinculo?tipo=L|C&id={id}&momento=S|C` e nao permitir selecionar veiculo com `checklist_feito = true`.
-5. `POST /api/checklists/criar` com `tipo=V` ao avancar da aba Informacoes; guardar `id` e `codigo` retornados.
-6. `GET /api/checklist-modelos/{id_modelo}`.
-7. Na aba Questoes, autosalvar a cada 30s quando houver pelo menos uma resposta; ao avancar, chamar `POST /api/checklists/{id}/questoes` exigindo todas respondidas.
-8. Na aba Vistorias, chamar `POST /api/checklists/{id}/vistoria/upload` imediatamente apos cada foto capturada/selecionada; reusar o mesmo endpoint ao salvar foto editada.
-9. Se remover foto, chamar `POST /api/checklists/{id}/vistoria/{itemId}/excluir`.
-10. Ao finalizar, chamar `POST /api/checklists/{id}/assinar`.
+2. `GET /api/checklists/vinculados?search=&status=` para escolher um item aguardando `saida` ou `entrada`.
+3. Se o item nao tiver `checklist_id`, chamar `POST /api/checklists/criar` com `tipo=V`, `etapa`, `id_veiculo` e `vinculo_codigo`; guardar `id` e `codigo`.
+4. Se o item tiver `checklist_id`, em tela HTML abrir `/checklists/novo?retomar={vinculo_codigo}&etapa={etapa}&id_veiculo={id_veiculo}`; em API nativa, chamar `GET /api/checklists/novo/{checklist_id}?etapa={etapa}`.
+5. Na chegada (`etapa=entrada`), abrir sempre na aba Informacoes, iniciar `tanque` vazio e `odometro` vazio, e exibir o modelo como leitura.
+6. Opcionalmente, `GET /api/checklists/veiculos-vinculo?tipo=L|C&id={id_vinculo}&etapa={etapa}` e nao permitir selecionar veiculo com `checklist_feito = true`.
+7. `GET /api/checklist-modelos/{id_modelo}`.
+8. Na aba Questoes, autosalvar a cada 30s quando houver pelo menos uma resposta; ao avancar, chamar `POST /api/checklists/{id}/questoes` com `etapa` exigindo todas respondidas.
+9. Na aba Vistorias, chamar `POST /api/checklists/{id}/vistoria/upload` com `etapa` imediatamente apos cada foto capturada/selecionada; reusar o mesmo endpoint ao salvar foto editada.
+10. Se remover foto, chamar `POST /api/checklists/{id}/vistoria/{itemId}/excluir` com `etapa`.
+11. Ao finalizar, chamar `POST /api/checklists/{id}/assinar` com `etapa`.
 
 ### Atualizar empresa
 

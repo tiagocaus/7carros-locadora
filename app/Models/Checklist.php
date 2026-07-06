@@ -3,26 +3,22 @@
 namespace App\Models;
 
 use App\Helpers\CodigoHelper;
-use App\Core\Database;
+use App\Helpers\DateHelper;
 
 /**
- * Model Checklist
- *
  * Gerencia checklists/vistorias realizados nos veiculos.
  */
 class Checklist extends Model
 {
-    /**
-     * Lista checklists com paginacao, busca e filtro de filial
-     *
-     * @param string $chave Chave do tenant
-     * @param int $page Pagina atual
-     * @param int $perPage Registros por pagina
-     * @param string $search Termo de busca
-     * @param string|null $filialWhere Clausula WHERE de filiais
-     * @param array $filialParams Parametros da clausula de filiais
-     * @return array Lista de checklists
-     */
+    public const STATUS_AVULSO_INICIADO = '1';
+    public const STATUS_AVULSO_CONCLUIDO = '2';
+    public const STATUS_VINCULADO_SAIDA_INICIADO = '3';
+    public const STATUS_VINCULADO_SAIDA_CONCLUIDO = '4';
+    public const STATUS_VINCULADO_ENTRADA_INICIADO = '5';
+    public const STATUS_VINCULADO_ENTRADA_CONCLUIDO = '6';
+
+    private const ETAPAS = ['saida', 'entrada'];
+
     public function listarPaginado(
         string $chave,
         int $page,
@@ -37,34 +33,19 @@ class Checklist extends Model
                 'c.id',
                 'c.codigo',
                 'c.tipo',
-                'c.data_checklist',
                 'c.status',
                 'c.created_at',
+                'COALESCE(c.data_entrada, c.data_saida, c.created_at) AS data_checklist',
                 'cm.nome AS modelo_nome',
                 'v.placa',
                 'v.modelo AS veiculo_modelo',
                 'v.marca',
-                'v.id_matriz_filial'
+                'v.id_matriz_filial',
             ])
             ->leftJoin('checklist_modelos', 'cm', 'c.id_modelo', '=', 'cm.id')
             ->leftJoin('veiculos', 'v', 'c.id_veiculo', '=', 'v.id');
 
-        if (!empty($filialWhere)) {
-            $query->whereRaw($filialWhere, $filialParams);
-        }
-
-        if (!empty($search)) {
-            $query->whereRaw(
-                '(c.codigo LIKE ? OR cm.nome LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ? OR v.marca LIKE ?)',
-                [
-                    '%' . $search . '%',
-                    '%' . $search . '%',
-                    '%' . $search . '%',
-                    '%' . $search . '%',
-                    '%' . $search . '%'
-                ]
-            );
-        }
+        $this->aplicarFiltrosListagem($query, $search, $filialWhere, $filialParams);
 
         return $query
             ->orderBy('c.created_at', 'DESC')
@@ -72,15 +53,6 @@ class Checklist extends Model
             ->get();
     }
 
-    /**
-     * Conta total de checklists com filtros
-     *
-     * @param string $chave Chave do tenant
-     * @param string $search Termo de busca
-     * @param string|null $filialWhere Clausula WHERE de filiais
-     * @param array $filialParams Parametros da clausula de filiais
-     * @return int Total de registros
-     */
     public function contar(
         string $chave,
         string $search = '',
@@ -92,69 +64,32 @@ class Checklist extends Model
             ->leftJoin('checklist_modelos', 'cm', 'c.id_modelo', '=', 'cm.id')
             ->leftJoin('veiculos', 'v', 'c.id_veiculo', '=', 'v.id');
 
-        if (!empty($filialWhere)) {
-            $query->whereRaw($filialWhere, $filialParams);
-        }
-
-        if (!empty($search)) {
-            $query->whereRaw(
-                '(c.codigo LIKE ? OR cm.nome LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ? OR v.marca LIKE ?)',
-                [
-                    '%' . $search . '%',
-                    '%' . $search . '%',
-                    '%' . $search . '%',
-                    '%' . $search . '%',
-                    '%' . $search . '%'
-                ]
-            );
-        }
+        $this->aplicarFiltrosListagem($query, $search, $filialWhere, $filialParams);
 
         return $query->count();
     }
 
-    /**
-     * Busca um checklist por ID com dados completos
-     *
-     * @param int $id ID do checklist
-     * @return array|null Dados do checklist ou null
-     */
+    private function aplicarFiltrosListagem($query, string $search, ?string $filialWhere, array $filialParams): void
+    {
+        if (!empty($filialWhere)) {
+            $query->whereRaw($filialWhere, $filialParams);
+        }
+
+        if ($search !== '') {
+            $query->whereRaw(
+                '(c.codigo LIKE ? OR cm.nome LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ? OR v.marca LIKE ?)',
+                array_fill(0, 5, '%' . $search . '%')
+            );
+        }
+    }
+
     public function buscarPorId(int $id): ?array
     {
-        return $this->qb
-            ->table('checklist', 'c')
-            ->select([
-                'c.*',
-                // Aliases para compatibilidade com templates de impressao
-                'c.questoes AS questoes_saida',
-                'c.vistoria AS vistoria_saida',
-                'c.assinatura_unica AS assinatura',
-                'c.obs_unica AS obs',
-                'c.data_checklist AS data_saida',
-                'NULL AS questoes_chegada',
-                'NULL AS vistoria_chegada',
-                'NULL AS assinatura_chegada',
-                'NULL AS obs_chegada',
-                'NULL AS data_chegada',
-                'cm.nome AS modelo_nome',
-                'cm.tipo AS modelo_tipo',
-                'v.placa',
-                'v.modelo AS veiculo_modelo',
-                'v.marca',
-                'v.renavam',
-                'v.id_matriz_filial'
-            ])
-            ->leftJoin('checklist_modelos', 'cm', 'c.id_modelo', '=', 'cm.id')
-            ->leftJoin('veiculos', 'v', 'c.id_veiculo', '=', 'v.id')
+        return $this->baseCompleta()
             ->where('c.id', '=', $id)
             ->first();
     }
 
-    /**
-     * Busca um checklist por codigo (para rota publica, sem filtro de sessao)
-     *
-     * @param string $codigo Codigo do checklist
-     * @return array|null Dados do checklist ou null
-     */
     public function buscarPorCodigo(string $codigo): ?array
     {
         return $this->qb
@@ -165,15 +100,14 @@ class Checklist extends Model
                 'c.chave',
                 'c.codigo',
                 'c.tipo',
-                'c.momento',
-                'c.data_checklist',
                 'c.status',
                 'c.created_at',
+                'COALESCE(c.data_entrada, c.data_saida, c.created_at) AS data_checklist',
                 'cm.nome AS modelo_nome',
                 'v.placa',
                 'v.modelo AS veiculo_modelo',
                 'v.marca',
-                'v.id_matriz_filial'
+                'v.id_matriz_filial',
             ])
             ->leftJoin('checklist_modelos', 'cm', 'c.id_modelo', '=', 'cm.id')
             ->leftJoin('veiculos', 'v', 'c.id_veiculo', '=', 'v.id')
@@ -181,51 +115,33 @@ class Checklist extends Model
             ->first();
     }
 
-    /**
-     * Busca primeiro checklist vinculado a uma locacao (por FK)
-     *
-     * @param int $idLocacao ID da locacao
-     * @param string $chave Chave do tenant
-     * @return array|null
-     */
     public function buscarPorLocacaoFK(int $idLocacao, string $chave): ?array
     {
         return $this->qb
             ->table('checklist', 'c')
-            ->select(['c.id', 'c.momento'])
+            ->select(['c.id', 'c.status'])
             ->where('c.id_locacao', '=', $idLocacao)
-            ->orderBy('c.momento', 'ASC')
+            ->where('c.tipo', '=', 'V')
+            ->orderBy('c.created_at', 'DESC')
             ->first();
     }
 
-    /**
-     * Busca primeiro checklist vinculado a um contrato (por FK)
-     *
-     * @param int $idContrato ID do contrato
-     * @param string $chave Chave do tenant
-     * @return array|null
-     */
     public function buscarPorContratoFK(int $idContrato, string $chave): ?array
     {
         return $this->qb
             ->table('checklist', 'c')
-            ->select(['c.id', 'c.momento'])
+            ->select(['c.id', 'c.status'])
             ->where('c.id_contrato', '=', $idContrato)
-            ->orderBy('c.momento', 'ASC')
+            ->where('c.tipo', '=', 'V')
+            ->orderBy('c.created_at', 'DESC')
             ->first();
     }
 
-    /**
-     * Lista checklists digitais finalizados vinculados a uma locacao.
-     */
     public function listarFinalizadosPorLocacao(int $idLocacao): array
     {
         return $this->listarFinalizadosPorVinculo('id_locacao', $idLocacao);
     }
 
-    /**
-     * Lista checklists digitais finalizados vinculados a um contrato.
-     */
     public function listarFinalizadosPorContrato(int $idContrato): array
     {
         return $this->listarFinalizadosPorVinculo('id_contrato', $idContrato);
@@ -242,8 +158,10 @@ class Checklist extends Model
             ->select([
                 'c.id',
                 'c.codigo',
-                'c.momento',
-                'c.data_checklist',
+                'c.status',
+                'c.data_saida',
+                'c.data_entrada',
+                'COALESCE(c.data_entrada, c.data_saida) AS data_checklist',
                 'c.id_veiculo',
                 'cm.nome AS modelo_nome',
                 'v.placa',
@@ -254,17 +172,14 @@ class Checklist extends Model
             ->leftJoin('veiculos', 'v', 'c.id_veiculo', '=', 'v.id')
             ->where('c.' . $campoVinculo, '=', $idVinculo)
             ->where('c.tipo', '=', 'V')
-            ->whereIn('c.status', ['2', '4'])
-            ->orderBy('c.data_checklist', 'DESC')
+            ->whereIn('c.status', [
+                self::STATUS_VINCULADO_SAIDA_CONCLUIDO,
+                self::STATUS_VINCULADO_ENTRADA_CONCLUIDO,
+            ])
+            ->orderBy('c.created_at', 'DESC')
             ->get();
     }
 
-    /**
-     * Exclui um checklist
-     *
-     * @param int $id ID do checklist
-     * @return int Linhas afetadas
-     */
     public function excluir(int $id): int
     {
         return $this->qb
@@ -273,16 +188,7 @@ class Checklist extends Model
             ->delete();
     }
 
-    /**
-     * Busca veiculos de uma locacao ou contrato com status de checklist
-     *
-     * @param string $tipoVinculo 'L' (locacao) ou 'C' (contrato)
-     * @param int $idVinculo ID da locacao ou contrato
-     * @param string $momento 'S' ou 'C'
-     * @param string $chave Chave do tenant
-     * @return array Veiculos com campo checklist_feito
-     */
-    public function buscarVeiculosDoVinculo(string $tipoVinculo, int $idVinculo, string $momento, string $chave): array
+    public function buscarVeiculosDoVinculo(string $tipoVinculo, int $idVinculo, string $etapa, string $chave): array
     {
         if ($tipoVinculo === 'L') {
             $veiculos = $this->qb
@@ -295,9 +201,11 @@ class Checklist extends Model
                     'v.tipo_combustivel',
                     'v.odometro',
                     'v.tanque_fracao',
+                    'v.id_matriz_filial',
                 ])
                 ->leftJoin('veiculos', 'v', 'lv.id_veiculo', '=', 'v.id')
                 ->where('lv.id_locacao', '=', $idVinculo)
+                ->whereNotNull('lv.id_veiculo')
                 ->get();
 
             $fkCol = 'id_locacao';
@@ -312,31 +220,41 @@ class Checklist extends Model
                     'v.tipo_combustivel',
                     'v.odometro',
                     'v.tanque_fracao',
+                    'v.id_matriz_filial',
                 ])
                 ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
                 ->where('cv.id_contrato', '=', $idVinculo)
+                ->whereNotNull('cv.id_veiculo')
                 ->get();
 
             $fkCol = 'id_contrato';
         }
 
-        // Verificar quais ja tem checklist feito para este momento
+        $statusFeitos = $etapa === 'entrada'
+            ? [self::STATUS_VINCULADO_ENTRADA_CONCLUIDO]
+            : [
+                self::STATUS_VINCULADO_SAIDA_CONCLUIDO,
+                self::STATUS_VINCULADO_ENTRADA_INICIADO,
+                self::STATUS_VINCULADO_ENTRADA_CONCLUIDO,
+            ];
+
         $checklistsFeitos = $this->qb
             ->table('checklist')
             ->select(['id_veiculo'])
             ->where($fkCol, '=', $idVinculo)
-            ->where('momento', '=', $momento)
-            ->whereIn('status', ['2', '4'])
+            ->where('tipo', '=', 'V')
+            ->whereIn('status', $statusFeitos)
             ->get();
 
         $veiculosFeitos = array_column($checklistsFeitos, 'id_veiculo');
-
-        // Deduplicar veiculos (contrato pode ter mesmo veiculo em periodos diferentes)
         $vistos = [];
         $resultado = [];
+
         foreach ($veiculos as $v) {
-            $idV = (int) $v['id_veiculo'];
-            if (isset($vistos[$idV])) continue;
+            $idV = (int) ($v['id_veiculo'] ?? 0);
+            if ($idV <= 0 || isset($vistos[$idV])) {
+                continue;
+            }
             $vistos[$idV] = true;
 
             $v['id_veiculo'] = $idV;
@@ -347,13 +265,6 @@ class Checklist extends Model
         return $resultado;
     }
 
-    /**
-     * Exclui um checklist e seus arquivos (fotos de vistoria + assinatura)
-     *
-     * @param int $id ID do checklist
-     * @param string $chave Chave do tenant
-     * @return int Linhas afetadas
-     */
     public function excluirComArquivos(int $id, string $chave): int
     {
         $checklist = $this->buscarPorId($id);
@@ -361,29 +272,23 @@ class Checklist extends Model
             return 0;
         }
 
-        // Deletar fotos da vistoria
-        $vistoria = json_decode($checklist['vistoria'] ?? $checklist['vistoria_saida'] ?? '[]', true) ?: [];
-        foreach ($vistoria as $item) {
-            if (!empty($item['img'])) {
-                \App\Helpers\FileHelper::delete($item['img'], $chave);
+        foreach (['saida', 'entrada'] as $etapa) {
+            $vistoria = json_decode($checklist['vistoria_' . $etapa] ?? '[]', true) ?: [];
+            foreach ($vistoria as $item) {
+                if (!empty($item['img'])) {
+                    \App\Helpers\FileHelper::delete($item['img'], $chave);
+                }
             }
-        }
 
-        // Deletar assinatura
-        $assinatura = $checklist['assinatura_unica'] ?? $checklist['assinatura'] ?? null;
-        if (!empty($assinatura)) {
-            \App\Helpers\FileHelper::delete($assinatura, $chave);
+            $assinatura = $checklist['assinatura_' . $etapa] ?? null;
+            if (!empty($assinatura)) {
+                \App\Helpers\FileHelper::delete($assinatura, $chave);
+            }
         }
 
         return $this->excluir($id);
     }
 
-    /**
-     * Exclui todos os checklists vinculados a uma locacao (com arquivos)
-     *
-     * @param int $idLocacao ID da locacao
-     * @param string $chave Chave do tenant
-     */
     public function excluirPorLocacao(int $idLocacao, string $chave): void
     {
         $checklists = $this->qb
@@ -397,12 +302,6 @@ class Checklist extends Model
         }
     }
 
-    /**
-     * Exclui todos os checklists vinculados a um contrato (com arquivos)
-     *
-     * @param int $idContrato ID do contrato
-     * @param string $chave Chave do tenant
-     */
     public function excluirPorContrato(int $idContrato, string $chave): void
     {
         $checklists = $this->qb
@@ -416,65 +315,11 @@ class Checklist extends Model
         }
     }
 
-    /**
-     * Busca o registro pareado de um checklist vinculado
-     * (mesmo id_locacao/id_contrato + id_veiculo, momento oposto)
-     *
-     * @param array $checklist Dados do checklist atual (precisa ter momento, id_locacao, id_contrato, id_veiculo)
-     * @return array|null Dados do par ou null se nao encontrar
-     */
     public function buscarPar(array $checklist): ?array
     {
-        $momento = $checklist['momento'] ?? null;
-        if (!$momento || $momento === 'N') return null;
-
-        $momentoOposto = $momento === 'S' ? 'C' : 'S';
-        $idLocacao = $checklist['id_locacao'] ?? null;
-        $idContrato = $checklist['id_contrato'] ?? null;
-        $idVeiculo = $checklist['id_veiculo'] ?? null;
-
-        if (!$idLocacao && !$idContrato) return null;
-
-        $query = $this->qb
-            ->table('checklist', 'c')
-            ->select([
-                'c.*',
-                'c.questoes AS questoes_saida',
-                'c.vistoria AS vistoria_saida',
-                'c.assinatura_unica AS assinatura',
-                'c.obs_unica AS obs',
-                'c.data_checklist AS data_saida',
-                'cm.nome AS modelo_nome',
-                'v.placa',
-                'v.modelo AS veiculo_modelo',
-                'v.marca',
-                'v.id_matriz_filial'
-            ])
-            ->leftJoin('checklist_modelos', 'cm', 'c.id_modelo', '=', 'cm.id')
-            ->leftJoin('veiculos', 'v', 'c.id_veiculo', '=', 'v.id')
-            ->where('c.momento', '=', $momentoOposto)
-            ->where('c.tipo', '=', 'V');
-
-        if ($idLocacao) {
-            $query->where('c.id_locacao', '=', $idLocacao);
-        } else {
-            $query->where('c.id_contrato', '=', $idContrato);
-        }
-
-        if ($idVeiculo) {
-            $query->where('c.id_veiculo', '=', $idVeiculo);
-        }
-
-        return $query->orderBy('c.created_at', 'DESC')->first();
+        return null;
     }
 
-    /**
-     * Cria um novo checklist normalizado
-     * Filtro por chave automatico via sessao (campo chave incluido em $dados)
-     *
-     * @param array $dados Dados do checklist (deve conter 'chave')
-     * @return int ID do checklist criado
-     */
     public function criar(array $dados): int
     {
         $dados['created_at'] = $dados['created_at'] ?? $this->agora();
@@ -484,10 +329,6 @@ class Checklist extends Model
             ->insert($dados);
     }
 
-    /**
-     * Gera codigo curto no mesmo padrao de contratos e locacoes.
-     * Formato: CK + 7 caracteres alfanumericos.
-     */
     public function gerarCodigo(string $chave): string
     {
         for ($tentativa = 0; $tentativa < 20; $tentativa++) {
@@ -507,115 +348,335 @@ class Checklist extends Model
         throw new \RuntimeException('Nao foi possivel gerar um codigo de checklist unico');
     }
 
-    /**
-     * Atualiza questoes de um checklist
-     * Filtro por chave automatico via sessao
-     *
-     * @param int $id ID do checklist
-     * @param string $questoesJson JSON das questoes
-     * @return int Linhas afetadas
-     */
-    public function atualizarQuestoes(int $id, string $questoesJson): int
+    public function buscarCodigoVinculo(?int $idLocacao, ?int $idContrato): ?string
+    {
+        if ($idLocacao) {
+            $row = $this->qb
+                ->table('locacoes')
+                ->select(['codigo'])
+                ->where('id', '=', $idLocacao)
+                ->first();
+
+            return $row['codigo'] ?? null;
+        }
+
+        if ($idContrato) {
+            $row = $this->qb
+                ->table('contratos')
+                ->select(['codigo'])
+                ->where('id', '=', $idContrato)
+                ->first();
+
+            return $row['codigo'] ?? null;
+        }
+
+        return null;
+    }
+
+    public function atualizarQuestoes(int $id, string $questoesJson, string $etapa = 'saida'): int
+    {
+        $etapa = $this->normalizarEtapa($etapa);
+
+        return $this->qb
+            ->table('checklist')
+            ->where('id', '=', $id)
+            ->update(['questoes_' . $etapa => $questoesJson]);
+    }
+
+    public function atualizarVistoria(int $id, string $vistoriaJson, string $etapa = 'saida'): int
+    {
+        $etapa = $this->normalizarEtapa($etapa);
+
+        return $this->qb
+            ->table('checklist')
+            ->where('id', '=', $id)
+            ->update(['vistoria_' . $etapa => $vistoriaJson]);
+    }
+
+    public function iniciarEntrada(int $id): int
     {
         return $this->qb
             ->table('checklist')
             ->where('id', '=', $id)
-            ->update(['questoes' => $questoesJson]);
+            ->where('tipo', '=', 'V')
+            ->where('status', '=', self::STATUS_VINCULADO_SAIDA_CONCLUIDO)
+            ->update(['status' => self::STATUS_VINCULADO_ENTRADA_INICIADO]);
     }
 
-    /**
-     * Atualiza vistoria de um checklist
-     * Filtro por chave automatico via sessao
-     *
-     * @param int $id ID do checklist
-     * @param string $vistoriaJson JSON da vistoria
-     * @return int Linhas afetadas
-     */
-    public function atualizarVistoria(int $id, string $vistoriaJson): int
+    public function salvarAssinatura(int $id, string $filename, string $etapa = 'saida'): int
     {
-        return $this->qb
-            ->table('checklist')
-            ->where('id', '=', $id)
-            ->update(['vistoria' => $vistoriaJson]);
-    }
+        $etapa = $this->normalizarEtapa($etapa);
+        $status = $etapa === 'entrada'
+            ? self::STATUS_VINCULADO_ENTRADA_CONCLUIDO
+            : null;
 
-    /**
-     * Salva assinatura e finaliza o checklist
-     * Filtro por chave automatico via sessao
-     *
-     * @param int $id ID do checklist
-     * @param string $filename Nome do arquivo da assinatura
-     * @return int Linhas afetadas
-     */
-    public function salvarAssinatura(int $id, string $filename): int
-    {
+        $checklist = $this->buscarPorIdCompleto($id, '');
+        if (($checklist['tipo'] ?? '') === 'A') {
+            $status = self::STATUS_AVULSO_CONCLUIDO;
+            $etapa = 'saida';
+        } elseif ($status === null) {
+            $status = self::STATUS_VINCULADO_SAIDA_CONCLUIDO;
+        }
+
         return $this->qb
             ->table('checklist')
             ->where('id', '=', $id)
             ->update([
-                'assinatura_unica' => $filename,
-                'status' => '2',
-                'data_checklist' => $this->agora(),
+                'assinatura_' . $etapa => $filename,
+                'status' => $status,
+                'data_' . $etapa => $this->agora(),
             ]);
     }
 
-    /**
-     * Retorna o horario atual no timezone configurado da aplicacao.
-     */
-    private function agora(): string
+    public function buscarPorIdCompleto(int $id, string $chave): ?array
     {
-        $timezone = Database::env('APP_TIMEZONE', 'America/Sao_Paulo');
-
-        try {
-            return (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d H:i:s');
-        } catch (\Exception $e) {
-            return (new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo')))->format('Y-m-d H:i:s');
-        }
+        return $this->baseCompleta()
+            ->where('c.id', '=', $id)
+            ->first();
     }
 
-    /**
-     * Busca checklist por ID com dados completos (novo formato)
-     *
-     * @param int $id ID do checklist
-     * @param string $chave Chave do tenant
-     * @return array|null
-     */
-    public function buscarPorIdCompleto(int $id, string $chave): ?array
+    private function baseCompleta()
     {
         return $this->qb
             ->table('checklist', 'c')
             ->select([
                 'c.*',
+                'COALESCE(c.data_entrada, c.data_saida, c.created_at) AS data_checklist',
+                'c.questoes_saida AS questoes',
+                'c.vistoria_saida AS vistoria',
+                'c.assinatura_saida AS assinatura',
+                'c.observacoes_saida AS obs',
+                'c.questoes_entrada AS questoes_chegada',
+                'c.vistoria_entrada AS vistoria_chegada',
+                'c.assinatura_entrada AS assinatura_chegada',
+                'c.observacoes_entrada AS obs_chegada',
+                'c.data_entrada AS data_chegada',
                 'cm.nome AS modelo_nome',
                 'cm.questoes AS modelo_questoes',
                 'cm.vistoria AS modelo_vistoria',
+                'cm.tipo AS modelo_tipo',
                 'v.placa',
                 'v.modelo AS veiculo_modelo',
                 'v.marca',
-                'v.odometro AS veiculo_odometro',
+                'v.renavam',
+                'v.tipo_combustivel',
+                'v.odometro',
                 'v.tanque_fracao',
                 'v.id_matriz_filial',
                 'l.codigo AS locacao_codigo',
                 'l.cliente_nome AS locacao_cliente',
                 'ct.codigo AS contrato_codigo',
+                'cl.nome_rsocial AS contrato_cliente',
             ])
             ->leftJoin('checklist_modelos', 'cm', 'c.id_modelo', '=', 'cm.id')
             ->leftJoin('veiculos', 'v', 'c.id_veiculo', '=', 'v.id')
             ->leftJoin('locacoes', 'l', 'c.id_locacao', '=', 'l.id')
             ->leftJoin('contratos', 'ct', 'c.id_contrato', '=', 'ct.id')
-            ->where('c.id', '=', $id)
-            ->first();
+            ->leftJoin('clientes', 'cl', 'ct.id_cliente', '=', 'cl.id');
     }
 
-    /**
-     * Busca locacoes ativas para vincular ao checklist
-     *
-     * @param string $chave Chave do tenant
-     * @param string $search Termo de busca
-     * @param string|null $filialWhere Clausula WHERE de filiais
-     * @param array $filialParams Parametros da clausula de filiais
-     * @return array
-     */
+    public function buscarChecklistVinculadoAberto(?int $idLocacao, ?int $idContrato, int $idVeiculo): ?array
+    {
+        $query = $this->qb
+            ->table('checklist')
+            ->where('tipo', '=', 'V')
+            ->where('id_veiculo', '=', $idVeiculo)
+            ->whereIn('status', [
+                self::STATUS_VINCULADO_SAIDA_INICIADO,
+                self::STATUS_VINCULADO_SAIDA_CONCLUIDO,
+                self::STATUS_VINCULADO_ENTRADA_INICIADO,
+            ]);
+
+        if ($idLocacao) {
+            $query->where('id_locacao', '=', $idLocacao);
+        } elseif ($idContrato) {
+            $query->where('id_contrato', '=', $idContrato);
+        } else {
+            return null;
+        }
+
+        return $query->orderBy('created_at', 'DESC')->first();
+    }
+
+    public function listarVinculadosPendentes(
+        string $search = '',
+        string $statusFiltro = '',
+        ?string $filialWhere = null,
+        array $filialParams = []
+    ): array {
+        $itens = [];
+
+        if ($statusFiltro === '' || $statusFiltro === 'aguardando_saida') {
+            $itens = array_merge($itens, $this->listarVinculosSemChecklist('L', $search, $filialWhere, $filialParams));
+            $itens = array_merge($itens, $this->listarVinculosSemChecklist('C', $search, $filialWhere, $filialParams));
+        }
+
+        $query = $this->qb
+            ->table('checklist', 'c')
+            ->select([
+                'c.id AS checklist_id',
+                'c.codigo AS checklist_codigo',
+                'c.status',
+                'c.id_locacao',
+                'c.id_contrato',
+                'c.id_veiculo',
+                'COALESCE(l.codigo, ct.codigo) AS vinculo_codigo',
+                'COALESCE(l.cliente_nome, cl.nome_rsocial) AS cliente_nome',
+                'v.placa',
+                'v.marca',
+                'v.modelo',
+                'v.id_matriz_filial',
+            ])
+            ->leftJoin('locacoes', 'l', 'c.id_locacao', '=', 'l.id')
+            ->leftJoin('contratos', 'ct', 'c.id_contrato', '=', 'ct.id')
+            ->leftJoin('clientes', 'cl', 'ct.id_cliente', '=', 'cl.id')
+            ->leftJoin('veiculos', 'v', 'c.id_veiculo', '=', 'v.id')
+            ->where('c.tipo', '=', 'V')
+            ->whereIn('c.status', [
+                self::STATUS_VINCULADO_SAIDA_INICIADO,
+                self::STATUS_VINCULADO_SAIDA_CONCLUIDO,
+                self::STATUS_VINCULADO_ENTRADA_INICIADO,
+            ]);
+
+        if ($statusFiltro === 'aguardando_saida') {
+            $query->where('c.status', '=', self::STATUS_VINCULADO_SAIDA_INICIADO);
+        } elseif ($statusFiltro === 'aguardando_chegada') {
+            $query->whereIn('c.status', [
+                self::STATUS_VINCULADO_SAIDA_CONCLUIDO,
+                self::STATUS_VINCULADO_ENTRADA_INICIADO,
+            ]);
+        }
+
+        if ($search !== '') {
+            $query->whereRaw(
+                '(c.codigo LIKE ? OR l.codigo LIKE ? OR ct.codigo LIKE ? OR l.cliente_nome LIKE ? OR cl.nome_rsocial LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ?)',
+                array_fill(0, 7, '%' . $search . '%')
+            );
+        }
+
+        if (!empty($filialWhere)) {
+            $query->whereRaw($filialWhere, $filialParams);
+        }
+
+        foreach ($query->orderBy('c.created_at', 'DESC')->limit(100)->get() as $row) {
+            $status = (string) ($row['status'] ?? '');
+            $itens[] = [
+                'checklist_id' => (int) $row['checklist_id'],
+                'tipo_vinculo' => !empty($row['id_locacao']) ? 'L' : 'C',
+                'id_vinculo' => (int) ($row['id_locacao'] ?: $row['id_contrato']),
+                'id_veiculo' => (int) $row['id_veiculo'],
+                'codigo' => $row['checklist_codigo'] ?: $row['vinculo_codigo'],
+                'vinculo_codigo' => $row['vinculo_codigo'],
+                'cliente' => $row['cliente_nome'] ?? '-',
+                'veiculo' => trim(($row['placa'] ?? '') . ' - ' . ($row['marca'] ?? '') . ' ' . ($row['modelo'] ?? '')),
+                'status' => $status,
+                'etapa' => in_array($status, [self::STATUS_VINCULADO_SAIDA_CONCLUIDO, self::STATUS_VINCULADO_ENTRADA_INICIADO], true) ? 'entrada' : 'saida',
+            ];
+        }
+
+        return array_slice($itens, 0, 100);
+    }
+
+    private function listarVinculosSemChecklist(
+        string $tipo,
+        string $search,
+        ?string $filialWhere = null,
+        array $filialParams = []
+    ): array
+    {
+        if ($tipo === 'L') {
+            $query = $this->qb
+                ->table('locacoes', 'l')
+                ->select([
+                    'l.id AS id_vinculo',
+                    'l.codigo AS vinculo_codigo',
+                    'l.cliente_nome',
+                    'lv.id_veiculo',
+                    'v.placa',
+                    'v.marca',
+                    'v.modelo',
+                    'v.odometro',
+                    'v.tanque_fracao',
+                ])
+                ->leftJoin('locacoes_veiculos', 'lv', 'l.id', '=', 'lv.id_locacao')
+                ->leftJoin('veiculos', 'v', 'lv.id_veiculo', '=', 'v.id')
+                ->whereIn('l.status', ['A', 'R'])
+                ->whereNotNull('lv.id_veiculo')
+                ->whereRaw('NOT EXISTS (SELECT 1 FROM checklist c WHERE c.chave = l.chave AND c.tipo = ? AND c.id_locacao = l.id AND c.id_veiculo = lv.id_veiculo AND c.status IN (?, ?, ?, ?))', [
+                    'V',
+                    self::STATUS_VINCULADO_SAIDA_INICIADO,
+                    self::STATUS_VINCULADO_SAIDA_CONCLUIDO,
+                    self::STATUS_VINCULADO_ENTRADA_INICIADO,
+                    self::STATUS_VINCULADO_ENTRADA_CONCLUIDO,
+                ]);
+
+            if ($search !== '') {
+                $query->whereRaw('(l.codigo LIKE ? OR l.cliente_nome LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ?)', array_fill(0, 4, '%' . $search . '%'));
+            }
+        } else {
+            $query = $this->qb
+                ->table('contratos', 'ct')
+                ->select([
+                    'ct.id AS id_vinculo',
+                    'ct.codigo AS vinculo_codigo',
+                    'cl.nome_rsocial AS cliente_nome',
+                    'cv.id_veiculo',
+                    'v.placa',
+                    'v.marca',
+                    'v.modelo',
+                    'v.odometro',
+                    'v.tanque_fracao',
+                ])
+                ->leftJoin('clientes', 'cl', 'ct.id_cliente', '=', 'cl.id')
+                ->leftJoin('contratos_veiculos', 'cv', 'ct.id', '=', 'cv.id_contrato')
+                ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
+                ->whereIn('ct.status', ['A', 'R'])
+                ->whereNotNull('cv.id_veiculo')
+                ->whereRaw('NOT EXISTS (SELECT 1 FROM checklist c WHERE c.chave = ct.chave AND c.tipo = ? AND c.id_contrato = ct.id AND c.id_veiculo = cv.id_veiculo AND c.status IN (?, ?, ?, ?))', [
+                    'V',
+                    self::STATUS_VINCULADO_SAIDA_INICIADO,
+                    self::STATUS_VINCULADO_SAIDA_CONCLUIDO,
+                    self::STATUS_VINCULADO_ENTRADA_INICIADO,
+                    self::STATUS_VINCULADO_ENTRADA_CONCLUIDO,
+                ]);
+
+            if ($search !== '') {
+                $query->whereRaw('(ct.codigo LIKE ? OR cl.nome_rsocial LIKE ? OR v.placa LIKE ? OR v.modelo LIKE ?)', array_fill(0, 4, '%' . $search . '%'));
+            }
+        }
+
+        if (!empty($filialWhere)) {
+            $query->whereRaw($filialWhere, $filialParams);
+        }
+
+        $rows = $query->orderBy('vinculo_codigo', 'DESC')->limit(50)->get();
+        $itens = [];
+        $vistos = [];
+
+        foreach ($rows as $row) {
+            $key = $tipo . '-' . $row['id_vinculo'] . '-' . $row['id_veiculo'];
+            if (isset($vistos[$key])) {
+                continue;
+            }
+            $vistos[$key] = true;
+
+            $itens[] = [
+                'checklist_id' => null,
+                'tipo_vinculo' => $tipo,
+                'id_vinculo' => (int) $row['id_vinculo'],
+                'id_veiculo' => (int) $row['id_veiculo'],
+                'codigo' => $row['vinculo_codigo'],
+                'vinculo_codigo' => $row['vinculo_codigo'],
+                'cliente' => $row['cliente_nome'] ?? '-',
+                'veiculo' => trim(($row['placa'] ?? '') . ' - ' . ($row['marca'] ?? '') . ' ' . ($row['modelo'] ?? '')),
+                'status' => self::STATUS_VINCULADO_SAIDA_INICIADO,
+                'etapa' => 'saida',
+            ];
+        }
+
+        return $itens;
+    }
+
     public function buscarLocacoesAtivas(
         string $chave,
         string $search = '',
@@ -634,6 +695,8 @@ class Checklist extends Model
                 'v.modelo AS veiculo_modelo',
                 'v.marca',
                 'v.tipo_combustivel',
+                'v.odometro',
+                'v.tanque_fracao',
             ])
             ->leftJoin('locacoes_veiculos', 'lv', 'l.id', '=', 'lv.id_locacao')
             ->leftJoin('veiculos', 'v', 'lv.id_veiculo', '=', 'v.id')
@@ -643,28 +706,13 @@ class Checklist extends Model
             $query->whereRaw($filialWhere, $filialParams);
         }
 
-        if (!empty($search)) {
-            $query->whereRaw(
-                '(l.codigo LIKE ? OR l.cliente_nome LIKE ? OR v.placa LIKE ?)',
-                ['%' . $search . '%', '%' . $search . '%', '%' . $search . '%']
-            );
+        if ($search !== '') {
+            $query->whereRaw('(l.codigo LIKE ? OR l.cliente_nome LIKE ? OR v.placa LIKE ?)', array_fill(0, 3, '%' . $search . '%'));
         }
 
-        return $query
-            ->orderBy('l.created_at', 'DESC')
-            ->limit(20)
-            ->get();
+        return $query->orderBy('l.created_at', 'DESC')->limit(20)->get();
     }
 
-    /**
-     * Busca contratos ativos para vincular ao checklist
-     *
-     * @param string $chave Chave do tenant
-     * @param string $search Termo de busca
-     * @param string|null $filialWhere Clausula WHERE de filiais
-     * @param array $filialParams Parametros da clausula de filiais
-     * @return array
-     */
     public function buscarContratosAtivos(
         string $chave,
         string $search = '',
@@ -684,6 +732,8 @@ class Checklist extends Model
                 'v.modelo AS veiculo_modelo',
                 'v.marca',
                 'v.tipo_combustivel',
+                'v.odometro',
+                'v.tanque_fracao',
             ])
             ->leftJoin('clientes', 'cl', 'ct.id_cliente', '=', 'cl.id')
             ->leftJoin('contratos_veiculos', 'cv', 'ct.id', '=', 'cv.id_contrato')
@@ -694,28 +744,13 @@ class Checklist extends Model
             $query->whereRaw($filialWhere, $filialParams);
         }
 
-        if (!empty($search)) {
-            $query->whereRaw(
-                '(ct.codigo LIKE ? OR cl.nome_rsocial LIKE ? OR v.placa LIKE ?)',
-                ['%' . $search . '%', '%' . $search . '%', '%' . $search . '%']
-            );
+        if ($search !== '') {
+            $query->whereRaw('(ct.codigo LIKE ? OR cl.nome_rsocial LIKE ? OR v.placa LIKE ?)', array_fill(0, 3, '%' . $search . '%'));
         }
 
-        return $query
-            ->orderBy('ct.created_at', 'DESC')
-            ->limit(20)
-            ->get();
+        return $query->orderBy('ct.created_at', 'DESC')->limit(20)->get();
     }
 
-    /**
-     * Busca veiculos disponiveis para checklist avulso
-     *
-     * @param string $chave Chave do tenant
-     * @param string $search Termo de busca
-     * @param string|null $filialWhere Clausula WHERE de filiais
-     * @param array $filialParams Parametros da clausula de filiais
-     * @return array
-     */
     public function buscarVeiculos(
         string $chave,
         string $search = '',
@@ -729,9 +764,9 @@ class Checklist extends Model
                 'v.placa',
                 'v.modelo',
                 'v.marca',
+                'v.tipo_combustivel',
                 'v.odometro',
                 'v.tanque_fracao',
-                'v.tipo_combustivel',
                 'v.id_matriz_filial',
             ])
             ->whereNotIn('v.disponibilidade', ['V', 'RO', 'E']);
@@ -740,16 +775,194 @@ class Checklist extends Model
             $query->whereRaw($filialWhere, $filialParams);
         }
 
-        if (!empty($search)) {
-            $query->whereRaw(
-                '(v.placa LIKE ? OR v.modelo LIKE ? OR v.marca LIKE ?)',
-                ['%' . $search . '%', '%' . $search . '%', '%' . $search . '%']
-            );
+        if ($search !== '') {
+            $query->whereRaw('(v.placa LIKE ? OR v.modelo LIKE ? OR v.marca LIKE ?)', array_fill(0, 3, '%' . $search . '%'));
         }
 
-        return $query
-            ->orderBy('v.placa', 'ASC')
-            ->limit(20)
-            ->get();
+        return $query->orderBy('v.placa', 'ASC')->limit(20)->get();
+    }
+
+    public function resolverVinculoPorCodigo(
+        string $codigo,
+        ?string $filialWhereLoc = null,
+        array $filialParamsLoc = [],
+        ?string $filialWhereCt = null,
+        array $filialParamsCt = []
+    ): ?array {
+        $codigo = trim($codigo);
+        if ($codigo === '') {
+            return null;
+        }
+
+        if (preg_match('/^(L|C)-(\d+)$/i', $codigo, $match)) {
+            $tipo = strtoupper($match[1]);
+            $id = (int) $match[2];
+            return $tipo === 'L'
+                ? $this->resolverLocacaoPorId($id, $filialWhereLoc, $filialParamsLoc)
+                : $this->resolverContratoPorId($id, $filialWhereCt, $filialParamsCt);
+        }
+
+        $prefixo = strtoupper(substr($codigo, 0, 1));
+        if ($prefixo === 'L') {
+            return $this->resolverLocacaoPorCodigo($codigo, $filialWhereLoc, $filialParamsLoc);
+        }
+        if ($prefixo === 'C') {
+            return $this->resolverContratoPorCodigo($codigo, $filialWhereCt, $filialParamsCt);
+        }
+
+        $resultados = array_filter([
+            $this->resolverLocacaoPorCodigo($codigo, $filialWhereLoc, $filialParamsLoc),
+            $this->resolverContratoPorCodigo($codigo, $filialWhereCt, $filialParamsCt),
+        ]);
+
+        if (count($resultados) > 1) {
+            throw new \RuntimeException('Codigo de vinculo ambiguo');
+        }
+
+        return $resultados ? array_values($resultados)[0] : null;
+    }
+
+    private function resolverLocacaoPorCodigo(string $codigo, ?string $filialWhere, array $filialParams): ?array
+    {
+        return $this->resolverLocacaoBase($filialWhere, $filialParams)
+            ->where('l.codigo', '=', $codigo)
+            ->first();
+    }
+
+    private function resolverLocacaoPorId(int $id, ?string $filialWhere, array $filialParams): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        return $this->resolverLocacaoBase($filialWhere, $filialParams)
+            ->where('l.id', '=', $id)
+            ->first();
+    }
+
+    private function resolverContratoPorCodigo(string $codigo, ?string $filialWhere, array $filialParams): ?array
+    {
+        return $this->resolverContratoBase($filialWhere, $filialParams)
+            ->where('ct.codigo', '=', $codigo)
+            ->first();
+    }
+
+    private function resolverContratoPorId(int $id, ?string $filialWhere, array $filialParams): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        return $this->resolverContratoBase($filialWhere, $filialParams)
+            ->where('ct.id', '=', $id)
+            ->first();
+    }
+
+    private function resolverLocacaoBase(?string $filialWhere, array $filialParams)
+    {
+        $query = $this->qb
+            ->table('locacoes', 'l')
+            ->select([
+                "'L' AS tipo_vinculo",
+                'l.id AS id_vinculo',
+                'l.codigo AS codigo',
+                'l.cliente_nome AS cliente',
+                'lv.id_veiculo',
+                'v.placa',
+                'v.marca',
+                'v.modelo',
+                'v.tipo_combustivel',
+                'v.odometro',
+                'v.tanque_fracao',
+            ])
+            ->leftJoin('locacoes_veiculos', 'lv', 'l.id', '=', 'lv.id_locacao')
+            ->leftJoin('veiculos', 'v', 'lv.id_veiculo', '=', 'v.id')
+            ->whereIn('l.status', ['A', 'R'])
+            ->whereNotNull('lv.id_veiculo');
+
+        if (!empty($filialWhere)) {
+            $query->whereRaw($filialWhere, $filialParams);
+        }
+
+        return $query->limit(1);
+    }
+
+    private function resolverContratoBase(?string $filialWhere, array $filialParams)
+    {
+        $query = $this->qb
+            ->table('contratos', 'ct')
+            ->select([
+                "'C' AS tipo_vinculo",
+                'ct.id AS id_vinculo',
+                'ct.codigo AS codigo',
+                'cl.nome_rsocial AS cliente',
+                'cv.id_veiculo',
+                'v.placa',
+                'v.marca',
+                'v.modelo',
+                'v.tipo_combustivel',
+                'v.odometro',
+                'v.tanque_fracao',
+            ])
+            ->leftJoin('clientes', 'cl', 'ct.id_cliente', '=', 'cl.id')
+            ->leftJoin('contratos_veiculos', 'cv', 'ct.id', '=', 'cv.id_contrato')
+            ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
+            ->whereIn('ct.status', ['A', 'R'])
+            ->whereNotNull('cv.id_veiculo');
+
+        if (!empty($filialWhere)) {
+            $query->whereRaw($filialWhere, $filialParams);
+        }
+
+        return $query->limit(1);
+    }
+
+    public function etapaAtual(array $checklist, ?string $etapaSolicitada = null): string
+    {
+        if ($etapaSolicitada !== null && in_array($etapaSolicitada, self::ETAPAS, true)) {
+            return $etapaSolicitada;
+        }
+
+        if (($checklist['tipo'] ?? '') === 'A') {
+            return 'saida';
+        }
+
+        return in_array((string) ($checklist['status'] ?? ''), [
+            self::STATUS_VINCULADO_SAIDA_CONCLUIDO,
+            self::STATUS_VINCULADO_ENTRADA_INICIADO,
+        ], true) ? 'entrada' : 'saida';
+    }
+
+    public function etapaFinalizada(array $checklist, string $etapa): bool
+    {
+        $status = (string) ($checklist['status'] ?? '');
+
+        if (($checklist['tipo'] ?? '') === 'A') {
+            return $status === self::STATUS_AVULSO_CONCLUIDO;
+        }
+
+        if ($etapa === 'saida') {
+            return in_array($status, [
+                self::STATUS_VINCULADO_SAIDA_CONCLUIDO,
+                self::STATUS_VINCULADO_ENTRADA_INICIADO,
+                self::STATUS_VINCULADO_ENTRADA_CONCLUIDO,
+            ], true);
+        }
+
+        return $status === self::STATUS_VINCULADO_ENTRADA_CONCLUIDO;
+    }
+
+    private function normalizarEtapa(string $etapa): string
+    {
+        if (!in_array($etapa, self::ETAPAS, true)) {
+            throw new \InvalidArgumentException('Etapa de checklist invalida');
+        }
+
+        return $etapa;
+    }
+
+    private function agora(): string
+    {
+        return DateHelper::nowForDatabase();
     }
 }
