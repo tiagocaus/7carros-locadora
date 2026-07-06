@@ -6,8 +6,11 @@ use App\Models\NFSe as NFSeModel;
 use App\Models\NFSeConfiguracao;
 use App\Models\NFSeEvento;
 use App\Models\Financeiro;
+use App\Models\FinanceiroItem;
 use App\Models\MatrizFilial;
 use App\Models\Cliente;
+use App\Models\LocacaoVeiculo;
+use App\Models\ContratoVeiculo;
 use App\Services\NFSe\Nacional\NFSeXMLNacional;
 use App\Services\NFSe\Nacional\NFSeAPINacional;
 use App\Services\NFSe\Betha\NFSeXMLBetha;
@@ -746,6 +749,17 @@ class NFSeService
         if (strlen($codigoMunicipioTomador) === 7) {
             $tomadorEndereco['codigo_municipio'] = $codigoMunicipioTomador;
         }
+        $descricaoBase = $this->valorPreferencial(
+            $dadosExtras['descricao_servico'] ?? '',
+            $config['descricao_servico'] ?? ''
+        );
+        if ($descricaoBase === '') {
+            $descricaoBase = 'Locação de veículo automotor sem condutor.';
+        }
+        $descricaoServico = $this->montarDescricaoServicoComPlacas(
+            $descricaoBase,
+            $this->resolverPlacasFinanceiro($financeiro)
+        );
 
         return [
             'ambiente' => (int) ($config['ambiente'] ?? 2),
@@ -779,7 +793,7 @@ class NFSeService
                 'item_lista_servico' => $config['item_lista_servico'] ?? '',
                 'codigo_cnae' => $config['codigo_cnae'] ?? '',
                 'codigo_tributacao_municipio' => $config['codigo_tributacao_municipio'] ?? '',
-                'descricao' => $dadosExtras['descricao_servico'] ?? $config['descricao_servico'] ?? 'Locação de veículo automotor sem condutor.',
+                'descricao' => $descricaoServico,
             ],
             'valores' => [
                 'servicos' => $valorServicos,
@@ -926,6 +940,95 @@ class NFSeService
         }
 
         return trim((string) ($fallback ?? ''));
+    }
+
+    private function montarDescricaoServicoComPlacas(string $descricao, array $placas): string
+    {
+        $descricao = trim($descricao);
+        $placas = $this->normalizarPlacas($placas);
+        if ($descricao === '' || empty($placas)) {
+            return $descricao;
+        }
+
+        $descricaoNormalizada = $this->normalizarPlacaComparacao($descricao);
+        $placasNovas = [];
+        foreach ($placas as $placa) {
+            if (!str_contains($descricaoNormalizada, $this->normalizarPlacaComparacao($placa))) {
+                $placasNovas[] = $placa;
+            }
+        }
+
+        if (empty($placasNovas)) {
+            return $descricao;
+        }
+
+        $rotulo = count($placasNovas) === 1 ? 'Placa' : 'Placas';
+        return $descricao . ' ' . $rotulo . ': ' . implode(', ', $placasNovas);
+    }
+
+    private function resolverPlacasFinanceiro(array $financeiro): array
+    {
+        $placas = [];
+        if (!empty($financeiro['veiculo_placa'])) {
+            $placas[] = $financeiro['veiculo_placa'];
+        }
+
+        if (!empty($financeiro['id']) && empty($placas)) {
+            $itens = (new FinanceiroItem())->listarComRelacionamentos((int) $financeiro['id']);
+            foreach ($itens as $item) {
+                if (!empty($item['veiculo_placa'])) {
+                    $placas[] = $item['veiculo_placa'];
+                }
+            }
+        }
+
+        if (!empty($financeiro['id_locacao']) && empty($placas)) {
+            $veiculo = (new LocacaoVeiculo())->buscarAtualOuUltimo((int) $financeiro['id_locacao']);
+            if (!empty($veiculo['veiculo_placa'])) {
+                $placas[] = $veiculo['veiculo_placa'];
+            }
+        }
+
+        if (!empty($financeiro['id_contrato']) && empty($placas)) {
+            $contratoVeiculoModel = new ContratoVeiculo();
+            $veiculos = $contratoVeiculoModel->listarAtivos((int) $financeiro['id_contrato']);
+            if (empty($veiculos)) {
+                $veiculos = $contratoVeiculoModel->listarPorContrato((int) $financeiro['id_contrato']);
+            }
+
+            foreach ($veiculos as $veiculo) {
+                if (!empty($veiculo['veiculo_placa'])) {
+                    $placas[] = $veiculo['veiculo_placa'];
+                }
+            }
+        }
+
+        return $this->normalizarPlacas($placas);
+    }
+
+    private function normalizarPlacas(array $placas): array
+    {
+        $normalizadas = [];
+        foreach ($placas as $placa) {
+            $placa = strtoupper(trim((string) $placa));
+            if ($placa === '') {
+                continue;
+            }
+
+            $chave = $this->normalizarPlacaComparacao($placa);
+            if ($chave === '' || isset($normalizadas[$chave])) {
+                continue;
+            }
+
+            $normalizadas[$chave] = $placa;
+        }
+
+        return array_values($normalizadas);
+    }
+
+    private function normalizarPlacaComparacao(string $valor): string
+    {
+        return preg_replace('/[^A-Z0-9]/', '', strtoupper($valor)) ?? '';
     }
 
     private function montarEnderecoTomador(?array $cliente): array
