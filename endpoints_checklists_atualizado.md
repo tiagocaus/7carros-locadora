@@ -65,7 +65,7 @@ Se uma chamada `/api/*` retornar `419`, descarte o CSRF atual, chame `GET /api/s
 | `POST /checklist.php`, `xAcesso: uploadVinculadoSaidaFotos` | `POST /api/checklists/{id}/vistoria/upload` |
 | `POST /checklist.php`, `xAcesso: uploadVinculadoChegadaFotos` | `POST /api/checklists/{id}/vistoria/upload` |
 | `POST /appcliente.dadosiniciais.php`, `xAcesso: ver` | `GET /api/dashboard/stats` |
-| `POST /assinarDocumento.php`, `xAcesso: listar` | Sem lista unica atual; usar links publicos `/assinar/{codigo}` de contratos/locacoes |
+| `POST /assinarDocumento.php`, `xAcesso: listar` | `GET /api/assinaturas/pendentes` |
 | `POST /assinarDocumento.php`, `xAcesso: adicionar` | `POST /assinar/{codigo}` |
 | `POST /matrizfiliais.php`, `xAcesso: ver` | `GET /api/matrizes-filiais/{id}` |
 | `POST /matrizfiliais.php`, `xAcesso: listar` | `GET /api/matrizes-filiais` |
@@ -1569,17 +1569,106 @@ Nesse caso, usar `/desativar`.
 
 ## Assinatura de documentos
 
-O sistema atual nao tem um endpoint JSON unico igual a `assinarDocumento.php/listar` para o app listar todos os documentos assinaveis.
+Para o app React Native, use a listagem autenticada abaixo para buscar documentos ainda nao assinados.
 
-O fluxo atual e por link publico:
+### Listar documentos pendentes de assinatura
+
+- Antigo: `POST /assinarDocumento.php`, `xAcesso: listar`
+- Atual: `GET /api/assinaturas/pendentes`
+- Autenticacao: exige sessao.
+- CSRF: exige `api_csrf`.
+- Permissoes: retorna apenas tipos que o usuario pode visualizar (`contratos.visualizar`, `locacoes.visualizar`, `promissorias.visualizar`).
+- Uso recomendado: listar e filtrar contratos, locacoes e promissorias para assinatura nativa dentro do app.
+
+Query params:
+
+| Parametro | Tipo | Obrigatorio | Descricao |
+| --- | --- | --- | --- |
+| `tipo` | string | Nao | `todos` (padrao), `contrato`, `locacao` ou `promissoria`. |
+| `search` | string | Nao | Busca por codigo, cliente, documento do cliente, vinculo ou veiculo quando houver. |
+| `page` | int | Nao | Pagina atual. Padrao `1`. |
+| `perPage` | int | Nao | Itens por pagina. Padrao `20`, maximo `100`. |
+
+Exemplo:
+
+```http
+GET /api/assinaturas/pendentes?tipo=todos&search=ABC&page=1&perPage=20
+```
+
+Response `200`:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "tipo": "contrato",
+      "id": 123,
+      "codigo": "C000123",
+      "codigo_assinatura": "C000123",
+      "cliente_id": 45,
+      "cliente_nome": "Cliente Exemplo",
+      "cliente_documento": "000.000.000-00",
+      "veiculo_texto": "ABC1D23 - Onix",
+      "data_inicio": "2026-06-22 10:00:00",
+      "data_fim": "2026-06-25 10:00:00",
+      "valor_total": "1200.00",
+      "status": "A"
+    },
+    {
+      "tipo": "promissoria",
+      "id": 987,
+      "codigo": "PRO000123",
+      "codigo_assinatura": "PRO000123",
+      "cliente_id": 45,
+      "cliente_nome": "Cliente Exemplo",
+      "cliente_documento": "000.000.000-00",
+      "veiculo_texto": "C000123",
+      "data_inicio": "2026-07-10",
+      "data_fim": "2026-09-10",
+      "valor_total": "1500.00",
+      "status": "N"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "perPage": 20,
+    "total": 2,
+    "totalPages": 1,
+    "hasNext": false,
+    "hasPrev": false
+  }
+}
+```
+
+Regras:
+
+- Contratos pendentes sao registros sem qualquer assinatura em `assinaturas.id_contrato`.
+- Locacoes pendentes sao registros sem qualquer assinatura em `assinaturas.id_locacao`.
+- Promissorias pendentes sao agrupadas por `codigo_base` e filtradas pela ausencia de qualquer assinatura em `assinaturas.codigo_promissoria`.
+- Para promissorias, use `codigo_assinatura`/`codigo` como identificador do grupo; nao use codigo de parcela individual.
+- Este endpoint nao retorna link publico. A assinatura deve ser coletada no app nativo e enviada pelo fluxo de assinatura definido para o app.
+
+Erros:
+
+```json
+{ "success": false, "message": "Tipo invalido. Use todos, contrato, locacao ou promissoria." }
+```
+
+```json
+{ "success": false, "message": "Voce nao tem permissao para visualizar documentos assinaveis" }
+```
+
+O fluxo web atual continua disponivel por link publico:
 
 - `GET /assinar/{codigo}`: abre pagina publica de assinatura.
 - `POST /assinar/{codigo}`: salva assinatura do cliente.
 
-O `{codigo}` pode ser de contrato ou locacao. A rota resolve automaticamente:
+O `{codigo}` pode ser de contrato, locacao ou promissoria. Para promissorias, envie o `codigo_base` da promissoria agrupada (normalmente `PRO...`), nao o ID interno nem o codigo de uma parcela individual. A rota resolve automaticamente:
 
 - codigo com prefixo `C`: tenta contrato primeiro.
 - codigo com prefixo `L`: tenta locacao primeiro.
+- codigo com prefixo `P`/`PRO`: tenta promissoria primeiro.
 
 ### Abrir pagina publica
 
@@ -1588,7 +1677,13 @@ O `{codigo}` pode ser de contrato ou locacao. A rota resolve automaticamente:
 - Autenticacao: nao exige sessao.
 - Retorno: HTML.
 
-Se o app for manter tela nativa, hoje nao existe rota JSON publica para buscar esse resumo. O app pode abrir a WebView em `/assinar/{codigo}`.
+Exemplos:
+
+- Contrato: `GET /assinar/C000123`
+- Locacao: `GET /assinar/L000456`
+- Promissoria: `GET /assinar/PRO000123`
+
+Para assinatura dentro do app nativo, use os identificadores retornados por `GET /api/assinaturas/pendentes`. A pagina publica continua disponivel para o fluxo web/WebView.
 
 ### Salvar assinatura
 
@@ -1615,6 +1710,20 @@ Response:
   "message": "Contrato assinado com sucesso!",
   "data": {
     "codigo": "C000123",
+    "data_assinatura": "22/06/2026 10:30:00",
+    "ip": "127.0.0.1"
+  }
+}
+```
+
+Exemplo para promissoria:
+
+```json
+{
+  "success": true,
+  "message": "Promissória assinada com sucesso!",
+  "data": {
+    "codigo": "PRO000123",
     "data_assinatura": "22/06/2026 10:30:00",
     "ip": "127.0.0.1"
   }
@@ -1848,7 +1957,7 @@ Exemplos de campos atuais:
 
 ### Assinar documento
 
-1. Obter o codigo do contrato ou locacao a partir do fluxo que gera o documento.
+1. Obter o codigo do contrato, locacao ou promissoria a partir do fluxo que gera o documento. Para promissoria, usar o `codigo_base`.
 2. Abrir WebView em `/assinar/{codigo}` ou implementar tela nativa usando `POST /assinar/{codigo}`.
 3. Enviar `assinatura`, `latitude`, `longitude`.
 

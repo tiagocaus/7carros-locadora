@@ -307,7 +307,7 @@
             <?php foreach ($questoes as $i => $q): ?>
             <tr>
                 <td><?= $i + 1 ?></td>
-                <td><?= htmlspecialchars($q['content'] ?? '-') ?></td>
+                <td><?= htmlspecialchars($q['name'] ?? '-') ?></td>
                 <td><?= renderRespostaBadge($q['opt'] ?? '') ?></td>
             </tr>
             <?php endforeach; ?>
@@ -349,7 +349,7 @@
             <?php for ($j = 0; $j < $cols && $idx < $totalFotos; $j++, $idx++): ?>
             <td style="width:<?= $tdWidth ?>%;">
                 <img src="<?= $fotosArray[$idx]['img_path'] ?>" class="foto-img" alt="Foto">
-                <div class="foto-legenda"><?= htmlspecialchars($fotosArray[$idx]['content'] ?? '') ?></div>
+                <div class="foto-legenda"><?= htmlspecialchars($fotosArray[$idx]['name'] ?? '') ?></div>
             </td>
             <?php endfor; ?>
         </tr>

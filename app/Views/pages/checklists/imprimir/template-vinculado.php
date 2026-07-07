@@ -310,7 +310,7 @@
                     <?php foreach ($questoesSaida as $i => $q): ?>
                     <tr>
                         <td><?= $i + 1 ?></td>
-                        <td><?= htmlspecialchars($q['content'] ?? '-') ?></td>
+                        <td><?= htmlspecialchars($q['name'] ?? '-') ?></td>
                         <td><?= renderRespostaBadge($q['opt'] ?? '') ?></td>
                     </tr>
                     <?php endforeach; ?>
@@ -330,7 +330,7 @@
                     <?php foreach ($questoesChegada as $i => $q): ?>
                     <tr>
                         <td><?= $i + 1 ?></td>
-                        <td><?= htmlspecialchars($q['content'] ?? '-') ?></td>
+                        <td><?= htmlspecialchars($q['name'] ?? '-') ?></td>
                         <td><?= renderRespostaBadge($q['opt'] ?? '') ?></td>
                     </tr>
                     <?php endforeach; ?>
@@ -360,14 +360,14 @@
             <td style="<?= $tdLeft ?> text-align: center;">
                 <?php if (isset($fotosSaida[$i])): ?>
                     <img src="<?= $fotosSaida[$i]['img_path'] ?>" class="foto-img" alt="Foto">
-                    <div class="foto-legenda"><?= htmlspecialchars($fotosSaida[$i]['content'] ?? '') ?></div>
+                    <div class="foto-legenda"><?= htmlspecialchars($fotosSaida[$i]['name'] ?? '') ?></div>
                 <?php endif; ?>
             </td>
             <td style="<?= $tdGap ?>"></td>
             <td style="<?= $tdRight ?> text-align: center;">
                 <?php if (isset($fotosChegada[$i])): ?>
                     <img src="<?= $fotosChegada[$i]['img_path'] ?>" class="foto-img" alt="Foto">
-                    <div class="foto-legenda"><?= htmlspecialchars($fotosChegada[$i]['content'] ?? '') ?></div>
+                    <div class="foto-legenda"><?= htmlspecialchars($fotosChegada[$i]['name'] ?? '') ?></div>
                 <?php endif; ?>
             </td>
         </tr>

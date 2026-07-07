@@ -120,7 +120,7 @@ $checklistModeloQuestoes = $checklistModeloQuestoes ?? [];
                     <?php foreach ($questoesSaida as $i => $q): ?>
                     <tr>
                         <td><?= $i + 1 ?></td>
-                        <td><?= htmlspecialchars($q['content'] ?? '-') ?></td>
+                        <td><?= htmlspecialchars($q['name'] ?? '-') ?></td>
                         <td><?= renderRespostaBadge($q['opt'] ?? '') ?></td>
                     </tr>
                     <?php endforeach; ?>
@@ -140,7 +140,7 @@ $checklistModeloQuestoes = $checklistModeloQuestoes ?? [];
                     <?php foreach ($questoesChegada as $i => $q): ?>
                     <tr>
                         <td><?= $i + 1 ?></td>
-                        <td><?= htmlspecialchars($q['content'] ?? '-') ?></td>
+                        <td><?= htmlspecialchars($q['name'] ?? '-') ?></td>
                         <td><?= renderRespostaBadge($q['opt'] ?? '') ?></td>
                     </tr>
                     <?php endforeach; ?>
@@ -168,14 +168,14 @@ $checklistModeloQuestoes = $checklistModeloQuestoes ?? [];
             <td style="<?= $tdLeft ?> text-align: center;">
                 <?php if (isset($fotosSaida[$i])): ?>
                     <img src="<?= $fotosSaida[$i]['img_path'] ?>" class="foto-img" alt="<?= t('modules.contratos.pdf.photo_alt') ?>">
-                    <div class="foto-legenda"><?= htmlspecialchars($fotosSaida[$i]['content'] ?? '') ?></div>
+                    <div class="foto-legenda"><?= htmlspecialchars($fotosSaida[$i]['name'] ?? '') ?></div>
                 <?php endif; ?>
             </td>
             <td style="<?= $tdGap ?>"></td>
             <td style="<?= $tdRight ?> text-align: center;">
                 <?php if (isset($fotosChegada[$i])): ?>
                     <img src="<?= $fotosChegada[$i]['img_path'] ?>" class="foto-img" alt="<?= t('modules.contratos.pdf.photo_alt') ?>">
-                    <div class="foto-legenda"><?= htmlspecialchars($fotosChegada[$i]['content'] ?? '') ?></div>
+                    <div class="foto-legenda"><?= htmlspecialchars($fotosChegada[$i]['name'] ?? '') ?></div>
                 <?php endif; ?>
             </td>
         </tr>
@@ -326,7 +326,7 @@ $checklistModeloQuestoes = $checklistModeloQuestoes ?? [];
         <tbody>
             <?php foreach ($checklistModeloQuestoes as $item): ?>
             <tr>
-                <td><?= htmlspecialchars($item['content'] ?? $item['name'] ?? '-') ?></td>
+                <td><?= htmlspecialchars($item['name'] ?? '-') ?></td>
                 <td></td>
                 <td></td>
                 <td></td>

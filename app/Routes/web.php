@@ -44,6 +44,7 @@ use App\Controllers\CaucoesController;
 use App\Controllers\LocacoesController;
 use App\Controllers\AgendaController;
 use App\Controllers\AssinaturaController;
+use App\Controllers\AssinaturasController;
 use App\Controllers\ContasBancariasController;
 use App\Controllers\FormasPagamentoController;
 use App\Controllers\TaxasServicosController;
@@ -191,6 +192,9 @@ $router->group(['middleware' => 'auth'], function ($router) {
 
     // Session refresh (sem api_csrf - usado quando token CSRF expira)
     $router->get('/api/session/refresh', [SessionController::class, 'refresh']);
+
+    // API Assinaturas
+    $router->get('/api/assinaturas/pendentes', [AssinaturasController::class, 'pendentes'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Página de limite atingido (plano)
     $router->get('/pages/limite-atingido', [PlanoController::class, 'viewLimiteAtingido']);

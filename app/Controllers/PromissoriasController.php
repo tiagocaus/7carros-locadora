@@ -1095,11 +1095,22 @@ class PromissoriasController
             $context = $this->montarContextoPromissoria($promissoria, $empresa);
             $textoLegal = $templateService->render($templateSlug, $context);
 
+            $assinatura = (new Assinatura())->buscarPorPromissoria($codigo, 'cliente', $chave);
+            $assinaturaPath = !empty($assinatura['arquivo'])
+                ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
+                : '';
+
             // Capturar HTML do template sem enviar para o navegador
             // (Template::render() faz echo+exit, nao podemos usar)
             ob_start();
             $viewPath = __DIR__ . '/../Views/pages/promissorias/imprimir/promissoria.php';
-            extract(['promissoria' => $promissoria, 'empresa' => $empresa, 'textoLegal' => $textoLegal]);
+            extract([
+                'promissoria' => $promissoria,
+                'empresa' => $empresa,
+                'textoLegal' => $textoLegal,
+                'assinatura' => $assinatura,
+                'assinaturaPath' => $assinaturaPath,
+            ]);
             include $viewPath;
             $html = ob_get_clean();
 
@@ -1172,10 +1183,21 @@ class PromissoriasController
             $context = $this->montarContextoParcela($parcelaData, $empresa);
             $textoLegal = $templateService->render($templateSlug, $context);
 
+            $assinatura = (new Assinatura())->buscarPorPromissoria($codigo, 'cliente', $chave);
+            $assinaturaPath = !empty($assinatura['arquivo'])
+                ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
+                : '';
+
             // Capturar HTML do template
             ob_start();
             $viewPath = __DIR__ . '/../Views/pages/promissorias/imprimir/parcela.php';
-            extract(['parcela' => $parcelaData, 'empresa' => $empresa, 'textoLegal' => $textoLegal]);
+            extract([
+                'parcela' => $parcelaData,
+                'empresa' => $empresa,
+                'textoLegal' => $textoLegal,
+                'assinatura' => $assinatura,
+                'assinaturaPath' => $assinaturaPath,
+            ]);
             include $viewPath;
             $html = ob_get_clean();
 

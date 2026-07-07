@@ -140,6 +140,11 @@
             margin-top: 60px;
             text-align: center;
         }
+        .assinatura-img {
+            max-height: 60px;
+            margin-bottom: 6px;
+            background: #fff;
+        }
         .assinatura-linha {
             border-top: 1px solid #333;
             width: 350px;
@@ -286,6 +291,9 @@
 
         <!-- Area de Assinatura -->
         <div class="assinatura-section">
+            <?php if (!empty($assinaturaPath)): ?>
+                <img src="<?= htmlspecialchars($assinaturaPath, ENT_QUOTES, 'UTF-8') ?>" alt="Assinatura" class="assinatura-img">
+            <?php endif; ?>
             <div class="assinatura-linha">
                 <div class="assinatura-nome"><?= htmlspecialchars($promissoria['cliente_nome'] ?? t('modules.promissorias.print.debtor')) ?></div>
                 <div class="assinatura-doc"><?= htmlspecialchars($promissoria['cliente_cpf_cnpj'] ?? '') ?></div>
