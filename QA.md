@@ -69,7 +69,20 @@ Nao existe tela para ligar ou desligar essa rotina por empresa. Para personaliza
 
 ---
 
-### 5. Como gerar ou imprimir a fatura de um lancamento financeiro?
+### 5. Como responder quando o cliente nao quer receber emails automaticos de cobranca?
+Entendemos a solicitacao.
+
+O recomendado e dar baixa nas faturas assim que o pagamento for identificado. Se a fatura continua pendente, o sistema entende que ainda existe cobranca em aberto e pode enviar lembretes ou avisos de atraso.
+
+Para dar baixa, acesse o menu: `Financeiro > Lancamentos`. Abra a fatura em `Editar`, altere `Lancamento Pago` para pago, informe a data do pagamento quando necessario e clique em `Salvar`.
+
+Para interromper os emails automaticos de cobranca, acesse:
+
+`Sistema > Configuracoes`, na secao `Notificacoes`, desative a opcao `E-mail` e clique em `Salvar`. OBS, isso interrompe todos os envios de emails do sistema.
+
+---
+
+### 6. Como gerar ou imprimir a fatura de um lancamento financeiro?
 Acesse o menu: `Financeiro > Lancamentos`
 
 Na tela de lancamentos, localize a fatura desejada e use a acao de impressao. A tela de impressao possui o botao `Gerar PDF` e opcoes de envio por email, WhatsApp ou SMS quando aplicavel.
@@ -78,7 +91,7 @@ Observacao: o envio por e-mail, WhatsApp ou SMS foi confirmado para receitas com
 
 ---
 
-### 6. Como registrar um recebimento parcial com duas formas de pagamento diferentes?
+### 7. Como registrar um recebimento parcial com duas formas de pagamento diferentes?
 O sistema permite recebimento parcial, mas nao permite duas formas de pagamento na mesma fatura.
 
 Acesse o menu: `Financeiro > Lancamentos`
@@ -89,7 +102,7 @@ O sistema marca a fatura original como paga pelo valor recebido e cria uma nova 
 
 ---
 
-### 7. Como gerar promissorias?
+### 8. Como gerar promissorias?
 Acesse o menu: `Financeiro > Promissorias`
 
 Na tela de promissorias, use o cadastro de promissoria para criar o documento e depois utilize a acao de impressao quando necessario.
@@ -100,7 +113,7 @@ Foi confirmado tambem na base de conhecimento existente que promissorias ficam n
 
 ## Contratos e locacoes
 
-### 8. Qual e a diferenca entre Contrato e Locacao no sistema?
+### 9. Qual e a diferenca entre Contrato e Locacao no sistema?
 `Contratos` sao usados para contratos de locacao com ciclo completo, multiplos veiculos, autorrenovacao, substituicao, devolucao, assinatura digital e impressao de documentos.
 
 `Locacoes` sao usadas para locacoes de curta duracao, com fluxo de status `Reserva`, `Aberto` e `Fechado`, incluindo saida, devolucao, taxas, parcelas, assinatura e impressao.
@@ -115,7 +128,7 @@ Veja: https://www.7carros.com.br/videos/criando-um-contrato-de-locacao
 
 ---
 
-### 9. Preciso escolher um veiculo especifico ao criar uma reserva?
+### 10. Preciso escolher um veiculo especifico ao criar uma reserva?
 Nao obrigatoriamente.
 
 Em locacoes com status de reserva, o sistema permite reservar por grupo ou categoria. O veiculo especifico pode ser informado como preferencia operacional, mas so passa a ser obrigatorio ao abrir a locacao ou registrar a saida.
@@ -128,7 +141,7 @@ Veja: https://www.7carros.com.br/videos/reservas-e-locacoes
 
 ---
 
-### 10. Como dar baixa ou fechar uma locacao?
+### 11. Como dar baixa ou fechar uma locacao?
 Acesse o menu: `Contrato/Locacoes > Locacoes/Reservas`
 
 Na tela de locacoes, abra a locacao desejada e registre a devolucao alterando o fluxo de `Aberto` para `Fechado`. A devolucao exige `data_chegada`, `odometro_entrada` e `combustivel_entrada`.
@@ -137,7 +150,7 @@ O sistema calcula automaticamente odometro usado, km excedente no plano KMC e co
 
 ---
 
-### 11. Como cobrar km excedente na locacao?
+### 12. Como cobrar km excedente na locacao?
 O km excedente depende do plano `KMC` ou `Km Controlado`.
 
 Acesse o menu: `Contrato/Locacoes > Nova Locacao`
@@ -146,7 +159,7 @@ Na aba de veiculo da locacao, selecione o plano de km controlado, informe a fran
 
 ---
 
-### 12. Como lancar despesas extras, como lavagem, estacionamento ou taxa adicional?
+### 13. Como lancar despesas extras, como lavagem, estacionamento ou taxa adicional?
 Acesse o menu: `Empresa > Taxas e servicos`
 
 Na tela de taxas e servicos, cadastre a taxa com `Nome da taxa`, `Base de calculo`, `Tipo`, `Valor`, onde sera usada e se deve ser aplicada automaticamente. Clique em `Salvar`.
@@ -157,7 +170,7 @@ Veja: https://www.7carros.com.br/videos/taxas-e-servicos
 
 ---
 
-### 13. A reserva imprime fatura ou voucher?
+### 14. A reserva imprime fatura ou voucher?
 Em locacoes com status `Reserva`, a impressao deve apresentar o documento como `Voucher`, nao como fatura.
 
 Acesse o menu: `Contrato/Locacoes > Locacoes/Reservas`
@@ -166,7 +179,7 @@ Na tela de locacoes, abra a reserva e use a acao de impressao. A tela de impress
 
 ---
 
-### 14. Como imprimir fatura, documento, checklist ou recibo de contrato/locacao?
+### 15. Como imprimir fatura, documento, checklist ou recibo de contrato/locacao?
 Acesse o menu: `Contrato/Locacoes > Contratos`
 
 Ou acesse o menu: `Contrato/Locacoes > Locacoes/Reservas`
@@ -175,7 +188,7 @@ Na listagem, abra a acao de impressao do registro desejado. A tela de impressao 
 
 ---
 
-### 15. Posso desfazer uma devolucao de veiculo depois de fechar?
+### 16. Posso desfazer uma devolucao de veiculo depois de fechar?
 Nao. O sistema nao possui acao para desfazer devolucao nem para reabrir locacao ou contrato fechado.
 
 Nas locacoes, as unicas transicoes de status permitidas sao `Reserva > Aberto` e `Aberto > Fechado`; quando a locacao esta `Fechado`, o campo de status fica bloqueado. Nos contratos, quando o ultimo veiculo e devolvido, o contrato e finalizado automaticamente e nao ha fluxo de reversao.
@@ -186,7 +199,7 @@ Se uma devolucao foi registrada por engano, o caso precisa ser tratado pelo supo
 
 ## Multas
 
-### 16. Como cadastrar uma multa manualmente?
+### 17. Como cadastrar uma multa manualmente?
 Acesse o menu: `Empresa > Central de Multas`
 
 Na Central de Multas, use `Adicionar Multa`. A tela possui a secao `Identificar Responsavel`, onde e possivel informar dados da multa e buscar o responsavel pelo veiculo na data/hora da infracao. Depois de preencher os dados obrigatorios, clique em `Salvar`.
@@ -195,7 +208,7 @@ Ao cadastrar multa manualmente, o sistema cria um lancamento financeiro vinculad
 
 ---
 
-### 17. Como o sistema identifica o responsavel por uma multa?
+### 18. Como o sistema identifica o responsavel por uma multa?
 O sistema busca quem estava com o veiculo na data e hora da infracao, considerando contratos e locacoes.
 
 A regra confirmada e:
@@ -207,7 +220,7 @@ Se nenhum contrato ou locacao for encontrado, a tela permite selecionar responsa
 
 ---
 
-### 18. O sistema tem modulo de gestao de multas e indicacao de condutor?
+### 19. O sistema tem modulo de gestao de multas e indicacao de condutor?
 Sim. O sistema possui Central de Multas com cadastro manual, filtros, impressao, envio de documentos, indicacao de condutor quando os dados oficiais estao preenchidos e integracao com sistema de consultas online.
 
 Acesse o menu: `Empresa > Central de Multas`
@@ -216,7 +229,7 @@ Na tabela da Central de Multas, as acoes confirmadas incluem `Imprimir`, `Editar
 
 ---
 
-### 19. O sistema integra diretamente com SNE/Senatran?
+### 20. O sistema integra diretamente com SNE/Senatran?
 Sim, por meio da integracao chamada `Consulta Online`.
 
 A integracao cobre:
@@ -232,7 +245,7 @@ Acesse o menu: `Empresa > Central de Multas` para a gestao das multas e as telas
 
 ## Checklist, aplicativo e assinatura
 
-### 20. Como fazer checklist digital pelo celular?
+### 21. Como fazer checklist digital pelo celular?
 O checklist digital e feito pelo celular, em uma tela propria do sistema.
 
 Acesse o menu: `Veiculos > Checklist`
@@ -243,7 +256,7 @@ Na criacao, o fluxo possui 4 abas: `Informacoes`, `Questoes`, `Vistorias` e `Ass
 
 ---
 
-### 21. O aplicativo de vistoria substitui o checklist no navegador?
+### 22. O aplicativo de vistoria substitui o checklist no navegador?
 Nao foi possivel confirmar a resposta completa com os dados disponiveis.
 
 Foi possivel confirmar que existe checklist digital pelo navegador do celular e que o appLoja e citado nas respostas rapidas como aplicativo focado em checklist, assinatura da empresa e assinatura de documentos. Tambem foi encontrado atendimento orientando uso temporario pelo navegador do celular.
@@ -252,7 +265,7 @@ Falta confirmar, pela documentacao do projeto, o status operacional atual do app
 
 ---
 
-### 22. Como retomar um checklist pendente?
+### 23. Como retomar um checklist pendente?
 Nao foi possivel confirmar o caminho exato do menu com os dados disponiveis.
 
 Foi confirmado que o sistema possui uma listagem mobile de checklists e permite continuar um checklist pendente. Ao retomar, o sistema carrega os dados ja salvos e leva o usuario para a etapa correta.
@@ -266,7 +279,7 @@ Para confirmar o procedimento operacional, falta validar o nome exato do botao o
 
 ---
 
-### 23. Como funciona a assinatura digital de contrato ou locacao?
+### 24. Como funciona a assinatura digital de contrato ou locacao?
 Acesse o menu: `Contrato/Locacoes > Contratos` ou `Contrato/Locacoes > Locacoes/Reservas`
 
 Na coluna de acoes da listagem, clique no icone `Assinatura` (icone de assinatura na linha do registro). Se ainda nao houver assinatura, abre a janela `Link de assinatura`, com os botoes `WhatsApp`, `Copiar` e `Abrir`. Se ja houver assinatura, o mesmo icone abre a visualizacao da assinatura feita.
@@ -275,7 +288,7 @@ O cliente acessa o link recebido, visualiza o resumo do contrato ou locacao, des
 
 ---
 
-### 24. E possivel enviar contrato para assinatura enquanto a locacao ainda esta como reserva?
+### 25. E possivel enviar contrato para assinatura enquanto a locacao ainda esta como reserva?
 Sim. A acao `Assinatura` esta disponivel na listagem para locacoes com status `Reserva`, `Aberto` e `Fechado` (fica oculta apenas para o status `Pendente`).
 
 A assinatura feita na reserva permanece valida quando a locacao e aberta, pois abrir a locacao apenas altera o status do mesmo registro; a assinatura continua vinculada a essa mesma locacao.
@@ -286,7 +299,7 @@ Acesse o menu: `Contrato/Locacoes > Locacoes/Reservas` e use o icone `Assinatura
 
 ## Permissoes e acesso
 
-### 25. Como liberar permissoes para um funcionario?
+### 26. Como liberar permissoes para um funcionario?
 Acesse o menu: `Empresa > Funcionarios`
 
 Na tela de funcionarios, abra o cadastro do funcionario desejado e ajuste a funcao atribuida. As permissoes ficam associadas a uma funcao, e o funcionario recebe as permissoes dessa funcao.
@@ -297,7 +310,7 @@ Veja: https://www.7carros.com.br/videos/funcionarios-e-permissoes
 
 ---
 
-### 26. Por que uma opcao nao aparece para um funcionario?
+### 27. Por que uma opcao nao aparece para um funcionario?
 Geralmente isso depende da funcao/permissao do funcionario e, em alguns casos, do plano contratado.
 
 Acesse o menu: `Empresa > Funcionarios`
@@ -312,7 +325,7 @@ Veja: https://www.7carros.com.br/videos/funcionarios-e-permissoes
 
 ## Relatorios
 
-### 27. Como tirar um relatorio de veiculos locados com o cliente atual?
+### 28. Como tirar um relatorio de veiculos locados com o cliente atual?
 Acesse o menu: `Relatorios > Veicular > Veiculo/cliente`
 
 O relatorio exibe as colunas: `Tipo` (Locacao ou Contrato), `Codigo`, `Placa`, `Veiculo`, `Cliente`, `Inicio`, `Fim`, `Dias`, `Km Rodado` e `Valor`. Registros sem data de fim aparecem com o marcador `Em uso`, indicando que o veiculo esta com o cliente atualmente.
@@ -321,7 +334,7 @@ Os filtros disponiveis sao: periodo (data inicio e fim), `Filial`, `Status` (Tod
 
 ---
 
-### 28. Como consultar faturas vencidas ou a vencer?
+### 29. Como consultar faturas vencidas ou a vencer?
 Acesse o menu: `Relatorios > Faturas > Vencidas/a vencer`
 
 Os filtros disponiveis sao: periodo de vencimento (data inicio e fim), a visao `Vencidas` ou `A vencer` (botoes de alternancia), `Filial` e `Cliente`. O relatorio considera apenas faturas a receber pendentes.
@@ -330,7 +343,7 @@ As colunas exibidas incluem fatura, cliente, vencimento, valor original, juros/m
 
 ---
 
-### 29. O relatorio de lucratividade pode ser filtrado por placa?
+### 30. O relatorio de lucratividade pode ser filtrado por placa?
 Depende do relatorio. Existem dois relatorios relacionados:
 
 1. `Relatorios > Veicular > Lucro por veiculo`: possui filtro `Placa` (busca de veiculo especifico), alem de periodo, filial e grupo. Exibe as colunas `Placa`, `Veiculo`, `Grupo`, `Receita`, `Despesa`, `Lucro` e `Margem`. Use este relatorio quando o cliente quiser lucratividade de uma placa especifica.
@@ -341,7 +354,7 @@ Depende do relatorio. Existem dois relatorios relacionados:
 
 ## Website e planos
 
-### 30. O sistema oferece site integrado para reservas online?
+### 31. O sistema oferece site integrado para reservas online?
 Sim. A documentacao do modulo Website confirma site publico da empresa, dominio personalizado, customizacao visual e reserva online integrada ao sistema.
 
 Acesse o menu: `WebSite > Ativar`
@@ -350,7 +363,7 @@ Quando o site estiver ativo, o menu passa a exibir configuracoes como `Configura
 
 ---
 
-### 31. Como ativar o website com dominio proprio?
+### 32. Como ativar o website com dominio proprio?
 Acesse o menu: `WebSite > Ativar`
 
 Na tela de ativacao, informe o dominio, selecione se deseja registrar dominio ou usar dominio proprio, escolha se deseja hospedagem e use a verificacao de DNS. Depois, solicite a ativacao do site.
@@ -359,14 +372,14 @@ O sistema muda o status para pendente e o processo depende de configuracao admin
 
 ---
 
-### 32. Como publicar alteracoes do website?
+### 33. Como publicar alteracoes do website?
 Acesse o menu: `WebSite > Publicar`
 
 Esse caminho aparece quando o website esta com status ativo. A documentacao confirma que a publicacao envia o site gerado para o ambiente configurado do cliente, mantendo o modelo interno protegido no servidor.
 
 ---
 
-### 33. Como cancelar a assinatura ou alterar plano?
+### 34. Como cancelar a assinatura ou alterar plano?
 O cancelamento e a troca de plano nao sao feitos dentro do sistema 7Carros. A gestao comercial da assinatura (mudar plano, suspender, reativar, cancelar) acontece no sistema externo de cobranca (area do cliente da Hostcia/WHMCS).
 
 Dentro do sistema, o unico ponto relacionado e a tela de limite do plano: quando um limite e atingido, o sistema exibe a pagina `Limite do plano atingido` com o botao `Fazer Upgrade`, que abre o WhatsApp do suporte com a mensagem de solicitacao de mudanca de plano.
@@ -375,7 +388,7 @@ Oriente o cliente a usar a area do cliente da Hostcia ou falar com o comercial/s
 
 ---
 
-### 34. O teste gratuito esta sempre disponivel?
+### 35. O teste gratuito esta sempre disponivel?
 Nao foi possivel confirmar disponibilidade atual do teste gratuito com os dados disponiveis.
 
 Foi encontrada uma resposta rapida informando que normalmente existe teste de 30 dias, mas que em periodos promocionais essa opcao pode ficar desativada. Como isso depende de regra comercial vigente, a disponibilidade precisa ser confirmada no momento do atendimento.
@@ -384,7 +397,7 @@ Foi encontrada uma resposta rapida informando que normalmente existe teste de 30
 
 ## Perguntas complementares
 
-### 35. Como configurar templates de mensagens automaticas?
+### 36. Como configurar templates de mensagens automaticas?
 Acesse o menu: `Sistema > Templates de Mensagem`
 
 Na tela de templates, escolha o tipo de mensagem e o canal desejado, como email, WhatsApp ou SMS. Edite o conteudo usando as variaveis disponiveis no formato `{{entidade.campo}}` e salve.
@@ -393,28 +406,28 @@ Os templates confirmados incluem boas-vindas, confirmacao de locacao, confirmaca
 
 ---
 
-### 36. Quais canais de mensagem o sistema suporta?
+### 37. Quais canais de mensagem o sistema suporta?
 O sistema suporta `email`, `whatsapp` e `sms`.
 
 Email pode usar SMTP da empresa ou, quando permitido, a configuracao padrao do sistema. WhatsApp exige instancia conectada por filial. SMS exige conexao validada por filial. Sem configuracao valida de WhatsApp ou SMS, o envio falha e nao fica aguardando envio.
 
 ---
 
-### 37. Como configurar WhatsApp, SMS ou SMTP da empresa?
+### 38. Como configurar WhatsApp, SMS ou SMTP da empresa?
 Acesse o menu: `Empresa > WhatsApp, SMS e SMTP`
 
 Nessa area ficam as configuracoes de envio. Foi confirmado que existem opcoes para adicionar, editar e testar WhatsApp, SMS e SMTP. Para WhatsApp, a documentacao confirma que e necessaria uma instancia conectada por filial para envios da empresa.
 
 ---
 
-### 38. O que significa quando uma mensagem fica com status "Falhou"?
+### 39. O que significa quando uma mensagem fica com status "Falhou"?
 Significa que o envio nao foi concluido com sucesso.
 
 Pelos dados disponiveis, os motivos mais provaveis dependem do canal: WhatsApp sem instancia conectada, SMS sem conexao validada, erro no provedor, credenciais invalidas ou falha no envio. Para confirmar o motivo exato, e necessario consultar o historico da mensagem ou a tela de configuracao do canal relacionado.
 
 ---
 
-### 39. Como criar ou editar modelos de documentos para contrato, locacao ou multa?
+### 40. Como criar ou editar modelos de documentos para contrato, locacao ou multa?
 Acesse o menu: `Empresa > Documentos`
 
 Na tela de documentos, crie ou edite um modelo informando `titulo`, `tipo`, `status` e o conteudo no editor. O tipo define onde o modelo aparece: `Contrato`, `Locacao` ou `Multa`.
@@ -425,7 +438,7 @@ Veja: https://www.7carros.com.br/videos/cadastro-de-documentos
 
 ---
 
-### 40. Quais variaveis posso usar em modelos de documentos?
+### 41. Quais variaveis posso usar em modelos de documentos?
 Os modelos aceitam placeholders no formato `{{entidade.campo}}`.
 
 Exemplos confirmados incluem variaveis de cliente, empresa, contrato, locacao, veiculo, fatura e outros dados do contexto. Para contratos com multiplos veiculos, a variavel `{{contrato.veiculos_anexo}}` gera uma tabela completa com os veiculos do contrato.
@@ -438,7 +451,7 @@ Veja: https://www.7carros.com.br/videos/cadastro-de-documentos
 
 ---
 
-### 41. Por que uma variavel do documento aparece vazia ou incompleta no PDF?
+### 42. Por que uma variavel do documento aparece vazia ou incompleta no PDF?
 Isso acontece quando o dado usado pela variavel nao existe no contexto do contrato, locacao ou multa, ou quando o modelo usa uma variavel que nao e valida para aquele tipo de documento.
 
 Verifique se:
@@ -451,7 +464,7 @@ Se mesmo assim a variavel continuar vazia, nao foi possivel confirmar a causa se
 
 ---
 
-### 42. Como configurar os grupos de veiculos e seus valores?
+### 43. Como configurar os grupos de veiculos e seus valores?
 Acesse o menu: `Veiculos > Grupos`
 
 Na tela de grupos, cadastre ou edite a categoria do veiculo. O grupo centraliza precos por plano, seguros, precos progressivos por dias e configuracoes usadas nas reservas e locacoes.
@@ -462,7 +475,7 @@ Veja: https://www.7carros.com.br/videos/grupos-veiculares
 
 ---
 
-### 43. Como o sistema calcula o valor da diaria pelo grupo?
+### 44. Como o sistema calcula o valor da diaria pelo grupo?
 O calculo segue esta ordem:
 1. Usa o valor base do grupo conforme o plano escolhido.
 2. Se houver preco progressivo para a quantidade de dias, esse valor substitui o valor base.
@@ -474,14 +487,14 @@ Veja: https://www.7carros.com.br/videos/grupos-veiculares
 
 ---
 
-### 44. Como configurar valores diferentes por temporada?
+### 45. Como configurar valores diferentes por temporada?
 Acesse o menu: `Veiculos > Temporadas`
 
 Use temporadas para aplicar ajustes percentuais sobre os valores dos grupos em periodos especificos. O ajuste de temporada nao substitui o valor do grupo; ele aplica um percentual sobre o valor base ou sobre o preco progressivo encontrado para a locacao.
 
 ---
 
-### 45. Como tornar um grupo disponivel no site?
+### 46. Como tornar um grupo disponivel no site?
 Acesse o menu: `Veiculos > Grupos`
 
 No cadastro do grupo, na aba `Dados do Grupo`, marque a opcao `Visivel no site` (vem marcada por padrao) e clique em `Salvar`.
@@ -492,7 +505,7 @@ Veja: https://www.7carros.com.br/videos/grupos-veiculares
 
 ---
 
-### 46. Como configurar seguro para aparecer na reserva do site?
+### 47. Como configurar seguro para aparecer na reserva do site?
 Os valores de seguro sao configurados no grupo do veiculo, nao no Website.
 
 Acesse o menu: `Veiculos > Grupos`
@@ -503,7 +516,7 @@ Nao existe configuracao de seguro em `WebSite > Configuracoes`. Observacao impor
 
 ---
 
-### 47. Como configurar pagamento antecipado no site?
+### 48. Como configurar pagamento antecipado no site?
 Acesse o menu: `WebSite > Configuracoes`
 
 Ative a opcao `Pagamento antecipado`. Com ela ativa, o ultimo passo da reserva no site exibe o bloco `Forma de pagamento`, exige a escolha de uma forma e, ao confirmar, o sistema cria o lancamento financeiro e redireciona o visitante para o link de pagamento. Com a opcao desligada, a reserva e criada sem exigir pagamento.
@@ -514,7 +527,7 @@ Na forma de pagamento que deve aparecer na reserva online, marque `Site` no camp
 
 ---
 
-### 48. Por que a opcao de pagamento nao aparece para o cliente no site?
+### 49. Por que a opcao de pagamento nao aparece para o cliente no site?
 Verifique quatro pontos:
 1. Se a opcao `Pagamento antecipado` esta ativa em `WebSite > Configuracoes` (sem ela, o site nao mostra pagamento).
 2. Se a forma de pagamento esta ativa e marcada com `Site` no campo `Onde Exibir`.
@@ -533,7 +546,7 @@ Veja: https://www.7carros.com.br/videos/gateways-de-pagamento
 
 ---
 
-### 49. Como recuperar acesso ao sistema quando aparece usuario nao encontrado ou sem acesso?
+### 50. Como recuperar acesso ao sistema quando aparece usuario nao encontrado ou sem acesso?
 O sistema possui recuperacao de senha na tela de login: clique em `Redefinir senha`, informe o campo `E-mail ou usuario` e clique em `Enviar link`. O link de redefinicao so e enviado se o funcionario estiver ativo e tiver email cadastrado.
 
 As mensagens de erro do login indicam a causa:
@@ -548,7 +561,7 @@ Veja: https://www.7carros.com.br/videos/login-instrucao
 
 ---
 
-### 50. O que e a busca rapida?
+### 51. O que e a busca rapida?
 A busca funcional do sistema e a busca global `Localizar`, aberta pelo botao `Localizar` na barra superior ou pelo atalho `Ctrl+K` (ou `Cmd+K` no Mac).
 
 Ela pesquisa, a partir de 2 caracteres e respeitando as permissoes do usuario:
@@ -564,7 +577,7 @@ Observacao: o bloco `Busca rapida` que aparece na barra lateral (com campos de v
 
 ---
 
-### 51. Como consultar contratos vinculados a uma placa?
+### 52. Como consultar contratos vinculados a uma placa?
 Nao existe tela dedicada de historico por placa. O caminho mais proximo e:
 
 Acesse o menu: `Relatorios > Veicular > Veiculo/cliente`
@@ -575,7 +588,7 @@ Alternativa rapida: use o `Localizar` (`Ctrl+K`/`Cmd+K`) para buscar a placa e a
 
 ---
 
-### 52. Como ver faturas por veiculo?
+### 53. Como ver faturas por veiculo?
 Acesse o menu: `Veiculos > Veiculos`
 
 Abra a edicao do veiculo desejado e clique na aba `Faturas` (a aba so aparece em veiculos ja salvos). A aba possui os filtros `A receber` e `A pagar` e exibe tipo, vencimento, descricao, cliente/fornecedor, forma, origem, valor e status de cada fatura.
@@ -584,14 +597,14 @@ Cada linha possui a acao `Abrir fatura`, que leva ao lancamento no financeiro.
 
 ---
 
-### 53. Como selecionar apenas despesas na listagem do financeiro?
+### 54. Como selecionar apenas despesas na listagem do financeiro?
 Acesse o menu: `Financeiro > Lancamentos`
 
 No bloco de filtros da listagem (Filial, Ano, Mes, Status, Tipo), use o filtro `Tipo` e selecione `Despesa (Pagar)`. As opcoes disponiveis sao `Todos`, `Receita (Receber)` e `Despesa (Pagar)`.
 
 ---
 
-### 54. Como lancar uma despesa de manutencao no financeiro?
+### 55. Como lancar uma despesa de manutencao no financeiro?
 Acesse o menu: `Veiculos > Manutencoes`
 
 Abra a ordem de servico ja salva e clique na aba `Financeiro` (a aba so aparece apos salvar a OS). Na secao `Lancamentos Financeiros`, use um dos botoes:
@@ -606,7 +619,7 @@ Veja: https://www.7carros.com.br/videos/manutencoes-veiculares
 
 ---
 
-### 55. Como funciona a manutencao preventiva?
+### 56. Como funciona a manutencao preventiva?
 Acesse o menu: `Veiculos > Plano de manutencoes`
 
 Cadastre um plano com intervalos de km para cada item de manutencao. Depois vincule esse plano ao veiculo. O sistema compara o odometro atual com a proxima km prevista e gera uma OS automaticamente quando a diferenca fica dentro da margem configurada.
@@ -617,7 +630,7 @@ Veja: https://www.7carros.com.br/videos/plano-de-manutencoes
 
 ---
 
-### 56. Por que o sistema abriu uma manutencao preventiva automaticamente?
+### 57. Por que o sistema abriu uma manutencao preventiva automaticamente?
 Isso pode acontecer quando um veiculo possui plano de manutencao vinculado e o odometro esta dentro da margem de alerta para algum item.
 
 A rotina de manutencao preventiva verifica a diferenca entre a proxima km do item e o odometro atual. Se a diferenca for menor ou igual a margem configurada, o sistema gera uma OS e atualiza a proxima km.
@@ -626,7 +639,7 @@ Veja: https://www.7carros.com.br/videos/plano-de-manutencoes
 
 ---
 
-### 57. Como configurar baixa automatica de estoque em manutencoes?
+### 58. Como configurar baixa automatica de estoque em manutencoes?
 Acesse o menu: `Empresa > Estoque`
 
 No cadastro do produto, ative `baixa_automatica`. Quando esse produto for usado em um item de OS, o estoque sera ajustado automaticamente ao criar, alterar quantidade ou remover o item.
@@ -635,14 +648,14 @@ Observacao: a baixa automatica so ocorre para produtos vinculados ao estoque. It
 
 ---
 
-### 58. O sistema permite estoque negativo?
+### 59. O sistema permite estoque negativo?
 Acesse o menu: `Empresa > Estoque`
 
 No cadastro do produto, configure `permitir_estoque_negativo`. Quando estiver como `N`, a selecao do produto pode ser bloqueada se o estoque estiver zerado ou negativo, e a quantidade fica limitada ao disponivel. Quando estiver como `S`, o produto pode ser usado mesmo sem estoque.
 
 ---
 
-### 59. Como emitir NFS-e pelo sistema?
+### 60. Como emitir NFS-e pelo sistema?
 Acesse o menu: `Financeiro > NFS-e`
 
 O modulo emite NFS-e por filial a partir das configuracoes em `nfse_configuracoes`. Os emissores suportados na documentacao sao `nacional`, `betha` e `issnet`.
@@ -651,7 +664,7 @@ Antes de emitir, a filial precisa estar configurada com dados fiscais, ambiente,
 
 ---
 
-### 60. Onde configurar NFS-e da filial?
+### 61. Onde configurar NFS-e da filial?
 Acesse o menu: `Empresa > Matriz e filiais`
 
 Abra a edicao da matriz/filial desejada e clique na aba `NFS-e`. A aba so aparece para usuarios com permissao de configurar NFS-e e em filiais ja salvas.
@@ -667,7 +680,7 @@ Veja: https://www.7carros.com.br/videos/cadastrar-matriz-e-filiais
 
 ---
 
-### 61. O que fazer quando o certificado da NFS-e nao gera ou nao valida?
+### 62. O que fazer quando o certificado da NFS-e nao gera ou nao valida?
 Verifique se o certificado digital esta presente, se a senha esta correta e se o arquivo do certificado nao esta corrompido.
 
 A documentacao orienta diferenciar certificado vencido, arquivo ausente, senha invalida e erro de leitura do certificado. Se o certificado veio de importacao do legado, o sistema pode precisar regravar a senha no formato atual.
@@ -676,7 +689,7 @@ O upload do certificado fica em: `Empresa > Matriz e filiais` > editar a filial 
 
 ---
 
-### 62. Quando devo preencher IBS/CBS na NFS-e?
+### 63. Quando devo preencher IBS/CBS na NFS-e?
 O preenchimento de IBS/CBS depende da configuracao fiscal da filial.
 
 Pela documentacao, quando o preenchimento de IBS/CBS estiver desativado, o sistema nao deve enviar essas informacoes e deve usar total de tributos zerado. Portanto, nao preencha aliquotas IBS/CBS se essa configuracao estiver desativada.
@@ -685,7 +698,7 @@ Se a emissao exigir IBS/CBS, confirme antes a configuracao fiscal da filial e o 
 
 ---
 
-### 63. Como gerar link de assinatura digital e enviar por WhatsApp?
+### 64. Como gerar link de assinatura digital e enviar por WhatsApp?
 Na listagem de contratos e locacoes, foi confirmado que a janela `Link de Assinatura` permite copiar, abrir ou enviar o link por WhatsApp.
 
 O envio por WhatsApp usa o modelo de mensagem de pedido de assinatura e depende de WhatsApp conectado na filial. Se o link nao chegar ao cliente, verifique:
@@ -696,7 +709,7 @@ O envio por WhatsApp usa o modelo de mensagem de pedido de assinatura e depende 
 
 ---
 
-### 64. Como salvar cartao de credito do cliente?
+### 65. Como salvar cartao de credito do cliente?
 Acesse o menu: `Clientes`
 
 Abra a edicao do cliente (o cliente precisa estar salvo) e, na aba `Dados`, localize a secao `Cartoes de Credito`. Clique em `Adicionar Cartao`, selecione o `Gateway` e preencha os dados do cartao. Para Stripe, o formulario e o proprio componente seguro do gateway; para outros gateways (ex: Asaas), preencha titular, CPF/CNPJ, numero, validade e CVV. Clique em `Salvar Cartao`.
@@ -705,7 +718,7 @@ O cartao tambem pode ser salvo pelo proprio cliente na pagina publica de pagamen
 
 ---
 
-### 65. O bloqueio de valor no cartao funciona?
+### 66. O bloqueio de valor no cartao funciona?
 Sim, o sistema possui suporte a bloqueio de valor no cartao para locacoes e contratos quando o gateway suporta essa funcao.
 
 O bloqueio reserva valor no limite do cartao sem cobrar imediatamente, podendo ser capturado ou liberado depois.
@@ -714,7 +727,7 @@ O funcionamento depende do gateway configurado e das credenciais corretas.
 
 ---
 
-### 66. Como configurar formas de pagamento parceladas por semana, mes ou dia fixo?
+### 67. Como configurar formas de pagamento parceladas por semana, mes ou dia fixo?
 Acesse o menu: `Empresa > Formas de pagamento`
 
 Na tela de formas de pagamento, use a area de `Comandos de parcelas` para cadastrar ou editar comandos. Exemplos confirmados:
@@ -729,7 +742,7 @@ Veja: https://www.7carros.com.br/videos/comandos-de-parcelas
 
 ---
 
-### 67. Por que parcelas semanais estao sendo geradas no dia errado?
+### 68. Por que parcelas semanais estao sendo geradas no dia errado?
 Quase sempre e o comando de parcelas usado. A regra confirmada e:
 
 1. `w36` (semanal simples): a primeira parcela cai exatamente na data base informada e as demais somam 1 semana cada. O dia da semana das parcelas e o mesmo dia da semana da data base; o comando nao fixa dia.
@@ -741,7 +754,7 @@ Veja: https://www.7carros.com.br/videos/comandos-de-parcelas
 
 ---
 
-### 68. Como configurar taxas cobradas pela operadora de pagamento?
+### 69. Como configurar taxas cobradas pela operadora de pagamento?
 Acesse o menu: `Empresa > Formas de pagamento`
 
 Na forma de pagamento, configure os campos de taxa:
@@ -755,7 +768,7 @@ Veja: https://www.7carros.com.br/videos/formas-de-pagamento
 
 ---
 
-### 69. Como acessar o link publico de pagamento de uma fatura?
+### 70. Como acessar o link publico de pagamento de uma fatura?
 Acesse o menu: `Financeiro > Lancamentos`
 
 Na linha da fatura, clique na acao `Link de Pagamento` (icone de link externo, disponivel apenas para receitas nao pagas). Abre a janela `Link de pagamento` com os botoes `Copiar`, `Abrir` e `Fechar`.
@@ -764,21 +777,21 @@ O link tambem aparece na fatura em PDF como `Link para pagamento online` e na ja
 
 ---
 
-### 70. O link de pagamento muda quando altero valor ou vencimento da fatura?
+### 71. O link de pagamento muda quando altero valor ou vencimento da fatura?
 Nao deve mudar.
 
 A documentacao confirma que links publicos de pagamento sao estaveis. O link ja enviado ao cliente deve continuar valido enquanto a receita estiver pendente. Quando valor, vencimento, cliente, juros, multa, desconto ou itens mudam, o sistema atualiza os dados do link existente.
 
 ---
 
-### 71. Posso excluir um link de pagamento de uma fatura?
+### 72. Posso excluir um link de pagamento de uma fatura?
 Nao. Nao existe acao manual para excluir ou regenerar o link publico de pagamento.
 
 O link e estavel e reutilizado enquanto a fatura estiver pendente. Quando valor, vencimento ou outros dados mudam, o sistema atualiza o link existente e invalida automaticamente cobrancas externas abertas no gateway, sem acao do usuario. Quando a fatura e paga, o link deixa de aceitar pagamento.
 
 ---
 
-### 72. Por que o WhatsApp nao identifica ou nao envia para um numero?
+### 73. Por que o WhatsApp nao identifica ou nao envia para um numero?
 Nao foi possivel confirmar uma causa unica com os dados disponiveis.
 
 Pelos fluxos confirmados, verifique:
@@ -791,21 +804,21 @@ Se a instancia estiver desconectada, o sistema nao deve deixar mensagem pendente
 
 ---
 
-### 73. Como conectar ou testar a instancia de WhatsApp?
+### 74. Como conectar ou testar a instancia de WhatsApp?
 Acesse o menu: `Empresa > WhatsApp, SMS e SMTP`
 
 Foram confirmadas telas de adicionar, editar, testar e QR Code para WhatsApp. Na area de WhatsApp, use as acoes da instancia para conectar, testar ou abrir o QR Code conforme a tela exibir.
 
 ---
 
-### 74. O sistema envia email mesmo sem SMTP configurado?
+### 75. O sistema envia email mesmo sem SMTP configurado?
 Sim, a documentacao confirma que o email pode usar SMTP da empresa ou, quando permitido, a configuracao padrao do sistema.
 
 Para WhatsApp e SMS, o comportamento e diferente: sem configuracao valida da filial, o envio falha.
 
 ---
 
-### 75. Como obter uma segunda via de boleto?
+### 76. Como obter uma segunda via de boleto?
 Nao existe acao especifica de "segunda via". O boleto e gerado pelo link publico de pagamento, que e estavel enquanto a fatura estiver pendente.
 
 Acesse o menu: `Financeiro > Lancamentos`
@@ -814,7 +827,7 @@ Na linha da fatura, use a acao `Link de Pagamento` para copiar e reenviar o mesm
 
 ---
 
-### 76. Como filtrar contratos por vencidos, vencendo hoje ou amanha?
+### 77. Como filtrar contratos por vencidos, vencendo hoje ou amanha?
 A listagem de contratos nao possui esse filtro. Os filtros disponiveis sao apenas `Todos`, `Ativos` e `Finalizados`, alem da busca por codigo ou cliente.
 
 A listagem exibe, na coluna Info, indicadores visuais como `Venceu` (autorrenovacao vencida) e `Renov. em X dias` (quando faltam 7 dias ou menos), mas eles nao sao filtros clicaveis.
@@ -823,14 +836,14 @@ Para vencimentos financeiros, use: `Relatorios > Faturas > Vencidas/a vencer`, a
 
 ---
 
-### 77. Por que a lista de contratos nao aparece na ordem esperada?
+### 78. Por que a lista de contratos nao aparece na ordem esperada?
 A listagem de contratos e ordenada pela data de inicio do contrato, da mais recente para a mais antiga (com desempate pelo cadastro mais recente).
 
 A tela nao permite ordenar por coluna. Se o contrato desejado nao aparece no topo, use a busca por codigo ou cliente, ou os filtros `Ativos`/`Finalizados`.
 
 ---
 
-### 78. Como emitir contrato em PDF para cliente ler antes de assinar?
+### 79. Como emitir contrato em PDF para cliente ler antes de assinar?
 Acesse o menu: `Contrato/Locacoes > Contratos`
 
 Ou acesse o menu: `Contrato/Locacoes > Locacoes/Reservas`
@@ -839,7 +852,7 @@ Na listagem, use a acao de impressao do contrato ou locacao e selecione a opcao 
 
 ---
 
-### 79. Como cadastrar condutor adicional?
+### 80. Como cadastrar condutor adicional?
 Acesse o menu: `Contrato/Locacoes > Novo contrato`
 
 Ou acesse o menu: `Contrato/Locacoes > Nova Locacao`
@@ -848,7 +861,7 @@ Nos formularios de contrato e locacao existe a aba `Condutor Adicional`. Nessa a
 
 ---
 
-### 80. Como cadastrar fiador, avalista ou testemunha no contrato?
+### 81. Como cadastrar fiador, avalista ou testemunha no contrato?
 Acesse o menu: `Contrato/Locacoes > Novo contrato`
 
 No formulario de contrato, use as abas `Fiador`, `Avalista` e `Testemunhas`. A documentacao confirma que esses dados ficam registrados no contrato.
@@ -857,7 +870,7 @@ Para locacoes, a documentacao tambem confirma campos equivalentes de referencias
 
 ---
 
-### 81. Como substituir um veiculo em uma locacao?
+### 82. Como substituir um veiculo em uma locacao?
 Acesse o menu: `Contrato/Locacoes > Locacoes/Reservas`
 
 Na coluna de acoes da listagem, clique no icone `Substituir Veiculo` (disponivel apenas para locacoes com status `Aberto` e para usuarios com a permissao de substituir).
@@ -866,7 +879,7 @@ A tela de substituicao exige novo plano, novo grupo e novo veiculo, alem de data
 
 ---
 
-### 82. Como substituir um veiculo em um contrato?
+### 83. Como substituir um veiculo em um contrato?
 Acesse o menu: `Contrato/Locacoes > Contratos`
 
 Na coluna de acoes da listagem, clique no icone `Substituir Veiculo` (disponivel apenas para contratos com status `Ativo` e para usuarios com a permissao de substituir).
@@ -875,7 +888,7 @@ A documentacao confirma o fluxo de substituicao de veiculo em contratos, incluin
 
 ---
 
-### 83. O que fazer quando a substituicao de veiculo nao passa por campos obrigatorios?
+### 84. O que fazer quando a substituicao de veiculo nao passa por campos obrigatorios?
 Verifique os campos obrigatorios da tela de substituicao.
 
 Na substituicao de locacao, foram confirmados campos como `novoPlano`, `novoGrupo` e `novoVeiculo`, alem de dados de data/odometro de entrada do veiculo atual. Se algum deles estiver vazio, o sistema pode bloquear a conclusao.
@@ -884,7 +897,7 @@ Se todos estiverem preenchidos e o erro continuar, nao foi possivel confirmar a 
 
 ---
 
-### 84. Como registrar odometro durante um contrato ativo?
+### 85. Como registrar odometro durante um contrato ativo?
 Acesse o menu: `Contrato/Locacoes > Contratos`
 
 Na primeira coluna da listagem, clique no icone `Registrar odometro` (icone de velocimetro). Abre um painel lateral onde se informa a leitura e clica em `Salvar leitura`.
@@ -893,7 +906,7 @@ Requisitos: contrato com status `Ativo`, pelo menos um veiculo ativo e permissao
 
 ---
 
-### 85. Como alterar um km registrado errado?
+### 86. Como alterar um km registrado errado?
 Depende de onde o km foi gravado. O que e possivel corrigir pela tela:
 
 1. Locacao aberta: o campo `Odometro (km)` de saida pode ser editado na tela de edicao da locacao.
@@ -908,7 +921,7 @@ Nesses casos sem edicao, o ajuste precisa ser tratado pelo suporte/equipe tecnic
 
 ---
 
-### 86. A vistoria pode ser impressa antes de ser feita no checklist digital?
+### 87. A vistoria pode ser impressa antes de ser feita no checklist digital?
 Sim. E possivel imprimir um checklist em branco, para preencher a mao, mesmo sem nenhum checklist digital realizado.
 
 Acesse o menu: `Contrato/Locacoes > Contratos` ou `Contrato/Locacoes > Locacoes/Reservas`
@@ -921,21 +934,21 @@ Escolha um item do grupo `Modelos impressos` e clique em `Gerar PDF`.
 
 ---
 
-### 87. Como cadastrar modelos de checklist?
+### 88. Como cadastrar modelos de checklist?
 Acesse o menu: `Veiculos > Checklist modelos`
 
 Use essa tela para cadastrar modelos usados em checklist digital ou impresso. A documentacao confirma que o checklist digital carrega questoes e itens de vistoria a partir de `checklist_modelos`.
 
 ---
 
-### 88. Por que o checklist digital nao aparece para uma reserva sem veiculo?
+### 89. Por que o checklist digital nao aparece para uma reserva sem veiculo?
 Porque reservas podem existir apenas por grupo/categoria, sem veiculo especifico definido.
 
 A documentacao confirma que, nesse caso, nao ha checklist vinculado ate a locadora alocar um veiculo especifico na saida. O veiculo especifico e necessario para checklist vinculado.
 
 ---
 
-### 89. Como configurar imagens do site, como banners e logo?
+### 90. Como configurar imagens do site, como banners e logo?
 Acesse o menu: `WebSite > Banners` para banners.
 
 Para o logo, acesse o menu: `WebSite > Aparencia` e use o campo `Logo do site` (independente do logo do cadastro da empresa).
@@ -944,7 +957,7 @@ Limites confirmados para banners: formatos JPEG, PNG ou WebP, tamanho maximo de 
 
 ---
 
-### 90. Como recuperar informacoes do site apos alteracao ou perda de conteudo?
+### 91. Como recuperar informacoes do site apos alteracao ou perda de conteudo?
 O sistema nao possui backup ou restauracao de conteudo do site (textos, banners, SEO) pelo usuario. Conteudo sobrescrito e salvo nao pode ser recuperado pela tela.
 
 O que existe:
@@ -955,14 +968,14 @@ Se o cliente perdeu conteudo importante, o caso deve ser encaminhado a equipe te
 
 ---
 
-### 91. O site pode operar em mais de um pais ou idioma?
+### 92. O site pode operar em mais de um pais ou idioma?
 O modulo Website possui suporte multi-idioma e moeda por filial, mas nao foi possivel confirmar regras comerciais/operacionais para operar simultaneamente em mais de um pais.
 
 Foi confirmado que o sistema suporta idiomas e que o site usa configuracoes por empresa/filial. Para afirmar funcionamento em um pais especifico, e necessario validar dominio, moeda, regras fiscais, formas de pagamento e emissores aplicaveis.
 
 ---
 
-### 92. Como configurar dominio e DNS do site?
+### 93. Como configurar dominio e DNS do site?
 Acesse o menu: `WebSite > Ativar`
 
 Na ativacao, informe o dominio e use a verificacao. A documentacao confirma que a verificacao usa DNS real e checa registros A ou CNAME para confirmar que o dominio existe e esta registrado.
@@ -971,14 +984,14 @@ Depois da ativacao administrativa, a publicacao inicial e feita com as configura
 
 ---
 
-### 93. Como publicar alteracoes depois de editar conteudo ou banners do site?
+### 94. Como publicar alteracoes depois de editar conteudo ou banners do site?
 Acesse o menu: `WebSite > Publicar`
 
 Esse menu aparece quando o Website esta ativo. A publicacao envia o site gerado para o ambiente configurado do cliente.
 
 ---
 
-### 94. Como configurar reservas online no site?
+### 95. Como configurar reservas online no site?
 Acesse o menu: `WebSite > Configuracoes`
 
 Os campos confirmados na tela sao:
@@ -992,7 +1005,7 @@ Ha tambem a secao `Pre-cadastro` (`Cadastro simples`, `Exigir envio de documento
 
 ---
 
-### 95. Como saber se uma reserva veio do site?
+### 96. Como saber se uma reserva veio do site?
 Reservas feitas pelo site gravam a marcacao de origem `site` nas observacoes da locacao. Ao abrir a locacao para edicao, o campo de observacoes contem essa informacao (junto de email, telefone e documento informados pelo visitante).
 
 A listagem de locacoes nao exibe coluna de origem.
@@ -1001,7 +1014,7 @@ Sobre o relatorio `Relatorios > Comercial > Origem das locacoes`: ele agrupa pel
 
 ---
 
-### 96. O sistema tem videos de treinamento?
+### 97. O sistema tem videos de treinamento?
 Sim. Os videos de treinamento ficam centralizados no site oficial, em https://www.7carros.com.br/videos
 
 Os videos disponiveis cobrem: instrucoes iniciais (playlist completa), email de ativacao, login, matriz e filiais, funcionarios e permissoes, clientes, gateways de pagamento, contas bancarias, formas de pagamento, comandos de parcelas, plano de manutencoes, grupos veiculares, fornecedores e investidores, veiculos, documentos, manutencoes veiculares, taxas e servicos, reservas e locacoes, contratos e dicas.
@@ -1012,14 +1025,14 @@ Veja: https://www.7carros.com.br/videos
 
 ---
 
-### 97. O suporte faz reunioes ou atendimento por mensagem?
+### 98. O suporte faz reunioes ou atendimento por mensagem?
 Nao foi possivel confirmar uma politica oficial geral com os dados disponiveis.
 
 Foi encontrada resposta rapida informando que o suporte prefere receber as duvidas por mensagem, uma por vez, e que reunioes podem nao ser feitas. Como isso e regra operacional de atendimento e pode mudar, deve ser confirmado com a equipe responsavel.
 
 ---
 
-### 98. Como centralizar atendimento quando ha varios operadores da locadora?
+### 99. Como centralizar atendimento quando ha varios operadores da locadora?
 Foi encontrada resposta rapida orientando criar um grupo no WhatsApp quando a empresa possui dois ou mais operadores do sistema.
 
 A orientacao e adicionar todos os operadores e a equipe de suporte no grupo, centralizando duvidas e solicitacoes para agilizar o atendimento.
@@ -1028,7 +1041,7 @@ Nao foi possivel confirmar se essa regra esta documentada formalmente fora das r
 
 ---
 
-### 99. Como conceder acesso temporario ao suporte?
+### 100. Como conceder acesso temporario ao suporte?
 Acesse o menu: `Sistema > Conceder acesso`
 
 Na tela `Conceder Acesso ao Suporte`, clique em `Gerar Usuario de Suporte`. O sistema cria um usuario de suporte com senha, exibidos na tela com botao de copiar e a data de criacao. Informe as credenciais ao suporte por escrito (a tela orienta: nao enviar print ou foto).
@@ -1037,14 +1050,14 @@ Nao existe prazo automatico de expiracao. Para encerrar o acesso, clique em `Exc
 
 ---
 
-### 100. Como consultar logs de atividades?
+### 101. Como consultar logs de atividades?
 Acesse o menu: `Sistema > Logs de atividades`
 
 O caminho foi confirmado no menu e a documentacao de logs existe no projeto. Use essa area para consultar auditoria/atividades quando for necessario entender alteracoes feitas no sistema.
 
 ---
 
-### 101. O que e um fornecedor investidor?
+### 102. O que e um fornecedor investidor?
 Um fornecedor investidor e um fornecedor que disponibiliza veiculos para a locadora operar e recebe repasses/comissoes conforme as regras configuradas no sistema.
 
 Acesse o menu: `Empresa > Fornecedores`
@@ -1053,7 +1066,7 @@ No cadastro do fornecedor, marque a opcao `E Investidor?`. Com essa opcao ativa,
 
 ---
 
-### 102. Onde configuro que um fornecedor e investidor?
+### 103. Onde configuro que um fornecedor e investidor?
 Acesse o menu: `Empresa > Fornecedores`
 
 Abra o cadastro do fornecedor e marque a opcao `E Investidor?`. Depois, preencha os dados de pagamento, como PIX, dados bancarios ou conta/wallet de split, quando aplicavel.
@@ -1062,7 +1075,7 @@ Para que o sistema gere comissao, o fornecedor investidor tambem precisa estar v
 
 ---
 
-### 103. Como vincular um veiculo a um fornecedor investidor?
+### 104. Como vincular um veiculo a um fornecedor investidor?
 Acesse o menu: `Veiculos > Veiculos`
 
 Abra o cadastro do veiculo e informe o fornecedor investidor no campo de fornecedor/investidor do veiculo. Esse vinculo indica que aquele veiculo pertence ou esta associado ao investidor informado.
@@ -1071,7 +1084,7 @@ Quando uma fatura vinculada a contrato ou locacao desse veiculo e paga, o sistem
 
 ---
 
-### 104. O que e a Regra padrao do investidor?
+### 105. O que e a Regra padrao do investidor?
 A `Regra padrao` e a regra geral de comissao daquele investidor.
 
 Use essa regra quando o investidor tiver a mesma negociacao para todos os veiculos dele, independentemente do grupo/categoria do veiculo.
@@ -1080,7 +1093,7 @@ Exemplo: se a regra padrao do investidor for `percentual da locadora` com valor 
 
 ---
 
-### 105. Para que serve a excecao por grupo nas regras de comissao do investidor?
+### 106. Para que serve a excecao por grupo nas regras de comissao do investidor?
 A excecao por grupo serve quando o mesmo investidor tem uma negociacao diferente para um grupo especifico de veiculos.
 
 Acesse o cadastro do fornecedor investidor e, na secao `Regras de comissao`, clique em `Adicionar excecao por grupo`. Depois selecione o grupo, o tipo de comissao e o valor.
@@ -1089,7 +1102,7 @@ Quando existir excecao para o grupo do veiculo, o sistema usa essa excecao antes
 
 ---
 
-### 106. Qual regra o sistema usa quando existe regra no investidor e tambem no grupo do veiculo?
+### 107. Qual regra o sistema usa quando existe regra no investidor e tambem no grupo do veiculo?
 O sistema usa a regra nesta ordem de prioridade:
 
 1. Regra especifica do investidor para o grupo do veiculo.
@@ -1100,14 +1113,14 @@ Ou seja, a regra do investidor pode sobrepor a regra do grupo. A regra do grupo 
 
 ---
 
-### 107. Posso ter mais de um investidor no mesmo grupo de veiculos com percentuais diferentes?
+### 108. Posso ter mais de um investidor no mesmo grupo de veiculos com percentuais diferentes?
 Sim, desde que cada veiculo esteja vinculado ao seu respectivo fornecedor investidor e que as regras estejam configuradas no cadastro de cada investidor.
 
 Mesmo que os veiculos estejam no mesmo grupo, o sistema pode aplicar uma regra diferente para cada investidor usando a `Regra padrao` do investidor ou uma `excecao por grupo`.
 
 ---
 
-### 108. Quando a comissao do investidor e gerada?
+### 109. Quando a comissao do investidor e gerada?
 A comissao por fatura e gerada quando uma receita de contrato ou locacao e marcada como paga.
 
 Nesse momento, o sistema verifica o veiculo vinculado a fatura, identifica o fornecedor investidor do veiculo, resolve a regra de comissao aplicavel e cria a comissao com status `pendente`.
@@ -1116,14 +1129,14 @@ Comissoes mensais, quando configuradas, sao geradas pela rotina automatica mensa
 
 ---
 
-### 109. Alterar a regra de comissao muda comissoes antigas?
+### 110. Alterar a regra de comissao muda comissoes antigas?
 Nao. As comissoes ja geradas permanecem com os valores calculados no momento em que foram criadas.
 
 Alterar a regra do grupo ou do fornecedor investidor afeta apenas novas comissoes geradas depois da alteracao. Se uma comissao antiga estiver incorreta, o caso deve ser avaliado operacionalmente ou pelo suporte.
 
 ---
 
-### 110. Onde vejo as comissoes e repasses dos fornecedores investidores?
+### 111. Onde vejo as comissoes e repasses dos fornecedores investidores?
 Acesse o menu: `Financeiro > Comissoes Investidores`
 
 Nessa tela e possivel visualizar comissoes geradas, status, valores pendentes, valores pagos e acoes como marcar comissao como paga ou cancelar, conforme permissoes do usuario.

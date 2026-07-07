@@ -437,6 +437,7 @@ class Financeiro extends Model
                 'ct.nome AS conta_descricao',
                 'func.nome AS funcionario_nome',
                 'v.placa AS veiculo_placa',
+                'v.marca AS veiculo_marca',
                 'v.modelo AS veiculo_modelo'
             ])
             ->leftJoin('clientes', 'c', 'f.id_cliente', '=', 'c.id')
@@ -531,6 +532,7 @@ class Financeiro extends Model
                 'taxa_percentual_snapshot' => $dados['taxa_percentual_snapshot'] ?? null,
                 'taxa_fixa_snapshot' => $dados['taxa_fixa_snapshot'] ?? null,
                 'taxa_fixa_parcela_snapshot' => $dados['taxa_fixa_parcela_snapshot'] ?? null,
+                'id_financeiro_origem' => !empty($dados['id_financeiro_origem']) ? (int) $dados['id_financeiro_origem'] : null,
                 'id_contrato' => !empty($dados['id_contrato']) ? (int) $dados['id_contrato'] : null,
                 'id_locacao' => !empty($dados['id_locacao']) ? (int) $dados['id_locacao'] : null,
                 'id_veiculo' => !empty($dados['id_veiculo']) ? (int) $dados['id_veiculo'] : null,

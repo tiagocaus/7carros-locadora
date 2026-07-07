@@ -1291,11 +1291,82 @@ class FinanceiroController
         }
 
         $qrPath = $this->gerarQrCodePath((int) $lancamento['id']);
+        $descricaoLancamentoPdf = $this->montarDescricaoFaturaComVeiculos($lancamento);
 
-        extract(compact('lancamento', 'empresa', 'cliente', 'fornecedor', 'contraparte', 'tipoReceita', 'logoPath', 'linkPagamento', 'qrPath'));
+        extract(compact('lancamento', 'empresa', 'cliente', 'fornecedor', 'contraparte', 'tipoReceita', 'logoPath', 'linkPagamento', 'qrPath', 'descricaoLancamentoPdf'));
         ob_start();
         include __DIR__ . '/../Views/pages/financeiro/imprimir/fatura.php';
         return ob_get_clean();
+    }
+
+    private function montarDescricaoFaturaComVeiculos(array $lancamento): string
+    {
+        $descricao = trim((string) ($lancamento['descricao'] ?? ''));
+        $veiculos = $this->veiculosDescricaoFatura($lancamento);
+        if (empty($veiculos)) {
+            return $descricao !== '' ? $descricao : '-';
+        }
+
+        $descricaoNormalizada = $this->normalizarTextoVeiculoDescricao($descricao);
+        $veiculosNovos = [];
+        foreach ($veiculos as $veiculo) {
+            $placaNormalizada = $this->normalizarTextoVeiculoDescricao($veiculo['placa']);
+            if ($placaNormalizada === '' || !str_contains($descricaoNormalizada, $placaNormalizada)) {
+                $veiculosNovos[] = $veiculo['texto'];
+            }
+        }
+
+        if (empty($veiculosNovos)) {
+            return $descricao !== '' ? $descricao : '-';
+        }
+
+        $rotulo = count($veiculosNovos) === 1 ? 'Veículo' : 'Veículos';
+        $sufixo = $rotulo . ': ' . implode('; ', $veiculosNovos);
+
+        return $descricao !== '' ? $descricao . ' - ' . $sufixo : $sufixo;
+    }
+
+    private function veiculosDescricaoFatura(array $lancamento): array
+    {
+        $veiculos = [];
+        $this->adicionarVeiculoDescricaoFatura($veiculos, $lancamento);
+
+        foreach (($lancamento['itens'] ?? []) as $item) {
+            if (is_array($item)) {
+                $this->adicionarVeiculoDescricaoFatura($veiculos, $item);
+            }
+        }
+
+        return array_values($veiculos);
+    }
+
+    private function adicionarVeiculoDescricaoFatura(array &$veiculos, array $dados): void
+    {
+        $placa = strtoupper(trim((string) ($dados['veiculo_placa'] ?? '')));
+        $marca = trim((string) ($dados['veiculo_marca'] ?? ''));
+        $modelo = trim((string) ($dados['veiculo_modelo'] ?? ''));
+
+        if ($placa === '' && $marca === '' && $modelo === '') {
+            return;
+        }
+
+        $chave = $placa !== ''
+            ? $this->normalizarTextoVeiculoDescricao($placa)
+            : $this->normalizarTextoVeiculoDescricao(trim($marca . ' ' . $modelo));
+        if ($chave === '' || isset($veiculos[$chave])) {
+            return;
+        }
+
+        $descricaoVeiculo = trim($marca . ' ' . $modelo);
+        $veiculos[$chave] = [
+            'placa' => $placa,
+            'texto' => trim(($placa !== '' ? $placa : '-') . ($descricaoVeiculo !== '' ? ' - ' . $descricaoVeiculo : '')),
+        ];
+    }
+
+    private function normalizarTextoVeiculoDescricao(string $valor): string
+    {
+        return preg_replace('/[^A-Z0-9]/', '', strtoupper($valor)) ?? '';
     }
 
     private function formaPagamentoPermitePagamentoOnline(array $lancamento, string $chave): bool

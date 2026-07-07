@@ -149,7 +149,7 @@ return [
         // Campos
         'fields' => [
             'command' => 'Comando',
-            'command_hint' => 'Exemplos de uso:<br><br> <b>0</b> - Pagamento à vista. <br><br> <b>15</b> - Pagamento para daqui a 15 dias. <br><br> <b>1-12</b> - Gera parcela mensal de 1 a 12x. <br><br> <b>7/14/21/28</b> - Nesse exemplo é gerado 4 parcelas com prazos estabelecidos. <br><br> <b>Dom, Seg, Ter, Qua, Qui, Sex, Sab</b> - Informe qual o dia da semana será o vencimento. <br><br> <b>d5, d10, d15, ...</b> - Qual dia do mês será o vencimento.<br><br> <b>w36</b> - Será criado 36 parcelas semanais.<br><br> <b>w36-Seg</b> - Será criado 36 parcelas semanais com o vencimento toda Segunda-feira.',
+            'command_hint' => 'Exemplos de uso:<br><br> <b>0</b> - Pagamento à vista. <br><br> <b>15</b> - Pagamento para daqui a 15 dias. <br><br> <b>1-12</b> - Gera parcela mensal de 1 a 12x. <br><br> <b>7/14/21/28</b> - Nesse exemplo é gerado 4 parcelas com prazos estabelecidos. <br><br> <b>Seg</b> - Informe um único dia da semana para o vencimento. Opções: Dom, Seg, Ter, Qua, Qui, Sex ou Sab. <br><br> <b>d5, d10, d15, ...</b> - Qual dia do mês será o vencimento.<br><br> <b>w36</b> - Será criado 36 parcelas semanais.<br><br> <b>w36-Seg</b> - Será criado 36 parcelas semanais com o vencimento toda Segunda-feira.',
             'description' => 'Descrição',
             'active' => 'Ativo',
         ],

@@ -277,7 +277,7 @@ class ComandoParcela extends Model
         }
 
         // Semanal com dia wX-Dia
-        if (preg_match('/^w(\d+)-(\w+)$/', $comando, $matches)) {
+        if (preg_match('/^w(\d+)-(Dom|Seg|Ter|Qua|Qui|Sex|Sab)$/', $comando, $matches)) {
             return $matches[1] . ' semanas (' . $matches[2] . ')';
         }
 
@@ -286,12 +286,10 @@ class ComandoParcela extends Model
             return 'dia ' . $matches[1];
         }
 
-        // Dias da semana
+        // Dia da semana unico
         $diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
-        foreach ($diasSemana as $dia) {
-            if (str_contains($comando, $dia)) {
-                return $comando;
-            }
+        if (in_array($comando, $diasSemana, true)) {
+            return $comando;
         }
 
         return $comando;
@@ -360,7 +358,7 @@ class ComandoParcela extends Model
         }
 
         // Parcelas semanais com dia (wX-Dia)
-        if (preg_match('/^w(\d+)-(\w+)$/', $comando, $matches)) {
+        if (preg_match('/^w(\d+)-(Dom|Seg|Ter|Qua|Qui|Sex|Sab)$/', $comando, $matches)) {
             $semanas = (int) $matches[1];
             $diaSemana = $matches[2];
             return [
@@ -401,22 +399,17 @@ class ComandoParcela extends Model
             ];
         }
 
-        // Dias da semana (Seg,Qua,Sex)
+        // Dia da semana unico (Seg, Ter, Qua, etc.)
         $diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
-        $diasEncontrados = [];
-        foreach ($diasSemana as $dia) {
-            if (strpos($comando, $dia) !== false) {
-                $diasEncontrados[] = $dia;
-            }
-        }
-        if (!empty($diasEncontrados)) {
+        if (in_array($comando, $diasSemana, true)) {
             return [
                 'tipo' => 'dias_semana',
-                'opcoes' => range(1, 52),
+                'opcoes' => [1],
                 'min' => 1,
-                'max' => 52,
+                'max' => 1,
                 'intervalos' => [],
-                'dias_semana' => $diasEncontrados,
+                'dias_semana' => [$comando],
+                'dia_semana' => $comando,
                 'comando' => $comando,
             ];
         }
@@ -498,25 +491,9 @@ class ComandoParcela extends Model
                 break;
 
             case 'dias_semana':
-                $diasMap = [
-                    'Dom' => 'sunday', 'Seg' => 'monday', 'Ter' => 'tuesday',
-                    'Qua' => 'wednesday', 'Qui' => 'thursday', 'Sex' => 'friday', 'Sab' => 'saturday'
-                ];
-                $diasIngles = array_map(fn($d) => $diasMap[$d] ?? 'monday', $info['dias_semana']);
-                $contador = 0;
                 $data = clone $base;
-                while ($contador < $numParcelas) {
-                    foreach ($diasIngles as $diaIngles) {
-                        if ($contador >= $numParcelas) break;
-                        $temp = clone $data;
-                        $temp->modify("next {$diaIngles}");
-                        $datas[] = $temp->format('Y-m-d');
-                        $contador++;
-                    }
-                    $data->modify('+1 week');
-                }
-                sort($datas);
-                $datas = array_slice($datas, 0, $numParcelas);
+                self::ajustarParaProximoDiaSemana($data, $info['dia_semana']);
+                $datas[] = $data->format('Y-m-d');
                 break;
 
             default:
@@ -544,6 +521,7 @@ class ComandoParcela extends Model
         switch ($info['tipo']) {
             case 'avista':
             case 'prazo_unico':
+            case 'dias_semana':
                 return 1;
 
             case 'prazos_fixos':
@@ -569,22 +547,6 @@ class ComandoParcela extends Model
                     $data->modify('+1 month');
                 }
                 return max(1, min($count, 12));
-
-            case 'dias_semana':
-                $diasMap = [
-                    'Dom' => 0, 'Seg' => 1, 'Ter' => 2, 'Qua' => 3,
-                    'Qui' => 4, 'Sex' => 5, 'Sab' => 6
-                ];
-                $diasAlvo = array_map(fn($d) => $diasMap[$d] ?? 1, $info['dias_semana']);
-                $count = 0;
-                $data = clone $inicio;
-                while ($data <= $fim) {
-                    if (in_array((int) $data->format('w'), $diasAlvo)) {
-                        $count++;
-                    }
-                    $data->modify('+1 day');
-                }
-                return max(1, $count);
 
             default:
                 return 1;
@@ -614,5 +576,21 @@ class ComandoParcela extends Model
             }
             $data->modify("+{$diff} days");
         }
+    }
+
+    /**
+     * Ajusta a data para a proxima ocorrencia futura do dia da semana.
+     *
+     * @param \DateTime $data Data a ajustar
+     * @param string $diaSemana Dia da semana (Seg, Ter, etc.)
+     */
+    private static function ajustarParaProximoDiaSemana(\DateTime $data, string $diaSemana): void
+    {
+        $diasMap = [
+            'Dom' => 'sunday', 'Seg' => 'monday', 'Ter' => 'tuesday', 'Qua' => 'wednesday',
+            'Qui' => 'thursday', 'Sex' => 'friday', 'Sab' => 'saturday'
+        ];
+
+        $data->modify('next ' . ($diasMap[$diaSemana] ?? 'monday'));
     }
 }

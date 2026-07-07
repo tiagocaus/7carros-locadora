@@ -165,6 +165,9 @@ O formulario possui 9 abas:
 - Desconto e primeiro pagamento
 - Calculo automatico de totais
 - O `id_comando_parcela` selecionado e persistido na tabela `contratos` para uso na renovacao automatica
+- Na renovacao automatica, `dias` e `contagem` definem o periodo renovado do contrato; o comando de parcelas define apenas vencimento/parcelamento financeiro.
+- Comandos simples de dia da semana (`Seg`, `Ter`, `Qua`, etc.) geram uma unica parcela com valor cheio e vencimento no dia configurado. Parcelamento semanal exige comando explicito, como `w4` ou `w4-Seg`.
+- A autorenovacao so deve avancar `data_renovacao` depois que todas as parcelas esperadas forem criadas ou confirmadas como ja existentes.
 - Ao salvar muitas parcelas, as sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` para evitar locks repetidos em `matrizes_filiais`
 - Ao criar um contrato novo com parcelas geradas, o backend cria/reutiliza links em `pagamentos_links` e enfileira cobrancas `payment_reminder` para email, WhatsApp e SMS. Falhas por canal nao impedem a criacao do contrato nem das parcelas.
 

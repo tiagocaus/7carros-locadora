@@ -136,6 +136,18 @@ Body: { tipo, descricao, id_cliente, id_fornecedor, ..., itens: [...] }
 Response: { success: true, id: 123, message: "..." }
 ```
 
+### Parcelas Geradas por Contratos
+
+Quando o financeiro e gerado a partir de contrato, o comando de parcelas define
+como a fatura sera dividida e quais serao os vencimentos. Comandos simples de dia
+da semana (`Seg`, `Ter`, `Qua`, etc.) nao parcelam: eles geram uma unica parcela
+com vencimento ajustado para o dia informado. Parcelamento semanal deve ser
+explicito com `wX` ou `wX-Dia`, por exemplo `w4-Seg`.
+
+Na autorenovacao, as parcelas financeiras precisam ser criadas ou confirmadas
+como ja existentes antes de o contrato avancar para a proxima `data_renovacao`.
+Esse fluxo evita contrato renovado sem boleto/fatura correspondente.
+
 ### Atualizar
 ```
 POST /financeiro/{id}/atualizar
@@ -360,6 +372,29 @@ foreach ($ordemServico['servicos'] as $servico) {
     ]);
 }
 ```
+
+#### Manutencoes: configuracao e parcelas geradas
+
+Na aba **Financeiro** de Adicionar/Editar Manutencoes, a secao
+**Configuracao do Lancamento** funciona apenas como modelo para gerar a lista de
+parcelas. A ordem dos campos da configuracao e:
+
+1. Conta bancaria
+2. Forma de pagamento
+3. Parcelas
+4. 1o Vencimento
+5. Intervalo (dias)
+6. Pago?
+
+Quando todos os campos estao preenchidos, o front gera a tabela **Parcelas
+geradas**. Cada linha da tabela e editavel e define os dados finais que serao
+salvos em `financeiro`: conta bancaria, forma de pagamento, vencimento, valor e
+status pago/nao pago.
+
+O backend deve tratar `parcelas_geradas` como fonte de verdade quando esse campo
+for enviado. A soma dos valores das parcelas precisa bater com o total dos itens
+selecionados da manutencao. Se uma parcela for marcada como paga, o lancamento e
+criado com `pago = 'S'` e `data_pago` preenchida com a data operacional atual.
 
 ### Consultar lancamentos pendentes
 

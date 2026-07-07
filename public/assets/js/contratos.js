@@ -2409,7 +2409,7 @@
             case 'dia_mes':
                 return `\u2192 Parcelas no dia ${info.dia_mes} de cada mes (qtd pela duracao do contrato)`;
             case 'dias_semana':
-                return `\u2192 Parcelas em ${info.dias_semana.join(', ')} (qtd pela duracao do contrato)`;
+                return `\u2192 1 parcela com vencimento em ${info.dia_semana}`;
             default:
                 return '';
         }

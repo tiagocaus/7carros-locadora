@@ -124,7 +124,7 @@ O campo `comando` em `formas_pagamento_comandos` aceita comandos especiais para 
 | Numero inteiro | `15` | Pagamento unico para daqui a X dias |
 | `X-Y` | `1-12` | Gera parcelas mensais de X ate Y (ex: 1x, 2x, 3x... 12x) |
 | `X/Y/Z/...` | `7/14/21/28` | Prazos especificos em dias (gera N parcelas) |
-| Dias da semana | `Seg,Qua,Sex` | Vencimento nos dias da semana especificados |
+| Dia da semana | `Seg` | Parcela unica com vencimento no dia da semana especificado |
 | `dX` | `d5`, `d15` | Vencimento no dia X de cada mes (1-31) |
 | `wX` | `w36` | X parcelas semanais |
 | `wX-Dia` | `w36-Seg` | X parcelas semanais com vencimento no dia especificado |
@@ -149,9 +149,10 @@ O campo `comando` em `formas_pagamento_comandos` aceita comandos especiais para 
 - **Exemplo:** `30/60/90` = 3 parcelas com vencimentos em 30, 60 e 90 dias
 - Cada numero representa dias a partir da data base
 
-#### Dias da Semana (`Dom,Seg,Ter,Qua,Qui,Sex,Sab`)
-- **Exemplo:** `Seg` = vencimento toda segunda-feira
-- **Exemplo:** `Seg,Qua,Sex` = vencimentos as segundas, quartas e sextas
+#### Dia da Semana (`Dom`, `Seg`, `Ter`, `Qua`, `Qui`, `Sex`, `Sab`)
+- **Exemplo:** `Seg` = parcela unica com vencimento na proxima segunda-feira
+- O comando deve conter apenas um dia da semana. `Seg,Qua,Sex` nao e um comando valido.
+- Dia da semana simples define vencimento, nao parcelamento. Para parcelar semanalmente, use `wX` ou `wX-Dia`.
 - Respeitar maiusculas/minusculas: `Seg` (nao `seg` ou `SEG`)
 
 #### Dia do Mes (`dX`)
@@ -186,6 +187,7 @@ O metodo `ComandoParcela::inferirLabel()` gera labels legiveis a partir do coman
 | `w4` | 4 semanas |
 | `w36-Seg` | 36 semanas (Seg) |
 | `d15` | dia 15 |
+| `Seg` | Seg |
 
 ---
 

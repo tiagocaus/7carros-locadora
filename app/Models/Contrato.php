@@ -1524,12 +1524,31 @@ class Contrato extends Model
      */
     public function salvarParcelasContrato(int $contratoId, array $parcelas, string $chave): array
     {
+        $resultado = $this->salvarParcelasContratoComResultado($contratoId, $parcelas, $chave);
+        return $resultado['ids_criados'];
+    }
+
+    /**
+     * Salva parcelas financeiras do contrato retornando criadas e ja existentes.
+     *
+     * Usado pela autorenovacao para confirmar todas as parcelas esperadas antes
+     * de avancar a proxima data de renovacao.
+     *
+     * @param int $contratoId ID do contrato
+     * @param array $parcelas Lista de parcelas a salvar
+     * @param string $chave Chave do tenant
+     * @param bool $compararValor Se true, exige mesmo vencimento e valor para considerar existente
+     * @return array{ids_criados: array, ids_existentes: array, total_esperado: int, total_confirmado: int}
+     */
+    public function salvarParcelasContratoComResultado(int $contratoId, array $parcelas, string $chave, bool $compararValor = true): array
+    {
         $contrato = $this->buscarPorId($contratoId);
         if (!$contrato) {
             throw new \InvalidArgumentException('Contrato não encontrado');
         }
 
         $ids = [];
+        $idsExistentes = [];
         $financeiroModel = new Financeiro();
         $idPrimeiraParcela = null;
 
@@ -1540,8 +1559,9 @@ class Contrato extends Model
 
         $parcelasParaCriar = [];
         foreach ($parcelas as $index => $parcela) {
-            $existente = $this->buscarParcelaContratoEquivalente($contratoId, $parcela);
+            $existente = $this->buscarParcelaContratoEquivalente($contratoId, $parcela, $compararValor);
             if ($existente) {
+                $idsExistentes[] = (int) $existente['id'];
                 if ($idPrimeiraParcela === null && empty($parcelasParaCriar)) {
                     $idPrimeiraParcela = (int) $existente['id'];
                 }
@@ -1590,7 +1610,12 @@ class Contrato extends Model
             }
         }
 
-        return $ids;
+        return [
+            'ids_criados' => $ids,
+            'ids_existentes' => $idsExistentes,
+            'total_esperado' => count($parcelas),
+            'total_confirmado' => count($ids) + count($idsExistentes),
+        ];
     }
 
     /**
@@ -1645,24 +1670,35 @@ class Contrato extends Model
     /**
      * Busca parcela financeira ja existente para a mesma competencia do contrato.
      *
-     * A comparacao por contrato + vencimento + valor evita recriar como pendente
-     * uma cobranca que ja foi migrada ou gerada anteriormente, inclusive se paga.
+     * Por padrao compara contrato + vencimento + valor. A autorenovacao pode
+     * desativar a comparacao de valor para reconhecer parcela ja existente que
+     * teve juros, multa ou ajuste apos a criacao original.
      */
-    private function buscarParcelaContratoEquivalente(int $contratoId, array $parcela): ?array
+    private function buscarParcelaContratoEquivalente(int $contratoId, array $parcela, bool $compararValor = true): ?array
     {
         $dataVenci = $parcela['data_venci'] ?? null;
         $valor = (float) ($parcela['valor_total'] ?? $parcela['valor_subtotal'] ?? $parcela['valor'] ?? 0);
 
-        if (empty($dataVenci) || abs($valor) < 0.01) {
+        if (empty($dataVenci) || ($compararValor && abs($valor) < 0.01)) {
             return null;
         }
 
-        return $this->qb
+        $query = $this->qb
             ->table('financeiro')
             ->select(['id', 'pago', 'data_pago', 'codigo', 'data_venci', 'valor_total'])
             ->where('id_contrato', '=', $contratoId)
-            ->where('data_venci', '=', $dataVenci)
-            ->whereRaw('ABS(COALESCE(valor_total, valor_subtotal, 0) - ?) < 0.01', [$valor])
+            ->where('data_venci', '=', $dataVenci);
+
+        if (!$compararValor && isset($parcela['parcela'], $parcela['total_parcelas'])) {
+            $query->where('parcela', '=', (int) $parcela['parcela'])
+                ->where('total_parcelas', '=', (int) $parcela['total_parcelas']);
+        }
+
+        if ($compararValor) {
+            $query->whereRaw('ABS(COALESCE(valor_total, valor_subtotal, 0) - ?) < 0.01', [$valor]);
+        }
+
+        return $query
             ->orderByRaw("CASE WHEN pago = 'S' THEN 0 ELSE 1 END")
             ->orderBy('id', 'ASC')
             ->first();

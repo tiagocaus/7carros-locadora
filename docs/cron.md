@@ -64,6 +64,15 @@ cobrancas, faturas ou notificacoes.
   data dependente de timezone; em seguida, processar cada tenant com seu proprio
   contexto e sua data de referencia.
 
+### Autorenovacao de Contratos
+
+O job de autorenovacao deve confirmar a geracao financeira antes de avancar
+`contratos.data_renovacao`. Se a forma de pagamento, comando de parcelas, valor
+ou preview financeiro estiver invalido, o contrato deve permanecer com a data de
+renovacao original e o erro deve ser registrado no log do job. Parcelas ja
+existentes para o mesmo vencimento/parcela contam como confirmadas para manter a
+execucao idempotente e evitar duplicidade.
+
 ---
 
 ## Estrutura de Arquivos

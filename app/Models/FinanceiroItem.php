@@ -46,6 +46,7 @@ class FinanceiroItem extends Model
                 'pc.descricao_i18n AS plano_conta_descricao_i18n',
                 'pc.hierarquia AS plano_conta_hierarquia',
                 'v.placa AS veiculo_placa',
+                'v.marca AS veiculo_marca',
                 'v.modelo AS veiculo_modelo'
             ])
             ->leftJoin('planos_de_contas', 'pc', 'fi.id_plano_de_conta', '=', 'pc.id')

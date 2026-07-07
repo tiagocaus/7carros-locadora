@@ -161,7 +161,7 @@ $documentCode = $codigo ?: '#' . ($lancamento['id'] ?? '');
 <!-- Descricao do lancamento -->
 <div class="section">
     <div class="section-title"><?= t('modules.financeiro.print_pdf.description') ?></div>
-    <div style="padding: 6px 8px; font-size: 10pt;"><?= htmlspecialchars($lancamento['descricao'] ?? '-') ?></div>
+    <div style="padding: 6px 8px; font-size: 10pt;"><?= htmlspecialchars($descricaoLancamentoPdf ?? ($lancamento['descricao'] ?? '-')) ?></div>
 </div>
 
 <!-- Itens (se houver) -->

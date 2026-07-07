@@ -112,6 +112,7 @@ return [
         'maintenance_items' => 'Itens da Manutenção',
         'financial_entries' => 'Lançamentos Financeiros',
         'entry_config' => 'Configuração do Lançamento',
+        'generated_installments' => 'Prestações geradas',
     ],
 
     // Campos
@@ -142,9 +143,12 @@ return [
         'description' => 'Descrição',
         'value' => 'Valor',
         'payment_method' => 'Forma de Pagamento',
+        'bank_account' => 'Conta bancária',
         'installments' => 'Prestações',
         'first_due_date' => '1º Vencimento',
+        'due_date' => 'Vencimento',
         'interval_days' => 'Intervalo (dias)',
+        'paid' => 'Pago?',
     ],
 
     // Opções de estado
@@ -228,6 +232,8 @@ return [
         'saved_title' => 'Manutenção Guardada',
         'saved_go_to_list' => 'Deseja voltar para a listagem?',
         'financial_desc' => 'Selecione os itens pendentes para criar um lançamento financeiro parcial ou clique em "Criar Lançamento Completo" para lançar todos.',
+        'installments_total_diff' => 'A soma das prestações deve ser igual ao total selecionado.',
+        'complete_financial_config' => 'Preencha a configuração do lançamento para gerar as prestações.',
     ],
 
     // Paginação
@@ -260,6 +266,9 @@ return [
         'complete' => 'Completo',
         'partial' => 'Parcial',
         'payment_method' => 'Forma de Pagamento',
+        'bank_account' => 'Conta bancária',
+        'paid' => 'Pago',
+        'generated_installments' => 'Prestações Geradas',
         'installments' => 'Prestações',
         'first_due_date' => '1º Vencimento',
         'interval' => 'Intervalo',

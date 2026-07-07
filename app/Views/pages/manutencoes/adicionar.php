@@ -298,7 +298,13 @@
                 <!-- Configuracao do lancamento -->
                 <div id="configFinanceiro" class="mt-4 p-4 bg-slate-50 rounded-lg" style="display: none;">
                     <h4 class="font-medium mb-3"><?= t('modules.manutencao.sections.entry_config') ?></h4>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <div class="form-input-group">
+                            <label for="fin_conta" class="form-label-group"><?= t('modules.manutencao.fields.bank_account') ?></label>
+                            <select id="fin_conta" class="form-input-group-field">
+                                <option value=""><?= t('modules.manutencao.placeholders.select') ?></option>
+                            </select>
+                        </div>
                         <div class="form-input-group">
                             <label for="fin_forma_pagamento" class="form-label-group"><?= t('modules.manutencao.fields.payment_method') ?></label>
                             <select id="fin_forma_pagamento" class="form-input-group-field">
@@ -317,9 +323,37 @@
                             <label for="fin_intervalo" class="form-label-group"><?= t('modules.manutencao.fields.interval_days') ?></label>
                             <input type="number" id="fin_intervalo" class="form-input-group-field" value="30" min="1">
                         </div>
+                        <div class="form-input-group">
+                            <label for="fin_pago" class="form-label-group"><?= t('modules.manutencao.fields.paid') ?></label>
+                            <select id="fin_pago" class="form-input-group-field">
+                                <option value="N"><?= t('common.labels.no') ?></option>
+                                <option value="S"><?= t('common.labels.yes') ?></option>
+                            </select>
+                        </div>
                     </div>
+
+                    <div id="parcelasGeradasContainer" class="mt-4" style="display: none;">
+                        <h5 class="font-medium mb-2"><?= t('modules.manutencao.sections.generated_installments') ?></h5>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[920px] divide-y divide-slate-200">
+                                <thead class="bg-slate-100">
+                                    <tr>
+                                        <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase w-12">#</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase"><?= t('modules.manutencao.fields.bank_account') ?></th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase"><?= t('modules.manutencao.fields.payment_method') ?></th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase w-40"><?= t('modules.manutencao.fields.due_date') ?></th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase w-40"><?= t('modules.manutencao.fields.value') ?></th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase w-32"><?= t('modules.manutencao.fields.paid') ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="parcelasGeradasBody" class="bg-white divide-y divide-slate-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="mt-3 flex gap-2">
-                        <button type="button" id="btnConfirmarLancamento" class="btn-green py-2 px-4 text-sm">
+                        <button type="button" id="btnConfirmarLancamento" class="btn-green py-2 px-4 text-sm" disabled>
                             <i class="fas fa-check mr-1"></i><?= t('common.buttons.confirm') ?>
                         </button>
                         <button type="button" id="btnCancelarLancamento" class="btn-secondary py-2 px-4 text-sm">
@@ -441,6 +475,9 @@ window.manutencoesAuditI18n = <?= json_encode([
         'auditComplete' => t('modules.manutencao.audit_financial.complete'),
         'auditPartial' => t('modules.manutencao.audit_financial.partial'),
         'auditPaymentMethod' => t('modules.manutencao.audit_financial.payment_method'),
+        'auditBankAccount' => t('modules.manutencao.audit_financial.bank_account'),
+        'auditPaid' => t('modules.manutencao.audit_financial.paid'),
+        'auditGeneratedInstallments' => t('modules.manutencao.audit_financial.generated_installments'),
         'auditInstallments' => t('modules.manutencao.audit_financial.installments'),
         'auditFirstDueDate' => t('modules.manutencao.audit_financial.first_due_date'),
         'auditInterval' => t('modules.manutencao.audit_financial.interval'),
@@ -449,6 +486,10 @@ window.manutencoesAuditI18n = <?= json_encode([
         'auditSelectedItems' => t('modules.manutencao.audit_financial.selected_items'),
         'auditItem' => t('modules.manutencao.audit_financial.item'),
         'auditValue' => t('modules.manutencao.audit_financial.value'),
+        'installmentsTotalDiff' => t('modules.manutencao.messages.installments_total_diff'),
+        'completeFinancialConfig' => t('modules.manutencao.messages.complete_financial_config'),
+        'yes' => t('common.labels.yes'),
+        'no' => t('common.labels.no'),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 
     // Estado
@@ -460,6 +501,9 @@ window.manutencoesAuditI18n = <?= json_encode([
     let statusOriginal = 'C'; // Status original da manutencao
     let veiculoDados = null; // Dados do veiculo selecionado (odometro, tanque)
     let saveResult = null; // Resultado do salvamento para usar apos confirmacao do modal
+    let formasPagamentoFinanceiro = [];
+    let contasBancariasFinanceiro = [];
+    let parcelasGeradas = [];
 
     // Expor itensData globalmente para o audit handler
     window.itensData = itensData;
@@ -1395,6 +1439,7 @@ window.manutencoesAuditI18n = <?= json_encode([
             total += parseFloat(cb.dataset.valor) || 0;
         });
         document.getElementById('totalSelecionado').textContent = Currency.format(total, true);
+        gerarParcelasFinanceiro();
     }
 
     // ===== LANCAMENTOS FINANCEIROS =====
@@ -1405,26 +1450,220 @@ window.manutencoesAuditI18n = <?= json_encode([
             if (result.success && result.data) {
                 const select = document.getElementById('fin_forma_pagamento');
                 select.innerHTML = `<option value="">${i18n.placeholderSelect}</option>`;
+                formasPagamentoFinanceiro = result.data.map(forma => ({
+                    id: String(forma.id),
+                    nome: forma.nome || forma.text || ''
+                }));
 
-                result.data.forEach(forma => {
+                formasPagamentoFinanceiro.forEach(forma => {
                     const option = document.createElement('option');
                     option.value = forma.id;
                     option.textContent = forma.nome;
                     select.appendChild(option);
                 });
+                renderParcelasGeradas();
             }
         } catch (error) {
             console.error('Erro ao carregar formas:', error);
         }
     }
 
+    async function carregarContasBancariasFinanceiro() {
+        try {
+            const result = await API.get('/api/contas-bancarias/buscar');
+            if (result.success && result.data) {
+                const select = document.getElementById('fin_conta');
+                select.innerHTML = `<option value="">${i18n.placeholderSelect}</option>`;
+                contasBancariasFinanceiro = result.data.map(conta => ({
+                    id: String(conta.id),
+                    nome: conta.text || conta.nome || ''
+                }));
+
+                contasBancariasFinanceiro.forEach(conta => {
+                    const option = document.createElement('option');
+                    option.value = conta.id;
+                    option.textContent = conta.nome;
+                    select.appendChild(option);
+                });
+                renderParcelasGeradas();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar contas bancarias:', error);
+        }
+    }
+
     function setCamposFinanceiroHabilitados(habilitado) {
-        ['fin_forma_pagamento', 'fin_parcelas', 'fin_data_vencimento', 'fin_intervalo'].forEach(id => {
+        ['fin_conta', 'fin_forma_pagamento', 'fin_parcelas', 'fin_data_vencimento', 'fin_intervalo', 'fin_pago'].forEach(id => {
             const campo = document.getElementById(id);
             if (campo) {
                 campo.disabled = !habilitado;
             }
         });
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text ?? '';
+        return div.innerHTML;
+    }
+
+    function obterTotalSelecionadoNumero() {
+        let total = 0;
+        document.querySelectorAll('#itensPendentesTableBody .item-check:checked').forEach(cb => {
+            total += parseFloat(cb.dataset.valor) || 0;
+        });
+        return total;
+    }
+
+    function adicionarDias(dataIso, dias) {
+        const partes = String(dataIso || '').split('-').map(v => parseInt(v, 10));
+        if (partes.length !== 3 || partes.some(isNaN)) return '';
+        const data = new Date(partes[0], partes[1] - 1, partes[2]);
+        data.setDate(data.getDate() + dias);
+        const mes = String(data.getMonth() + 1).padStart(2, '0');
+        const dia = String(data.getDate()).padStart(2, '0');
+        return `${data.getFullYear()}-${mes}-${dia}`;
+    }
+
+    function montarOptions(lista, selecionado) {
+        return lista.map(item => {
+            const selected = String(item.id) === String(selecionado) ? ' selected' : '';
+            return `<option value="${escapeHtml(item.id)}"${selected}>${escapeHtml(item.nome)}</option>`;
+        }).join('');
+    }
+
+    function formatarValorInput(valor) {
+        return (parseFloat(valor) || 0).toFixed(2);
+    }
+
+    function atualizarParcelaGerada(index, campo, valor) {
+        if (!parcelasGeradas[index]) return;
+        parcelasGeradas[index][campo] = valor;
+        validarParcelasGeradas();
+    }
+
+    function validarParcelasGeradas() {
+        const btn = document.getElementById('btnConfirmarLancamento');
+        if (!btn) return false;
+
+        if (parcelasGeradas.length === 0) {
+            btn.disabled = true;
+            return false;
+        }
+
+        const totalSelecionado = obterTotalSelecionadoNumero();
+        const totalParcelas = parcelasGeradas.reduce((sum, parcela) => sum + (parseFloat(parcela.valor) || 0), 0);
+        const valido = parcelasGeradas.every(parcela =>
+            parcela.id_conta &&
+            parcela.id_forma_pagamento &&
+            parcela.data_vencimento &&
+            (parseFloat(parcela.valor) || 0) > 0 &&
+            ['S', 'N'].includes(parcela.pago)
+        ) && Math.abs(totalSelecionado - totalParcelas) < 0.01;
+
+        btn.disabled = !valido;
+        return valido;
+    }
+
+    function renderParcelasGeradas() {
+        const container = document.getElementById('parcelasGeradasContainer');
+        const tbody = document.getElementById('parcelasGeradasBody');
+        if (!container || !tbody) return;
+
+        if (parcelasGeradas.length === 0) {
+            container.style.display = 'none';
+            tbody.innerHTML = '';
+            validarParcelasGeradas();
+            return;
+        }
+
+        container.style.display = 'block';
+        tbody.innerHTML = parcelasGeradas.map((parcela, index) => `
+            <tr data-index="${index}">
+                <td class="px-3 py-2 text-center text-sm">${parcela.numero}</td>
+                <td class="px-3 py-2">
+                    <select class="form-input-group-field parcela-conta" data-index="${index}">
+                        <option value="">${i18n.placeholderSelect}</option>
+                        ${montarOptions(contasBancariasFinanceiro, parcela.id_conta)}
+                    </select>
+                </td>
+                <td class="px-3 py-2">
+                    <select class="form-input-group-field parcela-forma" data-index="${index}">
+                        <option value="">${i18n.placeholderSelect}</option>
+                        ${montarOptions(formasPagamentoFinanceiro, parcela.id_forma_pagamento)}
+                    </select>
+                </td>
+                <td class="px-3 py-2">
+                    <input type="date" class="form-input-group-field parcela-vencimento" data-index="${index}" value="${escapeHtml(parcela.data_vencimento)}">
+                </td>
+                <td class="px-3 py-2">
+                    <input type="number" class="form-input-group-field parcela-valor" data-index="${index}" value="${formatarValorInput(parcela.valor)}" min="0.01" step="0.01">
+                </td>
+                <td class="px-3 py-2">
+                    <select class="form-input-group-field parcela-pago" data-index="${index}">
+                        <option value="N"${parcela.pago === 'N' ? ' selected' : ''}>${i18n.no}</option>
+                        <option value="S"${parcela.pago === 'S' ? ' selected' : ''}>${i18n.yes}</option>
+                    </select>
+                </td>
+            </tr>
+        `).join('');
+
+        tbody.querySelectorAll('.parcela-conta').forEach(input => input.addEventListener('change', function() {
+            atualizarParcelaGerada(parseInt(this.dataset.index, 10), 'id_conta', this.value);
+        }));
+        tbody.querySelectorAll('.parcela-forma').forEach(input => input.addEventListener('change', function() {
+            atualizarParcelaGerada(parseInt(this.dataset.index, 10), 'id_forma_pagamento', this.value);
+        }));
+        tbody.querySelectorAll('.parcela-vencimento').forEach(input => input.addEventListener('change', function() {
+            atualizarParcelaGerada(parseInt(this.dataset.index, 10), 'data_vencimento', this.value);
+        }));
+        tbody.querySelectorAll('.parcela-valor').forEach(input => input.addEventListener('input', function() {
+            atualizarParcelaGerada(parseInt(this.dataset.index, 10), 'valor', this.value);
+        }));
+        tbody.querySelectorAll('.parcela-pago').forEach(input => input.addEventListener('change', function() {
+            atualizarParcelaGerada(parseInt(this.dataset.index, 10), 'pago', this.value);
+        }));
+
+        validarParcelasGeradas();
+    }
+
+    function gerarParcelasFinanceiro() {
+        const idConta = document.getElementById('fin_conta')?.value || '';
+        const idFormaPagamento = document.getElementById('fin_forma_pagamento')?.value || '';
+        const quantidade = parseInt(document.getElementById('fin_parcelas')?.value || '0', 10);
+        const dataVencimento = document.getElementById('fin_data_vencimento')?.value || '';
+        const intervaloDias = parseInt(document.getElementById('fin_intervalo')?.value || '0', 10);
+        const pago = document.getElementById('fin_pago')?.value || 'N';
+        const total = obterTotalSelecionadoNumero();
+
+        if (!idConta || !idFormaPagamento || !quantidade || !dataVencimento || !intervaloDias || total <= 0) {
+            parcelasGeradas = [];
+            renderParcelasGeradas();
+            return;
+        }
+
+        const valorBase = Math.round((total / quantidade) * 100) / 100;
+        parcelasGeradas = [];
+        let acumulado = 0;
+
+        for (let i = 1; i <= quantidade; i++) {
+            let valor = valorBase;
+            if (i === quantidade) {
+                valor = Math.round((total - acumulado) * 100) / 100;
+            }
+            acumulado = Math.round((acumulado + valor) * 100) / 100;
+
+            parcelasGeradas.push({
+                numero: i,
+                id_conta: idConta,
+                id_forma_pagamento: idFormaPagamento,
+                data_vencimento: adicionarDias(dataVencimento, intervaloDias * (i - 1)),
+                valor: formatarValorInput(valor),
+                pago: pago
+            });
+        }
+
+        renderParcelasGeradas();
     }
 
     document.getElementById('btnLancamentoCompleto')?.addEventListener('click', function() {
@@ -1437,6 +1676,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         }
         setCamposFinanceiroHabilitados(true);
         document.getElementById('configFinanceiro').style.display = 'block';
+        gerarParcelasFinanceiro();
     });
 
     document.getElementById('btnLancamentoParcial')?.addEventListener('click', function() {
@@ -1448,30 +1688,55 @@ window.manutencoesAuditI18n = <?= json_encode([
         tipoLancamento = 'parcial';
         setCamposFinanceiroHabilitados(true);
         document.getElementById('configFinanceiro').style.display = 'block';
+        gerarParcelasFinanceiro();
     });
 
     document.getElementById('btnCancelarLancamento')?.addEventListener('click', function() {
         document.getElementById('configFinanceiro').style.display = 'none';
         setCamposFinanceiroHabilitados(false);
         tipoLancamento = null;
+        parcelasGeradas = [];
+        renderParcelasGeradas();
+    });
+
+    ['fin_conta', 'fin_forma_pagamento', 'fin_parcelas', 'fin_data_vencimento', 'fin_intervalo', 'fin_pago'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', gerarParcelasFinanceiro);
+        document.getElementById(id)?.addEventListener('input', gerarParcelasFinanceiro);
     });
 
     document.getElementById('btnConfirmarLancamento')?.addEventListener('click', async function() {
         const id = document.getElementById('registroId').value;
         if (!id) return;
+        if (!validarParcelasGeradas()) {
+            toast.error(parcelasGeradas.length === 0 ? i18n.completeFinancialConfig : i18n.installmentsTotalDiff);
+            return;
+        }
 
         // Capturar dados do formulario
+        const contaSelect = document.getElementById('fin_conta');
         const formaPgtoSelect = document.getElementById('fin_forma_pagamento');
         const formaPgtoTexto = formaPgtoSelect.options[formaPgtoSelect.selectedIndex]?.text || '';
+        const contaTexto = contaSelect.options[contaSelect.selectedIndex]?.text || '';
         const parcelas = document.getElementById('fin_parcelas').value;
         const dataVencimento = document.getElementById('fin_data_vencimento').value;
         const intervaloDias = document.getElementById('fin_intervalo').value;
+        const pago = document.getElementById('fin_pago').value;
 
         const dados = {
+            id_conta: contaSelect.value,
             id_forma_pagamento: formaPgtoSelect.value,
+            pago: pago,
             parcelas: parcelas,
             data_vencimento: dataVencimento,
-            intervalo_dias: intervaloDias
+            intervalo_dias: intervaloDias,
+            parcelas_geradas: parcelasGeradas.map(parcela => ({
+                numero: parcela.numero,
+                id_conta: parcela.id_conta,
+                id_forma_pagamento: parcela.id_forma_pagamento,
+                data_vencimento: parcela.data_vencimento,
+                valor: parcela.valor,
+                pago: parcela.pago
+            }))
         };
 
         // Montar dados de auditoria
@@ -1494,6 +1759,21 @@ window.manutencoesAuditI18n = <?= json_encode([
                 para: formaPgtoTexto
             });
         }
+
+        // Conta bancaria
+        if (contaTexto) {
+            auditChanges[i18n.auditSection].push({
+                label: i18n.auditBankAccount,
+                de: null,
+                para: contaTexto
+            });
+        }
+
+        auditChanges[i18n.auditSection].push({
+            label: i18n.auditPaid,
+            de: null,
+            para: pago === 'S' ? i18n.yes : i18n.no
+        });
 
         // Parcelas
         auditChanges[i18n.auditSection].push({
@@ -1524,6 +1804,19 @@ window.manutencoesAuditI18n = <?= json_encode([
             label: i18n.auditTotalValue,
             de: null,
             para: totalSelecionado
+        });
+
+        auditChanges[i18n.auditSection].push({
+            label: i18n.auditGeneratedInstallments,
+            de: null,
+            para: parcelasGeradas.map(parcela => ({
+                parcela: parcela.numero,
+                conta: contasBancariasFinanceiro.find(conta => String(conta.id) === String(parcela.id_conta))?.nome || parcela.id_conta,
+                forma_pagamento: formasPagamentoFinanceiro.find(forma => String(forma.id) === String(parcela.id_forma_pagamento))?.nome || parcela.id_forma_pagamento,
+                vencimento: DateHelper.format(parcela.data_vencimento),
+                valor: Currency.format(parseFloat(parcela.valor) || 0, true),
+                pago: parcela.pago === 'S' ? i18n.yes : i18n.no
+            }))
         });
 
         // Se parcial, listar itens selecionados
@@ -1565,6 +1858,8 @@ window.manutencoesAuditI18n = <?= json_encode([
                 toast.success(i18n.entryCreated);
                 document.getElementById('configFinanceiro').style.display = 'none';
                 setCamposFinanceiroHabilitados(false);
+                parcelasGeradas = [];
+                renderParcelasGeradas();
                 carregarDados(id); // Recarregar
             } else {
                 toast.error(result.message || i18n.genericError);
@@ -1650,6 +1945,7 @@ window.manutencoesAuditI18n = <?= json_encode([
     }
 
     carregarFormasPagamento();
+    carregarContasBancariasFinanceiro();
 
     // Data padrao para vencimento
     document.getElementById('fin_data_vencimento').value = DateHelper.todayInput();

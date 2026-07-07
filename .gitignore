@@ -11,6 +11,7 @@ temp.txt
 temp-bd.txt
 temp-ftp.txt
 temp-lftp.txt
+QA.md
 
 # Logs
 storage/logs/*

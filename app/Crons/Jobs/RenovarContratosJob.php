@@ -4,6 +4,7 @@ namespace App\Crons\Jobs;
 
 use App\Classes\QueryBuilder;
 use App\Core\Database;
+use App\Models\ComandoParcela;
 use App\Models\Contrato;
 use App\Services\AuditLogService;
 use App\Services\InvoiceBatchNotificationService;
@@ -126,42 +127,70 @@ class RenovarContratosJob extends BaseJob
         $idsParcelas = [];
         $envios = [];
 
-        // Atualizar somente a proxima data de renovacao.
+        $idFormaPagamento = (int) ($contrato['id_forma_pagamento'] ?? 0);
+        if ($idFormaPagamento <= 0) {
+            throw new \RuntimeException('Autorenovacao bloqueada: contrato sem forma de pagamento definida');
+        }
+
+        $idComandoParcela = (int) ($contrato['id_comando_parcela'] ?? 0);
+        if ($idComandoParcela <= 0) {
+            throw new \RuntimeException('Autorenovacao bloqueada: contrato sem comando de parcelas definido');
+        }
+
+        $comandoRegistro = (new ComandoParcela())->buscarPorId($idComandoParcela);
+        $comandoStr = trim((string) ($comandoRegistro['comando'] ?? ''));
+        if ($comandoStr === '' || ComandoParcela::parseComando($comandoStr)['tipo'] === 'desconhecido') {
+            throw new \RuntimeException('Autorenovacao bloqueada: comando de parcelas invalido');
+        }
+
+        if ((float) ($contrato['total_pagar'] ?? 0) <= 0) {
+            throw new \RuntimeException('Autorenovacao bloqueada: valor do contrato zerado');
+        }
+
+        $primeiroVencimento = $regularizacao['periodo_cobranca_ini'];
+
+        $config = [
+            'id_forma_pagamento' => $idFormaPagamento,
+            'id_comando_parcela' => $idComandoParcela,
+            'id_conta' => $contrato['id_conta'] ?? 0,
+            'primeiro_vencimento' => $primeiroVencimento,
+            'data_fim' => $regularizacao['periodo_cobranca_fim'],
+            'valor_desconto' => 0,
+        ];
+
+        $preview = $contratoModel->gerarPreviewParcelas($contrato['id'], $config);
+        if (empty($preview['parcelas'])) {
+            throw new \RuntimeException('Autorenovacao bloqueada: preview sem parcelas');
+        }
+
+        $resultadoParcelas = $contratoModel->salvarParcelasContratoComResultado(
+            $contrato['id'],
+            $preview['parcelas'],
+            $chave,
+            false
+        );
+
+        if ($resultadoParcelas['total_confirmado'] < $resultadoParcelas['total_esperado']) {
+            throw new \RuntimeException(
+                "Autorenovacao bloqueada: {$resultadoParcelas['total_confirmado']} de {$resultadoParcelas['total_esperado']} parcela(s) confirmada(s)"
+            );
+        }
+
+        $idsParcelas = $resultadoParcelas['ids_criados'];
+        $this->log(
+            "  -> {$resultadoParcelas['total_esperado']} parcela(s) esperada(s), "
+            . count($resultadoParcelas['ids_criados']) . " criada(s), "
+            . count($resultadoParcelas['ids_existentes']) . " ja existente(s)"
+        );
+
+        // Atualizar somente a proxima data de renovacao apos confirmar as parcelas.
         // data_ini/data_fim sao o periodo original do contrato.
         $contratoModel->atualizar($contrato['id'], [
             'data_renovacao' => $regularizacao['nova_data_renovacao'],
         ]);
 
-        // Gerar novas parcelas financeiras
-        $idFormaPagamento = (int) ($contrato['id_forma_pagamento'] ?? 0);
-        if ($idFormaPagamento > 0) {
-            $primeiroVencimento = $regularizacao['periodo_cobranca_ini'];
-
-            $config = [
-                'id_forma_pagamento' => $idFormaPagamento,
-                'id_comando_parcela' => $contrato['id_comando_parcela'] ?? 0,
-                'id_conta' => $contrato['id_conta'] ?? 0,
-                'primeiro_vencimento' => $primeiroVencimento,
-                'data_fim' => $regularizacao['periodo_cobranca_fim'],
-                'valor_desconto' => 0,
-            ];
-
-            $preview = $contratoModel->gerarPreviewParcelas($contrato['id'], $config);
-
-            if (!empty($preview['parcelas'])) {
-                $idsParcelas = $contratoModel->salvarParcelasContrato(
-                    $contrato['id'],
-                    $preview['parcelas'],
-                    $chave
-                );
-            }
-
-            $this->log("  -> {$preview['resumo']['num_parcelas']} parcela(s) gerada(s)");
-            if (!empty($idsParcelas)) {
-                $envios = $this->enfileirarCobrancasParcelas($idsParcelas, $contrato, $chave);
-            }
-        } else {
-            $this->log("  -> Sem forma de pagamento definida, parcelas nao geradas", 'WARNING');
+        if (!empty($idsParcelas)) {
+            $envios = $this->enfileirarCobrancasParcelas($idsParcelas, $contrato, $chave);
         }
 
         // Log de auditoria
