@@ -12,6 +12,7 @@
     ];
     $filialRetiradaId = (int) ($contrato['id_matriz_filial_retirada'] ?? 0);
     $hojeInput = \App\Helpers\DateHelper::todayForDatabase();
+    $resumoFinanceiro = $resumoFinanceiro ?? [];
 ?>
 <div class="pl-1 pr-2 py-0">
     <!-- Cabecalho -->
@@ -56,6 +57,9 @@
                 $planoLabel = $planoLabels[$v['plano'] ?? ''] ?? ($v['plano'] ?? '-');
                 $odometroSaida = (int) ($v['odometro_saida'] ?? 0);
                 $combustivelSaida = (int) ($v['combustivel_saida'] ?? 0);
+                $dataSaidaFormatada = !empty($v['data_saida'])
+                    ? \App\Helpers\DateHelper::formatOperationalDateTime((string) $v['data_saida'])
+                    : '-';
             ?>
             <div class="veiculo-card form-section" data-index="<?= $index ?>" data-json="<?= $vJson ?>" style="margin-bottom: 0;">
                 <!-- Header do card -->
@@ -83,7 +87,11 @@
                 <div class="card-body mt-4 <?= $singleMode ? '' : 'hidden' ?>" id="cardBody_<?= $index ?>">
 
                     <!-- Dados readonly compactos -->
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-1 text-sm">
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-6 gap-y-1 text-sm">
+                        <div>
+                            <span class="text-slate-500"><?= t('modules.contratos.return_page.departure_datetime') ?></span>
+                            <p class="font-medium text-slate-800"><?= htmlspecialchars($dataSaidaFormatada) ?></p>
+                        </div>
                         <div>
                             <span class="text-slate-500"><?= t('modules.contratos.return_page.odometer_initial') ?></span>
                             <p class="font-medium text-slate-800"><?= number_format($odometroSaida, 0, '', '.') ?> km</p>
@@ -323,12 +331,27 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'summaryTotal' => t('modules.contratos.return_page.summary_total'),
         'summaryCharge' => t('modules.contratos.return_page.summary_charge_client'),
         'summaryNoCharge' => t('modules.contratos.return_page.summary_no_charge'),
+        'summaryContractValues' => t('modules.contratos.return_page.summary_contract_values'),
+        'summaryReturnValues' => t('modules.contratos.return_page.summary_return_values'),
+        'summaryRentalValue' => t('modules.contratos.return_page.summary_rental_value'),
+        'summaryFinancialLaunched' => t('modules.contratos.return_page.summary_financial_launched'),
+        'summaryFinancialPaid' => t('modules.contratos.return_page.summary_financial_paid'),
+        'summaryFinancialPending' => t('modules.contratos.return_page.summary_financial_pending'),
+        'summaryAdditionalTotal' => t('modules.contratos.return_page.summary_additional_total'),
+        'summaryGrandTotal' => t('modules.contratos.return_page.summary_grand_total'),
+        'summaryGenerateNow' => t('modules.contratos.return_page.summary_generate_now'),
+        'summaryPaidValue' => t('modules.contratos.return_page.summary_paid_value'),
+        'summaryYes' => t('common.labels.yes'),
+        'summaryNo' => t('common.labels.no'),
+        'departureDatetime' => t('modules.contratos.return_page.departure_datetime'),
+        'returnDateBeforeDeparture' => t('modules.contratos.return_page.return_date_before_departure'),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 
     // Dados do servidor
     const veiculosAtivos = <?= json_encode($veiculosAtivos, JSON_UNESCAPED_UNICODE) ?>;
     const contratoId = document.getElementById('contratoId').value;
     const contratoContagem = <?= json_encode($contrato['contagem'] ?? 'dia', JSON_UNESCAPED_UNICODE) ?>;
+    const contratoResumoFinanceiro = <?= json_encode($resumoFinanceiro, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const singleMode = veiculosAtivos.length === 1;
     const filialRetiradaId = <?= (int) $filialRetiradaId ?>;
     const hojeInput = <?= json_encode($hojeInput, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -351,6 +374,50 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         };
     });
 
+    function toDateTimeInput(value, preservarSegundos = false) {
+        if (!preservarSegundos) {
+            return DateHelper.toOperationalDateTimeInput(value);
+        }
+
+        const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+        if (!match || match[4] === undefined) {
+            return '';
+        }
+
+        return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}${match[6] !== undefined ? ':' + match[6] : ''}`;
+    }
+
+    function normalizarDateTimeComparacao(value) {
+        const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+        if (!match || match[4] === undefined) {
+            return '';
+        }
+
+        return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6] || '00'}`;
+    }
+
+    function formatarDataHoraResumo(value) {
+        if (!value) return '-';
+        try {
+            return DateHelper.formatOperationalDateTime(value);
+        } catch (e) {
+            return DateHelper.format(value);
+        }
+    }
+
+    function compararDateTimeInput(a, b) {
+        const inputA = normalizarDateTimeComparacao(a);
+        const inputB = normalizarDateTimeComparacao(b);
+        if (!inputA || !inputB) return 0;
+        return inputA.localeCompare(inputB);
+    }
+
+    function mensagemDataAnteriorSaida(v, dataInformada) {
+        return i18n.returnDateBeforeDeparture
+            .replace(':saida', formatarDataHoraResumo(v.data_saida))
+            .replace(':devolucao', formatarDataHoraResumo(dataInformada));
+    }
+
     // ==================== INICIALIZACAO ====================
 
     function init() {
@@ -362,8 +429,18 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const card = document.querySelector(`.veiculo-card[data-index="${i}"]`);
 
             const dataDevolucao = card.querySelector('.data-devolucao');
-            if (dataDevolucao && !dataDevolucao.value) {
-                dataDevolucao.value = agora;
+            if (dataDevolucao) {
+                const dataSaidaInput = toDateTimeInput(v.data_saida || '', true);
+                if (dataSaidaInput) {
+                    dataDevolucao.min = dataSaidaInput;
+                    dataDevolucao.step = '1';
+                    dataDevolucao.title = `${i18n.departureDatetime}: ${formatarDataHoraResumo(v.data_saida)}`;
+                }
+                if (!dataDevolucao.value) {
+                    dataDevolucao.value = dataSaidaInput && compararDateTimeInput(agora, dataSaidaInput) < 0
+                        ? dataSaidaInput
+                        : agora;
+                }
             }
 
             // Tanque de saida (display texto)
@@ -550,13 +627,15 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         const saidaRaw = v.data_saida || '';
         if (!saidaRaw || !dataReferencia) return 1;
 
-        const saida = new Date(String(saidaRaw).replace(' ', 'T'));
-        const referencia = new Date(String(dataReferencia).replace(' ', 'T'));
-        if (Number.isNaN(saida.getTime()) || Number.isNaN(referencia.getTime()) || referencia < saida) {
+        const saidaInput = toDateTimeInput(saidaRaw, true);
+        const referenciaInput = toDateTimeInput(dataReferencia, true);
+        const diffMs = DateHelper.diffDateTime(saidaInput, referenciaInput);
+
+        if (!saidaInput || !referenciaInput || diffMs <= 0) {
             return 1;
         }
 
-        return Math.max(1, Math.floor((referencia.getTime() - saida.getTime()) / 86400000));
+        return Math.max(1, Math.floor(diffMs / 86400000));
     }
 
     function calcularFranquiaKmEfetiva(v, dataReferencia) {
@@ -961,40 +1040,77 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         });
 
         const totalTaxasExtras = calcularTotalTaxasExtras();
-        const totalGeral = totalGeralKm + totalGeralCombustivel + totalTaxasExtras;
-        totalGeralAtual = totalGeral;
+        const totalAdicionalDevolucao = totalGeralKm + totalGeralCombustivel + totalTaxasExtras;
+        const totalLocacao = parseFloat(contratoResumoFinanceiro.total_contrato || 0);
+        const totalLancado = parseFloat(contratoResumoFinanceiro.total_lancado || 0);
+        const totalPago = parseFloat(contratoResumoFinanceiro.total_pago || 0);
+        const totalPendente = parseFloat(contratoResumoFinanceiro.total_pendente || 0);
+        const totalGeralConferencia = totalLocacao + totalAdicionalDevolucao;
+        totalGeralAtual = totalAdicionalDevolucao;
         const resumoEl = document.getElementById('resumoGeral');
         const resumoContent = document.getElementById('resumoContent');
 
         if (selecionados > 0) {
             resumoEl.classList.remove('hidden');
-            const corTotal = totalGeral > 0 ? 'text-red-600' : 'text-green-600';
+            const corAdicional = totalAdicionalDevolucao > 0 ? 'text-red-600' : 'text-green-600';
             const htmlTaxas = totalTaxasExtras > 0 ? `
                 <div class="flex justify-between text-sm py-1">
                     <span class="text-slate-700">Taxas e servicos</span>
                     <span class="text-slate-600"><strong>${Currency.format(totalTaxasExtras, true)}</strong></span>
                 </div>
             ` : '';
-            const pagamentoPago = totalGeral > 0 && financeiroValue('financeiroPago') === 'S';
-            const htmlTotais = pagamentoPago ? `
-                <div class="border-t border-green-300 pt-2 mt-2 space-y-1">
-                    <div class="flex justify-between text-base font-bold text-green-700">
-                        <span>VALOR PAGO:</span>
-                        <span>${Currency.format(totalGeral, true)}</span>
+
+            const htmlContrato = `
+                <div class="bg-white border border-green-200 rounded-md p-3 mb-3">
+                    <h4 class="text-sm font-semibold text-green-800 mb-2">${i18n.summaryContractValues}</h4>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-700">${i18n.summaryRentalValue}</span>
+                            <strong class="text-slate-800">${Currency.format(totalLocacao, true)}</strong>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>${i18n.summaryFinancialLaunched}: ${totalLancado > 0 ? i18n.summaryYes : i18n.summaryNo}</span>
+                            <span>${Currency.format(totalLancado, true)}</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs text-slate-500">
+                            <div class="flex justify-between"><span>${i18n.summaryFinancialPaid}</span><span>${Currency.format(totalPago, true)}</span></div>
+                            <div class="flex justify-between"><span>${i18n.summaryFinancialPending}</span><span>${Currency.format(totalPendente, true)}</span></div>
+                        </div>
                     </div>
-                    <div class="flex justify-between text-base font-bold text-green-800">
-                        <span>TOTAL A PAGAR:</span>
-                        <span>${Currency.format(0, true)}</span>
-                    </div>
-                </div>
-            ` : `
-                <div class="flex justify-between border-t border-green-300 pt-2 mt-2 text-base font-bold ${corTotal}">
-                    <span>${i18n.summaryTotal}:</span>
-                    <span>${Currency.format(totalGeral, true)}</span>
                 </div>
             `;
 
-            resumoContent.innerHTML = htmlLinhas + htmlTaxas + htmlTotais;
+            const pagamentoPago = totalAdicionalDevolucao > 0 && financeiroValue('financeiroPago') === 'S';
+            const htmlValoresDevolucao = `
+                <div class="bg-white border border-green-200 rounded-md p-3 mb-3">
+                    <h4 class="text-sm font-semibold text-green-800 mb-2">${i18n.summaryReturnValues}</h4>
+                    ${htmlLinhas || `<p class="text-sm text-slate-500">${i18n.summaryNoCharge}</p>`}
+                    ${htmlTaxas}
+                </div>
+            `;
+
+            const htmlTotais = `
+                <div class="border-t border-green-300 pt-3 mt-3 space-y-1">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-700">${i18n.summaryRentalValue}</span>
+                        <strong>${Currency.format(totalLocacao, true)}</strong>
+                    </div>
+                    <div class="flex justify-between text-sm ${corAdicional}">
+                        <span>${i18n.summaryAdditionalTotal}</span>
+                        <strong>${Currency.format(totalAdicionalDevolucao, true)}</strong>
+                    </div>
+                    <div class="flex justify-between text-base font-bold text-green-800 border-t border-green-200 pt-2">
+                        <span>${i18n.summaryGrandTotal}</span>
+                        <span>${Currency.format(totalGeralConferencia, true)}</span>
+                    </div>
+                    <div class="flex justify-between text-sm font-semibold ${pagamentoPago ? 'text-green-700' : corAdicional}">
+                        <span>${pagamentoPago ? i18n.summaryPaidValue : i18n.summaryGenerateNow}</span>
+                        <span>${Currency.format(totalAdicionalDevolucao, true)}</span>
+                    </div>
+                </div>
+            `;
+
+            resumoContent.innerHTML = htmlContrato + htmlValoresDevolucao + htmlTotais;
         } else {
             totalGeralAtual = 0;
             resumoEl.classList.add('hidden');
@@ -1017,20 +1133,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
     // ==================== SUBMISSAO ====================
 
-    function formatarDatetimeLocal(date) {
-        const pad = value => String(value).padStart(2, '0');
-        return [
-            date.getFullYear(),
-            pad(date.getMonth() + 1),
-            pad(date.getDate())
-        ].join('-') + 'T' + [
-            pad(date.getHours()),
-            pad(date.getMinutes())
-        ].join(':');
-    }
-
     async function confirmarDevolucao() {
         const veiculosPayload = [];
+        let erroDataAnteriorSaida = '';
 
         Object.keys(veiculoState).forEach(i => {
             const state = veiculoState[i];
@@ -1039,6 +1144,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const card = document.querySelector(`.veiculo-card[data-index="${i}"]`);
             const odometro = card.querySelector('.odometro-atual').value;
             const dataDevolucao = card.querySelector('.data-devolucao')?.value || '';
+
+            if (!erroDataAnteriorSaida && dataDevolucao && state.data.data_saida && compararDateTimeInput(dataDevolucao, state.data.data_saida) < 0) {
+                erroDataAnteriorSaida = mensagemDataAnteriorSaida(state.data, dataDevolucao);
+            }
 
             veiculosPayload.push({
                 id_contrato_veiculo: state.data.id,
@@ -1061,6 +1170,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 window.parent.postMessage({ action: 'openAlert', message: i18n.informReturnDate }, '*');
                 return;
             }
+        }
+
+        if (erroDataAnteriorSaida) {
+            window.parent.postMessage({ action: 'openAlert', message: erroDataAnteriorSaida }, '*');
+            return;
         }
 
         // Validar: todos tem odometro

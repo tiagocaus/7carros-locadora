@@ -1101,9 +1101,12 @@ class ContratosController
             return;
         }
 
+        $resumoFinanceiro = $contratoModel->resumoFinanceiroContrato($id);
+
         $html = Template::render('pages.contratos.devolver', [
             'contrato' => $contrato,
             'veiculosAtivos' => $veiculosAtivos,
+            'resumoFinanceiro' => $resumoFinanceiro,
         ]);
         Response::html($html);
     }
@@ -1266,9 +1269,11 @@ class ContratosController
                     }
 
                     if (!empty($veiculoContrato['data_saida']) && strtotime($dataEntrada) < strtotime((string) $veiculoContrato['data_saida'])) {
+                        $saidaFormatada = DateHelper::formatOperationalDateTime((string) $veiculoContrato['data_saida']);
+                        $entradaFormatada = DateHelper::formatOperationalDateTime($dataEntrada);
                         Response::json([
                             'success' => false,
-                            'message' => 'Data/hora de devolucao nao pode ser anterior a data/hora de saida do veiculo'
+                            'message' => "A devolucao nao pode ser anterior a saida do veiculo. Saida: {$saidaFormatada}. Devolucao informada: {$entradaFormatada}."
                         ], 422);
                         return;
                     }

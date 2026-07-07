@@ -680,6 +680,12 @@ automaticamente uma receita:
 Nao registrar esse caso como contas a pagar (`tipo = D`), pois e uma cobranca ao
 cliente.
 
+Na tela de devolucao de contrato, o total da locacao pode aparecer no resumo para
+conferencia com o cliente, mas o financeiro novo da devolucao continua limitado
+aos adicionais apurados naquele ato: km, combustivel/carga e taxas extras. Nao
+some novamente `contratos.total_pagar` ao lancamento da devolucao, para evitar
+cobranca duplicada da locacao.
+
 ### Multas
 
 Multas cadastradas manualmente geram um lançamento financeiro vinculado por

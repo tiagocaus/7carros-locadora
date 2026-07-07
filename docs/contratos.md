@@ -395,6 +395,19 @@ conta bancaria, forma de pagamento, vencimento e status pago; quando `pago = S`,
 tambem exige data de pagamento. Esses dados sao apenas estado de tela ate o
 usuario confirmar a devolucao.
 
+O **Resumo da Devolucao** deve exibir o valor da locacao/contrato para
+conferencia junto dos adicionais apurados na devolucao. Esse valor da locacao e
+informativo nessa tela e nao deve ser incluido novamente no financeiro gerado
+pela devolucao, pois as parcelas da locacao ja sao tratadas no financeiro do
+contrato.
+
+Para campos de data/hora da devolucao, use a regra de datas operacionais:
+`data_saida` e `data_entrada` devem ser comparadas sem conversao de timezone.
+No front, use `DateHelper.toOperationalDateTimeInput()`/comparacao ISO local e
+preserve segundos quando definir `min` do input `datetime-local`. No backend,
+mantenha a validacao impedindo devolucao anterior a saida e retorne mensagem
+com as duas datas quando houver conflito.
+
 ### Substituir veiculo
 ```javascript
 await Api.post(`/contratos/${contratoId}/substituir`, {
