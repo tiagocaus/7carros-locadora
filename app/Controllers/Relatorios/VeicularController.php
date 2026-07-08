@@ -150,11 +150,13 @@ class VeicularController extends BaseRelatorioController
             if (!$this->validateFilialAccess($filters['filial'])) return;
 
             [$filialWhere, $filialParams] = $this->getFilialFilter();
+            $exibicao = $this->parseLucroVeiculoExibicao($request);
 
             $model = new VeicularReport();
             $result = $model->lucroVeiculo(
                 $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams,
-                $filters['filial'], $request->query('grupo', ''), $request->query('veiculo', '')
+                $filters['filial'], $request->query('grupo', ''), $request->query('veiculo', ''),
+                $exibicao
             );
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
@@ -172,10 +174,12 @@ class VeicularController extends BaseRelatorioController
         if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
 
         [$filialWhere, $filialParams] = $this->getFilialFilter();
+        $exibicao = $this->parseLucroVeiculoExibicao($request);
         $model = new VeicularReport();
         $result = $model->lucroVeiculo(
             $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams,
-            $filters['filial'], $request->query('grupo', ''), $request->query('veiculo', '')
+            $filters['filial'], $request->query('grupo', ''), $request->query('veiculo', ''),
+            $exibicao
         );
 
         $this->renderPdf(
@@ -183,8 +187,17 @@ class VeicularController extends BaseRelatorioController
             t('modules.relatorios.veicular.lucro_veiculo.title'),
             t('modules.relatorios.veicular.lucro_veiculo.description'),
             $result['totals'], $result['details'],
-            $filters['data_inicio'], $filters['data_fim'], 'L'
+            $filters['data_inicio'], $filters['data_fim'], 'L',
+            ['exibicao' => $exibicao]
         );
+    }
+
+    private function parseLucroVeiculoExibicao(Request $request): string
+    {
+        $exibicao = (string) $request->query('exibicao', 'simples');
+        return in_array($exibicao, ['simples', 'detalhado', 'super_detalhado'], true)
+            ? $exibicao
+            : 'simples';
     }
 
     // =====================================================
@@ -712,7 +725,8 @@ class VeicularController extends BaseRelatorioController
         array $details,
         string $dataInicio,
         string $dataFim,
-        string $orientation = 'P'
+        string $orientation = 'P',
+        array $viewData = []
     ): void {
         $user = Auth::user();
         $filialModel = new MatrizFilial();
@@ -727,6 +741,7 @@ class VeicularController extends BaseRelatorioController
         $usuario = $user['nome'] ?? '';
 
         ob_start();
+        extract($viewData, EXTR_SKIP);
         $viewPath = __DIR__ . '/../../Views/pages/relatorios/imprimir/veicular/' . $templateFile;
         include $viewPath;
         $html = ob_get_clean();

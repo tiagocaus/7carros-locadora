@@ -72,7 +72,7 @@ Se uma chamada `/api/*` retornar `419`, descarte o CSRF atual, chame `GET /api/s
 | `POST /matrizfiliais.php`, `xAcesso: adicionar` | `POST /matrizes-filiais/salvar` |
 | `POST /matrizfiliais.php`, `xAcesso: editar` | `POST /matrizes-filiais/{id}/atualizar` |
 | `POST /matrizfiliais.php`, `xAcesso: apagar` | `POST /matrizes-filiais/{id}/excluir` ou `/desativar` |
-| `POST ultimasAtualizacoes.php`, `xAcesso: listar` | `GET /api/public/changelog` |
+| `POST ultimasAtualizacoes.php`, `xAcesso: listar` | `GET /api/public/changelog?limite=50&offset=0` |
 | `GET viacep JSONP` | `GET https://viacep.com.br/ws/{cep}/json/` |
 | `https://locadora.7carros.com/uploads/{chave}/...` | URLs retornadas pelo backend, normalmente `/files/{token}` |
 
@@ -1824,9 +1824,8 @@ Response:
         {
           "tipo": "N",
           "tipo_label": "Novo",
-          "mensagens": [
-            "Mensagem da atualizacao"
-          ]
+          "mensagem": "Mensagem da atualizacao",
+          "data": "2026-06-22"
         }
       ]
     }

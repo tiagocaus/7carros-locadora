@@ -12,6 +12,7 @@ temp-bd.txt
 temp-ftp.txt
 temp-lftp.txt
 QA.md
+endpoints_checklists_atualizado.md
 
 # Logs
 storage/logs/*

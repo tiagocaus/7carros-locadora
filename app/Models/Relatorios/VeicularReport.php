@@ -268,12 +268,33 @@ class VeicularReport extends BaseReportModel
         array $filialParams,
         string $filialId = '',
         string $grupoId = '',
-        string $veiculoId = ''
+        string $veiculoId = '',
+        string $exibicao = 'simples'
     ): array {
+        $exibicao = $this->normalizarExibicaoLucroVeiculo($exibicao);
+        $isDetalhado = in_array($exibicao, ['detalhado', 'super_detalhado'], true);
+        $isSuperDetalhado = $exibicao === 'super_detalhado';
+
         $receitaPorVeiculo = $this->somaReceitaPorVeiculo($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId);
         $manutPorVeiculo = $this->somaManutencoesPorVeiculo($dataInicio, $dataFim, $filialId, $veiculoId);
         $multasPorVeiculo = $this->somaMultasPorVeiculo($dataInicio, $dataFim, $filialId, $veiculoId);
         $encargosPorVeiculo = $this->somaEncargosPorVeiculo($dataInicio, $dataFim, $veiculoId);
+        $diasLocadosPorVeiculo = $isDetalhado
+            ? $this->diasLocadosPorVeiculo($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId)
+            : [];
+        $locacoesPorVeiculo = $isDetalhado
+            ? $this->contaLocacoesContratosPorVeiculo($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId)
+            : [];
+        $manutencoesQtdPorVeiculo = $isDetalhado
+            ? $this->contaManutencoesPorVeiculo($dataInicio, $dataFim, $filialId, $veiculoId)
+            : [];
+        $receitasDetalhePorVeiculo = $isSuperDetalhado
+            ? $this->financeiroDetalhesPorVeiculo('R', $dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId)
+            : [];
+        $despesasDetalhePorVeiculo = $isSuperDetalhado
+            ? $this->financeiroDetalhesPorVeiculo('D', $dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId)
+            : [];
+        $diasPeriodo = $this->daysBetween($dataInicio, $dataFim) ?: 1;
 
         // Lista de veículos (todos que tiveram qualquer movimento OU foram filtrados)
         $idsVeiculos = array_unique(array_merge(
@@ -300,7 +321,7 @@ class VeicularReport extends BaseReportModel
             $lucro = $receita - $despesa;
             $margem = $this->pct($lucro, $receita);
 
-            $details[] = [
+            $linha = [
                 'id' => (int) $vid,
                 'placa' => $vinfo['placa'] ?? '-',
                 'veiculo' => trim(($vinfo['marca'] ?? '') . ' ' . ($vinfo['modelo'] ?? '')) ?: '-',
@@ -313,6 +334,19 @@ class VeicularReport extends BaseReportModel
                 'lucro' => round($lucro, 2),
                 'margem' => $margem,
             ];
+
+            if ($isDetalhado) {
+                $linha['ocupacao'] = $this->pct((float) ($diasLocadosPorVeiculo[$vid] ?? 0), (float) $diasPeriodo);
+                $linha['locacoes'] = (int) ($locacoesPorVeiculo[$vid] ?? 0);
+                $linha['manutencoes_qtd'] = (int) ($manutencoesQtdPorVeiculo[$vid] ?? 0);
+            }
+
+            if ($isSuperDetalhado) {
+                $linha['receitas_detalhe'] = $receitasDetalhePorVeiculo[$vid] ?? [];
+                $linha['despesas_detalhe'] = $despesasDetalhePorVeiculo[$vid] ?? [];
+            }
+
+            $details[] = $linha;
 
             $totalReceita += $receita;
             $totalManut += $manut;
@@ -336,6 +370,13 @@ class VeicularReport extends BaseReportModel
             'details' => $details,
             'chart' => $this->chartLucroTopN($details, 10),
         ];
+    }
+
+    private function normalizarExibicaoLucroVeiculo(string $exibicao): string
+    {
+        return in_array($exibicao, ['simples', 'detalhado', 'super_detalhado'], true)
+            ? $exibicao
+            : 'simples';
     }
 
     /**
@@ -376,6 +417,115 @@ class VeicularReport extends BaseReportModel
         $rows = $query->groupBy('m.id_veiculo')->get();
         $out = [];
         foreach ($rows as $r) $out[(int) $r['id_veiculo']] = (float) $r['valor'];
+        return $out;
+    }
+
+    private function contaManutencoesPorVeiculo(string $dataInicio, string $dataFim, string $filialId, string $veiculoId): array
+    {
+        $query = $this->qb
+            ->table('manutencoes', 'm')
+            ->select(['m.id_veiculo'])
+            ->selectRaw('COUNT(*) AS qtd')
+            ->whereRaw('COALESCE(m.data_enviado, m.created_at) >= ?', [$dataInicio . ' 00:00:00'])
+            ->whereRaw('COALESCE(m.data_enviado, m.created_at) <= ?', [$dataFim . ' 23:59:59'])
+            ->whereNotNull('m.id_veiculo');
+
+        if (!empty($filialId)) $query->where('m.id_matriz_filial', '=', (int) $filialId);
+        if (!empty($veiculoId)) $query->where('m.id_veiculo', '=', (int) $veiculoId);
+
+        $rows = $query->groupBy('m.id_veiculo')->get();
+        $out = [];
+        foreach ($rows as $r) $out[(int) $r['id_veiculo']] = (int) $r['qtd'];
+        return $out;
+    }
+
+    private function contaLocacoesContratosPorVeiculo(
+        string $dataInicio,
+        string $dataFim,
+        string $filialWhere,
+        array $filialParams,
+        string $filialId,
+        string $grupoId,
+        string $veiculoId
+    ): array {
+        $resultado = [];
+
+        $queryL = $this->qb
+            ->table('locacoes_veiculos', 'lv')
+            ->select(['lv.id_veiculo'])
+            ->selectRaw('COUNT(DISTINCT l.id) AS qtd')
+            ->innerJoin('locacoes', 'l', 'lv.id_locacao', '=', 'l.id')
+            ->where('l.status', '!=', 'C')
+            ->whereRaw('lv.data_saida <= ?', [$dataFim . ' 23:59:59'])
+            ->whereRaw('COALESCE(lv.data_entrada, ?) >= ?', [$dataFim . ' 23:59:59', $dataInicio . ' 00:00:00'])
+            ->whereNotNull('lv.id_veiculo');
+
+        if (!empty($filialWhere)) {
+            $queryL->whereRaw(str_replace('id_matriz_filial', 'l.id_matriz_filial_retirada', $filialWhere), $filialParams);
+        }
+        if (!empty($filialId)) $queryL->where('l.id_matriz_filial_retirada', '=', (int) $filialId);
+        if (!empty($grupoId)) $queryL->where('lv.id_grupo', '=', (int) $grupoId);
+        if (!empty($veiculoId)) $queryL->where('lv.id_veiculo', '=', (int) $veiculoId);
+
+        foreach ($queryL->groupBy('lv.id_veiculo')->get() as $r) {
+            $vid = (int) $r['id_veiculo'];
+            $resultado[$vid] = ($resultado[$vid] ?? 0) + (int) $r['qtd'];
+        }
+
+        $queryC = $this->qb
+            ->table('contratos_veiculos', 'cv')
+            ->select(['cv.id_veiculo'])
+            ->selectRaw('COUNT(DISTINCT c.id) AS qtd')
+            ->innerJoin('contratos', 'c', 'cv.id_contrato', '=', 'c.id')
+            ->where('c.status', '!=', 'C')
+            ->whereRaw('cv.data_saida <= ?', [$dataFim . ' 23:59:59'])
+            ->whereRaw('COALESCE(cv.data_entrada, ?) >= ?', [$dataFim . ' 23:59:59', $dataInicio . ' 00:00:00'])
+            ->whereNotNull('cv.id_veiculo');
+
+        if (!empty($filialWhere)) {
+            $queryC->whereRaw(str_replace('id_matriz_filial', 'c.id_matriz_filial_retirada', $filialWhere), $filialParams);
+        }
+        if (!empty($filialId)) $queryC->where('c.id_matriz_filial_retirada', '=', (int) $filialId);
+        if (!empty($grupoId)) $queryC->where('cv.id_grupo', '=', (int) $grupoId);
+        if (!empty($veiculoId)) $queryC->where('cv.id_veiculo', '=', (int) $veiculoId);
+
+        foreach ($queryC->groupBy('cv.id_veiculo')->get() as $r) {
+            $vid = (int) $r['id_veiculo'];
+            $resultado[$vid] = ($resultado[$vid] ?? 0) + (int) $r['qtd'];
+        }
+
+        return $resultado;
+    }
+
+    private function financeiroDetalhesPorVeiculo(
+        string $tipo,
+        string $dataInicio,
+        string $dataFim,
+        string $filialWhere,
+        array $filialParams,
+        string $filialId,
+        string $grupoId,
+        string $veiculoId
+    ): array {
+        $rows = $this->financeiroVeiculoRows($tipo, $dataInicio, $dataFim, [
+            'date_field' => 'data_venci',
+            'filial_where' => $filialWhere,
+            'filial_params' => $filialParams,
+            'filial_id' => $filialId,
+            'grupo_id' => $grupoId,
+            'veiculo_id' => $veiculoId,
+        ]);
+
+        $out = [];
+        foreach ($rows as $row) {
+            $idVeiculo = (int) $row['id_veiculo'];
+            $out[$idVeiculo][] = [
+                'data' => $row['data_venci'] ?? '',
+                'descricao' => $row['descricao'] ?? '-',
+                'valor' => round((float) ($row['valor'] ?? 0), 2),
+            ];
+        }
+
         return $out;
     }
 
