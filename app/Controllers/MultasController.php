@@ -1140,6 +1140,19 @@ class MultasController
                 'orgao_autuador' => $multa['orgao_autuador'] ?? '',
                 'numero_infracao' => $multa['n_infracao'] ?? '',
             ],
+            'veiculo' => [
+                'placa' => $multa['veiculo_placa'] ?? '',
+                'modelo' => $multa['veiculo_modelo'] ?? '',
+                'marca' => $multa['veiculo_marca'] ?? '',
+                'ano' => $multa['veiculo_ano'] ?? '',
+                'cor' => $multa['veiculo_cor'] ?? '',
+                'renavam' => $multa['veiculo_renavam'] ?? '',
+                'chassi' => $multa['veiculo_chassi'] ?? '',
+                'categoria' => $multa['veiculo_categoria'] ?? '',
+                'combustivel_tipo' => $multa['veiculo_tipo_combustivel'] ?? '',
+                'valor_compra' => $multa['veiculo_valor_compra'] ?? 0,
+                'valor_venda' => $multa['veiculo_valor_venda'] ?? 0,
+            ],
         ];
     }
 }

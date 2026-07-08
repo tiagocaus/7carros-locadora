@@ -136,12 +136,21 @@ class Multa extends Model
                 'v.placa AS veiculo_placa',
                 'v.modelo AS veiculo_modelo',
                 'v.marca AS veiculo_marca',
+                'v.ano AS veiculo_ano',
+                'v.cor AS veiculo_cor',
+                'v.renavam AS veiculo_renavam',
+                'v.chassi AS veiculo_chassi',
+                'v.tipo_combustivel AS veiculo_tipo_combustivel',
+                'v.valor_compra AS veiculo_valor_compra',
+                'v.valor_venda AS veiculo_valor_venda',
+                'g.nome AS veiculo_categoria',
                 'mf.nome_fantasia AS filial_nome',
                 'c.codigo AS contrato_codigo',
                 'l.codigo AS locacao_codigo'
             ])
             ->leftJoin('clientes', 'cl', 'm.id_cliente', '=', 'cl.id')
             ->leftJoin('veiculos', 'v', 'm.id_veiculo', '=', 'v.id')
+            ->leftJoinRaw('grupos', 'g', 'v.id_grupo = g.id AND g.chave = v.chave')
             ->leftJoin('matrizes_filiais', 'mf', 'm.id_matriz_filial', '=', 'mf.id')
             ->leftJoin('contratos', 'c', 'm.id_contrato', '=', 'c.id')
             ->leftJoin('locacoes', 'l', 'm.id_locacao', '=', 'l.id')
