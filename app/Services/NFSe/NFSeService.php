@@ -527,9 +527,15 @@ class NFSeService
         $idNFSe = (int) $nfse['id'];
 
         try {
+            $prestadorCnpj = preg_replace('/\D/', '', (string) ($nfse['prestador_cnpj'] ?? '')) ?? '';
+            if (strlen($prestadorCnpj) !== 14) {
+                return $this->erro('CNPJ do prestador inválido para cancelamento da NFS-e.', 'NFSE_CNPJ_PRESTADOR');
+            }
+
             $xmlGenerator = new NFSeXMLNacional();
             $xml = $xmlGenerator->gerarXMLCancelamento($nfse['chave_acesso'], $motivo, [
                 'ambiente' => $config['ambiente'] ?? 2,
+                'prestador_cnpj' => $prestadorCnpj,
             ]);
 
             $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], 'infPedReg', 'sha256');

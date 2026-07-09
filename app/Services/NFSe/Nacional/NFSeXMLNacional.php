@@ -136,15 +136,20 @@ class NFSeXMLNacional implements NFSeXMLInterface
     public function gerarXMLCancelamento(string $chaveAcesso, string $motivo, array $dados): string
     {
         $id = 'PRE' . $this->somenteDigitos($chaveAcesso) . '101101';
+        $cnpjAutor = $this->somenteDigitos((string) ($dados['prestador_cnpj'] ?? ''));
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<pedRegEvento xmlns="' . self::NAMESPACE . '" versao="1.01">';
         $xml .= '<infPedReg Id="' . $this->escapeXml($id) . '">';
         $xml .= '<tpAmb>' . (int) ($dados['ambiente'] ?? 2) . '</tpAmb>';
+        $xml .= '<verAplic>7Carros v8.3</verAplic>';
+        $xml .= '<dhEvento>' . $this->formatarDataISO(\App\Helpers\DateHelper::isoNow()) . '</dhEvento>';
+        $xml .= '<CNPJAutor>' . $cnpjAutor . '</CNPJAutor>';
         $xml .= '<chNFSe>' . $this->escapeXml($chaveAcesso) . '</chNFSe>';
-        $xml .= '<dhEvento>' . \App\Helpers\DateHelper::isoNow() . '</dhEvento>';
-        $xml .= '<tpEvento>101101</tpEvento>';
-        $xml .= '<xDescEvento>Cancelamento de NFS-e</xDescEvento>';
-        $xml .= '<detEvento><evCancNFSe><xJust>' . $this->textoMaiusculo($motivo) . '</xJust></evCancNFSe></detEvento>';
+        $xml .= '<e101101>';
+        $xml .= '<xDesc>Cancelamento de NFS-e</xDesc>';
+        $xml .= '<cMotivo>9</cMotivo>';
+        $xml .= '<xMotivo>' . $this->textoMaiusculo($motivo) . '</xMotivo>';
+        $xml .= '</e101101>';
         $xml .= '</infPedReg>';
         $xml .= '</pedRegEvento>';
 
