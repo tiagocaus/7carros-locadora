@@ -619,6 +619,8 @@ $(function () {
             }
         }
 
+        atualizarPlanosDisponiveis();
+
         // Verifica disponibilidade dos grupos para o periodo/filial informados
         carregarDisponibilidadeGrupos();
 
@@ -645,6 +647,7 @@ $(function () {
         }).done(function (resp) {
             if (!resp || !resp.success) return;
             window.__disponibilidadeGrupos = resp.grupos || {};
+            atualizarPlanosDisponiveis();
             aplicarDisponibilidadeNosBotoes();
         });
     }
@@ -664,7 +667,8 @@ $(function () {
             } else {
                 // Se plano ainda nao foi marcado nesse grupo, mostrar "Selecione o plano"
                 var planoMarcado = $btn.closest('.row').find('input[name="plano"]:checked').length > 0;
-                if (!planoMarcado) {
+                var planosDisponiveis = parseInt($btn.closest('.reserva-plano-col').data('planos-disponiveis')) || 0;
+                if (!planoMarcado || planosDisponiveis === 0) {
                     $btn.prop('disabled', true).text(txtSelecionePlano);
                 }
             }
@@ -708,6 +712,74 @@ $(function () {
         if (!f || !f.precos_grupos) return null;
         return f.precos_grupos[idGrupo] || null;
     }
+    function diasReservaAtual() {
+        return parseInt($('#dias').val()) || 1;
+    }
+    function tipoPlanoPreco(plano) {
+        var mapa = {
+            KML: 'km_livre',
+            KMC: 'km_controlado',
+            DIA: 'diaria'
+        };
+        return mapa[plano] || 'diaria';
+    }
+    function campoBasePlano(plano) {
+        var mapa = {
+            KML: 'valor_plano_km_livre',
+            KMC: 'valor_plano_km_controlado',
+            DIA: 'valor_plano_km_pago'
+        };
+        return mapa[plano] || 'valor_plano_km_pago';
+    }
+    function precoEfetivoPlano(idGrupo, plano) {
+        var dias = diasReservaAtual();
+        var filial = filialAtiva();
+        var tipo = tipoPlanoPreco(plano);
+        var gruposFaixas = (filial && filial.precos_dias_grupos) ? filial.precos_dias_grupos : {};
+        var faixasGrupo = gruposFaixas[idGrupo] || gruposFaixas[String(idGrupo)] || {};
+        var faixas = faixasGrupo[tipo] || [];
+
+        for (var i = 0; i < faixas.length; i++) {
+            var faixa = faixas[i] || {};
+            var inicio = parseInt(faixa.dia_inicio) || 0;
+            var fim = faixa.dia_fim === null || typeof faixa.dia_fim === 'undefined' ? null : parseInt(faixa.dia_fim);
+            if (inicio > 0 && dias >= inicio && (fim === null || dias <= fim)) {
+                return parseFloat(faixa.valor) || 0;
+            }
+        }
+
+        var p = precosGrupoAtual(idGrupo) || {};
+        return parseFloat(p[campoBasePlano(plano)] || 0);
+    }
+    function atualizarPlanosDisponiveis() {
+        $('.reserva-plano-col').each(function () {
+            var $col = $(this);
+            var $row = $col.closest('.row');
+            var idGrupo = parseInt($row.find('.btnSelecionarGrupo').data('id-grupo')) || parseInt($row.find('.btnSelecionarGrupo').data('id'));
+            var disponiveis = 0;
+
+            $col.find('input[name="plano"]').each(function () {
+                var $input = $(this);
+                var parts = String($input.val() || '').split('|');
+                var plano = parts[0];
+                var preco = precoEfetivoPlano(idGrupo, plano);
+                var mostrar = preco > 0;
+                var $label = $col.find('label[for="' + this.id + '"]');
+
+                $input.prop('disabled', !mostrar).toggle(mostrar);
+                $label.toggle(mostrar);
+
+                if (!mostrar && $input.is(':checked')) {
+                    $input.prop('checked', false);
+                }
+                if (mostrar) {
+                    disponiveis++;
+                }
+            });
+
+            $col.data('planos-disponiveis', disponiveis);
+        });
+    }
     function diariaSufixo() {
         return (window.I18N_WEBSITE && window.I18N_WEBSITE.diaria) || 'diaria';
     }
@@ -746,6 +818,7 @@ $(function () {
         $('input[name="plano"]').prop('checked', false);
         var i18nReset = window.I18N_WEBSITE || {};
         $('.btnSelecionarGrupo').prop('disabled', true).removeData('esgotado').text(i18nReset.btn_selecione_plano || 'Selecione o plano');
+        atualizarPlanosDisponiveis();
         // Reaplica a ultima disponibilidade conhecida (marca 'Esgotado' nos grupos sem veiculo livre)
         if (typeof window.__aplicarDisponibilidadeNosBotoes === 'function') {
             window.__aplicarDisponibilidadeNosBotoes();
@@ -817,14 +890,12 @@ $(function () {
         };
         $('.resumo-plano').text(planoNome[plano] || plano);
 
-        // Valores reais vindos do BD via window.FILIAIS_DATA[idRet].precos_grupos[idGrupo]
-        var p = precosGrupoAtual(idGrupo) || {};
-        var mapa = {
-            KML: p.valor_plano_km_livre || 0,
-            KMC: p.valor_plano_km_controlado || 0,
-            DIA: p.valor_plano_km_pago || 0,
-        };
-        var precoNum = parseFloat(mapa[plano] || 0);
+        var precoNum = precoEfetivoPlano(idGrupo, plano);
+        if (precoNum <= 0) {
+            $(this).prop('checked', false);
+            resetResumoValores();
+            return;
+        }
 
         $('.plano-valor').text(formatarMoeda(precoNum));
         $('.reserva-preco span').text(formatarMoeda(precoNum) + ' /' + diariaSufixo());
@@ -1242,6 +1313,7 @@ $(function () {
     if ($('.servico-preco').length && window.__locValFilialId && window.__locValFilialId($('#localRetirada'))) {
         renderPrecosServicos();
     }
+    atualizarPlanosDisponiveis();
     renderFormasPagamentoSite();
 });
 

@@ -2222,12 +2222,7 @@ class LocacoesController
                 ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
                 : '';
 
-            // Output buffering para gerar HTML (NUNCA usar Template::render para PDF)
-            extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'totaisResumoFatura', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
-            ob_start();
-            $viewPath = __DIR__ . '/../Views/pages/locacoes/imprimir/' . $tipo . '.php';
-            include $viewPath;
-            $html = ob_get_clean();
+            $viewData = compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'totaisResumoFatura', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath');
 
             $pdfOptions = [
                 'margin_left' => 10,
@@ -2236,39 +2231,11 @@ class LocacoesController
                 'margin_bottom' => 5,
             ];
 
-            // Documento personalizado: header/footer aplicados via SetHTMLHeader/SetHTMLFooter
-            // (Method 4 do mPDF). Os parciais usam estilos inline — mPDF nao processa
-            // <style> blocks no contexto de header/footer. Ref:
-            // https://mpdf.github.io/headers-footers/method-4.html
-            if ($tipo === 'documento') {
-                $partialsDir = __DIR__ . '/../Views/pages/locacoes/imprimir/_partials';
-
-                ob_start();
-                $_docTitulo = t('modules.locacoes.pdf.document_title');
-                include $partialsDir . '/_header.php';
-                $headerHtml = ob_get_clean();
-
-                ob_start();
-                include $partialsDir . '/_footer_assinatura.php';
-                $footerHtml = ob_get_clean();
-
-                // Margens superior/inferior do construtor = espaco para header/footer HTML (Method 2).
-                // Somente @page no template nao reserva o corpo corretamente apos WriteHTML (orig_tMargin).
-                $mpdf = PdfHelper::create(array_merge($pdfOptions, [
-                    'margin_top' => PdfHelper::DOCUMENTO_HTML_HEADER_MARGIN_TOP_MM,
-                    'margin_bottom' => PdfHelper::DOCUMENTO_HTML_FOOTER_MARGIN_BOTTOM_MM,
-                ]));
-                // SetHTMLHeader: 3o parametro = true forca aplicacao na pagina atual (1).
-                // Sem isso, mPDF so aplica o header a partir da pagina 2.
-                $mpdf->SetHTMLHeader($headerHtml, 'O', true);
-                $mpdf->SetHTMLFooter($footerHtml, 'O');
-                PdfHelper::writeHtml($mpdf, $html);
+            if ($this->tipoIncluiDocumento($tipo)) {
+                $mpdf = $this->gerarMpdfLocacaoComposto($tipo, $viewData, $pdfOptions);
                 $mpdf->Output('locacao-' . $locacao['codigo'] . '.pdf', 'I');
             } else {
-                if ($tipo === 'documento_checklist') {
-                    $pdfOptions['margin_top'] = PdfHelper::DOCUMENTO_HTML_HEADER_MARGIN_TOP_MM;
-                    $pdfOptions['margin_bottom'] = PdfHelper::DOCUMENTO_HTML_FOOTER_MARGIN_BOTTOM_MM;
-                }
+                $html = $this->renderLocacaoImpressaoView($tipo, $viewData);
                 PdfHelper::outputInline($html, 'locacao-' . $locacao['codigo'] . '.pdf', $pdfOptions);
             }
 
@@ -3001,12 +2968,7 @@ class LocacoesController
             ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
             : '';
 
-        extract(compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'totaisResumoFatura', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath'));
-
-        ob_start();
-        $viewPath = __DIR__ . '/../Views/pages/locacoes/imprimir/' . $tipo . '.php';
-        include $viewPath;
-        $html = ob_get_clean();
+        $viewData = compact('locacao', 'empresa', 'veiculo', 'taxas', 'multas', 'totalMultas', 'historicoVeiculos', 'referenciasFatura', 'parcelasFinanceiras', 'resumoFinanceiro', 'totaisResumoFatura', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath');
 
         $pdfOptions = [
             'margin_left' => 10,
@@ -3015,16 +2977,104 @@ class LocacoesController
             'margin_bottom' => 5,
         ];
 
-        if ($tipo === 'documento_checklist') {
-            $pdfOptions['margin_top'] = PdfHelper::DOCUMENTO_HTML_HEADER_MARGIN_TOP_MM;
-            $pdfOptions['margin_bottom'] = PdfHelper::DOCUMENTO_HTML_FOOTER_MARGIN_BOTTOM_MM;
+        if ($this->tipoIncluiDocumento($tipo)) {
+            $mpdf = $this->gerarMpdfLocacaoComposto($tipo, $viewData, $pdfOptions);
+            $result = $mpdf->Output('', 'S');
+        } else {
+            $html = $this->renderLocacaoImpressaoView($tipo, $viewData);
+            $result = PdfHelper::generateAsString($html, $pdfOptions);
         }
-
-        $result = PdfHelper::generateAsString($html, $pdfOptions);
 
         $this->limparArquivosTemporarios();
 
         return $result;
+    }
+
+    /**
+     * Compoe PDFs que incluem documento em paginas separadas com margens reais
+     * no mPDF, evitando sobreposicao do corpo com header/footer HTML.
+     */
+    private function gerarMpdfLocacaoComposto(string $tipo, array $viewData, array $pdfOptions): \Mpdf\Mpdf
+    {
+        $iniciaComDocumento = in_array($tipo, ['documento', 'documento_checklist'], true);
+        $mpdf = PdfHelper::create(array_merge(
+            $pdfOptions,
+            $iniciaComDocumento ? $this->documentoPdfMargins() : []
+        ));
+        $temPagina = false;
+
+        if ($tipo === 'fatura_documento') {
+            PdfHelper::writeHtml($mpdf, $this->renderLocacaoImpressaoView('fatura', $viewData));
+            $temPagina = true;
+        }
+
+        if ($tipo === 'fatura_checklist_documento') {
+            PdfHelper::writeHtml($mpdf, $this->renderLocacaoImpressaoView('fatura_checklist', $viewData));
+            $temPagina = true;
+        }
+
+        if ($this->tipoIncluiDocumento($tipo)) {
+            $this->aplicarDocumentoHeaderFooterLocacao($mpdf, $viewData, !$temPagina);
+            if ($temPagina) {
+                $this->addPdfPage($mpdf, PdfHelper::DOCUMENTO_HTML_HEADER_MARGIN_TOP_MM, PdfHelper::DOCUMENTO_HTML_FOOTER_MARGIN_BOTTOM_MM);
+            }
+            PdfHelper::writeHtml($mpdf, $this->renderLocacaoImpressaoView('documento', $viewData));
+            $temPagina = true;
+        }
+
+        if ($tipo === 'documento_checklist') {
+            $this->limparDocumentoHeaderFooter($mpdf);
+            $this->addPdfPage($mpdf, 5, 45);
+            PdfHelper::writeHtml($mpdf, $this->renderLocacaoImpressaoView('checklist', $viewData));
+        }
+
+        return $mpdf;
+    }
+
+    private function renderLocacaoImpressaoView(string $tipo, array $viewData): string
+    {
+        extract($viewData);
+        ob_start();
+        $viewPath = __DIR__ . '/../Views/pages/locacoes/imprimir/' . $tipo . '.php';
+        include $viewPath;
+        return ob_get_clean();
+    }
+
+    private function aplicarDocumentoHeaderFooterLocacao(\Mpdf\Mpdf $mpdf, array $viewData, bool $aplicarPaginaAtual): void
+    {
+        extract($viewData);
+        $partialsDir = __DIR__ . '/../Views/pages/locacoes/imprimir/_partials';
+
+        ob_start();
+        $_docTitulo = t('modules.locacoes.pdf.document_title');
+        include $partialsDir . '/_header.php';
+        $headerHtml = ob_get_clean();
+
+        ob_start();
+        include $partialsDir . '/_footer_assinatura.php';
+        $footerHtml = ob_get_clean();
+
+        $mpdf->SetHTMLHeader($headerHtml, 'O', $aplicarPaginaAtual);
+        $mpdf->SetHTMLFooter($footerHtml, 'O');
+    }
+
+    private function limparDocumentoHeaderFooter(\Mpdf\Mpdf $mpdf): void
+    {
+        $mpdf->SetHTMLHeader('', 'O');
+        $mpdf->SetHTMLFooter('', 'O');
+    }
+
+    private function addPdfPage(\Mpdf\Mpdf $mpdf, int $marginTop, int $marginBottom): void
+    {
+        $mpdf->AddPage('', '', '', '', '', 10, 10, $marginTop, $marginBottom, 5, 5);
+    }
+
+    private function documentoPdfMargins(): array
+    {
+        return [
+            'margin_top' => PdfHelper::DOCUMENTO_HTML_HEADER_MARGIN_TOP_MM,
+            'margin_bottom' => PdfHelper::DOCUMENTO_HTML_FOOTER_MARGIN_BOTTOM_MM,
+        ];
     }
 
     /**

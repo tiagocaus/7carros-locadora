@@ -55,6 +55,45 @@ class GrupoPrecoDiaFilial extends Model
     }
 
     /**
+     * Lista todas as faixas progressivas de uma filial, agrupadas por grupo e tipo.
+     *
+     * @return array<int, array<string, array<int, array<string, int|float|null>>>>
+     */
+    public function listarPorFilialAgrupado(int $filialId): array
+    {
+        $faixas = $this->qb
+            ->table('grupos_precos_dias_filiais')
+            ->select(['id_grupo', 'tipo_plano', 'dia_inicio', 'dia_fim', 'valor'])
+            ->where('id_matriz_filial', '=', $filialId)
+            ->orderBy('id_grupo', 'ASC')
+            ->orderBy('tipo_plano', 'ASC')
+            ->orderBy('dia_inicio', 'ASC')
+            ->get();
+
+        $agrupado = [];
+        foreach ($faixas as $f) {
+            $idGrupo = (int) $f['id_grupo'];
+            $tipo = (string) $f['tipo_plano'];
+            if (!isset($agrupado[$idGrupo])) {
+                $agrupado[$idGrupo] = [];
+                foreach (self::TIPOS_PLANO as $t) {
+                    $agrupado[$idGrupo][$t] = [];
+                }
+            }
+            if (!isset($agrupado[$idGrupo][$tipo])) {
+                $agrupado[$idGrupo][$tipo] = [];
+            }
+            $agrupado[$idGrupo][$tipo][] = [
+                'dia_inicio' => (int) $f['dia_inicio'],
+                'dia_fim' => $f['dia_fim'] !== null ? (int) $f['dia_fim'] : null,
+                'valor' => (float) $f['valor'],
+            ];
+        }
+
+        return $agrupado;
+    }
+
+    /**
      * Lista faixas de um grupo+filial+tipo especifico
      */
     public function listarPorGrupoFilialTipo(int $grupoId, int $filialId, string $tipoPlano): array

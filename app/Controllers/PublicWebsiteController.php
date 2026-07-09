@@ -14,6 +14,7 @@ use App\Models\SiteLink;
 use App\Models\MatrizFilial;
 use App\Models\MatrizFilialLocal;
 use App\Models\Grupo;
+use App\Models\GrupoPrecoDiaFilial;
 use App\Models\GrupoPrecoFilial;
 use App\Models\TaxaServicoValorFilial;
 use App\Models\Veiculo;
@@ -109,6 +110,7 @@ class PublicWebsiteController
                         $cidade !== '' ? $cidade : null
                     ),
                     'precos_grupos'     => $this->montarPrecosGruposJs((int) $f['id']),
+                    'precos_dias_grupos' => $this->montarPrecosDiasGruposJs((int) $f['id']),
                     'valores_servicos'  => $this->montarValoresServicosJs((int) $f['id']),
                     'locais'            => $this->montarLocaisJs((int) $f['id']),
                 ];
@@ -472,6 +474,24 @@ class PublicWebsiteController
             $requerConfirmacao = !empty($config['reserva_requer_confirmacao']);
             $statusInicial = $requerConfirmacao ? 'P' : 'R';
 
+            // CALCULO SERVER-SIDE do total (ignora qualquer valor enviado pelo JS)
+            $calc = (new WebsiteReservaCalcService())->calcular([
+                'filial_id' => (int) $dados['filial_retirada_id'],
+                'grupo_id'  => (int) $dados['grupo_id'],
+                'plano'     => (string) ($dados['plano'] ?? 'KML'),
+                'dias'      => $dias,
+                'servicos'  => $dados['servicos'] ?? [],
+                'seguro_carro'     => !empty($dados['seguro_carro']),
+                'seguro_terceiros' => !empty($dados['seguro_terceiros']),
+            ]);
+            $totalCalculado = (float) ($calc['total'] ?? 0);
+            $subtotalPlano = (float) ($calc['breakdown']['plano']['subtotal'] ?? 0);
+            if ($subtotalPlano <= 0) {
+                $this->restoreTenantContext();
+                Response::json(['success' => false, 'message' => 'Plano indisponivel para o periodo selecionado.'], 422);
+                return;
+            }
+
             // Se visitante novo, cria registro em `clientes` com senha padrao = CPF/CNPJ hash
             if ($clienteIdFinal === null) {
                 $docSoDigitos = preg_replace('/\D/', '', (string) $clienteInfo['documento']);
@@ -505,17 +525,6 @@ class PublicWebsiteController
                 'endereco'  => $cliente['endereco'] ?? null,
             ];
 
-            // CALCULO SERVER-SIDE do total (ignora qualquer valor enviado pelo JS)
-            $calc = (new WebsiteReservaCalcService())->calcular([
-                'filial_id' => (int) $dados['filial_retirada_id'],
-                'grupo_id'  => (int) $dados['grupo_id'],
-                'plano'     => (string) ($dados['plano'] ?? 'KML'),
-                'dias'      => $dias,
-                'servicos'  => $dados['servicos'] ?? [],
-                'seguro_carro'     => !empty($dados['seguro_carro']),
-                'seguro_terceiros' => !empty($dados['seguro_terceiros']),
-            ]);
-            $totalCalculado = (float) ($calc['total'] ?? 0);
             $obs['breakdown'] = $calc['breakdown'] ?? null;
 
             $configModel = new SiteConfig();
@@ -1344,6 +1353,16 @@ HTML;
             ];
         }
         return $out;
+    }
+
+    /**
+     * Retorna as faixas progressivas por grupo/tipo para calcular o preco efetivo no site.
+     *
+     * @return array<int, array<string, array<int, array<string, int|float|null>>>>
+     */
+    private function montarPrecosDiasGruposJs(int $idFilial): array
+    {
+        return (new GrupoPrecoDiaFilial())->listarPorFilialAgrupado($idFilial);
     }
 
     /**
