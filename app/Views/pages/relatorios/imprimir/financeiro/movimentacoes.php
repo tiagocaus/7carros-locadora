@@ -21,7 +21,7 @@
             </td>
             <td>
                 <div class="totals-label"><?= t('modules.relatorios.financeiro.movimentacoes.lancamentos') ?></div>
-                <div class="totals-value"><?= number_format($totals['lancamentos'], 0, ',', '.') ?></div>
+                <div class="totals-value"><?= number_format($totals['quantidade'], 0, ',', '.') ?></div>
             </td>
         </tr>
     </table>
