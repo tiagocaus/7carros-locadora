@@ -1611,14 +1611,27 @@ class ContratosController
             }
 
             $odometroEntradaAntigo = $this->normalizarOdometroContrato($dados['odometro_entrada'] ?? 0);
+            $odometroSaidaAntigo = (int) ($veiculoAntigo['odometro_saida'] ?? 0);
+            $odometroCadastroAntigo = (int) ($veiculoAntigo['veiculo_odometro'] ?? 0);
             $odometroMinimoAntigo = max(
-                (int) ($veiculoAntigo['odometro_saida'] ?? 0),
-                (int) ($veiculoAntigo['veiculo_odometro'] ?? 0)
+                $odometroSaidaAntigo,
+                $odometroCadastroAntigo
             );
             if ($odometroEntradaAntigo > 0 && $odometroEntradaAntigo < $odometroMinimoAntigo) {
+                $odometroInformadoFmt = number_format($odometroEntradaAntigo, 0, '', '.');
+                $odometroMinimoFmt = number_format($odometroMinimoAntigo, 0, '', '.');
+                $mensagemOdometro = $odometroCadastroAntigo >= $odometroSaidaAntigo
+                    ? t('modules.contratos.substitution.odometer_vehicle_registration_mismatch', [
+                        'informado' => $odometroInformadoFmt,
+                        'referencia' => $odometroMinimoFmt,
+                    ])
+                    : t('modules.contratos.substitution.odometer_lower_than_contract_departure', [
+                        'informado' => $odometroInformadoFmt,
+                        'referencia' => $odometroMinimoFmt,
+                    ]);
                 Response::json([
                     'success' => false,
-                    'message' => 'Odometro de devolucao nao pode ser menor que ' . number_format($odometroMinimoAntigo, 0, '', '.') . ' km'
+                    'message' => $mensagemOdometro
                 ], 422);
                 return;
             }

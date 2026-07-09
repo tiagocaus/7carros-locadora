@@ -418,6 +418,8 @@ return [
         'keep_values' => 'Manter valores atuais do contrato',
         'keep_values_hint' => 'Quando assinalado, os valores do contrato atual serão mantidos',
         'confirm_substitution' => 'Confirmar Substituição',
+        'odometer_vehicle_registration_mismatch' => 'Ops, existe uma divergência de informações: está a devolver este veículo com odómetro :informado km, mas no cadastro dele consta :referencia km. Ou seja, o odómetro de devolução não pode ser inferior ao odómetro atual cadastrado no veículo.',
+        'odometer_lower_than_contract_departure' => 'Odómetro de devolução inválido: informou :informado km, mas este veículo saiu no contrato com :referencia km.',
         // Calculo da substituicao
         'calculation_title' => 'Cálculo da Substituição',
         'calc_km_title' => 'Quilometragem',

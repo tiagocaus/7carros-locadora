@@ -406,6 +406,8 @@ return [
         'keep_values' => 'Keep current contract values',
         'keep_values_hint' => 'When checked, the current contract values will be kept',
         'confirm_substitution' => 'Confirm Substitution',
+        'odometer_vehicle_registration_mismatch' => 'Ops, there is an information mismatch: you are returning this vehicle with odometer :informado km, but its registration shows :referencia km. This means the return odometer cannot be lower than the current odometer registered for the vehicle.',
+        'odometer_lower_than_contract_departure' => 'Invalid return odometer: you entered :informado km, but this vehicle left on the contract with :referencia km.',
         // Substitution calculation
         'calculation_title' => 'Substitution Calculation',
         'calc_km_title' => 'Mileage',
