@@ -201,8 +201,8 @@ $periodoFakeFim = '2027-01-12 10:00:00';
 $db->beginTransaction();
 try {
     $stmtLoc = $db->prepare("
-        INSERT INTO locacoes (codigo, chave, status, data_saida, data_prevista, dias, cliente_nome, created_at)
-        VALUES (?, ?, 'R', ?, ?, 2, 'TEST', NOW())
+        INSERT INTO locacoes (codigo, chave, id_matriz_filial_retirada, status, data_saida, data_prevista, dias, cliente_nome, created_at)
+        VALUES (?, ?, 14, 'R', ?, ?, 2, 'TEST', NOW())
     ");
     $stmtLV = $db->prepare("
         INSERT INTO locacoes_veiculos (chave, id_locacao, id_veiculo, id_grupo, plano, data_saida, data_entrada, created_at)

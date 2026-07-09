@@ -920,6 +920,7 @@ class Veiculo extends Model
                 WHERE lv.chave = ?
                   AND lv.id_veiculo IS NULL
                   AND lv.id_grupo IS NOT NULL
+                  AND l.id_matriz_filial_retirada = ?
                   AND l.status IN ('R','P')
                   AND lv.data_entrada IS NULL
                   AND ? < l.data_prevista
@@ -953,7 +954,7 @@ class Veiculo extends Model
             HAVING qtd_livres > 0
         ";
         $rows = \App\Core\Database::fetchAll($sql, [
-            $chave, $dataSaida, $dataDevolucao,
+            $chave, $filialId, $dataSaida, $dataDevolucao,
             $chave, $filialId,
             $dataSaida, $dataDevolucao,
             $dataSaida, $dataDevolucao,

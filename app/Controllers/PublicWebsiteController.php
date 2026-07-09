@@ -393,6 +393,28 @@ class PublicWebsiteController
 
             $this->setTenantContext($chave);
 
+            $filialRetiradaId = (int) $dados['filial_retirada_id'];
+            $grupoId = (int) $dados['grupo_id'];
+            $dataSaidaFull = $dados['data_saida'] . ' ' . $dados['hora_saida'] . ':00';
+            $dataPrevistaFull = $dados['data_chegada'] . ' ' . $dados['hora_chegada'] . ':00';
+
+            if (empty($config['overbooking'])) {
+                $disponibilidade = (new Veiculo())->gruposDisponiveisPorFilial(
+                    $filialRetiradaId,
+                    $dataSaidaFull,
+                    $dataPrevistaFull
+                );
+
+                if (($disponibilidade[$grupoId] ?? 0) <= 0) {
+                    $this->restoreTenantContext();
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Grupo esgotado para o período selecionado.',
+                    ], 422);
+                    return;
+                }
+            }
+
             $cliente = $dados['cliente'] ?? [];
             $clienteIdFinal = null;
             $clienteInfo = []; // usado p/ contexto de templates
@@ -528,7 +550,6 @@ class PublicWebsiteController
             $obs['breakdown'] = $calc['breakdown'] ?? null;
 
             $configModel = new SiteConfig();
-            $dataSaidaFull = $dados['data_saida'] . ' ' . $dados['hora_saida'] . ':00';
             $locacaoId = $configModel->queryTable('locacoes')
                 ->insert([
                     'chave'                      => $chave,
@@ -536,7 +557,7 @@ class PublicWebsiteController
                     'id_matriz_filial_retirada'  => (int) $dados['filial_retirada_id'],
                     'id_matriz_filial_devolucao' => (int) ($dados['filial_devolucao_id'] ?? $dados['filial_retirada_id']),
                     'data_saida'                 => $dataSaidaFull,
-                    'data_prevista'              => $dados['data_chegada'] . ' ' . $dados['hora_chegada'] . ':00',
+                    'data_prevista'              => $dataPrevistaFull,
                     'dias'                       => $dias,
                     'cliente_nome'               => $clienteInfo['nome'],
                     'id_cliente'                 => $clienteIdFinal,
