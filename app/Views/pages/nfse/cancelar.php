@@ -83,10 +83,10 @@
 @section('scripts')
 <script>
 (function () {
-    const pathParts = window.location.pathname.split('/');
-    const nfseId = pathParts[pathParts.indexOf('nfse') + 1];
+    const nfseId = extrairNfseIdDaUrl();
 
-    if (!nfseId || isNaN(nfseId)) {
+    if (!nfseId) {
+        window.parent.postMessage({ action: 'openAlert', message: 'ID da NFS-e nao identificado na URL.' }, '*');
         voltarParaLista();
         return;
     }
@@ -110,11 +110,29 @@
     document.getElementById('btnVoltar').addEventListener('click', voltarParaVisualizacao);
     document.getElementById('btnCancelarForm').addEventListener('click', voltarParaVisualizacao);
 
+    function extrairNfseIdDaUrl() {
+        const match = window.location.pathname.match(/\/pages\/nfse\/(\d+)\/cancelar\/?$/);
+        return match ? match[1] : null;
+    }
+
+    function mensagemErroCarregamento(resultOrError) {
+        const mensagem = resultOrError?.message || resultOrError?.mensagem || '';
+        return mensagem || '<?= t('modules.nfse.messages.load_error') ?>';
+    }
+
+    function formatarMoeda(valor) {
+        const numero = Number(valor) || 0;
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(numero);
+    }
+
     async function carregarNfse(id) {
         try {
             const result = await API.get(`/api/nfse/${id}`);
             if (!result.success || !result.data) {
-                window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.load_error') ?>' }, '*');
+                window.parent.postMessage({ action: 'openAlert', message: mensagemErroCarregamento(result) }, '*');
                 voltarParaLista();
                 return;
             }
@@ -132,7 +150,7 @@
             document.getElementById('infoValor').textContent = formatarMoeda(parseFloat(n.valor_servicos || 0));
             document.getElementById('infoData').textContent = n.created_at ? n.created_at.substring(0, 10).split('-').reverse().join('/') : '-';
         } catch (e) {
-            window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.load_error') ?>' }, '*');
+            window.parent.postMessage({ action: 'openAlert', message: mensagemErroCarregamento(e) }, '*');
         } finally {
             window.pageLoading.done();
         }

@@ -258,7 +258,8 @@ class VeicularReport extends BaseReportModel
      *
      * Receita: locacoes.total_fatura (status A/F) + contratos.total_fatura (status A/F),
      * agregado por veículo via locacoes_veiculos / contratos_veiculos.
-     * Despesa: manutencoes.total_servicos + multas.valor + veiculos_encargos.valor por id_veiculo.
+     * Despesa: manutencoes.total_servicos + multas.valor + veiculos_encargos.valor
+     * + financeiro tipo D vinculado ao veículo (sem multas/oficinas para evitar duplicidade).
      * Lucro = Receita − Despesa; Margem = Lucro / Receita.
      */
     public function lucroVeiculo(
@@ -279,6 +280,7 @@ class VeicularReport extends BaseReportModel
         $manutPorVeiculo = $this->somaManutencoesPorVeiculo($dataInicio, $dataFim, $filialId, $veiculoId);
         $multasPorVeiculo = $this->somaMultasPorVeiculo($dataInicio, $dataFim, $filialId, $veiculoId);
         $encargosPorVeiculo = $this->somaEncargosPorVeiculo($dataInicio, $dataFim, $veiculoId);
+        $outrasPorVeiculo = $this->somaOutrasDespesasPorVeiculo($dataInicio, $dataFim, $filialId, $veiculoId);
         $diasLocadosPorVeiculo = $isDetalhado
             ? $this->diasLocadosPorVeiculo($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId)
             : [];
@@ -301,8 +303,13 @@ class VeicularReport extends BaseReportModel
             array_keys($receitaPorVeiculo),
             array_keys($manutPorVeiculo),
             array_keys($multasPorVeiculo),
-            array_keys($encargosPorVeiculo)
+            array_keys($encargosPorVeiculo),
+            array_keys($outrasPorVeiculo)
         ));
+
+        if (!empty($grupoId) && !empty($idsVeiculos)) {
+            $idsVeiculos = $this->filtrarVeiculosPorGrupo($idsVeiculos, (int) $grupoId);
+        }
 
         $veiculosInfo = $this->buscarVeiculosInfo($idsVeiculos);
 
@@ -311,13 +318,15 @@ class VeicularReport extends BaseReportModel
         $totalManut = 0.0;
         $totalMultas = 0.0;
         $totalEncargos = 0.0;
+        $totalOutros = 0.0;
 
         foreach ($veiculosInfo as $vid => $vinfo) {
             $receita = (float) ($receitaPorVeiculo[$vid] ?? 0);
             $manut = (float) ($manutPorVeiculo[$vid] ?? 0);
             $mults = (float) ($multasPorVeiculo[$vid] ?? 0);
             $encs = (float) ($encargosPorVeiculo[$vid] ?? 0);
-            $despesa = $manut + $mults + $encs;
+            $outr = (float) ($outrasPorVeiculo[$vid] ?? 0);
+            $despesa = $manut + $mults + $encs + $outr;
             $lucro = $receita - $despesa;
             $margem = $this->pct($lucro, $receita);
 
@@ -330,6 +339,7 @@ class VeicularReport extends BaseReportModel
                 'manutencao' => round($manut, 2),
                 'multas' => round($mults, 2),
                 'encargos' => round($encs, 2),
+                'outros' => round($outr, 2),
                 'despesa_total' => round($despesa, 2),
                 'lucro' => round($lucro, 2),
                 'margem' => $margem,
@@ -352,11 +362,12 @@ class VeicularReport extends BaseReportModel
             $totalManut += $manut;
             $totalMultas += $mults;
             $totalEncargos += $encs;
+            $totalOutros += $outr;
         }
 
         usort($details, fn($a, $b) => $b['lucro'] <=> $a['lucro']);
 
-        $totalDespesa = $totalManut + $totalMultas + $totalEncargos;
+        $totalDespesa = $totalManut + $totalMultas + $totalEncargos + $totalOutros;
         $lucroTotal = $totalReceita - $totalDespesa;
 
         return [
