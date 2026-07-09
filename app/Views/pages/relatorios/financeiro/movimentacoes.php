@@ -51,8 +51,8 @@
             <label for="filterStatus" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.financeiro.filter_status') ?></label>
             <select id="filterStatus" class="form-input-focus w-full text-sm">
                 <option value=""><?= t('modules.relatorios.common.all') ?></option>
-                <option value="pago"><?= t('modules.relatorios.financeiro.movimentacoes.status_pago') ?></option>
-                <option value="pendente"><?= t('modules.relatorios.financeiro.movimentacoes.status_pendente') ?></option>
+                <option value="S"><?= t('modules.relatorios.financeiro.movimentacoes.status_pago') ?></option>
+                <option value="N"><?= t('modules.relatorios.financeiro.movimentacoes.status_pendente') ?></option>
             </select>
         </div>
         <div class="flex items-end gap-2">

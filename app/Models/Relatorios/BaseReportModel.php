@@ -123,7 +123,11 @@ abstract class BaseReportModel extends Model
                     f.data_criada,
                     f.pago,
                     COALESCE(NULLIF(fi.descricao, ''), f.descricao, CONCAT('Financeiro #', f.id)) AS descricao,
-                    fi.valor AS valor,
+                    CASE
+                        WHEN COALESCE(f.valor_subtotal, 0) > 0
+                            THEN fi.valor * (COALESCE(f.valor_total, f.valor_subtotal) / f.valor_subtotal)
+                        ELSE fi.valor
+                    END AS valor,
                     v.id AS id_veiculo,
                     v.id_grupo,
                     v.placa,
