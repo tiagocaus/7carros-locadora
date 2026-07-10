@@ -555,6 +555,9 @@ O cron `SendFinanceiroCobrancasJob` envia cobrancas de receitas pendentes com cl
 - 1 dia antes do vencimento: template `payment_reminder`.
 - Depois de vencida: template `overdue_notice`, no maximo uma vez a cada 7 dias por fatura/canal.
 - Email e enviado quando o cliente possui email. WhatsApp e SMS dependem de telefone no cliente e conexao validada/conectada na filial.
+- As faturas elegiveis sao agrupadas por tenant e cliente. Cada execucao enfileira no maximo uma mensagem por cliente/canal, com secoes separadas para faturas a vencer e vencidas.
+- Todas as faturas do lote ficam vinculadas ao mesmo `message_id` em `financeiro_cobrancas_notificacoes`.
+- Lotes com uma unica fatura preservam o template customizavel do tipo de aviso; lotes com duas ou mais usam o resumo consolidado.
 - O controle de duplicidade fica em `financeiro_cobrancas_notificacoes`.
 
 Antes de enfileirar a mensagem, o cron cria ou reutiliza o link publico da fatura por `PagamentoLinkSyncService`. O link segue estavel e reflete valor, vencimento, juros, multa e desconto atuais.
@@ -736,3 +739,9 @@ php migrate.php rollback 00108  # Restaura do backup
 ## Padrao de Datas
 
 Vencimentos, baixas, parcelas, juros/multa por atraso, links de pagamento, promissorias, caucao e relatorios financeiros devem usar `DateHelper`/helpers globais. Nao use `date()`, `time()`, `new DateTime()`, `new Date()` ou `NOW()/CURDATE()` diretamente em regra de negocio; calcule a data no helper e passe como parametro. SQL legado com agregacoes complexas deve ser migrado em etapa dedicada conforme [date.md](./date.md).
+
+Na listagem agrupada de promissorias, a coluna **Vencimento** exibe `proximo_vencimento`: a menor `data_vencimento` entre as parcelas ainda pendentes. Promissorias quitadas ou sem parcela pendente exibem `-`. A API ja calcula esse campo em `Promissoria::listarAgrupado()` e a interface deve formata-lo com `DateHelper` conforme o locale do tenant.
+
+Na inclusao e edicao de parcelas, o payload canonico usa `valor_parcela` e `data_vencimento`. O Controller normaliza o valor com `currency_parse()` e aceita `valor` apenas como compatibilidade temporaria. O formulario deve ser aberto pelo modal global `openPromissoriaParcelaModal`, conforme [modals.md](./modals.md).
+
+Na coluna **Parcelas** da listagem de promissorias, o formato e `pagas/total`. Para registros atuais, ambos os valores sao calculados pelas linhas agrupadas no mesmo `codigo_base`. Registros legados isolados usam `total_parcelas` como denominador e calculam as parcelas pagas conhecidas pelo mesmo tenant, cliente, filial, instante de criacao e total declarado, sem alterar ou consolidar os dados historicos.

@@ -272,6 +272,7 @@ function inicializarFormReserva() {
         var selecionada = $('input[name="forma_pagamento_site"]:checked').val() || '';
         $('#id_forma_pagamento_site').val(selecionada);
     }
+    window.__renderFormasPagamentoSite = renderFormasPagamentoSite;
 
     $(document).on('change', 'input[name="forma_pagamento_site"]', function () {
         $('#id_forma_pagamento_site').val($(this).val() || '');
@@ -666,7 +667,7 @@ $(function () {
                 $btn.prop('disabled', true).text(txtEsgotado);
             } else {
                 // Se plano ainda nao foi marcado nesse grupo, mostrar "Selecione o plano"
-                var planoMarcado = $btn.closest('.row').find('input[name="plano"]:checked').length > 0;
+                var planoMarcado = $btn.closest('.reserva-grupo-card').find('.plano-grupo:checked').length > 0;
                 var planosDisponiveis = parseInt($btn.closest('.reserva-plano-col').data('planos-disponiveis')) || 0;
                 if (!planoMarcado || planosDisponiveis === 0) {
                     $btn.prop('disabled', true).text(txtSelecionePlano);
@@ -754,11 +755,11 @@ $(function () {
     function atualizarPlanosDisponiveis() {
         $('.reserva-plano-col').each(function () {
             var $col = $(this);
-            var $row = $col.closest('.row');
+            var $row = $col.closest('.reserva-grupo-card');
             var idGrupo = parseInt($row.find('.btnSelecionarGrupo').data('id-grupo')) || parseInt($row.find('.btnSelecionarGrupo').data('id'));
             var disponiveis = 0;
 
-            $col.find('input[name="plano"]').each(function () {
+            $col.find('.plano-grupo').each(function () {
                 var $input = $(this);
                 var parts = String($input.val() || '').split('|');
                 var plano = parts[0];
@@ -814,8 +815,10 @@ $(function () {
         $('.resumo-adicionais').empty();
         $('.total-geral span').text(formatarMoeda(0).replace((filialAtiva() || {}).simbolo_moeda || 'R$', '').trim());
         window.__precoPlanoAtual = 0;
+        window.__grupoSelecionadoId = null;
+        window.__planoSelecionado = '';
         // Desmarca planos selecionados e volta botoes ao estado inicial (filial/datas podem mudar precos e disponibilidade)
-        $('input[name="plano"]').prop('checked', false);
+        $('.plano-grupo').prop('checked', false);
         var i18nReset = window.I18N_WEBSITE || {};
         $('.btnSelecionarGrupo').prop('disabled', true).removeData('esgotado').text(i18nReset.btn_selecione_plano || 'Selecione o plano');
         atualizarPlanosDisponiveis();
@@ -876,11 +879,44 @@ $(function () {
     window.__resetResumoValores = resetResumoValores;
 
     // Seleção de plano de locação
-    $(document).on('change', 'input[name="plano"]', function () {
+    $(document).on('change', '.plano-grupo', function () {
         var val = $(this).val();
         var parts = val.split('|');
         var plano = parts[0];
         var idGrupo = parseInt(parts[1]);
+        var $card = $(this).closest('.reserva-grupo-card');
+        var $btn = $card.find('.btnSelecionarGrupo');
+        var i18n = window.I18N_WEBSITE || {};
+
+        var precoNum = precoEfetivoPlano(idGrupo, plano);
+        if (precoNum <= 0) {
+            $(this).prop('checked', false);
+            $card.find('.reserva-preco span').text('selecione');
+            $btn.prop('disabled', true).text(i18n.btn_selecione_plano || 'Selecione o plano');
+            return;
+        }
+
+        $card.find('.reserva-preco span').text(formatarMoeda(precoNum) + ' /' + diariaSufixo());
+
+        if ($btn.data('esgotado') === true) {
+            // Grupo indisponivel no periodo: mantem 'Esgotado' e bloqueia selecao
+            $btn.prop('disabled', true).text(i18n.btn_esgotado || 'Esgotado');
+        } else {
+            $btn.prop('disabled', false).text(i18n.btn_selecionar || 'Selecionar');
+        }
+    });
+
+    // Botão selecionar grupo
+    $(document).on('click', '.btnSelecionarGrupo:not(:disabled)', function () {
+        var $card = $(this).closest('.reserva-grupo-card');
+        var $plano = $card.find('.plano-grupo:checked');
+        if (!$plano.length) return;
+
+        var parts = String($plano.val() || '').split('|');
+        var plano = parts[0];
+        var idGrupo = parseInt(parts[1]) || null;
+        var precoNum = idGrupo ? precoEfetivoPlano(idGrupo, plano) : 0;
+        if (!idGrupo || precoNum <= 0) return;
 
         var i18n = window.I18N_WEBSITE || {};
         var planoNome = {
@@ -888,46 +924,22 @@ $(function () {
             'KMC': i18n.plano_km_controlado || 'Km Controlado',
             'DIA': i18n.plano_km_pago || 'Km pago'
         };
-        $('.resumo-plano').text(planoNome[plano] || plano);
-
-        var precoNum = precoEfetivoPlano(idGrupo, plano);
-        if (precoNum <= 0) {
-            $(this).prop('checked', false);
-            resetResumoValores();
-            return;
-        }
-
-        $('.plano-valor').text(formatarMoeda(precoNum));
-        $('.reserva-preco span').text(formatarMoeda(precoNum) + ' /' + diariaSufixo());
-
-        // #dias eh hidden input (unico). .dias eh span duplicado nos resumos — nao usar .text() ali
         var dias = parseInt($('#dias').val()) || 1;
+
+        window.__grupoSelecionadoId = idGrupo;
+        window.__planoSelecionado = plano;
         window.__precoPlanoAtual = precoNum;
+        $('.resumo-plano').text(planoNome[plano] || plano);
+        $('.plano-valor').text(formatarMoeda(precoNum));
         $('.plano-soma').text(formatarMoeda(precoNum * dias));
         renderAdicionais();
         calcTotal();
-
-        var btn = $(this).closest('.row').find('.btnSelecionarGrupo');
-        var i18n = window.I18N_WEBSITE || {};
-        if (btn.data('esgotado') === true) {
-            // Grupo indisponivel no periodo: mantem 'Esgotado' e bloqueia selecao
-            btn.prop('disabled', true).text(i18n.btn_esgotado || 'Esgotado');
-        } else {
-            btn.prop('disabled', false).text(i18n.btn_selecionar || 'Selecionar');
-        }
-    });
-
-    // Botão selecionar grupo
-    $(document).on('click', '.btnSelecionarGrupo:not(:disabled)', function () {
         nextTab();
     });
 
-    // Helper: retorna id do grupo atualmente selecionado (via radio plano)
+    // Helper: retorna o grupo confirmado pelo botao "Selecionar" do card.
     function grupoSelecionadoId() {
-        var sel = $('input[name="plano"]:checked').val();
-        if (!sel) return null;
-        var parts = sel.split('|');
-        return parseInt(parts[1]) || null;
+        return parseInt(window.__grupoSelecionadoId) || null;
     }
 
     // Seguro veiculo — usa valor_seguro_carro da filial/grupo
@@ -1125,9 +1137,13 @@ $(function () {
         var devData  = fmtData($('#dataPrevista').val());
         var devHora  = $('#horaDevolucao').val() || '—';
 
-        var $plano = $('input[name="plano"]:checked');
-        var planoTxt = $plano.closest('label').text().trim();
-        if (!planoTxt) planoTxt = (($plano.val() || '').split('|')[0] || '').replace(/_/g, ' ');
+        var planoCodigo = String(window.__planoSelecionado || '');
+        var planoLabels = window.I18N_WEBSITE || {};
+        var planoTxt = {
+            KML: planoLabels.plano_km_livre || 'Km Livre',
+            KMC: planoLabels.plano_km_controlado || 'Km Controlado',
+            DIA: planoLabels.plano_km_pago || 'Km Pago'
+        }[planoCodigo] || planoCodigo;
 
         var totalTxt = $('.total-geral span').first().text().trim() || '—';
 
@@ -1224,7 +1240,7 @@ $(function () {
 
         try {
             var grupoId = grupoSelecionadoId();
-            var plano = $('input[name="plano"]:checked').val() || '';
+            var plano = String(window.__planoSelecionado || '');
             var servicos = [];
             $('#itens-adicionais input[type="checkbox"]:checked').each(function () {
                 var nm = $(this).attr('name') || '';
@@ -1240,7 +1256,7 @@ $(function () {
                 data_chegada: $('#dataPrevista').val(),
                 hora_chegada: $('#horaDevolucao').val(),
                 grupo_id: grupoId,
-                plano: (plano.split('|')[0] || ''),
+                plano: plano,
                 servicos: servicos,
                 cliente: cliente,
                 documentos: documentos,
@@ -1314,7 +1330,9 @@ $(function () {
         renderPrecosServicos();
     }
     atualizarPlanosDisponiveis();
-    renderFormasPagamentoSite();
+    if (typeof window.__renderFormasPagamentoSite === 'function') {
+        window.__renderFormasPagamentoSite();
+    }
 });
 
 // ---- FUNÇÕES AUXILIARES ----

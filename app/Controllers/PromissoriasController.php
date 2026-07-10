@@ -768,9 +768,10 @@ class PromissoriasController
             }
 
             $dados = $request->all();
+            $valorParcela = currency_parse($dados['valor_parcela'] ?? $dados['valor'] ?? null);
 
             // Validacao
-            if (empty($dados['valor_parcela']) || floatval(str_replace(['.', ','], ['', '.'], $dados['valor_parcela'])) <= 0) {
+            if ($valorParcela <= 0) {
                 Response::json([
                     'success' => false,
                     'message' => 'Valor da parcela e obrigatorio'
@@ -788,7 +789,7 @@ class PromissoriasController
 
             // Adicionar parcela
             $idParcela = $promissoriaModel->adicionarParcela($codigo, [
-                'valor_parcela' => $dados['valor_parcela'],
+                'valor_parcela' => $valorParcela,
                 'data_vencimento' => $dados['data_vencimento']
             ]);
 
@@ -866,11 +867,28 @@ class PromissoriasController
             }
 
             $dados = $request->all();
+            $valorParcela = currency_parse($dados['valor_parcela'] ?? $dados['valor'] ?? null);
+
+            if ($valorParcela <= 0) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Valor da parcela e obrigatorio'
+                ], 400);
+                return;
+            }
+
+            if (empty($dados['data_vencimento'])) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Data de vencimento e obrigatoria'
+                ], 400);
+                return;
+            }
 
             // Atualizar parcela
             $promissoriaModel->atualizarParcela($id, [
-                'valor_parcela' => $dados['valor_parcela'] ?? null,
-                'data_vencimento' => $dados['data_vencimento'] ?? null
+                'valor_parcela' => $valorParcela,
+                'data_vencimento' => $dados['data_vencimento']
             ]);
 
             $nomeUsuario = $_SESSION['user_name'] ?? 'Sistema';

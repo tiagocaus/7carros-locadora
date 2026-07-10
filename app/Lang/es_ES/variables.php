@@ -17,6 +17,13 @@ return [
         'funcionario' => 'Empleado',
         'outros' => 'Otros',
     ],
+
+    'contract_count' => [
+        'day' => 'día(s)',
+        'week' => 'semana(s)',
+        'month' => 'mes(es)',
+        'year' => 'año(s)',
+    ],
     'cliente' => [
         'nome' => 'Nombre del Cliente',
         'cpf_cnpj' => 'Documento (CPF/CNPJ/NIF/SSN)',

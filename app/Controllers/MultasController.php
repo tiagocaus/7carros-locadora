@@ -734,7 +734,10 @@ class MultasController
                     return;
                 }
                 if (!empty($documento['texto'])) {
-                    $renderer = new TemplateRenderer();
+                    $renderer = new TemplateRenderer(
+                        $empresa['locale'] ?? null,
+                        ($empresa['impressao_variavel_negrito'] ?? 'N') === 'S'
+                    );
                     $context = $this->buildDocumentoContextMulta($multa, $cliente, $empresa);
                     $documento['texto'] = $renderer->render($documento['texto'], $context);
                 }
@@ -881,7 +884,10 @@ class MultasController
                     return;
                 }
                 if (!empty($documento['texto'])) {
-                    $renderer = new TemplateRenderer();
+                    $renderer = new TemplateRenderer(
+                        $empresa['locale'] ?? null,
+                        ($empresa['impressao_variavel_negrito'] ?? 'N') === 'S'
+                    );
                     $context = $this->buildDocumentoContextMulta($multa, $cliente, $empresa);
                     $documento['texto'] = $renderer->render($documento['texto'], $context);
                 }

@@ -397,9 +397,9 @@ class TemplateVariables
             ],
             'contagem' => [
                 'key' => 'contrato.contagem',
-                'type' => 'text',
+                'type' => 'computed',
                 'label_key' => 'variables.contrato.contagem',
-                'example' => 'Diária'
+                'example' => 'dia(s)'
             ],
             'autorenovacao' => [
                 'key' => 'contrato.autorenovacao',
@@ -1660,6 +1660,26 @@ class TemplateVariables
 
             case 'contrato.filial_endereco':
                 return self::buildEnderecoCompleto($context['contrato']['filial'] ?? []);
+
+            case 'contrato.contagem':
+                $contagem = (string) ($context['contrato']['contagem'] ?? '');
+                $translationKey = match ($contagem) {
+                    'dia' => 'day',
+                    'semana' => 'week',
+                    'mes' => 'month',
+                    'ano' => 'year',
+                    default => null,
+                };
+
+                if ($translationKey === null) {
+                    return $contagem !== '' ? $contagem : null;
+                }
+
+                return Translator::getInstance()->get(
+                    'variables.contract_count.' . $translationKey,
+                    [],
+                    $locale
+                );
 
             case 'contrato.veiculos':
                 return self::buildContratoVeiculosTexto($context['contrato']['veiculos'] ?? [], $locale, $context);

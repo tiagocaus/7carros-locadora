@@ -44,9 +44,15 @@ class TemplateRenderer
      */
     private string $unresolvedPlaceholder = '';
 
-    public function __construct(?string $locale = null)
+    /**
+     * Se deve destacar em negrito os valores resolvidos.
+     */
+    private bool $boldVariables;
+
+    public function __construct(?string $locale = null, bool $boldVariables = false)
     {
         $this->locale = $locale ?? Translator::getInstance()->getLocale();
+        $this->boldVariables = $boldVariables;
     }
 
     /**
@@ -68,7 +74,7 @@ class TemplateRenderer
                 $value = TemplateVariables::resolve($variable, $context, $this->locale);
 
                 if ($value !== null) {
-                    return $value;
+                    return $this->formatResolvedValue($variable, $value);
                 }
 
                 // Variável não resolvida
@@ -80,6 +86,28 @@ class TemplateRenderer
             },
             $template
         );
+    }
+
+    /**
+     * Aplica o destaque configurado sem invalidar blocos HTML de tabela.
+     */
+    private function formatResolvedValue(string $variable, string $value): string
+    {
+        if (!$this->boldVariables) {
+            return $value;
+        }
+
+        $info = TemplateVariables::getInfo($variable);
+        if (($info['type'] ?? '') !== 'html') {
+            return '<strong>' . $value . '</strong>';
+        }
+
+        // Em tabelas, somente os cabecalhos <th> devem permanecer em negrito.
+        if (preg_match('/<table\b/i', $value) === 1) {
+            return $value;
+        }
+
+        return '<div style="font-weight:bold;">' . $value . '</div>';
     }
 
     /**

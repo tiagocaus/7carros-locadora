@@ -169,7 +169,7 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
             <div class="col-sm-12">
                 <?php if (!empty($grupos)): ?>
                 <?php foreach ($grupos as $i => $grupo): ?>
-                <div class="row">
+                <div class="row reserva-grupo-card" data-grupo-id="<?= (int) $grupo['id'] ?>">
                     <div class="col-sm-4 divListaGrupos">
                         <h3><?= e($grupo['nome']) ?></h3>
                         <?php if (!empty($grupo['descricao'])): ?>
@@ -186,13 +186,13 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
                     </div>
                     <div class="col-sm-3 text-right reserva-plano-col">
                         <div class="col reserva-plano">
-                            <input type="radio" value="KML|<?= (int) $grupo['id'] ?>" id="plano<?= $i ?>1" name="plano">
+                            <input type="radio" class="plano-grupo" value="KML|<?= (int) $grupo['id'] ?>" id="plano<?= $i ?>1" name="plano_grupo_<?= (int) $grupo['id'] ?>" hidden style="display: none !important;">
                             <label for="plano<?= $i ?>1"><?= e(t('reserva.plano_km_livre')) ?></label>
 
-                            <input type="radio" value="KMC|<?= (int) $grupo['id'] ?>" id="plano<?= $i ?>2" name="plano">
+                            <input type="radio" class="plano-grupo" value="KMC|<?= (int) $grupo['id'] ?>" id="plano<?= $i ?>2" name="plano_grupo_<?= (int) $grupo['id'] ?>" hidden style="display: none !important;">
                             <label for="plano<?= $i ?>2"><?= e(t('reserva.plano_km_controlado')) ?></label>
 
-                            <input type="radio" value="DIA|<?= (int) $grupo['id'] ?>" id="plano<?= $i ?>3" name="plano">
+                            <input type="radio" class="plano-grupo" value="DIA|<?= (int) $grupo['id'] ?>" id="plano<?= $i ?>3" name="plano_grupo_<?= (int) $grupo['id'] ?>" hidden style="display: none !important;">
                             <label for="plano<?= $i ?>3"><?= e(t('reserva.plano_km_pago')) ?></label>
                         </div>
                         <div class="col reserva-preco"><span>selecione</span></div>

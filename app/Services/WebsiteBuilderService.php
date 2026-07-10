@@ -449,18 +449,16 @@ class WebsiteBuilderService
 
     private function compilarJs(string $buildDir): void
     {
-        $jsSource = $this->templatePath . '/assets/js/custom.js';
-        if (!file_exists($jsSource)) {
-            return;
+        $jsMinificado = $this->templatePath . '/assets/js/custom.min.js';
+        if (!file_exists($jsMinificado)) {
+            throw new \RuntimeException(
+                'JavaScript minificado do website nao encontrado: assets/js/custom.min.js'
+            );
         }
 
-        $js = file_get_contents($jsSource);
-
-        // Minificacao basica: remover comentarios de linha e multiplos espacos
-        $js = preg_replace('#//.*$#m', '', $js);
-        $js = preg_replace('/\s+/', ' ', $js);
-
-        file_put_contents($buildDir . '/assets/js/custom.min.js', trim($js));
+        if (!copy($jsMinificado, $buildDir . '/assets/js/custom.min.js')) {
+            throw new \RuntimeException('Falha ao copiar o JavaScript minificado do website.');
+        }
     }
 
     private function copiarIdiomas(string $chave, string $buildDir): void

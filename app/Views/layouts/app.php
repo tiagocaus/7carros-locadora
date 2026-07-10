@@ -444,6 +444,41 @@
         </div>
     </div>
 
+    <!-- Modal Global de Parcela de Promissoria -->
+    <div id="promissoriaParcelaModal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 450px; text-align: left;">
+            <h3 class="modal-title" id="promissoriaParcelaModalTitle"><?= t('modules.promissorias.messages.add_installment_modal') ?></h3>
+
+            <div class="mt-4 space-y-4">
+                <div class="form-input-group">
+                    <label for="promissoriaParcelaValor" class="form-label-group">
+                        <?= t('modules.promissorias.fields.value') ?> <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500"></span>
+                        <input type="text" id="promissoriaParcelaValor" class="form-input-group-field pl-10 input-moeda" inputmode="decimal" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="form-input-group">
+                    <label for="promissoriaParcelaVencimento" class="form-label-group">
+                        <?= t('modules.promissorias.fields.due_date') ?> <span class="text-red-500">*</span>
+                    </label>
+                    <input type="date" id="promissoriaParcelaVencimento" class="form-input-group-field">
+                </div>
+            </div>
+
+            <div class="modal-actions mt-6">
+                <button type="button" id="cancelPromissoriaParcelaButton" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
+                    <?= t('common.buttons.cancel') ?>
+                </button>
+                <button type="button" id="confirmPromissoriaParcelaButton" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
+                    <i class="fas fa-save mr-1"></i> <?= t('common.buttons.save') ?>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de Edição em Lote -->
     <div id="editBatchModal" class="modal-overlay">
         <div class="modal-box" style="max-width: 450px;">
@@ -1529,6 +1564,97 @@
             }
         });
 
+        // ===== MODAL GLOBAL DE PARCELA DE PROMISSORIA =====
+        let promissoriaParcelaModalSource = null;
+        let promissoriaParcelaModalId = null;
+        let promissoriaParcelaModalSaving = false;
+        const promissoriaParcelaModalI18n = {
+            addTitle: <?= json_encode(t('modules.promissorias.messages.add_installment_modal'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+            editTitle: <?= json_encode(t('modules.promissorias.messages.edit_installment_modal'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+            valueRequired: <?= json_encode(t('modules.promissorias.messages.installment_value_required'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+            dueDateRequired: <?= json_encode(t('modules.promissorias.messages.installment_due_date_required'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+            saveError: <?= json_encode(t('modules.promissorias.messages.installment_save_error'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+            saving: <?= json_encode(t('common.labels.saving'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+            save: <?= json_encode(t('common.buttons.save'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+        };
+
+        function restorePromissoriaParcelaButton() {
+            const button = document.getElementById('confirmPromissoriaParcelaButton');
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-save mr-1"></i> ' + promissoriaParcelaModalI18n.save;
+        }
+
+        window.openPromissoriaParcelaModal = function(data, source) {
+            const modal = document.getElementById('promissoriaParcelaModal');
+            const inputValor = document.getElementById('promissoriaParcelaValor');
+            const inputVencimento = document.getElementById('promissoriaParcelaVencimento');
+            const isEdit = data?.mode === 'edit';
+
+            promissoriaParcelaModalSource = source;
+            promissoriaParcelaModalId = data?.id || null;
+            promissoriaParcelaModalSaving = false;
+            document.getElementById('promissoriaParcelaModalTitle').textContent = isEdit
+                ? promissoriaParcelaModalI18n.editTitle
+                : promissoriaParcelaModalI18n.addTitle;
+            inputValor.value = data?.valor_parcela ? Currency.format(data.valor_parcela, false) : '';
+            inputVencimento.value = data?.data_vencimento || '';
+            restorePromissoriaParcelaButton();
+            modal.classList.add('open');
+            document.body.classList.add('modal-open');
+            setTimeout(() => inputValor.focus(), 0);
+        };
+
+        window.closePromissoriaParcelaModal = function(force = false) {
+            if (promissoriaParcelaModalSaving && !force) return;
+            document.getElementById('promissoriaParcelaModal').classList.remove('open');
+            document.body.classList.remove('modal-open');
+            document.getElementById('promissoriaParcelaValor').value = '';
+            document.getElementById('promissoriaParcelaVencimento').value = '';
+            promissoriaParcelaModalSource = null;
+            promissoriaParcelaModalId = null;
+            promissoriaParcelaModalSaving = false;
+            restorePromissoriaParcelaButton();
+        };
+
+        window.confirmPromissoriaParcelaModal = function() {
+            if (!promissoriaParcelaModalSource || promissoriaParcelaModalSaving) return;
+
+            const valorParcela = Currency.parse(document.getElementById('promissoriaParcelaValor').value || '0');
+            const dataVencimento = document.getElementById('promissoriaParcelaVencimento').value;
+            if (valorParcela <= 0) {
+                openAlertModal(promissoriaParcelaModalI18n.valueRequired);
+                return;
+            }
+            if (!dataVencimento) {
+                openAlertModal(promissoriaParcelaModalI18n.dueDateRequired);
+                return;
+            }
+
+            const button = document.getElementById('confirmPromissoriaParcelaButton');
+            promissoriaParcelaModalSaving = true;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ' + promissoriaParcelaModalI18n.saving;
+            promissoriaParcelaModalSource.postMessage({
+                action: 'promissoriaParcelaModalConfirmado',
+                data: {
+                    id: promissoriaParcelaModalId,
+                    valor_parcela: valorParcela,
+                    data_vencimento: dataVencimento,
+                },
+            }, '*');
+        };
+
+        document.getElementById('cancelPromissoriaParcelaButton')?.addEventListener('click', () => closePromissoriaParcelaModal());
+        document.getElementById('confirmPromissoriaParcelaButton')?.addEventListener('click', confirmPromissoriaParcelaModal);
+        document.getElementById('promissoriaParcelaModal')?.addEventListener('click', function(event) {
+            if (event.target === this) closePromissoriaParcelaModal();
+        });
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && document.getElementById('promissoriaParcelaModal')?.classList.contains('open')) {
+                closePromissoriaParcelaModal();
+            }
+        });
+
         // ===== MODAL DE EDIÇÃO EM LOTE =====
         let editBatchCallback = null;
 
@@ -1933,6 +2059,20 @@
                     event.data.fields,
                     event.data.callbackId
                 );
+            } else if (event.data && event.data.action === 'openPromissoriaParcelaModal') {
+                openPromissoriaParcelaModal(event.data, event.source);
+            } else if (
+                event.data
+                && event.data.action === 'promissoriaParcelaModalResultado'
+                && event.source === promissoriaParcelaModalSource
+            ) {
+                if (event.data.success) {
+                    closePromissoriaParcelaModal(true);
+                } else {
+                    promissoriaParcelaModalSaving = false;
+                    restorePromissoriaParcelaButton();
+                    openAlertModal(event.data.message || promissoriaParcelaModalI18n.saveError);
+                }
             } else if (event.data && event.data.action === 'openInputModal') {
                 // Abrir modal de input global
                 globalSourceWindow = event.source;

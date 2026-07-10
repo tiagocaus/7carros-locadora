@@ -234,6 +234,7 @@ window.parent.postMessage({
 | `openInputModal` | Input de texto | `title`, `label`, `value`, `maxLength`, `callback` |
 | `openEditBatchModal` | Edicao em lote | `title`, `fields`, `callbackId` |
 | `openAddCartaoLocacaoModal` | Adicionar cartao de credito (locacao) | `id_cliente`, `gateways` |
+| `openPromissoriaParcelaModal` | Adicionar/editar parcela de promissoria | `mode`, `id`, `valor_parcela`, `data_vencimento` |
 
 ### Modais de Midia
 
@@ -288,6 +289,14 @@ window.parent.postMessage({
     title: 'Contrato de Locacao'
 }, '*');
 ```
+
+### Parcela de Promissoria
+
+O formulario de parcela e um modal global em `app.php`. O iframe abre com
+`openPromissoriaParcelaModal` e recebe `promissoriaParcelaModalConfirmado` com
+`id`, `valor_parcela` e `data_vencimento`. Durante o POST, o modal permanece
+aberto e bloqueado; o iframe responde com `promissoriaParcelaModalResultado`,
+fechando no sucesso ou liberando os campos no erro.
 
 ---
 

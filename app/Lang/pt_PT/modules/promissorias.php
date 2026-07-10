@@ -86,6 +86,7 @@ return [
         'mark_all_paid' => 'Marcar Todas como Pagas',
         'mark_paid' => 'Marcar como pago',
         'print_installment' => 'Imprimir prestação',
+        'installments_progress' => 'Prestações pagas / total de prestações',
     ],
 
     'messages' => [
@@ -112,6 +113,8 @@ return [
         'general_data_error' => 'Erro ao guardar dados gerais',
         'installment_saved' => 'Prestação guardada com sucesso',
         'installment_save_error' => 'Erro ao guardar prestação',
+        'installment_value_required' => 'O valor da prestação é obrigatório',
+        'installment_due_date_required' => 'A data de vencimento é obrigatória',
         'mark_paid_title' => 'Marcar como Pago',
         'mark_paid_confirm' => 'Deseja marcar todas as prestações desta livrança como pagas?',
         'mark_paid_btn' => 'Marcar como Pago',

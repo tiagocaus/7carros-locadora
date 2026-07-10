@@ -22,6 +22,13 @@ return [
         'outros' => 'Outros',
     ],
 
+    'contract_count' => [
+        'day' => 'dia(s)',
+        'week' => 'semana(s)',
+        'month' => 'mês(es)',
+        'year' => 'ano(s)',
+    ],
+
     // Variáveis do Cliente
     'cliente' => [
         'nome' => 'Nome do Cliente',

@@ -86,6 +86,7 @@ return [
         'mark_all_paid' => 'Marcar Todas como Pagas',
         'mark_paid' => 'Marcar como pago',
         'print_installment' => 'Imprimir parcela',
+        'installments_progress' => 'Parcelas pagas / total de parcelas',
     ],
 
     'messages' => [
@@ -112,6 +113,8 @@ return [
         'general_data_error' => 'Erro ao salvar dados gerais',
         'installment_saved' => 'Parcela salva com sucesso',
         'installment_save_error' => 'Erro ao salvar parcela',
+        'installment_value_required' => 'Valor da parcela é obrigatório',
+        'installment_due_date_required' => 'Data de vencimento é obrigatória',
         'mark_paid_title' => 'Marcar como Pago',
         'mark_paid_confirm' => 'Deseja marcar todas as parcelas desta promissória como pagas?',
         'mark_paid_btn' => 'Marcar como Pago',

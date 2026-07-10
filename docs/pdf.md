@@ -4,6 +4,8 @@
 
 O sistema utiliza a biblioteca **mPDF 8.2.5** para gerar documentos PDF a partir de HTML. Esta documentação explica o padrão correto para evitar erros comuns.
 
+Nos modelos da tabela `documentos`, o `TemplateRenderer` deve receber o locale e a configuração `impressao_variavel_negrito` da matriz/filial usada na impressão. Com a opção ativa, valores de placeholders ficam em negrito; em variáveis de tabela, apenas os cabeçalhos ficam em negrito. A mesma regra deve ser aplicada ao PDF aberto no navegador e ao PDF gerado como string para mensageria.
+
 ## OBRIGATÓRIO: Use PdfHelper
 
 **SEMPRE** use `PdfHelper::create()` para criar instâncias do mPDF. Este helper:

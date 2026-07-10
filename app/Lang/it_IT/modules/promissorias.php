@@ -86,6 +86,7 @@ return [
         'mark_all_paid' => 'Segna Tutte come Pagate',
         'mark_paid' => 'Segna come pagato',
         'print_installment' => 'Stampa rata',
+        'installments_progress' => 'Rate pagate / rate totali',
     ],
 
     'messages' => [
@@ -112,6 +113,8 @@ return [
         'general_data_error' => 'Errore durante il salvataggio dei dati generali',
         'installment_saved' => 'Rata salvata con successo',
         'installment_save_error' => 'Errore durante il salvataggio della rata',
+        'installment_value_required' => 'L’importo della rata è obbligatorio',
+        'installment_due_date_required' => 'La data di scadenza è obbligatoria',
         'mark_paid_title' => 'Segna come Pagato',
         'mark_paid_confirm' => 'Vuoi segnare tutte le rate di questa cambiale come pagate?',
         'mark_paid_btn' => 'Segna come Pagato',

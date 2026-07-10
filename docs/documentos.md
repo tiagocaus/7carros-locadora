@@ -105,6 +105,8 @@ No fluxo de locações, `LocacoesController::buildDocumentoContext()` alimenta v
 
 No fluxo de contratos, `ContratosController::buildDocumentoContext()` alimenta os campos escalares do veículo ativo principal: `{{contrato.km_saida}}`, `{{contrato.km_chegada}}`, `{{contrato.tanque_saida}}` e `{{contrato.tanque_chegada}}`. Para dados cadastrais do veículo, use variáveis como `{{veiculo.combustivel_tipo}}` e `{{veiculo.valor_compra}}`; o valor de compra vem de `veiculos.valor_compra` e é formatado como moeda pelo `TemplateRenderer`. Para garantias em contratos, use `{{contrato.caucao_valor}}`, `{{contrato.deposito_valor}}`, `{{contrato.caucao_status}}`, `{{contrato.caucao_data_devolucao}}`, `{{contrato.caucao_prazo_devolucao}}`, `{{contrato.caucao_data_prevista_devolucao}}`, `{{contrato.bloqueio_valor}}`, `{{contrato.bloqueio_status}}`, `{{contrato.bloqueio_valor_capturado}}` e `{{contrato.bloqueio_expira_em}}`.
 
+`{{contrato.contagem}}` exibe a unidade localizada no formato singular/plural entre parênteses (`dia(s)`, `semana(s)`, `mês(es)` ou `ano(s)` em pt_BR). Quando `impressao_variavel_negrito = 'S'` na matriz/filial usada na impressão, os valores substituídos ficam em negrito. Variáveis que geram tabelas preservam o corpo com peso normal e mantêm somente os cabeçalhos em negrito.
+
 Variável especial para contratos com múltiplos veículos:
 
 | Variável | Uso |

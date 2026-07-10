@@ -50,7 +50,8 @@
                     <th class="table-header"><?= t('modules.promissorias.table.code') ?></th>
                     <th class="table-header"><?= t('modules.promissorias.table.client') ?></th>
                     <th class="table-header hidden lg:table-cell text-right"><?= t('modules.promissorias.table.total_value') ?></th>
-                    <th class="table-header hidden sm:table-cell text-center"><?= t('modules.promissorias.table.installments') ?></th>
+                    <th class="table-header hidden sm:table-cell text-center" title="<?= htmlspecialchars(t('modules.promissorias.tooltips.installments_progress'), ENT_QUOTES, 'UTF-8') ?>"><?= t('modules.promissorias.table.installments') ?></th>
+                    <th class="table-header hidden md:table-cell text-center"><?= t('modules.promissorias.table.due_date') ?></th>
                     <th class="table-header w-28 text-center"><?= t('modules.promissorias.table.status') ?></th>
                     <th class="table-header px-2 w-44 text-center"><?= t('modules.promissorias.table.actions') ?></th>
                 </tr>
@@ -208,7 +209,7 @@ $i18nPromissorias = [
     function mostrarLoading() {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="table-cell text-center text-slate-500">
+                <td colspan="7" class="table-cell text-center text-slate-500">
                     <i class="fas fa-spinner fa-spin mr-2"></i>${i18n.loading}
                 </td>
             </tr>
@@ -218,7 +219,7 @@ $i18nPromissorias = [
     function mostrarMensagemErro(mensagem) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="table-cell text-center text-red-600">
+                <td colspan="7" class="table-cell text-center text-red-600">
                     <i class="fas fa-exclamation-triangle mr-2"></i>${mensagem}
                 </td>
             </tr>
@@ -229,7 +230,7 @@ $i18nPromissorias = [
         if (!promissorias || promissorias.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="table-cell text-center text-slate-500">
+                    <td colspan="7" class="table-cell text-center text-slate-500">
                         <i class="fas fa-inbox mr-2"></i>${i18n.noRecords}
                     </td>
                 </tr>
@@ -249,6 +250,9 @@ $i18nPromissorias = [
             const qtdParcelas = parseInt(p.qtd_parcelas) || 0;
             const qtdPagas = parseInt(p.qtd_pagas) || 0;
             const parcelasInfo = qtdParcelas > 0 ? `${qtdPagas}/${qtdParcelas}` : '-';
+            const proximoVencimento = p.proximo_vencimento
+                ? DateHelper.format(p.proximo_vencimento)
+                : '-';
 
             // Status baseado nas parcelas
             const todasPagas = qtdParcelas > 0 && qtdPagas === qtdParcelas;
@@ -280,6 +284,7 @@ $i18nPromissorias = [
                     </td>
                     <td class="table-cell hidden lg:table-cell text-right font-medium">${valorTotal}</td>
                     <td class="table-cell hidden sm:table-cell text-center">${parcelasInfo}</td>
+                    <td class="table-cell hidden md:table-cell text-center whitespace-nowrap">${proximoVencimento}</td>
                     <td class="table-cell w-28 text-center">${statusBadge}</td>
                     <td class="table-cell px-2 w-44 text-right">
                         <div class="flex items-center justify-center space-x-1">

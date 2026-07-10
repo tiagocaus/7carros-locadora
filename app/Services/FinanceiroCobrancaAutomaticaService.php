@@ -9,18 +9,19 @@ use App\Models\Whatsapp;
 
 class FinanceiroCobrancaAutomaticaService
 {
-    private const BATCH_SIZE = 500;
     private const OVERDUE_INTERVAL_DAYS = 7;
 
     private QueryBuilder $qb;
     private \mysqli $mysqli;
     private PagamentoLinkSyncService $linkSyncService;
+    private InvoiceBatchNotificationService $batchNotificationService;
 
     public function __construct(?QueryBuilder $qb = null, ?PagamentoLinkSyncService $linkSyncService = null)
     {
         $this->mysqli = Model::sharedMysqli();
         $this->qb = $qb ?? new QueryBuilder($this->mysqli);
         $this->linkSyncService = $linkSyncService ?? new PagamentoLinkSyncService();
+        $this->batchNotificationService = new InvoiceBatchNotificationService();
     }
 
     public function processar(): array
@@ -29,6 +30,7 @@ class FinanceiroCobrancaAutomaticaService
             'pre_due_candidates' => 0,
             'overdue_candidates' => 0,
             'queued' => 0,
+            'messages_queued' => 0,
             'skipped' => 0,
             'failed' => 0,
             'errors' => [],
@@ -49,12 +51,9 @@ class FinanceiroCobrancaAutomaticaService
             $stats['pre_due_candidates'] += count($preDue);
             $stats['overdue_candidates'] += count($overdue);
 
-            foreach ($preDue as $fatura) {
-                $this->processarFatura($fatura, 'pre_due', 'payment_reminder', $stats);
-            }
-
-            foreach ($overdue as $fatura) {
-                $this->processarFatura($fatura, 'overdue', 'overdue_notice', $stats);
+            $grupos = $this->agruparPorCliente($preDue, $overdue);
+            foreach ($grupos as $faturasCliente) {
+                $this->processarGrupoCliente($faturasCliente, $stats);
             }
         }
 
@@ -86,19 +85,16 @@ class FinanceiroCobrancaAutomaticaService
 
     private function buscarFaturasPreVencimento(string $chave, string $amanha): array
     {
-        return $this->baseQueryFaturas()
-            ->where('f.chave', '=', $chave)
+        return $this->baseQueryFaturas($chave)
             ->where('f.data_venci', '=', $amanha)
             ->orderBy('f.data_venci', 'ASC')
             ->orderBy('f.id', 'ASC')
-            ->limit(self::BATCH_SIZE)
             ->get();
     }
 
     private function buscarFaturasVencidas(string $chave, string $hoje, string $limiteReenvio): array
     {
-        return $this->baseQueryFaturas()
-            ->where('f.chave', '=', $chave)
+        return $this->baseQueryFaturas($chave)
             ->where('f.data_venci', '<', $hoje)
             ->whereRaw(
                 "NOT EXISTS (
@@ -107,21 +103,21 @@ class FinanceiroCobrancaAutomaticaService
                     WHERE n.chave = f.chave
                         AND n.id_financeiro = f.id
                         AND n.tipo = 'overdue'
+                        AND n.status <> 'failed'
                         AND n.last_sent_at >= ?
                 )",
                 [$limiteReenvio]
             )
             ->orderBy('f.data_venci', 'ASC')
             ->orderBy('f.id', 'ASC')
-            ->limit(self::BATCH_SIZE)
             ->get();
     }
 
-    private function baseQueryFaturas(): QueryBuilder
+    private function baseQueryFaturas(string $chave): QueryBuilder
     {
         return $this->qb
             ->table('financeiro', 'f')
-            ->withoutChave()
+            ->withChave($chave)
             ->select([
                 'f.id',
                 'f.chave',
@@ -180,81 +176,136 @@ class FinanceiroCobrancaAutomaticaService
             ->whereRaw('f.id_cliente > 0');
     }
 
-    private function processarFatura(array $fatura, string $tipo, string $template, array &$stats): void
+    private function agruparPorCliente(array $preDue, array $overdue): array
     {
-        $chave = (string) ($fatura['chave'] ?? '');
-        $idFinanceiro = (int) ($fatura['id'] ?? 0);
-        $dataReferencia = (string) ($fatura['data_venci'] ?? today());
+        $grupos = [];
+        foreach ([['tipo' => 'pre_due', 'faturas' => $preDue], ['tipo' => 'overdue', 'faturas' => $overdue]] as $grupoTipo) {
+            foreach ($grupoTipo['faturas'] as $fatura) {
+                $fatura['notification_type'] = $grupoTipo['tipo'];
+                $clienteId = (int) ($fatura['id_cliente'] ?? 0);
+                if ($clienteId > 0) {
+                    $grupos[$clienteId][] = $fatura;
+                }
+            }
+        }
 
-        if ($chave === '' || $idFinanceiro <= 0) {
-            $stats['skipped']++;
+        return $grupos;
+    }
+
+    private function processarGrupoCliente(array $faturas, array &$stats): void
+    {
+        $primeira = $faturas[0] ?? [];
+        $chave = (string) ($primeira['chave'] ?? '');
+        if ($chave === '') {
+            $stats['skipped'] += count($faturas);
             return;
         }
 
-        try {
-            $this->setContextoTenant($chave);
-            $link = $this->linkSyncService->obterOuCriarLinkAtualizado($idFinanceiro, $chave);
-            $context = $this->buildContext($fatura, $link['url'] ?? '');
-            $canais = $this->canaisDisponiveis($fatura);
+        $remetentes = $this->resolverRemetentesPorCanal($faturas);
+        if ($remetentes === []) {
+            $stats['skipped'] += count($faturas);
+            return;
+        }
 
-            if ($canais === []) {
+        $faturasComLink = [];
+        foreach ($faturas as $fatura) {
+            $idFinanceiro = (int) ($fatura['id'] ?? 0);
+            if ($idFinanceiro <= 0) {
                 $stats['skipped']++;
-                return;
+                continue;
             }
 
-            foreach ($canais as $canal) {
-                $this->enfileirarCanal($fatura, $tipo, $template, $canal, $context, $dataReferencia, $stats);
+            try {
+                $link = $this->linkSyncService->obterOuCriarLinkAtualizado($idFinanceiro, $chave);
+                $fatura['link_pagamento'] = $link['url'] ?? '';
+                $faturasComLink[] = $fatura;
+            } catch (\Throwable $e) {
+                $stats['failed']++;
+                $stats['errors'][] = [
+                    'id_financeiro' => $idFinanceiro,
+                    'chave' => $chave,
+                    'tipo' => $fatura['notification_type'] ?? '',
+                    'erro' => $e->getMessage(),
+                ];
             }
-        } catch (\Throwable $e) {
-            $stats['failed']++;
-            $stats['errors'][] = [
-                'id_financeiro' => $idFinanceiro,
-                'chave' => $chave,
-                'tipo' => $tipo,
-                'erro' => $e->getMessage(),
-            ];
+        }
+
+        foreach ($remetentes as $canal => $remetente) {
+            $elegiveis = array_values(array_filter($faturasComLink, function (array $fatura) use ($chave, $canal): bool {
+                $tipo = (string) $fatura['notification_type'];
+                $dataReferencia = (string) ($fatura['data_venci'] ?? today());
+                $enviado = $this->jaEnviado($chave, (int) $fatura['id'], $tipo, $canal, $dataReferencia);
+                return !$enviado;
+            }));
+
+            $stats['skipped'] += count($faturasComLink) - count($elegiveis);
+            if ($elegiveis !== []) {
+                $this->enfileirarGrupoCanal($elegiveis, $canal, $remetente, $stats);
+            }
         }
     }
 
-    private function enfileirarCanal(
-        array $fatura,
-        string $tipo,
-        string $template,
-        string $canal,
-        array $context,
-        string $dataReferencia,
-        array &$stats
-    ): void {
-        $chave = (string) $fatura['chave'];
-        $idFinanceiro = (int) $fatura['id'];
-
-        if ($this->jaEnviado($chave, $idFinanceiro, $tipo, $canal, $dataReferencia)) {
-            $stats['skipped']++;
-            return;
-        }
-
+    private function enfileirarGrupoCanal(array $faturas, string $canal, array $remetente, array &$stats): void
+    {
+        $chave = (string) $faturas[0]['chave'];
         try {
-            $messageId = queue_template_message($template, $canal, $this->contextoParaCanal($context, $fatura, $canal), $chave);
+            if (count($faturas) === 1) {
+                $fatura = $faturas[0];
+                $template = $fatura['notification_type'] === 'overdue' ? 'overdue_notice' : 'payment_reminder';
+                $context = $this->buildContext($fatura, (string) ($fatura['link_pagamento'] ?? ''));
+                $messageId = queue_template_message($template, $canal, $this->contextoParaCanal($context, $remetente, $canal), $chave);
+            } else {
+                $cliente = $this->clienteParaLote($remetente, $canal);
+                $payload = $this->batchNotificationService->buildBatchPayload(
+                    $canal,
+                    $faturas,
+                    $cliente,
+                    (int) ($remetente['id_matriz_filial'] ?? 0)
+                );
+                $batchId = 'financeiro_cron_' . \App\Helpers\DateHelper::systemNow('YmdHis') . '_' . bin2hex(random_bytes(3));
+                $messageId = queue_message($canal, $payload, $chave, $batchId);
+            }
 
             if ($messageId <= 0) {
-                $this->registrarEnvio($chave, $idFinanceiro, $tipo, $canal, $dataReferencia, null, 'skipped', 'Destinatario ausente para o canal');
-                $stats['skipped']++;
+                foreach ($faturas as $fatura) {
+                    $this->registrarResultadoFatura($fatura, $canal, null, 'skipped', 'Destinatario ausente para o canal');
+                }
+                $stats['skipped'] += count($faturas);
                 return;
             }
 
-            $this->registrarEnvio($chave, $idFinanceiro, $tipo, $canal, $dataReferencia, $messageId, 'queued', null);
-            $stats['queued']++;
+            foreach ($faturas as $fatura) {
+                $this->registrarResultadoFatura($fatura, $canal, $messageId, 'queued', null);
+            }
+            $stats['queued'] += count($faturas);
+            $stats['messages_queued']++;
         } catch (\Throwable $e) {
-            $this->registrarEnvio($chave, $idFinanceiro, $tipo, $canal, $dataReferencia, null, 'failed', $e->getMessage());
-            $stats['failed']++;
-            $stats['errors'][] = [
-                'id_financeiro' => $idFinanceiro,
-                'chave' => $chave,
-                'tipo' => $tipo,
-                'canal' => $canal,
-                'erro' => $e->getMessage(),
-            ];
+            foreach ($faturas as $fatura) {
+                $this->registrarResultadoFatura($fatura, $canal, null, 'failed', $e->getMessage());
+                $stats['errors'][] = [
+                    'id_financeiro' => (int) $fatura['id'],
+                    'chave' => $chave,
+                    'tipo' => $fatura['notification_type'],
+                    'canal' => $canal,
+                    'erro' => $e->getMessage(),
+                ];
+            }
+            $stats['failed'] += count($faturas);
         }
+    }
+
+    private function registrarResultadoFatura(array $fatura, string $canal, ?int $messageId, string $status, ?string $erro): void
+    {
+        $this->registrarEnvio(
+            (string) $fatura['chave'],
+            (int) $fatura['id'],
+            (string) $fatura['notification_type'],
+            $canal,
+            (string) ($fatura['data_venci'] ?? today()),
+            $messageId,
+            $status,
+            $erro
+        );
     }
 
     private function jaEnviado(string $chave, int $idFinanceiro, string $tipo, string $canal, string $dataReferencia): bool
@@ -360,8 +411,52 @@ class FinanceiroCobrancaAutomaticaService
         return $canais;
     }
 
+    /**
+     * Seleciona uma filial/remetente deterministico por canal. Assim, faturas
+     * do mesmo cliente em filiais diferentes continuam no mesmo lote.
+     */
+    private function resolverRemetentesPorCanal(array $faturas): array
+    {
+        $remetentes = [];
+        foreach ($faturas as $fatura) {
+            foreach ($this->canaisDisponiveis($fatura) as $canal) {
+                if (!isset($remetentes[$canal])) {
+                    $remetentes[$canal] = $fatura;
+                }
+            }
+        }
+
+        return $remetentes;
+    }
+
+    private function clienteParaLote(array $fatura, string $canal): array
+    {
+        $telefonePrincipal = trim((string) ($fatura['cliente_telefone'] ?? ''));
+        $telefone = match ($canal) {
+            'whatsapp' => $this->telefoneValido((string) ($fatura['cliente_whatsapp'] ?? ''))
+                ?: $this->telefoneValido($telefonePrincipal),
+            'sms' => $this->telefoneValido((string) ($fatura['cliente_sms'] ?? ''))
+                ?: $this->telefoneValido($telefonePrincipal),
+            default => $this->telefoneValido($telefonePrincipal),
+        };
+
+        return [
+            'nome_rsocial' => $fatura['cliente_nome'] ?? '',
+            'nome' => $fatura['cliente_nome'] ?? '',
+            'email' => $fatura['cliente_email'] ?? '',
+            'telefone' => $telefone,
+            'celular' => $telefone,
+            'cpf_cnpj' => $fatura['cliente_cpf_cnpj'] ?? '',
+            'preferred_locale' => $fatura['cliente_preferred_locale'] ?? null,
+        ];
+    }
+
     private function contextoParaCanal(array $context, array $fatura, string $canal): array
     {
+        $filialId = (int) ($fatura['id_matriz_filial'] ?? 0);
+        $context['id_matriz_filial'] = $filialId ?: null;
+        $context['empresa']['id'] = $filialId ?: null;
+
         if (!in_array($canal, ['whatsapp', 'sms'], true)) {
             return $context;
         }
@@ -475,10 +570,12 @@ class FinanceiroCobrancaAutomaticaService
         $_SESSION['chave'] = $chave;
         $_SESSION['user_id'] = 0;
         $_SESSION['user_name'] = 'Sistema';
+        \App\Helpers\CurrencyHelper::clearCache();
     }
 
     private function limparContextoTenant(): void
     {
         unset($_SESSION['chave'], $_SESSION['user_id'], $_SESSION['user_name']);
+        \App\Helpers\CurrencyHelper::clearCache();
     }
 }

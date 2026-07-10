@@ -2106,7 +2106,10 @@ class ContratosController
 
                 // Resolver variaveis {{entidade.campo}} no texto do documento
                 if ($documentoTexto && !empty($documentoTexto['texto'])) {
-                    $renderer = new TemplateRenderer();
+                    $renderer = new TemplateRenderer(
+                        $empresa['locale'] ?? null,
+                        ($empresa['impressao_variavel_negrito'] ?? 'N') === 'S'
+                    );
                     $context = $this->buildDocumentoContext($contrato, $empresa, $veiculoAtivo);
                     $documentoTexto['texto'] = $renderer->render($documentoTexto['texto'], $context);
                 }
@@ -2493,12 +2496,7 @@ class ContratosController
                 'valor_taxas' => $contrato['total_fatura'] ?? 0,
                 'forma_pagamento' => $contrato['forma_pagamento_descricao'] ?? $contrato['forma_pagamento_tipo'] ?? '',
                 'primeiro_pagamento' => $contrato['primeiro_pagamento'] ?? 0,
-                'contagem' => match($contrato['contagem'] ?? 'dia') {
-                    'dia' => 'Diária',
-                    'semana' => 'Semanal',
-                    'mes' => 'Mensal',
-                    default => ucfirst($contrato['contagem'] ?? ''),
-                },
+                'contagem' => $contrato['contagem'] ?? 'dia',
                 'autorenovacao' => match($contrato['auto_renovacao'] ?? '') {
                     '', null => 'Desativada',
                     'auto' => 'Até devolver',
@@ -2798,7 +2796,10 @@ class ContratosController
             $documentoModel = new Documento();
             $documentoTexto = $documentoModel->buscarPorId($idDocumento);
             if ($documentoTexto && !empty($documentoTexto['texto'])) {
-                $renderer = new TemplateRenderer();
+                $renderer = new TemplateRenderer(
+                    $empresa['locale'] ?? null,
+                    ($empresa['impressao_variavel_negrito'] ?? 'N') === 'S'
+                );
                 $context = $this->buildDocumentoContext($contrato, $empresa, $veiculoAtivo);
                 $documentoTexto['texto'] = $renderer->render($documentoTexto['texto'], $context);
             }

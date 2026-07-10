@@ -18,14 +18,15 @@ class SendFinanceiroCobrancasJob extends BaseJob
         $this->log(
             "Candidatas D-1: {$stats['pre_due_candidates']}; "
             . "vencidas: {$stats['overdue_candidates']}; "
-            . "enfileiradas: {$stats['queued']}; "
+            . "faturas enfileiradas: {$stats['queued']}; "
+            . "mensagens: {$stats['messages_queued']}; "
             . "ignoradas: {$stats['skipped']}; "
             . "falhas: {$stats['failed']}"
         );
 
         return [
             'success' => $stats['failed'] === 0,
-            'message' => "{$stats['queued']} cobranca(s) enfileirada(s)",
+            'message' => "{$stats['messages_queued']} mensagem(ns) para {$stats['queued']} fatura(s) enfileirada(s)",
             'data' => $stats,
         ];
     }

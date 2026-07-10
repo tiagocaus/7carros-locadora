@@ -115,8 +115,16 @@ class Promissoria extends Model
                 MAX(c.cpf_cnpj) AS cliente_cpf_cnpj,
                 MAX(mf.nome_fantasia) AS filial_nome,
                 SUM(p.valor_parcela) AS valor_total,
-                COUNT(*) AS qtd_parcelas,
-                SUM(CASE WHEN p.pago = 'S' THEN 1 ELSE 0 END) AS qtd_pagas,
+                CASE
+                    WHEN COUNT(*) = 1 AND MAX(p.total_parcelas) > 1
+                        THEN MAX(p.total_parcelas)
+                    ELSE COUNT(*)
+                END AS qtd_parcelas,
+                CASE
+                    WHEN COUNT(*) = 1 AND MAX(p.total_parcelas) > 1
+                        THEN MAX(pl.qtd_pagas_lote)
+                    ELSE SUM(CASE WHEN p.pago = 'S' THEN 1 ELSE 0 END)
+                END AS qtd_pagas,
                 (
                     SELECT asn.id
                     FROM assinaturas asn
@@ -132,6 +140,21 @@ class Promissoria extends Model
                 MIN(CASE WHEN p.pago = 'N' THEN p.data_vencimento ELSE NULL END) AS proximo_vencimento,
                 MAX(p.created_at) AS created_at
             FROM promissorias p
+            LEFT JOIN (
+                SELECT
+                    chave,
+                    id_cliente,
+                    id_matriz_filial,
+                    total_parcelas,
+                    created_at,
+                    SUM(CASE WHEN pago = 'S' THEN 1 ELSE 0 END) AS qtd_pagas_lote
+                FROM promissorias
+                GROUP BY chave, id_cliente, id_matriz_filial, total_parcelas, created_at
+            ) pl ON pl.chave = p.chave
+                AND pl.id_cliente <=> p.id_cliente
+                AND pl.id_matriz_filial <=> p.id_matriz_filial
+                AND pl.total_parcelas = p.total_parcelas
+                AND pl.created_at = p.created_at
             LEFT JOIN clientes c ON p.id_cliente = c.id
             LEFT JOIN matrizes_filiais mf ON p.id_matriz_filial = mf.id
             WHERE p.chave = ?

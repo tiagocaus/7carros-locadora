@@ -86,6 +86,7 @@ return [
         'mark_all_paid' => 'Marcar Todas como Pagadas',
         'mark_paid' => 'Marcar como pagado',
         'print_installment' => 'Imprimir cuota',
+        'installments_progress' => 'Cuotas pagadas / total de cuotas',
     ],
 
     'messages' => [
@@ -112,6 +113,8 @@ return [
         'general_data_error' => 'Error al guardar los datos generales',
         'installment_saved' => 'Cuota guardada correctamente',
         'installment_save_error' => 'Error al guardar la cuota',
+        'installment_value_required' => 'El valor de la cuota es obligatorio',
+        'installment_due_date_required' => 'La fecha de vencimiento es obligatoria',
         'mark_paid_title' => 'Marcar como Pagado',
         'mark_paid_confirm' => '¿Desea marcar todas las cuotas de este pagaré como pagadas?',
         'mark_paid_btn' => 'Marcar como Pagado',

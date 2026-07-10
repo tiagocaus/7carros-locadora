@@ -894,7 +894,7 @@ O build agora é mais simples — copia PHP, gera config e compila CSS:
 │     └─ Salva como temp/assets/css/style.min.css            │
 │                                                            │
 │  5. COPIAR assets estáticos                                │
-│     ├─ JS → minifica → temp/assets/js/custom.min.js       │
+│     ├─ JS minificado → copia para temp/assets/js/custom.min.js │
 │     └─ Imagens CSS → temp/assets/css/                      │
 │                                                            │
 │  6. COPIAR idiomas habilitados                             │
@@ -1814,9 +1814,17 @@ Cada grupo tem um botão `<button class="btnSelecionarGrupo" data-id-grupo="..."
 |---|---|---|---|
 | Indisponível no período | `carregarDisponibilidadeGrupos()` retornou o grupo ausente/false | `Esgotado` (`btn_esgotado`) | sim |
 | Disponível, sem plano escolhido | default após AJAX de disponibilidade | `Selecione o plano` (`btn_selecione_plano`) | sim |
-| Disponível, plano escolhido | `change` em `input[name="plano"]` | `Selecionar` (`btn_selecionar`) | não |
+| Disponível, plano escolhido | `change` no radio de plano do próprio card | `Selecionar` (`btn_selecionar`) | não |
 
 Flag `data('esgotado')` é gravada no elemento via `aplicarDisponibilidadeNosBotoes()`; o handler do radio de plano consulta essa flag antes de habilitar.
+
+Os radios de plano são agrupados por card. Marcar Km Livre, Km Controlado ou Km Pago atualiza somente a prévia de preço daquele grupo e não altera os demais cards. A escolha efetiva da reserva (`grupo_id`, plano e valor diário usado no resumo) só é confirmada ao clicar em **Selecionar** no card correspondente.
+
+Os inputs radio são controles internos e permanecem ocultos com `hidden` e
+`display: none !important`; somente os labels estilizados dos planos aparecem ao
+visitante. Funções criadas dentro de `inicializarFormReserva()` e consumidas na
+inicialização geral devem ser expostas explicitamente em `window` e chamadas com
+verificação de tipo, evitando `ReferenceError` por escopo.
 
 ### Responsividade dos botões de navegação entre passos
 
@@ -2061,7 +2069,7 @@ Justificativa: o pacote é leve (~20 arquivos PHP + CSS + JS + assets). Upload c
    │   │   ├── style.min.css        # COMPILADO (cores do tenant)
    │   │   └── [imagens]
    │   └── js/
-   │       └── custom.min.js        # MINIFICADO
+   │       └── custom.min.js        # MINIFICADO previamente com Terser e copiado sem alterações
    ├── lang/
    │   ├── pt_BR.php                # Só idiomas ativos
    │   └── en_US.php
@@ -2132,6 +2140,13 @@ class WebsiteBuilderService
 ```
 
 ### Versionamento e Atualização
+
+> **Regra obrigatória:** qualquer alteração em `storage/templates/website/`,
+> independentemente do tipo ou quantidade de arquivos, deve incrementar
+> `storage/templates/website/versao.json`. A mudança só pode ser considerada
+> concluída ou enviada ao FTP quando o `versao.json` atualizado também estiver
+> incluído no envio. Correções pequenas usam incremento de patch; mudanças
+> maiores de template usam incremento minor.
 
 Sistema simples de comparação entre duas fontes:
 

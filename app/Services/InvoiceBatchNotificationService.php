@@ -11,6 +11,56 @@ use App\Services\PagamentoLinkSyncService;
 class InvoiceBatchNotificationService
 {
     /**
+     * Monta o payload de uma cobranca agrupada sem publica-la na fila.
+     * Usado pelo CRON para manter o controle de envio por fatura.
+     */
+    public function buildBatchPayload(
+        string $canal,
+        array $faturas,
+        array $cliente,
+        int $filialId,
+        array $options = []
+    ): array {
+        if (!in_array($canal, ['email', 'whatsapp', 'sms'], true)) {
+            throw new \InvalidArgumentException('Canal de cobranca invalido');
+        }
+
+        if ($faturas === []) {
+            throw new \InvalidArgumentException('Nenhuma fatura informada para o lote');
+        }
+
+        $email = trim((string) ($cliente['email'] ?? ''));
+        $telefone = trim((string) ($cliente['telefone'] ?? $cliente['celular'] ?? ''));
+        $erroDestino = $this->validarDestino($canal, $email, $telefone);
+        if ($erroDestino !== null) {
+            throw new \InvalidArgumentException($erroDestino);
+        }
+
+        $origemLabel = trim((string) ($options['origem_label'] ?? ''));
+
+        return match ($canal) {
+            'email' => [
+                'to' => $email,
+                'to_name' => $cliente['nome_rsocial'] ?? $cliente['nome'] ?? '',
+                'subject' => $this->buildGroupedSubject($faturas, $origemLabel),
+                'body' => $this->buildEmailBody($faturas, $cliente, $origemLabel),
+                'body_text' => $this->buildTextMessage($faturas, $origemLabel, false),
+                'id_matriz_filial' => $filialId ?: null,
+            ],
+            'whatsapp' => [
+                'to' => $telefone,
+                'message' => $this->buildTextMessage($faturas, $origemLabel, false),
+                'id_matriz_filial' => $filialId ?: null,
+            ],
+            'sms' => [
+                'to' => $telefone,
+                'message' => $this->buildTextMessage($faturas, $origemLabel, true),
+                'id_matriz_filial' => $filialId ?: null,
+            ],
+        };
+    }
+
+    /**
      * Envia cobrancas de parcelas/faturas, agrupando em uma mensagem por canal
      * quando houver mais de uma fatura no lote.
      */
@@ -130,26 +180,9 @@ class InvoiceBatchNotificationService
             }
 
             try {
-                $payload = match ($canal) {
-                    'email' => [
-                        'to' => $email,
-                        'to_name' => $cliente['nome_rsocial'] ?? '',
-                        'subject' => $this->buildGroupedSubject($faturas, $origemLabel),
-                        'body' => $this->buildEmailBody($faturas, $cliente, $origemLabel),
-                        'body_text' => $this->buildTextMessage($faturas, $origemLabel, false),
-                        'id_matriz_filial' => $filialId ?: null,
-                    ],
-                    'whatsapp' => [
-                        'to' => $telefone,
-                        'message' => $this->buildTextMessage($faturas, $origemLabel, false),
-                        'id_matriz_filial' => $filialId ?: null,
-                    ],
-                    'sms' => [
-                        'to' => $telefone,
-                        'message' => $this->buildTextMessage($faturas, $origemLabel, true),
-                        'id_matriz_filial' => $filialId ?: null,
-                    ],
-                };
+                $payload = $this->buildBatchPayload($canal, $faturas, $cliente, $filialId, [
+                    'origem_label' => $origemLabel,
+                ]);
 
                 $messageId = queue_message($canal, $payload, $chave, $batchId);
                 $resultado[] = ['parcela_id' => null, 'canal' => $canal, 'success' => true, 'message_id' => $messageId, 'message' => "message_id={$messageId}", 'total_faturas' => count($faturas)];
@@ -193,7 +226,12 @@ class InvoiceBatchNotificationService
 
     private function buildGroupedSubject(array $faturas, string $origemLabel): string
     {
-        $prefix = count($faturas) . ' faturas para pagamento';
+        $tipos = array_values(array_unique(array_filter(array_column($faturas, 'notification_type'))));
+        $prefix = match ($tipos) {
+            ['pre_due'] => count($faturas) . ' faturas proximas do vencimento',
+            ['overdue'] => count($faturas) . ' faturas vencidas',
+            default => count($faturas) . ' faturas para pagamento',
+        };
         return $origemLabel !== '' ? "{$prefix} - {$origemLabel}" : $prefix;
     }
 
@@ -202,8 +240,27 @@ class InvoiceBatchNotificationService
         $nome = htmlspecialchars((string) ($cliente['nome_rsocial'] ?? ''), ENT_QUOTES, 'UTF-8');
         $total = $this->formatValor($this->totalFaturas($faturas));
         $origem = $origemLabel !== '' ? '<p>Referente a <strong>' . htmlspecialchars($origemLabel, ENT_QUOTES, 'UTF-8') . '</strong>.</p>' : '';
-        $rows = '';
+        $sections = $this->groupByNotificationType($faturas);
+        $tables = '';
+        foreach ($sections as $tipo => $faturasSecao) {
+            $titulo = match ($tipo) {
+                'pre_due' => 'Proximas do vencimento',
+                'overdue' => 'Vencidas',
+                default => 'Faturas',
+            };
+            $tables .= '<h3>' . $titulo . '</h3>' . $this->buildInvoiceTable($faturasSecao);
+        }
 
+        return '<p>Ola, ' . $nome . '!</p>'
+            . $origem
+            . '<p>Segue abaixo o resumo das faturas para pagamento.</p>'
+            . $tables
+            . '<p><strong>Total: ' . htmlspecialchars($total, ENT_QUOTES, 'UTF-8') . '</strong></p>';
+    }
+
+    private function buildInvoiceTable(array $faturas): string
+    {
+        $rows = '';
         foreach ($faturas as $fatura) {
             $link = (string) ($fatura['link_pagamento'] ?? '');
             $linkHtml = $link !== ''
@@ -218,18 +275,14 @@ class InvoiceBatchNotificationService
                 . '</tr>';
         }
 
-        return '<p>Ola, ' . $nome . '!</p>'
-            . $origem
-            . '<p>Segue abaixo o resumo das faturas geradas para pagamento.</p>'
-            . '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">'
+        return '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">'
             . '<thead><tr style="background:#f8fafc;">'
             . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Fatura</th>'
             . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Descricao</th>'
             . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:center;">Vencimento</th>'
             . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:right;">Valor</th>'
             . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:center;">Pagamento</th>'
-            . '</tr></thead><tbody>' . $rows . '</tbody></table>'
-            . '<p><strong>Total: ' . htmlspecialchars($total, ENT_QUOTES, 'UTF-8') . '</strong></p>';
+            . '</tr></thead><tbody>' . $rows . '</tbody></table>';
     }
 
     private function buildTextMessage(array $faturas, string $origemLabel, bool $sms): string
@@ -249,15 +302,22 @@ class InvoiceBatchNotificationService
         $linhas = [
             $prefix . count($faturas) . ' faturas geradas para pagamento.',
             'Total: ' . $total,
-            '',
         ];
 
-        foreach ($faturas as $fatura) {
-            $linhas[] = '- ' . $this->numeroFatura($fatura)
-                . ' | ' . $this->formatData($fatura['data_venci'] ?? null)
-                . ' | ' . $this->formatValor((float) ($fatura['valor_total'] ?? 0));
-            if (!empty($fatura['link_pagamento'])) {
-                $linhas[] = '  ' . $fatura['link_pagamento'];
+        foreach ($this->groupByNotificationType($faturas) as $tipo => $faturasSecao) {
+            $linhas[] = '';
+            $linhas[] = match ($tipo) {
+                'pre_due' => 'Proximas do vencimento:',
+                'overdue' => 'Vencidas:',
+                default => 'Faturas:',
+            };
+            foreach ($faturasSecao as $fatura) {
+                $linhas[] = '- ' . $this->numeroFatura($fatura)
+                    . ' | ' . $this->formatData($fatura['data_venci'] ?? null)
+                    . ' | ' . $this->formatValor((float) ($fatura['valor_total'] ?? 0));
+                if (!empty($fatura['link_pagamento'])) {
+                    $linhas[] = '  ' . $fatura['link_pagamento'];
+                }
             }
         }
 
@@ -285,6 +345,24 @@ class InvoiceBatchNotificationService
     private function totalFaturas(array $faturas): float
     {
         return array_reduce($faturas, static fn(float $total, array $fatura): float => $total + (float) ($fatura['valor_total'] ?? 0), 0.0);
+    }
+
+    private function groupByNotificationType(array $faturas): array
+    {
+        $grupos = [];
+        foreach ($faturas as $fatura) {
+            $tipo = (string) ($fatura['notification_type'] ?? 'generic');
+            $grupos[$tipo][] = $fatura;
+        }
+
+        $ordenados = [];
+        foreach (['pre_due', 'overdue', 'generic'] as $tipo) {
+            if (!empty($grupos[$tipo])) {
+                $ordenados[$tipo] = $grupos[$tipo];
+            }
+        }
+
+        return $ordenados + $grupos;
     }
 
     private function formatValor(float $valor): string

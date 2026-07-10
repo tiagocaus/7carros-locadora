@@ -131,42 +131,6 @@
     </div>
 </div>
 
-<!-- Modal Adicionar/Editar Parcela -->
-<div id="modalParcela" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div class="flex items-center justify-between px-4 py-3 border-b">
-            <h4 id="modalParcelaTitulo" class="text-lg font-medium"><?= t('modules.promissorias.messages.add_installment_modal') ?></h4>
-            <button type="button" id="btnFecharModal" class="text-slate-400 hover:text-slate-600">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <form id="formParcela" class="p-4">
-            <input type="hidden" id="parcelaId" value="">
-
-            <div class="form-input-group mb-4">
-                <label for="parcelaValor" class="form-label-group"><?= t('modules.promissorias.fields.value') ?> <span class="text-red-500">*</span></label>
-                <div class="relative">
-                    <span class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
-                    <input type="text" id="parcelaValor" name="valor" class="form-input-group-field pl-10 input-moeda" required>
-                </div>
-            </div>
-
-            <div class="form-input-group mb-4">
-                <label for="parcelaVencimento" class="form-label-group"><?= t('modules.promissorias.fields.due_date') ?> <span class="text-red-500">*</span></label>
-                <input type="date" id="parcelaVencimento" name="data_vencimento" class="form-input-group-field" required>
-            </div>
-
-            <div class="flex justify-end space-x-3 mt-6">
-                <button type="button" id="btnCancelarModal" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
-                    <?= t('common.buttons.cancel') ?>
-                </button>
-                <button type="submit" id="btnSalvarParcela" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center">
-                    <i class="fas fa-save mr-2"></i><?= t('common.buttons.save') ?>
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 @endsection
 
 @section('scripts')
@@ -174,7 +138,6 @@
 (function () {
     const i18n = {
         saving: '<?= t("common.labels.saving") ?>',
-        save: '<?= t("common.buttons.save") ?>',
         codeNotFound: '<?= t("modules.promissorias.messages.code_not_found") ?>',
         loadError: '<?= t("modules.promissorias.messages.load_promissory_error") ?>',
         noInstallments: '<?= t("modules.promissorias.messages.no_installments") ?>',
@@ -184,8 +147,6 @@
         tooltipMarkPaid: '<?= t("modules.promissorias.tooltips.mark_paid") ?>',
         tooltipEdit: '<?= t("modules.promissorias.tooltips.edit") ?>',
         tooltipDelete: '<?= t("modules.promissorias.tooltips.delete") ?>',
-        addInstallmentModal: '<?= t("modules.promissorias.messages.add_installment_modal") ?>',
-        editInstallmentModal: '<?= t("modules.promissorias.messages.edit_installment_modal") ?>',
         installmentSaved: '<?= t("modules.promissorias.messages.installment_saved") ?>',
         installmentSaveError: '<?= t("modules.promissorias.messages.installment_save_error") ?>',
         markInstallmentPaidTitle: '<?= t("modules.promissorias.messages.mark_installment_paid_title") ?>',
@@ -397,10 +358,6 @@
     // ===== MODAL =====
 
     function abrirModalAdicionar() {
-        document.getElementById('modalParcelaTitulo').textContent = i18n.addInstallmentModal;
-        document.getElementById('parcelaId').value = '';
-        document.getElementById('parcelaValor').value = '';
-
         // Data padrao: ultimo vencimento + 30 dias ou hoje
         let dataVencimento = DateHelper.todayISO();
         if (parcelasData.length > 0) {
@@ -409,44 +366,35 @@
                 dataVencimento = DateHelper.addDays(ultimaParcela.data_vencimento, 30);
             }
         }
-        document.getElementById('parcelaVencimento').value = dataVencimento;
-
-        document.getElementById('modalParcela').classList.remove('hidden');
-    }
-
-    function fecharModal() {
-        document.getElementById('modalParcela').classList.add('hidden');
+        window.parent.postMessage({
+            action: 'openPromissoriaParcelaModal',
+            mode: 'add',
+            id: null,
+            valor_parcela: null,
+            data_vencimento: dataVencimento
+        }, '*');
     }
 
     window.editarParcela = function(id) {
         const parcela = parcelasData.find(p => p.id == id);
         if (!parcela) return;
 
-        document.getElementById('modalParcelaTitulo').textContent = i18n.editInstallmentModal;
-        document.getElementById('parcelaId').value = id;
-        document.getElementById('parcelaValor').value = formatarMoedaInput(parcela.valor_parcela || 0);
-        document.getElementById('parcelaVencimento').value = parcela.data_vencimento || '';
-
-        document.getElementById('modalParcela').classList.remove('hidden');
+        window.parent.postMessage({
+            action: 'openPromissoriaParcelaModal',
+            mode: 'edit',
+            id: id,
+            valor_parcela: parseFloat(parcela.valor_parcela) || 0,
+            data_vencimento: parcela.data_vencimento || ''
+        }, '*');
     };
 
-    async function salvarParcela(event) {
-        event.preventDefault();
-
-        const parcelaId = document.getElementById('parcelaId').value;
-        const isEdicao = parcelaId && parcelaId !== '';
-
-        const btnSalvar = document.getElementById('btnSalvarParcela');
-        btnSalvar.disabled = true;
-        btnSalvar.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${i18n.saving}`;
-
+    async function salvarParcela(dadosModal) {
+        const parcelaId = dadosModal.id || null;
+        const isEdicao = parcelaId !== null && parcelaId !== '';
         try {
-            // Converter valor PT-BR ("2.806,05" -> 2806.05) usando Currency.parse
-            const valorNum = Currency.parse(document.getElementById('parcelaValor').value || '0');
-
             const dados = {
-                valor: valorNum,
-                data_vencimento: document.getElementById('parcelaVencimento').value
+                valor_parcela: dadosModal.valor_parcela,
+                data_vencimento: dadosModal.data_vencimento
             };
 
             let url, result;
@@ -460,17 +408,26 @@
 
             if (result.success) {
                 toast.success(result.message || i18n.installmentSaved);
-                fecharModal();
                 await carregarPromissoria();
+                window.parent.postMessage({
+                    action: 'promissoriaParcelaModalResultado',
+                    success: true,
+                    message: result.message || i18n.installmentSaved
+                }, '*');
             } else {
-                toast.error(result.message || i18n.installmentSaveError);
+                window.parent.postMessage({
+                    action: 'promissoriaParcelaModalResultado',
+                    success: false,
+                    message: result.message || i18n.installmentSaveError
+                }, '*');
             }
         } catch (error) {
             console.error('Erro:', error);
-            toast.error(error.message || i18n.installmentSaveError);
-        } finally {
-            btnSalvar.disabled = false;
-            btnSalvar.innerHTML = `<i class="fas fa-save mr-2"></i>${i18n.save}`;
+            window.parent.postMessage({
+                action: 'promissoriaParcelaModalResultado',
+                success: false,
+                message: error.message || i18n.installmentSaveError
+            }, '*');
         }
     }
 
@@ -674,27 +631,23 @@
 
         // Parcelas
         document.getElementById('btnAddParcela')?.addEventListener('click', abrirModalAdicionar);
-        document.getElementById('formParcela')?.addEventListener('submit', salvarParcela);
-        document.getElementById('btnFecharModal')?.addEventListener('click', fecharModal);
-        document.getElementById('btnCancelarModal')?.addEventListener('click', fecharModal);
 
         // Acoes gerais
         document.getElementById('btnMarcarTodasPagas')?.addEventListener('click', marcarTodasPagas);
         document.getElementById('btnExcluir')?.addEventListener('click', excluirPromissoria);
         document.getElementById('btnImprimir')?.addEventListener('click', imprimir);
 
-        // Fechar modal ao clicar fora
-        document.getElementById('modalParcela')?.addEventListener('click', function(e) {
-            if (e.target === this) {
-                fecharModal();
-            }
-        });
     });
 
     // ===== LISTENER PARA MODAIS DO SISTEMA =====
 
     window.addEventListener('message', function(event) {
         if (!event.data || !event.data.action) return;
+
+        if (event.data.action === 'promissoriaParcelaModalConfirmado') {
+            salvarParcela(event.data.data || {});
+            return;
+        }
 
         // Confirmacao generica (marcar como pago)
         if (event.data.action === 'genericConfirmed' && pendingAction) {
@@ -726,11 +679,6 @@
             style: 'currency',
             currency: 'BRL'
         }).format(valor);
-    }
-
-    function formatarMoedaInput(valor) {
-        const num = parseFloat(valor) || 0;
-        return num.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
 
     function formatarData(dataStr) {

@@ -2185,7 +2185,10 @@ class LocacoesController
 
                 // Resolver variaveis {{entidade.campo}} no texto do documento
                 if ($documentoTexto && !empty($documentoTexto['texto'])) {
-                    $renderer = new TemplateRenderer();
+                    $renderer = new TemplateRenderer(
+                        $empresa['locale'] ?? null,
+                        ($empresa['impressao_variavel_negrito'] ?? 'N') === 'S'
+                    );
                     $context = $this->buildDocumentoContext($locacao, $empresa, $veiculo);
                     $documentoTexto['texto'] = $renderer->render($documentoTexto['texto'], $context);
                 }
@@ -2936,7 +2939,10 @@ class LocacoesController
             $documentoModel = new Documento();
             $documentoTexto = $documentoModel->buscarPorId($idDocumento);
             if ($documentoTexto && !empty($documentoTexto['texto'])) {
-                $renderer = new TemplateRenderer();
+                $renderer = new TemplateRenderer(
+                    $empresa['locale'] ?? null,
+                    ($empresa['impressao_variavel_negrito'] ?? 'N') === 'S'
+                );
                 $context = $this->buildDocumentoContext($locacao, $empresa, $veiculo);
                 $documentoTexto['texto'] = $renderer->render($documentoTexto['texto'], $context);
             }

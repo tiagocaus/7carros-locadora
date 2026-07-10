@@ -86,6 +86,7 @@ return [
         'mark_all_paid' => 'Mark All as Paid',
         'mark_paid' => 'Mark as paid',
         'print_installment' => 'Print installment',
+        'installments_progress' => 'Paid installments / total installments',
     ],
 
     'messages' => [
@@ -112,6 +113,8 @@ return [
         'general_data_error' => 'Error saving general data',
         'installment_saved' => 'Installment saved successfully',
         'installment_save_error' => 'Error saving installment',
+        'installment_value_required' => 'Installment amount is required',
+        'installment_due_date_required' => 'Due date is required',
         'mark_paid_title' => 'Mark as Paid',
         'mark_paid_confirm' => 'Do you want to mark all installments of this promissory note as paid?',
         'mark_paid_btn' => 'Mark as Paid',
