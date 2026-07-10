@@ -1291,39 +1291,13 @@ class FinanceiroController
         }
 
         $qrPath = $this->gerarQrCodePath((int) $lancamento['id']);
-        $descricaoLancamentoPdf = $this->montarDescricaoFaturaComVeiculos($lancamento);
+        $descricaoLancamentoPdf = trim((string) ($lancamento['descricao'] ?? '')) ?: '-';
+        $veiculosLancamentoPdf = array_column($this->veiculosDescricaoFatura($lancamento), 'texto');
 
-        extract(compact('lancamento', 'empresa', 'cliente', 'fornecedor', 'contraparte', 'tipoReceita', 'logoPath', 'linkPagamento', 'qrPath', 'descricaoLancamentoPdf'));
+        extract(compact('lancamento', 'empresa', 'cliente', 'fornecedor', 'contraparte', 'tipoReceita', 'logoPath', 'linkPagamento', 'qrPath', 'descricaoLancamentoPdf', 'veiculosLancamentoPdf'));
         ob_start();
         include __DIR__ . '/../Views/pages/financeiro/imprimir/fatura.php';
         return ob_get_clean();
-    }
-
-    private function montarDescricaoFaturaComVeiculos(array $lancamento): string
-    {
-        $descricao = trim((string) ($lancamento['descricao'] ?? ''));
-        $veiculos = $this->veiculosDescricaoFatura($lancamento);
-        if (empty($veiculos)) {
-            return $descricao !== '' ? $descricao : '-';
-        }
-
-        $descricaoNormalizada = $this->normalizarTextoVeiculoDescricao($descricao);
-        $veiculosNovos = [];
-        foreach ($veiculos as $veiculo) {
-            $placaNormalizada = $this->normalizarTextoVeiculoDescricao($veiculo['placa']);
-            if ($placaNormalizada === '' || !str_contains($descricaoNormalizada, $placaNormalizada)) {
-                $veiculosNovos[] = $veiculo['texto'];
-            }
-        }
-
-        if (empty($veiculosNovos)) {
-            return $descricao !== '' ? $descricao : '-';
-        }
-
-        $rotulo = count($veiculosNovos) === 1 ? 'Veículo' : 'Veículos';
-        $sufixo = $rotulo . ': ' . implode('; ', $veiculosNovos);
-
-        return $descricao !== '' ? $descricao . ' - ' . $sufixo : $sufixo;
     }
 
     private function veiculosDescricaoFatura(array $lancamento): array

@@ -229,6 +229,11 @@ POST /financeiro/{id}/enviar
 ```
 
 O PDF de fatura financeira atende receitas (`tipo='R'`) e despesas (`tipo='D'`).
+Na secao de descricao, o PDF mantem o texto livre original e exibe abaixo um bloco
+**Veiculo(s)** com placa, marca e modelo. O bloco combina o veiculo vinculado ao
+lancamento (`financeiro.id_veiculo`) e os veiculos dos itens
+(`financeiro_itens.id_veiculo`), um por linha e sem repetir placas equivalentes.
+A presenca da placa no texto livre nao suprime os dados estruturados do veiculo.
 Receitas exibem os dados do cliente; despesas exibem os dados do fornecedor. O
 envio por e-mail, WhatsApp ou SMS continua restrito a receitas com cliente, pois
 representa envio de cobranca. Despesas podem ser impressas em PDF, mas nao sao

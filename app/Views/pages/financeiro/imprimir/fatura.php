@@ -5,6 +5,7 @@
  * Variaveis esperadas do controller:
  *   $lancamento (com 'itens' carregados via buscarPorIdComItens)
  *   $empresa, $cliente, $fornecedor, $contraparte, $logoPath, $linkPagamento (string|null)
+ *   $descricaoLancamentoPdf (string), $veiculosLancamentoPdf (string[])
  */
 
 $tipoReceita = $tipoReceita ?? (($lancamento['tipo'] ?? 'D') === 'R');
@@ -162,6 +163,14 @@ $documentCode = $codigo ?: '#' . ($lancamento['id'] ?? '');
 <div class="section">
     <div class="section-title"><?= t('modules.financeiro.print_pdf.description') ?></div>
     <div style="padding: 6px 8px; font-size: 10pt;"><?= htmlspecialchars($descricaoLancamentoPdf ?? ($lancamento['descricao'] ?? '-')) ?></div>
+    <?php if (!empty($veiculosLancamentoPdf) && is_array($veiculosLancamentoPdf)): ?>
+    <div style="padding: 4px 8px 6px; font-size: 9pt;">
+        <strong><?= t('modules.financeiro.print_pdf.vehicles') ?>:</strong>
+        <?php foreach ($veiculosLancamentoPdf as $veiculoLancamentoPdf): ?>
+        <div><?= htmlspecialchars($veiculoLancamentoPdf) ?></div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Itens (se houver) -->

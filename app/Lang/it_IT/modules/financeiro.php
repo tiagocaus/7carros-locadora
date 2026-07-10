@@ -164,6 +164,7 @@ return [
         'email' => 'E-mail',
         'phone' => 'Telefono',
         'description' => 'Descrizione',
+        'vehicles' => 'Veicolo/i',
         'items' => 'Voci',
         'value' => 'Valore',
         'subtotal' => 'Subtotale',

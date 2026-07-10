@@ -158,6 +158,7 @@ return [
         'email' => 'Email',
         'phone' => 'Teléfono',
         'description' => 'Descripción',
+        'vehicles' => 'Vehículo(s)',
         'items' => 'Elementos',
         'value' => 'Valor',
         'subtotal' => 'Subtotal',
