@@ -845,11 +845,14 @@ class Locacao extends Model
         $totalPagarFinal = isset($dados['total_pagar_final'])
             ? (float) $dados['total_pagar_final']
             : (float) ($locacao['total_pagar'] ?? 0);
-        $totalLancado = (float) ($this->qb
-            ->table('financeiro')
-            ->where('id_locacao', '=', $locacaoId)
-            ->sum('valor_total') ?? 0);
-        $totalPagar = round($totalPagarFinal - $totalLancado, 2);
+
+        // Usa a mesma base do resumo financeiro: multas possuem cobranca propria
+        // e nao podem reduzir o saldo parcelavel da locacao. Avarias e creditos
+        // de devolucao permanecem compensados pelo total esperado/lancado.
+        $resumoFinanceiro = $this->resumoFinanceiro($locacaoId);
+        $totalAvarias = (float) ($resumoFinanceiro['total_avarias'] ?? 0);
+        $totalLancado = (float) ($resumoFinanceiro['total_lancado'] ?? 0);
+        $totalPagar = round($totalPagarFinal + $totalAvarias - $totalLancado, 2);
         if ($totalPagar <= 0) {
             throw new \InvalidArgumentException('Nao ha saldo restante para gerar parcelas');
         }
@@ -861,6 +864,9 @@ class Locacao extends Model
         $maxParcela = $this->qb
             ->table('financeiro')
             ->where('id_locacao', '=', $locacaoId)
+            ->where('tipo', '=', 'R')
+            ->whereRaw('(id_multa IS NULL OR id_multa = 0)')
+            ->where('parcela', '>', 0)
             ->max('parcela');
 
         $proximaParcela = ($maxParcela ?? 0) + 1;
@@ -914,11 +920,15 @@ class Locacao extends Model
             $dataVencimento = DateHelper::addMonthsForDatabase(1, $dataVencimento);
         }
 
-        // Atualizar total_parcelas em todas as parcelas existentes
+        // Atualizar somente parcelas reais da locacao. Multas e outros
+        // lancamentos independentes nao participam da numeracao.
         $novoTotal = ($proximaParcela - 1) + $quantidade;
         $this->qb
             ->table('financeiro')
             ->where('id_locacao', '=', $locacaoId)
+            ->where('tipo', '=', 'R')
+            ->whereRaw('(id_multa IS NULL OR id_multa = 0)')
+            ->where('parcela', '>', 0)
             ->update(['total_parcelas' => $novoTotal]);
 
         return $ids;
@@ -1381,8 +1391,7 @@ class Locacao extends Model
         if ($status === 'F' && $veiculo && ($dados['plano'] ?? $locacao['plano'] ?? $veiculo['plano'] ?? '') === 'KMC') {
             $odometroSaida = (int) ($dados['odometro_ini'] ?? $veiculo['odometro_saida'] ?? $locacao['odometro_ini'] ?? 0);
             $odometroEntrada = $this->normalizarOdometroResumo(
-                $dados['odometro_fim'] ?? $veiculo['odometro_entrada'] ?? $locacao['odometro_fim'] ?? 0,
-                true
+                $dados['odometro_fim'] ?? $veiculo['odometro_entrada'] ?? $locacao['odometro_fim'] ?? 0
             );
             $odometroUsado = $odometroEntrada > $odometroSaida ? $odometroEntrada - $odometroSaida : 0;
             $franquiaDiaria = (int) ($dados['km_controlado_franquia'] ?? $veiculo['km_franquia'] ?? 0);
@@ -1510,7 +1519,7 @@ class Locacao extends Model
         return parse_date($search);
     }
 
-    private function normalizarOdometroResumo($valor, bool $preferirUltimo = false): int
+    private function normalizarOdometroResumo($valor): int
     {
         if (is_int($valor) || is_float($valor)) {
             return (int) $valor;
@@ -1519,11 +1528,6 @@ class Locacao extends Model
         $texto = trim((string) $valor);
         if ($texto === '') {
             return 0;
-        }
-
-        if (preg_match_all('/\d+/', $texto, $matches) && !empty($matches[0])) {
-            $partes = $matches[0];
-            $texto = $preferirUltimo ? end($partes) : reset($partes);
         }
 
         return (int) preg_replace('/\D/', '', $texto);

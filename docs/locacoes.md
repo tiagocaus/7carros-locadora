@@ -298,6 +298,9 @@ $locacao->gerarParcelas($locacaoId, [
 
 - Divide o saldo restante em N parcelas iguais
 - Quando recebe snapshot da tela, recalcula o total final antes de gerar
+- O snapshot inclui os dados ainda nao salvos da devolucao (`odometro_ini`,
+  `odometro_fim`, `km_controlado_franquia`, `km_valor` e `combustivel_fim`),
+  garantindo que km excedente e combustivel entrem no saldo parcelavel
 - Gera apenas o saldo restante: total final menos total ja lancado no financeiro
 - Bloqueia a geracao quando nao houver saldo restante
 - Ultima parcela absorve diferenca de arredondamento

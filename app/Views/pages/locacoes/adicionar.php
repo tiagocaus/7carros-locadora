@@ -3752,6 +3752,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     seguro_carro_valor: document.getElementById('seguro_carro_valor')?.value || '0,00',
                     seguro_terceiros: document.getElementById('seguro_terceiros')?.checked ? 'S' : 'N',
                     seguro_terceiros_valor: document.getElementById('seguro_terceiros_valor')?.value || '0,00',
+                    odometro_ini: document.getElementById('odometro_ini')?.value || '',
+                    odometro_fim: document.getElementById('odometro_fim')?.value || '',
+                    km_controlado_franquia: document.getElementById('km_controlado_franquia')?.value || '0',
+                    km_valor: document.getElementById('km_valor')?.value || '0,00',
                     combustivel_fim: document.getElementById('combustivel_fim')?.value || '',
                     condutor_adicional: coletarPessoas('listaCondutores'),
                     taxas: JSON.stringify(taxas)

@@ -1726,7 +1726,7 @@ class LocacoesController
      * Gera parcelas automaticas para uma locacao
      *
      * POST /api/locacoes/{id}/gerar-parcelas
-     * Body: { quantidade, data_primeiro_vencimento, id_conta, id_forma_pagamento }
+     * Body: dados do parcelamento + snapshot atual da locacao/devolucao
      */
     public function gerarParcelas(Request $request, int $id): void
     {
