@@ -21,6 +21,7 @@ use App\Helpers\FilialHelper;
 use App\Helpers\DateHelper;
 use App\Helpers\PdfHelper;
 use App\Config\Planos;
+use App\I18n\TemplateVariables;
 use App\Services\AuditLogService;
 use App\Services\ComissaoInvestidorService;
 use App\Services\PagamentoLinkSyncService;
@@ -1231,6 +1232,15 @@ class FinanceiroController
             $codigo = $lancamento['codigo'] ?? '#' . $id;
             $valorBR = number_format((float) ($lancamento['valor_total'] ?? 0), 2, ',', '.');
             $venciBR = !empty($lancamento['data_venci']) ? format_date($lancamento['data_venci']) : '-';
+            $parcelaDescricao = TemplateVariables::formatInvoiceInstallment(
+                (int) ($lancamento['parcela'] ?? 0),
+                (int) ($lancamento['total_parcelas'] ?? 0),
+                (string) ($cliente['preferred_locale'] ?? current_locale())
+            );
+            $parcelaHtml = $parcelaDescricao
+                ? '<p><strong>' . htmlspecialchars($parcelaDescricao, ENT_QUOTES, 'UTF-8') . '</strong></p>'
+                : '';
+            $parcelaTexto = $parcelaDescricao ? "\n" . $parcelaDescricao : '';
 
             if ($canal === 'email') {
                 queue_client_email((int) $lancamento['id_cliente'], [
@@ -1239,6 +1249,7 @@ class FinanceiroController
                     'subject' => 'Fatura ' . $codigo . ' - ' . $nomeEmpresa,
                     'body' => '<p>Ola, ' . htmlspecialchars($cliente['nome_rsocial'] ?? '') . '!</p>'
                         . '<p>Segue em anexo a fatura <strong>' . htmlspecialchars($codigo) . '</strong>.</p>'
+                        . $parcelaHtml
                         . '<p>Valor: <strong>R$ ' . $valorBR . '</strong><br>Vencimento: <strong>' . $venciBR . '</strong></p>'
                         . '<p>Atenciosamente,<br>' . htmlspecialchars($nomeEmpresa) . '</p>',
                     'attachments' => [$tempPath],
@@ -1251,13 +1262,14 @@ class FinanceiroController
                     'media_url' => $publicUrl,
                     'caption' => 'Fatura ' . $codigo . ' - ' . $nomeEmpresa
                         . "\nValor: R$ " . $valorBR
-                        . "\nVencimento: " . $venciBR,
+                        . "\nVencimento: " . $venciBR
+                        . $parcelaTexto,
                     'id_matriz_filial' => $lancamento['id_matriz_filial'] ?? null,
                 ]);
             } else { // sms
                 queue_message('sms', [
                     'to' => $destinatario,
-                    'message' => $nomeEmpresa . ': Fatura ' . $codigo . ' - R$ ' . $valorBR . ', vence ' . $venciBR,
+                    'message' => $nomeEmpresa . ': Fatura ' . $codigo . ' - R$ ' . $valorBR . ', vence ' . $venciBR . $parcelaTexto,
                     'id_matriz_filial' => $lancamento['id_matriz_filial'] ?? null,
                 ]);
             }

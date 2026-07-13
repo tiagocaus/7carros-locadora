@@ -64,6 +64,12 @@ Sistema para gerenciar templates de mensagens enviadas por email, WhatsApp e SMS
 
 `payment_reminder` deve receber `fatura.link_boleto` quando a origem for parcela de contrato, pois o fluxo cria/reutiliza `pagamentos_links` antes de enfileirar a mensagem. O link publico deve ser estavel: mensagens antigas continuam abrindo a fatura atualizada quando valor, vencimento, juros, multa ou desconto mudarem.
 
+Notificacoes com contexto de fatura devem informar a parcela quando
+`fatura.parcela > 0`. O `MessageTemplateService` acrescenta a descricao
+localizada automaticamente ao corpo se o template nao usar uma das variaveis
+de parcela. Isso tambem protege templates customizados antigos. O assunto do
+email nao e alterado. Valores com `parcela = 0` sao omitidos.
+
 ## Estrutura de Dados
 
 ### Tabela `message_template_types`
@@ -299,6 +305,9 @@ Exemplos:
 | `link_boleto` | text | Link do boleto |
 | `pix_copia_cola` | text | Código PIX |
 | `dias_atraso` | computed | Dias em atraso |
+| `parcela` | text | Numero da parcela |
+| `total_parcelas` | text | Total de parcelas |
+| `parcela_descricao` | computed | Descricao localizada, por exemplo `Parcela 2 de 12` |
 
 #### `outros`
 | Variável | Tipo | Descrição |

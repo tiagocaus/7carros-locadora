@@ -7,6 +7,10 @@
  */
 
 return [
+    'installment' => [
+        'with_total' => 'Prestação :parcela de :total',
+        'without_total' => 'Prestação :parcela',
+    ],
     // Tipos de Templates
     'types' => [
         // Onboarding

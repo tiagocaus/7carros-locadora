@@ -228,6 +228,7 @@ return [
         'qrcode_pix' => 'Código QR PIX',
         'parcela' => 'Cuota',
         'total_parcelas' => 'Total de Cuotas',
+        'parcela_descricao' => 'Identificación de la Cuota',
         'observacoes' => 'Observaciones',
     ],
     'fornecedor' => [

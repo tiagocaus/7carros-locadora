@@ -553,6 +553,13 @@ Quando um veiculo eh substituido durante um contrato/locacao:
 
 Na criacao de um contrato novo, quando o front envia parcelas para `/api/contratos/{id}/gerar-parcelas` com `salvar=true` e `from_creation=true`, o backend salva as parcelas em `financeiro`, cria ou reutiliza o link em `pagamentos_links` para cada parcela e enfileira o template `payment_reminder` para email, WhatsApp e SMS. O envio e assincrono via `messages_queue`; indisponibilidade de um canal fica registrada no resumo da resposta e nao desfaz as parcelas.
 
+As notificacoes de cliente exibem a identificacao da parcela sempre que
+`financeiro.parcela > 0`: por exemplo, `Parcela 1 de 1` ou `Parcela 2 de 12`.
+Quando `total_parcelas` nao estiver preenchido, exibem somente o numero da
+parcela. Lancamentos com `parcela = 0` nao mostram esse dado. A regra vale para
+envios por template, cobranca agrupada do CRON e envio manual de fatura, sem
+alterar o assunto do email.
+
 ### Cobranca automatica por CRON
 
 O cron `SendFinanceiroCobrancasJob` envia cobrancas de receitas pendentes com cliente:

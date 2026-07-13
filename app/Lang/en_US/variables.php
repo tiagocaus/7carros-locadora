@@ -228,6 +228,7 @@ return [
         'qrcode_pix' => 'PIX QR Code',
         'parcela' => 'Installment',
         'total_parcelas' => 'Total Installments',
+        'parcela_descricao' => 'Installment Identification',
         'observacoes' => 'Notes',
     ],
     'fornecedor' => [

@@ -160,6 +160,12 @@ queue_template_message('payment_reminder', 'sms', [
 
 **Templates disponiveis:** Gerencie em **Configuracoes > Templates de Mensagem**.
 
+Para notificacoes financeiras, inclua `fatura.parcela` e
+`fatura.total_parcelas` no contexto. Se `parcela > 0`, a renderizacao garante a
+identificacao localizada no corpo de email, WhatsApp e SMS, inclusive para
+templates customizados que ainda nao possuem essas variaveis. `1 de 1` e
+exibido; `parcela = 0` e omitido. O assunto do email permanece inalterado.
+
 ---
 
 ### 2. `queue_message()` — Tenant → Cliente/Interno (sem template)

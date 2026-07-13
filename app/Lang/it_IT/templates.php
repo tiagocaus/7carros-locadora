@@ -7,6 +7,10 @@
  */
 
 return [
+    'installment' => [
+        'with_total' => 'Rata :parcela di :total',
+        'without_total' => 'Rata :parcela',
+    ],
     // Tipi di Modelli
     'types' => [
         // Onboarding

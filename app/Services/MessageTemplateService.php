@@ -129,6 +129,18 @@ class MessageTemplateService
 
         // Renderizar o conteúdo do template
         $renderedContent = $this->renderer->render($template['content'], $context);
+        $parcelaDescricao = TemplateVariables::resolve('fatura.parcela_descricao', $context, $locale);
+        if ($parcelaDescricao !== null && !$this->templateExibeParcela((string) $template['content'])) {
+            $renderedContent = $this->appendParcela($renderedContent, $parcelaDescricao, $channel);
+        }
+
+        $renderedPlain = null;
+        if (!empty($template['content_plain'])) {
+            $renderedPlain = $this->renderer->render($template['content_plain'], $context);
+            if ($parcelaDescricao !== null && !$this->templateExibeParcela((string) $template['content_plain'])) {
+                $renderedPlain = $this->appendParcela($renderedPlain, $parcelaDescricao, 'plain');
+            }
+        }
 
         // Para emails, envolver no layout base
         if ($channel === 'email') {
@@ -140,14 +152,29 @@ class MessageTemplateService
                 ? $this->renderer->render($template['subject'], $context)
                 : null,
             'content' => $renderedContent,
-            'content_plain' => $template['content_plain']
-                ? $this->renderer->render($template['content_plain'], $context)
-                : $this->renderer->toPlainText($renderedContent),
+            'content_plain' => $renderedPlain ?? $this->renderer->toPlainText($renderedContent),
             'locale' => $locale,
             'channel' => $channel,
             'type_slug' => $typeSlug,
             'is_custom' => $template['is_custom'],
         ];
+    }
+
+    private function templateExibeParcela(string $content): bool
+    {
+        return preg_match('/{{\s*fatura\.(?:parcela|total_parcelas|parcela_descricao)\s*}}/i', $content) === 1;
+    }
+
+    private function appendParcela(string $content, string $descricao, string $channel): string
+    {
+        if ($channel === 'email') {
+            return $content
+                . '<div style="background:#f8fafc;padding:12px 15px;border-radius:8px;margin:15px 0;">'
+                . '<strong>' . htmlspecialchars($descricao, ENT_QUOTES, 'UTF-8') . '</strong>'
+                . '</div>';
+        }
+
+        return rtrim($content) . "\n\n" . $descricao;
     }
 
     /**

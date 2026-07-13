@@ -265,6 +265,7 @@ return [
         'qrcode_pix' => 'QR Code PIX',
         'parcela' => 'Parcela',
         'total_parcelas' => 'Total de Parcelas',
+        'parcela_descricao' => 'Identificação da Parcela',
         'observacoes' => 'Observações',
     ],
 

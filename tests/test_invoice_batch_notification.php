@@ -4,6 +4,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Services\InvoiceBatchNotificationService;
+use App\I18n\TemplateVariables;
 
 function assertBatch(bool $condition, string $message): void
 {
@@ -17,6 +18,7 @@ $cliente = [
     'nome_rsocial' => 'Cliente <Teste>',
     'email' => 'cliente@example.com',
     'telefone' => '5511999999999',
+    'preferred_locale' => 'pt_BR',
 ];
 $faturas = [
     [
@@ -25,6 +27,8 @@ $faturas = [
         'descricao' => 'Parcela futura',
         'data_venci' => '2030-01-10',
         'valor_total' => 100,
+        'parcela' => 1,
+        'total_parcelas' => 2,
         'link_pagamento' => 'https://example.com/pagar/10',
         'notification_type' => 'pre_due',
     ],
@@ -34,6 +38,8 @@ $faturas = [
         'descricao' => 'Parcela vencida',
         'data_venci' => '2020-01-10',
         'valor_total' => 200,
+        'parcela' => 2,
+        'total_parcelas' => 2,
         'link_pagamento' => 'https://example.com/pagar/11',
         'notification_type' => 'overdue',
     ],
@@ -49,11 +55,22 @@ assertBatch(substr_count($email['body'], '<table') === 2, 'Email deve conter dua
 assertBatch(str_contains($email['body'], 'Cliente &lt;Teste&gt;'), 'Nome do cliente nao foi escapado');
 assertBatch(str_contains($email['body_text'], 'FAT-10'), 'Fatura futura ausente no texto');
 assertBatch(str_contains($email['body_text'], 'FAT-11'), 'Fatura vencida ausente no texto');
+assertBatch(str_contains($email['body'], 'Parcela 1 de 2'), 'Parcela futura ausente no email');
+assertBatch(str_contains($email['body'], 'Parcela 2 de 2'), 'Parcela vencida ausente no email');
+assertBatch(str_contains($email['body_text'], 'Parcela 1 de 2'), 'Parcela futura ausente no texto');
 
 $whatsapp = $service->buildBatchPayload('whatsapp', $faturas, $cliente, 7);
 assertBatch($whatsapp['to'] === '5511999999999', 'Destinatario de WhatsApp incorreto');
 assertBatch(str_contains($whatsapp['message'], 'Proximas do vencimento:'), 'Secao futura ausente no WhatsApp');
 assertBatch(str_contains($whatsapp['message'], 'Vencidas:'), 'Secao vencida ausente no WhatsApp');
+assertBatch(str_contains($whatsapp['message'], 'Parcela 2 de 2'), 'Parcela ausente no WhatsApp');
+
+$sms = $service->buildBatchPayload('sms', $faturas, $cliente, 7);
+assertBatch(str_contains($sms['message'], 'Parcela 1 de 2'), 'Parcela ausente no SMS');
+
+assertBatch(TemplateVariables::formatInvoiceInstallment(1, 1, 'pt_BR') === 'Parcela 1 de 1', 'Parcela unica deve ser exibida');
+assertBatch(TemplateVariables::formatInvoiceInstallment(2, 12, 'en_US') === 'Installment 2 of 12', 'Parcela em ingles incorreta');
+assertBatch(TemplateVariables::formatInvoiceInstallment(0, 12, 'pt_BR') === null, 'Parcela zero deve ser omitida');
 
 $vencidas = $service->buildBatchPayload('email', [$faturas[1], $faturas[1]], $cliente, 7);
 assertBatch(str_contains($vencidas['subject'], '2 faturas vencidas'), 'Assunto de vencidas incorreto');

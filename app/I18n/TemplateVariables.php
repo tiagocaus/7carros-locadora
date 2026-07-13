@@ -1004,6 +1004,24 @@ class TemplateVariables
                 'label_key' => 'variables.fatura.dias_atraso',
                 'example' => '5'
             ],
+            'parcela' => [
+                'key' => 'fatura.parcela',
+                'type' => 'text',
+                'label_key' => 'variables.fatura.parcela',
+                'example' => '2'
+            ],
+            'total_parcelas' => [
+                'key' => 'fatura.total_parcelas',
+                'type' => 'text',
+                'label_key' => 'variables.fatura.total_parcelas',
+                'example' => '12'
+            ],
+            'parcela_descricao' => [
+                'key' => 'fatura.parcela_descricao',
+                'type' => 'computed',
+                'label_key' => 'variables.fatura.parcela_descricao',
+                'example' => 'Parcela 2 de 12'
+            ],
         ],
 
         'outros' => [
@@ -1639,6 +1657,13 @@ class TemplateVariables
                 }
                 return (string) $diff->days;
 
+            case 'fatura.parcela_descricao':
+                return self::formatInvoiceInstallment(
+                    (int) ($context['fatura']['parcela'] ?? 0),
+                    (int) ($context['fatura']['total_parcelas'] ?? 0),
+                    $locale
+                );
+
             case 'outros.data_atual':
                 return self::formatDate(date('Y-m-d'), $locale);
 
@@ -1763,6 +1788,25 @@ class TemplateVariables
             default:
                 return null;
         }
+    }
+
+    /**
+     * Formata a identificacao da parcela para notificacoes financeiras.
+     */
+    public static function formatInvoiceInstallment(int $parcela, int $totalParcelas, string $locale = 'pt_BR'): ?string
+    {
+        if ($parcela <= 0) {
+            return null;
+        }
+
+        $key = $totalParcelas > 0
+            ? 'templates.installment.with_total'
+            : 'templates.installment.without_total';
+
+        return Translator::getInstance()->get($key, [
+            'parcela' => $parcela,
+            'total' => $totalParcelas,
+        ], $locale);
     }
 
     // ===== Métodos auxiliares para Contrato =====

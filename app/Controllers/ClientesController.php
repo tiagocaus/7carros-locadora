@@ -945,6 +945,8 @@ class ClientesController
                     'valor' => $financeiro['valor_total'],
                     'data_vencimento' => $financeiro['data_venci'],
                     'descricao' => $financeiro['descricao'] ?? '',
+                    'parcela' => (int) ($financeiro['parcela'] ?? 0),
+                    'total_parcelas' => (int) ($financeiro['total_parcelas'] ?? 0),
                     'status' => 'Pendente',
                     'link_boleto' => $urlPagamento,
                 ],

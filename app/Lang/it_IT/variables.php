@@ -228,6 +228,7 @@ return [
         'qrcode_pix' => 'QR Code PIX',
         'parcela' => 'Rata',
         'total_parcelas' => 'Totale delle Rate',
+        'parcela_descricao' => 'Identificazione della Rata',
         'observacoes' => 'Osservazioni',
     ],
     'fornecedor' => [

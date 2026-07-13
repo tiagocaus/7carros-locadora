@@ -439,6 +439,8 @@ class MessageTemplateController
                 'data_vencimento' => '2024-12-25',
                 'data_pagamento' => null,
                 'status' => 'pendente',
+                'parcela' => 2,
+                'total_parcelas' => 12,
                 'link_boleto' => 'https://exemplo.com/boleto/123',
                 'codigo_pix' => '00020126580014br.gov.bcb.pix...',
             ],

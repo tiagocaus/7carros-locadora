@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Helpers\CurrencyHelper;
 use App\Helpers\DateHelper;
+use App\I18n\TemplateVariables;
+use App\I18n\Translator;
 use App\Models\Cliente;
 use App\Models\Financeiro;
 use App\Services\PagamentoLinkSyncService;
@@ -44,17 +46,17 @@ class InvoiceBatchNotificationService
                 'to_name' => $cliente['nome_rsocial'] ?? $cliente['nome'] ?? '',
                 'subject' => $this->buildGroupedSubject($faturas, $origemLabel),
                 'body' => $this->buildEmailBody($faturas, $cliente, $origemLabel),
-                'body_text' => $this->buildTextMessage($faturas, $origemLabel, false),
+                'body_text' => $this->buildTextMessage($faturas, $cliente, $origemLabel, false),
                 'id_matriz_filial' => $filialId ?: null,
             ],
             'whatsapp' => [
                 'to' => $telefone,
-                'message' => $this->buildTextMessage($faturas, $origemLabel, false),
+                'message' => $this->buildTextMessage($faturas, $cliente, $origemLabel, false),
                 'id_matriz_filial' => $filialId ?: null,
             ],
             'sms' => [
                 'to' => $telefone,
-                'message' => $this->buildTextMessage($faturas, $origemLabel, true),
+                'message' => $this->buildTextMessage($faturas, $cliente, $origemLabel, true),
                 'id_matriz_filial' => $filialId ?: null,
             ],
         };
@@ -244,6 +246,8 @@ class InvoiceBatchNotificationService
                 'valor' => $financeiro['valor_total'],
                 'data_vencimento' => $financeiro['data_venci'],
                 'descricao' => $financeiro['descricao'] ?? '',
+                'parcela' => (int) ($financeiro['parcela'] ?? 0),
+                'total_parcelas' => (int) ($financeiro['total_parcelas'] ?? 0),
                 'status' => 'Pendente',
                 'link_boleto' => $financeiro['link_pagamento'] ?? '',
             ],
@@ -274,7 +278,7 @@ class InvoiceBatchNotificationService
                 'overdue' => 'Vencidas',
                 default => 'Faturas',
             };
-            $tables .= '<h3>' . $titulo . '</h3>' . $this->buildInvoiceTable($faturasSecao);
+            $tables .= '<h3>' . $titulo . '</h3>' . $this->buildInvoiceTable($faturasSecao, $cliente);
         }
 
         return '<p>Ola, ' . $nome . '!</p>'
@@ -284,8 +288,10 @@ class InvoiceBatchNotificationService
             . '<p><strong>Total: ' . htmlspecialchars($total, ENT_QUOTES, 'UTF-8') . '</strong></p>';
     }
 
-    private function buildInvoiceTable(array $faturas): string
+    private function buildInvoiceTable(array $faturas, array $cliente): string
     {
+        $locale = (string) ($cliente['preferred_locale'] ?? 'pt_BR');
+        $parcelaLabel = Translator::getInstance()->get('variables.fatura.parcela', [], $locale);
         $rows = '';
         foreach ($faturas as $fatura) {
             $link = (string) ($fatura['link_pagamento'] ?? '');
@@ -294,6 +300,7 @@ class InvoiceBatchNotificationService
                 : '-';
             $rows .= '<tr>'
                 . '<td style="padding:8px;border:1px solid #e5e7eb;">' . htmlspecialchars($this->numeroFatura($fatura), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">' . htmlspecialchars($this->descricaoParcela($fatura, $locale) ?: '-', ENT_QUOTES, 'UTF-8') . '</td>'
                 . '<td style="padding:8px;border:1px solid #e5e7eb;">' . htmlspecialchars((string) ($fatura['descricao'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>'
                 . '<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">' . htmlspecialchars($this->formatData($fatura['data_venci'] ?? null), ENT_QUOTES, 'UTF-8') . '</td>'
                 . '<td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">' . htmlspecialchars($this->formatValor((float) ($fatura['valor_total'] ?? 0)), ENT_QUOTES, 'UTF-8') . '</td>'
@@ -304,6 +311,7 @@ class InvoiceBatchNotificationService
         return '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">'
             . '<thead><tr style="background:#f8fafc;">'
             . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Fatura</th>'
+            . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:center;">' . htmlspecialchars($parcelaLabel, ENT_QUOTES, 'UTF-8') . '</th>'
             . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Descricao</th>'
             . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:center;">Vencimento</th>'
             . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:right;">Valor</th>'
@@ -311,18 +319,24 @@ class InvoiceBatchNotificationService
             . '</tr></thead><tbody>' . $rows . '</tbody></table>';
     }
 
-    private function buildTextMessage(array $faturas, string $origemLabel, bool $sms): string
+    private function buildTextMessage(array $faturas, array $cliente, string $origemLabel, bool $sms): string
     {
         $total = $this->formatValor($this->totalFaturas($faturas));
         $prefix = $origemLabel !== '' ? "{$origemLabel}: " : '';
+        $locale = (string) ($cliente['preferred_locale'] ?? 'pt_BR');
+        $parcelas = array_values(array_unique(array_filter(array_map(
+            fn(array $fatura): ?string => $this->descricaoParcela($fatura, $locale),
+            $faturas
+        ))));
+        $parcelasResumo = $parcelas !== [] ? ' ' . implode(', ', $parcelas) . '.' : '';
 
         if ($sms) {
             $primeiroLink = (string) ($faturas[0]['link_pagamento'] ?? '');
             if ($primeiroLink !== '') {
-                return $prefix . count($faturas) . " faturas geradas. Total {$total}. Primeiro link: {$primeiroLink}";
+                return $prefix . count($faturas) . " faturas geradas.{$parcelasResumo} Total {$total}. Primeiro link: {$primeiroLink}";
             }
 
-            return $prefix . count($faturas) . " faturas geradas. Total {$total}. Entre em contato para os links de pagamento.";
+            return $prefix . count($faturas) . " faturas geradas.{$parcelasResumo} Total {$total}. Entre em contato para os links de pagamento.";
         }
 
         $linhas = [
@@ -338,7 +352,9 @@ class InvoiceBatchNotificationService
                 default => 'Faturas:',
             };
             foreach ($faturasSecao as $fatura) {
+                $parcela = $this->descricaoParcela($fatura, $locale);
                 $linhas[] = '- ' . $this->numeroFatura($fatura)
+                    . ($parcela ? ' | ' . $parcela : '')
                     . ' | ' . $this->formatData($fatura['data_venci'] ?? null)
                     . ' | ' . $this->formatValor((float) ($fatura['valor_total'] ?? 0));
                 if (!empty($fatura['link_pagamento'])) {
@@ -348,6 +364,15 @@ class InvoiceBatchNotificationService
         }
 
         return implode("\n", $linhas);
+    }
+
+    private function descricaoParcela(array $fatura, string $locale): ?string
+    {
+        return TemplateVariables::formatInvoiceInstallment(
+            (int) ($fatura['parcela'] ?? 0),
+            (int) ($fatura['total_parcelas'] ?? 0),
+            $locale
+        );
     }
 
     private function validarDestino(string $canal, string $email, string $telefone): ?string

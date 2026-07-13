@@ -7,6 +7,10 @@
  */
 
 return [
+    'installment' => [
+        'with_total' => 'Cuota :parcela de :total',
+        'without_total' => 'Cuota :parcela',
+    ],
     // Tipos de Plantillas
     'types' => [
         // Onboarding
