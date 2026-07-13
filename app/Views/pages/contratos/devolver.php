@@ -11,6 +11,9 @@
         'KL' => t('modules.contratos.vehicles.plan_km_free'),
     ];
     $filialRetiradaId = (int) ($contrato['id_matriz_filial_retirada'] ?? 0);
+    $dataInicioContrato = !empty($contrato['data_ini'])
+        ? \App\Helpers\DateHelper::formatOperationalDateTime((string) $contrato['data_ini'])
+        : '-';
     $hojeInput = \App\Helpers\DateHelper::todayForDatabase();
     $resumoFinanceiro = $resumoFinanceiro ?? [];
 ?>
@@ -21,6 +24,7 @@
             <h2 class="title-page"><?= t('modules.contratos.return_page.title') ?></h2>
             <p class="text-sm text-slate-500 mt-1">
                 <?= t('modules.contratos.return_page.contract_label') ?> <strong><?= htmlspecialchars($contrato['codigo'] ?? '') ?></strong>
+                · <?= t('modules.contratos.return_page.contract_start_label') ?> <strong><?= htmlspecialchars($dataInicioContrato) ?></strong>
                 · <?= t('modules.contratos.return_page.client_label') ?> <strong><?= htmlspecialchars($contrato['cliente_nome'] ?? '') ?></strong>
                 · <?= t('modules.contratos.return_page.period_label') ?> <strong><?= ucfirst(htmlspecialchars($contrato['contagem'] ?? 'dia')) ?></strong>
             </p>

@@ -316,6 +316,7 @@ return [
     'return_page' => [
         'title' => 'Restituzione del Veicolo',
         'contract_label' => 'Contratto',
+        'contract_start_label' => 'Inizio del contratto:',
         'client_label' => 'Cliente:',
         'period_label' => 'Periodo:',
         'vehicles_count' => ':count veicolo/i attivo/i',

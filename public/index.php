@@ -66,6 +66,11 @@ require APP_ROOT . '/app/Routes/web.php';
 // Trata erros globais em produção
 if (Database::env('APP_ENV') === 'production') {
     set_error_handler(function($errno, $errstr, $errfile, $errline) {
+        // Respeita o operador @ e o nivel atual de error_reporting.
+        // Sem esta verificacao, warnings intencionalmente suprimidos viram HTML 500.
+        if (!(error_reporting() & $errno)) {
+            return false;
+        }
         error_log("Error [$errno]: $errstr in $errfile on line $errline");
         Response::serverError('Ocorreu um erro. Tente novamente mais tarde.');
     });

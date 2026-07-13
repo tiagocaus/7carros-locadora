@@ -316,6 +316,7 @@ return [
     'return_page' => [
         'title' => 'Devolución de Vehículo',
         'contract_label' => 'Contrato',
+        'contract_start_label' => 'Inicio del contrato:',
         'client_label' => 'Cliente:',
         'period_label' => 'Periodo:',
         'vehicles_count' => ':count vehículo(s) activo(s)',

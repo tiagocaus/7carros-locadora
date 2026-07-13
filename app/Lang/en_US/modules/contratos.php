@@ -316,6 +316,7 @@ return [
     'return_page' => [
         'title' => 'Vehicle Return',
         'contract_label' => 'Contract',
+        'contract_start_label' => 'Contract start:',
         'client_label' => 'Client:',
         'period_label' => 'Period:',
         'vehicles_count' => ':count active vehicle(s)',

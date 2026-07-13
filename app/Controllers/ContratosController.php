@@ -625,12 +625,14 @@ class ContratosController
             if (!empty($dados['veiculos']) && is_array($dados['veiculos'])) {
                 $veiculoModel = new ContratoVeiculo();
                 $disponibilidadeSync = new VeiculoDisponibilidadeSync();
+                $dataSaidaInicial = $contratoCriado['data_ini'] ?? $dados['data_ini'];
                 foreach ($dados['veiculos'] as $veiculo) {
                     if (empty($veiculo['id_veiculo'])) {
                         continue;
                     }
                     $veiculo['chave'] = $dados['chave'];
                     $veiculo['id_contrato'] = $id;
+                    $veiculo['data_saida'] = $dataSaidaInicial;
                     $veiculoModel->adicionar($veiculo);
 
                     // Marcar veiculo como locado

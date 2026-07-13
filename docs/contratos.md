@@ -302,6 +302,11 @@ valor km = km excedente * valor_km_excedente
 
 O periodo de uso do veiculo vai de `contratos_veiculos.data_saida` ate a data de referencia do calculo. O sistema usa no minimo 1 dia de uso. Essa regra vale para registro rapido de odometro, devolucao e substituicao.
 
+Na criacao do contrato, `contratos_veiculos.data_saida` de todos os veiculos
+iniciais deve receber exatamente o `contratos.data_ini` persistido. Essa regra
+vale apenas para a criacao: veiculos adicionados posteriormente usam a data/hora
+da adicao, e veiculos de substituicao usam a data/hora da substituicao.
+
 Exemplos para contrato mensal `KMC` com `km_franquia = 3.000`:
 - 15 dias de uso: franquia efetiva de 1.500 km
 - 30 dias de uso: franquia efetiva de 3.000 km

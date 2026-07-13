@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Helpers\FileHelper;
 use App\Models\Gravacao;
+use App\Services\GravacaoUploadService;
 
 /**
  * Controller de Gravacoes de Tela
@@ -16,7 +17,115 @@ use App\Models\Gravacao;
 class GravacoesController
 {
     private const UPLOAD_DIR = '/storage/uploads/';
-    private const MAX_SIZE = 200 * 1024 * 1024; // 200MB
+    private const MAX_SIZE = GravacaoUploadService::MAX_SIZE;
+
+    public function iniciarUpload(Request $request): void
+    {
+        try {
+            $chave = Auth::chave();
+            if (!$chave) {
+                Response::json(['success' => false, 'message' => 'Sessao expirada'], 401);
+                return;
+            }
+
+            $manifest = (new GravacaoUploadService())->iniciar(
+                $chave,
+                (string) $request->input('mime_type', ''),
+                (int) $request->input('size', 0)
+            );
+
+            Response::json(['success' => true, 'data' => $manifest]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao iniciar upload: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function uploadChunk(Request $request, string $uploadId): void
+    {
+        try {
+            $chave = Auth::chave();
+            if (!$chave) {
+                Response::json(['success' => false, 'message' => 'Sessao expirada'], 401);
+                return;
+            }
+            if (!isset($_FILES['chunk'])) {
+                Response::json(['success' => false, 'message' => 'Parte da gravacao nao enviada'], 422);
+                return;
+            }
+
+            $result = (new GravacaoUploadService())->salvarParte(
+                $chave,
+                $uploadId,
+                (int) $request->input('index', -1),
+                $_FILES['chunk']
+            );
+            Response::json(['success' => true, 'data' => $result]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao enviar parte: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function finalizarUpload(Request $request, string $uploadId): void
+    {
+        try {
+            $chave = Auth::chave();
+            if (!$chave) {
+                Response::json(['success' => false, 'message' => 'Sessao expirada'], 401);
+                return;
+            }
+
+            $service = new GravacaoUploadService();
+            $file = $service->finalizar($chave, $uploadId);
+            $sizeFormatted = $this->formatSize((int) $file['size_bytes']);
+            $model = new Gravacao();
+            $id = $model->criar([
+                'arquivo' => $file['arquivo'],
+                'size' => $sizeFormatted,
+            ]);
+            if (!$id) {
+                @unlink($file['filepath']);
+                throw new \RuntimeException('Erro ao registrar gravacao');
+            }
+            $videoUrl = FileHelper::url($file['arquivo'], $chave);
+
+            Response::json([
+                'success' => true,
+                'message' => 'Gravacao salva com sucesso',
+                'data' => [
+                    'id' => $id,
+                    'arquivo' => $file['arquivo'],
+                    'size' => $sizeFormatted,
+                    'url' => $videoUrl,
+                    'share_url' => $videoUrl,
+                ],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao finalizar upload: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function cancelarUpload(Request $request, string $uploadId): void
+    {
+        try {
+            $chave = Auth::chave();
+            if (!$chave) {
+                Response::json(['success' => false, 'message' => 'Sessao expirada'], 401);
+                return;
+            }
+            (new GravacaoUploadService())->cancelar($chave, $uploadId);
+            Response::json(['success' => true]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao cancelar upload'], 500);
+        }
+    }
 
     /**
      * Lista gravacoes do tenant
@@ -37,8 +146,9 @@ class GravacoesController
             // Adiciona URLs para cada gravacao
             $chave = Auth::chave();
             foreach ($gravacoes as &$gravacao) {
-                $gravacao['url'] = $this->generateVideoUrl($gravacao['id']);
-                $gravacao['share_url'] = FileHelper::url($gravacao['arquivo'], $chave);
+                $videoUrl = FileHelper::url($gravacao['arquivo'], $chave);
+                $gravacao['url'] = $videoUrl;
+                $gravacao['share_url'] = $videoUrl;
             }
             unset($gravacao);
 
@@ -175,103 +285,9 @@ class GravacoesController
     }
 
     /**
-     * Serve arquivo de video para download/visualizacao
-     *
-     * GET /api/gravacoes/{id}
-     */
-    public function show(Request $request, int $id): void
-    {
-        try {
-            $model = new Gravacao();
-            $gravacao = $model->buscarPorId($id);
-
-            if (!$gravacao) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Gravacao nao encontrada'
-                ], 404);
-                return;
-            }
-
-            $chave = Auth::chave();
-            $filepath = $this->getUploadDir($chave) . $gravacao['arquivo'];
-
-            if (!file_exists($filepath)) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Arquivo nao encontrado'
-                ], 404);
-                return;
-            }
-
-            // Determina mime type
-            $extension = pathinfo($filepath, PATHINFO_EXTENSION);
-            $mimeType = $extension === 'mp4' ? 'video/mp4' : 'video/webm';
-
-            $filesize = filesize($filepath);
-            $download = $request->query('download', '0') === '1';
-
-            // Suporte a Range requests (streaming)
-            $start = 0;
-            $end = $filesize - 1;
-
-            if (isset($_SERVER['HTTP_RANGE'])) {
-                $range = $_SERVER['HTTP_RANGE'];
-                if (preg_match('/bytes=(\d+)-(\d*)/', $range, $matches)) {
-                    $start = (int) $matches[1];
-                    if (!empty($matches[2])) {
-                        $end = (int) $matches[2];
-                    }
-                }
-
-                header('HTTP/1.1 206 Partial Content');
-                header("Content-Range: bytes {$start}-{$end}/{$filesize}");
-            } else {
-                header('HTTP/1.1 200 OK');
-            }
-
-            $length = $end - $start + 1;
-
-            header('Content-Type: ' . $mimeType);
-            header('Content-Length: ' . $length);
-            header('Accept-Ranges: bytes');
-
-            if ($download) {
-                header('Content-Disposition: attachment; filename="' . $gravacao['arquivo'] . '"');
-            } else {
-                header('Content-Disposition: inline');
-            }
-
-            // Envia arquivo
-            $fp = fopen($filepath, 'rb');
-            if ($start > 0) {
-                fseek($fp, $start);
-            }
-
-            $bufferSize = 8192;
-            $bytesRemaining = $length;
-
-            while ($bytesRemaining > 0 && !feof($fp)) {
-                $readSize = min($bufferSize, $bytesRemaining);
-                echo fread($fp, $readSize);
-                $bytesRemaining -= $readSize;
-                flush();
-            }
-
-            fclose($fp);
-            exit;
-        } catch (\Exception $e) {
-            Response::json([
-                'success' => false,
-                'message' => 'Erro ao servir video: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
      * Deleta gravacao
      *
-     * DELETE /api/gravacoes/{id}
+     * POST /api/gravacoes/{id}/excluir
      */
     public function destroy(Request $request, int $id): void
     {
@@ -316,14 +332,6 @@ class GravacoesController
     private function getUploadDir(string $chave): string
     {
         return $_SERVER['DOCUMENT_ROOT'] . '/..' . self::UPLOAD_DIR . $chave . '/';
-    }
-
-    /**
-     * Gera URL para o video
-     */
-    private function generateVideoUrl(int $id): string
-    {
-        return '/api/gravacoes/' . $id;
     }
 
     /**

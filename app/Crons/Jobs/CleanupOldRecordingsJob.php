@@ -3,6 +3,7 @@
 namespace App\Crons\Jobs;
 
 use App\Models\Gravacao;
+use App\Services\GravacaoUploadService;
 
 /**
  * Job para limpar gravacoes de tela antigas
@@ -26,6 +27,8 @@ class CleanupOldRecordingsJob extends BaseJob
 
         $model = new Gravacao();
         $gravacoesAntigas = $model->listarAntigas(self::RETENTION_DAYS);
+        $uploadsIncompletos = (new GravacaoUploadService())->limparExpirados();
+        $this->log("Uploads incompletos removidos: {$uploadsIncompletos}");
 
         $totalEncontradas = count($gravacoesAntigas);
         $this->log("Encontradas {$totalEncontradas} gravacoes para remover");
@@ -38,6 +41,7 @@ class CleanupOldRecordingsJob extends BaseJob
                     'encontradas' => 0,
                     'removidas' => 0,
                     'erros' => 0,
+                    'uploads_incompletos' => $uploadsIncompletos,
                 ],
             ];
         }
@@ -84,6 +88,7 @@ class CleanupOldRecordingsJob extends BaseJob
                 'encontradas' => $totalEncontradas,
                 'removidas' => $removidas,
                 'erros' => $erros,
+                'uploads_incompletos' => $uploadsIncompletos,
             ],
         ];
     }

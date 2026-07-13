@@ -972,9 +972,12 @@ $router->group(['middleware' => 'auth'], function ($router) {
 
     // API Gravacoes (com protecao anti-scraping e CSRF)
     $router->get('/api/gravacoes', [GravacoesController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->get('/api/gravacoes/{id}', [GravacoesController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/gravacoes', [GravacoesController::class, 'store'], ['api_csrf', 'rate_limit', 'throttle']);
-    $router->delete('/api/gravacoes/{id}', [GravacoesController::class, 'destroy'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/gravacoes/uploads', [GravacoesController::class, 'iniciarUpload'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/gravacoes/uploads/{uploadId}/chunks', [GravacoesController::class, 'uploadChunk'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/gravacoes/uploads/{uploadId}/finalize', [GravacoesController::class, 'finalizarUpload'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/gravacoes/uploads/{uploadId}/cancelar', [GravacoesController::class, 'cancelarUpload'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/gravacoes/{id}/excluir', [GravacoesController::class, 'destroy'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Paginas iframe - Contratos
     $router->get('/pages/contratos', [ContratosController::class, 'view']);

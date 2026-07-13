@@ -69,7 +69,6 @@ class FileController
 
         // Define headers
         header('Content-Type: ' . $mimeType);
-        header('Content-Length: ' . $filesize);
         header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $lastModified) . ' GMT');
         header('Cache-Control: public, max-age=31536000');
         header('ETag: "' . md5($filepath . $lastModified) . '"');
@@ -84,8 +83,62 @@ class FileController
         // Previne execução de código (segurança)
         header('X-Content-Type-Options: nosniff');
 
-        // Serve o arquivo
+        if ($this->isVideo($mimeType)) {
+            $this->serveVideo($filepath, $filesize);
+        }
+
+        header('Content-Length: ' . $filesize);
         readfile($filepath);
+        exit;
+    }
+
+    /**
+     * Serve video com suporte a Range para reproducao progressiva.
+     */
+    private function serveVideo(string $filepath, int $filesize): void
+    {
+        $start = 0;
+        $end = $filesize - 1;
+        header('Accept-Ranges: bytes');
+
+        if (isset($_SERVER['HTTP_RANGE'])) {
+            if (!preg_match('/^bytes=(\d+)-(\d*)$/', trim($_SERVER['HTTP_RANGE']), $matches)) {
+                header("Content-Range: bytes */{$filesize}");
+                $this->sendError(416, 'Intervalo solicitado invalido');
+            }
+
+            $start = (int) $matches[1];
+            $end = $matches[2] !== '' ? min((int) $matches[2], $filesize - 1) : $end;
+            if ($start > $end || $start >= $filesize) {
+                header("Content-Range: bytes */{$filesize}");
+                $this->sendError(416, 'Intervalo solicitado invalido');
+            }
+
+            http_response_code(206);
+            header("Content-Range: bytes {$start}-{$end}/{$filesize}");
+        }
+
+        $length = $end - $start + 1;
+        header('Content-Length: ' . $length);
+        $handle = fopen($filepath, 'rb');
+        if ($handle === false) {
+            $this->sendError(500, 'Erro ao abrir arquivo');
+        }
+
+        fseek($handle, $start);
+        $remaining = $length;
+        while ($remaining > 0 && !feof($handle)) {
+            $buffer = fread($handle, min(8192, $remaining));
+            if ($buffer === false) {
+                break;
+            }
+            echo $buffer;
+            $remaining -= strlen($buffer);
+            if (connection_aborted()) {
+                break;
+            }
+        }
+        fclose($handle);
         exit;
     }
 

@@ -1082,6 +1082,7 @@
         window.APP_I18N = window.APP_I18N || {};
         window.APP_I18N.common = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('common'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.APP_I18N.dashboard = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.dashboard'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        window.APP_I18N.screenRecorder = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.gravacoes')['recorder'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.layoutI18n = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.layout'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.layoutLocale = <?= json_encode(current_locale()) ?>;
     </script>

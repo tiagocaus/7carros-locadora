@@ -7,7 +7,7 @@
     <div class="logs-header flex flex-col sm:flex-row justify-between items-center mb-6">
         <h2 class="title-section mb-3 sm:mb-0"><?= t('modules.gravacoes.title') ?></h2>
         <div class="flex items-center space-x-3 w-full sm:w-auto">
-            <button type="button" onclick="window.parent.ScreenRecorder.start();" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
+            <button type="button" onclick="window.parent.ScreenRecorder.start(window);" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
                 <i class="fas fa-record-vinyl mr-2"></i><?= t('modules.gravacoes.new_recording') ?>
             </button>
         </div>
@@ -20,7 +20,7 @@
                     <th class="table-header"><?= t('modules.gravacoes.table.date') ?></th>
                     <th class="table-header"><?= t('modules.gravacoes.table.size') ?></th>
                     <th class="table-header hidden md:table-cell"><?= t('modules.gravacoes.table.days_remaining') ?></th>
-                    <th class="table-header px-2 w-32 text-center"><?= t('modules.gravacoes.table.actions') ?></th>
+                    <th class="table-header px-2 w-48 min-w-[12rem] text-center"><?= t('modules.gravacoes.table.actions') ?></th>
                 </tr>
             </thead>
             <tbody id="gravacoesTableBody" class="bg-white divide-y divide-slate-200">
@@ -162,8 +162,8 @@
                     <td class="table-cell hidden md:table-cell">
                         <span class="${diasClass} font-medium">${diasRestantes} dias</span>
                     </td>
-                    <td class="table-cell px-2 w-32 text-right">
-                        <button title="${i18n.actionWatch}" class="btn-icon text-sky-600 hover:text-sky-800" onclick="abrirVideo(${gravacao.id})">
+                    <td class="table-cell px-2 w-48 min-w-[12rem] whitespace-nowrap text-right">
+                        <button title="${i18n.actionWatch}" class="btn-icon text-sky-600 hover:text-sky-800" onclick="abrirVideo('${gravacao.url}')">
                             <i class="fas fa-play"></i>
                         </button>
                         <button title="${i18n.actionShare}" class="btn-icon text-green-600 hover:text-green-800 ml-2" onclick="compartilharLink('${gravacao.share_url}')">
@@ -180,11 +180,11 @@
             tbody.innerHTML = tableRows;
         }
 
-        window.abrirVideo = function(id) {
+        window.abrirVideo = function(videoUrl) {
             if (window.parent !== window) {
                 window.parent.postMessage({
                     action: 'openVideoModal',
-                    videoUrl: '/api/gravacoes/' + id
+                    videoUrl: videoUrl
                 }, '*');
             }
         };
@@ -259,7 +259,7 @@
             showLoading();
 
             try {
-                const result = await API.delete('/api/gravacoes/' + id);
+                const result = await API.post('/api/gravacoes/' + id + '/excluir');
 
                 if (result.success) {
                     carregarGravacoes(currentPage, perPage);
@@ -277,6 +277,9 @@
         window.addEventListener('message', function(event) {
             if (event.data && event.data.action === 'confirmDelete') {
                 excluirGravacao(event.data.recordId);
+            } else if (event.data && event.data.action === 'screenRecordingSaved') {
+                currentPage = 1;
+                carregarGravacoes(currentPage, perPage);
             }
         });
 

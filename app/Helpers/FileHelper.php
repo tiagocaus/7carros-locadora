@@ -209,18 +209,24 @@ class FileHelper
      */
     public static function getMimeType(string $filepath): string
     {
+        $extension = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
+        $extensionMimeTypes = [
+            'webm' => 'video/webm',
+            'mkv' => 'video/x-matroska',
+            'mp4' => 'video/mp4',
+        ];
+
         // Tenta usar finfo
         if (function_exists('finfo_open')) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mimeType = finfo_file($finfo, $filepath);
             finfo_close($finfo);
-            if ($mimeType) {
+            if ($mimeType && $mimeType !== 'application/octet-stream') {
                 return $mimeType;
             }
         }
 
         // Fallback por extensão
-        $extension = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
         $mimeTypes = [
             'jpg' => 'image/jpeg',
             'jpeg' => 'image/jpeg',
@@ -236,6 +242,7 @@ class FileHelper
             'txt' => 'text/plain',
             'csv' => 'text/csv',
             'zip' => 'application/zip',
+            ...$extensionMimeTypes,
         ];
 
         return $mimeTypes[$extension] ?? 'application/octet-stream';
