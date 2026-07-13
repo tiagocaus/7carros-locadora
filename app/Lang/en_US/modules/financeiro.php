@@ -121,6 +121,8 @@ return [
         'generate_preview' => 'Generate Preview',
         'edit_selected' => 'Edit Selected',
         'delete_selected' => 'Delete Selected',
+        'delete_selected_count' => 'Delete selected (:count)',
+        'select_all_visible' => 'Select all visible entries',
         'payment_link' => 'Payment Link',
         'print_send' => 'Print / Send Invoice',
         'remove_item' => 'Remove item',
@@ -189,6 +191,9 @@ return [
         'connection_error' => 'Error connecting to the server',
         'delete_confirm' => 'Do you want to delete the entry ":name"?',
         'delete_error' => 'Error deleting entry',
+        'selected_entries' => ':count selected entry(ies)',
+        'batch_delete_error' => 'Error deleting selected entries',
+        'batch_delete_partial_title' => 'Deletion partially completed',
         'save_error' => 'Error saving entry',
         'not_found' => 'Entry not found',
         'load_single_error' => 'Error loading entry',
@@ -266,6 +271,7 @@ return [
     // Installments - record types
     'record_types' => [
         'entry' => 'entry',
+        'entries' => 'entries',
         'installments' => 'installments',
     ],
 ];

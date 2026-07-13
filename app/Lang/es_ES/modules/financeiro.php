@@ -115,6 +115,8 @@ return [
         'generate_preview' => 'Generar Vista Previa',
         'edit_selected' => 'Editar Seleccionados',
         'delete_selected' => 'Eliminar Seleccionados',
+        'delete_selected_count' => 'Eliminar seleccionados (:count)',
+        'select_all_visible' => 'Seleccionar todos los movimientos visibles',
         'payment_link' => 'Enlace de Pago',
         'print_send' => 'Imprimir / Enviar Factura',
         'remove_item' => 'Eliminar elemento',
@@ -182,6 +184,9 @@ return [
         'connection_error' => 'Error al conectar con el servidor',
         'delete_confirm' => '¿Desea eliminar el movimiento ":name"?',
         'delete_error' => 'Error al eliminar movimiento',
+        'selected_entries' => ':count movimiento(s) seleccionado(s)',
+        'batch_delete_error' => 'Error al eliminar los movimientos seleccionados',
+        'batch_delete_partial_title' => 'Eliminación completada parcialmente',
         'save_error' => 'Error al guardar movimiento',
         'not_found' => 'Movimiento no encontrado',
         'load_single_error' => 'Error al cargar movimiento',
@@ -259,6 +264,7 @@ return [
     // Parcelas - tipos de registro
     'record_types' => [
         'entry' => 'movimiento',
+        'entries' => 'movimientos',
         'installments' => 'cuotas',
     ],
 ];

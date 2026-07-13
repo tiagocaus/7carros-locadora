@@ -3,6 +3,7 @@
 @section('title', t('modules.financeiro.title'))
 
 @section('content')
+<?php $canDeleteFinanceiro = \App\Core\Auth::can('financeiro.excluir'); ?>
 <div class="pl-1 pr-2 py-0">
     <div class="flex flex-col sm:flex-row justify-between items-center">
         <h2 class="title-section mb-3 sm:mb-0"><?= t('modules.financeiro.title') ?></h2>
@@ -11,6 +12,11 @@
                 <input type="text" placeholder="<?= t('modules.financeiro.filters.search_placeholder') ?>" class="form-input-focus sm:w-64 pr-8" id="searchInput">
                 <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
             </div>
+            <?php if ($canDeleteFinanceiro): ?>
+            <button id="btnExcluirSelecionados" class="hidden bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md text-sm font-medium items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
+                <i class="fas fa-trash mr-2"></i><span id="btnExcluirSelecionadosTexto"><?= t('modules.financeiro.buttons.delete_selected_count', ['count' => 0]) ?></span>
+            </button>
+            <?php endif; ?>
             <button id="btnNovoLancamento" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
                 <i class="fas fa-plus mr-2"></i><?= t('common.buttons.new') ?>
             </button>
@@ -69,6 +75,11 @@
         <table class="w-full min-w-full divide-y divide-slate-200">
             <thead class="table-header-custom">
                 <tr>
+                    <?php if ($canDeleteFinanceiro): ?>
+                    <th class="table-header w-12 text-center">
+                        <input type="checkbox" id="checkTodosLancamentos" class="rounded border-slate-300 text-red-600 focus:ring-red-500" title="<?= t('modules.financeiro.buttons.select_all_visible') ?>">
+                    </th>
+                    <?php endif; ?>
                     <th class="table-header w-16 text-center"><?= t('modules.financeiro.table.seq') ?></th>
                     <th class="table-header"><?= t('modules.financeiro.table.description') ?></th>
                     <th class="table-header hidden sm:table-cell" title="<?= t('modules.financeiro.table.client_supplier_employee_full') ?>"><?= t('modules.financeiro.table.client_supplier_employee') ?></th>
@@ -139,6 +150,11 @@ $i18nFinanceiro = [
     'resendNfseError' => 'Erro ao reenviar NFS-e.',
     'edit' => t('common.buttons.edit'),
     'delete' => t('common.buttons.delete'),
+    'deleteSelected' => t('modules.financeiro.buttons.delete_selected_count'),
+    'selectedEntries' => t('modules.financeiro.messages.selected_entries'),
+    'batchDeleteType' => t('modules.financeiro.record_types.entries'),
+    'batchDeleteError' => t('modules.financeiro.messages.batch_delete_error'),
+    'batchDeletePartialTitle' => t('modules.financeiro.messages.batch_delete_partial_title'),
     'paymentLinkError' => t('modules.financeiro.messages.payment_link_error'),
     'paginationShowing' => t('modules.financeiro.pagination.showing'),
     'vehiclePlatesLabel' => t('modules.financeiro.table.vehicle_plates_label'),
@@ -147,6 +163,7 @@ $i18nFinanceiro = [
 <script>
 (function () {
     const i18n = <?= json_encode($i18nFinanceiro, $jsFlags) ?>;
+    const canDeleteFinanceiro = <?= $canDeleteFinanceiro ? 'true' : 'false' ?>;
 
     // Estado da paginacao
     let currentPage = 1;
@@ -154,6 +171,7 @@ $i18nFinanceiro = [
     let searchTerm = '';
     let searchTimeout = null;
     let nfseReenvioPendente = null;
+    let lancamentosSelecionados = new Set();
 
     // Estado dos filtros
     let filterFilial = '';
@@ -245,6 +263,7 @@ $i18nFinanceiro = [
 
     async function carregarLancamentos(page = 1, recordsPerPage = 10, search = '') {
         try {
+            limparSelecaoLancamentos();
             mostrarLoading();
 
             const params = {
@@ -278,7 +297,7 @@ $i18nFinanceiro = [
     function mostrarLoading() {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="table-cell text-center text-slate-500">
+                <td colspan="${canDeleteFinanceiro ? 8 : 7}" class="table-cell text-center text-slate-500">
                     <i class="fas fa-spinner fa-spin mr-2"></i>${i18n.loading}
                 </td>
             </tr>
@@ -288,7 +307,7 @@ $i18nFinanceiro = [
     function mostrarMensagemErro(mensagem) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="table-cell text-center text-red-600">
+                <td colspan="${canDeleteFinanceiro ? 8 : 7}" class="table-cell text-center text-red-600">
                     <i class="fas fa-exclamation-triangle mr-2"></i>${mensagem}
                 </td>
             </tr>
@@ -299,7 +318,7 @@ $i18nFinanceiro = [
         if (!lancamentos || lancamentos.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="table-cell text-center text-slate-500">
+                    <td colspan="${canDeleteFinanceiro ? 8 : 7}" class="table-cell text-center text-slate-500">
                         <i class="fas fa-inbox mr-2"></i>${i18n.noRecords}
                     </td>
                 </tr>
@@ -374,6 +393,7 @@ $i18nFinanceiro = [
 
             tableRows += `
                 <tr class="border-b border-slate-200 hover:bg-slate-50">
+                    ${canDeleteFinanceiro ? `<td class="table-cell w-12 text-center"><input type="checkbox" class="lancamento-check rounded border-slate-300 text-red-600 focus:ring-red-500" value="${l.id}"></td>` : ''}
                     <td class="table-cell w-16 text-center text-slate-500">${l.sequencia || '-'}</td>
                     <td class="table-cell">
                         <div class="font-medium" title="${descricaoTitle}">${descricao}</div>
@@ -396,6 +416,8 @@ $i18nFinanceiro = [
         });
 
         tbody.innerHTML = tableRows;
+
+        configurarSelecaoLancamentos();
 
         // Event listeners para botoes de editar
         tbody.querySelectorAll('.btn-edit').forEach(button => {
@@ -642,6 +664,113 @@ $i18nFinanceiro = [
 
     // ===== EXCLUSAO =====
 
+    function configurarSelecaoLancamentos() {
+        if (!canDeleteFinanceiro) return;
+
+        const checkTodos = document.getElementById('checkTodosLancamentos');
+        const checks = Array.from(tbody.querySelectorAll('.lancamento-check'));
+
+        checks.forEach(check => {
+            check.addEventListener('change', function () {
+                const id = parseInt(this.value, 10);
+                if (this.checked) {
+                    lancamentosSelecionados.add(id);
+                } else {
+                    lancamentosSelecionados.delete(id);
+                }
+                atualizarControlesSelecaoLancamentos();
+            });
+        });
+
+        if (checkTodos) {
+            checkTodos.checked = false;
+            checkTodos.indeterminate = false;
+            checkTodos.onchange = function () {
+                checks.forEach(check => {
+                    check.checked = this.checked;
+                    const id = parseInt(check.value, 10);
+                    if (this.checked) {
+                        lancamentosSelecionados.add(id);
+                    } else {
+                        lancamentosSelecionados.delete(id);
+                    }
+                });
+                atualizarControlesSelecaoLancamentos();
+            };
+        }
+    }
+
+    function atualizarControlesSelecaoLancamentos() {
+        if (!canDeleteFinanceiro) return;
+
+        const quantidade = lancamentosSelecionados.size;
+        const checks = Array.from(tbody.querySelectorAll('.lancamento-check'));
+        const marcados = checks.filter(check => check.checked).length;
+        const checkTodos = document.getElementById('checkTodosLancamentos');
+        const botao = document.getElementById('btnExcluirSelecionados');
+        const texto = document.getElementById('btnExcluirSelecionadosTexto');
+
+        if (checkTodos) {
+            checkTodos.checked = checks.length > 0 && marcados === checks.length;
+            checkTodos.indeterminate = marcados > 0 && marcados < checks.length;
+        }
+        if (botao) {
+            botao.classList.toggle('hidden', quantidade === 0);
+            botao.classList.toggle('flex', quantidade > 0);
+        }
+        if (texto) {
+            texto.textContent = i18n.deleteSelected.replace(':count', quantidade);
+        }
+    }
+
+    function limparSelecaoLancamentos() {
+        lancamentosSelecionados.clear();
+        atualizarControlesSelecaoLancamentos();
+    }
+
+    document.getElementById('btnExcluirSelecionados')?.addEventListener('click', function () {
+        if (lancamentosSelecionados.size === 0) return;
+
+        window.parent.postMessage({
+            action: 'openDeleteModal',
+            recordId: Array.from(lancamentosSelecionados).join(','),
+            recordName: i18n.selectedEntries.replace(':count', lancamentosSelecionados.size),
+            recordType: i18n.batchDeleteType,
+            confirmType: 'text',
+            customAction: 'excluirLancamentosLote'
+        }, '*');
+    });
+
+    async function excluirLancamentosLote() {
+        const ids = Array.from(lancamentosSelecionados);
+        if (ids.length === 0) return;
+
+        try {
+            const result = await API.post('/financeiro/excluir-lote', { ids });
+            const ignorados = result.data?.ignorados || [];
+            const pendencias = [...ignorados, ...(result.data?.avisos || [])];
+
+            if ((result.data?.excluidos || 0) > 0) {
+                await carregarLancamentos(currentPage, perPage, searchTerm);
+            }
+
+            if (pendencias.length > 0) {
+                window.parent.postMessage({
+                    action: 'openValidationModal',
+                    errors: [{
+                        tabName: i18n.batchDeletePartialTitle,
+                        fields: pendencias.map(item => `#${item.id} - ${item.identificador}: ${item.motivo}`)
+                    }]
+                }, '*');
+            } else {
+                openAlert(result.message || i18n.batchDeleteError);
+            }
+        } catch (error) {
+            console.error('Erro ao excluir lancamentos em lote:', error);
+            openAlert(i18n.batchDeleteError);
+        }
+    }
+
     async function excluirLancamento(id) {
         try {
             const result = await API.post(`/financeiro/${id}/excluir`);
@@ -750,7 +879,9 @@ $i18nFinanceiro = [
         if (!event.data || !event.data.action) return;
 
         // Confirmacao de exclusao do parent
-        if (event.data.action === 'confirmDelete') {
+        if (event.data.action === 'confirmDelete' && event.data.customAction === 'excluirLancamentosLote') {
+            excluirLancamentosLote();
+        } else if (event.data.action === 'confirmDelete' && !event.data.customAction) {
             excluirLancamento(event.data.recordId);
         }
     });

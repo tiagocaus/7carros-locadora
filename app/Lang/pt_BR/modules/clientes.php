@@ -143,6 +143,12 @@ return [
         'payment_link' => 'Link de Pagamento',
         'edit_entry' => 'Editar lançamento',
         'delete_entry' => 'Excluir lançamento',
+        'delete_selected_count' => 'Excluir selecionados (:count)',
+        'select_all_visible' => 'Selecionar todas as faturas visíveis',
+        'selected_entries' => ':count fatura(s) selecionada(s)',
+        'batch_delete_type' => 'faturas',
+        'batch_delete_error' => 'Erro ao excluir as faturas selecionadas',
+        'batch_delete_partial_title' => 'Exclusão concluída parcialmente',
     ],
 
     // Cartões de Crédito

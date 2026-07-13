@@ -143,6 +143,12 @@ return [
         'payment_link' => 'Payment Link',
         'edit_entry' => 'Edit entry',
         'delete_entry' => 'Delete entry',
+        'delete_selected_count' => 'Delete selected (:count)',
+        'select_all_visible' => 'Select all visible invoices',
+        'selected_entries' => ':count selected invoice(s)',
+        'batch_delete_type' => 'invoices',
+        'batch_delete_error' => 'Error deleting selected invoices',
+        'batch_delete_partial_title' => 'Deletion partially completed',
     ],
 
     // Credit Cards

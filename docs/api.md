@@ -54,6 +54,18 @@ if (result.success) {
 }
 ```
 
+Para exclusao multipla de lancamentos financeiros, envie apenas os IDs
+selecionados na pagina atual:
+
+```javascript
+const result = await API.post('/financeiro/excluir-lote', {
+    ids: [10, 11, 12]
+});
+
+// data.excluidos: quantidade removida
+// data.ignorados: registros preservados e respectivos motivos
+```
+
 #### POST com FormData - Upload de arquivos
 
 ```javascript

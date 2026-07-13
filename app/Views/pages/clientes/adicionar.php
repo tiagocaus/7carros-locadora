@@ -3,6 +3,7 @@
 @section('title', t('modules.clientes.new_title'))
 
 @section('content')
+<?php $canDeleteFinanceiro = \App\Core\Auth::can('financeiro.excluir'); ?>
 <div class="pl-1 pr-2 py-0">
     <!-- Cabeçalho com título e botão voltar -->
     <div class="flex items-center justify-between mb-6">
@@ -496,10 +497,22 @@
 
         <!-- Tab: Faturas -->
         <div id="formFaturasCliente" class="form-tab-content p-4">
+            <?php if ($canDeleteFinanceiro): ?>
+            <div class="flex justify-end mb-3">
+                <button type="button" id="btnExcluirFaturasSelecionadas" class="hidden bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md text-sm font-medium items-center shadow hover:shadow-md transition-shadow">
+                    <i class="fas fa-trash mr-2"></i><span id="btnExcluirFaturasSelecionadasTexto">{{ t('modules.clientes.invoices.delete_selected_count', ['count' => 0]) }}</span>
+                </button>
+            </div>
+            <?php endif; ?>
             <div class="bg-white shadow-md rounded-lg overflow-x-auto">
                 <table class="w-full min-w-full divide-y divide-slate-200">
                     <thead class="table-header-custom">
                         <tr>
+                            <?php if ($canDeleteFinanceiro): ?>
+                            <th class="table-header w-12 text-center">
+                                <input type="checkbox" id="checkTodasFaturas" class="rounded border-slate-300 text-red-600 focus:ring-red-500" title="{{ t('modules.clientes.invoices.select_all_visible') }}">
+                            </th>
+                            <?php endif; ?>
                             <th class="table-header w-20 text-center">{{ t('modules.clientes.invoices.seq') }}</th>
                             <th class="table-header w-24 hidden sm:table-cell">{{ t('modules.clientes.invoices.code') }}</th>
                             <th class="table-header w-20 hidden lg:table-cell text-center">{{ t('modules.clientes.invoices.installment') }}</th>
@@ -514,7 +527,7 @@
                     </thead>
                     <tbody id="faturasTableBody" class="bg-white divide-y divide-slate-200">
                         <tr>
-                            <td colspan="10" class="table-cell text-center text-slate-500 py-8">
+                            <td colspan="<?= $canDeleteFinanceiro ? 11 : 10 ?>" class="table-cell text-center text-slate-500 py-8">
                                 <i class="fas fa-file-invoice-dollar text-4xl mb-2 block text-slate-300"></i>
                                 {{ t('modules.clientes.invoices.save_to_view') }}
                             </td>
@@ -629,6 +642,11 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
             paymentLink: <?= $jsText(t("modules.clientes.invoices.payment_link")) ?>,
             editEntry: <?= $jsText(t("modules.clientes.invoices.edit_entry")) ?>,
             deleteEntry: <?= $jsText(t("modules.clientes.invoices.delete_entry")) ?>,
+            deleteSelected: <?= $jsText(t("modules.clientes.invoices.delete_selected_count")) ?>,
+            selectedEntries: <?= $jsText(t("modules.clientes.invoices.selected_entries")) ?>,
+            batchDeleteType: <?= $jsText(t("modules.clientes.invoices.batch_delete_type")) ?>,
+            batchDeleteError: <?= $jsText(t("modules.clientes.invoices.batch_delete_error")) ?>,
+            batchDeletePartialTitle: <?= $jsText(t("modules.clientes.invoices.batch_delete_partial_title")) ?>,
             chargeSent: <?= $jsText(t("modules.clientes.messages.charge_sent")) ?>,
             errorSendingCharge: <?= $jsText(t("modules.clientes.messages.error_sending_charge")) ?>,
             errorPaymentLink: <?= $jsText(t("modules.clientes.messages.error_payment_link")) ?>,
@@ -687,6 +705,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
             duplicateDocumentMessage: <?= $jsText(t("modules.clientes.messages.duplicate_document_message")) ?>,
             duplicateDocumentConfirm: <?= $jsText(t("modules.clientes.messages.duplicate_document_confirm")) ?>,
         };
+        const canDeleteFinanceiro = <?= $canDeleteFinanceiro ? 'true' : 'false' ?>;
 
         // Botão voltar - Navega de volta para lista de clientes
         document.getElementById('btnVoltarListaClientes')?.addEventListener('click', function() {
@@ -1088,6 +1107,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
         let editMode = false;
         let registroId = null;
         let clienteDuplicadoPendente = null;
+        let faturasSelecionadas = new Set();
         let ultimoDocumentoDuplicadoConsultado = '';
         let sequenciaConsultaDocumento = 0;
 
@@ -1168,6 +1188,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
         // Carregar faturas do cliente
         async function carregarFaturas(clienteId) {
             try {
+                limparSelecaoFaturas();
                 const result = await API.get('/api/clientes/' + clienteId + '/financeiro');
                 if (result.success && result.data) {
                     renderizarFaturas(result.data);
@@ -1184,7 +1205,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
 
             if (!faturas || faturas.length === 0) {
                 tbody.innerHTML = `<tr>
-                    <td colspan="10" class="table-cell text-center text-slate-500 py-8">
+                    <td colspan="${canDeleteFinanceiro ? 11 : 10}" class="table-cell text-center text-slate-500 py-8">
                         <i class="fas fa-check-circle text-green-500 text-4xl mb-2 block"></i>
                         ${i18n.noInvoices}
                     </td>
@@ -1202,6 +1223,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                 const parcelaText = f.total_parcelas > 0 ? `${f.parcela}/${f.total_parcelas}` : '-';
 
                 return `<tr class="hover:bg-slate-50 border-b border-slate-200">
+                    ${canDeleteFinanceiro ? `<td class="table-cell w-12 text-center"><input type="checkbox" class="fatura-check rounded border-slate-300 text-red-600 focus:ring-red-500" value="${f.id}"></td>` : ''}
                     <td class="table-cell w-14 text-center text-slate-500">${f.sequencia || '-'}</td>
                     <td class="table-cell w-24 hidden sm:table-cell text-slate-600 text-sm">${f.codigo || '-'}</td>
                     <td class="table-cell w-20 hidden lg:table-cell text-center text-slate-600 text-sm">${parcelaText}</td>
@@ -1238,7 +1260,115 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
             }).join('');
 
             // Adicionar event listeners para os botões
+            configurarSelecaoFaturas();
             adicionarEventListenersFaturas();
+        }
+
+        function configurarSelecaoFaturas() {
+            if (!canDeleteFinanceiro) return;
+
+            const checkTodas = document.getElementById('checkTodasFaturas');
+            const checks = Array.from(document.querySelectorAll('#faturasTableBody .fatura-check'));
+
+            checks.forEach(check => {
+                check.addEventListener('change', function() {
+                    const id = parseInt(this.value, 10);
+                    if (this.checked) {
+                        faturasSelecionadas.add(id);
+                    } else {
+                        faturasSelecionadas.delete(id);
+                    }
+                    atualizarControlesSelecaoFaturas();
+                });
+            });
+
+            if (checkTodas) {
+                checkTodas.checked = false;
+                checkTodas.indeterminate = false;
+                checkTodas.onchange = function() {
+                    checks.forEach(check => {
+                        check.checked = this.checked;
+                        const id = parseInt(check.value, 10);
+                        if (this.checked) {
+                            faturasSelecionadas.add(id);
+                        } else {
+                            faturasSelecionadas.delete(id);
+                        }
+                    });
+                    atualizarControlesSelecaoFaturas();
+                };
+            }
+        }
+
+        function atualizarControlesSelecaoFaturas() {
+            if (!canDeleteFinanceiro) return;
+
+            const quantidade = faturasSelecionadas.size;
+            const checks = Array.from(document.querySelectorAll('#faturasTableBody .fatura-check'));
+            const marcados = checks.filter(check => check.checked).length;
+            const checkTodas = document.getElementById('checkTodasFaturas');
+            const botao = document.getElementById('btnExcluirFaturasSelecionadas');
+            const texto = document.getElementById('btnExcluirFaturasSelecionadasTexto');
+
+            if (checkTodas) {
+                checkTodas.checked = checks.length > 0 && marcados === checks.length;
+                checkTodas.indeterminate = marcados > 0 && marcados < checks.length;
+            }
+            if (botao) {
+                botao.classList.toggle('hidden', quantidade === 0);
+                botao.classList.toggle('flex', quantidade > 0);
+            }
+            if (texto) {
+                texto.textContent = i18n.deleteSelected.replace(':count', quantidade);
+            }
+        }
+
+        function limparSelecaoFaturas() {
+            faturasSelecionadas.clear();
+            atualizarControlesSelecaoFaturas();
+        }
+
+        document.getElementById('btnExcluirFaturasSelecionadas')?.addEventListener('click', function() {
+            if (faturasSelecionadas.size === 0) return;
+
+            window.parent.postMessage({
+                action: 'openDeleteModal',
+                recordId: Array.from(faturasSelecionadas).join(','),
+                recordName: i18n.selectedEntries.replace(':count', faturasSelecionadas.size),
+                recordType: i18n.batchDeleteType,
+                confirmType: 'text',
+                customAction: 'excluirLancamentosLoteCliente'
+            }, '*');
+        });
+
+        async function excluirLancamentosLoteCliente() {
+            const ids = Array.from(faturasSelecionadas);
+            if (ids.length === 0) return;
+
+            try {
+                const result = await API.post('/financeiro/excluir-lote', { ids });
+                const ignorados = result.data?.ignorados || [];
+                const pendencias = [...ignorados, ...(result.data?.avisos || [])];
+
+                if ((result.data?.excluidos || 0) > 0 && registroId) {
+                    await carregarFaturas(registroId);
+                }
+
+                if (pendencias.length > 0) {
+                    window.parent.postMessage({
+                        action: 'openValidationModal',
+                        errors: [{
+                            tabName: i18n.batchDeletePartialTitle,
+                            fields: pendencias.map(item => `#${item.id} - ${item.identificador}: ${item.motivo}`)
+                        }]
+                    }, '*');
+                } else {
+                    mostrarAlerta(result.message || i18n.batchDeleteError);
+                }
+            } catch (error) {
+                console.error('Erro ao excluir faturas em lote:', error);
+                mostrarAlerta(i18n.batchDeleteError);
+            }
         }
 
         // Event listeners para botões de ação das faturas
@@ -1403,7 +1533,9 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                 return;
             }
 
-            if (event.data && event.data.action === 'confirmDelete' && !event.data.customAction) {
+            if (event.data && event.data.action === 'confirmDelete' && event.data.customAction === 'excluirLancamentosLoteCliente') {
+                excluirLancamentosLoteCliente();
+            } else if (event.data && event.data.action === 'confirmDelete' && !event.data.customAction) {
                 excluirFatura(event.data.recordId);
             }
         });

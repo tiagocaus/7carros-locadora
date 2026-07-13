@@ -121,6 +121,8 @@ return [
         'generate_preview' => 'Genera Anteprima',
         'edit_selected' => 'Modifica Selezionati',
         'delete_selected' => 'Elimina Selezionati',
+        'delete_selected_count' => 'Elimina selezionati (:count)',
+        'select_all_visible' => 'Seleziona tutti i movimenti visibili',
         'payment_link' => 'Link di Pagamento',
         'print_send' => 'Stampa / Invia Fattura',
         'remove_item' => 'Rimuovi voce',
@@ -188,6 +190,9 @@ return [
         'connection_error' => 'Errore di connessione al server',
         'delete_confirm' => 'Eliminare la registrazione ":name"?',
         'delete_error' => "Errore durante l'eliminazione della registrazione",
+        'selected_entries' => ':count movimento/i selezionato/i',
+        'batch_delete_error' => "Errore durante l'eliminazione dei movimenti selezionati",
+        'batch_delete_partial_title' => 'Eliminazione completata parzialmente',
         'save_error' => 'Errore durante il salvataggio della registrazione',
         'not_found' => 'Registrazione non trovata',
         'load_single_error' => 'Errore durante il caricamento della registrazione',
@@ -265,6 +270,7 @@ return [
     // Rate - tipi di record
     'record_types' => [
         'entry' => 'registrazione',
+        'entries' => 'registrazioni',
         'installments' => 'rate',
     ],
 ];

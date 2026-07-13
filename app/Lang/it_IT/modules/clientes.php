@@ -158,6 +158,12 @@ return [
         'payment_link' => 'Link di Pagamento',
         'edit_entry' => 'Modifica movimento',
         'delete_entry' => 'Elimina movimento',
+        'delete_selected_count' => 'Elimina selezionate (:count)',
+        'select_all_visible' => 'Seleziona tutte le fatture visibili',
+        'selected_entries' => ':count fattura/e selezionata/e',
+        'batch_delete_type' => 'fatture',
+        'batch_delete_error' => "Errore durante l'eliminazione delle fatture selezionate",
+        'batch_delete_partial_title' => 'Eliminazione completata parzialmente',
     ],
     'camera' => [
         'choose_photo' => 'Scegli Foto',

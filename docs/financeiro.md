@@ -261,6 +261,24 @@ Permissao: financeiro.excluir
 Nota: Nao permite excluir a parcela origem (id_financeiro_origem=NULL)
 ```
 
+### Exclusao multipla de lancamentos
+
+As telas **Lancamentos Financeiros** e **Editar cliente > Faturas** permitem
+selecionar varios registros visiveis e exclui-los em uma unica confirmacao.
+
+```
+POST /financeiro/excluir-lote
+Body: { ids: [10, 11, 12] }
+Permissao: financeiro.excluir
+```
+
+O endpoint normaliza os IDs, aplica isolamento por tenant, valida o acesso a
+filial e executa as mesmas verificacoes da exclusao individual. O processamento
+e parcial: registros validos sao excluidos e os bloqueados retornam em
+`data.ignorados`, com identificador e motivo. Lancamentos pagos seguem a mesma
+regra da exclusao individual. Cada registro removido gera seu proprio log de
+auditoria com os dados anteriores do lancamento.
+
 ### Selects (para formularios)
 ```
 GET /api/financeiro/clientes

@@ -43,6 +43,12 @@ AuditLogService::registrarComCampos(
 );
 ```
 
+Em exclusoes em lote, registre uma entrada de auditoria por entidade realmente
+excluida. Isso preserva a pesquisa individual e impede que registros ignorados
+por vinculo ou permissao aparecam como removidos. O financeiro usa a mensagem
+`excluiu em lote o lancamento financeiro` e reaproveita os mesmos campos
+detalhados da exclusao individual.
+
 #### `registrarComAuditFrontend(string $mensagem, ?string $auditData, ?string $auditChanges): int`
 Para formulários com captura via JavaScript. Os dados vêm dos campos `_audit_data` (cadastro) ou `_audit_changes` (edição).
 

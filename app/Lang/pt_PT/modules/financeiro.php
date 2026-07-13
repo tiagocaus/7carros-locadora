@@ -115,6 +115,8 @@ return [
         'generate_preview' => 'Gerar Pré-visualização',
         'edit_selected' => 'Editar Selecionados',
         'delete_selected' => 'Eliminar Selecionados',
+        'delete_selected_count' => 'Eliminar selecionados (:count)',
+        'select_all_visible' => 'Selecionar todos os registos visíveis',
         'payment_link' => 'Link de Pagamento',
         'print_send' => 'Imprimir / Enviar Fatura',
         'remove_item' => 'Remover item',
@@ -182,6 +184,9 @@ return [
         'connection_error' => 'Erro ao ligar ao servidor',
         'delete_confirm' => 'Deseja eliminar o lançamento ":name"?',
         'delete_error' => 'Erro ao eliminar lançamento',
+        'selected_entries' => ':count lançamento(s) selecionado(s)',
+        'batch_delete_error' => 'Erro ao eliminar os lançamentos selecionados',
+        'batch_delete_partial_title' => 'Eliminação concluída parcialmente',
         'save_error' => 'Erro ao guardar lançamento',
         'not_found' => 'Lançamento não encontrado',
         'load_single_error' => 'Erro ao carregar lançamento',
@@ -259,6 +264,7 @@ return [
     // Parcelas - tipos de registro
     'record_types' => [
         'entry' => 'lançamento',
+        'entries' => 'lançamentos',
         'installments' => 'prestações',
     ],
 ];

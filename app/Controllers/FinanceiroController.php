@@ -718,6 +718,149 @@ class FinanceiroController
     }
 
     /**
+     * Exclui varios lancamentos, preservando as validacoes da exclusao individual.
+     * Registros bloqueados nao impedem a exclusao dos demais.
+     *
+     * POST /financeiro/excluir-lote
+     */
+    public function destroyBatch(Request $request): void
+    {
+        try {
+            if (!Auth::can('financeiro.excluir')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para excluir lancamentos'
+                ], 403);
+                return;
+            }
+
+            $dados = $request->all();
+            $ids = [];
+            foreach (is_array($dados['ids'] ?? null) ? $dados['ids'] : [] as $idInformado) {
+                if (!is_int($idInformado) && !(is_string($idInformado) && ctype_digit(trim($idInformado)))) {
+                    continue;
+                }
+                $idNormalizado = (int) $idInformado;
+                if ($idNormalizado > 0) {
+                    $ids[] = $idNormalizado;
+                }
+            }
+            $ids = array_values(array_unique($ids));
+
+            if ($ids === []) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Informe os IDs dos lancamentos a excluir'
+                ], 400);
+                return;
+            }
+
+            $financeiroModel = new Financeiro();
+            $chave = Auth::chave();
+            $excluidos = [];
+            $ignorados = [];
+            $avisos = [];
+            $nomeUsuario = $_SESSION['user_name'] ?? 'Sistema';
+
+            foreach ($ids as $id) {
+                $lancamento = $financeiroModel->buscarPorId($id);
+                if (!$lancamento || ($lancamento['chave'] ?? '') !== $chave) {
+                    $ignorados[] = $this->itemIgnoradoExclusao($id, null, 'Lancamento nao encontrado ou sem acesso');
+                    continue;
+                }
+
+                if (!FilialHelper::temAcessoFilial($lancamento['id_matriz_filial'] ?? null)) {
+                    $ignorados[] = $this->itemIgnoradoExclusao($id, $lancamento, 'Sem permissao para a filial do lancamento');
+                    continue;
+                }
+
+                $verificacao = $financeiroModel->verificarVinculos($id);
+                if ($verificacao['temVinculos']) {
+                    $detalhes = implode(', ', $verificacao['detalhes'] ?? []);
+                    $motivo = 'Existem registros vinculados' . ($detalhes !== '' ? ': ' . $detalhes : '');
+                    $ignorados[] = $this->itemIgnoradoExclusao($id, $lancamento, $motivo);
+                    continue;
+                }
+
+                $camposLog = $this->prepararCamposLogFinanceiro($lancamento);
+                try {
+                    $afetados = $financeiroModel->deletar($id);
+                    if ($afetados < 1) {
+                        $ignorados[] = $this->itemIgnoradoExclusao($id, $lancamento, 'Lancamento nao foi excluido');
+                        continue;
+                    }
+                } catch (\Throwable $e) {
+                    $ignorados[] = $this->itemIgnoradoExclusao($id, $lancamento, 'Erro ao excluir o lancamento');
+                    continue;
+                }
+
+                $identificador = $this->identificadorLancamento($lancamento, $id);
+                $excluidos[] = $id;
+                try {
+                    AuditLogService::registrarComCampos(
+                        "{$nomeUsuario}, excluiu em lote o lancamento financeiro [{$identificador}]",
+                        $camposLog
+                    );
+                } catch (\Throwable $e) {
+                    $avisos[] = [
+                        'id' => $id,
+                        'identificador' => $identificador,
+                        'motivo' => 'Lancamento excluido, mas o log de auditoria nao foi registrado',
+                    ];
+                }
+            }
+
+            $quantidadeExcluida = count($excluidos);
+            $quantidadeIgnorada = count($ignorados);
+            if ($quantidadeExcluida > 0 && $quantidadeIgnorada > 0) {
+                $mensagem = "{$quantidadeExcluida} lancamento(s) excluido(s) e {$quantidadeIgnorada} nao excluido(s)";
+            } elseif ($quantidadeExcluida > 0) {
+                $mensagem = "{$quantidadeExcluida} lancamento(s) excluido(s)";
+            } else {
+                $mensagem = 'Nenhum lancamento foi excluido';
+            }
+
+            Response::json([
+                'success' => $quantidadeExcluida > 0,
+                'message' => $mensagem,
+                'data' => [
+                    'solicitados' => count($ids),
+                    'excluidos' => $quantidadeExcluida,
+                    'ids_excluidos' => $excluidos,
+                    'ignorados' => $ignorados,
+                    'avisos' => $avisos,
+                ],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        } catch (\Throwable $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao excluir lancamentos em lote'
+            ], 500);
+        }
+    }
+
+    private function identificadorLancamento(array $lancamento, int $id): string
+    {
+        return (string) ($lancamento['descricao'] ?: ($lancamento['codigo'] ?: ('#' . $id)));
+    }
+
+    private function itemIgnoradoExclusao(int $id, ?array $lancamento, string $motivo): array
+    {
+        return [
+            'id' => $id,
+            'identificador' => $lancamento
+                ? $this->identificadorLancamento($lancamento, $id)
+                : '#' . $id,
+            'motivo' => $motivo,
+        ];
+    }
+
+    /**
      * Lista planos de contas para select
      *
      * GET /api/financeiro/planos-de-contas
