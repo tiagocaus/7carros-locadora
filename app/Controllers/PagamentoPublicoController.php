@@ -1066,6 +1066,7 @@ class PagamentoPublicoController
 
             $context = [
                 'cliente' => [
+                    'id'            => (int) ($locacao['id_cliente'] ?? 0),
                     'nome'          => $nomeCliente,
                     'primeiro_nome' => $primeiroNome,
                     'email'         => $emailCliente,

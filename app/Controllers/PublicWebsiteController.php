@@ -622,6 +622,7 @@ class PublicWebsiteController
             $primeiroNome = explode(' ', trim((string) ($clienteInfo['nome'] ?? '')))[0];
             $context = [
                 'cliente' => [
+                    'id' => $clienteIdFinal,
                     'nome' => $clienteInfo['nome'] ?? '',
                     'primeiro_nome' => $primeiroNome,
                     'email' => $clienteInfo['email'] ?? '',
@@ -887,6 +888,7 @@ class PublicWebsiteController
                 if (function_exists('queue_template_message')) {
                     $context = [
                         'cliente' => [
+                            'id' => (int) $cliente['id'],
                             'nome' => $cliente['nome_rsocial'] ?? '',
                             'primeiro_nome' => explode(' ', (string) ($cliente['nome_rsocial'] ?? ''))[0] ?? '',
                             'email' => $cliente['email'],

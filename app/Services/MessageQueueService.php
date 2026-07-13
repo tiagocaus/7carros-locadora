@@ -6,10 +6,10 @@ use App\Classes\QueryBuilder;
 use App\Core\Database;
 use App\Models\Sms;
 use App\Models\Whatsapp;
+use App\Models\Model;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Exception\AMQPConnectionException;
-use mysqli;
 
 /**
  * Service para gerenciar fila de mensagens usando RabbitMQ
@@ -46,16 +46,7 @@ class MessageQueueService
      */
     private function createQueryBuilder(): QueryBuilder
     {
-        $mysqli = new mysqli(
-            Database::env('DB_HOST'),
-            Database::env('DB_USERNAME'),
-            Database::env('DB_PASSWORD'),
-            Database::env('DB_DATABASE'),
-            (int) Database::env('DB_PORT', '3306')
-        );
-        $mysqli->set_charset('utf8mb4');
-        
-        return new QueryBuilder($mysqli);
+        return new QueryBuilder(Model::sharedMysqli());
     }
 
     /**

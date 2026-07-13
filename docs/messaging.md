@@ -337,6 +337,32 @@ queue_template_message('welcome', 'email', [...]); // Usa SMTP do tenant
 queue_message('whatsapp', [...]);                    // Usa instancia do tenant
 ```
 
+### Preferencia de Email do Cliente
+
+Cada endereco de cliente possui a flag `contatos_emails.recebe_email` (`S`/`N`).
+Para email destinado a cliente, nunca publique diretamente com
+`queue_message('email', ...)`: use `queue_client_email()` ou
+`queue_template_message()`, informando `cliente.id` no contexto.
+
+- Todos os enderecos com `recebe_email = 'S'` recebem uma copia individual.
+- A estrela de email principal nao altera a preferencia de envio.
+- Se nenhum endereco estiver autorizado, o envio automatico e ignorado; fluxos
+  manuais devem informar isso ao usuario antes de gerar anexos.
+- O worker revalida a preferencia antes do SMTP. Se o endereco for desmarcado
+  enquanto estiver na fila, a mensagem recebe status `skipped`.
+- A unica excecao e o template `cliente_nova_senha`, solicitado pelo proprio
+  cliente. Ele usa o endereco informado na recuperacao mesmo que esteja
+  desmarcado, para nao bloquear o acesso a conta.
+
+```php
+$ids = queue_client_email($clienteId, [
+    'to_name' => $cliente['nome_rsocial'],
+    'subject' => 'Documento disponivel',
+    'body' => '<p>Segue o documento solicitado.</p>',
+    'id_matriz_filial' => $filialId,
+], $chave);
+```
+
 ## Referencia de API
 
 ```php
@@ -348,6 +374,15 @@ function queue_template_message(
     ?string $chave = null,
     ?string $batchId = null
 ): int;
+
+// Email direto para todos os enderecos autorizados do cliente
+function queue_client_email(
+    int $clienteId,
+    array $payload,
+    ?string $chave = null,
+    ?string $batchId = null,
+    bool $ignorarPreferencia = false // uso interno: recuperacao de senha
+): array;
 
 // Mensagem direta (Tenant → Cliente/Interno)
 function queue_message(
@@ -389,4 +424,4 @@ function queue_system_message(
 
 ---
 
-**Ultima atualizacao**: 2026-02-06
+**Ultima atualizacao**: 2026-07-13

@@ -222,6 +222,7 @@ return [
         'email_description_placeholder' => 'Description (e.g.: Personal)',
         'phone_description_placeholder' => 'Description',
         'primary_email' => 'Primary Email',
+        'receive_email' => 'Receive emails',
         'primary_phone' => 'Primary Phone',
         'whatsapp_phone_required' => 'Enter the phone number before marking WhatsApp.',
         'whatsapp_not_found' => 'This number does not have WhatsApp.',

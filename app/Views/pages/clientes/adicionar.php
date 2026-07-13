@@ -644,6 +644,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
             emailDescPlaceholder: <?= $jsText(t("modules.clientes.messages.email_description_placeholder")) ?>,
             phoneDescPlaceholder: <?= $jsText(t("modules.clientes.messages.phone_description_placeholder")) ?>,
             primaryEmail: <?= $jsText(t("modules.clientes.messages.primary_email")) ?>,
+            receiveEmail: <?= $jsText(t("modules.clientes.messages.receive_email")) ?>,
             primaryPhone: <?= $jsText(t("modules.clientes.messages.primary_phone")) ?>,
             whatsappPhoneRequired: <?= $jsText(t("modules.clientes.messages.whatsapp_phone_required")) ?>,
             whatsappNotFound: <?= $jsText(t("modules.clientes.messages.whatsapp_not_found")) ?>,
@@ -1464,7 +1465,8 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                 emails = data.emails.map(e => ({
                     email: e.email || '',
                     descricao: e.descricao || '',
-                    principal: e.principal || 'N'
+                    principal: e.principal || 'N',
+                    recebe_email: e.recebe_email === 'N' ? 'N' : 'S'
                 }));
             }
             renderizarEmails();
@@ -1514,10 +1516,16 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                             ${viewMode ? 'disabled' : ''}>
                     </div>
                     <label class="flex items-center gap-1 text-sm whitespace-nowrap cursor-pointer" title="${i18n.primaryEmail}">
-                        <input type="radio" name="email_principal" class="email-principal-radio"
+                        <input type="radio" name="email_principal" class="email-principal-radio sr-only"
                             data-idx="${idx}" ${email.principal === 'S' ? 'checked' : ''}
                             ${viewMode ? 'disabled' : ''}>
                         <i class="fas fa-star ${email.principal === 'S' ? 'text-yellow-500' : 'text-slate-300'}"></i>
+                    </label>
+                    <label class="flex items-center gap-1.5 text-sm whitespace-nowrap ${viewMode ? '' : 'cursor-pointer'}" title="${i18n.receiveEmail}">
+                        <input type="checkbox" class="email-recebe-checkbox"
+                            aria-label="${i18n.receiveEmail}"
+                            data-idx="${idx}" ${email.recebe_email !== 'N' ? 'checked' : ''}
+                            ${viewMode ? 'disabled' : ''}>
                     </label>
                     ${!viewMode ? `
                         <button type="button" class="btn-remove-email text-red-500 hover:text-red-700"
@@ -1544,6 +1552,13 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                     emails.forEach(e => e.principal = 'N');
                     emails[idx].principal = 'S';
                     renderizarEmails();
+                });
+            });
+
+            container.querySelectorAll('.email-recebe-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const idx = parseInt(this.dataset.idx);
+                    emails[idx].recebe_email = this.checked ? 'S' : 'N';
                 });
             });
 
@@ -1646,7 +1661,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                             value="${tel.descricao || ''}" placeholder="${i18n.phoneDescPlaceholder}"
                             ${viewMode ? 'disabled' : ''}>
                         <label class="flex items-center gap-1 text-sm cursor-pointer" title="${i18n.primaryPhone}">
-                            <input type="radio" name="telefone_principal" class="telefone-principal-radio"
+                            <input type="radio" name="telefone_principal" class="telefone-principal-radio sr-only"
                                 data-idx="${idx}" ${tel.principal === 'S' ? 'checked' : ''}
                                 ${viewMode ? 'disabled' : ''}>
                             <i class="fas fa-star ${tel.principal === 'S' ? 'text-yellow-500' : 'text-slate-300'}"></i>
@@ -1737,7 +1752,8 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
             emails.push({
                 email: '',
                 descricao: '',
-                principal: isPrimeiro ? 'S' : 'N'
+                principal: isPrimeiro ? 'S' : 'N',
+                recebe_email: 'S'
             });
             renderizarEmails();
             setTimeout(() => {
@@ -1766,11 +1782,13 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                 const idx = parseInt(input.dataset.idx);
                 const descricaoInput = document.querySelector(`#emailsContainer .email-input[data-idx="${idx}"][data-field="descricao"]`);
                 const principalInput = document.querySelector(`#emailsContainer .email-principal-radio[data-idx="${idx}"]`);
+                const recebeEmailInput = document.querySelector(`#emailsContainer .email-recebe-checkbox[data-idx="${idx}"]`);
 
                 emailsSincronizados[idx] = {
                     email: input.value || '',
                     descricao: descricaoInput?.value || '',
-                    principal: principalInput?.checked ? 'S' : 'N'
+                    principal: principalInput?.checked ? 'S' : 'N',
+                    recebe_email: recebeEmailInput?.checked ? 'S' : 'N'
                 };
             });
             emails = emailsSincronizados.filter(Boolean);

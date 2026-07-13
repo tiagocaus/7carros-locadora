@@ -555,6 +555,87 @@ if (!function_exists('queue_system_message')) {
     }
 }
 
+if (!function_exists('queue_client_email')) {
+    /**
+     * Enfileira uma copia para cada email autorizado do cliente.
+     *
+     * @return array<int, int> IDs das mensagens criadas
+     */
+    function queue_client_email(
+        int $clienteId,
+        array $payload,
+        ?string $chave = null,
+        ?string $batchId = null,
+        bool $ignorarPreferencia = false
+    ): array {
+        if ($clienteId <= 0) {
+            throw new \InvalidArgumentException('Cliente nao informado para envio de email');
+        }
+
+        $chave = $chave ?? ($_SESSION['chave'] ?? null);
+        if (empty($chave)) {
+            throw new \RuntimeException('Chave do tenant nao definida');
+        }
+
+        if ($ignorarPreferencia) {
+            $email = trim((string) ($payload['to'] ?? ''));
+            if ($email === '') {
+                return [];
+            }
+
+            $destinatarios = [['email' => $email]];
+        } else {
+            $destinatarios = (new \App\Models\ContatoEmail())
+                ->listarParaEnvio('cliente', $clienteId, $chave);
+        }
+
+        $ids = [];
+        $emailsEnfileirados = [];
+        $destinatariosUnicos = [];
+
+        foreach ($destinatarios as $destinatario) {
+            $email = trim((string) ($destinatario['email'] ?? ''));
+            $emailNormalizado = mb_strtolower($email);
+            if ($email === '' || isset($emailsEnfileirados[$emailNormalizado])) {
+                continue;
+            }
+            $emailsEnfileirados[$emailNormalizado] = true;
+            $destinatario['email'] = $email;
+            $destinatariosUnicos[] = $destinatario;
+        }
+
+        $destinatarios = array_values($destinatariosUnicos);
+        $ultimoDestinatario = count($destinatarios) - 1;
+
+        foreach ($destinatarios as $indice => $destinatario) {
+            $email = (string) $destinatario['email'];
+
+            $payloadDestinatario = $payload;
+            $payloadDestinatario['to'] = $email;
+
+            // Arquivos compartilhados entre copias so podem ser removidos pela ultima.
+            if ($indice !== $ultimoDestinatario && !empty($payloadDestinatario['attachments'])) {
+                foreach ($payloadDestinatario['attachments'] as &$attachment) {
+                    if (is_array($attachment) && !empty($attachment['delete_after_send'])) {
+                        $attachment['delete_after_send'] = false;
+                    }
+                }
+                unset($attachment);
+            }
+
+            $payloadDestinatario['_recipient_entity_type'] = 'cliente';
+            $payloadDestinatario['_recipient_entity_id'] = $clienteId;
+            if ($ignorarPreferencia) {
+                $payloadDestinatario['_email_preference_bypass'] = 'cliente_password_reset';
+            }
+
+            $ids[] = queue_message('email', $payloadDestinatario, $chave, $batchId);
+        }
+
+        return $ids;
+    }
+}
+
 if (!function_exists('queue_template_message')) {
     /**
      * Envia mensagem usando template traduzido para o idioma do cliente
@@ -649,7 +730,8 @@ if (!function_exists('queue_template_message')) {
 
         // Sem destinatario para o canal nao e erro: cliente sem email/celular
         // simplesmente nao recebe naquele canal.
-        if (empty($payload['to'])) {
+        $emailRecuperacao = $channel === 'email' && $templateSlug === 'cliente_nova_senha';
+        if (empty($payload['to']) && ($channel !== 'email' || $emailRecuperacao)) {
             return 0;
         }
 
@@ -659,7 +741,21 @@ if (!function_exists('queue_template_message')) {
             ?? $_SESSION['id_matriz_filial']
             ?? null;
 
-        // Enfileirar mensagem
+        if ($channel === 'email') {
+            $clienteId = (int) ($cliente['id'] ?? $cliente['id_cliente'] ?? 0);
+            $ignorarPreferencia = $templateSlug === 'cliente_nova_senha';
+            $messageIds = queue_client_email(
+                $clienteId,
+                $payload,
+                $chave,
+                $batchId,
+                $ignorarPreferencia
+            );
+
+            return $messageIds[0] ?? 0;
+        }
+
+        // Enfileirar mensagem dos demais canais
         return queue_message($channel, $payload, $chave, $batchId);
     }
 }

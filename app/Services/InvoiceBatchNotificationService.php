@@ -151,7 +151,14 @@ class InvoiceBatchNotificationService
 
             try {
                 $messageId = queue_template_message('payment_reminder', $canal, $context, $chave);
-                $resultado[] = ['parcela_id' => (int) $financeiro['id'], 'canal' => $canal, 'success' => true, 'message_id' => $messageId, 'message' => "message_id={$messageId}"];
+                $enfileirado = $canal !== 'email' || $messageId > 0;
+                $resultado[] = [
+                    'parcela_id' => (int) $financeiro['id'],
+                    'canal' => $canal,
+                    'success' => $enfileirado,
+                    'message_id' => $messageId,
+                    'message' => $enfileirado ? "message_id={$messageId}" : 'Cliente sem email autorizado para envio',
+                ];
             } catch (\Throwable $e) {
                 $resultado[] = ['parcela_id' => (int) $financeiro['id'], 'canal' => $canal, 'success' => false, 'message' => $e->getMessage()];
             }
@@ -184,8 +191,26 @@ class InvoiceBatchNotificationService
                     'origem_label' => $origemLabel,
                 ]);
 
-                $messageId = queue_message($canal, $payload, $chave, $batchId);
-                $resultado[] = ['parcela_id' => null, 'canal' => $canal, 'success' => true, 'message_id' => $messageId, 'message' => "message_id={$messageId}", 'total_faturas' => count($faturas)];
+                if ($canal === 'email') {
+                    $messageIds = queue_client_email(
+                        (int) ($cliente['id'] ?? $faturas[0]['id_cliente'] ?? 0),
+                        $payload,
+                        $chave,
+                        $batchId
+                    );
+                    $messageId = $messageIds[0] ?? 0;
+                } else {
+                    $messageId = queue_message($canal, $payload, $chave, $batchId);
+                }
+                $enfileirado = $canal !== 'email' || $messageId > 0;
+                $resultado[] = [
+                    'parcela_id' => null,
+                    'canal' => $canal,
+                    'success' => $enfileirado,
+                    'message_id' => $messageId,
+                    'message' => $enfileirado ? "message_id={$messageId}" : 'Cliente sem email autorizado para envio',
+                    'total_faturas' => count($faturas),
+                ];
             } catch (\Throwable $e) {
                 $resultado[] = ['parcela_id' => null, 'canal' => $canal, 'success' => false, 'message' => $e->getMessage()];
             }
@@ -201,6 +226,7 @@ class InvoiceBatchNotificationService
 
         return [
             'cliente' => [
+                'id' => (int) ($cliente['id'] ?? $financeiro['id_cliente'] ?? 0),
                 'nome' => $nome,
                 'primeiro_nome' => explode(' ', trim($nome))[0] ?? '',
                 'email' => $cliente['email'] ?? '',

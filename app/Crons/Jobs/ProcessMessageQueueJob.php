@@ -6,6 +6,7 @@ use App\Services\MessageQueueService;
 use App\Services\EmailService;
 use App\Services\SmsService;
 use App\Services\WhatsAppService;
+use App\Models\ContatoEmail;
 use App\Classes\QueryBuilder;
 use App\Core\Database;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
@@ -134,7 +135,11 @@ class ProcessMessageQueueJob extends BaseJob
                     // Processa mensagem usando o service apropriado
                     $result = $this->processMessage($type, $payload, $chave);
 
-                    if ($result['success']) {
+                    if (!empty($result['skipped'])) {
+                        $this->updateMessageStatus($messageId, 'skipped', $result['message'] ?? 'Envio nao autorizado', true);
+                        $successful++;
+                        $this->log("Mensagem #{$messageId} ignorada: " . ($result['message'] ?? 'envio nao autorizado'));
+                    } elseif ($result['success']) {
                         // Sucesso: atualiza status para 'sent'
                         $this->updateMessageStatus($messageId, 'sent', null, true);
                         $successful++;
@@ -277,6 +282,14 @@ class ProcessMessageQueueJob extends BaseJob
         }
 
         try {
+            if ($type === 'email' && !$this->emailAutorizado($payload, $chave)) {
+                return [
+                    'success' => true,
+                    'skipped' => true,
+                    'message' => 'Email desmarcado nas preferencias do cliente',
+                ];
+            }
+
             return match ($type) {
                 'email' => (new EmailService())->send($payload),
                 'sms' => (new SmsService())->send($payload),
@@ -288,6 +301,29 @@ class ProcessMessageQueueJob extends BaseJob
                 unset($_SESSION['chave']);
             }
         }
+    }
+
+    /**
+     * Revalida a preferencia imediatamente antes do envio.
+     * Payloads legados e mensagens nao destinadas a clientes permanecem compativeis.
+     */
+    private function emailAutorizado(array $payload, ?string $chave): bool
+    {
+        if (($payload['_email_preference_bypass'] ?? '') === 'cliente_password_reset') {
+            return true;
+        }
+
+        if (($payload['_recipient_entity_type'] ?? '') !== 'cliente') {
+            return true;
+        }
+
+        $clienteId = (int) ($payload['_recipient_entity_id'] ?? 0);
+        $email = trim((string) ($payload['to'] ?? ''));
+        if ($clienteId <= 0 || $email === '') {
+            return false;
+        }
+
+        return (new ContatoEmail())->podeEnviarPara('cliente', $clienteId, $email, $chave);
     }
 
     /**
@@ -568,6 +604,13 @@ class ProcessMessageQueueJob extends BaseJob
 
             try {
                 $result = $this->processMessage($type, $payload, $chave);
+
+                if (!empty($result['skipped'])) {
+                    $this->updateMessageStatus($messageId, 'skipped', $result['message'] ?? 'Envio nao autorizado', true);
+                    $successful++;
+                    $this->log("Fallback pelo banco: mensagem #{$messageId} ignorada por preferencia do cliente");
+                    continue;
+                }
 
                 if ($result['success']) {
                     $this->updateMessageStatus($messageId, 'sent', null, true);

@@ -9,6 +9,7 @@ use App\Models\Financeiro;
 use App\Models\FinanceiroItem;
 use App\Models\MatrizFilial;
 use App\Models\Cliente;
+use App\Models\ContatoEmail;
 use App\Models\LocacaoVeiculo;
 use App\Models\ContratoVeiculo;
 use App\Services\NFSe\Nacional\NFSeXMLNacional;
@@ -389,7 +390,20 @@ class NFSeService
         }
 
         $email = $nfse['tomador_email'] ?? '';
-        if (empty($email)) {
+        $clienteId = 0;
+        if (!empty($nfse['id_financeiro'])) {
+            $financeiro = (new Financeiro())->buscarPorId((int) $nfse['id_financeiro']);
+            $clienteId = (int) ($financeiro['id_cliente'] ?? 0);
+        }
+
+        $emailsAutorizados = [];
+        if ($clienteId > 0) {
+            $emailsAutorizados = (new ContatoEmail())->listarParaEnvio('cliente', $clienteId, $chave);
+            if ($emailsAutorizados === []) {
+                return $this->erro('Cliente sem email autorizado para envio.', 'TOMADOR_EMAIL');
+            }
+            $email = (string) $emailsAutorizados[0]['email'];
+        } elseif (empty($email)) {
             return $this->erro('Email do tomador não informado.', 'TOMADOR_EMAIL');
         }
 
@@ -400,7 +414,7 @@ class NFSeService
 
         // Enviar email via fila
         try {
-            queue_message('email', [
+            $payload = [
                 'to' => $email,
                 'to_name' => $nfse['tomador_nome'] ?? '',
                 'subject' => 'NFS-e Nº ' . ($nfse['numero'] ?? '') . ' - ' . ($nfse['prestador_razao_social'] ?? ''),
@@ -411,7 +425,13 @@ class NFSeService
                     'delete_after_send' => true,
                 ]],
                 'id_matriz_filial' => $nfse['id_matriz_filial'],
-            ], $chave);
+            ];
+
+            if ($clienteId > 0) {
+                queue_client_email($clienteId, $payload, $chave);
+            } else {
+                queue_message('email', $payload, $chave);
+            }
         } catch (\Throwable $e) {
             if (!empty($pdfResult['caminho_completo']) && file_exists($pdfResult['caminho_completo'])) {
                 @unlink($pdfResult['caminho_completo']);
@@ -420,12 +440,15 @@ class NFSeService
         }
 
         // Marcar como enviado
+        $emailsEnviados = $emailsAutorizados !== []
+            ? implode(', ', array_column($emailsAutorizados, 'email'))
+            : $email;
         $this->nfseModel->marcarEmailEnviado($idNFSe, $email);
-        $this->eventoModel->registrar($idNFSe, 'email', null, "Email enviado para {$email}");
+        $this->eventoModel->registrar($idNFSe, 'email', null, "Email enfileirado para {$emailsEnviados}");
 
         return [
             'sucesso' => true,
-            'mensagem' => 'Email enviado com sucesso para ' . $email,
+            'mensagem' => 'Email enfileirado com sucesso para ' . $emailsEnviados,
         ];
     }
 

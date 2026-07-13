@@ -263,7 +263,17 @@ class FinanceiroCobrancaAutomaticaService
                     (int) ($remetente['id_matriz_filial'] ?? 0)
                 );
                 $batchId = 'financeiro_cron_' . \App\Helpers\DateHelper::systemNow('YmdHis') . '_' . bin2hex(random_bytes(3));
-                $messageId = queue_message($canal, $payload, $chave, $batchId);
+                if ($canal === 'email') {
+                    $messageIds = queue_client_email(
+                        (int) ($faturas[0]['id_cliente'] ?? 0),
+                        $payload,
+                        $chave,
+                        $batchId
+                    );
+                    $messageId = $messageIds[0] ?? 0;
+                } else {
+                    $messageId = queue_message($canal, $payload, $chave, $batchId);
+                }
             }
 
             if ($messageId <= 0) {
@@ -441,6 +451,7 @@ class FinanceiroCobrancaAutomaticaService
         };
 
         return [
+            'id' => (int) ($fatura['id_cliente'] ?? 0),
             'nome_rsocial' => $fatura['cliente_nome'] ?? '',
             'nome' => $fatura['cliente_nome'] ?? '',
             'email' => $fatura['cliente_email'] ?? '',
@@ -481,6 +492,7 @@ class FinanceiroCobrancaAutomaticaService
 
         return [
             'cliente' => [
+                'id' => (int) ($fatura['id_cliente'] ?? 0),
                 'nome' => $nome,
                 'primeiro_nome' => explode(' ', trim($nome))[0] ?? '',
                 'email' => $fatura['cliente_email'] ?? '',

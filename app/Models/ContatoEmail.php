@@ -21,7 +21,7 @@ class ContatoEmail extends Model
     {
         return $this->qb
             ->table('contatos_emails')
-            ->select(['id', 'email', 'descricao', 'principal'])
+            ->select(['id', 'email', 'descricao', 'principal', 'recebe_email'])
             ->where('entidade_tipo', '=', $tipo)
             ->where('entidade_id', '=', $id)
             ->orderByDesc('principal')
@@ -40,7 +40,7 @@ class ContatoEmail extends Model
     {
         return $this->qb
             ->table('contatos_emails')
-            ->select(['id', 'email', 'descricao'])
+            ->select(['id', 'email', 'descricao', 'recebe_email'])
             ->where('entidade_tipo', '=', $tipo)
             ->where('entidade_id', '=', $id)
             ->where('principal', '=', 'S')
@@ -101,6 +101,7 @@ class ContatoEmail extends Model
                         'email' => trim($email['email']),
                         'descricao' => trim($email['descricao'] ?? '') ?: null,
                         'principal' => $isPrincipal ? 'S' : 'N',
+                        'recebe_email' => ($email['recebe_email'] ?? 'S') === 'N' ? 'N' : 'S',
                     ]);
             }
 
@@ -122,7 +123,14 @@ class ContatoEmail extends Model
      * @param bool $principal Se é o email principal
      * @return int ID do registro criado
      */
-    public function adicionar(string $tipo, int $entidadeId, string $email, ?string $descricao = null, bool $principal = false): int
+    public function adicionar(
+        string $tipo,
+        int $entidadeId,
+        string $email,
+        ?string $descricao = null,
+        bool $principal = false,
+        bool $recebeEmail = true
+    ): int
     {
         $this->qb->beginTransaction();
 
@@ -144,6 +152,7 @@ class ContatoEmail extends Model
                     'email' => trim($email),
                     'descricao' => $descricao ? trim($descricao) : null,
                     'principal' => $principal ? 'S' : 'N',
+                    'recebe_email' => $recebeEmail ? 'S' : 'N',
                 ]);
 
             $this->qb->commit();
@@ -229,7 +238,7 @@ class ContatoEmail extends Model
     {
         $query = $this->qb
             ->table('contatos_emails')
-            ->select(['id', 'entidade_tipo', 'entidade_id', 'email', 'descricao', 'principal'])
+            ->select(['id', 'entidade_tipo', 'entidade_id', 'email', 'descricao', 'principal', 'recebe_email'])
             ->where('email', '=', $email);
 
         if ($tipo) {
@@ -237,5 +246,50 @@ class ContatoEmail extends Model
         }
 
         return $query->get();
+    }
+
+    /**
+     * Lista os enderecos autorizados para receber emails de uma entidade.
+     *
+     * @return array<int, array{id:int,email:string,descricao:?string,principal:string}>
+     */
+    public function listarParaEnvio(string $tipo, int $id, ?string $chave = null): array
+    {
+        $query = $this->qb
+            ->table('contatos_emails');
+
+        if ($chave !== null && $chave !== '') {
+            $query->withChave($chave);
+        }
+
+        return $query
+            ->select(['id', 'email', 'descricao', 'principal'])
+            ->where('entidade_tipo', '=', $tipo)
+            ->where('entidade_id', '=', $id)
+            ->where('recebe_email', '=', 'S')
+            ->orderByDesc('principal')
+            ->orderBy('id', 'ASC')
+            ->get();
+    }
+
+    /**
+     * Confirma se um endereco continua autorizado no momento do envio.
+     */
+    public function podeEnviarPara(string $tipo, int $id, string $email, ?string $chave = null): bool
+    {
+        $query = $this->qb
+            ->table('contatos_emails');
+
+        if ($chave !== null && $chave !== '') {
+            $query->withChave($chave);
+        }
+
+        return $query
+            ->select(['id'])
+            ->where('entidade_tipo', '=', $tipo)
+            ->where('entidade_id', '=', $id)
+            ->where('email', '=', trim($email))
+            ->where('recebe_email', '=', 'S')
+            ->first() !== null;
     }
 }

@@ -203,6 +203,7 @@ return [
         'email_description_placeholder' => 'Descrição (ex: Pessoal)',
         'phone_description_placeholder' => 'Descrição',
         'primary_email' => 'Email Principal',
+        'receive_email' => 'Receber emails',
         'primary_phone' => 'Telefone Principal',
         'whatsapp_phone_required' => 'Informe o telefone antes de marcar WhatsApp.',
         'whatsapp_not_found' => 'Este número não possui WhatsApp.',

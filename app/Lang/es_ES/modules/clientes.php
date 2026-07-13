@@ -205,6 +205,7 @@ return [
         'email_description_placeholder' => 'Descripción (ej: Personal)',
         'phone_description_placeholder' => 'Descripción',
         'primary_email' => 'Correo Principal',
+        'receive_email' => 'Recibir correos',
         'primary_phone' => 'Teléfono Principal',
         'whatsapp_phone_required' => 'Informe el teléfono antes de marcar WhatsApp.',
         'whatsapp_not_found' => 'Este número no tiene WhatsApp.',

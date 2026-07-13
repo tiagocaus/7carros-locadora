@@ -11,6 +11,7 @@ use App\Models\FinanceiroItem;
 use App\Models\MatrizFilial;
 use App\Models\PlanoDeContas;
 use App\Models\Cliente;
+use App\Models\ContatoEmail;
 use App\Models\Fornecedor;
 use App\Models\FormaPagamento;
 use App\Models\GatewayPagamento;
@@ -1198,6 +1199,14 @@ class FinanceiroController
                 'whatsapp', 'sms' => $cliente['celular'] ?? $cliente['telefone'] ?? '',
             };
 
+            if ($canal === 'email') {
+                $emailsAutorizados = (new ContatoEmail())->listarParaEnvio('cliente', (int) $lancamento['id_cliente'], $chave);
+                if ($emailsAutorizados === []) {
+                    throw new \InvalidArgumentException('Cliente sem email autorizado para envio');
+                }
+                $destinatario = (string) $emailsAutorizados[0]['email'];
+            }
+
             validate_queue_message($canal, [
                 'to' => $destinatario,
                 'id_matriz_filial' => $lancamento['id_matriz_filial'] ?? null,
@@ -1224,7 +1233,7 @@ class FinanceiroController
             $venciBR = !empty($lancamento['data_venci']) ? format_date($lancamento['data_venci']) : '-';
 
             if ($canal === 'email') {
-                queue_message('email', [
+                queue_client_email((int) $lancamento['id_cliente'], [
                     'to' => $destinatario,
                     'to_name' => $cliente['nome_rsocial'] ?? '',
                     'subject' => 'Fatura ' . $codigo . ' - ' . $nomeEmpresa,
@@ -1234,7 +1243,7 @@ class FinanceiroController
                         . '<p>Atenciosamente,<br>' . htmlspecialchars($nomeEmpresa) . '</p>',
                     'attachments' => [$tempPath],
                     'id_matriz_filial' => $lancamento['id_matriz_filial'] ?? null,
-                ]);
+                ], $chave);
             } elseif ($canal === 'whatsapp') {
                 $publicUrl = rtrim(env('APP_URL', ''), '/') . '/storage/temp/' . $filename;
                 queue_message('whatsapp', [

@@ -14,6 +14,7 @@ use App\Models\Veiculo;
 use App\Models\VeiculoDisponibilidadeSync;
 use App\Models\TaxaServico;
 use App\Models\Cliente;
+use App\Models\ContatoEmail;
 use App\Models\Fornecedor;
 use App\Models\MatrizFilial;
 use App\Models\PlanoDeContas;
@@ -1431,6 +1432,7 @@ class LocacoesController
             $primeiroNome = explode(' ', trim((string) ($locacao['cliente_nome'] ?? '')))[0];
             $context = [
                 'cliente' => [
+                    'id' => (int) ($locacao['id_cliente'] ?? 0),
                     'nome' => $locacao['cliente_nome'] ?? '',
                     'primeiro_nome' => $primeiroNome,
                     'email' => $obs['email'] ?? '',
@@ -2293,6 +2295,14 @@ class LocacoesController
                 ? ($locacao['cliente_email'] ?? '')
                 : ($locacao['cliente_telefone'] ?? '');
 
+            if ($canal === 'email') {
+                $emailsAutorizados = (new ContatoEmail())->listarParaEnvio('cliente', (int) $locacao['id_cliente'], $chave);
+                if ($emailsAutorizados === []) {
+                    throw new \InvalidArgumentException('Cliente sem email autorizado para envio');
+                }
+                $destinatario = (string) $emailsAutorizados[0]['email'];
+            }
+
             validate_queue_message($canal, [
                 'to' => $destinatario,
                 'id_matriz_filial' => $locacao['id_matriz_filial_retirada'] ?? null,
@@ -2314,7 +2324,7 @@ class LocacoesController
             file_put_contents($tempPath, $pdfContent);
 
             if ($canal === 'email') {
-                queue_message('email', [
+                queue_client_email((int) $locacao['id_cliente'], [
                     'to' => $destinatario,
                     'to_name' => $locacao['cliente_nome_completo'] ?? '',
                     'subject' => $documentoLabel . ' - ' . $locacao['codigo'],
@@ -2325,7 +2335,7 @@ class LocacoesController
                     ]),
                     'attachments' => [$tempPath],
                     'id_matriz_filial' => $locacao['id_matriz_filial_retirada'] ?? null,
-                ]);
+                ], $chave);
             } elseif ($canal === 'whatsapp') {
                 $publicUrl = rtrim(env('APP_URL', ''), '/') . '/storage/temp/' . $filename;
                 queue_message('whatsapp', [

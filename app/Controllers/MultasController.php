@@ -10,6 +10,7 @@ use App\Models\Multa;
 use App\Models\Veiculo;
 use App\Models\Documento;
 use App\Models\Cliente;
+use App\Models\ContatoEmail;
 use App\Models\MatrizFilial;
 use App\Helpers\FilialHelper;
 use App\Helpers\FileHelper;
@@ -865,6 +866,14 @@ class MultasController
                 ? ($cliente['email'] ?? '')
                 : ($cliente['celular'] ?? $cliente['telefone'] ?? '');
 
+            if ($canal === 'email') {
+                $emailsAutorizados = (new ContatoEmail())->listarParaEnvio('cliente', (int) ($multa['id_cliente'] ?? 0), $chave);
+                if ($emailsAutorizados === []) {
+                    throw new \InvalidArgumentException('Cliente sem email autorizado para envio');
+                }
+                $destinatario = (string) $emailsAutorizados[0]['email'];
+            }
+
             validate_queue_message($canal, [
                 'to' => $destinatario,
                 'id_matriz_filial' => $multa['id_matriz_filial'] ?? null,
@@ -939,14 +948,14 @@ class MultasController
             file_put_contents($tempPath, $pdfContent);
 
             if ($canal === 'email') {
-                queue_message('email', [
+                queue_client_email((int) $multa['id_cliente'], [
                     'to' => $destinatario,
                     'to_name' => $cliente['nome_rsocial'] ?? '',
                     'subject' => $assuntoBase,
                     'body' => '<p>Segue em anexo o documento referente a multa <strong>' . htmlspecialchars($multa['n_infracao'] ?? '') . '</strong>.</p><p>Atenciosamente,<br>' . htmlspecialchars($nomeEmpresa) . '</p>',
                     'attachments' => [$tempPath],
                     'id_matriz_filial' => $multa['id_matriz_filial'] ?? null,
-                ]);
+                ], $chave);
             } elseif ($canal === 'whatsapp') {
                 $publicUrl = rtrim(env('APP_URL', ''), '/') . '/storage/temp/' . $filename;
                 queue_message('whatsapp', [
