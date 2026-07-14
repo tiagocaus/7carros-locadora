@@ -24,6 +24,7 @@ Cada lancamento pode conter multiplos itens, permitindo detalhamento por veiculo
 | id_cliente | INT UNSIGNED | FK para clientes (quando tipo='R') |
 | id_fornecedor | INT UNSIGNED | FK para fornecedores (quando tipo='D') |
 | id_forma_pagamento | INT UNSIGNED | FK para formas_de_pagamentos |
+| id_gateway | INT UNSIGNED NULL | Gateway efetivamente usado; dimensao operacional |
 | id_conta | INT UNSIGNED | FK para contas |
 | id_contrato | INT UNSIGNED | FK para contratos (quando origem e contrato) |
 | id_locacao | INT UNSIGNED | FK para locacoes (quando origem e locacao) |
@@ -44,6 +45,7 @@ Cada lancamento pode conter multiplos itens, permitindo detalhamento por veiculo
 | parcela | INT | Numero da parcela |
 | total_parcelas | INT | Total de parcelas |
 | id_financeiro_origem | INT | FK para lancamento origem (parcelamento) |
+| id_financeiro_taxa_origem | INT NULL | Receita que originou uma despesa automatica de taxa |
 | observacoes | TEXT | Observacoes adicionais |
 | created_at | DATETIME | Data de criacao |
 | updated_at | DATETIME | Data de atualizacao |
@@ -74,9 +76,58 @@ financeiro N:1 contas
 financeiro N:1 contratos (SET NULL on delete)
 financeiro N:1 locacoes (SET NULL on delete)
 financeiro N:1 veiculos (SET NULL on delete)
+financeiro 1:0..1 financeiro (receita -> despesa de taxa, CASCADE DELETE)
 financeiro_itens N:1 veiculos
 financeiro_itens N:1 planos_de_contas
 ```
+
+## Taxas de meios de pagamento
+
+`valor_total` continua representando a receita bruta e `valor_liquido` mostra
+o valor apos a retencao. Quando uma receita com `valor_taxa > 0` recebe baixa,
+o sistema tambem cria uma despesa paga no mesmo valor. Isso preserva o Livro
+Caixa no modelo bruto: entrada integral e saida da taxa.
+
+A despesa usa o plano escolhido na forma de pagamento ou, por padrao,
+`3.4.1.21 - Taxas de meios de pagamento`. Gateway e plano de contas sao
+conceitos diferentes: o primeiro identifica o processador; o segundo classifica
+a natureza contabil da despesa. O vinculo unico por origem garante idempotencia.
+
+Baixas por tela financeira, lote, contrato, locacao e webhook usam a mesma
+regra central. Baixa parcial gera apenas a taxa proporcional e estorno remove a
+despesa. Em gateway, a taxa efetiva (`fee`, ou `amount - net_amount`) substitui
+a estimativa configurada quando estiver disponivel.
+
+### Retroativo de taxas
+
+O script `scripts/backfill-taxas-meios-pagamento.php` contabiliza receitas
+pagas anteriores a esta funcionalidade. O ambiente deve ser informado
+explicitamente em producao; sem a flag, o padrao seguro e `development`.
+
+```bash
+# Previa: nao grava dados
+php scripts/backfill-taxas-meios-pagamento.php --env=production
+
+# Aplicacao apos validar a previa
+php scripts/backfill-taxas-meios-pagamento.php --env=production --apply
+
+# Restricao opcional a um tenant
+php scripts/backfill-taxas-meios-pagamento.php --env=production --tenant=CHAVE
+```
+
+O script mostra ambiente e banco antes dos resultados, rejeita ambientes
+diferentes de `development` e `production` e ignora receitas que ja possuem
+despesa de taxa vinculada.
+
+Na previa, uma receita aparece somente quando for do tipo `R`, estiver paga,
+tiver `valor_taxa > 0` e ainda nao possuir uma despesa ligada por
+`id_financeiro_taxa_origem`. Por isso, antes de usar `--apply`, valide a
+quantidade e o total exibidos contra a consulta de auditoria do banco.
+
+Cada receita e processada em transacao. Se ocorrer uma falha, o script informa
+o ID financeiro, reverte integralmente aquele item e termina com codigo de erro.
+Como o vinculo da despesa e unico, a execucao pode ser repetida com seguranca
+apos a correcao da causa; os itens concluidos nao serao duplicados.
 
 ## Triggers Automaticos
 

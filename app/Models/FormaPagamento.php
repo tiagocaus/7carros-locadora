@@ -260,9 +260,7 @@ class FormaPagamento extends Model
      */
     public function criar(array $dados): int
     {
-        return $this->qb
-            ->table('formas_pagamento')
-            ->insert([
+        $dadosInsert = [
                 'chave' => $dados['chave'],
                 'nome' => $dados['nome'],
                 'lancar_pago' => $dados['lancar_pago'] ?? 'N',
@@ -275,7 +273,15 @@ class FormaPagamento extends Model
                 'taxa_percentual_parcela' => $dados['taxa_percentual_parcela'] ?? 0.00,
                 'desconto_antecipacao_dias' => $dados['desconto_antecipacao_dias'] ?? 0,
                 'desconto_antecipacao_percentual' => $dados['desconto_antecipacao_percentual'] ?? 0.00,
-            ]);
+        ];
+
+        if (FinanceiroTaxa::schemaDisponivel()) {
+            $dadosInsert['id_plano_de_conta_taxa'] = !empty($dados['id_plano_de_conta_taxa'])
+                ? (int) $dados['id_plano_de_conta_taxa']
+                : null;
+        }
+
+        return $this->qb->table('formas_pagamento')->insert($dadosInsert);
     }
 
     /**
@@ -320,6 +326,13 @@ class FormaPagamento extends Model
         }
         if (array_key_exists('taxa_percentual_parcela', $dados)) {
             $dadosUpdate['taxa_percentual_parcela'] = (float) ($dados['taxa_percentual_parcela'] ?? 0);
+        }
+        if (array_key_exists('id_plano_de_conta_taxa', $dados)) {
+            if (FinanceiroTaxa::schemaDisponivel()) {
+                $dadosUpdate['id_plano_de_conta_taxa'] = !empty($dados['id_plano_de_conta_taxa'])
+                    ? (int) $dados['id_plano_de_conta_taxa']
+                    : null;
+            }
         }
         if (array_key_exists('desconto_antecipacao_dias', $dados)) {
             $dadosUpdate['desconto_antecipacao_dias'] = (int) ($dados['desconto_antecipacao_dias'] ?? 0);

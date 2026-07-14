@@ -1151,10 +1151,7 @@ class Locacao extends Model
             $update['id_conta'] = (int) $dados['id_conta'];
         }
 
-        return $this->qb
-            ->table('financeiro')
-            ->where('id', '=', $idParcela)
-            ->update($update);
+        return (new Financeiro())->atualizar($idParcela, $update);
     }
 
     /**
@@ -1173,13 +1170,10 @@ class Locacao extends Model
             throw new \InvalidArgumentException('Parcela não encontrada ou não está paga');
         }
 
-        return $this->qb
-            ->table('financeiro')
-            ->where('id', '=', $idParcela)
-            ->update([
-                'pago' => 'N',
-                'data_pago' => null,
-            ]);
+        return (new Financeiro())->atualizar($idParcela, [
+            'pago' => 'N',
+            'data_pago' => null,
+        ]);
     }
 
     /**
@@ -1389,7 +1383,9 @@ class Locacao extends Model
         $kmExcedente = 0;
         $valorKmExcedente = 0.0;
         if ($status === 'F' && $veiculo && ($dados['plano'] ?? $locacao['plano'] ?? $veiculo['plano'] ?? '') === 'KMC') {
-            $odometroSaida = (int) ($dados['odometro_ini'] ?? $veiculo['odometro_saida'] ?? $locacao['odometro_ini'] ?? 0);
+            $odometroSaida = $this->normalizarOdometroResumo(
+                $dados['odometro_ini'] ?? $veiculo['odometro_saida'] ?? $locacao['odometro_ini'] ?? 0
+            );
             $odometroEntrada = $this->normalizarOdometroResumo(
                 $dados['odometro_fim'] ?? $veiculo['odometro_entrada'] ?? $locacao['odometro_fim'] ?? 0
             );

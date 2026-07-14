@@ -8,6 +8,8 @@ use App\Core\Response;
 use App\Views\Template;
 use App\Models\FormaPagamento;
 use App\Models\ComandoParcela;
+use App\Models\PlanoDeContas;
+use App\Models\Financeiro;
 use App\Services\AuditLogService;
 
 /**
@@ -112,6 +114,27 @@ class FormasPagamentoController
     }
 
     /**
+     * Lista exclusivamente contas de despesa para contabilizar taxas.
+     */
+    public function planosTaxas(Request $request): void
+    {
+        try {
+            $planos = (new Financeiro())->listarPlanosDeContasSelect(
+                Auth::chave(),
+                'D',
+                (string) $request->query('q', '')
+            );
+
+            Response::json(['success' => true, 'data' => $planos]);
+        } catch (\Exception $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao buscar planos de contas de taxas: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Exibe uma forma de pagamento especifica
      *
      * GET /api/formas-pagamento/{id}
@@ -144,6 +167,13 @@ class FormasPagamentoController
 
             // Buscar gateways vinculados
             $forma['gateways'] = $model->buscarGateways($id);
+
+            if (!empty($forma['id_plano_de_conta_taxa'])) {
+                $planoTaxa = (new PlanoDeContas())->buscarPorId((int) $forma['id_plano_de_conta_taxa']);
+                if ($planoTaxa) {
+                    $forma['plano_taxa_texto'] = $planoTaxa['hierarquia'] . ' - ' . PlanoDeContas::getDescricao($planoTaxa);
+                }
+            }
 
             Response::json([
                 'success' => true,

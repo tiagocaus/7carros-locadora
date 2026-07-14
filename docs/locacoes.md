@@ -301,6 +301,9 @@ $locacao->gerarParcelas($locacaoId, [
 - O snapshot inclui os dados ainda nao salvos da devolucao (`odometro_ini`,
   `odometro_fim`, `km_controlado_franquia`, `km_valor` e `combustivel_fim`),
   garantindo que km excedente e combustivel entrem no saldo parcelavel
+- O frontend envia `odometro_ini` e `odometro_fim` como inteiros. Por
+  compatibilidade, o backend tambem normaliza valores mascarados (por exemplo,
+  `72.870`) antes de calcular distancia e km excedente
 - Gera apenas o saldo restante: total final menos total ja lancado no financeiro
 - Bloqueia a geracao quando nao houver saldo restante
 - Ultima parcela absorve diferenca de arredondamento

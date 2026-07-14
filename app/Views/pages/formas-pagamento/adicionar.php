@@ -196,6 +196,20 @@
                         <span class="input-addon">%</span>
                     </div>
                 </div>
+
+                <div class="md:col-span-12 form-input-group">
+                    <label for="id_plano_de_conta_taxa" class="form-label-group">
+                        <?= t('modules.formas_pagamento.fields.fee_account') ?>
+                        {!! aviso(t('modules.formas_pagamento.fields.fee_account_hint')) !!}
+                    </label>
+                    <select id="id_plano_de_conta_taxa" name="id_plano_de_conta_taxa"
+                            class="form-input-group-field chosen-select"
+                            data-chosen-type="server-side"
+                            data-chosen-search-url="/api/formas-pagamento/planos-taxas"
+                            data-chosen-placeholder="<?= t('modules.formas_pagamento.fields.fee_account_default') ?>">
+                        <option value=""><?= t('modules.formas_pagamento.fields.fee_account_default') ?></option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -618,6 +632,12 @@
             Currency.setValue(document.getElementById('taxa_fixa_parcela'), dados.taxa_fixa_parcela || 0);
             Percent.setValue(document.getElementById('taxa_percentual_parcela'), dados.taxa_percentual_parcela || 0);
 
+            if (dados.id_plano_de_conta_taxa) {
+                const selectPlanoTaxa = document.getElementById('id_plano_de_conta_taxa');
+                selectPlanoTaxa.innerHTML = `<option value="">${i18n.select || 'Selecione'}...</option><option value="${dados.id_plano_de_conta_taxa}" selected>${escapeHtml(dados.plano_taxa_texto || dados.id_plano_de_conta_taxa)}</option>`;
+                selectPlanoTaxa.dispatchEvent(new Event('change'));
+            }
+
             // Desconto antecipacao
             document.getElementById('desconto_antecipacao_dias').value = dados.desconto_antecipacao_dias || 0;
             Percent.setValue(document.getElementById('desconto_antecipacao_percentual'), dados.desconto_antecipacao_percentual || 0);
@@ -684,6 +704,7 @@
                     taxa_fixa: Currency.getValue(document.getElementById('taxa_fixa')),
                     taxa_fixa_parcela: Currency.getValue(document.getElementById('taxa_fixa_parcela')),
                     taxa_percentual_parcela: Percent.getValue(document.getElementById('taxa_percentual_parcela')),
+                    id_plano_de_conta_taxa: document.getElementById('id_plano_de_conta_taxa').value || '',
                     desconto_antecipacao_dias: parseInt(document.getElementById('desconto_antecipacao_dias').value) || 0,
                     desconto_antecipacao_percentual: Percent.getValue(document.getElementById('desconto_antecipacao_percentual')),
                     filiais_ids: JSON.stringify(filiaisSelecionadas),

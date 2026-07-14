@@ -309,6 +309,20 @@ Para boleto, "atualizar" significa baixar/cancelar o boleto antigo no gateway e
 emitir nova cobranca. Nao assuma que o gateway permite alterar valor ou vencimento
 do mesmo boleto ja gerado.
 
+## Contabilizacao da taxa do gateway
+
+Quando a cobranca e confirmada, o sistema registra na receita e na despesa
+vinculada o `id_gateway` efetivamente usado. O valor segue esta precedencia:
+
+1. `financeiro_transacoes.fee`, quando positivo;
+2. diferenca entre `amount` e `net_amount`;
+3. `financeiro.valor_taxa`, calculado pela forma de pagamento.
+
+O gateway e uma dimensao de analise e nao substitui o plano de contas. Por isso,
+o padrao e um unico plano `3.4.1.21 - Taxas de meios de pagamento`, com opcao de
+outro plano na forma de pagamento. Relatorios por gateway devem filtrar
+`financeiro.id_gateway`, sem multiplicar desnecessariamente o plano contabil.
+
 ---
 
 ## Seguranca

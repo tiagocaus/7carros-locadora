@@ -454,6 +454,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     // API Formas de Pagamento (com protecao anti-scraping e CSRF)
     $router->get('/api/formas-pagamento', [FormasPagamentoController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/formas-pagamento/select', [FormasPagamentoController::class, 'indexSelect'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/formas-pagamento/planos-taxas', [FormasPagamentoController::class, 'planosTaxas'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/formas-pagamento/{id}', [FormasPagamentoController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/formas-pagamento/{id}/calcular-taxas', [FormasPagamentoController::class, 'calcularTaxas'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/formas-pagamento/{id}/calcular-desconto', [FormasPagamentoController::class, 'calcularDesconto'], ['api_csrf', 'rate_limit', 'throttle']);

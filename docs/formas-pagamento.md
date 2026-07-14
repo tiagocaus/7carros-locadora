@@ -41,6 +41,7 @@ Esta separacao permite:
 | taxa_fixa | DECIMAL(10,2) | Taxa fixa total, diluida entre parcelas |
 | taxa_fixa_parcela | DECIMAL(10,2) | Taxa fixa cobrada em cada parcela |
 | taxa_percentual_parcela | DECIMAL(5,2) | Percentual cobrado sobre cada parcela |
+| id_plano_de_conta_taxa | INT NULL | Conta de despesa da taxa; nulo usa o plano global 3.4.1.21 |
 | desconto_antecipacao_dias | INT | Dias antes do vencimento para aplicar desconto |
 | desconto_antecipacao_percentual | DECIMAL(5,2) | Percentual de desconto por antecipacao |
 
@@ -193,7 +194,8 @@ O metodo `ComandoParcela::inferirLabel()` gera labels legiveis a partir do coman
 
 ## Taxas de Cobranca
 
-As taxas sao valores descontados ou adicionados ao valor original da transacao. Deixe 0,00 para desativar.
+As taxas representam valores **retidos pelo meio de pagamento**. Elas nao sao
+acrescidas ao valor cobrado do cliente. Deixe 0,00 para desativar.
 
 ### 1. Taxa Fixa Total (`taxa_fixa`)
 
@@ -202,10 +204,10 @@ Valor fixo que sera **diluido entre as parcelas**.
 **Exemplo:**
 - Taxa fixa: R$ 10,00
 - Valor: R$ 200,00 em 2 parcelas
-- Resultado: Cada parcela sera R$ 100,00 + R$ 5,00 = R$ 105,00
+- Resultado: receita bruta de R$ 100,00 e despesa de R$ 5,00 por parcela paga
 
 ```
-Valor parcela = (Valor total / Parcelas) + (Taxa fixa / Parcelas)
+Taxa da parcela = taxa fixa / numero de parcelas
 ```
 
 ### 2. Taxa Fixa por Parcela (`taxa_fixa_parcela`)
@@ -215,7 +217,7 @@ Valor fixo cobrado **em cada parcela**, independente do valor.
 **Exemplo:**
 - Taxa por parcela: R$ 2,50
 - Valor: R$ 200,00 em 4 parcelas
-- Resultado: Cada parcela sera R$ 50,00 + R$ 2,50 = R$ 52,50
+- Resultado: receita bruta de R$ 50,00 e despesa de R$ 2,50 por parcela paga
 - Taxa total: R$ 10,00 (4 x R$ 2,50)
 
 ```
@@ -229,7 +231,7 @@ Percentual cobrado **sobre o valor de cada parcela**.
 **Exemplo:**
 - Taxa: 5%
 - Valor: R$ 200,00 em 2 parcelas (R$ 100,00 cada)
-- Resultado: Cada parcela sera R$ 100,00 + R$ 5,00 = R$ 105,00
+- Resultado: receita bruta de R$ 100,00 e despesa de R$ 5,00 por parcela paga
 - Taxa total: R$ 10,00 (5% de R$ 100 x 2 parcelas)
 
 ```
@@ -238,7 +240,7 @@ Taxa parcela = Valor parcela * (Percentual / 100)
 
 ### Combinacao de Taxas
 
-As taxas podem ser combinadas. Todas sao somadas ao valor final.
+As taxas podem ser combinadas. Todas compoem a despesa retida pelo processador.
 
 **Exemplo completo:**
 - Valor: R$ 1.000,00 em 2 parcelas
@@ -248,8 +250,9 @@ As taxas podem ser combinadas. Todas sao somadas ao valor final.
 
 ```
 Taxa total = R$ 20,00 + R$ 6,00 + R$ 20,00 = R$ 46,00
-Valor final = R$ 1.000,00 + R$ 46,00 = R$ 1.046,00
-Parcela = R$ 523,00
+Receita bruta = R$ 1.000,00
+Despesa de taxas = R$ 46,00
+Valor liquido = R$ 954,00
 ```
 
 ### Snapshot no Financeiro
@@ -276,6 +279,24 @@ valor_taxa = (taxa_fixa / totalParcelas) + taxa_fixa_parcela + (valorParcela * t
 - Snapshots servem para auditoria — taxas podem mudar no futuro, mas o registro mantém a config usada
 - Se `valor_taxa` for passado explicitamente nos dados, o calculo automatico eh ignorado (override manual)
 - Despesas (tipo='D') nunca tem taxa calculada — taxa so se aplica a receitas
+
+### Contabilizacao na baixa
+
+Ao marcar a receita como paga, `FinanceiroTaxaService` cria uma despesa paga,
+na mesma data, conta bancaria, filial, contrato/locacao e veiculo. A despesa
+fica ligada pela coluna `financeiro.id_financeiro_taxa_origem`; o indice unico
+por tenant torna o processamento idempotente.
+
+- O plano configurado em `id_plano_de_conta_taxa` tem precedencia.
+- Sem configuracao, usa-se o plano global `3.4.1.21 - Taxas de meios de pagamento`.
+- O gateway e gravado em `financeiro.id_gateway` como dimensao operacional; nao
+  e necessario criar um plano de contas para cada gateway.
+- Em pagamento online, a taxa efetiva informada pela transacao tem precedencia.
+  Se ela nao existir, usa-se `amount - net_amount`; por ultimo, o snapshot
+  estimado em `financeiro.valor_taxa`.
+- Baixa parcial rateia a taxa proporcionalmente. Estorno exclui a despesa
+  vinculada. Uma nova baixa recria a despesa sem duplicidade.
+- A despesa automatica nao pode ser editada ou excluida manualmente.
 
 ---
 

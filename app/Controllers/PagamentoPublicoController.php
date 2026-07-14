@@ -1008,6 +1008,7 @@ class PagamentoPublicoController
             }
 
             $financeiroModel->atualizar($idFinanceiro, ['pago' => 'S']);
+            (new \App\Services\FinanceiroTaxaService())->sincronizar($idFinanceiro, $idTransacao);
 
             // Hook: Gerar comissao de investidor
             try {

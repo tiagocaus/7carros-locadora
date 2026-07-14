@@ -106,10 +106,10 @@ function criarVeiculoLocacaoTeste(string $chave, int $locacaoId): void
         'id_locacao' => $locacaoId,
         'id_veiculo' => $idVeiculo,
         'plano' => 'KMC',
-        'valor_plano_km_controlado' => 150.00,
-        'km_franquia' => 100,
-        'valor_km_excedente' => 0.10,
-        'odometro_saida' => 100,
+        'valor_plano_km_controlado' => 200.00,
+        'km_franquia' => 300,
+        'valor_km_excedente' => 1.10,
+        'odometro_saida' => 72870,
         'combustivel_saida' => 8,
         'data_saida' => date('Y-m-d H:i:s'),
     ]);
@@ -181,23 +181,43 @@ try {
     );
     checkLocacaoMulta('gera os R$ 70,00 de encargos da devolucao', $valorEncargo === 70.0, $valorEncargo);
 
-    $locacaoOdometroFormatado = criarLocacaoTesteMulta($chave, 300.00);
+    $locacaoOdometroFormatado = criarLocacaoTesteMulta($chave, 600.00);
     criarVeiculoLocacaoTeste($chave, $locacaoOdometroFormatado);
     $totaisOdometroFormatado = $model->calcularTotaisResumo($locacaoOdometroFormatado, [
         'status' => 'F',
-        'dias' => 2,
+        'dias' => 3,
         'plano' => 'KMC',
-        'odometro_ini' => '100',
-        'odometro_fim' => '1.000',
-        'km_controlado_franquia' => 100,
-        'km_valor' => '0,10',
-        'combustivel_fim' => 4,
+        'odometro_ini' => '72.870',
+        'odometro_fim' => '73.191',
+        'km_controlado_franquia' => 300,
+        'km_valor' => '1,10',
+        'combustivel_fim' => 8,
     ]);
-    checkLocacaoMulta('odometro formatado gera R$ 70,00 de km excedente', (float) $totaisOdometroFormatado['total_km_excedente'] === 70.0, $totaisOdometroFormatado['total_km_excedente']);
-    $totalEsperadoOdometroFormatado = 300.0
-        + (float) $totaisOdometroFormatado['total_km_excedente']
-        + (float) $totaisOdometroFormatado['total_combustivel'];
-    checkLocacaoMulta('total soma diaria, km excedente e combustivel', (float) $totaisOdometroFormatado['total_pagar'] === $totalEsperadoOdometroFormatado, $totaisOdometroFormatado['total_pagar']);
+    checkLocacaoMulta('odometros formatados calculam 321 km dentro da franquia', (int) $totaisOdometroFormatado['km_excedente'] === 0, $totaisOdometroFormatado['km_excedente']);
+    checkLocacaoMulta('odometros formatados mantem o total em R$ 600,00', (float) $totaisOdometroFormatado['total_pagar'] === 600.0, $totaisOdometroFormatado['total_pagar']);
+
+    $totaisOdometroInteiro = $model->calcularTotaisResumo($locacaoOdometroFormatado, [
+        'status' => 'F',
+        'dias' => 3,
+        'plano' => 'KMC',
+        'odometro_ini' => 72870,
+        'odometro_fim' => 73191,
+        'km_controlado_franquia' => 300,
+        'km_valor' => 1.10,
+        'combustivel_fim' => 8,
+    ]);
+    checkLocacaoMulta('odometros inteiros preservam o mesmo calculo', (float) $totaisOdometroInteiro['total_pagar'] === 600.0, $totaisOdometroInteiro['total_pagar']);
+
+    criarFinanceiroTesteMulta($chave, $locacaoOdometroFormatado, 400.00, null, 1, 1);
+    $parcelaComplementar = $model->gerarParcelas($locacaoOdometroFormatado, [
+        'quantidade' => 1,
+        'total_pagar_final' => $totaisOdometroFormatado['total_pagar'],
+    ], $chave);
+    $valorComplementarOdometro = (float) Database::fetchColumn(
+        'SELECT valor_total FROM financeiro WHERE id = ? AND chave = ?',
+        [$parcelaComplementar[0], $chave]
+    );
+    checkLocacaoMulta('snapshot formatado gera somente os R$ 200,00 restantes', $valorComplementarOdometro === 200.0, $valorComplementarOdometro);
 } catch (Throwable $e) {
     echo 'ERRO: ' . $e->getMessage() . "\n";
     $falhas++;

@@ -498,9 +498,7 @@ class Financeiro extends Model
             }
         }
 
-        return $this->qb
-            ->table('financeiro')
-            ->insert([
+        $dadosInsert = [
                 'chave' => $dados['chave'],
                 'sequencia' => $dados['sequencia'] ?? null,
                 'codigo' => $dados['codigo'] ?? null,
@@ -536,7 +534,22 @@ class Financeiro extends Model
                 'id_contrato' => !empty($dados['id_contrato']) ? (int) $dados['id_contrato'] : null,
                 'id_locacao' => !empty($dados['id_locacao']) ? (int) $dados['id_locacao'] : null,
                 'id_veiculo' => !empty($dados['id_veiculo']) ? (int) $dados['id_veiculo'] : null,
-            ]);
+        ];
+
+        if (FinanceiroTaxa::schemaDisponivel()) {
+            $dadosInsert['id_gateway'] = !empty($dados['id_gateway']) ? (int) $dados['id_gateway'] : null;
+            $dadosInsert['id_financeiro_taxa_origem'] = !empty($dados['id_financeiro_taxa_origem'])
+                ? (int) $dados['id_financeiro_taxa_origem']
+                : null;
+        }
+
+        $id = $this->qb->table('financeiro')->insert($dadosInsert);
+
+        if (($dados['tipo'] ?? 'D') === 'R' && $pago === 'S') {
+            (new \App\Services\FinanceiroTaxaService())->sincronizar($id);
+        }
+
+        return $id;
     }
 
     /**
@@ -643,6 +656,9 @@ class Financeiro extends Model
         if (!$lancamento) {
             throw new \InvalidArgumentException('Lancamento nao encontrado');
         }
+        if (!empty($lancamento['id_financeiro_taxa_origem'])) {
+            throw new \InvalidArgumentException('A despesa de taxa e gerenciada automaticamente pela receita de origem');
+        }
 
         $dadosUpdate = [];
 
@@ -687,6 +703,8 @@ class Financeiro extends Model
             // Se marcou como pago e nao tem data_pago, usar hoje
             if ($dados['pago'] === 'S' && empty($dados['data_pago'])) {
                 $dadosUpdate['data_pago'] = DateHelper::todayForDatabase();
+            } elseif ($dados['pago'] === 'N') {
+                $dadosUpdate['data_pago'] = null;
             }
         }
         if (array_key_exists('parcela', $dados)) {
@@ -703,7 +721,7 @@ class Financeiro extends Model
         if (isset($dados['data_venci'])) {
             $dadosUpdate['data_venci'] = $dados['data_venci'];
         }
-        if (isset($dados['data_pago'])) {
+        if (array_key_exists('data_pago', $dados)) {
             $dadosUpdate['data_pago'] = $dados['data_pago'];
         }
 
@@ -762,10 +780,23 @@ class Financeiro extends Model
 
         $dadosUpdate['updated_at'] = DateHelper::systemNow();
 
-        return $this->qb
+        $afetadas = $this->qb
             ->table('financeiro')
             ->where('id', '=', $id)
             ->update($dadosUpdate);
+
+        if ($afetadas > 0 && array_key_exists('pago', $dadosUpdate)) {
+            if ($dadosUpdate['pago'] === 'S') {
+                (new \App\Services\FinanceiroTaxaService())->sincronizar($id);
+            } elseif ($dadosUpdate['pago'] === 'N' && ($lancamento['pago'] ?? 'N') === 'S') {
+                (new \App\Services\FinanceiroTaxaService())->estornar($id);
+            }
+        } elseif ($afetadas > 0 && ($lancamento['pago'] ?? 'N') === 'S'
+            && (isset($dadosUpdate['valor_taxa']) || isset($dadosUpdate['id_forma_pagamento']) || isset($dadosUpdate['data_pago']))) {
+            (new \App\Services\FinanceiroTaxaService())->sincronizar($id);
+        }
+
+        return $afetadas;
     }
 
     /**
@@ -776,6 +807,11 @@ class Financeiro extends Model
      */
     public function deletar(int $id): int
     {
+        $lancamento = $this->buscarPorId($id);
+        if ($lancamento && !empty($lancamento['id_financeiro_taxa_origem'])) {
+            throw new \InvalidArgumentException('A despesa de taxa e gerenciada automaticamente pela receita de origem');
+        }
+
         // Itens sao deletados automaticamente via FK CASCADE
         return $this->qb
             ->table('financeiro')
@@ -892,6 +928,8 @@ class Financeiro extends Model
                 (new FinanceiroItem())->salvarTodos($id, $chave, $itensPago);
                 $this->recalcularTotal($id);
             }
+
+            (new \App\Services\FinanceiroTaxaService())->sincronizar($id);
 
             $descricaoBase = trim((string) ($lancamento['descricao'] ?? ''));
             $descricaoDiferenca = 'Diferenca de pagamento parcial';
@@ -1468,10 +1506,23 @@ class Financeiro extends Model
 
         $dadosUpdate['updated_at'] = DateHelper::systemNow();
 
-        return $this->qb
+        $afetadas = $this->qb
             ->table('financeiro')
             ->whereIn('id', $ids)
             ->update($dadosUpdate);
+
+        if ($afetadas > 0 && isset($dadosUpdate['pago'])) {
+            $service = new \App\Services\FinanceiroTaxaService();
+            foreach (array_values(array_unique(array_map('intval', $ids))) as $id) {
+                if ($dadosUpdate['pago'] === 'S') {
+                    $service->sincronizar($id);
+                } else {
+                    $service->estornar($id);
+                }
+            }
+        }
+
+        return $afetadas;
     }
 
     /**

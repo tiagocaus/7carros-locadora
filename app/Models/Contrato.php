@@ -1298,12 +1298,7 @@ class Contrato extends Model
             $dadosUpdate['id_conta'] = (int) $dados['id_conta'];
         }
 
-        return $this->qb
-            ->table('financeiro')
-            ->where('id', '=', $idParcela)
-            ->where('id_contrato', '=', $contratoId)
-            ->where('pago', '=', 'N')
-            ->update($dadosUpdate);
+        return (new Financeiro())->atualizar($idParcela, $dadosUpdate);
     }
 
     /**
@@ -1322,16 +1317,10 @@ class Contrato extends Model
             throw new \InvalidArgumentException('Parcela não encontrada ou não está paga');
         }
 
-        return $this->qb
-            ->table('financeiro')
-            ->where('id', '=', $idParcela)
-            ->where('id_contrato', '=', $contratoId)
-            ->where('pago', '=', 'S')
-            ->update([
-                'pago' => 'N',
-                'data_pago' => null,
-                'updated_at' => DateHelper::systemNow(),
-            ]);
+        return (new Financeiro())->atualizar($idParcela, [
+            'pago' => 'N',
+            'data_pago' => null,
+        ]);
     }
 
     /**
