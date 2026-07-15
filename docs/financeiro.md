@@ -779,6 +779,20 @@ o sentido financeiro:
 - `cliente`: receita (`financeiro.tipo='R'`) com `financeiro.id_cliente`.
 - `empresa`: despesa (`financeiro.tipo='D'`) sem cliente/fornecedor.
 
+### Manutencoes e cliente pagador
+
+Na tela de nova/edicao de manutencao, o campo **Cliente responsavel pelo
+pagamento** define o sentido dos novos lancamentos financeiros:
+
+- com cliente: receita/conta a receber vinculada ao cliente;
+- sem cliente: despesa da empresa.
+
+Ao definir, trocar ou remover o cliente pagador, o usuario deve confirmar o
+aviso antes de salvar. Se a manutencao ja possuir lancamentos financeiros, eles
+nao sao alterados retroativamente; a nova definicao vale apenas para
+lancamentos criados depois da alteracao. A auditoria registra a mudanca do
+cliente e a confirmacao do aviso junto com os demais campos alterados.
+
 ## Migracao de Dados Legados
 
 As migrations 00108-00112 cuidam da migracao dos dados existentes:

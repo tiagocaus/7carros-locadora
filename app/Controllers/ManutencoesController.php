@@ -222,6 +222,22 @@ class ManutencoesController
                 return;
             }
 
+            $idClientePagador = $this->normalizarClientePagador($dados['id_cliente'] ?? null);
+            if ($idClientePagador !== null) {
+                if (!$this->boolInput($dados['_cliente_pagador_confirmado'] ?? false, false)) {
+                    Response::json([
+                        'success' => false,
+                        'message' => t('modules.manutencao.messages.payer_confirmation_required')
+                    ], 400);
+                    return;
+                }
+
+                $dados['_audit_data'] = $this->adicionarConfirmacaoClientePagadorAudit(
+                    $dados['_audit_data'] ?? null,
+                    false
+                );
+            }
+
             $model = new Manutencao();
             $statusSolicitado = $dados['status'] ?? 'C';
 
@@ -303,6 +319,28 @@ class ManutencoesController
             }
 
             $dados = $request->all();
+
+            $idClientePagadorAnterior = $this->normalizarClientePagador($manutencao['id_cliente'] ?? null);
+            $idClientePagadorNovo = array_key_exists('id_cliente', $dados)
+                ? $this->normalizarClientePagador($dados['id_cliente'])
+                : $idClientePagadorAnterior;
+            $clientePagadorAlterado = $idClientePagadorAnterior !== $idClientePagadorNovo;
+
+            if ($clientePagadorAlterado) {
+                if (!$this->boolInput($dados['_cliente_pagador_confirmado'] ?? false, false)) {
+                    Response::json([
+                        'success' => false,
+                        'message' => t('modules.manutencao.messages.payer_confirmation_required')
+                    ], 400);
+                    return;
+                }
+
+                $temFinanceiroVinculado = !empty($model->listarFinanceirosVinculados($id));
+                $dados['_audit_changes'] = $this->adicionarConfirmacaoClientePagadorAudit(
+                    $dados['_audit_changes'] ?? null,
+                    $temFinanceiroVinculado
+                );
+            }
 
             // Validar acesso a filial
             if (!empty($dados['id_matriz_filial']) && !FilialHelper::temAcessoFilial((int) $dados['id_matriz_filial'])) {
@@ -508,6 +546,41 @@ class ManutencoesController
         }
 
         return true;
+    }
+
+    private function normalizarClientePagador(mixed $idCliente): ?int
+    {
+        if ($idCliente === null || $idCliente === '' || (int) $idCliente <= 0) {
+            return null;
+        }
+
+        return (int) $idCliente;
+    }
+
+    private function adicionarConfirmacaoClientePagadorAudit(?string $auditJson, bool $temFinanceiroVinculado): string
+    {
+        $audit = [];
+        if ($auditJson !== null && $auditJson !== '') {
+            $decoded = json_decode($auditJson, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $audit = $decoded;
+            }
+        }
+
+        $aba = t('modules.manutencao.tabs.data');
+        if (!isset($audit[$aba]) || !is_array($audit[$aba])) {
+            $audit[$aba] = [];
+        }
+
+        $audit[$aba][] = [
+            'label' => t('modules.manutencao.audit_payer.confirmation_label'),
+            'de' => null,
+            'para' => t($temFinanceiroVinculado
+                ? 'modules.manutencao.audit_payer.confirmed_existing_financial'
+                : 'modules.manutencao.audit_payer.confirmed'),
+        ];
+
+        return json_encode($audit, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     // ===== ACOES DE NEGOCIO =====

@@ -563,9 +563,11 @@ Antes de fazer deploy de uma feature, verifique:
 
 ## Helper aviso() - Instruções de Campo
 
-Use `aviso()` para campos complexos que precisam de explicação ao usuário.
+Use `aviso()` para toda instrução, explicação ou aviso associado a um campo.
 
-**IMPORTANTE:** Sempre usar sintaxe `{!! !!}` (raw output, sem escape de HTML).
+**REGRA:** Nunca coloque textos auxiliares abaixo de `input`, `select` ou `textarea`, seja com `<p>`, `<small>` ou qualquer outro elemento. O texto deve ficar no popover gerado por `aviso()`, junto ao `<label>`. Mensagens de validação, descrições de seções e informações dinâmicas que não sejam auxiliares do campo não fazem parte dessa regra.
+
+**IMPORTANTE:** Em templates Blade, use a sintaxe `{!! !!}` (raw output, sem escape de HTML). Em views PHP, use `<?= aviso(...) ?>`.
 
 ### Uso:
 
@@ -575,6 +577,20 @@ Use `aviso()` para campos complexos que precisam de explicação ao usuário.
 
 <!-- Com texto direto -->
 <label>Nome do Campo {!! aviso('Texto explicativo aqui') !!}</label>
+
+<!-- Em view PHP -->
+<label class="form-label-group">
+    <?= t('modules.modulo.fields.nome_campo') ?>
+    <?= aviso(t('modules.modulo.hints.nome_campo')) ?>
+</label>
+```
+
+### Não fazer:
+
+```php
+<label for="campo">Nome do Campo</label>
+<input id="campo" name="campo">
+<p>Texto explicativo ou aviso sobre o campo.</p>
 ```
 
 ### Quando usar:
@@ -582,6 +598,7 @@ Use `aviso()` para campos complexos que precisam de explicação ao usuário.
 - Campos com cálculos automáticos
 - Campos com regras de negócio específicas
 - Campos que podem gerar dúvidas do usuário
+- Campos que precisam exibir instruções, explicações ou avisos
 
 ### Estrutura de tradução:
 

@@ -13,6 +13,8 @@ temp-ftp.txt
 temp-lftp.txt
 QA.md
 endpoints_checklists_atualizado.md
+QA-*.md
+!QA-Extractor.md
 
 # Logs
 storage/logs/*

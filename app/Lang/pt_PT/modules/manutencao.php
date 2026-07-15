@@ -122,6 +122,7 @@ return [
         'branch' => 'Sede/Filial',
         'vehicle' => 'Veículo',
         'workshop' => 'Oficina',
+        'client' => 'Cliente responsável pelo pagamento',
         'send_date' => 'Data Envio',
         'send_odometer' => 'Odómetro Envio',
         'send_tank' => 'Depósito Envio',
@@ -149,6 +150,10 @@ return [
         'due_date' => 'Vencimento',
         'interval_days' => 'Intervalo (dias)',
         'paid' => 'Pago?',
+    ],
+
+    'helpers' => [
+        'client_payer' => 'Ao gerar o financeiro: com cliente, será uma conta a receber; sem cliente, será uma despesa da empresa.',
     ],
 
     // Opções de estado
@@ -206,6 +211,7 @@ return [
         'search_product_service' => 'Pesquisar produto/serviço...',
         'item_description' => 'Descrição do item',
         'manual_description' => 'Escrever descrição manual',
+        'no_client_company_expense' => 'Nenhum cliente — despesa da empresa',
     ],
 
     // Mensagens
@@ -234,6 +240,12 @@ return [
         'financial_desc' => 'Selecione os itens pendentes para criar um lançamento financeiro parcial ou clique em "Criar Lançamento Completo" para lançar todos.',
         'installments_total_diff' => 'A soma das prestações deve ser igual ao total selecionado.',
         'complete_financial_config' => 'Preencha a configuração do lançamento para gerar as prestações.',
+        'payer_confirm_title' => 'Confirmar cliente responsável pelo pagamento',
+        'payer_confirm_selected' => 'Atenção! O cliente :client será responsável pelo pagamento dos novos lançamentos financeiros desta manutenção. Deseja confirmar?',
+        'payer_confirm_removed' => 'Atenção! Nenhum cliente ficará responsável pelos novos lançamentos financeiros desta manutenção; serão registados como despesa da empresa. Deseja confirmar?',
+        'payer_existing_financial_warning' => 'Os lançamentos financeiros já criados não serão alterados.',
+        'payer_confirm_action' => 'Confirmar e guardar',
+        'payer_confirmation_required' => 'Confirme o cliente responsável pelo pagamento antes de guardar.',
     ],
 
     // Paginação
@@ -277,5 +289,11 @@ return [
         'selected_items' => 'Itens Selecionados',
         'item' => 'Item',
         'value' => 'Valor',
+    ],
+
+    'audit_payer' => [
+        'confirmation_label' => 'Confirmação do cliente pagador',
+        'confirmed' => 'Utilizador informado e confirmou a definição ou alteração do cliente pagador.',
+        'confirmed_existing_financial' => 'Utilizador informado e confirmou a alteração do cliente pagador; lançamentos financeiros existentes não serão alterados.',
     ],
 ];

@@ -699,6 +699,8 @@ Handler para a página de Manutenções (`manutencoes/adicionar`).
 - **Itens com estados**: novo, editando, pago
 - **Auto-preenchimento**: campos preenchidos ao mudar status são auditados
 - **Checkboxes de serviços**: Trocou Óleo, Trocou Pneus
+- **Cliente pagador**: registra o nome anterior/novo e a confirmação de que o
+  usuário foi informado; lançamentos financeiros existentes não são alterados
 
 ### Exemplo de Saída - Edição
 

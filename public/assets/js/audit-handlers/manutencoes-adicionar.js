@@ -28,6 +28,7 @@
                 id_matriz_filial: 'fields.branch',
                 id_veiculo: 'fields.vehicle',
                 id_oficina: 'fields.workshop',
+                id_cliente: 'fields.client',
                 data_enviado: 'fields.send_date',
                 odo_enviado: 'fields.send_odometer',
                 tanque_enviado: 'fields.send_tank',
@@ -81,7 +82,7 @@
             const dadosAba = [];
 
             // Dados da Manutenção
-            const camposManutencao = ['os', 'status', 'id_matriz_filial', 'id_veiculo', 'id_oficina'];
+            const camposManutencao = ['os', 'status', 'id_matriz_filial', 'id_veiculo', 'id_oficina', 'id_cliente'];
             camposManutencao.forEach(nome => {
                 const valor = this._getCampoValor(form, nome);
                 if (valor) {
@@ -226,7 +227,9 @@
                 valor = selected.text.trim();
 
                 // Verificar se há mapeamento de valor
-                valor = this._valueLabel(nome, campo.value);
+                if (nome !== 'id_cliente') {
+                    valor = this._valueLabel(nome, campo.value);
+                }
             }
             // INPUT DATETIME-LOCAL
             else if (campo.type === 'datetime-local' && campo.value) {

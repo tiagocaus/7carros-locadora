@@ -121,6 +121,7 @@ return [
         'branch' => 'Sede/Filiale',
         'vehicle' => 'Veicolo',
         'workshop' => 'Officina',
+        'client' => 'Cliente responsabile del pagamento',
         'send_date' => 'Data Invio',
         'send_odometer' => 'Odometro Invio',
         'send_tank' => 'Serbatoio Invio',
@@ -145,6 +146,10 @@ return [
         'installments' => 'Rate',
         'first_due_date' => '1ª Scadenza',
         'interval_days' => 'Intervallo (giorni)',
+    ],
+
+    'helpers' => [
+        'client_payer' => 'Alla creazione del movimento finanziario: con un cliente sarà un credito; senza cliente sarà una spesa aziendale.',
     ],
 
     // Opzioni stato
@@ -202,6 +207,7 @@ return [
         'search_product_service' => 'Cerca prodotto/servizio...',
         'item_description' => 'Descrizione dell\'elemento',
         'manual_description' => 'Inserire descrizione manuale',
+        'no_client_company_expense' => 'Nessun cliente — spesa aziendale',
     ],
 
     // Messaggi
@@ -228,6 +234,12 @@ return [
         'saved_title' => 'Manutenzione Salvata',
         'saved_go_to_list' => 'Tornare all\'elenco?',
         'financial_desc' => 'Seleziona gli elementi in sospeso per creare una registrazione finanziaria parziale o clicca su "Crea Registrazione Completa" per includerli tutti.',
+        'payer_confirm_title' => 'Conferma cliente responsabile del pagamento',
+        'payer_confirm_selected' => 'Attenzione! Il cliente :client sarà responsabile del pagamento dei nuovi movimenti finanziari di questa manutenzione. Confermare?',
+        'payer_confirm_removed' => 'Attenzione! Nessun cliente sarà responsabile dei nuovi movimenti finanziari di questa manutenzione; saranno registrati come spesa aziendale. Confermare?',
+        'payer_existing_financial_warning' => 'I movimenti finanziari già creati non saranno modificati.',
+        'payer_confirm_action' => 'Conferma e salva',
+        'payer_confirmation_required' => 'Conferma il cliente responsabile del pagamento prima di salvare.',
     ],
 
     // Paginazione
@@ -268,5 +280,11 @@ return [
         'selected_items' => 'Elementi Selezionati',
         'item' => 'Elemento',
         'value' => 'Valore',
+    ],
+
+    'audit_payer' => [
+        'confirmation_label' => 'Conferma del cliente pagatore',
+        'confirmed' => 'L’utente è stato informato e ha confermato l’assegnazione o la modifica del cliente pagatore.',
+        'confirmed_existing_financial' => 'L’utente è stato informato e ha confermato la modifica del cliente pagatore; i movimenti finanziari esistenti non saranno modificati.',
     ],
 ];

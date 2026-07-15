@@ -121,7 +121,7 @@ return [
         'branch' => 'Matriz/Sucursal',
         'vehicle' => 'Vehículo',
         'workshop' => 'Taller',
-        'client' => 'Cliente',
+        'client' => 'Cliente responsable del pago',
         'send_date' => 'Fecha Envío',
         'send_odometer' => 'Odómetro Envío',
         'send_tank' => 'Tanque Envío',
@@ -149,7 +149,7 @@ return [
     ],
 
     'helpers' => [
-        'client_payer' => 'Seleccione un cliente cuando él sea el responsable de pagar este mantenimiento.',
+        'client_payer' => 'Al generar el financiero: con cliente, será una cuenta por cobrar; sin cliente, será un gasto de la empresa.',
     ],
 
     // Opciones de estado
@@ -207,6 +207,7 @@ return [
         'search_product_service' => 'Buscar producto/servicio...',
         'item_description' => 'Descripción del ítem',
         'manual_description' => 'Escribir descripción manual',
+        'no_client_company_expense' => 'Ningún cliente — gasto de la empresa',
     ],
 
     // Mensajes
@@ -233,6 +234,12 @@ return [
         'saved_title' => 'Mantenimiento Guardado',
         'saved_go_to_list' => '¿Desea volver al listado?',
         'financial_desc' => 'Seleccione los ítems pendientes para crear un asiento financiero parcial o haga clic en "Crear Asiento Completo" para incluir todos.',
+        'payer_confirm_title' => 'Confirmar cliente responsable del pago',
+        'payer_confirm_selected' => '¡Atención! El cliente :client será responsable del pago de los nuevos asientos financieros de este mantenimiento. ¿Desea confirmar?',
+        'payer_confirm_removed' => '¡Atención! Ningún cliente será responsable de los nuevos asientos financieros de este mantenimiento; se registrarán como gasto de la empresa. ¿Desea confirmar?',
+        'payer_existing_financial_warning' => 'Los asientos financieros ya creados no serán modificados.',
+        'payer_confirm_action' => 'Confirmar y guardar',
+        'payer_confirmation_required' => 'Confirme el cliente responsable del pago antes de guardar.',
     ],
 
     // Paginación
@@ -273,5 +280,11 @@ return [
         'selected_items' => 'Ítems Seleccionados',
         'item' => 'Ítem',
         'value' => 'Valor',
+    ],
+
+    'audit_payer' => [
+        'confirmation_label' => 'Confirmación del cliente pagador',
+        'confirmed' => 'El usuario fue informado y confirmó la definición o el cambio del cliente pagador.',
+        'confirmed_existing_financial' => 'El usuario fue informado y confirmó el cambio del cliente pagador; los asientos financieros existentes no serán modificados.',
     ],
 ];

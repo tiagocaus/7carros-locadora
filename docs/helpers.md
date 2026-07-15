@@ -187,9 +187,16 @@ Para inputs, use a classe `input-km`:
 
 Gera ícone de ajuda [?] com popover de instrução.
 
+Toda instrução, explicação ou aviso associado a um `input`, `select` ou `textarea` deve ser exibido com `aviso()` dentro do respectivo `<label>`. Nunca renderize esse tipo de texto em parágrafos, `small` ou outros elementos abaixo do campo. Essa regra não se aplica a mensagens de validação, descrições de seções ou informações dinâmicas que não sejam auxiliares de um campo.
+
 ```php
 {!! aviso('Texto explicativo aqui') !!}
 {!! aviso(t('modules.modulo.hints.campo')) !!}
+
+<label class="form-label-group">
+    <?= t('modules.modulo.fields.campo') ?>
+    <?= aviso(t('modules.modulo.hints.campo')) ?>
+</label>
 ```
 
 ### PHP - `e()`

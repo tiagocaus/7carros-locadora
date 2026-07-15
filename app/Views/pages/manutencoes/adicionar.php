@@ -103,8 +103,8 @@
                                 class="form-input-group-field chosen-select"
                                 data-chosen-type="server-side"
                                 data-chosen-search-url="/api/clientes/buscar"
-                                data-chosen-placeholder="<?= t('common.labels.optional') ?>">
-                            <option value=""><?= t('common.labels.optional') ?></option>
+                                data-chosen-placeholder="<?= t('modules.manutencao.placeholders.no_client_company_expense') ?>">
+                            <option value=""><?= t('modules.manutencao.placeholders.no_client_company_expense') ?></option>
                         </select>
                     </div>
                 </div>
@@ -390,6 +390,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         'branch' => t('modules.manutencao.fields.branch'),
         'vehicle' => t('modules.manutencao.fields.vehicle'),
         'workshop' => t('modules.manutencao.fields.workshop'),
+        'client' => t('modules.manutencao.fields.client'),
         'send_date' => t('modules.manutencao.fields.send_date'),
         'send_odometer' => t('modules.manutencao.fields.send_odometer'),
         'send_tank' => t('modules.manutencao.fields.send_tank'),
@@ -488,6 +489,11 @@ window.manutencoesAuditI18n = <?= json_encode([
         'auditValue' => t('modules.manutencao.audit_financial.value'),
         'installmentsTotalDiff' => t('modules.manutencao.messages.installments_total_diff'),
         'completeFinancialConfig' => t('modules.manutencao.messages.complete_financial_config'),
+        'payerConfirmTitle' => t('modules.manutencao.messages.payer_confirm_title'),
+        'payerConfirmSelected' => t('modules.manutencao.messages.payer_confirm_selected'),
+        'payerConfirmRemoved' => t('modules.manutencao.messages.payer_confirm_removed'),
+        'payerExistingFinancialWarning' => t('modules.manutencao.messages.payer_existing_financial_warning'),
+        'payerConfirmAction' => t('modules.manutencao.messages.payer_confirm_action'),
         'yes' => t('common.labels.yes'),
         'no' => t('common.labels.no'),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
@@ -501,6 +507,11 @@ window.manutencoesAuditI18n = <?= json_encode([
     let statusOriginal = 'C'; // Status original da manutencao
     let veiculoDados = null; // Dados do veiculo selecionado (odometro, tanque)
     let saveResult = null; // Resultado do salvamento para usar apos confirmacao do modal
+    let clientePagadorOriginalId = '';
+    let temFinanceiroVinculado = false;
+    let pendingPayerSave = null;
+    let ignorarProximoGenericModalClosed = false;
+    let salvandoManutencao = false;
     let formasPagamentoFinanceiro = [];
     let contasBancariasFinanceiro = [];
     let parcelasGeradas = [];
@@ -594,6 +605,9 @@ window.manutencoesAuditI18n = <?= json_encode([
         if (m.id_cliente) {
             setChosenValue('id_cliente', m.id_cliente, m.cliente_nome);
         }
+        clientePagadorOriginalId = normalizarClientePagadorId(m.id_cliente);
+        temFinanceiroVinculado = !!m.id_financeiro_principal
+            || (Array.isArray(m.itens) && m.itens.some(item => !!item.id_financeiro));
 
         // Itens
         if (m.itens) {
@@ -1871,6 +1885,78 @@ window.manutencoesAuditI18n = <?= json_encode([
 
     // ===== SALVAR =====
 
+    function normalizarClientePagadorId(value) {
+        const normalized = String(value ?? '').trim();
+        return normalized === '' || normalized === '0' ? '' : normalized;
+    }
+
+    function clientePagadorSelecionado() {
+        const select = document.getElementById('id_cliente');
+        if (!select) return { id: '', nome: '' };
+
+        const id = normalizarClientePagadorId(select.value);
+        const nome = id ? (select.options[select.selectedIndex]?.textContent || '').trim() : '';
+        return { id, nome };
+    }
+
+    function solicitarConfirmacaoClientePagador(dados, id) {
+        const cliente = clientePagadorSelecionado();
+        const alterado = cliente.id !== clientePagadorOriginalId;
+        const requerConfirmacao = id ? alterado : cliente.id !== '';
+
+        if (!requerConfirmacao) {
+            return false;
+        }
+
+        let message = cliente.id
+            ? i18n.payerConfirmSelected.replace(':client', cliente.nome)
+            : i18n.payerConfirmRemoved;
+
+        if (id && temFinanceiroVinculado) {
+            message += ' ' + i18n.payerExistingFinancialWarning;
+        }
+
+        pendingPayerSave = { dados, id };
+        parent.postMessage({
+            action: 'openGenericConfirmModal',
+            title: i18n.payerConfirmTitle,
+            message,
+            confirmText: i18n.payerConfirmAction
+        }, '*');
+        return true;
+    }
+
+    async function salvarManutencao(dados, id) {
+        if (salvandoManutencao) return;
+        salvandoManutencao = true;
+
+        try {
+            const url = id ? '/manutencoes/' + id + '/atualizar' : '/manutencoes/salvar';
+            const result = await API.post(url, dados);
+
+            if (result.success) {
+                toast.success(result.message || i18n.saveSuccess);
+
+                // Armazenar resultado para uso apos confirmacao
+                saveResult = result;
+
+                // Usar modal generico do sistema
+                parent.postMessage({
+                    action: 'openGenericConfirmModal',
+                    title: i18n.savedTitle,
+                    message: i18n.savedGoToList,
+                    confirmText: i18n.goToList
+                }, '*');
+            } else {
+                toast.error(result.message || i18n.saveError);
+            }
+        } catch (error) {
+            toast.error(error.message || i18n.serverError);
+        } finally {
+            salvandoManutencao = false;
+        }
+    }
+
     document.getElementById('formManutencao')?.addEventListener('submit', async function(e) {
         e.preventDefault();
 
@@ -1912,29 +1998,11 @@ window.manutencoesAuditI18n = <?= json_encode([
             }
         }
 
-        try {
-            const url = id ? '/manutencoes/' + id + '/atualizar' : '/manutencoes/salvar';
-            const result = await API.post(url, dados);
-
-            if (result.success) {
-                toast.success(result.message || i18n.saveSuccess);
-
-                // Armazenar resultado para uso apos confirmacao
-                saveResult = result;
-
-                // Usar modal generico do sistema
-                parent.postMessage({
-                    action: 'openGenericConfirmModal',
-                    title: i18n.savedTitle,
-                    message: i18n.savedGoToList,
-                    confirmText: i18n.goToList
-                }, '*');
-            } else {
-                toast.error(result.message || i18n.saveError);
-            }
-        } catch (error) {
-            toast.error(error.message || i18n.serverError);
+        if (solicitarConfirmacaoClientePagador(dados, id)) {
+            return;
         }
+
+        await salvarManutencao(dados, id);
     });
 
     // ===== INICIALIZACAO =====
@@ -1953,7 +2021,26 @@ window.manutencoesAuditI18n = <?= json_encode([
 
     // ===== LISTENER PARA MODAL DE CONFIRMACAO =====
 
-    window.addEventListener('message', function(event) {
+    window.addEventListener('message', async function(event) {
+        if (event.data && event.data.action === 'genericConfirmed' && pendingPayerSave) {
+            const pending = pendingPayerSave;
+            pendingPayerSave = null;
+            ignorarProximoGenericModalClosed = true;
+            pending.dados._cliente_pagador_confirmado = '1';
+            await salvarManutencao(pending.dados, pending.id);
+            return;
+        }
+
+        if (event.data && event.data.action === 'genericModalClosed' && ignorarProximoGenericModalClosed) {
+            ignorarProximoGenericModalClosed = false;
+            return;
+        }
+
+        if (event.data && event.data.action === 'genericModalClosed' && pendingPayerSave) {
+            pendingPayerSave = null;
+            return;
+        }
+
         // Usuario confirmou - ir para listagem
         if (event.data && event.data.action === 'genericConfirmed' && saveResult) {
             navegarPara('/pages/manutencoes');

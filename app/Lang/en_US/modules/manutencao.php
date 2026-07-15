@@ -121,7 +121,7 @@ return [
         'branch' => 'Parent/Branch',
         'vehicle' => 'Vehicle',
         'workshop' => 'Workshop',
-        'client' => 'Client',
+        'client' => 'Client responsible for payment',
         'send_date' => 'Send Date',
         'send_odometer' => 'Send Odometer',
         'send_tank' => 'Send Tank',
@@ -149,7 +149,7 @@ return [
     ],
 
     'helpers' => [
-        'client_payer' => 'Select a client when they are responsible for paying this maintenance.',
+        'client_payer' => 'When creating the financial entry: with a client, it will be an account receivable; without a client, it will be a company expense.',
     ],
 
     // Status options
@@ -207,6 +207,7 @@ return [
         'search_product_service' => 'Search product/service...',
         'item_description' => 'Item description',
         'manual_description' => 'Type description manually',
+        'no_client_company_expense' => 'No client — company expense',
     ],
 
     // Messages
@@ -233,6 +234,12 @@ return [
         'saved_title' => 'Maintenance Saved',
         'saved_go_to_list' => 'Go back to the list?',
         'financial_desc' => 'Select pending items to create a partial financial entry or click "Create Full Entry" to include all.',
+        'payer_confirm_title' => 'Confirm client responsible for payment',
+        'payer_confirm_selected' => 'Attention! Client :client will be responsible for paying new financial entries for this maintenance. Do you want to confirm?',
+        'payer_confirm_removed' => 'Attention! No client will be responsible for new financial entries for this maintenance; they will be recorded as a company expense. Do you want to confirm?',
+        'payer_existing_financial_warning' => 'Financial entries already created will not be changed.',
+        'payer_confirm_action' => 'Confirm and save',
+        'payer_confirmation_required' => 'Confirm the client responsible for payment before saving.',
     ],
 
     // Pagination
@@ -273,5 +280,11 @@ return [
         'selected_items' => 'Selected Items',
         'item' => 'Item',
         'value' => 'Value',
+    ],
+
+    'audit_payer' => [
+        'confirmation_label' => 'Payer client confirmation',
+        'confirmed' => 'User was informed and confirmed the payer client assignment or change.',
+        'confirmed_existing_financial' => 'User was informed and confirmed the payer client change; existing financial entries will not be changed.',
     ],
 ];
