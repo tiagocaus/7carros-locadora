@@ -21,7 +21,7 @@
             </td>
             <td>
                 <div class="totals-label"><?= t('modules.relatorios.financeiro.contas_bancarias.contas_ativas') ?></div>
-                <div class="totals-value"><?= number_format($totals['contas_ativas'], 0, ',', '.') ?></div>
+                <div class="totals-value"><?= number_format($totals['total_contas'], 0, ',', '.') ?></div>
             </td>
         </tr>
     </table>

@@ -20,8 +20,8 @@
                 <div class="totals-value"><?= currency_format($totals['faturamento_liquido']) ?></div>
             </td>
             <td>
-                <div class="totals-label"><?= t('modules.relatorios.financeiro.faturamento.lancamentos') ?></div>
-                <div class="totals-value"><?= number_format($totals['lancamentos'], 0, ',', '.') ?></div>
+                <div class="totals-label"><?= t('modules.relatorios.financeiro.faturamento.total_lancamentos') ?></div>
+                <div class="totals-value"><?= number_format($totals['total_lancamentos'], 0, ',', '.') ?></div>
             </td>
         </tr>
     </table>

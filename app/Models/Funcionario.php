@@ -429,4 +429,26 @@ class Funcionario extends Model
             ->where('id', '=', $id)
             ->update(['ui_locale' => $locale]);
     }
+
+    /**
+     * Lista funcionarios ativos de uma filial autorizados a receber uma notificacao.
+     *
+     * @return array<int, array{id:int,nome:string,email:string,id_matriz_filial:int}>
+     */
+    public function listarAtivosComPermissaoNaFilial(string $permission, int $filialId): array
+    {
+        return $this->qb
+            ->table('funcionarios', 'f')
+            ->select(['f.id', 'f.nome', 'f.email', 'f.id_matriz_filial'])
+            ->distinct()
+            ->innerJoin('funcionarios_roles', 'r', 'f.id_role', '=', 'r.id')
+            ->innerJoin('funcionarios_role_permissions', 'rp', 'r.id', '=', 'rp.role_id')
+            ->innerJoin('permissions', 'p', 'rp.permission_id', '=', 'p.id')
+            ->where('f.status', '=', 'A')
+            ->where('f.id_matriz_filial', '=', $filialId)
+            ->whereRaw("TRIM(COALESCE(f.email, '')) <> ''")
+            ->whereRaw('p.`key` = ?', [$permission])
+            ->orderBy('f.nome', 'ASC')
+            ->get();
+    }
 }

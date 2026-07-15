@@ -17,7 +17,7 @@
             </td>
             <td>
                 <div class="totals-label"><?= t('modules.relatorios.financeiro.plano_contas.categorias') ?></div>
-                <div class="totals-value"><?= number_format($totals['categorias'], 0, ',', '.') ?></div>
+                <div class="totals-value"><?= number_format($totals['total_categorias'], 0, ',', '.') ?></div>
             </td>
         </tr>
     </table>

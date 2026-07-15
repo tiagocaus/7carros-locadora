@@ -114,7 +114,7 @@ DEV_ALLOWED_NOTIFICATION_TENANT=1111111111111
 |---------|--------|---------|
 | Tenant → Cliente (com template) | `queue_template_message()` | Confirmacao de locacao, cobranca, boas-vindas |
 | Tenant → Cliente/Interno (sem template) | `queue_message()` | Alerta de manutencao, notificacao interna |
-| 7Carros → Tenant (sistema) | `queue_system_message()` | Reserva do site, alerta de seguranca |
+| 7Carros → Tenant (sistema) | `queue_system_message()` | WhatsApp de reserva do site, alerta de seguranca |
 
 ---
 
@@ -204,6 +204,12 @@ queue_message('email', [
 ]);
 ```
 
+Nas reservas do site, os emails internos tambem usam `queue_message()`. Os
+destinatarios sao funcionarios ativos da filial de retirada cujas roles possuem
+`notificacoes.novas_reservas`; o endereco vem de `funcionarios.email`, nao do
+email geral da empresa. Veja [Website — Notificacoes por email de uma nova
+reserva do site](website.md#notificacoes-por-email-de-uma-nova-reserva-do-site).
+
 ---
 
 ### 3. `queue_system_message()` — 7Carros → Tenant
@@ -214,16 +220,7 @@ Para mensagens da plataforma 7Carros para tenants. Usa credenciais do ENV.
 - **WhatsApp:** Usa `WHATSAPP_API_INSTANCE_TOKEN` do ENV + prefixo `*[7Carros]*`
 
 ```php
-// Notificar tenant sobre nova reserva do site
-queue_system_message('email', [
-    'to' => $tenant['email'],
-    'to_name' => $tenant['nome_fantasia'],
-    'subject' => 'Nova Reserva Recebida',
-    'body' => '<p>Uma nova reserva foi feita no seu site.</p>
-               <p>Cliente: Joao Silva</p>
-               <p>Veiculo: Honda Civic 2024</p>',
-]);
-
+// Notificar o celular da empresa matriz sobre nova reserva do site
 queue_system_message('whatsapp', [
     'to' => $tenant['telefone'],
     'message' => "Nova reserva recebida!\n\nCliente: Joao Silva\nVeiculo: Honda Civic 2024",

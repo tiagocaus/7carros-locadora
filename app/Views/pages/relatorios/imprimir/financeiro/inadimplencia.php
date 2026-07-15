@@ -21,7 +21,7 @@
             </td>
             <td>
                 <div class="totals-label"><?= t('modules.relatorios.financeiro.inadimplencia.clientes_inadimplentes') ?></div>
-                <div class="totals-value"><?= number_format($totals['clientes_inadimplentes'], 0, ',', '.') ?></div>
+                <div class="totals-value"><?= number_format($totals['total_clientes'], 0, ',', '.') ?></div>
             </td>
         </tr>
     </table>

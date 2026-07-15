@@ -1878,6 +1878,34 @@ Em `PublicWebsiteController::criarReserva`:
 - **`site_config.pagamento_antecipado = 0`:** resposta `{success, codigo, total, pagamento_url: null, requer_confirmacao}`. JS exibe tab de confirmação com o código.
 - **`pagamento_antecipado = 1`:** resposta inclui `pagamento_url = APP_URL + '/pagar/' + codigo`. JS faz `window.location = pagamento_url`. A tela `/pagar/{codigo}` (controller `PagamentoPublicoController`) lê o valor do BD (`locacoes.total_pagar`) — **nunca do JS**, garantindo que não é falsificável.
 
+### Notificacoes por email de uma nova reserva do site
+
+Depois que a reserva e persistida, o sistema envia um aviso interno individual
+para cada **funcionario** que atenda simultaneamente a estes criterios:
+
+1. esta ativo (`funcionarios.status = 'A'`);
+2. pertence a filial selecionada para retirada (`id_matriz_filial`);
+3. possui email preenchido no cadastro de funcionario;
+4. sua role possui a permissao `notificacoes.novas_reservas`.
+
+O destinatario nao e o email geral da empresa. A role tambem nao possui email:
+ela apenas concede a permissao, e o endereco usado e
+`funcionarios.email`. Enderecos repetidos sao deduplicados, portanto o mesmo
+email recebe apenas uma mensagem por reserva.
+
+A migration `00403_add_novas_reservas_notification_permission.php` concede a
+permissao inicialmente as roles `Proprietário` e `Gerente` existentes. Depois
+disso, a locadora pode controlar os destinatarios atribuindo ou removendo essa
+permissao nas roles e vinculando cada funcionario a role apropriada.
+
+O email e enfileirado por `WebsiteReservationNotificationService` com
+`queue_message()`, no contexto da filial de retirada. Falha ao enfileirar um
+destinatario e registrada em log e nao desfaz a reserva; os demais
+destinatarios continuam sendo processados.
+
+Este aviso interno e separado das mensagens ao cliente (`pedido_reserva` e
+`confirmacao_reserva`) e do WhatsApp enviado ao celular da empresa matriz.
+
 ### Cálculo de totais e armadilhas
 
 - `#dias` é um `<input hidden>` único; usar `$('#dias').val()` em vez de `$('.dias').text()` porque há vários spans `.dias` nos resumos duplicados das tabs 3 e 4 e `.text()` concatena todos.

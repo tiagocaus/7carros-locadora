@@ -29,6 +29,7 @@ use App\Helpers\ImageHelper;
 use App\Helpers\FileHelper;
 use App\Services\WebsiteReservaCalcService;
 use App\Services\PagamentoLinkSyncService;
+use App\Services\WebsiteReservationNotificationService;
 
 /**
  * Controller para API publica do site — sem auth de sessao
@@ -724,6 +725,31 @@ class PublicWebsiteController
                         }
                     }
                 }
+            }
+
+            // Notificacao interna aos funcionarios autorizados da filial de retirada.
+            try {
+                $situacaoReserva = $requerConfirmacao
+                    ? 'Aguardando confirmacao da locadora'
+                    : ($pagamentoAntecipado ? 'Aguardando pagamento' : 'Confirmada');
+
+                (new WebsiteReservationNotificationService())->notificarNovaReserva(
+                    $chave,
+                    (int) $dados['filial_retirada_id'],
+                    [
+                        'codigo' => $codigo,
+                        'cliente' => $clienteInfo['nome'] ?? '-',
+                        'cliente_email' => $clienteInfo['email'] ?? '-',
+                        'cliente_telefone' => $clienteInfo['telefone'] ?? '-',
+                        'retirada' => format_date($dados['data_saida']) . ' ' . $dados['hora_saida'],
+                        'devolucao' => format_date($dados['data_chegada']) . ' ' . $dados['hora_chegada'],
+                        'local_retirada' => $context['locacao']['local_retirada'],
+                        'valor_total' => $totalCalculado,
+                        'situacao' => $situacaoReserva,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                error_log('[Site/Publico] Erro ao preparar notificacoes internas da reserva: ' . $e->getMessage());
             }
 
             // Notificacao 7Carros -> locadora (whatsapp sistema, dados da reserva)

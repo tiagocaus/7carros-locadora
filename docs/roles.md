@@ -35,11 +35,16 @@ Armazena as roles do sistema com suporte a customizacao por tenant.
 | chave | VARCHAR(45) | Tenant - `'0'` = role de sistema |
 | name | VARCHAR | Nome da role (ex: `Gerente`) |
 | description | TEXT | Descricao |
-| is_system | TINYINT | Flag de role de sistema (nao editavel) |
-| parent_id | INT | Referencia a role de sistema quando customizada |
 | created_at | TIMESTAMP | Data de criacao |
+| updated_at | DATETIME | Data da ultima alteracao |
 
 **Importante:** Roles de sistema tem `chave = '0'`, nao `'system'`.
+
+**Nao existe `deleted_at`:** o projeto nao usa soft-delete e a migration
+`00332_drop_deleted_at_columns.php` removeu essa coluna de
+`funcionarios_roles`. Consultas e migrations nao devem filtrar
+`funcionarios_roles.deleted_at` (nem aliases como `r.deleted_at`). Para remover
+uma role, use exclusao definitiva respeitando as dependencias do RBAC.
 
 ### funcionarios_role_permissions (pivot)
 
@@ -101,7 +106,7 @@ Roles padrao do sistema (todas com `chave = '0'`):
 
 | Role | Descricao |
 |------|-----------|
-| Proprietario | Acesso total a todas as funcionalidades |
+| Proprietário | Acesso total a todas as funcionalidades |
 | Gerente | Gerenciamento operacional completo |
 | Coordenador Administrativo | Coordenacao administrativa |
 | Assistente Administrativo | Suporte administrativo |
@@ -123,7 +128,7 @@ de valores/taxas.
 $roles = $this->db()
     ->table('funcionarios_roles')
     ->select(['id'])
-    ->where('name', '=', 'Proprietario')
+    ->where('name', '=', 'Proprietário')
     ->get();
 
 // INCORRETO - chave = 'system' nao existe
@@ -173,7 +178,7 @@ return new class extends Migration
 
         // Definir mapeamento de roles -> permissoes
         $rolePermissions = [
-            'Proprietario' => [
+            'Proprietário' => [
                 'meumodulo.visualizar',
                 'meumodulo.criar',
                 'meumodulo.editar',

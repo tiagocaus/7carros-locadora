@@ -17,7 +17,7 @@
             </td>
             <td>
                 <div class="totals-label"><?= t('modules.relatorios.financeiro.projecao_receitas.total_esperado') ?></div>
-                <div class="totals-value"><?= currency_format($totals['total_esperado']) ?></div>
+                <div class="totals-value"><?= currency_format($totals['receita_total']) ?></div>
             </td>
             <td>
                 <div class="totals-label"><?= t('modules.relatorios.financeiro.projecao_receitas.contratos_ativos') ?></div>

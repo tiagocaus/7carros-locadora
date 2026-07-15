@@ -297,6 +297,11 @@ ativo CHAR(1) DEFAULT 'S' COMMENT 'S=Sim, N=Não'
 
 > **Importante:** o projeto **não usa soft-delete**. Para excluir um registro, use `DELETE` direto (ex: `$qb->delete()`). Não criar coluna `deleted_at` em novas tabelas.
 
+A migration `00332_drop_deleted_at_columns.php` removeu `deleted_at` de
+`configuracoes`, `funcionarios`, `funcionarios_roles` e `matrizes_filiais`.
+Nao use filtros como `deleted_at IS NULL` ao consultar essas tabelas; isso causa
+erro de coluna inexistente.
+
 ```php
 // Exclusão direta — sem coluna deleted_at
 $qb->table('clientes')->where('id', '=', $id)->delete();

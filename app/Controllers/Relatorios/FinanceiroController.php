@@ -817,7 +817,12 @@ class FinanceiroController extends BaseRelatorioController
         $model = new FinanceiroReport();
         $result = $model->inadimplencia($filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams, $filters['filial']);
 
-        $this->renderPdf('inadimplencia.php', t('modules.relatorios.financeiro.inadimplencia.title'), t('modules.relatorios.financeiro.inadimplencia.description'), $result['totals'], $result['details'], $filters['data_inicio'], $filters['data_fim']);
+        $pdfDetails = [
+            'aging' => $result['aging'],
+            'devedores' => $result['details'],
+        ];
+
+        $this->renderPdf('inadimplencia.php', t('modules.relatorios.financeiro.inadimplencia.title'), t('modules.relatorios.financeiro.inadimplencia.description'), $result['totals'], $pdfDetails, $filters['data_inicio'], $filters['data_fim']);
     }
 
     /** GET /relatorios/financeiro/taxas-servicos/pdf */

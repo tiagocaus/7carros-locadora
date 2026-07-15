@@ -12,6 +12,18 @@ The system uses numbered migrations in `app/Database/migrations/`:
 
 **CRITICAL: Always follow the migration pattern below. NEVER use direct SQL in migrations unless absolutely necessary.**
 
+### Exclusao definitiva (sem `deleted_at`)
+
+O projeto nao usa soft-delete. Nao adicione nem consulte `deleted_at` em novas
+migrations. A migration `00332_drop_deleted_at_columns.php` removeu essa coluna
+de `configuracoes`, `funcionarios`, `funcionarios_roles` e
+`matrizes_filiais`. Portanto, exemplos antigos que usam condições como
+`deleted_at IS NULL` nessas tabelas estao obsoletos e nao devem ser copiados.
+
+Para confirmar o schema antes de uma migration de dados, consulte o banco pelo
+terminal e use os helpers `tableExists()`/`columnExists()` quando a operacao de
+schema precisar ser idempotente.
+
 ### Migration Naming Convention
 - Format: `XXXXX_description_of_change.php` where XXXXX is a sequential 5-digit number
 - Numbers must be **strictly sequential** - check existing migrations to find the next available number

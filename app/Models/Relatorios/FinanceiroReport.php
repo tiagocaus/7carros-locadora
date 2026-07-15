@@ -1549,12 +1549,32 @@ class FinanceiroReport extends BaseReportModel
 
         $agingRows = $queryAging->get();
 
+        $aging = [
+            'faixa_1_15' => 0.0,
+            'faixa_16_30' => 0.0,
+            'faixa_31_60' => 0.0,
+            'faixa_61_90' => 0.0,
+            'faixa_90_plus' => 0.0,
+        ];
+        $agingKeyByRange = [
+            '1-15' => 'faixa_1_15',
+            '16-30' => 'faixa_16_30',
+            '31-60' => 'faixa_31_60',
+            '61-90' => 'faixa_61_90',
+            '>90' => 'faixa_90_plus',
+        ];
         $chartLabels = [];
         $chartValues = [];
 
         foreach ($agingRows as $ar) {
+            $range = (string) $ar['faixa'];
+            $value = (float) $ar['valor'];
+            if (isset($agingKeyByRange[$range])) {
+                $aging[$agingKeyByRange[$range]] = $value;
+            }
+
             $chartLabels[] = $ar['faixa'] . ' ' . t('modules.relatorios.financeiro.inadimplencia.dias');
-            $chartValues[] = (float) $ar['valor'];
+            $chartValues[] = $value;
         }
 
         return [
@@ -1565,6 +1585,7 @@ class FinanceiroReport extends BaseReportModel
                 'total_clientes' => $totalClientes,
             ],
             'details' => $details,
+            'aging' => $aging,
             'chart' => [
                 'labels' => $chartLabels,
                 'data' => $chartValues,
