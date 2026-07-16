@@ -21,12 +21,14 @@
                 type: options.type || 'normal', // 'normal' ou 'server-side'
                 minChars: options.minChars || 3, // Mínimo de caracteres para server-side
                 searchUrl: options.searchUrl || null, // URL para busca server-side
+                placement: options.placement === 'bottom' ? 'bottom' : 'auto', // Posicionamento do dropdown
                 placeholder: options.placeholder || chosenI18n.placeholder || 'Selecione uma opção...',
                 noResultsText: options.noResultsText || chosenI18n.no_results || 'Nenhum resultado encontrado',
                 minCharsText: options.minCharsText || chosenI18n.min_chars || 'Digite pelo menos {min} letras para buscar...',
                 allowClear: options.allowClear !== false,
                 ...options
             };
+            this.options.placement = this.options.placement === 'bottom' ? 'bottom' : 'auto';
 
             this.isOpen = false;
             this.searchTerm = '';
@@ -155,7 +157,7 @@
             this.dropdownOriginalNextSibling = this.dropdown.nextSibling;
 
             this.dropdown.classList.add('is-portal');
-            this.dropdown.style.position = 'fixed';
+            this.dropdown.style.position = this.options.placement === 'bottom' ? 'absolute' : 'fixed';
             this.dropdown.style.marginTop = '0';
             this.dropdown.style.left = '0px';
             this.dropdown.style.top = '0px';
@@ -221,7 +223,21 @@
 
             const rect = this.wrapper.getBoundingClientRect();
 
+            if (this.options.placement === 'bottom') {
+                const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
+                const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+
+                this.dropdown.style.position = 'absolute';
+                this.dropdown.style.left = `${rect.left + scrollX}px`;
+                this.dropdown.style.top = `${rect.bottom + scrollY}px`;
+                this.dropdown.style.width = `${rect.width}px`;
+                this.dropdown.style.right = 'auto';
+                this.dropdown.style.bottom = 'auto';
+                return;
+            }
+
             // Posicionamento básico (fixed)
+            this.dropdown.style.position = 'fixed';
             this.dropdown.style.left = `${rect.left}px`;
             this.dropdown.style.width = `${rect.width}px`;
             this.dropdown.style.right = 'auto';
@@ -247,8 +263,13 @@
             }
 
             if (dropdownH === 0) {
-                requestAnimationFrame(() => this.updateDropdownPosition());
+                this.scheduleDropdownPositionUpdate();
             }
+        }
+
+        scheduleDropdownPositionUpdate() {
+            if (!this.isOpen) return;
+            requestAnimationFrame(() => this.updateDropdownPosition());
         }
 
         loadOptions() {
@@ -355,6 +376,7 @@
                 this.minCharsMsg.style.display = 'block';
                 this.noResults.style.display = 'none';
                 this.loading.style.display = 'none';
+                this.scheduleDropdownPositionUpdate();
                 return;
             }
 
@@ -363,6 +385,7 @@
             if (this.filteredOptions.length === 0) {
                 this.noResults.style.display = 'block';
                 this.loading.style.display = 'none';
+                this.scheduleDropdownPositionUpdate();
                 return;
             }
 
@@ -420,6 +443,7 @@
             }
 
             this.highlightedIndex = -1;
+            this.scheduleDropdownPositionUpdate();
         }
 
         filterOptions(searchTerm) {
@@ -673,7 +697,7 @@
             this.closeOtherSelects();
 
             // Garantir reposicionamento após render/paint
-            requestAnimationFrame(() => this.updateDropdownPosition());
+            this.scheduleDropdownPositionUpdate();
         }
 
         close() {
@@ -820,6 +844,7 @@
                 type: type,
                 minChars: parseInt(select.dataset.chosenMinChars) || 3,
                 searchUrl: select.dataset.chosenSearchUrl || null,
+                placement: select.dataset.chosenPlacement === 'bottom' ? 'bottom' : 'auto',
                 placeholder: select.dataset.chosenPlaceholder || 'Selecione uma opção...',
                 noResultsText: select.dataset.chosenNoResults || 'Nenhum resultado encontrado',
                 minCharsText: select.dataset.chosenMinCharsText || 'Digite pelo menos {min} letras para buscar...',

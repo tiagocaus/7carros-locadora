@@ -51,6 +51,7 @@ Carrega automaticamente até 50 registros ao abrir o dropdown. Busca filtrada re
 | `data-chosen-type` | `'normal'` \| `'server-side'` | `'normal'` | Modo de operação |
 | `data-chosen-search-url` | `string` | `null` | URL da API para busca server-side |
 | `data-chosen-min-chars` | `number` | `3` | Mínimo de caracteres para iniciar busca |
+| `data-chosen-placement` | `'auto'` \| `'bottom'` | `'auto'` | Posicionamento do dropdown; `bottom` mantém a lista imediatamente abaixo do select |
 | `data-chosen-placeholder` | `string` | `'Selecione uma opção...'` | Texto quando nenhuma opção selecionada |
 | `data-chosen-no-results` | `string` | `'Nenhum resultado encontrado'` | Texto quando não há resultados |
 | `data-chosen-min-chars-text` | `string` | `'Digite pelo menos {min} letras para buscar...'` | Texto de instrução |
@@ -161,6 +162,7 @@ const chosen = new ChosenSelect(select, {
     type: 'server-side',
     searchUrl: '/api/endpoint',
     minChars: 2,
+    placement: 'bottom',
     placeholder: 'Buscar...'
 });
 ```
@@ -271,6 +273,8 @@ document.getElementById('meuSelect').addEventListener('change', function(e) {
 ## Notas Técnicas
 
 1. **Portal Pattern**: O dropdown é movido para o `<body>` quando aberto, evitando corte por `overflow: hidden` de containers pais.
+
+   Use `data-chosen-placement="bottom"` quando o dropdown precisar permanecer imediatamente abaixo do campo, inclusive dentro de tabelas ou containers roláveis. O padrão `auto` pode abrir acima quando não houver espaço suficiente na janela.
 
 2. **CSRF Token**: Requisições server-side incluem automaticamente o token CSRF do meta tag `<meta name="csrf-token">`.
 

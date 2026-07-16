@@ -499,8 +499,8 @@
                     </div>
                     <div class="md:col-span-3 form-input-group">
                         <label for="id_forma_pagamento" class="form-label-group"><?= t('modules.locacoes.fields.payment_method') ?> <span class="text-red-500">*</span></label>
-                        <select id="id_forma_pagamento" name="id_forma_pagamento" class="form-input-group-field chosen-select" data-chosen-type="normal" data-chosen-placeholder="<?= t('common.labels.select') ?>" required>
-                            <option value=""><?= t('common.labels.loading') ?></option>
+                        <select id="id_forma_pagamento" name="id_forma_pagamento" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/formas-pagamento/select" data-chosen-placeholder="<?= t('common.labels.select') ?>" required>
+                            <option value=""><?= t('common.labels.select') ?></option>
                         </select>
                     </div>
                     <div class="md:col-span-2 form-input-group">
@@ -715,13 +715,13 @@
                         </div>
                         <div class="md:col-span-3 form-input-group">
                             <label class="form-label-group"><?= t('modules.locacoes.installments.bank_account') ?></label>
-                            <select id="gerar_id_conta" class="form-input-group-field">
+                            <select id="gerar_id_conta" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contas-bancarias/buscar" data-chosen-placement="bottom" data-chosen-placeholder="<?= t('common.labels.select') ?>">
                                 <option value=""><?= t('common.labels.select') ?></option>
                             </select>
                         </div>
                         <div class="md:col-span-2 form-input-group">
                             <label class="form-label-group"><?= t('modules.locacoes.installments.payment_method_short') ?></label>
-                            <select id="gerar_id_forma_pagamento" class="form-input-group-field">
+                            <select id="gerar_id_forma_pagamento" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/formas-pagamento/select" data-chosen-placement="bottom" data-chosen-placeholder="<?= t('common.labels.select') ?>">
                                 <option value=""><?= t('common.labels.select') ?></option>
                             </select>
                         </div>
@@ -753,13 +753,13 @@
                         </div>
                         <div class="md:col-span-3 form-input-group">
                             <label class="form-label-group"><?= t('modules.locacoes.installments.bank_account') ?></label>
-                            <select id="parcela_id_conta" class="form-input-group-field">
+                            <select id="parcela_id_conta" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contas-bancarias/buscar" data-chosen-placement="bottom" data-chosen-placeholder="<?= t('common.labels.select') ?>">
                                 <option value=""><?= t('common.labels.select') ?></option>
                             </select>
                         </div>
                         <div class="md:col-span-2 form-input-group">
                             <label class="form-label-group"><?= t('modules.locacoes.installments.payment_method_short') ?></label>
-                            <select id="parcela_id_forma_pagamento" class="form-input-group-field">
+                            <select id="parcela_id_forma_pagamento" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/formas-pagamento/select" data-chosen-placement="bottom" data-chosen-placeholder="<?= t('common.labels.select') ?>">
                                 <option value=""><?= t('common.labels.select') ?></option>
                             </select>
                         </div>
@@ -796,13 +796,13 @@
                         </div>
                         <div class="md:col-span-3 form-input-group">
                             <label class="form-label-group"><?= t('modules.locacoes.installments.bank_account') ?></label>
-                            <select id="avaria_id_conta" class="form-input-group-field">
+                            <select id="avaria_id_conta" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contas-bancarias/buscar" data-chosen-placement="bottom" data-chosen-placeholder="<?= t('common.labels.select') ?>">
                                 <option value=""><?= t('common.labels.select') ?></option>
                             </select>
                         </div>
                         <div class="md:col-span-2 form-input-group">
                             <label class="form-label-group"><?= t('modules.locacoes.installments.payment_method_short') ?></label>
-                            <select id="avaria_id_forma_pagamento" class="form-input-group-field">
+                            <select id="avaria_id_forma_pagamento" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/formas-pagamento/select" data-chosen-placement="bottom" data-chosen-placeholder="<?= t('common.labels.select') ?>">
                                 <option value=""><?= t('common.labels.select') ?></option>
                             </select>
                         </div>
@@ -837,13 +837,13 @@
                         </div>
                         <div class="md:col-span-3 form-input-group">
                             <label class="form-label-group"><?= t('modules.locacoes.installments.payment_method_short') ?></label>
-                            <select id="pagar_id_forma_pagamento" class="form-input-group-field">
+                            <select id="pagar_id_forma_pagamento" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/formas-pagamento/select" data-chosen-placement="bottom" data-chosen-placeholder="<?= t('common.labels.select') ?>">
                                 <option value=""><?= t('common.labels.select') ?></option>
                             </select>
                         </div>
                         <div class="md:col-span-4 form-input-group">
                             <label class="form-label-group"><?= t('modules.locacoes.installments.bank_account') ?></label>
-                            <select id="pagar_id_conta" class="form-input-group-field">
+                            <select id="pagar_id_conta" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contas-bancarias/buscar" data-chosen-placement="bottom" data-chosen-placeholder="<?= t('common.labels.select') ?>">
                                 <option value=""><?= t('common.labels.select') ?></option>
                             </select>
                         </div>
@@ -2490,28 +2490,33 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             return pessoas;
         }
 
-        // ===== CARREGAR FORMAS DE PAGAMENTO =====
+        function setChosen(selectId, id, text = '') {
+            const select = document.getElementById(selectId);
+            if (!select) return;
 
-        async function carregarFormasPagamento(selectedId = null) {
-            try {
-                const result = await API.get('/api/formas-pagamento');
-                if (result.success) {
-                    const select = document.getElementById('id_forma_pagamento');
-                    select.innerHTML = '<option value=""><?= t('common.labels.select') ?></option>';
-                    result.data.forEach(fp => {
-                        const opt = document.createElement('option');
-                        opt.value = fp.id;
-                        opt.textContent = fp.nome;
-                        if (selectedId && String(fp.id) === String(selectedId)) opt.selected = true;
-                        select.appendChild(opt);
-                    });
-                    if (select.chosenSelect) {
-                        select.chosenSelect.refresh();
-                    }
+            if (!id) {
+                if (select.chosenSelect) {
+                    select.chosenSelect.clear();
+                } else {
+                    select.value = '';
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-            } catch (e) {
-                console.error('Erro ao carregar formas de pagamento:', e);
+                return;
             }
+
+            let option = Array.from(select.options).find(item => String(item.value) === String(id));
+            if (!option) {
+                option = new Option(text || String(id), String(id));
+                select.add(option);
+            } else if (text) {
+                option.textContent = text;
+            }
+
+            select.value = String(id);
+            if (select.chosenSelect) {
+                select.chosenSelect.refresh();
+            }
+            select.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         // ===== CARREGAR DADOS DO CLIENTE =====
@@ -2602,19 +2607,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 }
             });
 
-            // Chosen selects server-side
-            const setChosen = (selectId, id, text) => {
-                if (!id || !text) return;
-                const sel = document.getElementById(selectId);
-                if (!sel) return;
-                sel.innerHTML = `<option value=""><?= t('common.labels.select') ?></option><option value="${id}" selected>${text}</option>`;
-                sel.dispatchEvent(new Event('change'));
-            };
-
             setChosen('id_cliente', locacaoData.id_cliente, locacaoData.cliente_nome_completo || locacaoData.cliente_nome);
             setChosen('id_matriz_filial_retirada', locacaoData.id_matriz_filial_retirada, locacaoData.filial_retirada_nome);
             setChosen('id_matriz_filial_devolucao', locacaoData.id_matriz_filial_devolucao, locacaoData.filial_devolucao_nome);
             setChosen('id_conta', locacaoData.id_conta, locacaoData.conta_descricao);
+            setChosen('id_forma_pagamento', locacaoData.id_forma_pagamento, locacaoData.forma_pagamento_descricao);
             // id_conta_bloqueio legado - nao usado mais na UI
             setChosen('id_funcionario', locacaoData.id_funcionario, locacaoData.funcionario_nome);
 
@@ -3529,15 +3526,16 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     const descricao = this.dataset.descricao;
                     const idConta = this.dataset.idConta;
                     const idForma = this.dataset.idForma;
+                    const parcela = parcelasData.find(p => String(p.id) === String(idP));
+                    const formaPagamento = parcela?.forma_pagamento_descricao || '';
+                    const contaDescricao = parcela?.conta_descricao || '';
 
                     document.getElementById('pagar_id_parcela').value = idP;
                     document.getElementById('pagar_descricao_resumo').textContent = descricao;
                     document.getElementById('pagar_data_pago').value = DateHelper.todayInput();
 
-                    const selConta = document.getElementById('pagar_id_conta');
-                    if (selConta) selConta.value = idConta || '';
-                    const selForma = document.getElementById('pagar_id_forma_pagamento');
-                    if (selForma) selForma.value = idForma || '';
+                    setChosen('pagar_id_conta', idConta, contaDescricao);
+                    setChosen('pagar_id_forma_pagamento', idForma, formaPagamento);
 
                     inserirFormularioBaixaAbaixoLinhaLocacao(this.closest('tr'));
                     document.getElementById('formGerarParcelas')?.classList.add('hidden');
@@ -3614,39 +3612,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             if (!event.data || event.data.action !== 'genericModalClosed') return;
             devolucaoCreditoPendente = null;
         });
-
-        // Carregar contas e formas de pagamento nos selects de parcelas
-        async function carregarSelectsParcelas() {
-            try {
-                // Contas bancarias
-                const contasResult = await API.get('/api/contas-bancarias/buscar');
-                if (contasResult.success && contasResult.data) {
-                    ['gerar_id_conta', 'parcela_id_conta', 'avaria_id_conta', 'pagar_id_conta'].forEach(selectId => {
-                        const sel = document.getElementById(selectId);
-                        if (!sel) return;
-                        sel.innerHTML = `<option value="">${i18n.select}</option>`;
-                        contasResult.data.forEach(c => {
-                            sel.add(new Option(c.text || c.nome, c.id));
-                        });
-                    });
-                }
-
-                // Formas de pagamento
-                const fpResult = await API.get('/api/formas-pagamento');
-                if (fpResult.success && fpResult.data) {
-                    ['gerar_id_forma_pagamento', 'parcela_id_forma_pagamento', 'avaria_id_forma_pagamento', 'pagar_id_forma_pagamento'].forEach(selectId => {
-                        const sel = document.getElementById(selectId);
-                        if (!sel) return;
-                        sel.innerHTML = `<option value="">${i18n.select}</option>`;
-                        fpResult.data.forEach(fp => {
-                            sel.add(new Option(fp.nome, fp.id));
-                        });
-                    });
-                }
-            } catch (e) {
-                console.error('Erro ao carregar selects parcelas:', e);
-            }
-        }
 
         // Toggle formularios de parcelas
         document.getElementById('btnGerarParcelas')?.addEventListener('click', () => {
@@ -3885,7 +3850,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         configurarAbas();
         configurarTogglesFinanceiroLocacao();
-        carregarFormasPagamento(isEditing && locacaoData ? locacaoData.id_forma_pagamento : null);
         carregarTaxasDisponiveis();
         if (!isEditing) carregarTaxasAutomaticas();
         atualizarCamposPlano();
@@ -3895,7 +3859,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         if (isEditing) {
             atualizarResumo();
             carregarParcelas();
-            carregarSelectsParcelas();
         }
     })();
 </script>

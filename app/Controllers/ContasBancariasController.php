@@ -94,8 +94,8 @@ class ContasBancariasController
             $search = $request->query('q', '');
             $contaModel = new ContaBancaria();
 
-            // Buscar contas (limitado a 50)
-            $contas = $contaModel->listarPaginado(1, 50, $search);
+            // Buscar contas ativas para selecao (limitado a 50)
+            $contas = $contaModel->listarParaSelect($search);
 
             // Formatar para chosen
             $data = array_map(function ($c) {
