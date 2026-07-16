@@ -115,6 +115,9 @@ Variável especial para contratos com múltiplos veículos:
 | `{{contrato.parcelas_tabela}}` | Tabela HTML das parcelas financeiras com as colunas Parcela, Vencimento e Valor |
 | `{{contrato.parcelas_tabela_status}}` | Tabela HTML das parcelas financeiras com as colunas Parcela, Vencimento, Valor e Status |
 | `{{contrato.valor.parcela}}` | Valor mais comum entre as parcelas financeiras do contrato, formatado como moeda. Em empate, usa o primeiro valor encontrado na ordem das parcelas |
+| `{{contrato.comando_parcela}}` | Condição de parcelamento em texto amigável, sem expor códigos técnicos como `w4-Seg` ou `d15` |
+
+`{{contrato.comando_parcela}}` interpreta o comando vinculado ao contrato. Comandos semanais sem dia retornam `semanal`; comandos semanais com dia retornam o dia no plural (`segundas-feiras`); um dia isolado retorna o dia no singular (`terça-feira`). Prazos, faixas mensais e listas de vencimentos são descritos por extenso. Contratos sem comando retornam `Não informado`; formatos desconhecidos usam a descrição cadastrada e nunca exibem o código técnico como fallback.
 
 O modelo padrão global de contrato usa `{{contrato.veiculos_anexo}}` em vez de `{{contrato.veiculos_tabela}}`, porque o anexo é mais completo para contratos com múltiplos veículos e veículos de terceiros/investidores.
 

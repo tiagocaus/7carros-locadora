@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\I18n;
 
 use App\Helpers\CurrencyHelper;
+use App\Models\ComandoParcela;
 
 /**
  * Define e gerencia variáveis disponíveis para templates de mensagem
@@ -388,6 +389,12 @@ class TemplateVariables
                 'type' => 'text',
                 'label_key' => 'variables.contrato.forma_pagamento',
                 'example' => 'Cartão de Crédito'
+            ],
+            'comando_parcela' => [
+                'key' => 'contrato.comando_parcela',
+                'type' => 'computed',
+                'label_key' => 'variables.contrato.comando_parcela',
+                'example' => 'segundas-feiras'
             ],
             'primeiro_pagamento' => [
                 'key' => 'contrato.primeiro_pagamento',
@@ -1706,6 +1713,13 @@ class TemplateVariables
                     $locale
                 );
 
+            case 'contrato.comando_parcela':
+                return self::formatContratoComandoParcela(
+                    (string) ($context['contrato']['comando_parcela_comando'] ?? ''),
+                    (string) ($context['contrato']['comando_parcela_descricao'] ?? ''),
+                    $locale
+                );
+
             case 'contrato.veiculos':
                 return self::buildContratoVeiculosTexto($context['contrato']['veiculos'] ?? [], $locale, $context);
 
@@ -1807,6 +1821,114 @@ class TemplateVariables
             'parcela' => $parcela,
             'total' => $totalParcelas,
         ], $locale);
+    }
+
+    /**
+     * Converte o comando tecnico de parcelas em uma descricao apropriada para documentos.
+     */
+    private static function formatContratoComandoParcela(
+        string $comando,
+        string $descricao,
+        string $locale
+    ): string {
+        $translator = Translator::getInstance();
+        $comando = trim($comando);
+
+        if ($comando === '') {
+            return $translator->get('variables.installment_command.not_informed', [], $locale);
+        }
+
+        $info = ComandoParcela::parseComando($comando);
+
+        switch ($info['tipo']) {
+            case 'avista':
+                return $translator->get('variables.installment_command.cash', [], $locale);
+
+            case 'prazo_unico':
+                $dias = (int) ($info['intervalos'][0] ?? 0);
+                $key = $dias === 1 ? 'single_day' : 'single_days';
+                return $translator->get('variables.installment_command.' . $key, ['days' => $dias], $locale);
+
+            case 'mensal':
+                return $translator->get('variables.installment_command.monthly_range', [
+                    'min' => (int) $info['min'],
+                    'max' => (int) $info['max'],
+                ], $locale);
+
+            case 'prazos_fixos':
+                $intervalos = array_map('intval', $info['intervalos'] ?? []);
+                $quantidade = count($intervalos);
+                $temEntrada = ($intervalos[0] ?? null) === 0;
+                $prazos = $temEntrada ? array_slice($intervalos, 1) : $intervalos;
+
+                return $translator->get(
+                    'variables.installment_command.' . ($temEntrada ? 'fixed_with_upfront' : 'fixed'),
+                    [
+                        'count' => $quantidade,
+                        'days' => self::formatLocalizedList($prazos, $locale),
+                    ],
+                    $locale
+                );
+
+            case 'semanal':
+                return $translator->get('variables.installment_command.weekly', [], $locale);
+
+            case 'semanal_dia':
+                return self::translatedInstallmentWeekday((string) ($info['dia_semana'] ?? ''), 'plural', $locale);
+
+            case 'dia_mes':
+                return $translator->get('variables.installment_command.monthly_day', [
+                    'day' => (int) ($info['dia_mes'] ?? 0),
+                ], $locale);
+
+            case 'dias_semana':
+                return self::translatedInstallmentWeekday((string) ($info['dia_semana'] ?? ''), 'singular', $locale);
+
+            default:
+                $descricao = trim($descricao);
+                return $descricao !== ''
+                    ? $descricao
+                    : $translator->get('variables.installment_command.not_informed', [], $locale);
+        }
+    }
+
+    /**
+     * Formata uma lista numerica com a conjuncao do idioma do documento.
+     */
+    private static function formatLocalizedList(array $values, string $locale): string
+    {
+        $values = array_map(static fn ($value) => (string) $value, $values);
+        $count = count($values);
+
+        if ($count === 0) {
+            return '';
+        }
+
+        if ($count === 1) {
+            return $values[0];
+        }
+
+        $translator = Translator::getInstance();
+        $last = array_pop($values);
+
+        return implode(
+            $translator->get('variables.installment_command.list_separator', [], $locale),
+            $values
+        ) . $translator->get('variables.installment_command.list_last_separator', [], $locale) . $last;
+    }
+
+    /**
+     * Traduz o dia da semana usado pelos comandos de parcelas.
+     */
+    private static function translatedInstallmentWeekday(string $weekday, string $form, string $locale): string
+    {
+        $translator = Translator::getInstance();
+        $key = 'variables.installment_command.weekdays.' . $weekday . '.' . $form;
+        $translated = $translator->get($key, [], $locale);
+
+        return $translated !== $key
+            ? $translated
+            : $translator->get('variables.installment_command.not_informed', [], $locale);
     }
 
     // ===== Métodos auxiliares para Contrato =====

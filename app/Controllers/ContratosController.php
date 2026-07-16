@@ -2505,6 +2505,8 @@ class ContratosController
                 'desconto' => $contrato['valor_desconto'] ?? 0,
                 'valor_taxas' => $contrato['total_fatura'] ?? 0,
                 'forma_pagamento' => $contrato['forma_pagamento_descricao'] ?? $contrato['forma_pagamento_tipo'] ?? '',
+                'comando_parcela_comando' => $contrato['comando_parcela_comando'] ?? '',
+                'comando_parcela_descricao' => $contrato['comando_parcela_descricao'] ?? '',
                 'primeiro_pagamento' => $contrato['primeiro_pagamento'] ?? 0,
                 'contagem' => $contrato['contagem'] ?? 'dia',
                 'autorenovacao' => match($contrato['auto_renovacao'] ?? '') {

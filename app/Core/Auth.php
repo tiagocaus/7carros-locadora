@@ -22,6 +22,8 @@ class Auth
     public const ATTEMPT_INVALID_PASSWORD = 'invalid_password';
     public const ATTEMPT_SUSPENDED = 'suspended';
     public const ATTEMPT_INACTIVE = 'inactive';
+    public const WEB_SYSTEM_PERMISSION = 'dashboard.visualizar';
+    public const WEB_SYSTEM_ACCESS_DENIED = 'Seu usuário não possui permissão para acessar o sistema.';
 
     /**
      * Obtém a conexão mysqli (singleton)
@@ -442,6 +444,17 @@ class Auth
         );
 
         return in_array($permission, $permissions, true);
+    }
+
+    /**
+     * Verifica se o funcionario pode acessar o sistema administrativo web.
+     *
+     * O acesso ao aplicativo de vistoria e independente e continua sendo
+     * controlado por app_vistoria.visualizar no backend do aplicativo.
+     */
+    public static function canAccessWebSystem(): bool
+    {
+        return self::can(self::WEB_SYSTEM_PERMISSION);
     }
 
     /**

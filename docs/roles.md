@@ -111,6 +111,20 @@ Roles padrao do sistema (todas com `chave = '0'`):
 | Coordenador Administrativo | Coordenacao administrativa |
 | Assistente Administrativo | Suporte administrativo |
 | Atendente | Atendimento ao cliente |
+| Vistoriador | Acesso ao aplicativo de vistoria; sem acesso web por padrao |
+
+### Sistema web x aplicativo de vistoria
+
+Os acessos sao independentes:
+
+- `dashboard.visualizar`: permite autenticar e navegar no sistema administrativo web.
+- `app_vistoria.visualizar`: permite usar o aplicativo React Native de vistoria.
+
+A role global `Vistoriador` nao possui `dashboard.visualizar`. Tenants que
+precisarem liberar tambem o sistema web devem personalizar a role e marcar
+explicitamente essa permissao. O middleware `WebSystemAccessMiddleware`
+encerra sessoes web sem essa autorizacao; ele nao participa da autenticacao do
+aplicativo React Native.
 
 ### Atendente
 

@@ -3,7 +3,7 @@
 @section('title', '<?= t("modules.roles.title") ?>')
 
 @section('content')
-<div class="pl-1 pr-2 py-0">
+<div class="roles-manager-page pl-1 pr-2 py-0">
     <!-- Tela 1: Lista de Roles -->
     <div id="screenList">
         <!-- Header com botão adicionar -->
@@ -23,9 +23,9 @@
     </div>
 
     <!-- Tela 2: Adicionar Role -->
-    <div id="screenAdd" class="hidden">
+    <div id="screenAdd" class="roles-form-screen hidden">
         <!-- Header com botão voltar -->
-        <div class="flex items-center mb-4 pb-3 border-b border-slate-200">
+        <div class="roles-form-header flex items-center mb-4 pb-3 border-b border-slate-200">
             <button type="button" id="btnVoltarAdd" class="text-slate-500 hover:text-slate-700 mr-3">
                 <i class="fas fa-arrow-left"></i>
             </button>
@@ -33,7 +33,7 @@
         </div>
 
         <!-- Formulário Adicionar -->
-        <form id="formAddRole" method="POST" action="/roles/salvar">
+        <form id="formAddRole" class="roles-form" method="POST" action="/roles/salvar">
             @csrf
 
             <!-- Campo: Nome -->
@@ -49,9 +49,9 @@
             </div>
 
             <!-- Permissões -->
-            <div class="mb-4">
+            <div class="roles-permissions-section mb-4">
                 <h4 class="text-sm font-semibold text-slate-700 mb-2"><?= t('modules.roles.sections.permissions') ?></h4>
-                <div id="addPermissionsContainer">
+                <div id="addPermissionsContainer" class="roles-permissions-container">
                     <div class="flex items-center justify-center py-4">
                         <i class="fas fa-spinner fa-spin text-slate-400 mr-2"></i>
                         <span class="text-slate-500 text-sm"><?= t('modules.roles.messages.loading_permissions') ?></span>
@@ -60,7 +60,7 @@
             </div>
 
             <!-- Botões -->
-            <div class="flex justify-end space-x-3">
+            <div class="roles-form-actions flex justify-end space-x-3">
                 <button type="button" id="btnCancelarAdd" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
                     <?= t('common.buttons.cancel') ?>
                 </button>
@@ -72,9 +72,9 @@
     </div>
 
     <!-- Tela 3: Editar Role -->
-    <div id="screenEdit" class="hidden">
+    <div id="screenEdit" class="roles-form-screen hidden">
         <!-- Header com botão voltar -->
-        <div class="flex items-center mb-4 pb-3 border-b border-slate-200">
+        <div class="roles-form-header flex items-center mb-4 pb-3 border-b border-slate-200">
             <button type="button" id="btnVoltarEdit" class="text-slate-500 hover:text-slate-700 mr-3">
                 <i class="fas fa-arrow-left"></i>
             </button>
@@ -82,7 +82,7 @@
         </div>
 
         <!-- Formulário Editar -->
-        <form id="formEditRole" method="POST">
+        <form id="formEditRole" class="roles-form" method="POST">
             @csrf
             <input type="hidden" id="editRoleId" name="id">
 
@@ -107,9 +107,9 @@
             </div>
 
             <!-- Permissões -->
-            <div class="mb-4">
+            <div class="roles-permissions-section mb-4">
                 <h4 class="text-sm font-semibold text-slate-700 mb-2"><?= t('modules.roles.sections.permissions') ?></h4>
-                <div id="editPermissionsContainer">
+                <div id="editPermissionsContainer" class="roles-permissions-container">
                     <div class="flex items-center justify-center py-4">
                         <i class="fas fa-spinner fa-spin text-slate-400 mr-2"></i>
                         <span class="text-slate-500 text-sm"><?= t('modules.roles.messages.loading_permissions') ?></span>
@@ -118,7 +118,7 @@
             </div>
 
             <!-- Botões -->
-            <div class="flex justify-end space-x-3">
+            <div class="roles-form-actions flex justify-end space-x-3">
                 <button type="button" id="btnCancelarEdit" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
                     <?= t('common.buttons.cancel') ?>
                 </button>
@@ -338,7 +338,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        let html = '<div class="max-h-64 overflow-y-auto border border-slate-200 rounded-md">';
+        let html = '<div class="roles-permissions-scroll border border-slate-200 rounded-md">';
 
         grupos.forEach(grupo => {
             const moduleName = formatarNomeModulo(grupo.module);

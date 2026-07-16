@@ -9,7 +9,7 @@ use App\Core\Response;
 /**
  * Middleware de Visitante
  *
- * Redireciona usuários autenticados para o dashboard
+ * Redireciona usuarios autenticados e autorizados para o dashboard.
  */
 class GuestMiddleware
 {
@@ -18,9 +18,14 @@ class GuestMiddleware
      */
     public function handle(Request $request): bool
     {
-        // Se o usuário está autenticado, redireciona para o dashboard
+        // Uma sessao sem permissao web nao deve gerar loop login/dashboard.
         if (Auth::check()) {
-            Response::redirect('/dashboard');
+            if (Auth::canAccessWebSystem()) {
+                Response::redirect('/dashboard');
+            }
+
+            Auth::logout();
+            Response::redirectWithError('/login', Auth::WEB_SYSTEM_ACCESS_DENIED);
         }
 
         // Continua com a requisição

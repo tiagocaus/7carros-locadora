@@ -29,6 +29,29 @@ return [
         'year' => 'ano(s)',
     ],
 
+    'installment_command' => [
+        'not_informed' => 'Não informado',
+        'cash' => 'Pagamento a pronto',
+        'single_day' => 'Pagamento único com vencimento dentro de :days dia',
+        'single_days' => 'Pagamento único com vencimento dentro de :days dias',
+        'monthly_range' => 'Pagamento mensal de :min a :max prestações',
+        'fixed' => ':count prestações com vencimentos dentro de :days dias',
+        'fixed_with_upfront' => ':count prestações: a primeira no ato e as restantes dentro de :days dias',
+        'weekly' => 'semanal',
+        'monthly_day' => 'vencimento no dia :day',
+        'list_separator' => ', ',
+        'list_last_separator' => ' e ',
+        'weekdays' => [
+            'Dom' => ['singular' => 'domingo', 'plural' => 'domingos'],
+            'Seg' => ['singular' => 'segunda-feira', 'plural' => 'segundas-feiras'],
+            'Ter' => ['singular' => 'terça-feira', 'plural' => 'terças-feiras'],
+            'Qua' => ['singular' => 'quarta-feira', 'plural' => 'quartas-feiras'],
+            'Qui' => ['singular' => 'quinta-feira', 'plural' => 'quintas-feiras'],
+            'Sex' => ['singular' => 'sexta-feira', 'plural' => 'sextas-feiras'],
+            'Sab' => ['singular' => 'sábado', 'plural' => 'sábados'],
+        ],
+    ],
+
     // Variáveis do Cliente
     'cliente' => [
         'nome' => 'Nome do Cliente',
@@ -110,6 +133,7 @@ return [
         'desconto' => 'Valor do Desconto',
         'valor_taxas' => 'Total de Taxas',
         'forma_pagamento' => 'Forma de Pagamento',
+        'comando_parcela' => 'Comando de Prestação (Texto Amigável)',
         'primeiro_pagamento' => 'Valor do Primeiro Pagamento',
         'contagem' => 'Tipo de Contagem',
         'autorenovacao' => 'Renovação Automática',

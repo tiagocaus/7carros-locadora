@@ -16,3 +16,55 @@ body {
     background-color: #f5f7fa;
 }
 
+/* Gerenciamento de funções: usa o espaço restante para a lista de permissões */
+.roles-manager-page {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+}
+
+.roles-form-screen:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.roles-form {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.roles-form-header,
+.roles-form-actions,
+.roles-form > .form-input-group,
+.roles-form > #systemRoleWarning {
+    flex-shrink: 0;
+}
+
+.roles-form-actions {
+    padding-bottom: 1rem;
+}
+
+.roles-permissions-section {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.roles-permissions-container {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.roles-permissions-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}

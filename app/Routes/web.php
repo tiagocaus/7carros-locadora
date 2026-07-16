@@ -78,10 +78,15 @@ use App\Controllers\PublicWebsiteController;
 // Rota raiz - redireciona para login ou dashboard
 $router->get('/', function ($request) {
     if (\App\Core\Auth::check()) {
-        \App\Core\Response::redirect('/dashboard');
-    } else {
-        \App\Core\Response::redirect('/login');
+        if (\App\Core\Auth::canAccessWebSystem()) {
+            \App\Core\Response::redirect('/dashboard');
+        }
+
+        \App\Core\Auth::logout();
+        \App\Core\Response::redirectWithError('/login', \App\Core\Auth::WEB_SYSTEM_ACCESS_DENIED);
     }
+
+    \App\Core\Response::redirect('/login');
 });
 
 // Rotas de autenticação (apenas para visitantes)
@@ -178,8 +183,8 @@ $router->post('/api/public/reserva', [PublicWebsiteController::class, 'criarRese
 $router->post('/api/public/contato', [PublicWebsiteController::class, 'contato'], ['rate_limit']);
 $router->post('/api/public/limpar-cache', [PublicWebsiteController::class, 'limparCache'], ['rate_limit']);
 
-// Rotas protegidas (requerem autenticação)
-$router->group(['middleware' => 'auth'], function ($router) {
+// Rotas do sistema administrativo (requerem autenticacao e acesso web)
+$router->group(['middleware' => ['auth', 'web_system_access']], function ($router) {
     // Dashboard
     $router->get('/dashboard', [DashboardController::class, 'index']);
     $router->get('/api/dashboard/stats', [DashboardController::class, 'stats'], ['api_csrf', 'rate_limit', 'throttle']);

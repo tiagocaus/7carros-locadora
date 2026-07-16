@@ -303,6 +303,20 @@ if (!Auth::can('clientes.editar')) {
 
 ---
 
+### WebSystemAccessMiddleware
+
+**Arquivo:** `app/Middleware/WebSystemAccessMiddleware.php`
+
+Executado depois do `AuthMiddleware` em todas as rotas do sistema
+administrativo. Exige `dashboard.visualizar`; quando a permissao nao existe,
+remove a sessao e o token `remember_token` e retorna ao login. Requisicoes JSON
+recebem HTTP 403 com `redirect: /login`.
+
+Esse bloqueio e exclusivo do sistema web. O aplicativo React Native de
+vistoria usa `app_vistoria.visualizar` e um fluxo de autenticacao separado.
+
+---
+
 ## Services de Segurança
 
 ### SecurityLogService
@@ -527,7 +541,7 @@ $stats = CrossTenantDetectionService::getUserAttemptStats();
 
 | Categoria | Arquivos |
 |-----------|----------|
-| **Middlewares** | `app/Middleware/RateLimitMiddleware.php`, `HoneypotMiddleware.php`, `ThrottlingMiddleware.php`, `CsrfMiddleware.php`, `ApiCsrfMiddleware.php`, `BlockedIpMiddleware.php`, `AuthMiddleware.php`, `PermissionMiddleware.php` |
+| **Middlewares** | `app/Middleware/RateLimitMiddleware.php`, `HoneypotMiddleware.php`, `ThrottlingMiddleware.php`, `CsrfMiddleware.php`, `ApiCsrfMiddleware.php`, `BlockedIpMiddleware.php`, `AuthMiddleware.php`, `WebSystemAccessMiddleware.php`, `PermissionMiddleware.php` |
 | **Services** | `app/Services/SecurityLogService.php`, `CrossTenantDetectionService.php`, `RequestFingerprintService.php` |
 | **Models** | `app/Models/Security/SecurityLog.php`, `RateLimit.php`, `BlockedIp.php`, `UserQuota.php`, `RequestFingerprint.php` |
 | **Config** | `app/Config/Security.php` |

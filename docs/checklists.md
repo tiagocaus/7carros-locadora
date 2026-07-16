@@ -10,7 +10,8 @@ O Checklist Digital permite que funcionários realizem vistorias de veículos pe
 - **Permissão**: `checklists.criar` — obrigatória para criar/editar checklists digitais
 - **Plano**: Apenas planos **P3** (Avançado) e **P4** (Ilimitado)
 - **Botão na listagem**: Visível sempre, habilitado apenas em **dispositivos móveis** + planos P3/P4
-- **Login redirect**: Usuários sem `dashboard.visualizar` são redirecionados para `/checklists/digital` após login
+- **Acesso web**: `dashboard.visualizar` e obrigatoria para entrar no sistema administrativo; nao existe redirecionamento automatico para `/checklists/digital`
+- **Aplicativo React Native**: usa fluxo de autenticacao proprio e a permissao `app_vistoria.visualizar`, independente do sistema web
 
 ### Tipos de Checklist
 | Tipo | Código | Descrição |

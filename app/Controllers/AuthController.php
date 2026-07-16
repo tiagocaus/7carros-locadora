@@ -67,7 +67,20 @@ class AuthController
             // Limpa tentativas de login
             $this->clearLoginAttempts($username, $request->ip());
 
-            // Redireciona para a URL pretendida ou destino baseado em permissoes
+            if (!Auth::canAccessWebSystem()) {
+                Auth::logout();
+
+                if ($expectsJson) {
+                    Response::json([
+                        'success' => false,
+                        'message' => Auth::WEB_SYSTEM_ACCESS_DENIED,
+                    ], 403);
+                }
+
+                Response::redirectWithError('/login', Auth::WEB_SYSTEM_ACCESS_DENIED);
+            }
+
+            // Usuario autorizado: respeita a URL pretendida ou abre o dashboard.
             $intendedUrl = Session::get('intended_url');
             Session::remove('intended_url');
 
@@ -77,19 +90,12 @@ class AuthController
                 }
 
                 Response::redirect($intendedUrl);
-            } elseif (Auth::can('dashboard.visualizar')) {
+            } else {
                 if ($expectsJson) {
                     $this->respondLoginSuccess('/dashboard');
                 }
 
                 Response::redirect('/dashboard');
-            } else {
-                // Usuario sem acesso ao dashboard (ex: funcionario so com checklists.criar)
-                if ($expectsJson) {
-                    $this->respondLoginSuccess('/checklists/digital');
-                }
-
-                Response::redirect('/checklists/digital');
             }
         }
 

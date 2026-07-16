@@ -35,6 +35,7 @@ $router = new Router();
 
 // Registra os middlewares
 $router->middleware('auth', \App\Middleware\AuthMiddleware::class);
+$router->middleware('web_system_access', \App\Middleware\WebSystemAccessMiddleware::class);
 $router->middleware('guest', \App\Middleware\GuestMiddleware::class);
 $router->middleware('csrf', \App\Middleware\CsrfMiddleware::class);
 $router->middleware('api_csrf', \App\Middleware\ApiCsrfMiddleware::class);
