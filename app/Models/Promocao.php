@@ -127,9 +127,48 @@ class Promocao extends Model
 
         if ($promocao) {
             $promocao['filiais'] = $this->listarFiliaisDaPromocao($id);
+            $promocao['grupos'] = $this->listarGruposDaPromocao($id);
         }
 
         return $promocao;
+    }
+
+    /**
+     * Busca um codigo no tenant atual e traz o vinculo/valor da filial informada.
+     */
+    public function buscarPorCodigoComFilial(string $codigo, int $filialId, int $grupoId = 0): ?array
+    {
+        return $this->qb
+            ->table('promocoes', 'p')
+            ->select([
+                'p.id', 'p.codigo', 'p.nome', 'p.validade', 'p.dias', 'p.valor',
+                'p.tipo', 'p.onde_exibir', 'p.status', 'p.todos_grupos',
+                'CASE WHEN pf.id IS NULL THEN 0 ELSE 1 END AS filial_vinculada',
+                'pvf.valor AS valor_filial',
+                'CASE WHEN gp.id IS NULL THEN 0 ELSE 1 END AS grupo_vinculado',
+            ])
+            ->leftJoinRaw(
+                'promocoes_filiais',
+                'pf',
+                'pf.id_promocao = p.id AND pf.id_matriz_filial = ' . $filialId . ' AND pf.chave = p.chave'
+            )
+            ->leftJoinRaw(
+                'promocoes_valores_filiais',
+                'pvf',
+                'pvf.id_promocao = p.id AND pvf.id_matriz_filial = ' . $filialId . ' AND pvf.chave = p.chave'
+            )
+            ->leftJoinRaw(
+                'promocoes_grupos',
+                'pg',
+                'pg.id_promocao = p.id AND pg.id_grupo = ' . max(0, $grupoId) . ' AND pg.chave = p.chave'
+            )
+            ->leftJoinRaw(
+                'grupos',
+                'gp',
+                'gp.id = pg.id_grupo AND gp.chave = p.chave'
+            )
+            ->where('p.codigo', '=', $codigo)
+            ->first();
     }
 
     /**
@@ -154,6 +193,22 @@ class Promocao extends Model
         ], $resultados);
     }
 
+    public function listarGruposDaPromocao(int $promocaoId): array
+    {
+        $resultados = $this->qb
+            ->table('promocoes_grupos', 'pg')
+            ->select(['pg.id_grupo', 'g.nome'])
+            ->leftJoin('grupos', 'g', 'pg.id_grupo', '=', 'g.id')
+            ->where('pg.id_promocao', '=', $promocaoId)
+            ->orderBy('g.nome', 'ASC')
+            ->get();
+
+        return array_map(static fn(array $row): array => [
+            'id' => (int) $row['id_grupo'],
+            'nome' => (string) ($row['nome'] ?? ''),
+        ], $resultados);
+    }
+
     /**
      * Cria uma nova promocao
      *
@@ -166,14 +221,15 @@ class Promocao extends Model
             ->table('promocoes')
             ->insert([
                 'chave' => $dados['chave'],
-                'codigo' => $dados['codigo'],
-                'nome' => $dados['nome'],
-                'validade' => $dados['validade'] ?? '0000-00-00',
+                'codigo' => \App\Services\PromocaoAplicacaoService::normalizarCodigo($dados['codigo']),
+                'nome' => trim((string) $dados['nome']),
+                'validade' => !empty($dados['validade']) ? $dados['validade'] : null,
                 'dias' => (int) ($dados['dias'] ?? 0),
                 'valor' => currency_parse($dados['valor'] ?? 0),
                 'tipo' => $dados['tipo'] ?? 'DFIX',
                 'onde_exibir' => $dados['onde_exibir'] ?? 'SIS',
                 'status' => $dados['status'] ?? 'A',
+                'todos_grupos' => !empty($dados['todos_grupos']) ? 1 : 0,
             ]);
     }
 
@@ -194,13 +250,13 @@ class Promocao extends Model
         $dadosUpdate = [];
 
         if (isset($dados['codigo'])) {
-            $dadosUpdate['codigo'] = $dados['codigo'];
+            $dadosUpdate['codigo'] = \App\Services\PromocaoAplicacaoService::normalizarCodigo($dados['codigo']);
         }
         if (isset($dados['nome'])) {
-            $dadosUpdate['nome'] = $dados['nome'];
+            $dadosUpdate['nome'] = trim((string) $dados['nome']);
         }
         if (isset($dados['validade'])) {
-            $dadosUpdate['validade'] = $dados['validade'] ?: '0000-00-00';
+            $dadosUpdate['validade'] = $dados['validade'] ?: null;
         }
         if (isset($dados['dias'])) {
             $dadosUpdate['dias'] = (int) $dados['dias'];
@@ -216,6 +272,9 @@ class Promocao extends Model
         }
         if (isset($dados['status'])) {
             $dadosUpdate['status'] = $dados['status'];
+        }
+        if (array_key_exists('todos_grupos', $dados)) {
+            $dadosUpdate['todos_grupos'] = !empty($dados['todos_grupos']) ? 1 : 0;
         }
 
         if (!empty($dadosUpdate)) {
@@ -249,6 +308,10 @@ class Promocao extends Model
         // Remover relacoes N:N (CASCADE deve cuidar disso, mas por seguranca)
         $this->qb
             ->table('promocoes_filiais')
+            ->where('id_promocao', '=', $id)
+            ->delete();
+        $this->qb
+            ->table('promocoes_grupos')
             ->where('id_promocao', '=', $id)
             ->delete();
 
@@ -285,6 +348,42 @@ class Promocao extends Model
                     'id_matriz_filial' => (int) $filialId,
                     'chave' => $chave,
                 ]);
+        }
+    }
+
+    public function sincronizarGrupos(int $promocaoId, array $gruposIds, string $chave): void
+    {
+        $this->qb
+            ->table('promocoes_grupos')
+            ->where('id_promocao', '=', $promocaoId)
+            ->delete();
+
+        foreach ($gruposIds as $grupoId) {
+            if ((int) $grupoId <= 0) continue;
+            $this->qb
+                ->table('promocoes_grupos')
+                ->insert([
+                    'chave' => $chave,
+                    'id_promocao' => $promocaoId,
+                    'id_grupo' => (int) $grupoId,
+                ]);
+        }
+    }
+
+    /**
+     * Executa operacoes relacionadas a promocao na conexao Singleton.
+     */
+    public function executarEmTransacao(callable $callback): mixed
+    {
+        $mysqli = $this->getMysqli();
+        $mysqli->begin_transaction();
+        try {
+            $resultado = $callback();
+            $mysqli->commit();
+            return $resultado;
+        } catch (\Throwable $e) {
+            $mysqli->rollback();
+            throw $e;
         }
     }
 
@@ -328,6 +427,7 @@ class Promocao extends Model
      */
     public function codigoExiste(string $codigo, ?int $excluirId = null): bool
     {
+        $codigo = \App\Services\PromocaoAplicacaoService::normalizarCodigo($codigo);
         $query = $this->qb
             ->table('promocoes')
             ->selectRaw('COUNT(*) as total')

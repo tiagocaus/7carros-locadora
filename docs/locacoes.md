@@ -284,6 +284,15 @@ Ao substituir um veiculo, as parcelas financeiras ja criadas mantêm o `financei
 
 ## Integracao Financeira
 
+### Código promocional
+
+Locações e reservas internas validam códigos pelo canal `SIS`. Com código
+informado, `valor_desconto` é calculado no servidor sobre o `total_fatura`; sem
+código, o desconto manual permanece disponível. Em edições, o código inalterado
+preserva o snapshot histórico quando o grupo também permanece igual. Promoções
+restritas exigem que o grupo da reserva esteja entre os grupos participantes.
+Veja [promocoes.md](./promocoes.md).
+
 ### Geracao de Parcelas
 
 ```php

@@ -512,7 +512,11 @@
                     </div>
                     <div class="md:col-span-3 form-input-group">
                         <label for="promocao_codigo" class="form-label-group"><?= t('modules.locacoes.fields.promo_code') ?></label>
-                        <input type="text" id="promocao_codigo" name="promocao_codigo" class="form-input-group-field">
+                        <div class="flex gap-2">
+                            <input type="text" id="promocao_codigo" name="promocao_codigo" class="form-input-group-field uppercase" maxlength="15">
+                            <button type="button" id="btnAplicarPromocao" class="btn-secondary px-3 whitespace-nowrap"><?= t('modules.locacoes.fields.apply_promo') ?></button>
+                        </div>
+                        <div id="promocaoFeedback" class="text-xs mt-1 hidden" role="status"></div>
                     </div>
                 </div>
                 </div>
@@ -1943,6 +1947,58 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             return Math.max(0, valorTotalLocacao + totalTaxas + (qtdCondutores * valorCondutorUnit) + valorKmExcedente + valorCombustivel - desconto);
         }
 
+        async function aplicarCodigoPromocional() {
+            const codigoEl = document.getElementById('promocao_codigo');
+            const descontoEl = document.getElementById('valor_desconto');
+            const feedback = document.getElementById('promocaoFeedback');
+            const btn = document.getElementById('btnAplicarPromocao');
+            const codigo = String(codigoEl?.value || '').trim().toUpperCase();
+
+            if (!codigo) {
+                if (descontoEl) {
+                    descontoEl.readOnly = false;
+                    Currency.setValue('#valor_desconto', 0);
+                }
+                if (codigoEl) codigoEl.dataset.codigoAplicado = '';
+                feedback?.classList.add('hidden');
+                atualizarResumo();
+                return;
+            }
+
+            const filialId = parseInt(document.getElementById('id_matriz_filial_retirada')?.value || '0', 10);
+            const dias = parseInt(document.getElementById('dias')?.value || '0', 10);
+            const descontoAtual = parseCurrency(descontoEl?.value);
+            const totalOriginal = calcularTotalPagarFormulario() + descontoAtual;
+
+            btn.disabled = true;
+            try {
+                const result = await API.post('/api/promocoes/validar', {
+                    codigo,
+                    filial_id: filialId,
+                    grupo_id: parseInt(document.getElementById('id_grupo')?.value || '0', 10),
+                    dias,
+                    total_original: totalOriginal
+                });
+                if (!result.success) throw new Error(result.message || 'Codigo promocional invalido.');
+
+                codigoEl.value = result.data.codigo;
+                codigoEl.dataset.codigoAplicado = result.data.codigo;
+                Currency.setValue('#valor_desconto', result.data.valor_desconto);
+                descontoEl.readOnly = true;
+                feedback.textContent = `${result.data.nome}: -${fmtCurrency(result.data.valor_desconto)}`;
+                feedback.className = 'text-xs mt-1 text-green-600';
+                atualizarResumo();
+                carregarResumoFinanceiro();
+            } catch (error) {
+                codigoEl.dataset.codigoAplicado = '';
+                descontoEl.readOnly = false;
+                feedback.textContent = error.message || 'Codigo promocional invalido.';
+                feedback.className = 'text-xs mt-1 text-red-600';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
         // Calcula valor total de uma taxa conforme base_calculo e tipo_valor
         function calcularValorTotalTaxa(taxa, dias, valorTotalLocacao) {
             const valor = parseCurrency(taxa.valor_unitario);
@@ -2740,7 +2796,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 carregarCartoesCliente(locacaoData.id_cliente);
             }
 
-            if (locacaoData.promocao_codigo) document.getElementById('promocao_codigo').value = locacaoData.promocao_codigo;
+            if (locacaoData.promocao_codigo) {
+                const codigoPromoEl = document.getElementById('promocao_codigo');
+                codigoPromoEl.value = locacaoData.promocao_codigo;
+                codigoPromoEl.dataset.codigoOriginal = String(locacaoData.promocao_codigo).trim().toUpperCase();
+                codigoPromoEl.dataset.codigoAplicado = codigoPromoEl.dataset.codigoOriginal;
+                document.getElementById('valor_desconto').readOnly = true;
+            }
 
             // Dados de devolucao (quando status = F)
             if (locacaoData.status === 'F') {
@@ -2820,6 +2882,16 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             document.getElementById(id)?.addEventListener('change', atualizarResumoETaxas);
         });
         document.getElementById('valor_km_retorno')?.addEventListener('change', verificarKmRetorno);
+        document.getElementById('btnAplicarPromocao')?.addEventListener('click', aplicarCodigoPromocional);
+        document.getElementById('promocao_codigo')?.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+            const atual = this.value.trim();
+            if (atual !== (this.dataset.codigoAplicado || '')) {
+                document.getElementById('valor_desconto').readOnly = false;
+                document.getElementById('promocaoFeedback')?.classList.add('hidden');
+            }
+            if (atual === '') aplicarCodigoPromocional();
+        });
         document.getElementById('seguro_carro')?.addEventListener('change', atualizarResumoETaxas);
         document.getElementById('seguro_terceiros')?.addEventListener('change', atualizarResumoETaxas);
         document.getElementById('dias')?.addEventListener('change', () => {

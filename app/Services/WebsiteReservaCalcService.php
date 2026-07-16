@@ -92,10 +92,26 @@ class WebsiteReservaCalcService
             }
         }
 
-        $total = $subtotalPlano + $subtotalSeguros + $subtotalServicos;
+        $totalOriginal = round($subtotalPlano + $subtotalSeguros + $subtotalServicos, 2);
+        $promocao = null;
+        $codigoPromocional = PromocaoAplicacaoService::normalizarCodigo($input['promocao_codigo'] ?? '');
+        if ($codigoPromocional !== '') {
+            $promocao = (new PromocaoAplicacaoService())->validarECalcular(
+                $codigoPromocional,
+                $filialId,
+                $dias,
+                $totalOriginal,
+                'SITE',
+                $grupoId
+            );
+        }
+        $desconto = (float) ($promocao['valor_desconto'] ?? 0);
+        $total = round(max(0, $totalOriginal - $desconto), 2);
 
         return [
-            'total' => round($total, 2),
+            'total' => $total,
+            'total_original' => $totalOriginal,
+            'promocao' => $promocao,
             'breakdown' => [
                 'plano' => [
                     'valor_dia' => $valorPlanoDia,
@@ -106,6 +122,7 @@ class WebsiteReservaCalcService
                 'seguros' => round($subtotalSeguros, 2),
                 'servicos' => $servicosDetalhe,
                 'subtotal_servicos' => round($subtotalServicos, 2),
+                'desconto' => round($desconto, 2),
             ],
         ];
     }

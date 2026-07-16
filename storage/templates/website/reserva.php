@@ -38,6 +38,7 @@ $preHoraSai  = preg_match('/^\d{2}:\d{2}$/', $_GET['horaSaida'] ?? '') ? $_GET['
 $preLocDev   = (int) ($_GET['localDevolucao'] ?? 0);
 $preDataPrev = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['dataPrevista'] ?? '') ? $_GET['dataPrevista'] : '';
 $preHoraDev  = preg_match('/^\d{2}:\d{2}$/', $_GET['horaDevolucao'] ?? '') ? $_GET['horaDevolucao'] : '';
+$prePromo    = strtoupper(substr(trim((string) ($_GET['promo'] ?? '')), 0, 15));
 $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDataPrev && $preHoraDev;
 ?>
 <!DOCTYPE html>
@@ -282,6 +283,10 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
                                 <div class="col-sm-12 titulo">Adicionais</div>
                                 <div class="col-sm-12 resumo-adicionais"></div>
                             </div>
+                            <div class="row pb-4 promo-resumo-linha" style="display:none;">
+                                <div class="col-sm-8 label">Código promocional</div>
+                                <div class="col-sm-4 text-right label text-success">-<span class="promo-desconto-valor">0,00</span></div>
+                            </div>
                         </div>
                         <div class="resumo-totais">
                             <div>Valor previsto</div>
@@ -405,6 +410,19 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
                         <?php endif; ?>
                         </div><!-- /#formPrecadastro -->
 
+                        <div class="card p-3 mb-4" id="promocaoSiteBox">
+                            <div class="form-group mb-0">
+                                <label for="promocao_codigo">Código promocional</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control text-uppercase" id="promocao_codigo" maxlength="15" value="<?= e($prePromo) ?>">
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-outline-secondary" id="btnAplicarPromocao">Aplicar</button>
+                                    </div>
+                                </div>
+                                <div id="promocaoFeedback" class="small mt-2" style="display:none;" role="status"></div>
+                            </div>
+                        </div>
+
                         <input type="hidden" id="reserva_requer_confirmacao" value="<?= $requerConfirmacao ? '1' : '0' ?>">
                         <input type="hidden" id="cliente_logado_flag" value="<?= $clienteLogado ? '1' : '0' ?>">
                         <input type="hidden" id="id_forma_pagamento_site" value="">
@@ -456,6 +474,10 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
                             <div class="row pb-4">
                                 <div class="col-sm-12 titulo">Adicionais</div>
                                 <div class="col-sm-12 resumo-adicionais"></div>
+                            </div>
+                            <div class="row pb-4 promo-resumo-linha" style="display:none;">
+                                <div class="col-sm-8 label">Código promocional</div>
+                                <div class="col-sm-4 text-right label text-success">-<span class="promo-desconto-valor">0,00</span></div>
                             </div>
                         </div>
                         <div class="resumo-totais">
@@ -582,6 +604,8 @@ window.RESERVA_PREFILL = {
 };
 </script>
 <?php endif; ?>
+
+<script>window.PROMO_PREFILL = <?= json_encode($prePromo) ?>;</script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
 <?php if ($whatsappFlutuante) include __DIR__ . '/includes/whatsapp-float.php'; ?>

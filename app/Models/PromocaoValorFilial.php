@@ -84,7 +84,6 @@ class PromocaoValorFilial extends Model
     {
         return $this->qb
             ->table('promocoes_valores_filiais')
-            ->withoutChave()
             ->where('id_promocao', '=', $promocaoId)
             ->delete();
     }
@@ -99,7 +98,6 @@ class PromocaoValorFilial extends Model
         }
         return $this->qb
             ->table('promocoes_valores_filiais')
-            ->withoutChave()
             ->where('id_promocao', '=', $promocaoId)
             ->whereNotIn('id_matriz_filial', array_map('intval', $filiaisParticipantes))
             ->delete();

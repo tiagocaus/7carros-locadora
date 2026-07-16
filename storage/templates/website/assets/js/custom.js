@@ -942,6 +942,109 @@ $(function () {
         return parseInt(window.__grupoSelecionadoId) || null;
     }
 
+    window.__promocaoAplicada = null;
+    window.__promocaoAssinaturaTestada = '';
+    var __promoTimer = null;
+    var __validandoPromo = false;
+
+    function contextoPromocao() {
+        var servicos = [];
+        $('#itens-adicionais input[type="checkbox"]:checked').each(function () {
+            var id = parseInt(String($(this).attr('name') || '').replace('servico_', ''));
+            if (id) servicos.push(id);
+        });
+        servicos.sort(function (a, b) { return a - b; });
+        return {
+            filial_id: window.__locValFilialId ? window.__locValFilialId($('#localRetirada')) : 0,
+            grupo_id: grupoSelecionadoId(),
+            plano: String(window.__planoSelecionado || ''),
+            dias: parseInt($('#dias').val()) || 1,
+            servicos: servicos,
+            seguro_carro: $('.seguroCarro input[type="checkbox"]:checked').length > 0,
+            seguro_terceiros: $('.seguroTerceiro input[type="checkbox"]:checked').length > 0
+        };
+    }
+
+    function assinaturaContextoPromocao(ctx, codigo) {
+        return [codigo, ctx.filial_id, ctx.grupo_id, ctx.plano, ctx.dias, ctx.servicos.join(','), ctx.seguro_carro ? 1 : 0, ctx.seguro_terceiros ? 1 : 0].join('|');
+    }
+
+    async function validarPromocaoSite() {
+        var codigo = String($('#promocao_codigo').val() || '').trim().toUpperCase();
+        var $feedback = $('#promocaoFeedback');
+        if (!codigo) {
+            window.__promocaoAplicada = null;
+            window.__promocaoAssinaturaTestada = '';
+            $('.promo-resumo-linha').hide();
+            $feedback.hide();
+            calcTotal();
+            return false;
+        }
+
+        var ctx = contextoPromocao();
+        if (!ctx.filial_id || !ctx.grupo_id || !ctx.plano) {
+            $feedback.removeClass('text-success').addClass('text-danger').text('Selecione filial, período e veículo antes de aplicar o código.').show();
+            return false;
+        }
+
+        __validandoPromo = true;
+        var assinaturaTentativa = assinaturaContextoPromocao(ctx, codigo);
+        $('#btnAplicarPromocao').prop('disabled', true);
+        try {
+            ctx.promocao_codigo = codigo;
+            var resp = await $.ajax({
+                url: 'ajax-promocao.php',
+                method: 'POST',
+                contentType: 'application/json; charset=utf-8',
+                data: JSON.stringify(ctx),
+                dataType: 'json'
+            });
+            if (!resp || !resp.success) throw new Error(resp && resp.message ? resp.message : 'Código promocional inválido.');
+
+            var aplicacao = resp.data.promocao;
+            aplicacao.assinatura = assinaturaContextoPromocao(ctx, aplicacao.codigo);
+            window.__promocaoAplicada = aplicacao;
+            window.__promocaoAssinaturaTestada = aplicacao.assinatura;
+            $('#promocao_codigo').val(aplicacao.codigo);
+            $('.promo-desconto-valor').text(formatarMoeda(aplicacao.valor_desconto));
+            $('.promo-resumo-linha').show();
+            $feedback.removeClass('text-danger').addClass('text-success').text(aplicacao.nome + ': -' + formatarMoeda(aplicacao.valor_desconto)).show();
+            calcTotal();
+            return true;
+        } catch (error) {
+            window.__promocaoAplicada = null;
+            window.__promocaoAssinaturaTestada = assinaturaTentativa;
+            $('.promo-resumo-linha').hide();
+            $feedback.removeClass('text-success').addClass('text-danger').text(error.message || 'Código promocional inválido.').show();
+            calcTotal();
+            return false;
+        } finally {
+            __validandoPromo = false;
+            $('#btnAplicarPromocao').prop('disabled', false);
+        }
+    }
+
+    function agendarRevalidacaoPromocao() {
+        var codigo = String($('#promocao_codigo').val() || '').trim().toUpperCase();
+        if (!codigo || __validandoPromo) return;
+        var assinatura = assinaturaContextoPromocao(contextoPromocao(), codigo);
+        if (window.__promocaoAplicada && window.__promocaoAplicada.assinatura === assinatura) return;
+        if (window.__promocaoAssinaturaTestada === assinatura) return;
+        clearTimeout(__promoTimer);
+        __promoTimer = setTimeout(validarPromocaoSite, 250);
+    }
+    window.__agendarRevalidacaoPromocao = agendarRevalidacaoPromocao;
+
+    $(document).on('click', '#btnAplicarPromocao', validarPromocaoSite);
+    $(document).on('input', '#promocao_codigo', function () {
+        this.value = this.value.toUpperCase();
+        window.__promocaoAplicada = null;
+        window.__promocaoAssinaturaTestada = '';
+        $('.promo-resumo-linha').hide();
+        $('#promocaoFeedback').hide();
+        calcTotal();
+    });
+
     // Seguro veiculo — usa valor_seguro_carro da filial/grupo
     $(document).on('change', '.seguroCarro input[type="checkbox"]', function () {
         if ($(this).is(':checked')) {
@@ -1258,6 +1361,9 @@ $(function () {
                 grupo_id: grupoId,
                 plano: plano,
                 servicos: servicos,
+                seguro_carro: $('.seguroCarro input[type="checkbox"]:checked').length > 0,
+                seguro_terceiros: $('.seguroTerceiro input[type="checkbox"]:checked').length > 0,
+                promocao_codigo: String($('#promocao_codigo').val() || '').trim().toUpperCase(),
                 cliente: cliente,
                 documentos: documentos,
             };
@@ -1388,10 +1494,17 @@ function calcTotal() {
         if (!isNaN(val)) total += val;
     });
 
+    var descontoPromo = parseFloat((window.__promocaoAplicada || {}).valor_desconto || 0);
+    total = Math.max(0, total - descontoPromo);
+
     // Formata o total na moeda da filial
     var sym = f ? (f.simbolo_moeda || 'R$') : 'R$';
     var parts = total.toFixed(2).split('.');
     parts[0] = parts[0].replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1' + mil);
     // Prefixa o simbolo da moeda direto no span (HTML nao tem .currency-symbol separado)
     $('.total-geral span').text(sym + ' ' + parts.join(dec));
+
+    if (typeof window.__agendarRevalidacaoPromocao === 'function') {
+        window.__agendarRevalidacaoPromocao();
+    }
 }

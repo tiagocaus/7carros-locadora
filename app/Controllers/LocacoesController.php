@@ -34,6 +34,7 @@ use App\I18n\TemplateRenderer;
 use App\Core\Database;
 use App\Services\AuditLogService;
 use App\Services\GrupoPrecoPeriodoService;
+use App\Services\PromocaoAplicacaoService;
 use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
 
 /**
@@ -45,6 +46,63 @@ use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
 class LocacoesController
 {
     private array $tmpFiles = [];
+
+    private function resolverGrupoPromocao(array $dados): int
+    {
+        $veiculoId = (int) ($dados['id_veiculo'] ?? 0);
+        if ($veiculoId > 0) {
+            $veiculo = (new Veiculo())->buscarPorId($veiculoId);
+            if (!$veiculo) {
+                throw new \InvalidArgumentException('Veiculo invalido para aplicar a promocao.');
+            }
+            return (int) ($veiculo['id_grupo'] ?? 0);
+        }
+
+        return (int) ($dados['id_grupo'] ?? 0);
+    }
+
+    private function aplicarPromocaoNova(array &$dados, float $totalOriginal): void
+    {
+        $codigo = PromocaoAplicacaoService::normalizarCodigo($dados['promocao_codigo'] ?? '');
+        if ($codigo === '') {
+            $dados['promocao_codigo'] = null;
+            return;
+        }
+
+        $aplicacao = (new PromocaoAplicacaoService())->validarECalcular(
+            $codigo,
+            (int) ($dados['id_matriz_filial_retirada'] ?? 0),
+            (int) ($dados['dias'] ?? 0),
+            $totalOriginal,
+            'SIS',
+            $this->resolverGrupoPromocao($dados)
+        );
+        $dados['promocao_codigo'] = $aplicacao['codigo'];
+        $dados['valor_desconto'] = $aplicacao['valor_desconto'];
+    }
+
+    private function aplicarPromocaoEdicao(array &$dados, array $locacao): bool
+    {
+        $codigoNovo = PromocaoAplicacaoService::normalizarCodigo($dados['promocao_codigo'] ?? '');
+        $codigoAtual = PromocaoAplicacaoService::normalizarCodigo($locacao['promocao_codigo'] ?? '');
+        $grupoNovo = $codigoNovo !== '' ? $this->resolverGrupoPromocao($dados) : 0;
+        $grupoAtual = (int) ($locacao['id_grupo'] ?? 0);
+
+        if ($codigoNovo === $codigoAtual && $codigoAtual !== '' && $grupoNovo === $grupoAtual) {
+            $dados['promocao_codigo'] = $locacao['promocao_codigo'];
+            $dados['valor_desconto'] = $locacao['valor_desconto'] ?? 0;
+            return false;
+        }
+
+        if ($codigoNovo === '') {
+            $dados['promocao_codigo'] = null;
+            return false;
+        }
+
+        $this->aplicarPromocaoNova($dados, 0.01);
+        $dados['valor_desconto'] = 0;
+        return true;
+    }
 
     private function apiMessage(string $key, array $replace = []): string
     {
@@ -579,6 +637,15 @@ class LocacoesController
 
             $this->aplicarDiasComTolerancia($dados);
 
+            if (PromocaoAplicacaoService::normalizarCodigo($dados['promocao_codigo'] ?? '') !== '') {
+                // Primeira validacao autoritativa de elegibilidade. O valor definitivo
+                // sera recalculado sobre o total produzido pelo Model apos os vinculos.
+                $dadosValidacao = $dados;
+                $this->aplicarPromocaoNova($dadosValidacao, 0.01);
+                $dados['promocao_codigo'] = $dadosValidacao['promocao_codigo'];
+                $dados['valor_desconto'] = 0;
+            }
+
             $erroCaucao = $this->validarCaucaoLocacao($dados);
             if ($erroCaucao !== null) {
                 Response::json(['success' => false, 'message' => $erroCaucao], 400);
@@ -683,7 +750,15 @@ class LocacoesController
             if (is_array($taxas)) {
                 $dadosTotais['taxas'] = $taxas;
             }
-            $locacaoModel->sincronizarTotaisResumo($id, $dadosTotais, is_array($taxas));
+            $totais = $locacaoModel->sincronizarTotaisResumo($id, $dadosTotais, is_array($taxas));
+            if (PromocaoAplicacaoService::normalizarCodigo($dados['promocao_codigo'] ?? '') !== '') {
+                $this->aplicarPromocaoNova($dadosTotais, (float) $totais['total_fatura']);
+                $locacaoModel->atualizar($id, [
+                    'promocao_codigo' => $dadosTotais['promocao_codigo'],
+                    'valor_desconto' => $dadosTotais['valor_desconto'],
+                ]);
+                $locacaoModel->sincronizarTotaisResumo($id, $dadosTotais, is_array($taxas));
+            }
 
             $locacaoCriada = $locacaoModel->buscarPorId($id);
             if ($locacaoCriada) {
@@ -699,6 +774,8 @@ class LocacoesController
                 'message' => $this->apiMessage('created'),
                 'data' => ['id' => $id]
             ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,
@@ -769,6 +846,7 @@ class LocacoesController
             }
 
             $this->aplicarDiasComTolerancia($dados, $locacao);
+            $promocaoRecalcular = $this->aplicarPromocaoEdicao($dados, $locacao);
 
             if (empty($dados['id_matriz_filial_retirada'])) {
                 Response::json(['success' => false, 'message' => $this->apiMessage('pickup_location_required')], 400);
@@ -993,6 +1071,17 @@ class LocacoesController
             $totaisUpdate = $this->calcularTotaisLocacao($id, $locacao, $dados, false);
             $totalFaturaUpdate = $totaisUpdate['total_fatura'];
             $totalPagarUpdate = $totaisUpdate['total_pagar'];
+
+            if ($promocaoRecalcular) {
+                $this->aplicarPromocaoNova($dados, (float) $totalFaturaUpdate);
+                $locacaoModel->atualizar($id, [
+                    'promocao_codigo' => $dados['promocao_codigo'],
+                    'valor_desconto' => $dados['valor_desconto'],
+                ]);
+                $totaisUpdate = $this->calcularTotaisLocacao($id, $locacao, $dados, false);
+                $totalFaturaUpdate = $totaisUpdate['total_fatura'];
+                $totalPagarUpdate = $totaisUpdate['total_pagar'];
+            }
 
             if (!($statusAnterior === 'A' && $statusNovo === 'F')) {
                 $locacaoModel->atualizar($id, [

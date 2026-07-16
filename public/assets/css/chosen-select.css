@@ -33,7 +33,6 @@
 }
 
 .chosen-select-multiple {
-    min-height: 2.375rem;
     display: flex;
     flex-wrap: wrap;
     align-items: center;

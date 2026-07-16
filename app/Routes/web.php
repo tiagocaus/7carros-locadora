@@ -173,6 +173,7 @@ $router->get('/public/redefinir-senha', [PublicWebsiteController::class, 'exibir
 $router->post('/api/public/cliente-senha-definir', [PublicWebsiteController::class, 'clienteSenhaDefinir'], ['rate_limit']);
 $router->get('/api/public/conteudos', [PublicWebsiteController::class, 'conteudos'], ['rate_limit']);
 $router->get('/api/public/status', [PublicWebsiteController::class, 'status'], ['rate_limit']);
+$router->post('/api/public/promocao-validar', [PublicWebsiteController::class, 'validarPromocao'], ['rate_limit']);
 $router->post('/api/public/reserva', [PublicWebsiteController::class, 'criarReserva'], ['rate_limit']);
 $router->post('/api/public/contato', [PublicWebsiteController::class, 'contato'], ['rate_limit']);
 $router->post('/api/public/limpar-cache', [PublicWebsiteController::class, 'limparCache'], ['rate_limit']);
@@ -586,6 +587,7 @@ $router->group(['middleware' => 'auth'], function ($router) {
     // API Promocoes (com protecao anti-scraping e CSRF)
     $router->get('/api/promocoes', [PromocoesController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/promocoes/buscar', [PromocoesController::class, 'buscar'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/promocoes/validar', [PromocoesController::class, 'validar'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/promocoes/{id}', [PromocoesController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Promocoes

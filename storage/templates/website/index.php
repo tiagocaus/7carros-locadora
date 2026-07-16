@@ -10,6 +10,7 @@ $pagina = 'inicio';
 $seo = $seoAll[$pagina] ?? [];
 $filiais = $dados['filiais'] ?? [];
 $grupos = $dados['grupos'] ?? [];
+$prePromo = strtoupper(substr(trim((string) ($_GET['promo'] ?? '')), 0, 15));
 ?>
 <!DOCTYPE html>
 <html lang="<?= substr($idioma, 0, 2) ?>">
@@ -94,6 +95,9 @@ $grupos = $dados['grupos'] ?? [];
                     <div class="col-12 text-center">
                         <button type="submit" class="btn btn-warning px-5" data-track="home_buscar_reserva">Continuar</button>
                         <input type="hidden" name="form-topo" value="1">
+                        <?php if ($prePromo !== ''): ?>
+                        <input type="hidden" name="promo" value="<?= e($prePromo) ?>">
+                        <?php endif; ?>
                     </div>
                 </div>
             </form>

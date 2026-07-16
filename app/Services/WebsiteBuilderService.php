@@ -335,6 +335,7 @@ class WebsiteBuilderService
             // Proxies AJAX usados pelo JS do site para chamar /api/public/...
             'ajax-disponibilidade.php',
             'ajax-reserva.php',
+            'ajax-promocao.php',
             'ajax-cliente-por-documento.php',
             'ajax-cliente-existe.php',
             'ajax-cliente-login.php',

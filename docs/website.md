@@ -979,8 +979,18 @@ Endpoints que o site PHP do cliente chama:
 | `/public/redefinir-senha?token=XXX` | GET | Não | Form HTML standalone (sem depender do site) pra cliente definir nova senha. Valida token; se inválido/expirado, mostra aviso |
 | `/api/public/cliente-senha-definir` | POST | Não | Recebe `token` + `senha` (+ `_csrf` da sessão criada no GET). Valida token, aplica `password_hash` Argon2id, marca token `used_at` |
 | `/api/public/reserva` | POST | Não | Cria reserva, calcula total **server-side**, retorna `{codigo, total, pagamento_url?}` |
+| `/api/public/promocao-validar` | POST | Não | Valida código no canal `SITE` e devolve total original, desconto e total final calculados no servidor |
 | `/api/public/contato` | POST | Não | Envia mensagem de contato |
 | `/api/public/limpar-cache` | POST | Não | Invalida cache do site (chamado ao publicar) |
+
+O passo Pré-cadastro aceita código digitado ou carregado por `?promo=XXXXX`.
+Quando o parâmetro chega pela página inicial, o formulário o preserva até
+`reserva.php`.
+A validação usa o grupo selecionado na reserva e rejeita promoções restritas a
+outras categorias.
+A prévia usa `ajax-promocao.php`, mas `/api/public/reserva` sempre repete a
+validação antes de criar cliente, locação, financeiro ou cobrança. Consulte
+[promocoes.md](./promocoes.md) para as regras de canal, filial, validade e dias.
 
 **Autenticação da API:**
 - Header `X-Site-Token` com token único por tenant

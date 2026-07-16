@@ -9,7 +9,11 @@ use App\Views\Template;
 use App\Models\Promocao;
 use App\Models\PromocaoValorFilial;
 use App\Helpers\FilialHelper;
+use App\Helpers\DateHelper;
 use App\Services\AuditLogService;
+use App\Services\PromocaoAplicacaoService;
+use App\Models\MatrizFilial;
+use App\Models\Grupo;
 
 /**
  * Controller de Promocoes
@@ -120,6 +124,29 @@ class PromocoesController
     }
 
     /**
+     * Valida e calcula uma promocao no contexto do sistema interno.
+     */
+    public function validar(Request $request): void
+    {
+        try {
+            $dados = $request->all();
+            $resultado = (new PromocaoAplicacaoService())->validarECalcular(
+                (string) ($dados['codigo'] ?? ''),
+                (int) ($dados['filial_id'] ?? 0),
+                (int) ($dados['dias'] ?? 0),
+                (float) ($dados['total_original'] ?? 0),
+                'SIS',
+                (int) ($dados['grupo_id'] ?? 0)
+            );
+            Response::json(['success' => true, 'data' => $resultado]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao validar promocao.'], 500);
+        }
+    }
+
+    /**
      * Exibe uma promocao especifica
      *
      * GET /api/promocoes/{id}
@@ -175,35 +202,8 @@ class PromocoesController
     public function store(Request $request): void
     {
         try {
-            $dados = $request->all();
+            [$dados, $filiaisIds, $gruposIds] = $this->validarDadosCadastro($request->all());
             $dados['chave'] = Auth::chave();
-
-            // Validar campos obrigatorios
-            if (empty($dados['codigo'])) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Codigo e obrigatorio'
-                ], 400);
-                return;
-            }
-
-            if (empty($dados['nome'])) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Nome e obrigatorio'
-                ], 400);
-                return;
-            }
-
-            // Validar filiais
-            $filiaisIds = $this->parseFiliaisIds($dados['filiais_ids'] ?? '');
-            if (empty($filiaisIds)) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Selecione pelo menos uma filial'
-                ], 400);
-                return;
-            }
 
             // Validar codigo unico
             $model = new Promocao();
@@ -215,15 +215,13 @@ class PromocoesController
                 return;
             }
 
-            $id = $model->criar($dados);
-
-            // Sincronizar filiais
-            if (!empty($filiaisIds)) {
+            $id = $model->executarEmTransacao(function () use ($model, $dados, $filiaisIds, $gruposIds): int {
+                $id = $model->criar($dados);
                 $model->sincronizarFiliais($id, $filiaisIds, $dados['chave']);
-            }
-
-            // Valores por filial (so DFIX). Filtra filiais participantes.
-            $this->salvarValoresFiliais($id, $dados, $filiaisIds);
+                $model->sincronizarGrupos($id, $gruposIds, $dados['chave']);
+                $this->salvarValoresFiliais($id, $dados, $filiaisIds);
+                return $id;
+            });
 
             AuditLogService::registrar(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", adicionou promocao [{$dados['nome']}]"
@@ -234,6 +232,8 @@ class PromocoesController
                 'message' => 'Promocao criada com sucesso',
                 'data' => ['id' => $id]
             ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Response::json([
                 'success' => false,
@@ -269,18 +269,8 @@ class PromocoesController
                 ], 403);
                 return;
             }
-
-            $dados = $request->all();
-
-            // Validar filiais
-            $filiaisIds = $this->parseFiliaisIds($dados['filiais_ids'] ?? '');
-            if (empty($filiaisIds)) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Selecione pelo menos uma filial'
-                ], 400);
-                return;
-            }
+            $this->validarAcessoTodasFiliais($promocao['filiais'] ?? []);
+            [$dados, $filiaisIds, $gruposIds] = $this->validarDadosCadastro($request->all());
 
             // Validar codigo unico (se mudou)
             if (!empty($dados['codigo']) && $dados['codigo'] !== $promocao['codigo']) {
@@ -293,14 +283,13 @@ class PromocoesController
                 }
             }
 
-            $model->atualizar($id, $dados);
-
-            // Sincronizar filiais
-            $model->sincronizarFiliais($id, $filiaisIds, $chave);
-
-            // Valores por filial. Se tipo mudou pra DPOR, limpa entries antigas.
             $dados['chave'] = $chave;
-            $this->salvarValoresFiliais($id, $dados, $filiaisIds);
+            $model->executarEmTransacao(function () use ($model, $id, $dados, $filiaisIds, $gruposIds, $chave): void {
+                $model->atualizar($id, $dados);
+                $model->sincronizarFiliais($id, $filiaisIds, $chave);
+                $model->sincronizarGrupos($id, $gruposIds, $chave);
+                $this->salvarValoresFiliais($id, $dados, $filiaisIds);
+            });
 
             AuditLogService::registrar(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", atualizou promocao [{$promocao['nome']}]"
@@ -394,6 +383,8 @@ class PromocoesController
                 return;
             }
 
+            $this->validarAcessoTodasFiliais($promocao['filiais'] ?? []);
+
             $model->excluir($id);
 
             AuditLogService::registrar(
@@ -423,7 +414,7 @@ class PromocoesController
      * @param string $json String JSON com array de IDs
      * @return array Lista de IDs
      */
-    private function parseFiliaisIds(string $json): array
+    private function parseIds(string $json): array
     {
         if (empty($json)) {
             return [];
@@ -434,6 +425,114 @@ class PromocoesController
             return [];
         }
 
-        return array_filter(array_map('intval', $ids));
+        return array_values(array_unique(array_filter(array_map('intval', $ids))));
+    }
+
+    /**
+     * @return array{0:array,1:array<int>,2:array<int>}
+     */
+    private function validarDadosCadastro(array $dados): array
+    {
+        $dados['codigo'] = PromocaoAplicacaoService::normalizarCodigo($dados['codigo'] ?? '');
+        $dados['nome'] = trim((string) ($dados['nome'] ?? ''));
+        if ($dados['codigo'] === '' || mb_strlen($dados['codigo']) > 15) {
+            throw new \InvalidArgumentException('Informe um codigo com ate 15 caracteres.');
+        }
+        if ($dados['nome'] === '' || mb_strlen($dados['nome']) > 100) {
+            throw new \InvalidArgumentException('Informe o nome da promocao com ate 100 caracteres.');
+        }
+
+        $tipo = strtoupper((string) ($dados['tipo'] ?? ''));
+        if (!in_array($tipo, ['DFIX', 'DPOR'], true)) {
+            throw new \InvalidArgumentException('Tipo de desconto invalido.');
+        }
+        $dados['tipo'] = $tipo;
+
+        $status = strtoupper((string) ($dados['status'] ?? ''));
+        if (!in_array($status, ['A', 'D'], true)) {
+            throw new \InvalidArgumentException('Status da promocao invalido.');
+        }
+        $dados['status'] = $status;
+
+        $dias = filter_var($dados['dias'] ?? 0, FILTER_VALIDATE_INT);
+        if ($dias === false || $dias < 0 || $dias > 999) {
+            throw new \InvalidArgumentException('A diaria minima deve estar entre 0 e 999.');
+        }
+        $dados['dias'] = $dias;
+
+        $validade = trim((string) ($dados['validade'] ?? ''));
+        if ($validade !== '') {
+            $partesData = array_map('intval', explode('-', $validade));
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $validade)
+                || count($partesData) !== 3
+                || !checkdate($partesData[1], $partesData[2], $partesData[0])) {
+                throw new \InvalidArgumentException('Data de validade invalida.');
+            }
+        }
+        if ($status === 'A' && $validade !== '' && $validade < DateHelper::todayForDatabase()) {
+            throw new \InvalidArgumentException('Uma promocao ativa nao pode ter validade vencida.');
+        }
+        $dados['validade'] = $validade !== '' ? $validade : null;
+
+        $canais = array_values(array_unique(array_filter(array_map(
+            static fn(string $canal): string => strtoupper(trim($canal)),
+            explode(',', (string) ($dados['onde_exibir'] ?? ''))
+        ))));
+        $canais = array_values(array_filter(['SIS', 'SITE', 'APP'], static fn(string $canal): bool => in_array($canal, $canais, true)));
+        if (!$canais) {
+            throw new \InvalidArgumentException('Selecione pelo menos um canal de uso.');
+        }
+        $dados['onde_exibir'] = implode(',', $canais);
+
+        $filiaisIds = $this->parseIds((string) ($dados['filiais_ids'] ?? ''));
+        if (!$filiaisIds) {
+            throw new \InvalidArgumentException('Selecione pelo menos uma filial.');
+        }
+        foreach ($filiaisIds as $filialId) {
+            $filial = (new MatrizFilial())->buscarPorId($filialId);
+            if (!$filial || !FilialHelper::temAcessoFilial($filialId)) {
+                throw new \InvalidArgumentException('Uma das filiais selecionadas e invalida ou nao esta acessivel.');
+            }
+        }
+
+        $gruposIds = $this->parseIds((string) ($dados['grupos_ids'] ?? '[]'));
+        foreach ($gruposIds as $grupoId) {
+            if (!(new Grupo())->buscarPorId($grupoId)) {
+                throw new \InvalidArgumentException('Um dos grupos selecionados e invalido ou pertence a outro tenant.');
+            }
+        }
+        $dados['todos_grupos'] = $gruposIds ? 0 : 1;
+
+        if ($tipo === 'DPOR') {
+            $valor = currency_parse($dados['valor'] ?? 0);
+            if ($valor <= 0 || $valor > 100) {
+                throw new \InvalidArgumentException('O percentual deve ser maior que 0 e menor ou igual a 100.');
+            }
+            $dados['valor'] = $valor;
+            $dados['valores_filiais'] = [];
+        } else {
+            $valores = is_array($dados['valores_filiais'] ?? null) ? $dados['valores_filiais'] : [];
+            $normalizados = [];
+            foreach ($filiaisIds as $filialId) {
+                $valor = currency_parse($valores[$filialId] ?? 0);
+                if ($valor <= 0) {
+                    throw new \InvalidArgumentException('Informe um valor fixo positivo para todas as filiais selecionadas.');
+                }
+                $normalizados[$filialId] = $valor;
+            }
+            $dados['valores_filiais'] = $normalizados;
+            $dados['valor'] = reset($normalizados);
+        }
+
+        return [$dados, $filiaisIds, $gruposIds];
+    }
+
+    private function validarAcessoTodasFiliais(array $filiais): void
+    {
+        foreach ($filiais as $filial) {
+            if (!FilialHelper::temAcessoFilial((int) ($filial['id'] ?? 0))) {
+                throw new \InvalidArgumentException('A promocao esta vinculada a filial sem acesso para este usuario.');
+            }
+        }
     }
 }

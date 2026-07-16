@@ -35,6 +35,17 @@
                     <input type="hidden" id="filiaisIdsJson" name="filiais_ids">
                 </div>
 
+                <div class="form-input-group md:col-span-5">
+                    <label for="grupos" class="form-label-group">
+                        <?= t('modules.promocoes.fields.groups') ?> {!! aviso(t('modules.promocoes.tooltips.groups')) !!}
+                    </label>
+                    <select id="grupos" name="grupos[]" class="form-input-group-field chosen-select" multiple
+                            data-chosen-type="server-side"
+                            data-chosen-search-url="/api/grupos"
+                            data-chosen-placeholder="<?= t('modules.promocoes.placeholders.select_groups') ?>">
+                    </select>
+                </div>
+
                 <!-- Segunda linha: Codigo, Nome e Validade -->
                 <div class="form-input-group md:col-span-1">
                     <label for="codigo" class="form-label-group"><?= t('modules.promocoes.fields.code') ?> <span class="text-red-500">*</span></label>
@@ -69,7 +80,7 @@
                     <label for="valor" class="form-label-group"><?= t('modules.promocoes.fields.discount_value') ?> <span class="text-red-500">*</span></label>
                     <div class="relative">
                         <span id="valorPrefix" class="currency-symbol absolute top-1/2 transform -translate-y-1/2 text-slate-500">R$</span>
-                        <input type="text" id="valor" name="valor" class="form-input-group-field pl-10 input-moeda" placeholder="0,00" required>
+                        <input type="text" id="valor" name="valor" class="form-input-group-field pl-10 input-moeda" placeholder="0,00">
                     </div>
                 </div>
 
@@ -419,16 +430,21 @@
         // Alterna entre input unico (DPOR) e tabela por filial (DFIX)
         function aplicarVisibilidadeTipo(tipo) {
             const valorPrefix = document.getElementById('valorPrefix');
-            const valorInputContainer = document.getElementById('valor')?.closest('.form-input-group');
+            const valorInput = document.getElementById('valor');
+            const valorInputContainer = valorInput?.closest('.form-input-group');
             const secaoFiliais = document.getElementById('valoresFiliaisSection');
 
             if (tipo === 'DPOR') {
                 valorPrefix.textContent = '%';
+                valorInput.disabled = false;
+                valorInput.required = true;
                 if (valorInputContainer) valorInputContainer.classList.remove('hidden');
                 if (secaoFiliais) secaoFiliais.classList.add('hidden');
             } else { // DFIX
                 valorPrefix.textContent = (typeof Currency !== 'undefined' && Currency.config) ? Currency.config.symbol : 'R$';
                 // Oculta input unico — valores vao na tabela por filial
+                valorInput.required = false;
+                valorInput.disabled = true;
                 if (valorInputContainer) valorInputContainer.classList.add('hidden');
                 if (secaoFiliais) {
                     secaoFiliais.classList.remove('hidden');
@@ -555,6 +571,18 @@
                 setFiliaisSelecionadas(data.filiais);
             }
 
+            const gruposSelect = document.getElementById('grupos');
+            Array.from(gruposSelect.options).forEach(option => { option.selected = false; });
+            (data.grupos || []).forEach(grupo => {
+                let option = Array.from(gruposSelect.options).find(item => item.value === String(grupo.id));
+                if (!option) {
+                    option = new Option(grupo.nome, grupo.id);
+                    gruposSelect.add(option);
+                }
+                option.selected = true;
+            });
+            gruposSelect.chosenSelect?.refresh();
+
             // Onde Exibir
             if (data.onde_exibir) {
                 setOndeExibirSelecionados(data.onde_exibir.split(','));
@@ -593,7 +621,7 @@
                     window.addEventListener('message', handler);
                 }
             } else {
-                alert(mensagem);
+                console.error(mensagem);
                 if (callbackAction) callbackAction();
             }
         }
@@ -632,7 +660,7 @@
             } else {
                 // Fixo: exige ao menos 1 valor > 0 na tabela por filial
                 const inputsFilial = document.querySelectorAll('.valor-filial-input');
-                const temValorValido = Array.from(inputsFilial).some(inp => {
+                const temValorValido = inputsFilial.length > 0 && Array.from(inputsFilial).every(inp => {
                     const v = Currency.parse(inp.value || '0');
                     return v > 0;
                 });
@@ -653,13 +681,17 @@
             });
 
             // Converter valor para formato backend (DPOR usa)
-            dados.valor = Currency.parse(dados.valor);
+            dados.valor = tipoAtual === 'DPOR' ? Currency.parse(dados.valor) : 0;
 
             // Converter codigo para maiusculas
             dados.codigo = dados.codigo.toUpperCase();
 
             // Filiais
             dados.filiais_ids = document.getElementById('filiaisIdsJson').value || '[]';
+
+            dados.grupos_ids = JSON.stringify(Array.from(document.getElementById('grupos').selectedOptions)
+                .map(option => parseInt(option.value, 10))
+                .filter(id => id > 0));
 
             // Onde Exibir
             dados.onde_exibir = document.getElementById('ondeExibirJson').value || 'SIS';

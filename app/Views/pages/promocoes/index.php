@@ -71,6 +71,7 @@
             noName: <?= json_encode(t('modules.promocoes.messages.no_name'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             allBranches: <?= json_encode(t('modules.promocoes.messages.all_branches'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             daysSuffix: <?= json_encode(t('modules.promocoes.messages.days_suffix'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            valueByBranch: <?= json_encode(t('modules.promocoes.messages.value_by_branch'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             typePercentage: <?= json_encode(t('modules.promocoes.badges.type_percentage'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             typeFixed: <?= json_encode(t('modules.promocoes.badges.type_fixed'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             statusActive: <?= json_encode(t('modules.promocoes.badges.status_active'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
@@ -155,7 +156,7 @@
             if (tipo === 'DPOR') {
                 return parseFloat(valor || 0).toFixed(2) + '%';
             }
-            return formatarMoeda(valor);
+            return i18n.valueByBranch;
         }
 
         function getTipoBadge(tipo) {

@@ -93,6 +93,11 @@ class SiteApi
         return $this->post('/api/public/reserva', $dados);
     }
 
+    public function validarPromocao(array $dados): array
+    {
+        return $this->post('/api/public/promocao-validar', $dados);
+    }
+
     /**
      * Enviar formulario de contato — SEM cache
      */

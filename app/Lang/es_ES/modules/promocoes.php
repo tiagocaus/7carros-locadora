@@ -18,6 +18,7 @@ return [
     // Campos
     'fields' => [
         'branches' => 'Sucursales',
+        'groups' => 'Grupos',
         'code' => 'Código',
         'name' => 'Nombre de la Promoción',
         'validity' => 'Validez',
@@ -33,6 +34,7 @@ return [
         'validity' => 'Fecha límite para el uso de la promoción. Deje en blanco para no tener plazo.',
         'minimum_days' => 'Número mínimo de días de alquiler para que la promoción sea válida.',
         'where_to_show' => 'Seleccione donde estará disponible esta promoción.',
+        'groups' => 'Seleccione los grupos participantes. Sin selección, la promoción será válida para todos los grupos.',
     ],
 
     // Opciones de tipo
@@ -59,6 +61,7 @@ return [
     'placeholders' => [
         'search' => 'Buscar promoción...',
         'select_branches' => 'Seleccione las sucursales...',
+        'select_groups' => 'Todos los grupos',
         'select' => 'Seleccione...',
         'code_example' => 'Ej: PROMO2024',
         'name_example' => 'Ej: Descuento Verano',
@@ -90,6 +93,7 @@ return [
         'no_name' => 'Sin nombre',
         'all_branches' => 'Todas',
         'days_suffix' => 'días',
+        'value_by_branch' => 'Por sucursal',
         'load_error' => 'Error al cargar los datos',
         'server_error' => 'Error al conectar con el servidor',
         'delete_error' => 'Error al eliminar el registro',

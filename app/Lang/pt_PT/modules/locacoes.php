@@ -67,6 +67,7 @@ return [
         'payment_method' => 'Forma de Pagamento',
         'observation' => 'Observação',
         'promo_code' => 'Código Promocional',
+        'apply_promo' => 'Aplicar',
         'tolerance_minutes' => 'Minutos de Tolerância',
         'tolerance_value' => 'Valor de Tolerância',
         'return_km_value' => 'Valor Km Retorno',

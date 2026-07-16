@@ -370,6 +370,42 @@ class PublicWebsiteController
     }
 
     /**
+     * POST /api/public/promocao-validar
+     */
+    public function validarPromocao(Request $request): void
+    {
+        try {
+            $config = $this->autenticar($request);
+            if (!$config) return;
+
+            $dados = $request->all();
+            $this->setTenantContext($config['chave']);
+            $resultado = (new WebsiteReservaCalcService())->calcular([
+                'filial_id' => (int) ($dados['filial_id'] ?? 0),
+                'grupo_id' => (int) ($dados['grupo_id'] ?? 0),
+                'plano' => (string) ($dados['plano'] ?? ''),
+                'dias' => max(1, (int) ($dados['dias'] ?? 1)),
+                'servicos' => $dados['servicos'] ?? [],
+                'seguro_carro' => !empty($dados['seguro_carro']),
+                'seguro_terceiros' => !empty($dados['seguro_terceiros']),
+                'promocao_codigo' => (string) ($dados['promocao_codigo'] ?? ''),
+            ]);
+            if (empty($resultado['promocao'])) {
+                throw new \InvalidArgumentException('Selecione uma reserva com preco disponivel para aplicar a promocao.');
+            }
+            $this->restoreTenantContext();
+
+            Response::json(['success' => true, 'data' => $resultado]);
+        } catch (\InvalidArgumentException $e) {
+            $this->restoreTenantContext();
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            $this->restoreTenantContext();
+            Response::json(['success' => false, 'message' => 'Erro ao validar promocao.'], 500);
+        }
+    }
+
+    /**
      * POST /api/public/reserva
      */
     public function criarReserva(Request $request): void
@@ -506,8 +542,11 @@ class PublicWebsiteController
                 'servicos'  => $dados['servicos'] ?? [],
                 'seguro_carro'     => !empty($dados['seguro_carro']),
                 'seguro_terceiros' => !empty($dados['seguro_terceiros']),
+                'promocao_codigo'  => (string) ($dados['promocao_codigo'] ?? ''),
             ]);
             $totalCalculado = (float) ($calc['total'] ?? 0);
+            $totalOriginal = (float) ($calc['total_original'] ?? $totalCalculado);
+            $promocaoAplicada = $calc['promocao'] ?? null;
             $subtotalPlano = (float) ($calc['breakdown']['plano']['subtotal'] ?? 0);
             if ($subtotalPlano <= 0) {
                 $this->restoreTenantContext();
@@ -564,8 +603,10 @@ class PublicWebsiteController
                     'id_cliente'                 => $clienteIdFinal,
                     'status'                     => $statusInicial,
                     'obs'                        => json_encode($obs, JSON_UNESCAPED_UNICODE),
-                    'total_fatura'               => $totalCalculado,
+                    'total_fatura'               => $totalOriginal,
                     'total_pagar'                => $totalCalculado,
+                    'promocao_codigo'             => $promocaoAplicada['codigo'] ?? null,
+                    'valor_desconto'              => $promocaoAplicada['valor_desconto'] ?? 0,
                     'created_at'                 => DateHelper::nowForDatabase(),
                 ]);
 
