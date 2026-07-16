@@ -389,6 +389,15 @@ await Api.post(`/contratos/${contratoId}/devolver`, {
 });
 ```
 
+Quando `acao_veiculo = criar_os`, `observacao` e obrigatoria (maximo de 255
+caracteres). A devolucao cria uma OS em `manutencoes` com status `C` (Criada),
+vinculada ao veiculo e a sua filial. Os dados de devolucao preenchem
+`data_enviado`, `odo_enviado`, `tanque_enviado` e `motivo`; o veiculo fica com
+disponibilidade `O` (Oficina). O item correspondente em `data.devolvidos`
+retorna tambem `id_manutencao` e `os`. A permissao para essa acao e a mesma da
+devolucao (`contratos.devolver`) e, apos o sucesso, a interface retorna para a
+listagem de contratos.
+
 Quando a devolucao gera valores a cobrar do cliente (km, combustivel/carga ou
 taxas extras), o backend cria automaticamente uma receita em `financeiro`
 vinculada ao contrato (`tipo = R`). O total e recalculado a partir das regras

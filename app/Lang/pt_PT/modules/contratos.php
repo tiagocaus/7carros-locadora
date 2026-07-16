@@ -346,6 +346,8 @@ return [
         'action_create_os' => 'Criar OS de manutenção',
         'observation' => 'Observação',
         'obs_placeholder' => 'Observações sobre a devolução...',
+        'inform_os_reason' => 'Indique na observação o motivo do envio à oficina.',
+        'observation_too_long' => 'A observação deve ter no máximo 255 caracteres.',
         'calc_km_title' => 'Quilometragem',
         'calc_fuel_title' => 'Combustivel',
         'calc_charge_title' => 'Recarga',

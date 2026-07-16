@@ -345,6 +345,8 @@ return [
         'action_create_os' => 'Crea ordine di manutenzione',
         'observation' => 'Osservazione',
         'obs_placeholder' => 'Osservazioni sulla restituzione...',
+        'inform_os_reason' => 'Indicare nell\'osservazione il motivo dell\'invio in officina.',
+        'observation_too_long' => 'L\'osservazione non deve superare i 255 caratteri.',
         'calc_km_title' => 'Chilometraggio',
         'calc_fuel_title' => 'Carburante',
         'calc_charge_title' => 'Ricarica',

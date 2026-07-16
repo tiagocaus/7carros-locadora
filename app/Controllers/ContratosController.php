@@ -15,6 +15,7 @@ use App\Models\Grupo;
 use App\Models\Veiculo;
 use App\Models\VeiculoDisponibilidadeSync;
 use App\Models\MatrizFilial;
+use App\Models\Manutencao;
 use App\Models\FormaPagamento;
 use App\Models\TaxaServico;
 use App\Models\ContatoEmail;
@@ -1202,6 +1203,33 @@ class ContratosController
                 return;
             }
 
+            // Validar e normalizar as acoes antes de registrar qualquer devolucao do lote.
+            foreach ($veiculos as $indice => $vData) {
+                $acaoVeiculo = ($vData['acao_veiculo'] ?? 'disponivel') === 'criar_os'
+                    ? 'criar_os'
+                    : 'disponivel';
+                $observacao = trim((string) ($vData['observacao'] ?? $vData['motivo_saida'] ?? ''));
+
+                if ($acaoVeiculo === 'criar_os' && $observacao === '') {
+                    Response::json([
+                        'success' => false,
+                        'message' => t('modules.contratos.return_page.inform_os_reason')
+                    ], 422);
+                    return;
+                }
+
+                if (mb_strlen($observacao) > 255) {
+                    Response::json([
+                        'success' => false,
+                        'message' => t('modules.contratos.return_page.observation_too_long')
+                    ], 422);
+                    return;
+                }
+
+                $veiculos[$indice]['acao_veiculo'] = $acaoVeiculo;
+                $veiculos[$indice]['observacao'] = $observacao !== '' ? $observacao : null;
+            }
+
             $validarFinanceiro = !empty($dados['gerar_financeiro']);
             $idContaFinanceiro = (int) ($dados['id_conta'] ?? 0);
             $idFormaPagamentoFinanceiro = (int) ($dados['id_forma_pagamento'] ?? 0);
@@ -1249,6 +1277,7 @@ class ContratosController
             $ultimaDataEntrada = null;
             $totalCobrancaDevolucao = 0.0;
             $idsVeiculosDevolvidos = [];
+            $manutencaoModel = new Manutencao();
 
             foreach ($veiculos as $vData) {
                 $idCv = (int) ($vData['id_contrato_veiculo'] ?? 0);
@@ -1309,8 +1338,30 @@ class ContratosController
                 $veiculoModelGeral->atualizarOdometro((int) $veiculoContrato['id_veiculo'], $odometroEntrada);
                 $idsVeiculosDevolvidos[] = (int) $veiculoContrato['id_veiculo'];
 
-                // 2. Atualizar disponibilidade do veiculo
+                // 2. Criar OS e atualizar disponibilidade do veiculo
                 $acaoVeiculo = $vData['acao_veiculo'] ?? 'disponivel';
+                $manutencaoId = null;
+                $manutencaoOs = null;
+
+                if ($acaoVeiculo === 'criar_os') {
+                    $manutencaoId = $manutencaoModel->criar([
+                        'chave' => $chave,
+                        'id_veiculo' => (int) $veiculoContrato['id_veiculo'],
+                        'data_enviado' => $dataEntradaEfetiva,
+                        'odo_enviado' => $odometroEntrada,
+                        'tanque_enviado' => $combustivelEntrada,
+                        'motivo' => $observacao,
+                        'status' => 'C',
+                    ]);
+                    $manutencaoCriada = $manutencaoModel->buscarPorId($manutencaoId);
+                    $manutencaoOs = $manutencaoCriada['os'] ?? null;
+
+                    AuditLogService::registrar(
+                        ($_SESSION['user_name'] ?? 'Sistema')
+                        . ", criou a OS de manutencao [{$manutencaoOs}] na devolucao do veiculo [{$veiculoContrato['veiculo_placa']}]"
+                    );
+                }
+
                 $statusVeiculo = $acaoVeiculo === 'criar_os' ? 'M' : 'D';
                 (new VeiculoDisponibilidadeSync())->liberarSeSemVinculoAtivo((int) $veiculoContrato['id_veiculo'], $statusVeiculo);
 
@@ -1381,6 +1432,8 @@ class ContratosController
                     'placa' => $placa,
                     'total_km' => $totalKmCobranca,
                     'total_combustivel' => $totalCombustivelCobranca,
+                    'id_manutencao' => $manutencaoId,
+                    'os' => $manutencaoOs,
                 ];
                 $totalCobrancaDevolucao += $totalKmCobranca + $totalCombustivelCobranca;
             }

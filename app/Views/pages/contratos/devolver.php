@@ -165,8 +165,11 @@
                             </select>
                         </div>
                         <div class="md:col-span-8 form-input-group">
-                            <label class="form-label-group"><?= t('modules.contratos.return_page.observation') ?></label>
-                            <input type="text" class="form-input-group-field observacao-veiculo" data-index="<?= $index ?>" placeholder="<?= t('modules.contratos.return_page.obs_placeholder') ?>">
+                            <label class="form-label-group">
+                                <?= t('modules.contratos.return_page.observation') ?>
+                                <span class="text-red-500 observacao-required hidden">*</span>
+                            </label>
+                            <input type="text" class="form-input-group-field observacao-veiculo" data-index="<?= $index ?>" maxlength="255" placeholder="<?= t('modules.contratos.return_page.obs_placeholder') ?>">
                         </div>
                     </div>
 
@@ -308,6 +311,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'confirmReturns' => t('modules.contratos.return_page.confirm_returns'),
         'selectAtLeastOne' => t('modules.contratos.return_page.select_at_least_one'),
         'informOdometer' => t('modules.contratos.return_page.inform_odometer'),
+        'informOsReason' => t('modules.contratos.return_page.inform_os_reason'),
         'informReturnDate' => t('modules.contratos.return_page.inform_return_datetime'),
         'processing' => t('modules.contratos.return_page.processing'),
         'returnSuccess' => t('modules.contratos.return_page.return_success'),
@@ -1135,6 +1139,22 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
     }
 
+    function atualizarObrigatoriedadeObservacao(select) {
+        const card = select.closest('.veiculo-card');
+        if (!card) return;
+
+        const obrigatoria = select.value === 'criar_os';
+        const observacao = card.querySelector('.observacao-veiculo');
+        const indicador = card.querySelector('.observacao-required');
+
+        if (observacao) {
+            observacao.required = obrigatoria;
+        }
+        if (indicador) {
+            indicador.classList.toggle('hidden', !obrigatoria);
+        }
+    }
+
     // ==================== SUBMISSAO ====================
 
     async function confirmarDevolucao() {
@@ -1185,6 +1205,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         for (const vp of veiculosPayload) {
             if (!vp.odometro_entrada || vp.odometro_entrada <= 0) {
                 window.parent.postMessage({ action: 'openAlert', message: i18n.informOdometer }, '*');
+                return;
+            }
+        }
+
+        for (const vp of veiculosPayload) {
+            if (vp.acao_veiculo === 'criar_os' && !String(vp.observacao || '').trim()) {
+                window.parent.postMessage({ action: 'openAlert', message: i18n.informOsReason }, '*');
                 return;
             }
         }
@@ -1329,6 +1356,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.querySelectorAll('.data-devolucao').forEach(input => {
             input.addEventListener('change', function() {
                 calcularDiferencasVeiculo(parseInt(this.dataset.index));
+            });
+        });
+
+        document.querySelectorAll('.acao-veiculo').forEach(select => {
+            atualizarObrigatoriedadeObservacao(select);
+            select.addEventListener('change', function() {
+                atualizarObrigatoriedadeObservacao(this);
             });
         });
 

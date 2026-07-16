@@ -345,6 +345,8 @@ return [
         'action_create_os' => 'Create maintenance order',
         'observation' => 'Observation',
         'obs_placeholder' => 'Observations about the return...',
+        'inform_os_reason' => 'Enter the reason for sending the vehicle to the workshop in the observation.',
+        'observation_too_long' => 'The observation must not exceed 255 characters.',
         'calc_km_title' => 'Mileage',
         'calc_fuel_title' => 'Fuel',
         'calc_charge_title' => 'Recharge',
