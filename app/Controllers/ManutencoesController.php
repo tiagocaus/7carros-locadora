@@ -358,16 +358,7 @@ class ManutencoesController
 
             // Validar campos obrigatorios de retorno quando A -> F
             if ($statusAnterior === 'A' && $novoStatus === 'F') {
-                $camposRetornoObrigatorios = ['data_retorno', 'odo_retorno', 'tanque_retorno'];
-                $camposFaltando = [];
-
-                foreach ($camposRetornoObrigatorios as $campo) {
-                    if (empty($dados[$campo])) {
-                        $camposFaltando[] = $campo;
-                    }
-                }
-
-                if (!empty($camposFaltando)) {
+                if (!$this->camposRetornoPreenchidos($dados)) {
                     Response::json([
                         'success' => false,
                         'message' => 'Para fechar a manutencao, preencha os campos de retorno da oficina: Data Retorno, Odometro e Tanque'
@@ -522,6 +513,20 @@ class ManutencoesController
         return in_array(strtolower((string) $value), ['1', 'true', 's', 'sim', 'yes', 'on'], true);
     }
 
+    private function camposRetornoPreenchidos(array $dados): bool
+    {
+        $dataRetorno = $dados['data_retorno'] ?? null;
+        $odometroRetorno = $dados['odo_retorno'] ?? null;
+        $tanqueRetorno = $dados['tanque_retorno'] ?? null;
+
+        return $dataRetorno !== null
+            && trim((string) $dataRetorno) !== ''
+            && is_numeric($odometroRetorno)
+            && (float) $odometroRetorno > 0
+            && $tanqueRetorno !== null
+            && $tanqueRetorno !== '';
+    }
+
     private function validarClienteOpcional(mixed $idCliente): bool
     {
         if (empty($idCliente)) {
@@ -632,7 +637,7 @@ class ManutencoesController
                 return;
             }
 
-            if (empty($manutencao['data_retorno']) || empty($manutencao['odo_retorno']) || empty($manutencao['tanque_retorno'])) {
+            if (!$this->camposRetornoPreenchidos($manutencao)) {
                 Response::json([
                     'success' => false,
                     'message' => 'Para fechar a manutencao, preencha os campos de retorno da oficina: Data Retorno, Odometro e Tanque'

@@ -21,6 +21,7 @@
 - Colocar opção para imprimir o contrato ou locação em nome da seguradora.
 - Colocar opção de pagamento parcial na tela do financeiro.
 - Na impressão da reserva/voucher, mostrar os "possiveis carros da categoria".
+- Incluir no appLoja a opção para assinar tambem "Fiador, Avalista, Testemunhas,..."
 
 ----
 ### A FAZER

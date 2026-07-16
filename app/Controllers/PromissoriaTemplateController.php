@@ -185,7 +185,7 @@ class PromissoriaTemplateController
                 return;
             }
 
-            $userId = Auth::funcionarioId();
+            $userId = Auth::id();
             $templateId = $service->saveTemplate($slug, $locale, $content, $userId);
 
             Response::json([
