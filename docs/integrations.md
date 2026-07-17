@@ -22,9 +22,40 @@ domínio solicitado pode ser registrado. A autenticação é enviada no header
 O sistema não usa `_forceRefresh`, retries automáticos nem entrega a resposta
 bruta do provedor ao frontend.
 
+## n8n — Clientes novos
+
+O n8n consulta empresas que completam determinados dias no sistema por meio de
+uma rota pública autenticada:
+
+```http
+GET /api/n8n/novos-clientes?dias=1,5,10,15,30,60
+X-N8N-Token: {N8N_API_TOKEN}
+```
+
+`dias` aceita até 50 inteiros entre 1 e 36500, separados por vírgula. A resposta é um
+array JSON com uma linha para cada funcionário ativo cuja função seja
+`Proprietário` e que tenha celular e e-mail preenchidos:
+
+```json
+[
+  {
+    "id": 123,
+    "chave": "TENANT",
+    "tel_cel": "5511999999999",
+    "email": "cliente@empresa.com"
+  }
+]
+```
+
+A idade considera o cadastro da empresa, no timezone configurado para o tenant.
+Empresas com vários Proprietários podem gerar várias linhas. O celular é
+retornado apenas com dígitos. A rota responde `401` para token inválido, `400`
+para o parâmetro `dias` inválido e `503` quando o segredo não está configurado.
+
 ## Table of Contents
 
 - [WhoisJSON — Disponibilidade de Domínio](#whoisjson--disponibilidade-de-domínio)
+- [n8n — Clientes novos](#n8n--clientes-novos)
 - [Payment Gateways](#payment-gateways)
 - [Communication](#communication)
 - [Document Generation](#document-generation)

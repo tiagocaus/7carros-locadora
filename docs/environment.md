@@ -113,6 +113,16 @@ Token usado exclusivamente no backend para consultar a disponibilidade de
 domínios no fluxo **Ativar Website**. Nunca exponha este valor em JavaScript,
 logs ou respostas da API.
 
+### n8n — Clientes novos
+
+```env
+N8N_API_TOKEN=token_aleatorio_de_alta_entropia
+```
+
+Segredo compartilhado enviado pelo n8n no header `X-N8N-Token`. A rota recusa
+requisições quando a variável não está configurada. Use um valor exclusivo para
+esta integração e não o reutilize em WHMCS, webhooks ou outros serviços.
+
 ### Database Configuration
 
 ```env

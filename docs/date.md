@@ -118,6 +118,7 @@ DateHelper::normalizeDueDateForGateway('2026-07-02'); // vencimento de cobranca 
 DateHelper::timestamp();             // timestamp tecnico
 DateHelper::isoNow();                // ISO 8601 tecnico
 DateHelper::formatTimestamp($ts, 'd/m/Y H:i');
+DateHelper::businessDateFromDateTime('2026-07-17 01:30:00'); // Y-m-d no timezone do tenant
 ```
 
 `formatDateTime()` interpreta o valor do banco no timezone da aplicacao (`app_timezone`) e converte para o timezone da matriz/filial. `parseDateTime()` faz o caminho inverso antes de retornar o formato `Y-m-d H:i:s`.

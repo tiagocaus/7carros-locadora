@@ -29,6 +29,7 @@ class Security
             '/api/veiculos' => ['limit' => 30, 'window' => 60],
             '/api/roles' => ['limit' => 20, 'window' => 60],
             '/api/gravacoes/uploads' => ['limit' => 300, 'window' => 60],
+            '/api/n8n/novos-clientes' => ['limit' => 10, 'window' => 60],
             '/webhook/whmcs' => ['limit' => 10, 'window' => 60],
         ],
 

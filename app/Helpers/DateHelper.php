@@ -181,6 +181,28 @@ class DateHelper
         return (new \DateTimeImmutable('@' . $timestamp))->setTimezone($timezone)->format($format);
     }
 
+    /**
+     * Converte um instante tecnico do banco para a data civil do tenant.
+     */
+    public static function businessDateFromDateTime(?string $datetime): ?string
+    {
+        $datetime = trim((string) $datetime);
+        if ($datetime === '' || $datetime === '0000-00-00 00:00:00') {
+            return null;
+        }
+
+        try {
+            $config = self::getConfig();
+            $date = new \DateTimeImmutable($datetime, new \DateTimeZone($config['app_timezone']));
+
+            return $date
+                ->setTimezone(new \DateTimeZone($config['timezone']))
+                ->format('Y-m-d');
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
     private static function normalizeDateOnly(?string $date): ?string
     {
         $date = trim((string) $date);

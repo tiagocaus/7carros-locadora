@@ -74,6 +74,7 @@ use App\Controllers\Relatorios\KpisController;
 use App\Controllers\Relatorios\FinanceiroController as FinanceiroReportController;
 use App\Controllers\WebsiteController;
 use App\Controllers\PublicWebsiteController;
+use App\Controllers\N8nController;
 
 // Rota raiz - redireciona para login ou dashboard
 $router->get('/', function ($request) {
@@ -163,6 +164,9 @@ $router->post('/webhook/whmcs/mudar-pacote', [WhmcsController::class, 'mudarPaco
 $router->post('/webhook/whmcs/atualizar-senha', [WhmcsController::class, 'atualizarSenha'], ['whmcs_auth', 'rate_limit']);
 $router->post('/webhook/whmcs/terminar', [WhmcsController::class, 'terminar'], ['whmcs_auth', 'rate_limit']);
 $router->post('/webhook/whmcs/veiculos-disponibilidade', [WhmcsController::class, 'veiculosDisponibilidade'], ['whmcs_auth', 'rate_limit']);
+
+// Integracao n8n (publica, autenticada por token dedicado)
+$router->get('/api/n8n/novos-clientes', [N8nController::class, 'novosClientes'], ['n8n_auth', 'rate_limit']);
 
 // Webhook WHMCS - Ativação de Website (público, sem auth de sessão)
 $router->get('/api/webhook/whmcs/site-ativacao', [WebsiteController::class, 'webhookWhmcsAtivacao'], ['rate_limit']);

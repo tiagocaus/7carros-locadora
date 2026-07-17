@@ -47,6 +47,7 @@ $router->middleware('rate_limit', \App\Middleware\RateLimitMiddleware::class);
 $router->middleware('throttle', \App\Middleware\ThrottlingMiddleware::class);
 $router->middleware('honeypot', \App\Middleware\HoneypotMiddleware::class);
 $router->middleware('whmcs_auth', \App\Middleware\WhmcsAuthMiddleware::class);
+$router->middleware('n8n_auth', \App\Middleware\N8nAuthMiddleware::class);
 
 // Verificações de segurança globais (executadas antes das rotas)
 // 1. Verifica se IP está bloqueado
