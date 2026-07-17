@@ -80,7 +80,8 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
   - `km_excedente` (se plano KMC e ultrapassou franquia)
   - `combustivel_usado = combustivel_saida - combustivel_entrada`
   - `combustivel_valor = combustivel_usado * veiculos.valor_por_fracao` quando `combustivel_usado > 0`
-- Antes de fechar, exige parcelas financeiras lancadas com total igual ao total final da locacao
+- Antes de fechar, exige que o saldo financeiro efetivo lancado seja igual ao total
+  esperado: `total_pagar_final + total_avarias`
 - Parcelas pendentes nao bloqueiam o fechamento; a regra exige lancamento, nao pagamento
 - Atualiza status do veiculo para "D" (Disponivel)
 - Em documentos personalizados, `{{locacao.tanque_chegada}}` exibe o nível de chegada como fração legível (`Reserva`, `1/2`, `Cheio`, etc.).
@@ -315,7 +316,8 @@ $locacao->gerarParcelas($locacaoId, [
 - O frontend envia `odometro_ini` e `odometro_fim` como inteiros. Por
   compatibilidade, o backend tambem normaliza valores mascarados (por exemplo,
   `72.870`) antes de calcular distancia e km excedente
-- Gera apenas o saldo restante: total final menos total ja lancado no financeiro
+- Gera apenas o saldo restante: total final somado as avarias cobradas, menos o
+  total ja lancado no financeiro
 - Bloqueia a geracao quando nao houver saldo restante
 - Ultima parcela absorve diferenca de arredondamento
 - Vencimentos incrementam +1 mes
@@ -326,17 +328,26 @@ $locacao->gerarParcelas($locacaoId, [
 ### Devolucao antecipada com credito
 
 Ao fechar uma locacao aberta (`A -> F`), o sistema recalcula o total final com base
-nos dados de devolucao informados na tela. Se o saldo financeiro efetivo ja lancado
-for maior que esse total final (ex: locacao criada para 2 dias e devolvida com 1
-dia), a tela pergunta se deve criar uma fatura de devolucao.
+nos dados de devolucao informados na tela e concilia o financeiro pelas formulas:
+
+```text
+total_esperado = total_pagar_final + total_avarias
+diferenca = total_esperado - total_lancado
+```
+
+`locacoes.total_pagar` continua representando apenas a locacao, sem incorporar
+avarias, pois elas permanecem como receitas financeiras separadas no plano
+`4.2.2.01`. Se `total_lancado` for maior que `total_esperado` (ex: locacao criada
+para 2 dias e devolvida com 1 dia), a tela pergunta se deve criar uma fatura de
+devolucao somente pela diferenca efetiva.
 
 - O credito de devolucao e um lancamento `financeiro.tipo = D`, vinculado a
   `id_locacao`, com plano de contas `3.4.1.22` (Devolucao/Reembolso de locacao).
 - A parcela/receita original permanece intacta para auditoria, inclusive quando
   ja estiver paga.
 - O fechamento so prossegue apos confirmacao explicita do usuario.
-- Se o saldo financeiro efetivo for menor que o total final, o fechamento continua
-  bloqueado ate que uma parcela complementar seja lancada.
+- Se o saldo financeiro efetivo for menor que `total_esperado`, o fechamento
+  continua bloqueado ate que uma parcela complementar seja lancada.
 - Caucao/devolucao de caucao nao entra nesse calculo; somente creditos no plano
   `3.4.1.22` compensam receitas da locacao.
 

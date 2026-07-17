@@ -1145,7 +1145,10 @@ class LocacoesController
                 $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id);
                 $totalParcelasFinanceiro = (int) ($resumoFinanceiro['total_parcelas'] ?? 0);
                 $totalLancadoFinanceiro = (float) ($resumoFinanceiro['total_lancado'] ?? 0);
-                $diferencaFinanceira = round($totalPagarUpdate - $totalLancadoFinanceiro, 2);
+                $diferencaFinanceira = self::calcularDiferencaFinanceiraFechamento(
+                    $totalPagarUpdate,
+                    $resumoFinanceiro
+                );
                 $valorCreditoDevolucao = $diferencaFinanceira < -0.009 ? abs($diferencaFinanceira) : 0.0;
 
                 if ($totalParcelasFinanceiro <= 0) {
@@ -1785,6 +1788,17 @@ class LocacoesController
             'total_fatura' => $totais['total_fatura'],
             'total_pagar' => $totais['total_pagar'],
         ];
+    }
+
+    private static function calcularDiferencaFinanceiraFechamento(
+        float $totalPagarFinal,
+        array $resumoFinanceiro
+    ): float {
+        $totalAvarias = (float) ($resumoFinanceiro['total_avarias'] ?? 0);
+        $totalLancado = (float) ($resumoFinanceiro['total_lancado'] ?? 0);
+        $totalEsperado = round($totalPagarFinal + $totalAvarias, 2);
+
+        return round($totalEsperado - $totalLancado, 2);
     }
 
     // ==================== PARCELAS / FINANCEIRO ====================

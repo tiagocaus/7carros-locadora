@@ -600,7 +600,9 @@ O campo `financeiro.id_veiculo` vincula cada registro financeiro ao veiculo que 
 - Parcelas de **locacoes** recebem automaticamente o `id_veiculo` ativo via `LocacaoVeiculo::buscarAtivo()`
 - Reservas de locacao podem ser apenas por grupo/categoria. Antes da saida, elas podem nao ter `id_veiculo`; nesse caso as parcelas geradas antes da alocacao do veiculo ficam sem rastreio veicular no cabecalho.
 - `Financeiro::criarParcelas()` propaga o `id_veiculo` do registro base para as parcelas filhas
-- Em locacoes, a geracao automatica cria parcelas do saldo restante da locacao, considerando o total final menos o total ja lancado
+- Em locacoes, a geracao automatica cria parcelas do saldo restante considerando
+  `total_pagar_final + total_avarias - total_lancado`. Avarias permanecem receitas
+  separadas e nao sao incorporadas em `locacoes.total_pagar`.
 
 ### Substituicao veicular
 
@@ -736,8 +738,12 @@ Bloqueio e Caucao sao conceitos distintos com planos de contas separados:
 
 ### Devolucao/Reembolso de Locacao
 
-Quando uma locacao e fechada com total final menor que as receitas ja lancadas,
-o modulo de locacoes pode criar uma fatura de devolucao:
+No fechamento, o financeiro da locacao e conciliado por
+`total_esperado = total_pagar_final + total_avarias` e
+`diferenca = total_esperado - total_lancado`. `total_lancado` inclui as receitas
+de avaria e desconta creditos de devolucao ja existentes. Quando a diferenca for
+negativa, o modulo de locacoes pode criar uma fatura de devolucao apenas pelo
+excesso efetivo:
 
 - `financeiro.tipo = D`
 - `financeiro.id_locacao` preenchido
