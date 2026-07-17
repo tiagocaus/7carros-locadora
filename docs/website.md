@@ -64,18 +64,22 @@ inativo → pendente → ativo ↔ suspenso
 
 2. Tela "Ativar Website":
    ├─ Campo: domínio (ex: minhalocadora.com.br)
-   ├─ Opção: "Quero registrar o domínio" / "Já tenho meu domínio"
-   ├─ Opção: "Quero contratar hospedagem" / "Não"
-   ├─ Botão "Verificar" → dns_get_record() valida DNS
+   ├─ Opção: "Quero registrar o domínio" / "Já tenho meu domínio (vou alterar o DNS)"
+   ├─ Hospedagem contratada automaticamente com a 7Carros
+   ├─ Botão "Verificar" → WhoisJSON consulta disponibilidade de registro
    └─ Botão "Ativar seu site" → envia email + muda status para pendente
 
 3. Email para sac@hostcia.net contém:
    ├─ Nome da empresa (tenant)
    ├─ Chave do tenant
+   ├─ Username de quem fez a solicitação
    ├─ Domínio solicitado
-   ├─ Plano atual
-   ├─ Se quer registro de domínio
-   └─ Se quer hospedagem
+   ├─ Plano atual (nome e código)
+   └─ Opção descritiva de registro de domínio
+
+A hospedagem não é exibida no email porque é contratada automaticamente com a 7Carros.
+
+Na tela de ativação, o site é apresentado como gratuito, mas a hospedagem é sempre cobrada mensalmente. O registro do domínio só é cobrado quando o cliente ainda não possui um domínio registrado.
 
 4. Admin 7Carros configura no WHMCS:
    ├─ Cria conta de hospedagem
@@ -91,16 +95,16 @@ inativo → pendente → ativo ↔ suspenso
    └─ Executa deploy inicial para o FTP informado
 ```
 
-### Verificação de Domínio (DNS)
+### Verificação de Disponibilidade do Domínio (WhoisJSON)
 
 ```php
-// WebsiteService::verificarDominio(string $dominio): array
-// Verificação real via dns_get_record()
-$dns = dns_get_record($dominio, DNS_A | DNS_CNAME);
-// Retorna: ['valido' => bool, 'registros' => array, 'mensagem' => string]
+// WhoisJsonService::verificarDisponibilidade(string $dominio): array
+// GET https://whoisjson.com/api/v1/domain-availability?domain=example.com
+// Authorization: TOKEN={APIWHOISJSON_API_KEY}
+// Retorna: ['dominio' => string, 'disponivel' => bool|null]
 ```
 
-A verificação checa se o domínio tem registros A ou CNAME configurados. Não é obrigatório que aponte para um IP específico neste momento — a verificação confirma apenas que o domínio existe e está registrado.
+A consulta usa o endpoint de disponibilidade baseado em WHOIS/RDAP. `true` libera a solicitação de registro, `false` informa que o domínio já está registrado e `null` representa resultado inconclusivo, mantendo a ativação bloqueada. A integração usa timeout curto e não expõe a chave nem a resposta bruta ao navegador.
 
 ### Endpoint Callback WHMCS
 

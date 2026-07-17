@@ -213,7 +213,7 @@
             saveError: '<?= addslashes(t('modules.multas.messages.save_error')) ?>',
             created: '<?= addslashes(t('modules.multas.messages.created')) ?>',
             updated: '<?= addslashes(t('modules.multas.messages.updated')) ?>',
-            invalidFileType: '<?= addslashes(t('modules.multas.messages.invalid_file_type')) ?>',
+            invalidFileType: <?= js_t('modules.multas.messages.invalid_file_type') ?>,
             pdfSelected: '<?= addslashes(t('modules.multas.messages.pdf_selected')) ?>',
             btnSave: '<?= addslashes(t('common.buttons.save')) ?>',
             btnSearch: '<?= addslashes(t('modules.multas.buttons.search_responsible')) ?>',

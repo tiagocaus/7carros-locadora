@@ -2,47 +2,29 @@
 
 namespace App\Services;
 
+use App\Config\Planos;
 use App\Config\WebsiteThemes;
+use App\Core\Auth;
 use App\Core\Database;
+use App\Models\Funcionario;
+use App\Models\MatrizFilial;
 use App\Models\SiteConfig;
 use App\Models\SiteCredencial;
 use App\Models\SitePreset;
 
 class WebsiteService
 {
-    /**
-     * Verifica se um dominio tem registros DNS validos
-     */
-    public function verificarDominio(string $dominio): array
-    {
-        $dominio = trim(strtolower($dominio));
-        $dominio = preg_replace('#^https?://#', '', $dominio);
-        $dominio = rtrim($dominio, '/');
+    private readonly ?\Closure $systemMessagePublisher;
 
-        if (empty($dominio)) {
-            return ['valido' => false, 'registros' => [], 'mensagem' => t('modules.website.dns_empty')];
-        }
-
-        // Tentar A/CNAME primeiro, depois ANY para domínios sem A record
-        $dns = @dns_get_record($dominio, DNS_A | DNS_CNAME);
-        if (empty($dns)) {
-            $dns = @dns_get_record($dominio, DNS_ANY);
-        }
-
-        // Verificar tambem via checkdnsrr (mais confiavel para dominios .com.br)
-        if (empty($dns) && !checkdnsrr($dominio, 'ANY')) {
-            return [
-                'valido'    => false,
-                'registros' => [],
-                'mensagem'  => t('modules.website.dns_not_found'),
-            ];
-        }
-
-        return [
-            'valido'    => true,
-            'registros' => $dns,
-            'mensagem'  => t('modules.website.dns_valid'),
-        ];
+    public function __construct(
+        private readonly ?MatrizFilial $matrizFilialModel = null,
+        private readonly ?Funcionario $funcionarioModel = null,
+        private readonly ?SiteConfig $siteConfigModel = null,
+        ?callable $systemMessagePublisher = null
+    ) {
+        $this->systemMessagePublisher = $systemMessagePublisher !== null
+            ? \Closure::fromCallable($systemMessagePublisher)
+            : null;
     }
 
     /**
@@ -50,27 +32,63 @@ class WebsiteService
      */
     public function solicitarAtivacao(array $dados): array
     {
-        $chave = $_SESSION['chave'];
+        $usuario = Auth::user();
+        $chave = trim((string) ($usuario['chave'] ?? ''));
+        $username = trim((string) ($usuario['usuario'] ?? ''));
+
+        $matriz = ($this->matrizFilialModel ?? new MatrizFilial())->buscarMatriz();
+        $empresa = trim((string) ($matriz['nome_fantasia'] ?? ''));
+        if ($empresa === '') {
+            $empresa = trim((string) ($matriz['razao_social'] ?? ''));
+        }
+
+        $planoCodigo = trim(($this->funcionarioModel ?? new Funcionario())->getPlanoTenant());
+
+        if ($chave === '' || $username === '' || $empresa === '' || $planoCodigo === '') {
+            throw new \RuntimeException('Nao foi possivel identificar empresa, plano ou usuario solicitante');
+        }
+
+        $planoNome = Planos::getNome($planoCodigo);
+        $plano = $planoNome === $planoCodigo
+            ? $planoCodigo
+            : "{$planoNome} ({$planoCodigo})";
         $sacEmail = Database::env('APP_COMPANY_EMAIL');
+        $querRegistro = !empty($dados['quer_registro']);
+
+        $escape = static fn(string $valor): string => htmlspecialchars(
+            $valor,
+            ENT_QUOTES | ENT_SUBSTITUTE,
+            'UTF-8'
+        );
 
         // Montar corpo do email
         $body = "<h2>Solicitação de Ativação de Website</h2>";
-        $body .= "<p><strong>Empresa:</strong> " . htmlspecialchars($dados['empresa'] ?? '') . "</p>";
-        $body .= "<p><strong>Chave:</strong> " . htmlspecialchars($chave) . "</p>";
-        $body .= "<p><strong>Domínio:</strong> " . htmlspecialchars($dados['dominio'] ?? '') . "</p>";
-        $body .= "<p><strong>Plano:</strong> " . htmlspecialchars($dados['plano'] ?? '') . "</p>";
-        $body .= "<p><strong>Registro de domínio:</strong> " . ($dados['quer_registro'] ? 'Sim' : 'Não') . "</p>";
-        $body .= "<p><strong>Hospedagem:</strong> " . ($dados['quer_hospedagem'] ? 'Sim' : 'Não') . "</p>";
+        $body .= "<p><strong>Empresa:</strong> " . $escape($empresa) . "</p>";
+        $body .= "<p><strong>Chave:</strong> " . $escape($chave) . "</p>";
+        $body .= "<p><strong>Username:</strong> " . $escape($username) . "</p>";
+        $body .= "<p><strong>Domínio:</strong> " . $escape((string) ($dados['dominio'] ?? '')) . "</p>";
+        $body .= "<p><strong>Plano:</strong> " . $escape($plano) . "</p>";
+        $body .= "<p><strong>Registro de domínio:</strong> "
+            . ($querRegistro ? 'Sim, Quero registrar o domínio.' : 'Não, Já tenho meu domínio (vou alterar o DNS).')
+            . "</p>";
 
         // Enviar email via sistema (credenciais 7Carros)
-        queue_system_message('email', [
+        $payload = [
             'to'      => $sacEmail,
-            'subject' => "Ativação de Website - {$dados['empresa']} [{$chave}]",
+            'subject' => 'Ativação de Website - '
+                . preg_replace('/[\r\n]+/', ' ', $empresa)
+                . " [{$chave}]",
             'body'    => $body,
-        ]);
+        ];
+
+        if ($this->systemMessagePublisher !== null) {
+            ($this->systemMessagePublisher)('email', $payload);
+        } else {
+            queue_system_message('email', $payload);
+        }
 
         // Atualizar status para pendente
-        $configModel = new SiteConfig();
+        $configModel = $this->siteConfigModel ?? new SiteConfig();
         $configModel->criarOuAtualizar([
             'dominio' => $dados['dominio'],
             'status'  => 'pendente',

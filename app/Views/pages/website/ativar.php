@@ -76,7 +76,7 @@
                 <div class="bg-blue-100 rounded-lg p-6">
                     <h3 class="text-lg font-semibold mb-3 text-blue-600">Valores</h3>
                     <p class="text-sm text-slate-700 mb-1">O site é <strong>Grátis!</strong></p>
-                    <p class="text-sm text-slate-600 mb-3">Única coisa que cobramos "caso não tenha" é o registro do domínio e a hospedagem do site.</p>
+                    <p class="text-sm text-slate-600 mb-3">A hospedagem é cobrada mensalmente. O registro do domínio só será cobrado se você ainda não tiver um domínio registrado.</p>
                     <ul class="text-sm text-slate-700 space-y-1 ml-1">
                         <li>- Registro brasileiro (.com.br): <strong>R$60,00</strong> por ano.</li>
                         <li>- Registro internacional (.com): <strong>R$80,00</strong> por ano.</li>
@@ -179,7 +179,7 @@
 
         dominioDisponivel = false;
         atualizarBotaoAtivar();
-        resultEl.classList.remove('hidden', 'text-green-600', 'text-red-600');
+        resultEl.classList.remove('hidden', 'text-green-600', 'text-red-600', 'text-amber-600');
         resultEl.textContent = 'Verificando...';
         resultEl.classList.add('text-slate-500');
 
@@ -190,19 +190,29 @@
             const result = await API.get('/api/website/verificar-dominio', { dominio });
             if (result.success && result.data) {
                 resultEl.classList.remove('text-slate-500');
-                if (result.data.valido) {
-                    resultEl.textContent = '<?= t("modules.website.domain_taken") ?>';
+                if (result.data.disponivel === true) {
+                    resultEl.textContent = <?= js_t('modules.website.domain_available') ?>;
+                    resultEl.classList.add('text-green-600');
+                    dominioDisponivel = true;
+                } else if (result.data.disponivel === false) {
+                    resultEl.textContent = <?= js_t('modules.website.domain_taken') ?>;
                     resultEl.classList.add('text-red-600');
                     dominioDisponivel = false;
                 } else {
-                    resultEl.textContent = '<?= t("modules.website.domain_available") ?>';
-                    resultEl.classList.add('text-green-600');
-                    dominioDisponivel = true;
+                    resultEl.textContent = <?= js_t('modules.website.domain_check_unknown') ?>;
+                    resultEl.classList.add('text-amber-600');
+                    dominioDisponivel = false;
                 }
+                atualizarBotaoAtivar();
+            } else {
+                resultEl.textContent = result.message || <?= js_t('modules.website.domain_check_error') ?>;
+                resultEl.classList.remove('text-slate-500');
+                resultEl.classList.add('text-red-600');
+                dominioDisponivel = false;
                 atualizarBotaoAtivar();
             }
         } catch (error) {
-            resultEl.textContent = 'Erro ao verificar';
+            resultEl.textContent = <?= js_t('modules.website.domain_check_error') ?>;
             resultEl.classList.remove('text-slate-500');
             resultEl.classList.add('text-red-600');
         } finally {
@@ -259,8 +269,6 @@
         try {
             const result = await API.post('/api/website/ativar', {
                 dominio,
-                empresa: '<?= $_SESSION["nome_fantasia"] ?? "" ?>',
-                plano: '<?= $_SESSION["plano"] ?? "" ?>',
                 quer_registro: querRegistro,
             });
 

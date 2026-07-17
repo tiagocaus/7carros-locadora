@@ -6,8 +6,25 @@ This document describes all external service integrations available in the 7Carr
 
 The system integrates with various third-party services for payment processing, communication, document generation, and API documentation.
 
+## WhoisJSON — Disponibilidade de Domínio
+
+O fluxo **Website > Ativar Website** usa o endpoint
+`GET https://whoisjson.com/api/v1/domain-availability` para verificar se o
+domínio solicitado pode ser registrado. A autenticação é enviada no header
+`Authorization: TOKEN={APIWHOISJSON_API_KEY}`.
+
+- `available = true`: domínio disponível para registro
+- `available = false`: domínio já registrado
+- `available = "unknown"`: resultado inconclusivo; não liberar a ativação
+- Falhas de conexão, quota, autenticação ou resposta inválida retornam erro
+  genérico ao usuário e são registradas sem incluir o token
+
+O sistema não usa `_forceRefresh`, retries automáticos nem entrega a resposta
+bruta do provedor ao frontend.
+
 ## Table of Contents
 
+- [WhoisJSON — Disponibilidade de Domínio](#whoisjson--disponibilidade-de-domínio)
 - [Payment Gateways](#payment-gateways)
 - [Communication](#communication)
 - [Document Generation](#document-generation)

@@ -103,6 +103,16 @@ APP_TIMEZONE=America/Sao_Paulo   # Default timezone
 APP_LOCALE=pt_BR                 # Default locale
 ```
 
+### Website — WhoisJSON
+
+```env
+APIWHOISJSON_API_KEY=your_whoisjson_api_key
+```
+
+Token usado exclusivamente no backend para consultar a disponibilidade de
+domínios no fluxo **Ativar Website**. Nunca exponha este valor em JavaScript,
+logs ou respostas da API.
+
 ### Database Configuration
 
 ```env

@@ -24,6 +24,8 @@ return [
     'domain_invalid'       => 'Domínio inválido. Use o formato: exemplo.com.br',
     'domain_available'     => 'Domínio disponível para registro!',
     'domain_taken'         => 'Domínio já está registrado.',
+    'domain_check_unknown' => 'Não foi possível confirmar a disponibilidade. Tente novamente.',
+    'domain_check_error'   => 'Não foi possível consultar o domínio agora. Tente novamente.',
     'select_domain_option'      => 'Selecione uma opção de domínio',
     'confirm_activation_title'  => 'Confirmar Ativação',
     'confirm_domain'            => 'Domínio',
@@ -37,19 +39,13 @@ return [
     'confirm_charge_hosting'    => 'Será cobrada a hospedagem do site (R$29,90/mês).',
     'confirm_activate'          => 'Confirmar e Ativar',
     'want_domain'          => 'Quero registrar o domínio',
-    'have_domain'          => 'Já tenho meu domínio',
+    'have_domain'          => 'Já tenho meu domínio (vou alterar o DNS)',
     'want_hosting'         => 'Quero contratar hospedagem',
     'no_hosting'           => 'Não preciso de hospedagem',
-    'verify_dns'           => 'Verificar DNS',
     'activate_button'      => 'Ativar seu site',
     'activation_requested' => 'Solicitação enviada! Você receberá a confirmação em breve.',
     'waiting_activation'   => 'Aguardando ativação',
     'waiting_message'      => 'Sua solicitação está sendo processada. Entraremos em contato em breve.',
-
-    // DNS
-    'dns_empty'     => 'Informe um domínio para verificar',
-    'dns_not_found' => 'Domínio não encontrado. Verifique se o DNS está configurado corretamente.',
-    'dns_valid'     => 'Domínio verificado com sucesso!',
 
     // Configurações
     'config_title'         => 'Configurações',

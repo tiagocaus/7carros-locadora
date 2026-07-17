@@ -18,6 +18,7 @@ use App\Models\SiteDeployLog;
 use App\Models\SiteLink;
 use App\Models\SiteBanner;
 use App\Services\WebsiteService;
+use App\Services\WhoisJsonService;
 use App\Services\AuditLogService;
 use App\Helpers\FileHelper;
 
@@ -792,11 +793,8 @@ class WebsiteController
     {
         try {
             $dados = [
-                'dominio'          => $request->input('dominio'),
-                'empresa'          => $request->input('empresa'),
-                'plano'            => $request->input('plano'),
-                'quer_registro'    => (bool) $request->input('quer_registro'),
-                'quer_hospedagem'  => (bool) $request->input('quer_hospedagem'),
+                'dominio'       => $request->input('dominio'),
+                'quer_registro' => (bool) $request->input('quer_registro'),
             ];
 
             if (empty($dados['dominio'])) {
@@ -820,12 +818,17 @@ class WebsiteController
     {
         try {
             $dominio = $request->query('dominio', '');
-            $service = new WebsiteService();
-            $result = $service->verificarDominio($dominio);
+            $result = (new WhoisJsonService())->verificarDisponibilidade($dominio);
 
             Response::json(['success' => true, 'data' => $result]);
-        } catch (\Exception $e) {
-            Response::json(['success' => false, 'message' => $e->getMessage()], 500);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => t('modules.website.domain_invalid')], 422);
+        } catch (\Throwable $e) {
+            error_log('[WhoisJSON] Falha ao verificar dominio: ' . $e->getMessage());
+            Response::json([
+                'success' => false,
+                'message' => t('modules.website.domain_check_error'),
+            ], 502);
         }
     }
 
