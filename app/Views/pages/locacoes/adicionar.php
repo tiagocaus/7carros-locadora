@@ -1120,6 +1120,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 'fixed' => t('modules.locacoes.summary.fixed'),
                 'perDay' => t('modules.locacoes.summary.per_day'),
                 'onBase' => t('modules.locacoes.summary.on_base'),
+                'kmAllowanceInfo' => t('modules.locacoes.pdf.km_allowance_info'),
+                'kmAllowanceUnitDay' => t('modules.locacoes.pdf.km_allowance_unit_day'),
                 'returnSection' => t('modules.locacoes.summary.return_section'),
                 'fuel' => t('modules.locacoes.summary.fuel'),
                 'totals' => t('modules.locacoes.summary.totals'),
@@ -2114,6 +2116,21 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     <td class="px-4 py-2 text-center">${dias}</td>
                     <td class="px-4 py-2 text-right">${fmtCurrency(diariaValor)}</td>
                     <td class="px-4 py-2 text-right font-medium">${fmtCurrency(sub)}</td>
+                </tr>`;
+            }
+
+            const plano = document.getElementById('plano')?.value || 'KL';
+            const franquiaDiaria = parseInt(document.getElementById('km_controlado_franquia')?.value, 10) || 0;
+            if (plano === 'KMC' && franquiaDiaria > 0) {
+                const franquiaTotal = franquiaDiaria * dias;
+                const franquiaInfo = i18n.summary.kmAllowanceInfo
+                    .replace(':franquia', `${Km.format(franquiaDiaria)}km`)
+                    .replace(':unidade', i18n.summary.kmAllowanceUnitDay)
+                    .replace(':total', `${Km.format(franquiaTotal)}Km`);
+                html += `<tr class="bg-white text-xs text-slate-500">
+                    <td colspan="5" class="px-4 py-2">
+                        <span class="ml-2">↳ ${franquiaInfo}</span>
+                    </td>
                 </tr>`;
             }
 
