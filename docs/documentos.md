@@ -111,6 +111,7 @@ Variável especial para contratos com múltiplos veículos:
 
 | Variável | Uso |
 |---|---|
+| `{{contrato.info_plano}}` | Nome do plano comum aos veículos ativos (`Km Livre`, `Km Controlado` ou `Km Pago`), sem franquia ou valores; usa o histórico quando não há veículo ativo e indica quando existem planos diferentes |
 | `{{contrato.veiculos_anexo}}` | Tabela HTML completa para anexo contratual, com identificação do veículo, fornecedor/investidor, plano, valores, seguros, odômetro e combustível/carga de saída |
 | `{{contrato.parcelas_tabela}}` | Tabela HTML das parcelas financeiras com as colunas Parcela, Vencimento e Valor |
 | `{{contrato.parcelas_tabela_status}}` | Tabela HTML das parcelas financeiras com as colunas Parcela, Vencimento, Valor e Status |

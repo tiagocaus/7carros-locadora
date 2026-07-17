@@ -2738,6 +2738,7 @@ class ContratosController
                 'comando_parcela_descricao' => $contrato['comando_parcela_descricao'] ?? '',
                 'primeiro_pagamento' => $contrato['primeiro_pagamento'] ?? 0,
                 'contagem' => $contrato['contagem'] ?? 'dia',
+                'info_plano' => $this->formatarInfoPlanoContratoDocumento($contrato['veiculos'] ?? []),
                 'autorenovacao' => match($contrato['auto_renovacao'] ?? '') {
                     '', null => 'Desativada',
                     'auto' => 'Até devolver',
@@ -2796,6 +2797,46 @@ class ContratosController
             ] : [],
             'fornecedor' => $this->formatarFornecedorDocumento($fornecedorData),
         ];
+    }
+
+    /**
+     * Retorna o nome do plano comum aos veiculos relevantes do contrato.
+     * Prioriza os veiculos ativos e usa o historico quando o contrato ja foi finalizado.
+     */
+    private function formatarInfoPlanoContratoDocumento(array $veiculos): string
+    {
+        if ($veiculos === []) {
+            return '';
+        }
+
+        $veiculosAtivos = array_values(array_filter(
+            $veiculos,
+            static fn (array $veiculo): bool => ($veiculo['data_entrada'] ?? null) === null
+                || ($veiculo['data_entrada'] ?? '') === ''
+        ));
+        $veiculosRelevantes = $veiculosAtivos !== [] ? $veiculosAtivos : $veiculos;
+
+        $planos = [];
+        foreach ($veiculosRelevantes as $veiculo) {
+            $plano = strtoupper(trim((string) ($veiculo['plano'] ?? '')));
+            if ($plano === '') {
+                continue;
+            }
+
+            $planos[] = match ($plano) {
+                'KL' => 'Km Livre',
+                'KMC' => 'Km Controlado',
+                'KP', 'DI' => 'Km Pago',
+                default => $plano,
+            };
+        }
+
+        $planos = array_values(array_unique($planos));
+        if ($planos === []) {
+            return '';
+        }
+
+        return count($planos) === 1 ? $planos[0] : 'Conforme relação de veículos';
     }
 
     private function calcularDataPrevistaDevolucaoCaucaoContrato(array $contrato): string

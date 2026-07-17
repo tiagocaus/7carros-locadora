@@ -408,6 +408,12 @@ class TemplateVariables
                 'label_key' => 'variables.contrato.contagem',
                 'example' => 'dia(s)'
             ],
+            'info_plano' => [
+                'key' => 'contrato.info_plano',
+                'type' => 'text',
+                'label_key' => 'variables.contrato.info_plano',
+                'example' => 'Km Controlado'
+            ],
             'autorenovacao' => [
                 'key' => 'contrato.autorenovacao',
                 'type' => 'text',
