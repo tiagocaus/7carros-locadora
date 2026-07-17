@@ -7,6 +7,14 @@ namespace App\Models;
  */
 class ContratoOdometro extends Model
 {
+    public function buscarPorId(int $id): ?array
+    {
+        return $this->qb
+            ->table('contratos_odometros')
+            ->where('id', '=', $id)
+            ->first();
+    }
+
     public function ultimaPorContratoVeiculo(int $contratoVeiculoId): ?array
     {
         return $this->qb
@@ -14,26 +22,6 @@ class ContratoOdometro extends Model
             ->where('id_contrato_veiculo', '=', $contratoVeiculoId)
             ->orderByDesc('data')
             ->orderByDesc('id')
-            ->first();
-    }
-
-    public function ultimaAntesData(int $contratoVeiculoId, string $data): ?array
-    {
-        return $this->qb
-            ->table('contratos_odometros')
-            ->where('id_contrato_veiculo', '=', $contratoVeiculoId)
-            ->where('data', '<', $data)
-            ->orderByDesc('data')
-            ->orderByDesc('id')
-            ->first();
-    }
-
-    public function buscarPorData(int $contratoVeiculoId, string $data): ?array
-    {
-        return $this->qb
-            ->table('contratos_odometros')
-            ->where('id_contrato_veiculo', '=', $contratoVeiculoId)
-            ->where('data', '=', $data)
             ->first();
     }
 
@@ -55,48 +43,55 @@ class ContratoOdometro extends Model
             ->get();
     }
 
+    public function listarPorContratoVeiculo(int $contratoVeiculoId): array
+    {
+        return $this->qb
+            ->table('contratos_odometros')
+            ->where('id_contrato_veiculo', '=', $contratoVeiculoId)
+            ->orderBy('data')
+            ->orderBy('id')
+            ->get();
+    }
+
+    public function listarUltimosPorContratoVeiculo(int $contratoVeiculoId, int $limite = 5): array
+    {
+        return $this->qb
+            ->table('contratos_odometros')
+            ->where('id_contrato_veiculo', '=', $contratoVeiculoId)
+            ->orderByDesc('data')
+            ->orderByDesc('id')
+            ->limit(max(1, min(20, $limite)))
+            ->get();
+    }
+
     public function registrarLeitura(array $dados): array
     {
         $contratoVeiculoId = (int) $dados['id_contrato_veiculo'];
         $data = $dados['data'] ?? today();
         $odometro = (int) $dados['odometro'];
         $odometroSaida = (int) ($dados['odometro_saida'] ?? 0);
+        $createdAt = $dados['created_at'] ?? now();
 
         $this->qb->beginTransaction();
 
         try {
-            $leituraAnterior = $this->ultimaAntesData($contratoVeiculoId, $data);
+            $leituraAnterior = $this->ultimaPorContratoVeiculo($contratoVeiculoId);
             $baseDiferenca = max($odometroSaida, (int) ($leituraAnterior['odometro'] ?? 0));
             $diferenca = max(0, $odometro - $baseDiferenca);
-            $existente = $this->buscarPorData($contratoVeiculoId, $data);
 
-            $payload = [
-                'odometro' => $odometro,
-                'diferenca' => $diferenca,
-                'obs' => $dados['obs'] ?? null,
-                'id_funcionario' => $dados['id_funcionario'] ?? null,
-            ];
-
-            if ($existente) {
-                $this->qb
-                    ->table('contratos_odometros')
-                    ->where('id', '=', (int) $existente['id'])
-                    ->update($payload);
-                $id = (int) $existente['id'];
-            } else {
-                $id = $this->qb
-                    ->table('contratos_odometros')
-                    ->insert([
-                        'chave' => $dados['chave'],
-                        'id_contrato' => (int) $dados['id_contrato'],
-                        'id_contrato_veiculo' => $contratoVeiculoId,
-                        'data' => $data,
-                        'odometro' => $odometro,
-                        'diferenca' => $diferenca,
-                        'obs' => $dados['obs'] ?? null,
-                        'id_funcionario' => $dados['id_funcionario'] ?? null,
-                    ]);
-            }
+            $id = $this->qb
+                ->table('contratos_odometros')
+                ->insert([
+                    'chave' => $dados['chave'],
+                    'id_contrato' => (int) $dados['id_contrato'],
+                    'id_contrato_veiculo' => $contratoVeiculoId,
+                    'data' => $data,
+                    'odometro' => $odometro,
+                    'diferenca' => $diferenca,
+                    'obs' => $dados['obs'] ?? null,
+                    'id_funcionario' => $dados['id_funcionario'] ?? null,
+                    'created_at' => $createdAt,
+                ]);
 
             $this->qb
                 ->table('veiculos')
@@ -110,6 +105,120 @@ class ContratoOdometro extends Model
                 'data' => $data,
                 'odometro' => $odometro,
                 'diferenca' => $diferenca,
+                'created_at' => $createdAt,
+            ];
+        } catch (\Throwable $e) {
+            $this->qb->rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Corrige uma leitura e recompõe toda a sequência de diferenças do veículo.
+     *
+     * @return array{success: bool, error?: string, reference?: int, antigo?: array, novo?: array, historico?: array, odometro_veiculo?: int}
+     */
+    public function editarLeitura(int $id, array $dados): array
+    {
+        $this->qb->beginTransaction();
+
+        try {
+            $leitura = $this->buscarPorId($id);
+            if (!$leitura
+                || (int) $leitura['id_contrato'] !== (int) $dados['id_contrato']
+                || (int) $leitura['id_contrato_veiculo'] !== (int) $dados['id_contrato_veiculo']) {
+                $this->qb->rollback();
+                return ['success' => false, 'error' => 'not_found'];
+            }
+
+            $data = (string) $dados['data'];
+            $odometro = (int) $dados['odometro'];
+            $historicoOriginal = $this->listarPorContratoVeiculo((int) $dados['id_contrato_veiculo']);
+
+            $historicoNovo = array_map(static function (array $item) use ($id, $data, $odometro, $dados): array {
+                if ((int) $item['id'] === $id) {
+                    $item['data'] = $data;
+                    $item['odometro'] = $odometro;
+                    $item['obs'] = $dados['obs'] ?? null;
+                    $item['id_funcionario'] = $dados['id_funcionario'] ?? null;
+                }
+                return $item;
+            }, $historicoOriginal);
+
+            usort($historicoNovo, static function (array $a, array $b): int {
+                $porData = strcmp((string) $a['data'], (string) $b['data']);
+                return $porData !== 0 ? $porData : ((int) $a['id'] <=> (int) $b['id']);
+            });
+
+            $anterior = (int) $dados['odometro_saida'];
+            foreach ($historicoNovo as $item) {
+                $valor = (int) $item['odometro'];
+                if ($valor < $anterior) {
+                    $this->qb->rollback();
+                    return [
+                        'success' => false,
+                        'error' => (int) $item['id'] === $id ? 'lower_than_previous' : 'higher_than_next',
+                        'reference' => (int) $item['id'] === $id ? $anterior : $valor,
+                    ];
+                }
+                $anterior = $valor;
+            }
+
+            $ultimaOriginal = end($historicoOriginal) ?: null;
+            $ultimaNova = end($historicoNovo) ?: null;
+
+            $this->qb
+                ->table('contratos_odometros')
+                ->where('id', '=', $id)
+                ->update([
+                    'data' => $data,
+                    'odometro' => $odometro,
+                    'obs' => $dados['obs'] ?? null,
+                    'id_funcionario' => $dados['id_funcionario'] ?? null,
+                ]);
+
+            $base = (int) $dados['odometro_saida'];
+            foreach ($historicoNovo as &$item) {
+                $diferenca = max(0, (int) $item['odometro'] - $base);
+                $item['diferenca'] = $diferenca;
+                $this->qb
+                    ->table('contratos_odometros')
+                    ->where('id', '=', (int) $item['id'])
+                    ->update(['diferenca' => $diferenca]);
+                $base = (int) $item['odometro'];
+            }
+            unset($item);
+
+            $veiculo = $this->qb
+                ->table('veiculos')
+                ->where('id', '=', (int) $dados['id_veiculo'])
+                ->first();
+            $odometroVeiculo = (int) ($veiculo['odometro'] ?? 0);
+            $odometroUltimoOriginal = (int) ($ultimaOriginal['odometro'] ?? 0);
+            $odometroUltimoNovo = (int) ($ultimaNova['odometro'] ?? $dados['odometro_saida']);
+            $novoOdometroVeiculo = $odometroVeiculo === $odometroUltimoOriginal
+                ? $odometroUltimoNovo
+                : max($odometroVeiculo, $odometroUltimoNovo);
+
+            if ($veiculo && $novoOdometroVeiculo !== $odometroVeiculo) {
+                $this->qb
+                    ->table('veiculos')
+                    ->where('id', '=', (int) $dados['id_veiculo'])
+                    ->update(['odometro' => $novoOdometroVeiculo]);
+            }
+
+            $this->qb->commit();
+
+            $historicoDesc = array_reverse($historicoNovo);
+            return [
+                'success' => true,
+                'antigo' => $leitura,
+                'novo' => array_values(array_filter(
+                    $historicoNovo,
+                    static fn(array $item): bool => (int) $item['id'] === $id
+                ))[0],
+                'historico' => array_slice($historicoDesc, 0, 5),
+                'odometro_veiculo' => $novoOdometroVeiculo,
             ];
         } catch (\Throwable $e) {
             $this->qb->rollback();

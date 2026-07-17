@@ -204,7 +204,11 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 ### Fatura (fatura.php)
 - Dados da empresa e cliente
 - Dados do cliente incluem endereco completo quando cadastrado
-- Lista de veiculos com valores
+- Lista de veiculos organizada nas colunas Veiculo, Plano, Retirada, Devolucao, Valor e Total
+- A coluna Veiculo agrupa marca/modelo, placa e grupo; Retirada e Devolucao agrupam odometro e combustivel/carga
+- Em Km Controlado, a franquia aparece como `{km_franquia} km/{Contagem}`, com contagem Dia, Semana, Mes ou Ano conforme o contrato
+- Valor representa o plano selecionado; Total soma o plano aos seguros habilitados
+- Cada veiculo possui uma linha de seguros: habilitado com valor exibe `Contratado (valor)`, habilitado sem valor exibe `Contratado` e desabilitado exibe `Nao contratado`, mesmo que exista valor residual no banco
 - Taxas e servicos
 - Totais e desconto
 - Espaco para assinatura
@@ -265,7 +269,12 @@ edicao especial de valores.
 
 - A listagem de contratos possui um icone de odometro antes da coluna Seq para contratos ativos com veiculos ativos.
 - O offcanvas lista todos os veiculos ativos do contrato; com um unico veiculo, o formulario abre direto.
-- As leituras intermediarias sao gravadas em `contratos_odometros`, uma por contrato/veiculo/data. Nova leitura no mesmo dia atualiza o registro existente.
+- Cada acionamento de `Registrar leitura` cria uma nova linha em `contratos_odometros`, inclusive quando ja existe outra leitura do mesmo veiculo no mesmo dia.
+- Cada veiculo exibe no proprio offcanvas as 5 leituras mais recentes. Usuarios com `contratos.editar` podem corrigir data, odometro e observacao pela rota `PUT /api/contratos/{id}/odometros/{leituraId}`.
+- O historico exibe data operacional, odometro e observacao na mesma linha e, ao final de cada item, o momento original do registro (`created_at`). A observacao so ocupa espaco quando estiver preenchida. Leituras do mesmo dia sao ordenadas por `data` e `id`.
+- A correcao exige data entre a saida do veiculo e o dia atual e preserva a sequencia nao decrescente entre a saida, a leitura anterior e a posterior. Mais de uma leitura na mesma data e permitida.
+- Ao corrigir, todas as diferencas cronologicas daquele veiculo sao recalculadas. `veiculos.odometro` acompanha a nova ultima leitura apenas quando ainda refletia a antiga; um valor mais recente vindo de outro fluxo e preservado.
+- Toda correcao registra auditoria com os valores anteriores e novos de data, odometro e observacao.
 - Ao salvar, o sistema atualiza tambem `veiculos.odometro`, permitindo que a manutencao preventiva considere a km atual do veiculo.
 - `contratos_veiculos.odometro_saida` permanece como km inicial e `contratos_veiculos.odometro_entrada` permanece reservado para devolucao/substituicao.
 - Para plano `KMC`, o offcanvas exibe km rodado, franquia efetiva proporcional ao tempo de uso do veiculo, excedente e valor estimado. Nao gera cobranca automatica; a cobranca oficial continua na devolucao/substituicao.

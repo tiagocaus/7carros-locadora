@@ -51,6 +51,20 @@ $_formatarCombustivelContratoFatura = static function($nivel, array $item): stri
 
     return $labels[(int) $nivel] ?? '-';
 };
+$_formatarOdometroContratoFatura = static function($valor): string {
+    $odometro = (int) ($valor ?? 0);
+
+    return $odometro > 0 ? number_format($odometro, 0, ',', '.') . ' km' : '-';
+};
+$_formatarSeguroContratoFatura = static function(bool $contratado, float $valor): string {
+    if (!$contratado) {
+        return t('modules.contratos.pdf.insurance_not_contracted');
+    }
+
+    $label = t('modules.contratos.pdf.insurance_contracted');
+
+    return $valor > 0 ? $label . ' (' . currency_format($valor) . ')' : $label;
+};
 $_formatarVeiculoContratoFatura = static function(array $item): string {
     $placa = trim((string) ($item['veiculo_placa'] ?? ''));
     $nome = trim((string) (($item['veiculo_marca'] ?? '') . ' ' . ($item['veiculo_modelo'] ?? '')));
@@ -204,16 +218,12 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
     <table class="data-table">
         <thead>
             <tr>
-                <th style="width: 18%;"><?= t('modules.contratos.pdf.vehicle_header') ?></th>
-                <th style="width: 8%;"><?= t('modules.contratos.pdf.plate_header') ?></th>
-                <th style="width: 10%;"><?= t('modules.contratos.pdf.group_header') ?></th>
-                <th style="width: 9%;"><?= t('modules.contratos.pdf.plan_header') ?></th>
-                <th style="width: 9%;"><?= t('modules.contratos.return_page.fuel_out') ?></th>
-                <th style="width: 9%;"><?= t('modules.contratos.return_page.fuel_arrival') ?></th>
-                <th style="width: 9%;" class="text-right"><?= t('modules.contratos.pdf.vehicle_insurance_header') ?></th>
-                <th style="width: 9%;" class="text-right"><?= t('modules.contratos.pdf.third_party_insurance_header') ?></th>
-                <th style="width: 9%;" class="text-right"><?= t('modules.contratos.pdf.value_per_day_header') ?></th>
-                <th style="width: 10%;" class="text-right"><?= t('modules.contratos.pdf.total_per_day_header') ?></th>
+                <th style="width: 25%;"><?= t('modules.contratos.pdf.vehicle_header') ?></th>
+                <th style="width: 17%;"><?= t('modules.contratos.pdf.plan_header') ?></th>
+                <th style="width: 16%;"><?= t('modules.contratos.pdf.withdrawal_header') ?></th>
+                <th style="width: 16%;"><?= t('modules.contratos.pdf.return_details_header') ?></th>
+                <th style="width: 13%;" class="text-right"><?= t('modules.contratos.pdf.value_header') ?></th>
+                <th style="width: 13%;" class="text-right"><?= t('modules.contratos.pdf.total_header') ?></th>
             </tr>
         </thead>
         <tbody>
@@ -231,38 +241,68 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
                     'KP' => (float) ($v['valor_plano_km_pago'] ?? 0),
                     default => 0
                 };
-                $segVeic = !empty($v['seguro_carro']) ? (float) ($v['valor_seguro_carro'] ?? 0) : 0;
-                $segTerc = !empty($v['seguro_terceiros']) ? (float) ($v['valor_seguro_terceiros'] ?? 0) : 0;
+                $segVeicContratado = !empty($v['seguro_carro']);
+                $segTercContratado = !empty($v['seguro_terceiros']);
+                $segVeic = $segVeicContratado ? (float) ($v['valor_seguro_carro'] ?? 0) : 0;
+                $segTerc = $segTercContratado ? (float) ($v['valor_seguro_terceiros'] ?? 0) : 0;
                 $totalDia = $valorPlano + $segVeic + $segTerc;
                 $kmFranquia = (int) ($v['km_franquia'] ?? 0);
-                $mostrarInfoKmFranquia = ($contrato['status'] ?? '') === 'A'
-                    && ($v['plano'] ?? '') === 'KMC'
-                    && $kmFranquia > 0;
-                $totalKmFranquia = $kmFranquia * max(1, (int) ($contrato['dias'] ?? 1));
+                $contagemLabel = match($contrato['contagem'] ?? '') {
+                    'dia' => t('modules.contratos.pdf.counting_labels.day'),
+                    'semana' => t('modules.contratos.pdf.counting_labels.week'),
+                    'mes' => t('modules.contratos.pdf.counting_labels.month'),
+                    'ano' => t('modules.contratos.pdf.counting_labels.year'),
+                    default => '-',
+                };
+                $veiculoNome = trim((string) (($v['veiculo_marca'] ?? '') . ' ' . ($v['veiculo_modelo'] ?? '')));
+                $veiculoMeta = array_values(array_filter([
+                    trim((string) ($v['veiculo_placa'] ?? '')),
+                    trim((string) ($v['grupo_nome'] ?? '')) !== ''
+                        ? t('modules.contratos.pdf.group_header') . ' ' . trim((string) $v['grupo_nome'])
+                        : '',
+                ], static fn(string $valor): bool => $valor !== ''));
+                $combustivelSaida = $_formatarCombustivelContratoFatura($v['combustivel_saida'] ?? null, $v);
+                $combustivelEntrada = $_formatarCombustivelContratoFatura($v['combustivel_entrada'] ?? null, $v);
+                $combustivelEntradaRaw = $v['combustivel_entrada'] ?? null;
+                $temDadosDevolucao = (int) ($v['odometro_entrada'] ?? 0) > 0
+                    || ($combustivelEntradaRaw !== null && $combustivelEntradaRaw !== '');
             ?>
-            <tr<?= $mostrarInfoKmFranquia ? ' class="has-km-franquia"' : '' ?>>
-                <td><?= htmlspecialchars(($v['veiculo_marca'] ?? '') . ' ' . ($v['veiculo_modelo'] ?? '')) ?></td>
-                <td><?= htmlspecialchars($v['veiculo_placa'] ?? '-') ?></td>
-                <td><?= htmlspecialchars($v['grupo_nome'] ?? '-') ?></td>
-                <td><?= $planoNome ?></td>
-                <td><?= $_formatarCombustivelContratoFatura($v['combustivel_saida'] ?? null, $v) ?></td>
-                <td><?= $_formatarCombustivelContratoFatura($v['combustivel_entrada'] ?? null, $v) ?></td>
-                <td class="text-right"><?= $segVeic > 0 ? currency_format($segVeic) : '-' ?></td>
-                <td class="text-right"><?= $segTerc > 0 ? currency_format($segTerc) : '-' ?></td>
+            <tr class="vehicle-main-row">
+                <td>
+                    <div class="vehicle-primary"><?= htmlspecialchars($veiculoNome !== '' ? $veiculoNome : '-') ?></div>
+                    <?php if ($veiculoMeta): ?>
+                    <div class="vehicle-meta"><?= htmlspecialchars(implode(' · ', $veiculoMeta)) ?></div>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <div><?= htmlspecialchars($planoNome) ?></div>
+                    <?php if (($v['plano'] ?? '') === 'KMC' && $kmFranquia > 0): ?>
+                    <div class="vehicle-meta"><?= number_format($kmFranquia, 0, ',', '.') ?> km/<?= htmlspecialchars($contagemLabel) ?></div>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <div><?= $_formatarOdometroContratoFatura($v['odometro_saida'] ?? null) ?></div>
+                    <div class="vehicle-meta"><?= t('modules.contratos.pdf.fuel_short_label') ?>: <?= htmlspecialchars($combustivelSaida) ?></div>
+                </td>
+                <td>
+                    <?php if ($temDadosDevolucao): ?>
+                    <div><?= $_formatarOdometroContratoFatura($v['odometro_entrada'] ?? null) ?></div>
+                    <div class="vehicle-meta"><?= t('modules.contratos.pdf.fuel_short_label') ?>: <?= htmlspecialchars($combustivelEntrada) ?></div>
+                    <?php else: ?>
+                    <div>-</div>
+                    <?php endif; ?>
+                </td>
                 <td class="text-right"><?= currency_format($valorPlano) ?></td>
                 <td class="text-right"><?= currency_format($totalDia) ?></td>
             </tr>
-            <?php if ($mostrarInfoKmFranquia): ?>
-            <tr class="km-franquia-row">
-                <td colspan="10" class="km-franquia-info">
-                    <?= htmlspecialchars(t('modules.contratos.pdf.km_allowance_info', [
-                        'franquia' => number_format($kmFranquia, 0, ',', '.') . 'km',
-                        'unidade' => t('modules.contratos.pdf.km_allowance_unit_counting'),
-                        'total' => number_format($totalKmFranquia, 0, ',', '.') . 'Km',
-                    ])) ?>
+            <tr class="vehicle-insurance-row">
+                <td colspan="6">
+                    <strong><?= t('modules.contratos.pdf.insurances_label') ?>:</strong>
+                    <?= t('modules.contratos.pdf.vehicle_insurance_short') ?> - <?= htmlspecialchars($_formatarSeguroContratoFatura($segVeicContratado, $segVeic)) ?>
+                    <span class="vehicle-insurance-separator">·</span>
+                    <?= t('modules.contratos.pdf.third_party_insurance_short') ?> - <?= htmlspecialchars($_formatarSeguroContratoFatura($segTercContratado, $segTerc)) ?>
                 </td>
             </tr>
-            <?php endif; ?>
             <?php endforeach; ?>
         </tbody>
     </table>
