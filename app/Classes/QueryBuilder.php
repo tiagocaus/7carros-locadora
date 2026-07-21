@@ -52,6 +52,7 @@ class QueryBuilder
     private array $orderBy = [];
     private ?int $limitValue = null;
     private ?int $offsetValue = null;
+    private bool $lockForUpdate = false;
     private array $unions = [];
 
     // Debug
@@ -693,6 +694,15 @@ class QueryBuilder
     }
 
     /**
+     * Bloqueia as linhas selecionadas ate o fim da transacao atual.
+     */
+    public function lockForUpdate(): self
+    {
+        $this->lockForUpdate = true;
+        return $this;
+    }
+
+    /**
      * Paginação simplificada
      *
      * @param int $page Número da página (começando em 1)
@@ -1131,6 +1141,10 @@ class QueryBuilder
             $sql .= ' ' . $union['type'] . ' ' . $union['query']->toSql();
         }
 
+        if ($this->lockForUpdate) {
+            $sql .= ' FOR UPDATE';
+        }
+
         return $sql;
     }
 
@@ -1268,6 +1282,7 @@ class QueryBuilder
         $this->orderBy = [];
         $this->limitValue = null;
         $this->offsetValue = null;
+        $this->lockForUpdate = false;
         $this->unions = [];
         $this->useChave = true;
         $this->includeGlobals = false;

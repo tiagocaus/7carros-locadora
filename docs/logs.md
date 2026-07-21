@@ -43,6 +43,9 @@ AuditLogService::registrarComCampos(
 );
 ```
 
+Em fluxos de edicao, envie somente campos cujo valor normalizado realmente
+mudou. Reenvios sem alteracao nao devem criar uma nova entrada de auditoria.
+
 Em exclusoes em lote, registre uma entrada de auditoria por entidade realmente
 excluida. Isso preserva a pesquisa individual e impede que registros ignorados
 por vinculo ou permissao aparecam como removidos. O financeiro usa a mensagem

@@ -43,14 +43,19 @@ class ContratoOdometro extends Model
             ->get();
     }
 
-    public function listarPorContratoVeiculo(int $contratoVeiculoId): array
+    public function listarPorContratoVeiculo(int $contratoVeiculoId, bool $bloquearParaAtualizacao = false): array
     {
-        return $this->qb
+        $query = $this->qb
             ->table('contratos_odometros')
             ->where('id_contrato_veiculo', '=', $contratoVeiculoId)
             ->orderBy('data')
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+
+        if ($bloquearParaAtualizacao) {
+            $query->lockForUpdate();
+        }
+
+        return $query->get();
     }
 
     public function listarUltimosPorContratoVeiculo(int $contratoVeiculoId, int $limite = 5): array
@@ -116,14 +121,21 @@ class ContratoOdometro extends Model
     /**
      * Corrige uma leitura e recompõe toda a sequência de diferenças do veículo.
      *
-     * @return array{success: bool, error?: string, reference?: int, antigo?: array, novo?: array, historico?: array, odometro_veiculo?: int}
+     * @return array{success: bool, alterado?: bool, error?: string, reference?: int, antigo?: array, novo?: array, historico?: array, odometro_veiculo?: int}
      */
     public function editarLeitura(int $id, array $dados): array
     {
         $this->qb->beginTransaction();
 
         try {
-            $leitura = $this->buscarPorId($id);
+            $historicoOriginal = $this->listarPorContratoVeiculo(
+                (int) $dados['id_contrato_veiculo'],
+                true
+            );
+            $leitura = array_values(array_filter(
+                $historicoOriginal,
+                static fn(array $item): bool => (int) $item['id'] === $id
+            ))[0] ?? null;
             if (!$leitura
                 || (int) $leitura['id_contrato'] !== (int) $dados['id_contrato']
                 || (int) $leitura['id_contrato_veiculo'] !== (int) $dados['id_contrato_veiculo']) {
@@ -133,13 +145,35 @@ class ContratoOdometro extends Model
 
             $data = (string) $dados['data'];
             $odometro = (int) $dados['odometro'];
-            $historicoOriginal = $this->listarPorContratoVeiculo((int) $dados['id_contrato_veiculo']);
+            $obs = $dados['obs'] ?? null;
+            $obsAntiga = trim((string) ($leitura['obs'] ?? ''));
+            $obsAntiga = $obsAntiga !== '' ? $obsAntiga : null;
+            $alterado = (string) $leitura['data'] !== $data
+                || (int) $leitura['odometro'] !== $odometro
+                || $obsAntiga !== $obs;
 
-            $historicoNovo = array_map(static function (array $item) use ($id, $data, $odometro, $dados): array {
+            if (!$alterado) {
+                $veiculo = $this->qb
+                    ->table('veiculos')
+                    ->where('id', '=', (int) $dados['id_veiculo'])
+                    ->first();
+                $this->qb->commit();
+
+                return [
+                    'success' => true,
+                    'alterado' => false,
+                    'antigo' => $leitura,
+                    'novo' => $leitura,
+                    'historico' => array_slice(array_reverse($historicoOriginal), 0, 5),
+                    'odometro_veiculo' => (int) ($veiculo['odometro'] ?? 0),
+                ];
+            }
+
+            $historicoNovo = array_map(static function (array $item) use ($id, $data, $odometro, $obs, $dados): array {
                 if ((int) $item['id'] === $id) {
                     $item['data'] = $data;
                     $item['odometro'] = $odometro;
-                    $item['obs'] = $dados['obs'] ?? null;
+                    $item['obs'] = $obs;
                     $item['id_funcionario'] = $dados['id_funcionario'] ?? null;
                 }
                 return $item;
@@ -173,7 +207,7 @@ class ContratoOdometro extends Model
                 ->update([
                     'data' => $data,
                     'odometro' => $odometro,
-                    'obs' => $dados['obs'] ?? null,
+                    'obs' => $obs,
                     'id_funcionario' => $dados['id_funcionario'] ?? null,
                 ]);
 
@@ -212,6 +246,7 @@ class ContratoOdometro extends Model
             $historicoDesc = array_reverse($historicoNovo);
             return [
                 'success' => true,
+                'alterado' => true,
                 'antigo' => $leitura,
                 'novo' => array_values(array_filter(
                     $historicoNovo,

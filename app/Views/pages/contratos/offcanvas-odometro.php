@@ -22,7 +22,7 @@ $singleMode = count($veiculos) === 1;
     .odometer-card.is-open .btn-toggle-form { display: none; }
     .odometer-form { display: none; }
     .odometer-card.single .odometer-form { display: block; }
-    .odometer-history-row { display: grid; grid-template-columns: 100px 85px minmax(0, 1fr) 34px; gap: .5rem; align-items: center; }
+    .odometer-history-row { display: grid; grid-template-columns: 100px 100px minmax(0, 1fr) 34px; gap: .5rem; align-items: center; }
     .odometer-history-date { grid-column: 1; }
     .odometer-history-km { grid-column: 2; }
     .odometer-history-obs { grid-column: 3; }
@@ -30,7 +30,7 @@ $singleMode = count($veiculos) === 1;
     .odometer-history-registered-at { grid-column: 1 / -1; text-align: right; }
     .odometer-history-edit { grid-column: 1 / -1; }
     @media (max-width: 640px) {
-        .odometer-history-row { grid-template-columns: 88px 62px minmax(0, 1fr) 34px; gap: .375rem; }
+        .odometer-history-row { grid-template-columns: 88px 72px minmax(0, 1fr) 34px; gap: .375rem; }
     }
 </style>
 
@@ -263,7 +263,13 @@ $singleMode = count($veiculos) === 1;
         }
 
         function updateCalculation(card) {
-            const entered = Km.parse(card.querySelector('.odometro-input').value || '0');
+            const odometerInput = card?.querySelector('.odometro-input');
+            if (!card || !odometerInput) {
+                console.error('Formulario de odometro incompleto ao atualizar calculos.');
+                return;
+            }
+
+            const entered = Km.parse(odometerInput.value || '0');
             const minimum = parseInt(card.dataset.odometroMinimo || '0', 10) || 0;
             const current = entered > 0 ? entered : minimum;
             const departure = parseInt(card.dataset.odometroSaida || '0', 10) || 0;
@@ -330,9 +336,25 @@ $singleMode = count($veiculos) === 1;
             if (!updateButton) return;
 
             const card = updateButton.closest('.odometer-card');
-            const row = updateButton.closest('[data-reading-id]');
-            const data = row.querySelector('.edit-reading-date').value;
-            const odometro = Km.parse(row.querySelector('.edit-reading-km').value || '0');
+            const row = updateButton.closest('.odometer-history-row');
+            const dateInput = row?.querySelector('.edit-reading-date');
+            const odometerInput = row?.querySelector('.edit-reading-km');
+            const observationInput = row?.querySelector('.edit-reading-obs');
+            if (!card || !row || !dateInput || !odometerInput) {
+                console.error('Formulario de edicao do odometro incompleto.', {
+                    card: Boolean(card),
+                    row: Boolean(row),
+                    dateInput: Boolean(dateInput),
+                    odometerInput: Boolean(odometerInput),
+                    observationInput: Boolean(observationInput)
+                });
+                alertMessage(i18n.updateFailed);
+                return;
+            }
+
+            const data = dateInput.value;
+            const odometro = Km.parse(odometerInput.value || '0');
+            const obs = observationInput?.value || '';
             if (!data || !odometro) {
                 alertMessage(i18n.invalidFields);
                 return;
@@ -342,11 +364,12 @@ $singleMode = count($veiculos) === 1;
             updateButton.disabled = true;
             updateButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${escapeText(i18n.updating)}`;
             try {
-                const result = await API.put(`/api/contratos/${contratoId}/odometros/${updateButton.dataset.readingId}`, {
+                const result = await API.post(`/api/contratos/${contratoId}/odometros/${updateButton.dataset.readingId}`, {
+                    _method: 'PUT',
                     id_contrato_veiculo: card.dataset.id,
                     data,
                     odometro,
-                    obs: row.querySelector('.edit-reading-obs').value || ''
+                    obs
                 });
                 if (!result.success) {
                     alertMessage(result.message || i18n.updateFailed);
@@ -370,7 +393,21 @@ $singleMode = count($veiculos) === 1;
         document.querySelectorAll('.btn-salvar-odometro').forEach(button => {
             button.addEventListener('click', async function() {
                 const card = this.closest('.odometer-card');
-                const odometro = Km.parse(card.querySelector('.odometro-input').value || '0');
+                const form = this.closest('.odometer-form');
+                const odometerInput = form?.querySelector('.odometro-input');
+                const observationInput = form?.querySelector('.odometro-obs');
+                if (!card || !form || !odometerInput || !observationInput) {
+                    console.error('Formulario de odometro incompleto ao salvar leitura.', {
+                        card: Boolean(card),
+                        form: Boolean(form),
+                        odometerInput: Boolean(odometerInput),
+                        observationInput: Boolean(observationInput)
+                    });
+                    alertMessage(i18n.registerFailed);
+                    return;
+                }
+
+                const odometro = Km.parse(odometerInput.value || '0');
                 const minimum = parseInt(card.dataset.odometroMinimo || '0', 10) || 0;
                 if (!odometro || odometro < minimum) {
                     alertMessage(i18n.minimumError.replace(':referencia', Km.format(minimum)));
@@ -381,7 +418,7 @@ $singleMode = count($veiculos) === 1;
                 this.disabled = true;
                 this.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${escapeText(i18n.saving)}`;
                 try {
-                    const obs = card.querySelector('.odometro-obs').value || '';
+                    const obs = observationInput.value || '';
                     const result = await API.post(`/api/contratos/${contratoId}/odometros`, {
                         id_contrato_veiculo: card.dataset.id, odometro, obs
                     });
@@ -398,8 +435,8 @@ $singleMode = count($veiculos) === 1;
                     card._history = [reading, ...(card._history || []).filter(item => item.id !== reading.id)].slice(0, 5);
                     renderHistory(card);
                     applyServerSummary(card, { ...data, odometro_veiculo: data.odometro, ultima_leitura: reading });
-                    card.querySelector('.odometro-input').value = '';
-                    card.querySelector('.odometro-obs').value = '';
+                    odometerInput.value = '';
+                    observationInput.value = '';
                     updateCalculation(card);
                     window.parent.postMessage({ action: 'contratoOdometroRegistrado', contratoId }, '*');
                     alertMessage(result.message, 'success');

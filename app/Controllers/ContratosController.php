@@ -684,15 +684,21 @@ class ContratosController
 
             $antigo = $resultado['antigo'];
             $novo = $resultado['novo'];
-            $placa = $veiculoContrato['veiculo_placa'] ?? (string) $veiculoContrato['id_veiculo'];
-            AuditLogService::registrarComCampos(
-                "Corrigiu leitura de odometro do contrato [{$contrato['codigo']}] - veiculo [{$placa}]",
-                [
+            if ($resultado['alterado'] ?? true) {
+                $placa = $veiculoContrato['veiculo_placa'] ?? (string) $veiculoContrato['id_veiculo'];
+                $camposAlterados = array_values(array_filter([
                     AuditLogService::campo('Data', format_date($antigo['data']), format_date($novo['data']), 'Odometro'),
                     AuditLogService::campo('Odometro', number_format((int) $antigo['odometro'], 0, '', '.') . ' km', number_format((int) $novo['odometro'], 0, '', '.') . ' km', 'Odometro'),
                     AuditLogService::campo('Observacao', $antigo['obs'] ?? '-', $novo['obs'] ?? '-', 'Odometro'),
-                ]
-            );
+                ], static fn(array $campo): bool => $campo['de'] !== $campo['para']));
+
+                if ($camposAlterados !== []) {
+                    AuditLogService::registrarComCampos(
+                        "Corrigiu leitura de odometro do contrato [{$contrato['codigo']}] - veiculo [{$placa}]",
+                        $camposAlterados
+                    );
+                }
+            }
 
             $historico = array_map(static function (array $item): array {
                 return [

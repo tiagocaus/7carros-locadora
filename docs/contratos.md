@@ -274,8 +274,8 @@ edicao especial de valores.
 - Cada veiculo exibe no proprio offcanvas as 5 leituras mais recentes. Usuarios com `contratos.editar` podem corrigir data, odometro e observacao pela rota `PUT /api/contratos/{id}/odometros/{leituraId}`.
 - O historico exibe data operacional, odometro e observacao na mesma linha e, ao final de cada item, o momento original do registro (`created_at`). A observacao so ocupa espaco quando estiver preenchida. Leituras do mesmo dia sao ordenadas por `data` e `id`.
 - A correcao exige data entre a saida do veiculo e o dia atual e preserva a sequencia nao decrescente entre a saida, a leitura anterior e a posterior. Mais de uma leitura na mesma data e permitida.
-- Ao corrigir, todas as diferencas cronologicas daquele veiculo sao recalculadas. `veiculos.odometro` acompanha a nova ultima leitura apenas quando ainda refletia a antiga; um valor mais recente vindo de outro fluxo e preservado.
-- Toda correcao registra auditoria com os valores anteriores e novos de data, odometro e observacao.
+- Ao corrigir, o historico do veiculo e bloqueado durante a transacao e todas as diferencas cronologicas sao recalculadas. `veiculos.odometro` acompanha a nova ultima leitura apenas quando ainda refletia a antiga; um valor mais recente vindo de outro fluxo e preservado.
+- Toda correcao efetiva registra auditoria apenas dos campos alterados, com os valores anteriores e novos. Reenvios sem mudanca nao atualizam o registro nem geram outra auditoria.
 - Ao salvar, o sistema atualiza tambem `veiculos.odometro`, permitindo que a manutencao preventiva considere a km atual do veiculo.
 - `contratos_veiculos.odometro_saida` permanece como km inicial e `contratos_veiculos.odometro_entrada` permanece reservado para devolucao/substituicao.
 - Para plano `KMC`, o offcanvas exibe km rodado, franquia efetiva proporcional ao tempo de uso do veiculo, excedente e valor estimado. Nao gera cobranca automatica; a cobranca oficial continua na devolucao/substituicao.

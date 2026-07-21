@@ -525,6 +525,25 @@ try {
 }
 ```
 
+### Bloqueio de linhas para atualização
+
+Dentro de uma transação, use `lockForUpdate()` quando uma decisão de escrita
+depender do valor lido. O bloqueio respeita automaticamente o filtro de tenant
+e permanece ativo até `commit()` ou `rollback()`:
+
+```php
+$this->qb->beginTransaction();
+
+$registro = $this->qb
+    ->table('contratos_odometros')
+    ->where('id', '=', $id)
+    ->lockForUpdate()
+    ->first();
+
+// validar e atualizar o registro...
+$this->qb->commit();
+```
+
 ---
 
 ## Multi-tenancy

@@ -20,8 +20,30 @@ Carregado automaticamente em todas as páginas que usam o layout `iframe.php`.
 | `API.get(url, params)` | Requisições GET |
 | `API.post(url, data)` | Requisições POST com JSON |
 | `API.postForm(url, formData)` | Requisições POST com FormData |
-| `API.put(url, data)` | Requisições PUT |
-| `API.delete(url, data)` | Requisições DELETE |
+| `API.put(url, data)` | Requisições PUT diretas (não usar na hospedagem de produção) |
+| `API.delete(url, data)` | Requisições DELETE diretas (não usar na hospedagem de produção) |
+
+### Compatibilidade com PUT e DELETE em produção
+
+O servidor de hospedagem bloqueia requisições HTTP `PUT` e `DELETE` antes que
+elas cheguem ao PHP. Para rotas semanticamente registradas com esses métodos,
+use `API.post()` com method spoofing no corpo JSON:
+
+```javascript
+await API.post('/api/recurso/123', {
+    _method: 'PUT',
+    nome: 'Valor atualizado'
+});
+
+await API.post('/api/recurso/123', {
+    _method: 'DELETE'
+});
+```
+
+`Request::method()` converte `_method` para o verbo esperado pelo Router. Os
+middlewares de autenticação, permissão e CSRF continuam sendo executados
+normalmente. Não use `API.put()` ou `API.delete()` em novos fluxos enquanto a
+hospedagem mantiver esse bloqueio.
 
 ### Exemplos de Uso
 
