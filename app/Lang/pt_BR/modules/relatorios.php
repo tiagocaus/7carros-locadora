@@ -801,6 +801,7 @@ return [
             'origin_contract' => 'Contrato',
             'financial_yes' => 'Com financeiro',
             'financial_no' => 'Sem financeiro',
+            'financial_not_applicable' => 'Não aplicável — sem financeiro',
             'returning' => 'Registrando devolução',
             'return_date' => 'Data da devolução',
             'return_account' => 'Conta de saída',

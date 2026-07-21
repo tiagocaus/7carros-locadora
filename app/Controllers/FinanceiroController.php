@@ -773,6 +773,33 @@ class FinanceiroController
                 return;
             }
 
+            $somenteReceitasPendentes = in_array(
+                $dados['somente_receitas_pendentes'] ?? false,
+                [true, 1, '1', 'true'],
+                true
+            );
+            $contratoId = 0;
+            if ($somenteReceitasPendentes) {
+                $contratoInformado = $dados['id_contrato'] ?? null;
+                if (!is_int($contratoInformado)
+                    && !(is_string($contratoInformado) && ctype_digit(trim($contratoInformado)))) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Informe um contrato valido para a exclusao das faturas abertas'
+                    ], 400);
+                    return;
+                }
+
+                $contratoId = (int) $contratoInformado;
+                if ($contratoId < 1) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Informe um contrato valido para a exclusao das faturas abertas'
+                    ], 400);
+                    return;
+                }
+            }
+
             $financeiroModel = new Financeiro();
             $chave = Auth::chave();
             $excluidos = [];
@@ -792,6 +819,18 @@ class FinanceiroController
                     continue;
                 }
 
+                if ($somenteReceitasPendentes
+                    && ((int) ($lancamento['id_contrato'] ?? 0) !== $contratoId
+                        || ($lancamento['tipo'] ?? '') !== 'R'
+                        || ($lancamento['pago'] ?? '') !== 'N')) {
+                    $ignorados[] = $this->itemIgnoradoExclusao(
+                        $id,
+                        $lancamento,
+                        'Lancamento nao pertence ao contrato ou deixou de ser uma receita pendente'
+                    );
+                    continue;
+                }
+
                 $verificacao = $financeiroModel->verificarVinculos($id);
                 if ($verificacao['temVinculos']) {
                     $detalhes = implode(', ', $verificacao['detalhes'] ?? []);
@@ -802,9 +841,14 @@ class FinanceiroController
 
                 $camposLog = $this->prepararCamposLogFinanceiro($lancamento);
                 try {
-                    $afetados = $financeiroModel->deletar($id);
+                    $afetados = $somenteReceitasPendentes
+                        ? $financeiroModel->deletarReceitaPendenteContrato($id, $contratoId)
+                        : $financeiroModel->deletar($id);
                     if ($afetados < 1) {
-                        $ignorados[] = $this->itemIgnoradoExclusao($id, $lancamento, 'Lancamento nao foi excluido');
+                        $motivo = $somenteReceitasPendentes
+                            ? 'Lancamento deixou de ser uma receita pendente antes da exclusao'
+                            : 'Lancamento nao foi excluido';
+                        $ignorados[] = $this->itemIgnoradoExclusao($id, $lancamento, $motivo);
                         continue;
                     }
                 } catch (\Throwable $e) {

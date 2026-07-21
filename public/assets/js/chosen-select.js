@@ -62,6 +62,9 @@
 
             // Esconder select original
             this.select.style.display = 'none';
+
+            // Sincronizar estado disabled inicial do select nativo
+            this.setDisabled(this.select.disabled);
         }
 
         createWrapper() {
@@ -338,6 +341,31 @@
             this.selectedValue = this.select.value;
             this.selectedValues = this.getSelectedValues();
             this.updateDisplay();
+        }
+
+        /**
+         * Habilita ou desabilita o componente e atualiza seu placeholder
+         */
+        setDisabled(disabled, placeholder = null) {
+            const isDisabled = Boolean(disabled);
+            this.select.disabled = isDisabled;
+
+            if (typeof placeholder === 'string') {
+                this.options.placeholder = placeholder;
+            }
+
+            if (isDisabled) {
+                this.close();
+            }
+
+            this.wrapper.classList.toggle('chosen-select-disabled', isDisabled);
+            this.display.setAttribute('aria-disabled', String(isDisabled));
+            this.searchInput.disabled = isDisabled;
+            this.refresh();
+
+            if (this.clearButton) {
+                this.clearButton.style.display = !isDisabled && this.hasSelection() ? 'block' : 'none';
+            }
         }
 
         getSelectedValues() {
@@ -665,7 +693,7 @@
         }
 
         open() {
-            if (this.isOpen) return;
+            if (this.select.disabled || this.isOpen) return;
 
             this.isOpen = true;
             this.wrapper.classList.add('chosen-select-open');

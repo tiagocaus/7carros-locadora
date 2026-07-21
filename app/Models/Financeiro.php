@@ -823,6 +823,40 @@ class Financeiro extends Model
     }
 
     /**
+     * Exclui atomicamente uma receita que ainda esteja pendente e vinculada
+     * ao contrato informado.
+     */
+    public function deletarReceitaPendenteContrato(int $id, int $contratoId): int
+    {
+        $lancamento = $this->buscarPorId($id);
+        if ($lancamento && !empty($lancamento['id_financeiro_taxa_origem'])) {
+            throw new \InvalidArgumentException('A despesa de taxa e gerenciada automaticamente pela receita de origem');
+        }
+
+        $query = $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $id)
+            ->where('id_contrato', '=', $contratoId)
+            ->where('tipo', '=', 'R')
+            ->where('pago', '=', 'N');
+
+        if ((new ContratoCaucao())->tabelaDisponivel()) {
+            $query->whereRaw('NOT EXISTS (
+                SELECT 1
+                FROM contratos_caucoes cc
+                WHERE cc.chave = financeiro.chave
+                  AND cc.id_contrato = financeiro.id_contrato
+                  AND (
+                      cc.id_financeiro_entrada = financeiro.id
+                      OR cc.id_financeiro_devolucao = financeiro.id
+                  )
+            )');
+        }
+
+        return $query->delete();
+    }
+
+    /**
      * Recalcula o valor_total de um lancamento
      *
      * Usado apos alteracoes em itens (trigger ja faz isso automaticamente)

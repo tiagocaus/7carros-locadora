@@ -49,35 +49,37 @@
         </div>
     </div>
 
-    <div id="returnPanel" class="hidden mb-4 p-3 bg-white border border-blue-200 rounded-lg shadow-sm">
-        <div class="flex flex-col lg:flex-row lg:items-end gap-3">
-            <div class="min-w-[180px]">
-                <div class="text-xs text-slate-500"><?= t('modules.relatorios.financeiro.caucoes.returning') ?></div>
-                <div id="returnTitle" class="font-medium text-slate-800"></div>
-            </div>
-            <div class="min-w-[150px]">
-                <label for="returnDate" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.financeiro.caucoes.return_date') ?></label>
-                <input type="date" id="returnDate" class="form-input-focus w-full text-sm">
-            </div>
-            <div class="flex-1 min-w-[200px]">
-                <label for="returnConta" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.financeiro.caucoes.return_account') ?></label>
-                <select id="returnConta" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contas-bancarias/buscar">
-                    <option value=""><?= t('common.labels.select') ?></option>
-                </select>
-            </div>
-            <div class="flex-1 min-w-[200px]">
-                <label for="returnForma" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.financeiro.caucoes.return_payment_method') ?></label>
-                <select id="returnForma" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/formas-pagamento/select">
-                    <option value=""><?= t('common.labels.select') ?></option>
-                </select>
-            </div>
-            <div class="flex gap-2">
-                <button id="btnConfirmReturn" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
-                    <i class="fas fa-check mr-1"></i><?= t('modules.relatorios.financeiro.caucoes.confirm_return') ?>
-                </button>
-                <button id="btnCancelReturn" class="btn-secondary py-2 px-3 rounded-md text-sm">
-                    <i class="fas fa-times"></i>
-                </button>
+    <div id="returnPanelHost" class="hidden">
+        <div id="returnPanel" class="hidden p-3 bg-white border border-blue-200 rounded-lg shadow-sm">
+            <div class="flex flex-col lg:flex-row lg:items-end gap-3">
+                <div class="min-w-[180px]">
+                    <div class="text-xs text-slate-500"><?= t('modules.relatorios.financeiro.caucoes.returning') ?></div>
+                    <div id="returnTitle" class="font-medium text-slate-800"></div>
+                </div>
+                <div class="min-w-[150px]">
+                    <label for="returnDate" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.financeiro.caucoes.return_date') ?></label>
+                    <input type="date" id="returnDate" class="form-input-focus w-full text-sm">
+                </div>
+                <div class="flex-1 min-w-[200px]">
+                    <label for="returnConta" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.financeiro.caucoes.return_account') ?></label>
+                    <select id="returnConta" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contas-bancarias/buscar">
+                        <option value=""><?= t('common.labels.select') ?></option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[200px]">
+                    <label for="returnForma" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.financeiro.caucoes.return_payment_method') ?></label>
+                    <select id="returnForma" class="form-input-focus w-full text-sm chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/formas-pagamento/select">
+                        <option value=""><?= t('common.labels.select') ?></option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btnConfirmReturn" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
+                        <i class="fas fa-check mr-1"></i><?= t('modules.relatorios.financeiro.caucoes.confirm_return') ?>
+                    </button>
+                    <button id="btnCancelReturn" class="btn-secondary py-2 px-3 rounded-md text-sm">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -115,6 +117,9 @@
     let currentPage = 1;
     let perPage = 25;
     let selected = null;
+    let activeReturnButton = null;
+    const selectOptionLabel = '<?= t("common.labels.select") ?>';
+    const noFinancialOptionLabel = '<?= t("modules.relatorios.financeiro.caucoes.financial_not_applicable") ?>';
 
     const totalsConfig = [
         { key: 'valor_total', label: '<?= t("modules.relatorios.financeiro.caucoes.total_value") ?>', icon: 'fa-shield-alt', format: 'currency', color: 'blue' },
@@ -136,6 +141,7 @@
 
     async function carregarRelatorio() {
         try {
+            fecharPainel();
             ReportUtils.showLoading();
             const params = {
                 data_inicio: document.getElementById('filterDataInicio').value,
@@ -163,6 +169,7 @@
 
     function renderTable(rows) {
         const body = document.getElementById('reportTableBody');
+        fecharPainel();
         if (!rows.length) {
             body.innerHTML = '';
             document.getElementById('reportTableContainer').style.display = 'none';
@@ -172,7 +179,7 @@
         body.innerHTML = rows.map(row => {
             const canReturn = row.status === 'ativa';
             const action = canReturn
-                ? `<button class="btn-return btn-icon text-blue-600 hover:text-blue-800" data-row='${escapeAttr(JSON.stringify(row))}' title="<?= t('modules.relatorios.financeiro.caucoes.confirm_return') ?>"><i class="fas fa-undo"></i></button>`
+                ? `<button class="btn-return btn-icon text-blue-600 hover:text-blue-800" data-row='${escapeAttr(JSON.stringify(row))}' title="<?= t('modules.relatorios.financeiro.caucoes.confirm_return') ?>" aria-expanded="false" aria-controls="returnPanel"><i class="fas fa-undo"></i></button>`
                 : '';
             return `<tr class="hover:bg-slate-50">
                 <td class="px-4 py-2 text-sm">${originBadge(row.origem)}</td>
@@ -187,22 +194,68 @@
         }).join('');
         document.querySelectorAll('.btn-return').forEach(btn => {
             btn.addEventListener('click', function () {
-                selected = JSON.parse(this.dataset.row);
-                abrirPainel();
+                abrirPainel(this);
             });
         });
     }
 
-    function abrirPainel() {
-        if (!selected) return;
+    function abrirPainel(button) {
+        const sourceRow = button?.closest('tr');
+        if (!sourceRow) return;
+
+        fecharPainel();
+        selected = JSON.parse(button.dataset.row);
+        activeReturnButton = button;
+
+        const detailRow = document.createElement('tr');
+        detailRow.id = 'returnPanelRow';
+        const detailCell = document.createElement('td');
+        detailCell.colSpan = 8;
+        detailCell.className = 'px-4 pt-2 bg-slate-50';
+        detailCell.style.paddingBottom = '3.25rem';
+        detailCell.appendChild(document.getElementById('returnPanel'));
+        detailRow.appendChild(detailCell);
+        sourceRow.insertAdjacentElement('afterend', detailRow);
+
         document.getElementById('returnTitle').textContent = `${selected.origem === 'contrato' ? 'Contrato' : 'Locação'} ${selected.codigo}`;
         document.getElementById('returnPanel').classList.remove('hidden');
+        activeReturnButton.setAttribute('aria-expanded', 'true');
+        configurarCamposFinanceiros(Boolean(selected.id_financeiro_entrada));
         document.getElementById('returnDate').focus();
     }
 
+    function configurarCamposFinanceiros(comFinanceiro) {
+        const selects = [
+            document.getElementById('returnConta'),
+            document.getElementById('returnForma'),
+        ];
+
+        selects.forEach(select => {
+            select.value = '';
+            const emptyOption = select.querySelector('option[value=""]');
+            if (emptyOption) {
+                emptyOption.textContent = comFinanceiro ? selectOptionLabel : noFinancialOptionLabel;
+            }
+
+            if (select.chosenSelect && typeof select.chosenSelect.setDisabled === 'function') {
+                select.chosenSelect.setDisabled(!comFinanceiro, comFinanceiro ? selectOptionLabel : noFinancialOptionLabel);
+            } else {
+                select.disabled = !comFinanceiro;
+            }
+        });
+    }
+
     function fecharPainel() {
+        const panel = document.getElementById('returnPanel');
+        const host = document.getElementById('returnPanelHost');
+        if (activeReturnButton) {
+            activeReturnButton.setAttribute('aria-expanded', 'false');
+        }
+        panel.classList.add('hidden');
+        host.appendChild(panel);
+        document.getElementById('returnPanelRow')?.remove();
         selected = null;
-        document.getElementById('returnPanel').classList.add('hidden');
+        activeReturnButton = null;
     }
 
     async function registrarDevolucao() {

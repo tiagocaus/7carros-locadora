@@ -175,6 +175,7 @@ const chosen = new ChosenSelect(select, {
 | `open()` | Abre o dropdown |
 | `close()` | Fecha o dropdown |
 | `clear()` | Limpa a seleção atual e dispara evento `change` |
+| `setDisabled(disabled, placeholder)` | Habilita/desabilita o componente e opcionalmente atualiza o placeholder |
 | `destroy()` | Remove o componente e restaura o select original |
 
 ### Acessando a Instância
@@ -186,6 +187,16 @@ chosenInstance.refresh();
 // Via container
 const container = document.querySelector('.chosen-select-container');
 container.chosenSelect.close();
+```
+
+### Estado desabilitado
+
+O componente respeita o atributo nativo `disabled` durante a inicialização. Para alternar esse estado dinamicamente, use a API da instância:
+
+```javascript
+const select = document.getElementById('meuSelect');
+select.chosenSelect.setDisabled(true, 'Não aplicável');
+select.chosenSelect.setDisabled(false, 'Selecione uma opção...');
 ```
 
 ---

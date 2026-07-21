@@ -330,6 +330,26 @@ e parcial: registros validos sao excluidos e os bloqueados retornam em
 regra da exclusao individual. Cada registro removido gera seu proprio log de
 auditoria com os dados anteriores do lancamento.
 
+Para a tela de devolucao de contrato, o mesmo endpoint aceita um escopo mais
+restrito:
+
+```text
+POST /financeiro/excluir-lote
+Body: {
+  ids: [10, 11],
+  id_contrato: 25,
+  somente_receitas_pendentes: 1
+}
+Permissao: financeiro.excluir
+```
+
+Com `somente_receitas_pendentes = 1`, `id_contrato` e obrigatorio e cada
+lancamento e revalidado como receita pendente do contrato informado. O `DELETE`
+repete atomicamente as condicoes `id_contrato`, `tipo = R` e `pago = N`; assim,
+uma fatura paga ou desvinculada entre a leitura e a exclusao e ignorada. O modo
+restrito tambem exclui lancamentos de caucao. O modo normal do endpoint, sem
+esses campos, mantem o comportamento anterior.
+
 ### Selects (para formularios)
 ```
 GET /api/financeiro/clientes

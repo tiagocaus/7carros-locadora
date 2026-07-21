@@ -1202,6 +1202,56 @@ class Contrato extends Model
     }
 
     /**
+     * Lista somente receitas pendentes vinculadas ao contrato, sem caucoes.
+     *
+     * @param int $contratoId ID do contrato
+     * @return array Faturas abertas ordenadas pelo vencimento
+     */
+    public function listarFaturasAbertasContrato(int $contratoId): array
+    {
+        $query = $this->qb
+            ->table('financeiro', 'f')
+            ->select([
+                'f.id',
+                'f.sequencia',
+                'f.codigo',
+                'f.descricao',
+                'f.parcela',
+                'f.total_parcelas',
+                'f.data_venci',
+                'f.valor_total',
+            ])
+            ->where('f.id_contrato', '=', $contratoId)
+            ->where('f.tipo', '=', 'R')
+            ->where('f.pago', '=', 'N');
+
+        if ((new ContratoCaucao())->tabelaDisponivel()) {
+            $query->whereRaw('NOT EXISTS (
+                SELECT 1
+                FROM contratos_caucoes cc
+                WHERE cc.chave = f.chave
+                  AND cc.id_contrato = f.id_contrato
+                  AND (
+                      cc.id_financeiro_entrada = f.id
+                      OR cc.id_financeiro_devolucao = f.id
+                  )
+            )');
+        }
+
+        $hoje = DateHelper::todayForDatabase();
+        $faturas = $query
+            ->orderBy('f.data_venci', 'ASC')
+            ->orderBy('f.parcela', 'ASC')
+            ->orderBy('f.id', 'ASC')
+            ->get();
+
+        return array_map(static function (array $fatura) use ($hoje): array {
+            $fatura['vencida'] = !empty($fatura['data_venci']) && $fatura['data_venci'] < $hoje;
+            return $fatura;
+        }, $faturas);
+    }
+
+    /**
      * Atualiza uma parcela pendente do contrato.
      */
     public function atualizarParcelaContrato(int $contratoId, int $idParcela, array $dados): int

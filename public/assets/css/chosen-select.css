@@ -99,6 +99,17 @@
     content: '\f077';
 }
 
+.chosen-select-wrapper.chosen-select-disabled .chosen-select {
+    color: #94A3B8;
+    background-color: #F1F5F9;
+    border-color: #CBD5E1;
+    cursor: not-allowed;
+}
+
+.chosen-select-wrapper.chosen-select-disabled::after {
+    color: #CBD5E1;
+}
+
 .chosen-select-dropdown {
     position: absolute;
     top: 100%;

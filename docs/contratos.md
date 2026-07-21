@@ -427,6 +427,27 @@ informativo nessa tela e nao deve ser incluido novamente no financeiro gerado
 pela devolucao, pois as parcelas da locacao ja sao tratadas no financeiro do
 contrato.
 
+Antes do resumo, a secao **Faturas em aberto do contrato** consulta
+`GET /api/contratos/{id}/parcelas` e exibe somente receitas pendentes
+(`tipo = R`, `pago = N`) ligadas ao contrato atual. Despesas, lancamentos pagos,
+faturas de outros contratos e lancamentos de caucao nao fazem parte da lista.
+A resposta preserva `data.parcelas` e `data.resumo` e acrescenta:
+
+```json
+{
+  "faturas_abertas": [],
+  "resumo_faturas_abertas": {
+    "quantidade": 0,
+    "valor_total": 0
+  }
+}
+```
+
+Usuarios com `financeiro.excluir` podem selecionar uma, varias ou todas as
+faturas exibidas e exclui-las imediatamente. A exclusao e independente da
+confirmacao da devolucao; ao terminar, a tela recarrega a lista e o resumo
+financeiro. Sem essa permissao, a secao permanece somente para consulta.
+
 Para campos de data/hora da devolucao, use a regra de datas operacionais:
 `data_saida` e `data_entrada` devem ser comparadas sem conversao de timezone.
 No front, use `DateHelper.toOperationalDateTimeInput()`/comparacao ISO local e

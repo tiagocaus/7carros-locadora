@@ -16,6 +16,7 @@
         : '-';
     $hojeInput = \App\Helpers\DateHelper::todayForDatabase();
     $resumoFinanceiro = $resumoFinanceiro ?? [];
+    $canDeleteFinanceiro = \App\Core\Auth::can('financeiro.excluir');
 ?>
 <div class="pl-1 pr-2 py-0">
     <!-- Cabecalho -->
@@ -255,6 +256,53 @@
             </div>
         </div>
 
+        <!-- Faturas abertas vinculadas ao contrato -->
+        <div class="form-section mb-6">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <div>
+                    <h3 class="form-section-title mb-1">
+                        <i class="fas fa-file-invoice-dollar mr-2 text-slate-500"></i><?= t('modules.contratos.return_page.open_invoices_title') ?>
+                    </h3>
+                    <p id="faturasAbertasResumo" class="text-sm text-slate-500"><?= t('modules.contratos.return_page.open_invoices_loading') ?></p>
+                </div>
+                <?php if ($canDeleteFinanceiro): ?>
+                <button type="button" id="btnExcluirFaturasAbertas" class="hidden bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-4 rounded-md text-sm font-medium items-center whitespace-nowrap">
+                    <i class="fas fa-trash mr-2"></i><span id="btnExcluirFaturasAbertasTexto"></span>
+                </button>
+                <?php endif; ?>
+            </div>
+
+            <div id="faturasAbertasEstado" class="text-sm text-slate-500 py-4 text-center">
+                <?= t('modules.contratos.return_page.open_invoices_loading') ?>
+            </div>
+            <div id="faturasAbertasTabela" class="hidden overflow-auto max-h-80 border border-slate-200 rounded-md">
+                <table class="w-full min-w-[760px] divide-y divide-slate-200">
+                    <thead class="table-header-custom sticky top-0 z-10">
+                        <tr>
+                            <?php if ($canDeleteFinanceiro): ?>
+                            <th class="table-header w-12 text-center">
+                                <input type="checkbox" id="checkTodasFaturasAbertas" class="rounded border-slate-300 text-red-600 focus:ring-red-500" title="<?= t('modules.contratos.return_page.open_invoices_select_all') ?>">
+                            </th>
+                            <?php endif; ?>
+                            <th class="table-header text-left"><?= t('modules.contratos.return_page.open_invoices_document') ?></th>
+                            <th class="table-header text-center"><?= t('modules.contratos.return_page.open_invoices_installment') ?></th>
+                            <th class="table-header text-left"><?= t('modules.contratos.return_page.open_invoices_description') ?></th>
+                            <th class="table-header text-center"><?= t('modules.contratos.return_page.open_invoices_due_date') ?></th>
+                            <th class="table-header text-center"><?= t('modules.contratos.return_page.open_invoices_status') ?></th>
+                            <th class="table-header text-right"><?= t('modules.contratos.return_page.open_invoices_value') ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="faturasAbertasBody" class="divide-y divide-slate-100 bg-white"></tbody>
+                </table>
+            </div>
+            <?php if (!$canDeleteFinanceiro): ?>
+            <p id="faturasAbertasSomenteLeitura" class="hidden text-xs text-slate-500 mt-3">
+                <i class="fas fa-lock mr-1"></i><?= t('modules.contratos.return_page.open_invoices_read_only') ?>
+            </p>
+            <?php endif; ?>
+            <div id="faturasAbertasSelecionadas" class="hidden mt-3 text-sm text-slate-600"></div>
+        </div>
+
         <!-- Resumo geral -->
         <div id="resumoGeral" class="form-section bg-green-50 border border-green-200 <?= $singleMode ? '' : 'hidden' ?> my-6">
             <div class="flex items-center justify-between gap-3 mb-4">
@@ -353,13 +401,25 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'summaryNo' => t('common.labels.no'),
         'departureDatetime' => t('modules.contratos.return_page.departure_datetime'),
         'returnDateBeforeDeparture' => t('modules.contratos.return_page.return_date_before_departure'),
+        'openInvoicesLoading' => t('modules.contratos.return_page.open_invoices_loading'),
+        'openInvoicesEmpty' => t('modules.contratos.return_page.open_invoices_empty'),
+        'openInvoicesLoadError' => t('modules.contratos.return_page.open_invoices_load_error'),
+        'openInvoicesSummary' => t('modules.contratos.return_page.open_invoices_summary'),
+        'openInvoicesSelected' => t('modules.contratos.return_page.open_invoices_selected'),
+        'openInvoicesDeleteSelected' => t('modules.contratos.return_page.open_invoices_delete_selected'),
+        'openInvoicesPending' => t('modules.contratos.return_page.open_invoices_pending'),
+        'openInvoicesOverdue' => t('modules.contratos.return_page.open_invoices_overdue'),
+        'openInvoicesDeleteName' => t('modules.contratos.return_page.open_invoices_delete_name'),
+        'openInvoicesDeleteType' => t('modules.contratos.return_page.open_invoices_delete_type'),
+        'openInvoicesDeleteError' => t('modules.contratos.return_page.open_invoices_delete_error'),
+        'openInvoicesDeletePartial' => t('modules.contratos.return_page.open_invoices_delete_partial'),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 
     // Dados do servidor
     const veiculosAtivos = <?= json_encode($veiculosAtivos, JSON_UNESCAPED_UNICODE) ?>;
     const contratoId = document.getElementById('contratoId').value;
     const contratoContagem = <?= json_encode($contrato['contagem'] ?? 'dia', JSON_UNESCAPED_UNICODE) ?>;
-    const contratoResumoFinanceiro = <?= json_encode($resumoFinanceiro, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    let contratoResumoFinanceiro = <?= json_encode($resumoFinanceiro, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const singleMode = veiculosAtivos.length === 1;
     const filialRetiradaId = <?= (int) $filialRetiradaId ?>;
     const hojeInput = <?= json_encode($hojeInput, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -367,6 +427,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     let taxasDisponiveis = [];
     let taxaSelecionadaAtual = null;
     let totalGeralAtual = 0;
+    let faturasAbertasState = [];
+    const faturasAbertasSelecionadas = new Set();
+    const canDeleteFinanceiro = <?= $canDeleteFinanceiro ? 'true' : 'false' ?>;
 
     // Estado por veiculo
     const veiculoState = {};
@@ -477,6 +540,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         configurarEventos();
         carregarTaxasDisponiveis();
+        carregarFaturasAbertas();
         renderizarTaxasDevolucao();
 
         if (singleMode) {
@@ -1016,6 +1080,204 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
     }
 
+    // ==================== FATURAS ABERTAS DO CONTRATO ====================
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = String(value ?? '');
+        return div.innerHTML;
+    }
+
+    async function carregarFaturasAbertas() {
+        const estado = document.getElementById('faturasAbertasEstado');
+        const tabela = document.getElementById('faturasAbertasTabela');
+        if (estado) {
+            estado.textContent = i18n.openInvoicesLoading;
+            estado.classList.remove('hidden');
+        }
+        tabela?.classList.add('hidden');
+
+        try {
+            const result = await API.get(`/api/contratos/${contratoId}/parcelas`);
+            if (!result.success) {
+                throw new Error(result.message || i18n.openInvoicesLoadError);
+            }
+
+            faturasAbertasState = Array.isArray(result.data?.faturas_abertas)
+                ? result.data.faturas_abertas
+                : [];
+            faturasAbertasSelecionadas.clear();
+            if (result.data?.resumo) {
+                contratoResumoFinanceiro = result.data.resumo;
+                atualizarResumoGeral();
+            }
+            renderizarFaturasAbertas();
+        } catch (error) {
+            console.error('Erro ao carregar faturas abertas do contrato:', error);
+            faturasAbertasState = [];
+            faturasAbertasSelecionadas.clear();
+            if (estado) {
+                estado.textContent = i18n.openInvoicesLoadError;
+                estado.classList.remove('hidden');
+            }
+            atualizarControlesFaturasAbertas();
+        }
+    }
+
+    function renderizarFaturasAbertas() {
+        const estado = document.getElementById('faturasAbertasEstado');
+        const tabela = document.getElementById('faturasAbertasTabela');
+        const tbody = document.getElementById('faturasAbertasBody');
+        const somenteLeitura = document.getElementById('faturasAbertasSomenteLeitura');
+
+        if (faturasAbertasState.length === 0) {
+            if (estado) {
+                estado.textContent = i18n.openInvoicesEmpty;
+                estado.classList.remove('hidden');
+            }
+            tabela?.classList.add('hidden');
+            somenteLeitura?.classList.add('hidden');
+            if (tbody) tbody.innerHTML = '';
+            atualizarControlesFaturasAbertas();
+            return;
+        }
+
+        if (estado) estado.classList.add('hidden');
+        tabela?.classList.remove('hidden');
+        somenteLeitura?.classList.toggle('hidden', canDeleteFinanceiro);
+
+        if (tbody) {
+            tbody.innerHTML = faturasAbertasState.map(fatura => {
+                const id = parseInt(fatura.id, 10);
+                const documento = fatura.sequencia || fatura.codigo || `#${id}`;
+                const parcela = `${parseInt(fatura.parcela, 10) || 1}/${parseInt(fatura.total_parcelas, 10) || 1}`;
+                const vencida = Boolean(fatura.vencida);
+                const statusClass = vencida
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-amber-100 text-amber-700';
+                const check = canDeleteFinanceiro ? `
+                    <td class="table-cell text-center">
+                        <input type="checkbox" class="fatura-aberta-check rounded border-slate-300 text-red-600 focus:ring-red-500" value="${id}">
+                    </td>
+                ` : '';
+
+                return `
+                    <tr>
+                        ${check}
+                        <td class="table-cell font-medium text-slate-700">${escapeHtml(documento)}</td>
+                        <td class="table-cell text-center text-slate-600">${escapeHtml(parcela)}</td>
+                        <td class="table-cell text-slate-700">${escapeHtml(fatura.descricao || '-')}</td>
+                        <td class="table-cell text-center text-slate-600">${fatura.data_venci ? DateHelper.format(fatura.data_venci) : '-'}</td>
+                        <td class="table-cell text-center"><span class="inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${vencida ? i18n.openInvoicesOverdue : i18n.openInvoicesPending}</span></td>
+                        <td class="table-cell text-right font-semibold text-slate-800">${Currency.format(parseFloat(fatura.valor_total || 0), true)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        atualizarControlesFaturasAbertas();
+    }
+
+    function atualizarControlesFaturasAbertas() {
+        const total = faturasAbertasState.reduce((soma, fatura) => soma + parseFloat(fatura.valor_total || 0), 0);
+        const resumo = document.getElementById('faturasAbertasResumo');
+        if (resumo) {
+            resumo.textContent = i18n.openInvoicesSummary
+                .replace(':count', faturasAbertasState.length)
+                .replace(':value', Currency.format(total, true));
+        }
+
+        if (!canDeleteFinanceiro) return;
+
+        const checks = Array.from(document.querySelectorAll('.fatura-aberta-check'));
+        const checkTodas = document.getElementById('checkTodasFaturasAbertas');
+        const botao = document.getElementById('btnExcluirFaturasAbertas');
+        const botaoTexto = document.getElementById('btnExcluirFaturasAbertasTexto');
+        const selecionadasResumo = document.getElementById('faturasAbertasSelecionadas');
+        const quantidade = faturasAbertasSelecionadas.size;
+        const valorSelecionado = faturasAbertasState
+            .filter(fatura => faturasAbertasSelecionadas.has(parseInt(fatura.id, 10)))
+            .reduce((soma, fatura) => soma + parseFloat(fatura.valor_total || 0), 0);
+
+        if (checkTodas) {
+            checkTodas.checked = checks.length > 0 && checks.every(check => check.checked);
+            checkTodas.indeterminate = checks.some(check => check.checked) && !checkTodas.checked;
+        }
+        if (botao) {
+            botao.classList.toggle('hidden', quantidade === 0);
+            botao.classList.toggle('flex', quantidade > 0);
+        }
+        if (botaoTexto) {
+            botaoTexto.textContent = i18n.openInvoicesDeleteSelected.replace(':count', quantidade);
+        }
+        if (selecionadasResumo) {
+            selecionadasResumo.textContent = i18n.openInvoicesSelected
+                .replace(':count', quantidade)
+                .replace(':value', Currency.format(valorSelecionado, true));
+            selecionadasResumo.classList.toggle('hidden', quantidade === 0);
+        }
+    }
+
+    function solicitarExclusaoFaturasAbertas() {
+        const quantidade = faturasAbertasSelecionadas.size;
+        if (quantidade === 0) return;
+
+        window.parent.postMessage({
+            action: 'openDeleteModal',
+            recordId: Array.from(faturasAbertasSelecionadas).join(','),
+            recordName: i18n.openInvoicesDeleteName.replace(':count', quantidade),
+            recordType: i18n.openInvoicesDeleteType,
+            confirmType: 'text',
+            customAction: 'excluirFaturasAbertasContrato'
+        }, '*');
+    }
+
+    async function excluirFaturasAbertasContrato() {
+        const ids = Array.from(faturasAbertasSelecionadas);
+        if (ids.length === 0) return;
+
+        try {
+            const result = await API.post('/financeiro/excluir-lote', {
+                ids,
+                id_contrato: parseInt(contratoId, 10),
+                somente_receitas_pendentes: 1,
+            });
+            const pendencias = [
+                ...(result.data?.ignorados || []),
+                ...(result.data?.avisos || []),
+            ];
+
+            await carregarFaturasAbertas();
+
+            if (pendencias.length > 0) {
+                window.parent.postMessage({
+                    action: 'openValidationModal',
+                    errors: [{
+                        tabName: i18n.openInvoicesDeletePartial,
+                        fields: pendencias.map(item => `#${item.id} - ${item.identificador}: ${item.motivo}`)
+                    }]
+                }, '*');
+            } else {
+                window.parent.postMessage({
+                    action: 'openAlert',
+                    type: result.success ? 'success' : 'error',
+                    message: result.message || i18n.openInvoicesDeleteError
+                }, '*');
+            }
+        } catch (error) {
+            console.error('Erro ao excluir faturas abertas do contrato:', error);
+            window.parent.postMessage({ action: 'openAlert', message: i18n.openInvoicesDeleteError }, '*');
+            await carregarFaturasAbertas();
+        }
+    }
+
+    function handleFaturasAbertasMessage(event) {
+        if (event.data?.action === 'confirmDelete'
+            && event.data.customAction === 'excluirFaturasAbertasContrato') {
+            excluirFaturasAbertasContrato();
+        }
+    }
+
     // ==================== RESUMO GERAL ====================
 
     function atualizarResumoGeral() {
@@ -1385,12 +1647,41 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }
         });
 
+        document.getElementById('faturasAbertasBody')?.addEventListener('change', function(event) {
+            const check = event.target.closest('.fatura-aberta-check');
+            if (!check) return;
+
+            const id = parseInt(check.value, 10);
+            if (check.checked) {
+                faturasAbertasSelecionadas.add(id);
+            } else {
+                faturasAbertasSelecionadas.delete(id);
+            }
+            atualizarControlesFaturasAbertas();
+        });
+
+        document.getElementById('checkTodasFaturasAbertas')?.addEventListener('change', function() {
+            document.querySelectorAll('.fatura-aberta-check').forEach(check => {
+                check.checked = this.checked;
+                const id = parseInt(check.value, 10);
+                if (this.checked) {
+                    faturasAbertasSelecionadas.add(id);
+                } else {
+                    faturasAbertasSelecionadas.delete(id);
+                }
+            });
+            atualizarControlesFaturasAbertas();
+        });
+
+        document.getElementById('btnExcluirFaturasAbertas')?.addEventListener('click', solicitarExclusaoFaturasAbertas);
+
         // Botoes
         document.getElementById('btnVoltar').addEventListener('click', voltar);
         document.getElementById('btnCancelar').addEventListener('click', voltar);
         document.getElementById('btnConfirmar').addEventListener('click', confirmarDevolucao);
         document.getElementById('btnGerarPagamento')?.addEventListener('click', abrirOffcanvasPagamento);
         window.addEventListener('message', handleOffcanvasPagamentoMessage);
+        window.addEventListener('message', handleFaturasAbertasMessage);
     }
 
     // Inicializar

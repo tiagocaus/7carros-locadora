@@ -3283,13 +3283,24 @@ class ContratosController
 
             // Buscar parcelas e resumo
             $parcelas = $contratoModel->listarParcelasContrato($id);
+            $faturasAbertas = $contratoModel->listarFaturasAbertasContrato($id);
             $resumo = $contratoModel->resumoFinanceiroContrato($id);
+            $totalFaturasAbertas = array_reduce(
+                $faturasAbertas,
+                static fn (float $total, array $fatura): float => $total + (float) ($fatura['valor_total'] ?? 0),
+                0.0
+            );
 
             Response::json([
                 'success' => true,
                 'data' => [
                     'parcelas' => $parcelas,
-                    'resumo' => $resumo
+                    'resumo' => $resumo,
+                    'faturas_abertas' => $faturasAbertas,
+                    'resumo_faturas_abertas' => [
+                        'quantidade' => count($faturasAbertas),
+                        'valor_total' => $totalFaturasAbertas,
+                    ],
                 ]
             ]);
         } catch (\Exception $e) {
