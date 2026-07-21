@@ -677,12 +677,14 @@ Parcela 3 (id=12, parcela=3, total_parcelas=3, id_financeiro_origem=10)    <- fi
 ### Fluxo de Criacao
 
 1. Usuario preenche dados na aba "Dados Principais"
-2. Na aba "Parcelamento", configura: numero de parcelas (2-48), data da 1a parcela, intervalo (dias/semanas/meses/anos)
+2. Na aba "Parcelamento", configura: numero de parcelas (2-120), data da 1a parcela, intervalo (dias/semanas/meses/anos)
 3. Clica "Gerar Preview" - frontend calcula datas e valores (arredondamento na ultima parcela)
 4. Ao salvar, o payload inclui array `parcelas[]` junto com os dados do lancamento
 5. No Controller (`salvar()`), a 1a parcela eh o lancamento criado; as demais sao criadas via `Financeiro::criarParcelas()`
 6. As sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` antes da criacao das parcelas, reduzindo locks em `matrizes_filiais` em parcelamentos grandes
 7. Toda operacao ocorre em transacao atomica
+
+O frontend e o backend aplicam o mesmo limite de 2 a 120 parcelas. Quantidades fora desse intervalo nao geram preview e sao rejeitadas pela API com status HTTP 422.
 
 ### Fluxo de Edicao (Lote)
 

@@ -49,8 +49,8 @@ return [
         'details' => 'Detalhes',
     ],
     'validation' => [
-        'title' => 'Campos obrigatórios',
-        'message' => 'Por favor, preencha os seguintes campos obrigatórios:',
+        'title' => 'Verifique os campos',
+        'message' => 'Por favor, corrija os seguintes campos:',
     ],
     'alert' => [
         'title' => 'Atenção',

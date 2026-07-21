@@ -204,6 +204,7 @@ return [
         'no_installments' => 'This entry has no linked installments',
         'inform_first_date' => 'Enter the first installment date',
         'value_must_be_positive' => 'The total amount must be greater than zero',
+        'installment_count_range' => 'The number of installments must be between :min and :max',
         'select_installment' => 'Select at least one installment',
         'inform_field_update' => 'Enter at least one field to update',
         'installments_updated' => ':count installment(s) updated',

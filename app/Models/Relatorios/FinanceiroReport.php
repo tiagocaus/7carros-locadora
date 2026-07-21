@@ -284,8 +284,13 @@ class FinanceiroReport extends BaseReportModel
         string $filialWhere,
         array $filialParams,
         string $filialId = '',
-        string $formaPagamentoId = ''
+        string $formaPagamentoId = '',
+        string $statusPagamento = 'S'
     ): array {
+        $statusPagamento = in_array($statusPagamento, ['S', 'N', 'all'], true)
+            ? $statusPagamento
+            : 'S';
+
         // --- Totais ---
         $queryTotals = $this->qb
             ->table('financeiro', 'f')
@@ -301,6 +306,9 @@ class FinanceiroReport extends BaseReportModel
 
         if (!empty($formaPagamentoId)) {
             $queryTotals->whereRaw('f.id_forma_pagamento = ?', [(int) $formaPagamentoId]);
+        }
+        if ($statusPagamento !== 'all') {
+            $queryTotals->whereRaw('f.pago = ?', [$statusPagamento]);
         }
 
         $resultTotals = $queryTotals->first();
@@ -331,6 +339,9 @@ class FinanceiroReport extends BaseReportModel
 
         if (!empty($formaPagamentoId)) {
             $queryOrigem->whereRaw('f.id_forma_pagamento = ?', [(int) $formaPagamentoId]);
+        }
+        if ($statusPagamento !== 'all') {
+            $queryOrigem->whereRaw('f.pago = ?', [$statusPagamento]);
         }
 
         $porOrigem = $queryOrigem->get();
@@ -363,6 +374,9 @@ class FinanceiroReport extends BaseReportModel
         if (!empty($formaPagamentoId)) {
             $queryPagamento->whereRaw('f.id_forma_pagamento = ?', [(int) $formaPagamentoId]);
         }
+        if ($statusPagamento !== 'all') {
+            $queryPagamento->whereRaw('f.pago = ?', [$statusPagamento]);
+        }
 
         $porPagamento = $queryPagamento->get();
 
@@ -393,6 +407,9 @@ class FinanceiroReport extends BaseReportModel
 
         if (!empty($formaPagamentoId)) {
             $queryChart->whereRaw('f.id_forma_pagamento = ?', [(int) $formaPagamentoId]);
+        }
+        if ($statusPagamento !== 'all') {
+            $queryChart->whereRaw('f.pago = ?', [$statusPagamento]);
         }
 
         $chartRows = $queryChart->get();

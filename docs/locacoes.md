@@ -84,6 +84,9 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
   - `combustivel_valor = combustivel_usado * veiculos.valor_por_fracao` quando `combustivel_usado > 0`
 - Antes de fechar, exige que o saldo financeiro efetivo lancado seja igual ao total
   esperado: `total_pagar_final + total_avarias`
+- Quando o total esperado e o total lancado forem ambos `0,00`, permite fechar sem
+  criar parcelas financeiras. Se uma taxa, como limpeza, elevar o total esperado,
+  o lancamento correspondente volta a ser obrigatorio antes do fechamento.
 - Parcelas pendentes nao bloqueiam o fechamento; a regra exige lancamento, nao pagamento
 - Atualiza status do veiculo para "D" (Disponivel)
 - Em documentos personalizados, `{{locacao.tanque_chegada}}` exibe o nível de chegada como fração legível (`Reserva`, `1/2`, `Cheio`, etc.).

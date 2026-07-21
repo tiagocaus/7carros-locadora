@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Config\Planos;
 use App\Traits\DetectsCrossTenant;
 
 /**
@@ -12,6 +13,63 @@ use App\Traits\DetectsCrossTenant;
 class Funcionario extends Model
 {
     use DetectsCrossTenant;
+
+    /**
+     * Resolve o plano que deve ser herdado por um novo funcionario.
+     *
+     * O plano vem exclusivamente do usuario autenticado, nunca do formulario.
+     *
+     * @param array<string, mixed>|null $usuarioAutenticado
+     */
+    public static function planoParaNovoCadastro(?array $usuarioAutenticado): string
+    {
+        $plano = strtoupper(trim((string) ($usuarioAutenticado['plano'] ?? '')));
+
+        if (!Planos::existe($plano)) {
+            throw new \UnexpectedValueException(
+                'Não foi possível identificar um plano válido para o usuário autenticado.'
+            );
+        }
+
+        return $plano;
+    }
+
+    /**
+     * Agrupa funcionarios sem plano pelo unico plano valido de cada tenant.
+     *
+     * @param array<int, array<string, mixed>> $funcionarios
+     * @return array<string, array<int, int>> IDs agrupados pelo plano herdado
+     */
+    public static function agruparIdsParaNormalizacaoPlano(array $funcionarios): array
+    {
+        $planosPorTenant = [];
+        foreach ($funcionarios as $funcionario) {
+            $chave = (string) ($funcionario['chave'] ?? '');
+            $plano = strtoupper(trim((string) ($funcionario['plano'] ?? '')));
+
+            if ($chave !== '' && Planos::existe($plano)) {
+                $planosPorTenant[$chave][$plano] = true;
+            }
+        }
+
+        $idsPorPlano = [];
+        foreach ($funcionarios as $funcionario) {
+            if (trim((string) ($funcionario['plano'] ?? '')) !== '') {
+                continue;
+            }
+
+            $chave = (string) ($funcionario['chave'] ?? '');
+            $planosValidos = array_keys($planosPorTenant[$chave] ?? []);
+            if (count($planosValidos) !== 1) {
+                continue;
+            }
+
+            $idsPorPlano[$planosValidos[0]][] = (int) $funcionario['id'];
+        }
+
+        return $idsPorPlano;
+    }
+
     /**
      * Lista todos os funcionários do tenant atual
      *
@@ -378,13 +436,22 @@ class Funcionario extends Model
      */
     public function getPlanoTenant(): string
     {
-        $row = $this->qb
+        $rows = $this->qb
             ->table('funcionarios')
             ->select(['plano'])
             ->where('usuario', 'NOT LIKE', 'suporte%')
-            ->first();
+            ->whereRaw("TRIM(plano) <> ''")
+            ->get();
 
-        return $row['plano'] ?? '';
+        $planos = [];
+        foreach ($rows as $row) {
+            $plano = strtoupper(trim((string) ($row['plano'] ?? '')));
+            if (Planos::existe($plano)) {
+                $planos[$plano] = true;
+            }
+        }
+
+        return count($planos) === 1 ? (string) array_key_first($planos) : '';
     }
 
     /**

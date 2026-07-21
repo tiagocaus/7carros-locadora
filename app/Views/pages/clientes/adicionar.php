@@ -1242,7 +1242,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                     <td class="table-cell w-28 hidden sm:table-cell text-center text-slate-600 text-sm">${dataVenciFormatada}</td>
                     <td class="table-cell w-28 hidden lg:table-cell text-center text-slate-600 text-sm">${dataPagoFormatada}</td>
                     <td class="table-cell w-32 text-right font-medium">${valorFormatado}</td>
-                    <td class="table-cell w-52 text-center whitespace-nowrap">
+                    <td class="table-cell w-52 text-right whitespace-nowrap">
                         ${!isPago ? `<button type="button" class="btn-icon text-green-600 hover:text-green-800 btn-whatsapp-fatura" data-id="${f.id}" title="${i18n.sendChargeWhatsapp}">
                             <i class="fab fa-whatsapp"></i>
                         </button>` : ''}

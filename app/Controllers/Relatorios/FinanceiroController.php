@@ -181,6 +181,14 @@ class FinanceiroController extends BaseRelatorioController
             [$filialWhere, $filialParams] = $this->getFilialFilter();
 
             $formaPagamento = $request->query('forma_pagamento', '');
+            $statusPagamento = $request->query('status', 'S');
+            if (!in_array($statusPagamento, ['S', 'N', 'all'], true)) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.relatorios.financeiro.faturamento.invalid_status'),
+                ], 422);
+                return;
+            }
 
             $model = new FinanceiroReport();
             $result = $model->faturamento(
@@ -189,7 +197,8 @@ class FinanceiroController extends BaseRelatorioController
                 $filialWhere,
                 $filialParams,
                 $filters['filial'],
-                $formaPagamento
+                $formaPagamento,
+                $statusPagamento
             );
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
@@ -707,9 +716,26 @@ class FinanceiroController extends BaseRelatorioController
         $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
         if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
 
+        $statusPagamento = $request->query('status', 'S');
+        if (!in_array($statusPagamento, ['S', 'N', 'all'], true)) {
+            Response::html(
+                '<h3>' . htmlspecialchars(t('modules.relatorios.financeiro.faturamento.invalid_status')) . '</h3>',
+                422
+            );
+            return;
+        }
+
         [$filialWhere, $filialParams] = $this->getFilialFilter();
         $model = new FinanceiroReport();
-        $result = $model->faturamento($filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams, $filters['filial'], $request->query('forma_pagamento', ''));
+        $result = $model->faturamento(
+            $filters['data_inicio'],
+            $filters['data_fim'],
+            $filialWhere,
+            $filialParams,
+            $filters['filial'],
+            $request->query('forma_pagamento', ''),
+            $statusPagamento
+        );
 
         $this->renderPdf('faturamento.php', t('modules.relatorios.financeiro.faturamento.title'), t('modules.relatorios.financeiro.faturamento.description'), $result['totals'], $result['details'], $filters['data_inicio'], $filters['data_fim']);
     }

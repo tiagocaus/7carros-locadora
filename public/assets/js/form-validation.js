@@ -313,7 +313,7 @@ window.FormValidator = (function () {
             errors.push({
                 tabName: group.name,
                 tabId: group.tabContent?.id || null,
-                fields: group.fields.map(f => f.label)
+                fields: group.fields.map(f => `${f.label}: ${f.message}`)
             });
         });
 

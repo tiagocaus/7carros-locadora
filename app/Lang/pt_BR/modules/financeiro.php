@@ -204,6 +204,7 @@ return [
         'no_installments' => 'Este lançamento não possui parcelas vinculadas',
         'inform_first_date' => 'Informe a data da primeira parcela',
         'value_must_be_positive' => 'O valor total deve ser maior que zero',
+        'installment_count_range' => 'O número de parcelas deve estar entre :min e :max',
         'select_installment' => 'Selecione pelo menos uma parcela',
         'inform_field_update' => 'Informe pelo menos um campo para atualizar',
         'installments_updated' => ':count parcela(s) atualizada(s)',

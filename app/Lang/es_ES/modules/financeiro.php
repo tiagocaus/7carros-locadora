@@ -197,6 +197,7 @@ return [
         'no_installments' => 'Este movimiento no tiene cuotas vinculadas',
         'inform_first_date' => 'Indique la fecha de la primera cuota',
         'value_must_be_positive' => 'El valor total debe ser mayor que cero',
+        'installment_count_range' => 'El número de cuotas debe estar entre :min y :max',
         'select_installment' => 'Seleccione al menos una cuota',
         'inform_field_update' => 'Indique al menos un campo para actualizar',
         'installments_updated' => ':count cuota(s) actualizada(s)',

@@ -197,6 +197,7 @@ return [
         'no_installments' => 'Este lançamento não possui prestações vinculadas',
         'inform_first_date' => 'Indique a data da primeira prestação',
         'value_must_be_positive' => 'O valor total deve ser maior que zero',
+        'installment_count_range' => 'O número de prestações deve estar entre :min e :max',
         'select_installment' => 'Selecione pelo menos uma prestação',
         'inform_field_update' => 'Indique pelo menos um campo para atualizar',
         'installments_updated' => ':count prestação(ões) atualizada(s)',

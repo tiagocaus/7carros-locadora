@@ -818,6 +818,11 @@ return [
         'faturamento' => [
             'title' => 'Faturamento',
             'description' => 'Panorama completo do faturamento da empresa: bruto, descontos e líquido, com breakdown por origem e forma de pagamento.',
+            'filter_status' => 'Situação da fatura',
+            'status_paid' => 'Pagas',
+            'status_unpaid' => 'Não pagas',
+            'status_all' => 'Todas',
+            'invalid_status' => 'Situação de pagamento inválida.',
             'faturamento_bruto' => 'Faturamento Bruto',
             'descontos' => 'Descontos',
             'faturamento_liquido' => 'Faturamento Líquido',

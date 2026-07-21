@@ -104,6 +104,24 @@ class FinanceiroController
             return 'Informe o Subtotal ou adicione pelo menos um item';
         }
 
+        if (array_key_exists('parcelas', $dados)) {
+            if (!is_array($dados['parcelas'])) {
+                return 'Parcelamento invalido';
+            }
+
+            $quantidadeParcelas = count($dados['parcelas']);
+            if (
+                $quantidadeParcelas < Financeiro::MIN_PARCELAS
+                || $quantidadeParcelas > Financeiro::MAX_PARCELAS
+            ) {
+                return sprintf(
+                    'O numero de parcelas deve estar entre %d e %d',
+                    Financeiro::MIN_PARCELAS,
+                    Financeiro::MAX_PARCELAS
+                );
+            }
+        }
+
         // Se ha itens, validar se pelo menos um e valido (tem valor ou descricao)
         if ($temItens) {
             $temItemValido = false;

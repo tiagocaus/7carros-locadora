@@ -1145,13 +1145,17 @@ class LocacoesController
                 $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id);
                 $totalParcelasFinanceiro = (int) ($resumoFinanceiro['total_parcelas'] ?? 0);
                 $totalLancadoFinanceiro = (float) ($resumoFinanceiro['total_lancado'] ?? 0);
+                $totalEsperadoFinanceiro = round(
+                    $totalPagarUpdate + (float) ($resumoFinanceiro['total_avarias'] ?? 0),
+                    2
+                );
                 $diferencaFinanceira = self::calcularDiferencaFinanceiraFechamento(
                     $totalPagarUpdate,
                     $resumoFinanceiro
                 );
                 $valorCreditoDevolucao = $diferencaFinanceira < -0.009 ? abs($diferencaFinanceira) : 0.0;
 
-                if ($totalParcelasFinanceiro <= 0) {
+                if (self::deveExigirParcelasFinanceiras($totalEsperadoFinanceiro, $totalParcelasFinanceiro)) {
                     Response::json([
                         'success' => false,
                         'message' => $this->apiMessage('financial_installments_required')
@@ -1799,6 +1803,11 @@ class LocacoesController
         $totalEsperado = round($totalPagarFinal + $totalAvarias, 2);
 
         return round($totalEsperado - $totalLancado, 2);
+    }
+
+    private static function deveExigirParcelasFinanceiras(float $totalEsperado, int $totalParcelas): bool
+    {
+        return round($totalEsperado, 2) > 0.009 && $totalParcelas <= 0;
     }
 
     // ==================== PARCELAS / FINANCEIRO ====================

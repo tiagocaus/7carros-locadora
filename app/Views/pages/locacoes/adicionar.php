@@ -2379,16 +2379,16 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 const totalParcelas = parseInt(resumo.total_parcelas) || 0;
                 const totalLancado = parseFloat(resumo.total_lancado) || 0;
                 const totalAvarias = parseFloat(resumo.total_avarias) || 0;
-                const totalPagar = calcularTotalPagarFormulario() + totalAvarias;
-                const diferenca = Math.round((totalPagar - totalLancado) * 100) / 100;
+                const totalEsperado = Math.round((calcularTotalPagarFormulario() + totalAvarias) * 100) / 100;
+                const diferenca = Math.round((totalEsperado - totalLancado) * 100) / 100;
                 const pendencias = [];
 
-                if (totalParcelas <= 0) {
+                if (totalEsperado > 0.009 && totalParcelas <= 0) {
                     pendencias.push(i18n.registerFinancialInstallments);
                 } else if (diferenca > 0.009) {
                     pendencias.push(i18n.installmentsTotalMismatch
                         .replace(':launched', fmtCurrency(totalLancado))
-                        .replace(':expected', fmtCurrency(totalPagar)));
+                        .replace(':expected', fmtCurrency(totalEsperado)));
                 }
 
                 return pendencias;

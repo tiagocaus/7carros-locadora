@@ -50,7 +50,7 @@
     <script src="<?= asset('js/country-data.min.js'); ?>"></script>
     <script src="<?= asset('js/intl-phone.min.js'); ?>"></script>
     <script src="<?= asset('js/cep.min.js'); ?>"></script>
-    <script src="<?= asset('js/form-validation.js'); ?>"></script>
+    <script src="<?= asset('js/form-validation.min.js'); ?>"></script>
     <script src="<?= asset('js/toast.js'); ?>"></script>
     <script src="<?= asset('js/components.js'); ?>"></script>
     <script src="<?= asset('js/autocomplete-guard.min.js'); ?>"></script>

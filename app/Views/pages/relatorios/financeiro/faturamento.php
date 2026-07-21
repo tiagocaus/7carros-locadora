@@ -39,6 +39,14 @@
                 <option value=""><?= t('modules.relatorios.common.all') ?></option>
             </select>
         </div>
+        <div class="flex-1 min-w-[150px] max-w-[200px]">
+            <label for="filterStatus" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.financeiro.faturamento.filter_status') ?></label>
+            <select id="filterStatus" class="form-input-focus w-full text-sm">
+                <option value="S" selected><?= t('modules.relatorios.financeiro.faturamento.status_paid') ?></option>
+                <option value="N"><?= t('modules.relatorios.financeiro.faturamento.status_unpaid') ?></option>
+                <option value="all"><?= t('modules.relatorios.financeiro.faturamento.status_all') ?></option>
+            </select>
+        </div>
         <div class="flex items-end gap-2">
             <button id="btnAplicar" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
                 <i class="fas fa-search mr-2"></i><?= t('modules.relatorios.common.apply') ?>
@@ -131,6 +139,7 @@
                 data_fim: document.getElementById('filterDataFim').value,
                 filial: document.getElementById('filterFilial').value,
                 forma_pagamento: document.getElementById('filterFormaPagamento').value,
+                status: document.getElementById('filterStatus').value,
             };
 
             const result = await API.get(API_URL, params);
@@ -243,6 +252,7 @@
         ReportUtils.setDefaultPeriod();
         document.getElementById('filterFilial').value = '';
         document.getElementById('filterFormaPagamento').value = '';
+        document.getElementById('filterStatus').value = 'S';
         ReportUtils.hideContent();
     }
 

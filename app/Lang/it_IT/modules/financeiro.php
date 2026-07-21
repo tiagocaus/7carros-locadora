@@ -203,6 +203,7 @@ return [
         'no_installments' => 'Questa registrazione non ha rate associate',
         'inform_first_date' => 'Indicare la data della prima rata',
         'value_must_be_positive' => 'Il valore totale deve essere maggiore di zero',
+        'installment_count_range' => 'Il numero di rate deve essere compreso tra :min e :max',
         'select_installment' => 'Selezionare almeno una rata',
         'inform_field_update' => 'Indicare almeno un campo da aggiornare',
         'installments_updated' => ':count rata/e aggiornata/e',

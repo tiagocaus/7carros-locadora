@@ -168,6 +168,16 @@ class FuncionariosController
                 return;
             }
 
+            try {
+                $planoCriador = Funcionario::planoParaNovoCadastro(Auth::user());
+            } catch (\UnexpectedValueException $e) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Não foi possível identificar o plano da sua conta. Atualize a sessão e tente novamente.'
+                ], 409);
+                return;
+            }
+
             // Mapear campos do formulário para campos do banco
             $dados = [
                 'chave' => Auth::chave(),
@@ -178,7 +188,7 @@ class FuncionariosController
                 'status' => $request->input('status', 'A'),
                 'foto' => $request->input('foto', ''),
                 'id_role' => $request->input('id_role', null),
-                'plano' => $request->input('plano', ''),
+                'plano' => $planoCriador,
                 'id_matriz_filial' => $request->input('matriz_filial', null),
                 // Dados pessoais
                 'cpf' => $request->input('cpf', ''),
@@ -328,7 +338,6 @@ class FuncionariosController
                 'status' => $request->input('status'),
                 'foto' => $request->input('foto'),
                 'id_role' => $request->input('id_role'),
-                'plano' => $request->input('plano'),
                 'id_matriz_filial' => $request->input('matriz_filial'),
                 // Dados pessoais
                 'cpf' => $request->input('cpf'),

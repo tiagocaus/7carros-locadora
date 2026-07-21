@@ -339,7 +339,7 @@
                             <label for="numParcelas" class="form-label-group">
                                 <?= t('modules.financeiro.fields.installment_count') ?> <span class="text-red-500">*</span>
                             </label>
-                            <input type="number" id="numParcelas" name="config_parcelas[num_parcelas]" min="2" max="48" value="2" class="form-input-group-field">
+                            <input type="number" id="numParcelas" name="config_parcelas[num_parcelas]" min="<?= \App\Models\Financeiro::MIN_PARCELAS ?>" max="<?= \App\Models\Financeiro::MAX_PARCELAS ?>" value="<?= \App\Models\Financeiro::MIN_PARCELAS ?>" class="form-input-group-field">
                         </div>
 
                         <!-- Valor Total (readonly) -->
@@ -523,6 +523,7 @@
         subtotalConverted: '<?= t("modules.financeiro.messages.subtotal_converted") ?>',
         informFirstDate: '<?= t("modules.financeiro.messages.inform_first_date") ?>',
         valueMustBePositive: '<?= t("modules.financeiro.messages.value_must_be_positive") ?>',
+        installmentCountRange: '<?= t("modules.financeiro.messages.installment_count_range", ["min" => \App\Models\Financeiro::MIN_PARCELAS, "max" => \App\Models\Financeiro::MAX_PARCELAS]) ?>',
         selectInstallment: '<?= t("modules.financeiro.messages.select_installment") ?>',
         informFieldUpdate: '<?= t("modules.financeiro.messages.inform_field_update") ?>',
         installmentsUpdated: '<?= t("modules.financeiro.messages.installments_updated") ?>',
@@ -887,6 +888,8 @@
     let parcelasPreview = [];
     let parcelasExistentes = [];
     let parcelasSelecionadas = [];
+    const MIN_PARCELAS = <?= \App\Models\Financeiro::MIN_PARCELAS ?>;
+    const MAX_PARCELAS = <?= \App\Models\Financeiro::MAX_PARCELAS ?>;
 
     function configurarParcelamento() {
         // Gerar preview
@@ -909,11 +912,18 @@
     }
 
     function gerarPreviewParcelas() {
-        const numParcelas = parseInt(document.getElementById('numParcelas').value) || 2;
+        const numParcelasInput = document.getElementById('numParcelas');
+        const numParcelas = Number(numParcelasInput.value);
         const valorTotal = calcularValorFormulario();
         const dataPrimeira = document.getElementById('dataPrimeiraParcela').value;
         const intervaloValor = parseInt(document.getElementById('intervaloValor').value) || 1;
         const intervaloTipo = document.getElementById('intervaloTipo').value;
+
+        if (!Number.isInteger(numParcelas) || numParcelas < MIN_PARCELAS || numParcelas > MAX_PARCELAS) {
+            Toast.warning(i18n.installmentCountRange);
+            numParcelasInput.focus();
+            return;
+        }
 
         if (!dataPrimeira) {
             Toast.warning(i18n.informFirstDate);

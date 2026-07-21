@@ -351,6 +351,7 @@ Este documento especifica o comportamento e as informações que cada relatório
 - Origem (locação, taxa, serviço, venda)
 - Cliente
 - Forma de pagamento
+- Situação da fatura: Pagas (padrão), Não pagas ou Todas
 
 **Informações a exibir**:
 

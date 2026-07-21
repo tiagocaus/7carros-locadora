@@ -33,6 +33,9 @@ class Financeiro extends Model
     use Auditable;
     use DetectsCrossTenant;
 
+    public const MIN_PARCELAS = 2;
+    public const MAX_PARCELAS = 120;
+
     /**
      * Retorna o nome da entidade para auditoria
      */
