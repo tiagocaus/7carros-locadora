@@ -2698,6 +2698,7 @@ class LocacoesController
                 'caucao_data_devolucao' => $this->dataValidaDocumento($locacao['caucao_data_devolucao'] ?? null),
                 'caucao_prazo_devolucao' => $locacao['caucao_prazo_devolucao'] ?? '',
                 'caucao_data_prevista_devolucao' => $caucaoDataPrevistaDevolucao,
+                'caucao_observacoes' => $locacao['caucao_observacoes'] ?? '',
                 'condutores' => !empty($locacao['condutor_adicional']) ? (json_decode($locacao['condutor_adicional'], true) ?: []) : [],
                 'fiadores' => !empty($locacao['array_fiadores']) ? (json_decode($locacao['array_fiadores'], true) ?: []) : [],
                 'avalistas' => !empty($locacao['array_avalistas']) ? (json_decode($locacao['array_avalistas'], true) ?: []) : [],

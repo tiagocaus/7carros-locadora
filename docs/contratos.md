@@ -223,6 +223,7 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 - Para o valor de compra cadastrado no veículo ativo principal, use `{{veiculo.valor_compra}}`; a variável lê `veiculos.valor_compra` e é formatada como moeda pelo `TemplateRenderer`.
 - Para cláusulas que precisam citar o valor recorrente da parcela, use `{{contrato.valor.parcela}}`. A variável considera o valor mais comum entre as parcelas financeiras vinculadas ao contrato; se houver empate, usa o primeiro valor encontrado na ordem das parcelas.
 - Para citar a periodicidade ou condição do comando de parcelas sem expor códigos técnicos, use `{{contrato.comando_parcela}}` (ex.: `w4` → `semanal`, `w4-Seg` → `segundas-feiras`, `d15` → `vencimento no dia 15`).
+- Para exibir as observações cadastradas na caução, use `{{contrato.caucao_observacoes}}`.
 - Para tabelas de parcelas financeiras, use `{{contrato.parcelas_tabela}}` quando quiser apenas Parcela, Vencimento e Valor; use `{{contrato.parcelas_tabela_status}}` quando também precisar da coluna Status.
 
 ### Fatura + Documento (fatura_documento.php)

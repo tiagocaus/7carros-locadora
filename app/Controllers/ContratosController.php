@@ -2759,6 +2759,7 @@ class ContratosController
                 'caucao_valor' => $caucaoValorDocumento,
                 'deposito_valor' => $caucaoValorDocumento,
                 'caucao_status' => $this->formatarStatusCaucaoDocumento($contrato['caucao_status'] ?? ''),
+                'caucao_observacoes' => $contrato['caucao_observacoes'] ?? '',
                 'caucao_data_devolucao' => $this->dataValidaDocumento($contrato['caucao_data_devolucao'] ?? null),
                 'caucao_prazo_devolucao' => $contrato['caucao_prazo_devolucao'] ?? '',
                 'caucao_data_prevista_devolucao' => $caucaoDataPrevistaDevolucao,

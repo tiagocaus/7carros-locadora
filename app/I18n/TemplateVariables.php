@@ -468,6 +468,12 @@ class TemplateVariables
                 'label_key' => 'variables.contrato.caucao_status',
                 'example' => 'Ativa'
             ],
+            'caucao_observacoes' => [
+                'key' => 'contrato.caucao_observacoes',
+                'type' => 'text',
+                'label_key' => 'variables.contrato.caucao_observacoes',
+                'example' => 'Caução recebida via transferência bancária'
+            ],
             'caucao_data_devolucao' => [
                 'key' => 'contrato.caucao_data_devolucao',
                 'type' => 'date',
@@ -782,6 +788,12 @@ class TemplateVariables
                 'type' => 'date',
                 'label_key' => 'variables.locacao.caucao_data_prevista_devolucao',
                 'example' => '25/01/2024'
+            ],
+            'caucao_observacoes' => [
+                'key' => 'locacao.caucao_observacoes',
+                'type' => 'text',
+                'label_key' => 'variables.locacao.caucao_observacoes',
+                'example' => 'Caução recebida via transferência bancária'
             ],
             'fatura_a_pagar' => [
                 'key' => 'locacao.fatura_a_pagar',

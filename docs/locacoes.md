@@ -39,6 +39,8 @@ app/
 
 Mesmo padrão de contratos: header/footer HTML no `LocacoesController::imprimir` e margens centralizadas em `PdfHelper` ([pdf.md](./pdf.md)).
 
+As observações cadastradas na caução ficam disponíveis no modelo customizado pela variável `{{locacao.caucao_observacoes}}`.
+
 ### PDF tipo `fatura`
 
 A fatura da locação mantém a ordem principal: Dados do Cliente, Dados da Locação, Composição da Fatura, Totais e Pagamentos. Dados complementares aparecem depois dos pagamentos quando houver informação: condutor adicional, referências/intervenientes (fiadores, avalistas e testemunhas), histórico de veículos/substituições e multas vinculadas.
