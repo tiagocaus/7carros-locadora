@@ -1837,6 +1837,27 @@ class ContratosController
                 return;
             }
 
+            $acaoVeiculo = ($dados['acao_veiculo'] ?? 'disponivel') === 'criar_os'
+                ? 'criar_os'
+                : 'disponivel';
+            $motivoSaida = trim((string) ($dados['motivo_saida'] ?? ''));
+
+            if ($acaoVeiculo === 'criar_os' && $motivoSaida === '') {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.contratos.return_page.inform_os_reason')
+                ], 422);
+                return;
+            }
+
+            if (mb_strlen($motivoSaida) > 255) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.contratos.return_page.observation_too_long')
+                ], 422);
+                return;
+            }
+
             // Verificar se novo veiculo nao esta alugado
             $alugado = $veiculoModel->veiculoEstaAlugado((int) $dados['id_veiculo_novo'], $id);
             if ($alugado) {
@@ -1896,7 +1917,7 @@ class ContratosController
                 'data_entrada' => $dataSubstituicao,
                 'odometro_entrada' => $odometroEntradaAntigo,
                 'combustivel_entrada' => $dados['combustivel_entrada'] ?? null,
-                'motivo_saida' => $dados['motivo_saida'] ?? 'Substituicao de veiculo'
+                'motivo_saida' => $motivoSaida !== '' ? $motivoSaida : 'Substituicao de veiculo'
             ];
 
             // Preparar dados do novo veiculo (veiculo novo sai da empresa)
@@ -1930,10 +1951,32 @@ class ContratosController
                 $manterValores
             );
 
+            $manutencaoId = null;
+            $manutencaoOs = null;
+
+            if ($acaoVeiculo === 'criar_os') {
+                $manutencaoModel = new Manutencao();
+                $manutencaoId = $manutencaoModel->criar([
+                    'chave' => $chave,
+                    'id_veiculo' => (int) $veiculoAntigo['id_veiculo'],
+                    'data_enviado' => $dataSubstituicao,
+                    'odo_enviado' => $odometroEntradaAntigo,
+                    'tanque_enviado' => $dadosSaida['combustivel_entrada'],
+                    'motivo' => $motivoSaida,
+                    'status' => 'C',
+                ]);
+                $manutencaoCriada = $manutencaoModel->buscarPorId($manutencaoId);
+                $manutencaoOs = $manutencaoCriada['os'] ?? null;
+
+                AuditLogService::registrar(
+                    ($_SESSION['user_name'] ?? 'Sistema')
+                    . ", criou a OS de manutencao [{$manutencaoOs}] na substituicao do veiculo [{$veiculoAntigo['veiculo_placa']}]"
+                );
+            }
+
             // Definir status do veiculo antigo conforme acao escolhida
             $veiculoModelGeral = new Veiculo();
             $disponibilidadeSync = new VeiculoDisponibilidadeSync();
-            $acaoVeiculo = $dados['acao_veiculo'] ?? 'disponivel';
             $statusVeiculoAntigo = $acaoVeiculo === 'criar_os' ? 'M' : 'D';
             $veiculoModelGeral->atualizarOdometro((int) $veiculoAntigo['id_veiculo'], $odometroEntradaAntigo);
             $disponibilidadeSync->liberarSeSemVinculoAtivo((int) $veiculoAntigo['id_veiculo'], $statusVeiculoAntigo);
@@ -2038,7 +2081,11 @@ class ContratosController
             Response::json([
                 'success' => true,
                 'message' => 'Veiculo substituido com sucesso',
-                'data' => ['id_contrato_veiculo' => $novoId]
+                'data' => [
+                    'id_contrato_veiculo' => $novoId,
+                    'id_manutencao' => $manutencaoId,
+                    'os' => $manutencaoOs,
+                ]
             ]);
         } catch (\Exception $e) {
             Response::json([

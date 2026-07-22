@@ -517,6 +517,7 @@ O site do cliente roda em PHP no hosting dele. Os dados (veículos, preços, fil
 │   (PHP no FTP)           │         │   (Sistema principal)    │
 │                          │  API    │                          │
 │   index.php ─────────────┼────────>│ /api/public/dados-site   │
+│   reserva.php ───────────┼────────>│ /api/public/disponibilidade│
 │   reserva.php ───────────┼────────>│ /api/public/reserva      │
 │   contato.php ───────────┼────────>│ /api/public/contato      │
 │                          │         │                          │
@@ -643,6 +644,17 @@ class SiteApi
     public function getConteudos(string $idioma): array
     {
         return $this->get('/api/public/conteudos', ['idioma' => $idioma], $this->config['cache_ttl']);
+    }
+
+    /**
+     * Disponibilidade e cotacao por grupo/plano — SEM cache.
+     * O resultado depende da filial e do periodo selecionado.
+     */
+    public function getDisponibilidade(array $params): array
+    {
+        $params['chave'] = $this->config['chave'];
+        $url = $this->config['api_url'] . '/api/public/disponibilidade?' . http_build_query($params);
+        return $this->request('GET', $url);
     }
 
     /**
@@ -979,7 +991,7 @@ Endpoints que o site PHP do cliente chama:
 | `/api/public/dados-site` | GET | 1h | Filiais (com `precos_grupos`, `valores_servicos`, moeda), grupos (metadados), serviços (`onde_usar=SITE`), empresa, flags `overbooking`, `cadastro_simples`, `envio_documentos`, `doc_*_obrigatorio`, `reserva_requer_confirmacao`, `pagamento_antecipado` |
 | `/api/public/conteudos` | GET | 1h | Textos, SEO, integrações, banners, links (por idioma) |
 | `/api/public/status` | GET | Não | Flags runtime: `manutencao`, `reserva_online`, `whatsapp_flutuante` |
-| `/api/public/disponibilidade` | GET | Não | Mapa `{idGrupo: bool}` de grupos com veículo livre no período |
+| `/api/public/disponibilidade` | GET | Não | Disponibilidade e cotação por período, grupo e plano, incluindo ajustes de temporada |
 | `/api/public/cliente-existe` | GET | Não | `{existe: bool}` — check se CPF/CNPJ já é cliente do tenant (neutro, sem dados pessoais) |
 | `/api/public/cliente-login` | POST | Não | Autentica cliente com CPF ou email + senha. Retorna `{id, nome}` do cliente |
 | `/api/public/cliente-senha-reset` | POST | Não | Gera **token one-time** em `cliente_password_resets` (hash SHA-256, TTL 60min), envia link `{APP_URL}/public/redefinir-senha?token=XXX` pelo template `cliente_nova_senha`. Resposta sempre neutra |
@@ -1759,6 +1771,7 @@ X-Site-Token: {token_do_site}
     "data_chegada": "2026-04-20",
     "hora_chegada": "18:00",
     "grupo_id": 2,
+    "plano": "KMC",
     "servicos": [1, 3],
     "cliente": {
         "nome": "João Silva",
@@ -1771,6 +1784,11 @@ X-Site-Token: {token_do_site}
 ```
 
 Reserva online trabalha por grupo/categoria (`grupo_id`), nao por veiculo especifico. A locadora aloca um veiculo fisico disponivel daquele grupo apenas no momento da retirada/registro de saida.
+
+O backend recalcula a quantidade de diárias e o preço usando `data_saida`,
+`data_chegada`, filial, grupo e plano. A temporada é aplicada por diária antes
+de seguros, serviços e promoção; qualquer preço ou total enviado pelo navegador
+é ignorado.
 
 **Segurança da API pública:**
 - Token por site armazenado em `site_config` (gerado na ativação)
@@ -1791,7 +1809,7 @@ O PHP do site puxa dados via `SiteApi::getDadosSite()` com cache de 1 hora. Quan
 - Flag `overbooking` do tenant
 
 **Dados carregados sob demanda (JS, sem cache):**
-- Disponibilidade de grupos por filial/data (`/api/public/disponibilidade` via proxy `ajax-disponibilidade.php`)
+- Disponibilidade e preços efetivos por filial/data (`/api/public/disponibilidade` via proxy `ajax-disponibilidade.php`)
 
 ### Disponibilidade de Grupos (passo 2 do fluxo)
 
@@ -1804,9 +1822,28 @@ Ao clicar em "Continuar" no passo 1, o JS consulta **em tempo real** quais grupo
 {
     "success": true,
     "overbooking": false,
-    "grupos": { "1": true, "18": false }  // true = tem >=1 veículo livre; false/ausente = esgotado
+    "dias": 5,
+    "grupos": { "1": true, "18": false },
+    "precos": {
+        "1": {
+            "KMC": {
+                "valor_dia": 210.00,
+                "valor_base_dia": 140.00,
+                "subtotal": 1050.00,
+                "tem_ajuste_temporada": true,
+                "temporadas": [
+                    {"id": 65, "nome": "Final de Ano", "ajuste_percentual": 50, "dias_aplicados": 5}
+                ]
+            }
+        }
+    }
 }
 ```
+
+`precos` contém as chaves `KML`, `KMC` e `DIA` para cada grupo visível. A
+tarifa progressiva é resolvida primeiro e o ajuste de temporada é aplicado por
+diária. Como a resposta depende do período, ela não utiliza o cache de uma hora
+de `/api/public/dados-site`.
 
 **Lógica no backend** (`Veiculo::gruposDisponiveisPorFilial($filialId, $dataSaida, $dataDevolucao)`):
 

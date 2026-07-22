@@ -16,6 +16,7 @@ class TemporadaService
     private Temporada $temporadaModel;
     private TemporadaGrupo $temporadaGrupoModel;
     private string $chave;
+    private array $ajustesAtivosPorGrupo = [];
 
     public function __construct(string $chave)
     {
@@ -37,20 +38,8 @@ class TemporadaService
             $data = new \DateTime($data);
         }
 
-        // Busca temporada ativa para a data
-        $temporada = $this->temporadaModel->getTemporadaParaData($this->chave, $data);
-
-        if (!$temporada) {
-            return null;
-        }
-
-        // Busca ajuste para o grupo especifico
-        $ajuste = $this->temporadaGrupoModel->buscarPorTemporadaGrupo(
-            (int) $temporada['id'],
-            $grupoId
-        );
-
-        return $ajuste ? (float) $ajuste['ajuste_percentual'] : null;
+        $temporada = $this->getTemporadaComAjusteParaData($grupoId, $data);
+        return $temporada !== null ? (float) $temporada['ajuste_percentual'] : null;
     }
 
     /**
@@ -104,8 +93,12 @@ class TemporadaService
 
         $dataAtual = clone $dataInicio;
         while ($dataAtual <= $dataFim) {
-            $valorDia = $this->aplicarAjuste($valorDiaria, $grupoId, $dataAtual);
-            $ajuste = $this->getAjusteParaData($grupoId, $dataAtual);
+            $temporada = $this->getTemporadaComAjusteParaData($grupoId, $dataAtual);
+            $percentual = $temporada !== null ? (float) $temporada['ajuste_percentual'] : 0.0;
+            $ajuste = abs($percentual) > 0.00001 ? $percentual : null;
+            $valorDia = $ajuste === null
+                ? $valorDiaria
+                : $valorDiaria * (1 + ($ajuste / 100));
 
             $detalhe = [
                 'data' => $dataAtual->format('Y-m-d'),
@@ -116,7 +109,10 @@ class TemporadaService
 
             if ($ajuste !== null) {
                 $temAjuste = true;
-                $detalhe['temporada'] = $this->temporadaModel->getTemporadaParaData($this->chave, $dataAtual);
+                $detalhe['temporada'] = [
+                    'id' => (int) $temporada['temporada_id'],
+                    'nome' => (string) $temporada['temporada_nome'],
+                ];
             }
 
             $detalhes[] = $detalhe;
@@ -131,6 +127,34 @@ class TemporadaService
             'detalhes' => $detalhes,
             'tem_ajuste' => $temAjuste,
         ];
+    }
+
+    /**
+     * Localiza a primeira temporada ativa com ajuste para o grupo na data.
+     * As configuracoes sao carregadas uma vez por grupo para evitar consultas
+     * repetidas durante cotacoes de periodos longos.
+     */
+    private function getTemporadaComAjusteParaData(int $grupoId, \DateTimeInterface $data): ?array
+    {
+        if (!array_key_exists($grupoId, $this->ajustesAtivosPorGrupo)) {
+            $this->ajustesAtivosPorGrupo[$grupoId] =
+                $this->temporadaGrupoModel->listarAtivasComAjustePorGrupo($grupoId);
+        }
+
+        $mesDia = ((int) $data->format('n') * 100) + (int) $data->format('j');
+        foreach ($this->ajustesAtivosPorGrupo[$grupoId] as $temporada) {
+            $inicio = ((int) $temporada['mes_inicio'] * 100) + (int) $temporada['dia_inicio'];
+            $fim = ((int) $temporada['mes_fim'] * 100) + (int) $temporada['dia_fim'];
+            $estaNoPeriodo = $inicio <= $fim
+                ? ($mesDia >= $inicio && $mesDia <= $fim)
+                : ($mesDia >= $inicio || $mesDia <= $fim);
+
+            if ($estaNoPeriodo) {
+                return $temporada;
+            }
+        }
+
+        return null;
     }
 
     /**

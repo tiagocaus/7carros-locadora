@@ -459,17 +459,26 @@ com as duas datas quando houver conflito.
 ```javascript
 await Api.post(`/contratos/${contratoId}/substituir`, {
     id_contrato_veiculo_antigo: 123,
-    odometro_saida: 52000,
-    combustivel_saida: 7,
+    data_entrada: '2026-07-01T15:30',
+    odometro_entrada: 52000,
+    combustivel_entrada: 7,
     motivo_saida: 'Cliente solicitou troca por modelo maior',
+    acao_veiculo: 'criar_os',
     id_veiculo_novo: 67,
     id_grupo_novo: 5,
     plano_novo: 'KL',
-    odometro_entrada: 30000,
-    combustivel_entrada: 8,
+    odometro_saida_novo: 30000,
+    combustivel_saida_novo: 8,
     manter_valores: false
 });
 ```
+
+Quando `acao_veiculo = criar_os`, `motivo_saida` e obrigatorio (maximo de 255
+caracteres). A substituicao cria uma OS em `manutencoes` com status `C` (Criada),
+vinculada ao veiculo antigo e a sua filial. A data da substituicao, odometro,
+combustivel/carga e motivo preenchem os dados de envio da OS; o veiculo antigo
+fica com disponibilidade `O` (Oficina). A resposta retorna `id_manutencao` e
+`os` dentro de `data`. Com `acao_veiculo = disponivel`, nenhuma OS e criada.
 
 **Rastreabilidade financeira:** Ao substituir um veiculo, as parcelas financeiras ja criadas mantêm o `financeiro.id_veiculo` do veiculo antigo. Novas parcelas geradas apos a substituicao recebem automaticamente o `id_veiculo` do novo veiculo via `ContratoVeiculo::buscarAtivo()`. Isso garante que receitas e despesas fiquem vinculadas ao veiculo correto em cada periodo. Ver [financeiro.md](financeiro.md#rastreabilidade-veicular) para detalhes.
 

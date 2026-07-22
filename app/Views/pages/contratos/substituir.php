@@ -131,8 +131,11 @@
                 <!-- Linha 5: Motivo da Substituicao -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
                     <div class="md:col-span-12 form-input-group">
-                        <label for="motivoSaida" class="form-label-group"><?= t('modules.contratos.substitution.substitution_reason') ?></label>
-                        <textarea id="motivoSaida" class="form-input-group-field" rows="2" placeholder="<?= t('modules.contratos.substitution.reason_placeholder') ?>"></textarea>
+                        <label for="motivoSaida" class="form-label-group">
+                            <?= t('modules.contratos.substitution.substitution_reason') ?>
+                            <span id="motivoSaidaRequired" class="text-red-500 hidden">*</span>
+                        </label>
+                        <textarea id="motivoSaida" class="form-input-group-field" rows="2" maxlength="255" placeholder="<?= t('modules.contratos.substitution.reason_placeholder') ?>"></textarea>
                     </div>
                 </div>
             </div>
@@ -377,6 +380,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'selectGroupNew' => t('modules.contratos.messages.select_group_new'),
         'selectNewVehicle' => t('modules.contratos.messages.select_new_vehicle'),
         'informOdometer' => t('modules.contratos.messages.inform_current_odometer'),
+        'informOsReason' => t('modules.contratos.return_page.inform_os_reason'),
+        'observationTooLong' => t('modules.contratos.return_page.observation_too_long'),
         'processing' => t('common.labels.processing'),
         'substitutionSuccess' => t('modules.contratos.messages.substitution_success'),
         'substitutionError' => t('modules.contratos.messages.substitution_error'),
@@ -736,6 +741,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('tanqueChegada').addEventListener('change', calcularDiferencas);
         document.getElementById('dataSubstituicao')?.addEventListener('change', calcularDiferencas);
 
+        const acaoVeiculo = document.getElementById('acaoVeiculo');
+        acaoVeiculo?.addEventListener('change', atualizarObrigatoriedadeMotivo);
+        atualizarObrigatoriedadeMotivo();
+
         // Plano mudou -> mostrar/ocultar campos
         selectPlano.addEventListener('change', function() {
             atualizarCamposPorPlano(this.value);
@@ -779,6 +788,15 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('btnVoltar').addEventListener('click', voltar);
         document.getElementById('btnCancelar').addEventListener('click', voltar);
         document.getElementById('btnConfirmar').addEventListener('click', confirmarSubstituicao);
+    }
+
+    function atualizarObrigatoriedadeMotivo() {
+        const obrigatorio = document.getElementById('acaoVeiculo')?.value === 'criar_os';
+        const motivo = document.getElementById('motivoSaida');
+        const indicador = document.getElementById('motivoSaidaRequired');
+
+        if (motivo) motivo.required = obrigatorio;
+        indicador?.classList.toggle('hidden', !obrigatorio);
     }
 
     function voltar() {
@@ -928,6 +946,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         const planoNovo = selectPlano.value;
         const odometroAtualVal = inputOdometroAtual.value;
         const dataSubstituicao = document.getElementById('dataSubstituicao')?.value || '';
+        const acaoVeiculo = document.getElementById('acaoVeiculo').value || 'disponivel';
+        const motivoSaida = document.getElementById('motivoSaida').value.trim();
 
         if (!dataSubstituicao) {
             window.parent.postMessage({ action: 'openAlert', message: 'Informe a data da substituição' }, '*');
@@ -949,6 +969,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             window.parent.postMessage({ action: 'openAlert', message: i18n.informOdometer }, '*');
             return;
         }
+        if (acaoVeiculo === 'criar_os' && !motivoSaida) {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.informOsReason }, '*');
+            return;
+        }
+        if (motivoSaida.length > 255) {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.observationTooLong }, '*');
+            return;
+        }
 
         const manterValores = checkManterValores.checked;
 
@@ -968,8 +996,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 // Dados devolucao (veiculo entra na empresa)
                 odometro_entrada: Km.parse(odometroAtualVal),
                 combustivel_entrada: document.getElementById('tanqueChegada').value || null,
-                motivo_saida: document.getElementById('motivoSaida').value || null,
-                acao_veiculo: document.getElementById('acaoVeiculo').value || 'disponivel',
+                motivo_saida: motivoSaida || null,
+                acao_veiculo: acaoVeiculo,
                 // Dados novo veiculo
                 id_veiculo_novo: parseInt(veiculoNovoId),
                 id_grupo_novo: parseInt(grupoNovoId),

@@ -56,6 +56,30 @@ class TemporadaGrupo extends Model
     }
 
     /**
+     * Lista, em ordem de precedencia, as temporadas ativas que possuem ajuste
+     * para um grupo. O filtro de tenant e aplicado automaticamente pelo QB.
+     */
+    public function listarAtivasComAjustePorGrupo(int $idGrupo): array
+    {
+        return $this->qb
+            ->table('temporadas_grupos', 'tg')
+            ->select([
+                'tg.ajuste_percentual',
+                't.id as temporada_id',
+                't.nome as temporada_nome',
+                't.mes_inicio',
+                't.dia_inicio',
+                't.mes_fim',
+                't.dia_fim',
+            ])
+            ->innerJoin('temporadas', 't', 't.id', '=', 'tg.id_temporada')
+            ->where('tg.id_grupo', '=', $idGrupo)
+            ->where('t.ativo', '=', 1)
+            ->orderBy('t.id', 'ASC')
+            ->get();
+    }
+
+    /**
      * Busca ajuste por temporada e grupo
      *
      * @param int $idTemporada ID da temporada

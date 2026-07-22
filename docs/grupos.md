@@ -616,8 +616,17 @@ Temporadas permitem aplicar ajustes percentuais nos preços durante períodos es
    └─ Se existir faixa para X dias → substituir valor base
 
 3. Aplicar ajuste de TEMPORADA
-   └─ Se temporada ativa → multiplicar por (1 + ajuste/100)
+   └─ Para cada diária dentro da temporada ativa → multiplicar por (1 + ajuste/100)
 ```
+
+O período faturado considera a data de retirada inclusiva e a data de devolução
+exclusiva. Se uma locação atravessar o início ou o fim de uma temporada, somente
+as diárias abrangidas recebem o reajuste. Períodos recorrentes que cruzam o ano,
+como `15/12 a 20/01`, são tratados normalmente.
+
+No website, a tarifa média exibida é `subtotal do plano / quantidade de diárias`.
+O subtotal preserva o cálculo exato de cada dia e é sempre recalculado no backend;
+valores enviados pelo navegador não são usados para criar a reserva.
 
 ### Exemplo de Cálculo
 
@@ -642,6 +651,9 @@ R$ 150,00 × (1 + 30/100) = R$ 150,00 × 1.30 = R$ 195,00/dia
 
 // Sem ajuste (ajuste = 0 ou registro não existe)
 ```
+
+Quando houver temporadas sobrepostas, prevalece a temporada ativa de menor ID
+que possua ajuste para o grupo, mantendo a precedência histórica do módulo.
 
 ---
 

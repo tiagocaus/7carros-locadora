@@ -19,6 +19,7 @@ use App\Models\SiteConfig;
  *       'grupo_id' => 1,
  *       'plano' => 'KML',         // KML | KMC | DIA
  *       'dias' => 2,
+ *       'data_inicio' => '2026-12-20',
  *       'servicos' => [2, 5],      // ids de taxaseservicos
  *       'seguro_carro' => false,
  *       'seguro_terceiros' => false,
@@ -35,6 +36,7 @@ class WebsiteReservaCalcService
         $grupoId  = (int) ($input['grupo_id']  ?? 0);
         $plano    = (string) ($input['plano']  ?? '');
         $dias     = max(1, (int) ($input['dias'] ?? 1));
+        $dataInicio = (string) ($input['data_inicio'] ?? '');
         $servicos = is_array($input['servicos'] ?? null) ? $input['servicos'] : [];
         $siteConfig = (new SiteConfig())->buscarPorChave() ?? [];
         $segCarroObrigatorio = !empty($siteConfig['seguro_carro_obrigatorio']);
@@ -47,9 +49,17 @@ class WebsiteReservaCalcService
             return ['total' => 0.0, 'breakdown' => ['erro' => 'sem_preco_grupo_filial']];
         }
 
-        $calculoPlano = (new GrupoPrecoPeriodoService())->calcularValorDiaria($grupoId, $filialId, $plano, $dias);
-        $valorPlanoDia = (float) ($calculoPlano['valor'] ?? 0);
-        $subtotalPlano = $valorPlanoDia * $dias;
+        if ($dataInicio !== '' && !$this->dataValida($dataInicio)) {
+            throw new \InvalidArgumentException('Data inicial invalida para o calculo da reserva.');
+        }
+
+        $chave = (string) ($input['chave'] ?? ($_SESSION['chave'] ?? ''));
+        $precoService = new GrupoPrecoPeriodoService();
+        $calculoPlano = $dataInicio !== '' && $chave !== ''
+            ? $precoService->calcularValorPeriodo($grupoId, $filialId, $plano, $dias, $dataInicio, $chave)
+            : $precoService->calcularValorDiaria($grupoId, $filialId, $plano, $dias);
+        $valorPlanoDia = (float) ($calculoPlano['valor_dia'] ?? $calculoPlano['valor'] ?? 0);
+        $subtotalPlano = (float) ($calculoPlano['subtotal'] ?? ($valorPlanoDia * $dias));
 
         $valorSegCarroDia = (float) ($precos['valor_seguro_carro'] ?? 0);
         $valorSegTercDia = (float) ($precos['valor_seguro_terceiros'] ?? 0);
@@ -125,6 +135,9 @@ class WebsiteReservaCalcService
                     'dias' => $dias,
                     'subtotal' => round($subtotalPlano, 2),
                     'origem' => $calculoPlano['origem'] ?? 'preco_base',
+                    'valor_base_dia' => round((float) ($calculoPlano['valor_base_dia'] ?? $valorPlanoDia), 2),
+                    'tem_ajuste_temporada' => (bool) ($calculoPlano['tem_ajuste'] ?? false),
+                    'temporadas' => $calculoPlano['temporadas'] ?? [],
                 ],
                 'seguros' => round($subtotalSeguros, 2),
                 'seguros_detalhe' => [
@@ -146,5 +159,11 @@ class WebsiteReservaCalcService
                 'desconto' => round($desconto, 2),
             ],
         ];
+    }
+
+    private function dataValida(string $data): bool
+    {
+        $objeto = \DateTimeImmutable::createFromFormat('!Y-m-d', $data);
+        return $objeto !== false && $objeto->format('Y-m-d') === $data;
     }
 }

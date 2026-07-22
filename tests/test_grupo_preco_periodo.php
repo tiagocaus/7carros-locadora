@@ -75,6 +75,56 @@ $siteCalc = (new WebsiteReservaCalcService())->calcular([
 checkMoneyGrupoPreco('Site publico usa diaria progressiva no subtotal', (float) ($siteCalc['breakdown']['plano']['subtotal'] ?? 0), 3060.00);
 checkGrupoPreco('Site publico origem do plano', $siteCalc['breakdown']['plano']['origem'] ?? null, 'preco_dias');
 
+echo "\n=== Teste ajuste de temporada no site ===\n";
+
+$chaveTemporada = 'CE758408F6EF98D7C7A7B786ECA7B3A8';
+$_SESSION['chave'] = $chaveTemporada;
+$serviceTemporada = new GrupoPrecoPeriodoService();
+
+$foraTemporada = $serviceTemporada->calcularValorPeriodo(1738, 650, 'KMC', 5, '2026-11-01', $chaveTemporada);
+checkMoneyGrupoPreco('Fora da temporada mantem subtotal base', (float) $foraTemporada['subtotal'], 700.00);
+checkGrupoPreco('Fora da temporada nao marca ajuste', $foraTemporada['tem_ajuste'], false);
+
+$temporadaCompleta = $serviceTemporada->calcularValorPeriodo(1738, 650, 'KMC', 5, '2026-12-15', $chaveTemporada);
+checkMoneyGrupoPreco('Final de ano aplica +50% nas cinco diarias', (float) $temporadaCompleta['subtotal'], 1050.00);
+checkMoneyGrupoPreco('Diaria media integral da temporada', (float) $temporadaCompleta['valor_dia'], 210.00);
+checkGrupoPreco('Temporada informa cinco dias aplicados', $temporadaCompleta['temporadas'][0]['dias_aplicados'] ?? null, 5);
+
+$periodoMisto = $serviceTemporada->calcularValorPeriodo(1738, 650, 'KMC', 5, '2026-12-13', $chaveTemporada);
+checkMoneyGrupoPreco('Periodo misto reajusta somente tres diarias', (float) $periodoMisto['subtotal'], 910.00);
+checkMoneyGrupoPreco('Periodo misto retorna diaria media', (float) $periodoMisto['valor_dia'], 182.00);
+checkGrupoPreco('Periodo misto informa tres dias aplicados', $periodoMisto['temporadas'][0]['dias_aplicados'] ?? null, 3);
+
+$viradaAno = $serviceTemporada->calcularValorPeriodo(1738, 650, 'KMC', 5, '2027-01-02', $chaveTemporada);
+checkMoneyGrupoPreco('Temporada recorrente funciona apos a virada do ano', (float) $viradaAno['subtotal'], 1050.00);
+
+$siteTemporada = (new WebsiteReservaCalcService())->calcular([
+    'filial_id' => 650,
+    'grupo_id' => 1738,
+    'plano' => 'KMC',
+    'dias' => 5,
+    'data_inicio' => '2026-12-15',
+    'servicos' => [],
+    'seguro_carro' => false,
+    'seguro_terceiros' => false,
+]);
+checkMoneyGrupoPreco('Site publico usa subtotal com temporada', (float) ($siteTemporada['breakdown']['plano']['subtotal'] ?? 0), 1050.00);
+checkGrupoPreco('Site publico sinaliza ajuste de temporada', $siteTemporada['breakdown']['plano']['tem_ajuste_temporada'] ?? null, true);
+
+$dataInvalidaRejeitada = false;
+try {
+    (new WebsiteReservaCalcService())->calcular([
+        'filial_id' => 650,
+        'grupo_id' => 1738,
+        'plano' => 'KMC',
+        'dias' => 5,
+        'data_inicio' => '2026-13-40',
+    ]);
+} catch (InvalidArgumentException) {
+    $dataInvalidaRejeitada = true;
+}
+checkGrupoPreco('Site rejeita data manipulada ou invalida', $dataInvalidaRejeitada, true);
+
 echo "\nSucessos: {$sucessos}\n";
 echo "Falhas: {$falhas}\n";
 exit($falhas > 0 ? 1 : 0);

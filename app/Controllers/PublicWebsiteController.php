@@ -28,6 +28,8 @@ use App\Helpers\DateHelper;
 use App\Helpers\ImageHelper;
 use App\Helpers\FileHelper;
 use App\Services\WebsiteReservaCalcService;
+use App\Services\GrupoPrecoPeriodoService;
+use App\Services\TemporadaService;
 use App\Services\PagamentoLinkSyncService;
 use App\Services\WebsiteReservationNotificationService;
 
@@ -211,8 +213,8 @@ class PublicWebsiteController
             $horaDev     = (string) ($request->query('hora_devolucao') ?? '00:00');
 
             if ($filialId <= 0
-                || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dataSaida)
-                || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dataPrev)
+                || !$this->dataValida($dataSaida)
+                || !$this->dataValida($dataPrev)
                 || !preg_match('/^\d{2}:\d{2}$/', $horaSaida)
                 || !preg_match('/^\d{2}:\d{2}$/', $horaDev)
             ) {
@@ -223,16 +225,28 @@ class PublicWebsiteController
             $inicio = $dataSaida . ' ' . $horaSaida . ':00';
             $fim    = $dataPrev  . ' ' . $horaDev  . ':00';
 
+            $timestampInicio = strtotime($dataSaida);
+            $timestampFim = strtotime($dataPrev);
+            if ($timestampInicio === false || $timestampFim === false || $timestampFim < $timestampInicio) {
+                Response::json(['success' => false, 'message' => 'Periodo invalido'], 400);
+                return;
+            }
+            $dias = max(1, (int) ceil(($timestampFim - $timestampInicio) / 86400));
+
             $this->setTenantContext($chave);
 
             $overbooking = (bool) ($config['overbooking'] ?? false);
 
+            $gruposRaw = (new Grupo())->listar();
+            $gruposSite = array_values(array_filter(
+                $gruposRaw,
+                static fn (array $grupo): bool => !empty($grupo['visivel_no_site'])
+            ));
+
             $gruposDisponiveis = [];
             if ($overbooking) {
                 // Com overbooking, todos os grupos visiveis sao considerados disponiveis
-                $gruposRaw = (new Grupo())->listar();
-                foreach ($gruposRaw as $g) {
-                    if (empty($g['visivel_no_site'])) continue;
+                foreach ($gruposSite as $g) {
                     $gruposDisponiveis[(int) $g['id']] = true;
                 }
             } else {
@@ -242,12 +256,41 @@ class PublicWebsiteController
                 }
             }
 
+            // A cotacao acompanha a disponibilidade porque depende do mesmo periodo
+            // e nao pode usar o cache horario dos dados gerais do site.
+            $precosPeriodo = [];
+            $precoService = new GrupoPrecoPeriodoService();
+            $temporadaService = new TemporadaService($chave);
+            foreach ($gruposSite as $grupo) {
+                $grupoId = (int) $grupo['id'];
+                foreach (['KML', 'KMC', 'DIA'] as $plano) {
+                    $calculo = $precoService->calcularValorPeriodo(
+                        $grupoId,
+                        $filialId,
+                        $plano,
+                        $dias,
+                        $dataSaida,
+                        $chave,
+                        $temporadaService
+                    );
+                    $precosPeriodo[$grupoId][$plano] = [
+                        'valor_dia' => round((float) ($calculo['valor_dia'] ?? 0), 2),
+                        'valor_base_dia' => round((float) ($calculo['valor_base_dia'] ?? 0), 2),
+                        'subtotal' => round((float) ($calculo['subtotal'] ?? 0), 2),
+                        'tem_ajuste_temporada' => (bool) ($calculo['tem_ajuste'] ?? false),
+                        'temporadas' => $calculo['temporadas'] ?? [],
+                    ];
+                }
+            }
+
             $this->restoreTenantContext();
 
             Response::json([
                 'success'     => true,
                 'overbooking' => $overbooking,
                 'grupos'      => $gruposDisponiveis,
+                'precos'      => $precosPeriodo,
+                'dias'        => $dias,
             ]);
 
         } catch (\Exception $e) {
@@ -389,6 +432,8 @@ class PublicWebsiteController
                 'grupo_id' => (int) ($dados['grupo_id'] ?? 0),
                 'plano' => (string) ($dados['plano'] ?? ''),
                 'dias' => max(1, (int) ($dados['dias'] ?? 1)),
+                'data_inicio' => (string) ($dados['data_inicio'] ?? ''),
+                'chave' => $config['chave'],
                 'servicos' => $dados['servicos'] ?? [],
                 'seguro_carro' => !empty($dados['seguro_carro']),
                 'seguro_terceiros' => !empty($dados['seguro_terceiros']),
@@ -428,6 +473,20 @@ class PublicWebsiteController
                     Response::json(['success' => false, 'message' => "Campo obrigatorio: {$campo}"], 422);
                     return;
                 }
+            }
+
+            if (!$this->dataValida((string) $dados['data_saida'])
+                || !$this->dataValida((string) $dados['data_chegada'])
+                || !preg_match('/^\d{2}:\d{2}$/', (string) $dados['hora_saida'])
+                || !preg_match('/^\d{2}:\d{2}$/', (string) $dados['hora_chegada'])
+            ) {
+                Response::json(['success' => false, 'message' => 'Data ou horario invalido'], 422);
+                return;
+            }
+
+            if (strtotime((string) $dados['data_chegada']) < strtotime((string) $dados['data_saida'])) {
+                Response::json(['success' => false, 'message' => 'Periodo invalido'], 422);
+                return;
             }
 
             $clienteIdSessao = !empty($dados['cliente_id']) ? (int) $dados['cliente_id'] : 0;
@@ -543,6 +602,8 @@ class PublicWebsiteController
                 'grupo_id'  => (int) $dados['grupo_id'],
                 'plano'     => (string) ($dados['plano'] ?? 'KML'),
                 'dias'      => $dias,
+                'data_inicio' => (string) $dados['data_saida'],
+                'chave'     => $chave,
                 'servicos'  => $dados['servicos'] ?? [],
                 'seguro_carro'     => !empty($dados['seguro_carro']),
                 'seguro_terceiros' => !empty($dados['seguro_terceiros']),
@@ -1332,6 +1393,12 @@ HTML;
     {
         $this->previousChave = $_SESSION['chave'] ?? null;
         $_SESSION['chave'] = $chave;
+    }
+
+    private function dataValida(string $data): bool
+    {
+        $objeto = \DateTimeImmutable::createFromFormat('!Y-m-d', $data);
+        return $objeto !== false && $objeto->format('Y-m-d') === $data;
     }
 
     private function restoreTenantContext(): void

@@ -614,7 +614,8 @@ $(function () {
             $('#dias').val(dias);
             // Se usuario mudou datas apos ter marcado plano/adicionais, recomputar totais com dias novos
             if (window.__precoPlanoAtual) {
-                $('.plano-soma').text(formatarMoeda(window.__precoPlanoAtual * dias));
+                var subtotalAtual = parseFloat(window.__subtotalPlanoAtual || (window.__precoPlanoAtual * dias));
+                $('.plano-soma').text(formatarMoeda(subtotalAtual));
                 renderAdicionais();
                 calcTotal();
             }
@@ -630,9 +631,14 @@ $(function () {
 
     // Consulta o backend e marca cada grupo como disponivel/esgotado
     window.__disponibilidadeGrupos = {}; // { idGrupo: true/false }
+    window.__precosPeriodoGrupos = {}; // { idGrupo: { plano: { valor_dia, subtotal } } }
+    window.__cotacaoPeriodoCarregando = false;
     function carregarDisponibilidadeGrupos() {
         var filialId = window.__locValFilialId ? window.__locValFilialId($('#localRetirada')) : null;
         if (!filialId) return;
+        window.__precosPeriodoGrupos = {};
+        window.__cotacaoPeriodoCarregando = true;
+        atualizarPlanosDisponiveis();
         var params = {
             id_matriz_filial: filialId,
             data_saida:       $('#dataSaida').val() || '',
@@ -648,6 +654,13 @@ $(function () {
         }).done(function (resp) {
             if (!resp || !resp.success) return;
             window.__disponibilidadeGrupos = resp.grupos || {};
+            window.__precosPeriodoGrupos = resp.precos || {};
+            window.__cotacaoPeriodoCarregando = false;
+            atualizarPlanosDisponiveis();
+            aplicarDisponibilidadeNosBotoes();
+        }).fail(function () {
+            window.__cotacaoPeriodoCarregando = false;
+            window.__disponibilidadeGrupos = {};
             atualizarPlanosDisponiveis();
             aplicarDisponibilidadeNosBotoes();
         });
@@ -754,6 +767,14 @@ $(function () {
         return mapa[plano] || 'valor_plano_km_pago';
     }
     function precoEfetivoPlano(idGrupo, plano) {
+        if (window.__cotacaoPeriodoCarregando) return 0;
+        var precosPeriodo = window.__precosPeriodoGrupos || {};
+        var precosGrupoPeriodo = precosPeriodo[idGrupo] || precosPeriodo[String(idGrupo)] || {};
+        var precoPeriodo = precosGrupoPeriodo[plano] || null;
+        if (precoPeriodo && typeof precoPeriodo.valor_dia !== 'undefined') {
+            return parseFloat(precoPeriodo.valor_dia) || 0;
+        }
+
         var dias = diasReservaAtual();
         var filial = filialAtiva();
         var tipo = tipoPlanoPreco(plano);
@@ -772,6 +793,15 @@ $(function () {
 
         var p = precosGrupoAtual(idGrupo) || {};
         return parseFloat(p[campoBasePlano(plano)] || 0);
+    }
+    function subtotalEfetivoPlano(idGrupo, plano) {
+        var precosPeriodo = window.__precosPeriodoGrupos || {};
+        var precosGrupoPeriodo = precosPeriodo[idGrupo] || precosPeriodo[String(idGrupo)] || {};
+        var precoPeriodo = precosGrupoPeriodo[plano] || null;
+        if (precoPeriodo && typeof precoPeriodo.subtotal !== 'undefined') {
+            return parseFloat(precoPeriodo.subtotal) || 0;
+        }
+        return precoEfetivoPlano(idGrupo, plano) * diasReservaAtual();
     }
     function atualizarPlanosDisponiveis() {
         $('.reserva-plano-col').each(function () {
@@ -848,6 +878,7 @@ $(function () {
         $('.resumo-adicionais').empty();
         $('.total-geral span').text(formatarMoeda(0).replace((filialAtiva() || {}).simbolo_moeda || 'R$', '').trim());
         window.__precoPlanoAtual = 0;
+        window.__subtotalPlanoAtual = 0;
         window.__grupoSelecionadoId = null;
         window.__planoSelecionado = '';
         // Desmarca planos selecionados e volta botoes ao estado inicial (filial/datas podem mudar precos e disponibilidade)
@@ -868,6 +899,7 @@ $(function () {
     function renderAdicionais() {
         var dias = parseInt($('#dias').val()) || 1;
         var planoValor = parseFloat(window.__precoPlanoAtual || 0);
+        var planoSubtotal = parseFloat(window.__subtotalPlanoAtual || (planoValor * dias));
         // monta HTML uma vez e replica para os containers (um em cada tab)
         var linhas = [];
         $('#itens-adicionais .itens-adicionais').each(function () {
@@ -881,7 +913,7 @@ $(function () {
             var total, label;
             if (tipo === 'POR') {
                 var pct = parseFloat($preco.data('valor-global') || 0);
-                var baseValor = baseCalc === 'FIX' ? planoValor : planoValor * dias;
+                var baseValor = baseCalc === 'FIX' ? planoValor : planoSubtotal;
                 total = baseValor * pct / 100;
                 label = nome + ' (' + pct.toFixed(2).replace('.', ',') + '%)';
             } else {
@@ -969,6 +1001,7 @@ $(function () {
         var plano = parts[0];
         var idGrupo = parseInt(parts[1]) || null;
         var precoNum = idGrupo ? precoEfetivoPlano(idGrupo, plano) : 0;
+        var subtotalPlano = idGrupo ? subtotalEfetivoPlano(idGrupo, plano) : 0;
         if (!idGrupo || precoNum <= 0) return;
 
         var i18n = window.I18N_WEBSITE || {};
@@ -982,9 +1015,10 @@ $(function () {
         window.__grupoSelecionadoId = idGrupo;
         window.__planoSelecionado = plano;
         window.__precoPlanoAtual = precoNum;
+        window.__subtotalPlanoAtual = subtotalPlano;
         $('.resumo-plano').text(planoNome[plano] || plano);
         $('.plano-valor').text(formatarMoeda(precoNum));
-        $('.plano-soma').text(formatarMoeda(precoNum * dias));
+        $('.plano-soma').text(formatarMoeda(subtotalPlano));
         renderPrecosSeguros();
         renderAdicionais();
         calcTotal();
@@ -1013,6 +1047,7 @@ $(function () {
             grupo_id: grupoSelecionadoId(),
             plano: String(window.__planoSelecionado || ''),
             dias: parseInt($('#dias').val()) || 1,
+            data_inicio: $('#dataSaida').val() || '',
             servicos: servicos,
             seguro_carro: seguroEstaSelecionado('carro'),
             seguro_terceiros: seguroEstaSelecionado('terceiros')
@@ -1020,7 +1055,7 @@ $(function () {
     }
 
     function assinaturaContextoPromocao(ctx, codigo) {
-        return [codigo, ctx.filial_id, ctx.grupo_id, ctx.plano, ctx.dias, ctx.servicos.join(','), ctx.seguro_carro ? 1 : 0, ctx.seguro_terceiros ? 1 : 0].join('|');
+        return [codigo, ctx.filial_id, ctx.grupo_id, ctx.plano, ctx.dias, ctx.data_inicio, ctx.servicos.join(','), ctx.seguro_carro ? 1 : 0, ctx.seguro_terceiros ? 1 : 0].join('|');
     }
 
     async function validarPromocaoSite() {
