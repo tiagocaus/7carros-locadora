@@ -79,6 +79,39 @@
             </div>
         </div>
 
+        <!-- Seguros da Reserva -->
+        <div class="form-section mb-6">
+            <h3 class="form-section-title"><?= t('modules.website.reservation_insurances') ?></h3>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                    <div>
+                        <h4 class="font-medium">
+                            <?= t('modules.website.vehicle_insurance_required') ?>
+                            <?= aviso(t('modules.website.insurance_required_help')) ?>
+                        </h4>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="seguro_carro_obrigatorio" name="seguro_carro_obrigatorio" value="1" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                    <div>
+                        <h4 class="font-medium">
+                            <?= t('modules.website.third_party_insurance_required') ?>
+                            <?= aviso(t('modules.website.insurance_required_help')) ?>
+                        </h4>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="seguro_terceiros_obrigatorio" name="seguro_terceiros_obrigatorio" value="1" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
         <!-- Pre-cadastro do Site -->
         <div class="form-section mb-6">
             <h3 class="form-section-title"><?= t('modules.website.precadastro_title') ?></h3>
@@ -244,6 +277,8 @@
         document.getElementById('reserva_online').checked = data.reserva_online == 1;
         document.getElementById('overbooking').checked = data.overbooking == 1;
         document.getElementById('pagamento_antecipado').checked = data.pagamento_antecipado == 1;
+        document.getElementById('seguro_carro_obrigatorio').checked = data.seguro_carro_obrigatorio == 1;
+        document.getElementById('seguro_terceiros_obrigatorio').checked = data.seguro_terceiros_obrigatorio == 1;
         document.getElementById('whatsapp_flutuante').checked = data.whatsapp_flutuante == 1;
         document.getElementById('reserva_requer_confirmacao').checked = data.reserva_requer_confirmacao == 1;
         document.getElementById('cadastro_simples').checked = data.cadastro_simples == 1;
@@ -322,6 +357,8 @@
                     reserva_online: document.getElementById('reserva_online').checked ? 1 : 0,
                     overbooking: document.getElementById('overbooking').checked ? 1 : 0,
                     pagamento_antecipado: document.getElementById('pagamento_antecipado').checked ? 1 : 0,
+                    seguro_carro_obrigatorio: document.getElementById('seguro_carro_obrigatorio').checked ? 1 : 0,
+                    seguro_terceiros_obrigatorio: document.getElementById('seguro_terceiros_obrigatorio').checked ? 1 : 0,
                     reserva_requer_confirmacao: document.getElementById('reserva_requer_confirmacao').checked ? 1 : 0,
                     cadastro_simples: document.getElementById('cadastro_simples').checked ? 1 : 0,
                     envio_documentos: document.getElementById('envio_documentos').checked ? 1 : 0,

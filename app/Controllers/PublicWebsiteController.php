@@ -181,6 +181,8 @@ class PublicWebsiteController
                 'doc_comprovante_obrigatorio' => (bool) ($config['doc_comprovante_obrigatorio'] ?? false),
                 'reserva_requer_confirmacao' => (bool) ($config['reserva_requer_confirmacao'] ?? false),
                 'pagamento_antecipado' => (bool) ($config['pagamento_antecipado'] ?? false),
+                'seguro_carro_obrigatorio' => (bool) ($config['seguro_carro_obrigatorio'] ?? false),
+                'seguro_terceiros_obrigatorio' => (bool) ($config['seguro_terceiros_obrigatorio'] ?? false),
                 'formas_pagamento_site' => $formasPagamentoSitePorFilial,
             ]);
 
@@ -355,6 +357,8 @@ class PublicWebsiteController
                 'reserva_online'       => (bool) ($config['reserva_online'] ?? true),
                 'overbooking'          => (bool) ($config['overbooking'] ?? false),
                 'pagamento_antecipado' => (bool) ($config['pagamento_antecipado'] ?? false),
+                'seguro_carro_obrigatorio' => (bool) ($config['seguro_carro_obrigatorio'] ?? false),
+                'seguro_terceiros_obrigatorio' => (bool) ($config['seguro_terceiros_obrigatorio'] ?? false),
                 'whatsapp_flutuante'   => (bool) ($config['whatsapp_flutuante'] ?? true),
                 'whatsapp_numero'      => $config['whatsapp_numero'] ?? '',
                 'whatsapp_mensagem'    => $config['whatsapp_mensagem'] ?? '',
@@ -547,6 +551,7 @@ class PublicWebsiteController
             $totalCalculado = (float) ($calc['total'] ?? 0);
             $totalOriginal = (float) ($calc['total_original'] ?? $totalCalculado);
             $promocaoAplicada = $calc['promocao'] ?? null;
+            $segurosCalculados = $calc['breakdown']['seguros_detalhe'] ?? [];
             $subtotalPlano = (float) ($calc['breakdown']['plano']['subtotal'] ?? 0);
             if ($subtotalPlano <= 0) {
                 $this->restoreTenantContext();
@@ -619,6 +624,10 @@ class PublicWebsiteController
                 'id_grupo'   => (int) $dados['grupo_id'],
                 'data_saida' => $dataSaidaFull,
                 'plano'      => (string) ($dados['plano'] ?? 'KL'),
+                'seguro_carro' => !empty($segurosCalculados['carro']['selecionado']) ? 1 : 0,
+                'valor_seguro_carro' => (float) ($segurosCalculados['carro']['valor_dia'] ?? 0),
+                'seguro_terceiros' => !empty($segurosCalculados['terceiros']['selecionado']) ? 1 : 0,
+                'valor_seguro_terceiros' => (float) ($segurosCalculados['terceiros']['valor_dia'] ?? 0),
             ]);
 
             // Servicos adicionais — usa sincronizar() do LocacaoTaxaServico para

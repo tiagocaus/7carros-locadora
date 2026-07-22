@@ -36,8 +36,11 @@ class WebsiteReservaCalcService
         $plano    = (string) ($input['plano']  ?? '');
         $dias     = max(1, (int) ($input['dias'] ?? 1));
         $servicos = is_array($input['servicos'] ?? null) ? $input['servicos'] : [];
-        $segCarro = !empty($input['seguro_carro']);
-        $segTerc  = !empty($input['seguro_terceiros']);
+        $siteConfig = (new SiteConfig())->buscarPorChave() ?? [];
+        $segCarroObrigatorio = !empty($siteConfig['seguro_carro_obrigatorio']);
+        $segTercObrigatorio = !empty($siteConfig['seguro_terceiros_obrigatorio']);
+        $segCarro = $segCarroObrigatorio || !empty($input['seguro_carro']);
+        $segTerc  = $segTercObrigatorio || !empty($input['seguro_terceiros']);
 
         $precos = (new GrupoPrecoFilial())->buscarPorGrupoFilial($grupoId, $filialId);
         if (!$precos) {
@@ -48,12 +51,16 @@ class WebsiteReservaCalcService
         $valorPlanoDia = (float) ($calculoPlano['valor'] ?? 0);
         $subtotalPlano = $valorPlanoDia * $dias;
 
+        $valorSegCarroDia = (float) ($precos['valor_seguro_carro'] ?? 0);
+        $valorSegTercDia = (float) ($precos['valor_seguro_terceiros'] ?? 0);
+        $subtotalSegCarro = $segCarro ? $valorSegCarroDia * $dias : 0.0;
+        $subtotalSegTerc = $segTerc ? $valorSegTercDia * $dias : 0.0;
         $subtotalSeguros = 0.0;
         if ($segCarro) {
-            $subtotalSeguros += ((float) ($precos['valor_seguro_carro'] ?? 0)) * $dias;
+            $subtotalSeguros += $subtotalSegCarro;
         }
         if ($segTerc) {
-            $subtotalSeguros += ((float) ($precos['valor_seguro_terceiros'] ?? 0)) * $dias;
+            $subtotalSeguros += $subtotalSegTerc;
         }
 
         // Servicos adicionais: mistura MON/POR + FIX/PER/VLT
@@ -120,6 +127,20 @@ class WebsiteReservaCalcService
                     'origem' => $calculoPlano['origem'] ?? 'preco_base',
                 ],
                 'seguros' => round($subtotalSeguros, 2),
+                'seguros_detalhe' => [
+                    'carro' => [
+                        'selecionado' => $segCarro,
+                        'obrigatorio' => $segCarroObrigatorio,
+                        'valor_dia' => round($valorSegCarroDia, 2),
+                        'subtotal' => round($subtotalSegCarro, 2),
+                    ],
+                    'terceiros' => [
+                        'selecionado' => $segTerc,
+                        'obrigatorio' => $segTercObrigatorio,
+                        'valor_dia' => round($valorSegTercDia, 2),
+                        'subtotal' => round($subtotalSegTerc, 2),
+                    ],
+                ],
                 'servicos' => $servicosDetalhe,
                 'subtotal_servicos' => round($subtotalServicos, 2),
                 'desconto' => round($desconto, 2),

@@ -137,6 +137,7 @@ class WebsiteController
 
             $dados = $request->only([
                 'manutencao', 'reserva_online', 'overbooking', 'pagamento_antecipado',
+                'seguro_carro_obrigatorio', 'seguro_terceiros_obrigatorio',
                 'idioma_padrao', 'whatsapp_flutuante', 'whatsapp_numero', 'whatsapp_mensagem',
                 // Pre-cadastro e documentos no passo 4 do site publico
                 'cadastro_simples', 'envio_documentos',
@@ -148,7 +149,8 @@ class WebsiteController
 
             // Converter para int os campos booleanos
             $boolFields = [
-                'manutencao', 'reserva_online', 'overbooking', 'pagamento_antecipado', 'whatsapp_flutuante',
+                'manutencao', 'reserva_online', 'overbooking', 'pagamento_antecipado',
+                'seguro_carro_obrigatorio', 'seguro_terceiros_obrigatorio', 'whatsapp_flutuante',
                 'cadastro_simples', 'envio_documentos',
                 'doc_cnh_obrigatorio', 'doc_cpf_obrigatorio', 'doc_rg_obrigatorio', 'doc_comprovante_obrigatorio',
                 'reserva_requer_confirmacao',

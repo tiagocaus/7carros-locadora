@@ -713,6 +713,27 @@ $(function () {
         if (!f || !f.precos_grupos) return null;
         return f.precos_grupos[idGrupo] || null;
     }
+    function seguroEstaSelecionado(tipo) {
+        if (tipo === 'carro') {
+            return !!window.SEGURO_CARRO_OBRIGATORIO || $('.seguroCarro input[type="checkbox"]:checked').length > 0;
+        }
+        return !!window.SEGURO_TERCEIROS_OBRIGATORIO || $('.seguroTerceiro input[type="checkbox"]:checked').length > 0;
+    }
+    function aplicarObrigatoriedadeSeguros() {
+        var i18n = window.I18N_WEBSITE || {};
+        [
+            { selector: '.seguroCarro', obrigatorio: !!window.SEGURO_CARRO_OBRIGATORIO },
+            { selector: '.seguroTerceiro', obrigatorio: !!window.SEGURO_TERCEIROS_OBRIGATORIO }
+        ].forEach(function (seguro) {
+            var $row = $(seguro.selector);
+            var $input = $row.find('input[type="checkbox"]');
+            $input.attr('data-obrigatorio', seguro.obrigatorio ? '1' : '0')
+                .attr('aria-disabled', seguro.obrigatorio ? 'true' : 'false');
+            $row.toggleClass('obrigatorio', seguro.obrigatorio);
+            $row.find('.addCheck').text(seguro.obrigatorio ? (i18n.obrigatorio || 'Obrigatorio') : (i18n.adicionar || 'Adicionar'));
+            if (seguro.obrigatorio) $input.prop('checked', true);
+        });
+    }
     function diasReservaAtual() {
         return parseInt($('#dias').val()) || 1;
     }
@@ -808,6 +829,18 @@ $(function () {
                 $span.text(formatarMoeda(valor) + ' /' + diariaSufixo());
             }
         });
+        renderPrecosSeguros();
+    }
+    function renderPrecosSeguros() {
+        var precos = precosGrupoAtual(grupoSelecionadoId()) || {};
+        var i18n = window.I18N_WEBSITE || {};
+        [
+            { selector: '.seguroCarro', valor: parseFloat(precos.valor_seguro_carro || 0) },
+            { selector: '.seguroTerceiro', valor: parseFloat(precos.valor_seguro_terceiros || 0) }
+        ].forEach(function (seguro) {
+            var texto = seguro.valor > 0 ? formatarMoeda(seguro.valor) : (i18n.gratis || 'Gratis');
+            $(seguro.selector).find('.seguro-valor').text(texto + ' /' + diariaSufixo());
+        });
     }
     function resetResumoValores() {
         $('.reserva-preco span').text('selecione');
@@ -829,6 +862,7 @@ $(function () {
         // Desmarca servicos adicionais e seguros selecionados (precos mudaram)
         $('#itens-adicionais input[type="checkbox"]').prop('checked', false);
         $('.seguroCarro input[type="checkbox"], .seguroTerceiro input[type="checkbox"]').prop('checked', false);
+        aplicarObrigatoriedadeSeguros();
     }
     // Renderiza os servicos adicionais marcados no resumo lateral (ambas as tabs que tem .resumo-adicionais)
     function renderAdicionais() {
@@ -856,6 +890,25 @@ $(function () {
                 label = baseCalc === 'FIX' ? nome : (nome + ' (' + dias + ' x ' + formatarMoeda(valorDia) + ')');
             }
             linhas.push({ label: label, total: total });
+        });
+        var precos = precosGrupoAtual(grupoSelecionadoId()) || {};
+        [
+            {
+                selecionado: seguroEstaSelecionado('carro'),
+                nome: (window.I18N_WEBSITE || {}).seguro_veiculo || 'Seguro do veiculo',
+                valorDia: parseFloat(precos.valor_seguro_carro || 0)
+            },
+            {
+                selecionado: seguroEstaSelecionado('terceiros'),
+                nome: (window.I18N_WEBSITE || {}).seguro_terceiros || 'Seguro para terceiros',
+                valorDia: parseFloat(precos.valor_seguro_terceiros || 0)
+            }
+        ].forEach(function (seguro) {
+            if (!seguro.selecionado) return;
+            linhas.push({
+                label: seguro.nome + ' (' + dias + ' x ' + formatarMoeda(seguro.valorDia) + ')',
+                total: seguro.valorDia * dias
+            });
         });
         $('.resumo-adicionais').each(function () {
             var $c = $(this).empty();
@@ -932,6 +985,7 @@ $(function () {
         $('.resumo-plano').text(planoNome[plano] || plano);
         $('.plano-valor').text(formatarMoeda(precoNum));
         $('.plano-soma').text(formatarMoeda(precoNum * dias));
+        renderPrecosSeguros();
         renderAdicionais();
         calcTotal();
         nextTab();
@@ -960,8 +1014,8 @@ $(function () {
             plano: String(window.__planoSelecionado || ''),
             dias: parseInt($('#dias').val()) || 1,
             servicos: servicos,
-            seguro_carro: $('.seguroCarro input[type="checkbox"]:checked').length > 0,
-            seguro_terceiros: $('.seguroTerceiro input[type="checkbox"]:checked').length > 0
+            seguro_carro: seguroEstaSelecionado('carro'),
+            seguro_terceiros: seguroEstaSelecionado('terceiros')
         };
     }
 
@@ -1045,33 +1099,16 @@ $(function () {
         calcTotal();
     });
 
-    // Seguro veiculo — usa valor_seguro_carro da filial/grupo
-    $(document).on('change', '.seguroCarro input[type="checkbox"]', function () {
-        if ($(this).is(':checked')) {
-            var dias = parseInt($('#dias').val()) || 1;
-            var p = precosGrupoAtual(grupoSelecionadoId()) || {};
-            var valorDia = parseFloat(p.valor_seguro_carro || 0);
-            $('.seg_carro').text('Seguro veiculo (' + dias + ' x ' + formatarMoeda(valorDia) + ')');
-            $('.seg_carro_valor').text(formatarMoeda(valorDia * dias));
-        } else {
-            $('.seg_carro').text('');
-            $('.seg_carro_valor').text('');
+    // O bloqueio no browser melhora a UX; a obrigatoriedade real e aplicada no backend.
+    $(document).on('click keydown', '.seguro-item input[data-obrigatorio="1"]', function (event) {
+        if (event.type === 'click' || event.key === ' ' || event.key === 'Enter') {
+            event.preventDefault();
+            $(this).prop('checked', true);
         }
-        calcTotal();
     });
-
-    // Seguro terceiros — usa valor_seguro_terceiros da filial/grupo
-    $(document).on('change', '.seguroTerceiro input[type="checkbox"]', function () {
-        if ($(this).is(':checked')) {
-            var dias = parseInt($('#dias').val()) || 1;
-            var p = precosGrupoAtual(grupoSelecionadoId()) || {};
-            var valorDia = parseFloat(p.valor_seguro_terceiros || 0);
-            $('.seg_terceiros').text('Seguro terceiros (' + dias + ' x ' + formatarMoeda(valorDia) + ')');
-            $('.seg_terceiros_valor').text(formatarMoeda(valorDia * dias));
-        } else {
-            $('.seg_terceiros').text('');
-            $('.seg_terceiros_valor').text('');
-        }
+    $(document).on('change', '.seguro-item input[type="checkbox"]', function () {
+        aplicarObrigatoriedadeSeguros();
+        renderAdicionais();
         calcTotal();
     });
 
@@ -1361,8 +1398,8 @@ $(function () {
                 grupo_id: grupoId,
                 plano: plano,
                 servicos: servicos,
-                seguro_carro: $('.seguroCarro input[type="checkbox"]:checked').length > 0,
-                seguro_terceiros: $('.seguroTerceiro input[type="checkbox"]:checked').length > 0,
+                seguro_carro: seguroEstaSelecionado('carro'),
+                seguro_terceiros: seguroEstaSelecionado('terceiros'),
                 promocao_codigo: String($('#promocao_codigo').val() || '').trim().toUpperCase(),
                 cliente: cliente,
                 documentos: documentos,
@@ -1436,6 +1473,7 @@ $(function () {
         renderPrecosServicos();
     }
     atualizarPlanosDisponiveis();
+    aplicarObrigatoriedadeSeguros();
     if (typeof window.__renderFormasPagamentoSite === 'function') {
         window.__renderFormasPagamentoSite();
     }

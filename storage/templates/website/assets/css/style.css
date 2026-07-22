@@ -620,6 +620,13 @@ footer i {
     height: 17px;
     vertical-align: middle;
 }
+.seguro-item.obrigatorio .btn-warning {
+    cursor: not-allowed;
+    opacity: .85;
+}
+.seguro-item.obrigatorio .addCheck {
+    font-weight: 700;
+}
 span.addCheck {
     vertical-align: middle;
 }

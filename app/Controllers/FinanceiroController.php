@@ -445,14 +445,14 @@ class FinanceiroController
 
             $dados = $request->all();
 
+            // O subtotal de um lancamento existente nao e editavel neste
+            // formulario. Lancamentos com itens sao recalculados pela soma
+            // deles; lancamentos sem itens devem preservar o valor atual.
+            unset($dados['valor_subtotal']);
+
             // Para validacao na edicao, considerar dados existentes se nao enviados
             $dadosParaValidacao = $dados;
-
-            // Se valor_subtotal nao foi enviado ou esta vazio, usar o existente
-            $valorSubtotalEnviado = isset($dados['valor_subtotal']) ? floatval($dados['valor_subtotal']) : 0;
-            if ($valorSubtotalEnviado <= 0) {
-                $dadosParaValidacao['valor_subtotal'] = $lancamento['valor_subtotal'] ?? 0;
-            }
+            $dadosParaValidacao['valor_subtotal'] = $lancamento['valor_subtotal'] ?? 0;
 
             // Se itens nao foram enviados, verificar se existem no banco
             if (empty($dados['itens'])) {

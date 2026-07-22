@@ -10,7 +10,19 @@
     <p class="text-sm text-slate-500 mb-3"><?= t('modules.relatorios.financeiro.dre.description') ?></p>
 
     <!-- Filtros -->
-    @include('pages.relatorios._partials.filters')
+    <?php
+        $statusFilterHtml = '
+            <div class="flex-1 min-w-[150px] max-w-[200px]">
+                <label for="filterStatus" class="block text-xs text-slate-500 mb-1">' . htmlspecialchars(t('modules.relatorios.financeiro.dre.filter_status'), ENT_QUOTES, 'UTF-8') . '</label>
+                <select id="filterStatus" class="form-input-focus w-full text-sm">
+                    <option value="S" selected>' . htmlspecialchars(t('modules.relatorios.financeiro.dre.status_paid'), ENT_QUOTES, 'UTF-8') . '</option>
+                    <option value="N">' . htmlspecialchars(t('modules.relatorios.financeiro.dre.status_unpaid'), ENT_QUOTES, 'UTF-8') . '</option>
+                    <option value="all">' . htmlspecialchars(t('modules.relatorios.financeiro.dre.status_all'), ENT_QUOTES, 'UTF-8') . '</option>
+                </select>
+            </div>
+        ';
+    ?>
+    @include('pages.relatorios._partials.filters', ['extraFiltersAfterFilial' => $statusFilterHtml])
 
     <!-- Exportacao -->
     @include('pages.relatorios._partials.export-buttons')
@@ -68,6 +80,7 @@
                 data_inicio: document.getElementById('filterDataInicio').value,
                 data_fim: document.getElementById('filterDataFim').value,
                 filial: document.getElementById('filterFilial').value,
+                status: document.getElementById('filterStatus').value,
             };
 
             const result = await API.get(API_URL, params);
@@ -140,6 +153,7 @@
     function limparFiltros() {
         ReportUtils.setDefaultPeriod();
         document.getElementById('filterFilial').value = '';
+        document.getElementById('filterStatus').value = 'S';
         ReportUtils.hideContent();
     }
 

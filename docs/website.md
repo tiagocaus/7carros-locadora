@@ -165,6 +165,8 @@ CREATE TABLE site_config (
     reserva_online              TINYINT(1) DEFAULT 1,
     overbooking                 TINYINT(1) DEFAULT 0,
     pagamento_antecipado        TINYINT(1) DEFAULT 0,
+    seguro_carro_obrigatorio    TINYINT(1) DEFAULT 0,
+    seguro_terceiros_obrigatorio TINYINT(1) DEFAULT 0,
     idioma_padrao               VARCHAR(5) DEFAULT 'pt_BR',
     whatsapp_flutuante          TINYINT(1) DEFAULT 1,
     whatsapp_numero             VARCHAR(20) NULL COMMENT 'Número com código do país, ex: 5527999999999',
@@ -453,6 +455,7 @@ CREATE TABLE site_deploy_log (
 | `00298_migrate_site_data.php` | Migra dados de `site` e `site_banners` para novas tabelas |
 | `00299_rename_site_legacy.php` | Renomeia `site` para `_site_legacy` |
 | `00300_add_website_permissions.php` | Adiciona novas permissões: `website.visualizar`, `website.configurar`, `website.deploy` |
+| `00409_add_seguros_obrigatorios_site_config.php` | Adiciona obrigatoriedade independente para seguro do veículo e de terceiros |
 
 ---
 
@@ -1879,11 +1882,11 @@ O total da reserva é **calculado no backend**, ignorando qualquer valor enviado
 
 **Fórmula:**
 - **Plano:** `grupos_precos_filiais.valor_plano_<plano>` × dias
-- **Seguros:** `valor_seguro_carro × dias` e/ou `valor_seguro_terceiros × dias` quando marcados
+- **Seguros:** `valor_seguro_carro × dias` e/ou `valor_seguro_terceiros × dias` quando marcados. Se `site_config.seguro_carro_obrigatorio` ou `site_config.seguro_terceiros_obrigatorio` estiver ativo, o backend força a inclusão correspondente mesmo que o navegador omita ou altere o campo.
 - **Serviços MON:** valor de `taxaseservicos_valores_filiais[filial]` (ou `taxaseservicos.valor` global se não houver por filial). `base_calculo=PER` → × dias; `FIX` ou `VLT` → valor único.
 - **Serviços POR:** `taxaseservicos.valor%` sobre o plano × dias (PER/VLT) ou sobre plano-dia (FIX).
 
-**Persiste** em `locacoes.total_fatura` e `total_pagar`. O `breakdown` vai para `locacoes.obs` (JSON) para auditoria.
+**Persiste** em `locacoes.total_fatura` e `total_pagar`. O `breakdown` vai para `locacoes.obs` (JSON) para auditoria, e `locacoes_veiculos` recebe o snapshot dos flags e valores diários dos seguros calculados no servidor.
 
 ### Fluxo pós-reserva (pagamento)
 
@@ -1926,6 +1929,8 @@ Este aviso interno e separado das mensagens ao cliente (`pedido_reserva` e
 - `calcTotal()` deve iterar `.somar` **apenas dentro da tab ativa** (`$('.tabs_.active .resumo-detalhes .somar')`) para não contar o resumo duplicado duas vezes.
 - Ao selecionar plano, `window.__precoPlanoAtual` guarda o valor numérico para cálculos de serviços % (`base_calculo = PER/VLT`).
 - Ao trocar filial, `resetResumoValores()` desmarca radios de plano, checkboxes de serviços/seguros, zera totais e chama `aplicarDisponibilidadeNosBotoes()` para reaplicar "Esgotado"/"Selecione o plano" conforme a última disponibilidade conhecida.
+- Depois do reset, seguros configurados como obrigatórios são marcados novamente. O bloqueio do checkbox é apenas UX; cálculo, promoção, pagamento e persistência usam a política consultada no backend.
+- O passo 3 sempre exibe Seguro do veículo e Seguro para terceiros. Valores zero aparecem como gratuitos e continuam selecionados quando obrigatórios.
 
 ---
 

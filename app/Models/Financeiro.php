@@ -728,6 +728,12 @@ class Financeiro extends Model
             $dadosUpdate['data_pago'] = $dados['data_pago'];
         }
 
+        // O subtotal precisa entrar em $dadosUpdate antes do calculo do total.
+        // Alguns fluxos internos ajustam parcelas diretamente pelo Model.
+        if (isset($dados['valor_subtotal'])) {
+            $dadosUpdate['valor_subtotal'] = currency_parse($dados['valor_subtotal']);
+        }
+
         // Valores de juros/multa/desconto
         if (isset($dados['juros'])) {
             $dadosUpdate['juros'] = currency_parse($dados['juros']);
@@ -739,8 +745,12 @@ class Financeiro extends Model
             $dadosUpdate['desconto'] = currency_parse($dados['desconto']);
         }
 
-        // Recalcular valor_total se algum valor foi alterado
-        if (isset($dados['juros']) || isset($dados['multa']) || isset($dados['desconto'])) {
+        // Recalcular valor_total se algum componente da formula foi alterado.
+        $componenteTotalAlterado = isset($dados['valor_subtotal'])
+            || isset($dados['juros'])
+            || isset($dados['multa'])
+            || isset($dados['desconto']);
+        if ($componenteTotalAlterado) {
             $novosDados = array_merge($lancamento, $dadosUpdate);
             $dadosUpdate['valor_total'] = $this->calcularValorTotal($novosDados);
         }
@@ -767,12 +777,9 @@ class Financeiro extends Model
             $dadosUpdate['id_financeiro_origem'] = $dados['id_financeiro_origem'];
         }
 
-        // valor_subtotal e valor_total podem ser atualizados diretamente
-        // quando estamos ajustando parcelas
-        if (isset($dados['valor_subtotal'])) {
-            $dadosUpdate['valor_subtotal'] = currency_parse($dados['valor_subtotal']);
-        }
-        if (isset($dados['valor_total']) && !isset($dados['juros']) && !isset($dados['multa']) && !isset($dados['desconto'])) {
+        // valor_total pode ser atualizado diretamente quando nenhum componente
+        // da formula foi informado (ajustes internos de parcelas).
+        if (isset($dados['valor_total']) && !$componenteTotalAlterado) {
             // Se valor_total foi passado explicitamente e nao ha juros/multa/desconto, usar direto
             $dadosUpdate['valor_total'] = currency_parse($dados['valor_total']);
         }

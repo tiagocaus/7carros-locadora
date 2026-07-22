@@ -45,6 +45,12 @@ $runtimeOk = !empty($siteStatus['success']);
 
 $manutencaoAtiva   = $runtimeOk ? !empty($siteStatus['manutencao'])       : (bool) ($config['manutencao'] ?? false);
 $reservaOnline     = $runtimeOk ? !empty($siteStatus['reserva_online'])   : (bool) ($config['reserva_online'] ?? true);
+$seguroCarroObrigatorio = $runtimeOk
+    ? !empty($siteStatus['seguro_carro_obrigatorio'])
+    : !empty($dados['seguro_carro_obrigatorio']);
+$seguroTerceirosObrigatorio = $runtimeOk
+    ? !empty($siteStatus['seguro_terceiros_obrigatorio'])
+    : !empty($dados['seguro_terceiros_obrigatorio']);
 $whatsappFlutuante = $runtimeOk ? !empty($siteStatus['whatsapp_flutuante']): (bool) ($config['whatsapp_flutuante'] ?? false);
 $whatsappNumero    = $runtimeOk ? (string) ($siteStatus['whatsapp_numero']   ?? '') : (string) ($config['whatsapp_numero'] ?? '');
 $whatsappMensagem  = $runtimeOk ? (string) ($siteStatus['whatsapp_mensagem'] ?? '') : (string) ($config['whatsapp_mensagem'] ?? '');

@@ -77,6 +77,8 @@ $iconesFa4 = [
         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
     ) ?>;
     window.PAGAMENTO_ANTECIPADO_SITE = <?= !empty($dados['pagamento_antecipado']) ? 'true' : 'false' ?>;
+    window.SEGURO_CARRO_OBRIGATORIO = <?= $seguroCarroObrigatorio ? 'true' : 'false' ?>;
+    window.SEGURO_TERCEIROS_OBRIGATORIO = <?= $seguroTerceirosObrigatorio ? 'true' : 'false' ?>;
     window.I18N_WEBSITE = {
         diaria: <?= json_encode(t('reserva.diaria_sufixo'), JSON_UNESCAPED_UNICODE) ?>,
         plano_km_livre: <?= json_encode(t('reserva.plano_km_livre'), JSON_UNESCAPED_UNICODE) ?>,
@@ -84,7 +86,12 @@ $iconesFa4 = [
         plano_km_pago: <?= json_encode(t('reserva.plano_km_pago'), JSON_UNESCAPED_UNICODE) ?>,
         btn_selecione_plano: <?= json_encode(t('reserva.btn_selecione_plano'), JSON_UNESCAPED_UNICODE) ?>,
         btn_esgotado: <?= json_encode(t('reserva.btn_esgotado'), JSON_UNESCAPED_UNICODE) ?>,
-        btn_selecionar: <?= json_encode(t('reserva.btn_selecionar'), JSON_UNESCAPED_UNICODE) ?>
+        btn_selecionar: <?= json_encode(t('reserva.btn_selecionar'), JSON_UNESCAPED_UNICODE) ?>,
+        seguro_veiculo: <?= json_encode(t('reserva.seguro_veiculo'), JSON_UNESCAPED_UNICODE) ?>,
+        seguro_terceiros: <?= json_encode(t('reserva.seguro_terceiros'), JSON_UNESCAPED_UNICODE) ?>,
+        obrigatorio: <?= json_encode(t('reserva.obrigatorio'), JSON_UNESCAPED_UNICODE) ?>,
+        adicionar: <?= json_encode(t('reserva.adicionar'), JSON_UNESCAPED_UNICODE) ?>,
+        gratis: <?= json_encode(t('reserva.gratis'), JSON_UNESCAPED_UNICODE) ?>
     };
 </script>
 

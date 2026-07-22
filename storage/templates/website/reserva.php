@@ -249,6 +249,32 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
                         <div class="text-muted">Nenhum serviço adicional disponível.</div>
                         <?php endif; ?>
 
+                        <h3 class="mt-4 mb-3"><?= e(t('reserva.seguros')) ?></h3>
+                        <div id="itens-seguros" class="col">
+                            <div class="row itens-adicionais seguro-item seguroCarro<?= $seguroCarroObrigatorio ? ' obrigatorio' : '' ?>">
+                                <div class="col-sm-6 nome"><strong><?= e(t('reserva.seguro_veiculo')) ?></strong></div>
+                                <div class="col-sm-3 preco"><span class="seguro-valor">—</span></div>
+                                <div class="col-sm-3 text-center btn-warning">
+                                    <span class="addCheck"><?= e($seguroCarroObrigatorio ? t('reserva.obrigatorio') : t('reserva.adicionar')) ?></span>
+                                    <input type="checkbox" id="seguro-veiculo" value="S"
+                                           data-obrigatorio="<?= $seguroCarroObrigatorio ? '1' : '0' ?>"
+                                           aria-disabled="<?= $seguroCarroObrigatorio ? 'true' : 'false' ?>"
+                                           <?= $seguroCarroObrigatorio ? 'checked' : '' ?>>
+                                </div>
+                            </div>
+                            <div class="row itens-adicionais seguro-item seguroTerceiro<?= $seguroTerceirosObrigatorio ? ' obrigatorio' : '' ?>">
+                                <div class="col-sm-6 nome"><strong><?= e(t('reserva.seguro_terceiros')) ?></strong></div>
+                                <div class="col-sm-3 preco"><span class="seguro-valor">—</span></div>
+                                <div class="col-sm-3 text-center btn-warning">
+                                    <span class="addCheck"><?= e($seguroTerceirosObrigatorio ? t('reserva.obrigatorio') : t('reserva.adicionar')) ?></span>
+                                    <input type="checkbox" id="seguro-terceiros" value="S"
+                                           data-obrigatorio="<?= $seguroTerceirosObrigatorio ? '1' : '0' ?>"
+                                           aria-disabled="<?= $seguroTerceirosObrigatorio ? 'true' : 'false' ?>"
+                                           <?= $seguroTerceirosObrigatorio ? 'checked' : '' ?>>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row mt-4 d-none d-md-flex">
                             <div class="col">
                                 <button type="button" class="btn btn-warning botao_" data-track="reserva_step3_proximo">Próximo</button>

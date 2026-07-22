@@ -1515,7 +1515,12 @@
         const dados = Object.fromEntries(formData.entries());
 
         // Converter valores monetarios
-        dados.valor_subtotal = parseMoeda(dados.valor_subtotal);
+        // Em edicao o subtotal fica disabled e, por isso, nao faz parte do
+        // FormData. Nao transformar a ausencia do campo em zero: o backend
+        // deve preservar o subtotal existente ou recalcula-lo pelos itens.
+        if (Object.prototype.hasOwnProperty.call(dados, 'valor_subtotal')) {
+            dados.valor_subtotal = parseMoeda(dados.valor_subtotal);
+        }
         dados.juros = parseMoeda(dados.juros);
         dados.multa = parseMoeda(dados.multa);
         dados.desconto = parseMoeda(dados.desconto);

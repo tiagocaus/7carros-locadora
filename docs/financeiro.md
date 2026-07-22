@@ -129,6 +129,33 @@ o ID financeiro, reverte integralmente aquele item e termina com codigo de erro.
 Como o vinculo da despesa e unico, a execucao pode ser repetida com seguranca
 apos a correcao da causa; os itens concluidos nao serao duplicados.
 
+### Auditoria e reparo de subtotais
+
+Na edicao normal, `valor_subtotal` nao deve ser substituido quando o campo nao
+vier no payload. Lancamentos com itens usam `SUM(financeiro_itens.valor)` como
+fonte de verdade; lancamentos sem itens preservam o subtotal armazenado.
+
+O script `scripts/reparar-financeiro-subtotais.php` audita inconsistencias em
+modo de previa por padrao. Para lancamentos com itens, usa a soma dos itens. Para
+lancamentos sem itens cujo subtotal foi zerado, recupera o valor apenas quando a
+formula inversa `valor_total - juros - multa + desconto` resulta em subtotal
+positivo e preserva exatamente o total atual.
+
+```bash
+# Previa geral em producao (nao grava)
+php scripts/reparar-financeiro-subtotais.php --env=production
+
+# Previa restrita a um tenant
+php scripts/reparar-financeiro-subtotais.php --env=production --tenant=CHAVE
+
+# Aplicacao somente depois de validar a previa
+php scripts/reparar-financeiro-subtotais.php --env=production --apply
+```
+
+Cada atualizacao e transacional e confirma que subtotal, total, juros, multa e
+desconto continuam iguais aos valores auditados. Se houver alteracao concorrente,
+o registro nao e sobrescrito e a execucao termina com erro.
+
 ## Triggers Automaticos
 
 O campo `valor_total` eh mantido automaticamente por triggers:

@@ -382,6 +382,11 @@ Este documento especifica o comportamento e as informações que cada relatório
 
 **Objetivo**: Apresentar o resultado operacional da empresa.
 
+**Filtros específicos**:
+- Situação da fatura: Pagas (padrão), Não pagas ou Todas
+
+O filtro de situação é aplicado tanto às receitas quanto às despesas do demonstrativo.
+
 **Estrutura do DRE**:
 
 ```

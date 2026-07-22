@@ -843,6 +843,11 @@ return [
         'dre' => [
             'title' => 'Demonstrativo de Resultados (DRE)',
             'description' => 'Resultado operacional da empresa no período: receitas, custos, despesas e lucro líquido.',
+            'filter_status' => 'Situação da fatura',
+            'status_paid' => 'Pagas',
+            'status_unpaid' => 'Não pagas',
+            'status_all' => 'Todas',
+            'invalid_status' => 'Situação de pagamento inválida.',
             'receita_bruta' => 'Receita Bruta',
             'deducoes' => 'Deduções',
             'receita_liquida' => 'Receita Líquida',

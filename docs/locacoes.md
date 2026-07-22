@@ -223,6 +223,9 @@ Reservas podem ter linha sem veiculo especifico (`id_veiculo = NULL`) para guard
 | valor_seguro_carro | DECIMAL | Valor do seguro |
 | seguro_terceiros | TINYINT | Seguro terceiros ativo |
 | valor_seguro_terceiros | DECIMAL | Valor seguro terceiros |
+
+Reservas criadas pelo website gravam em `locacoes_veiculos` um snapshot autoritativo dos flags e valores diarios de ambos os seguros. A fonte e o calculo server-side do grupo/filial; valores enviados pelo navegador nao sao persistidos.
+
 | odometro_saida | INT | Odometro na saida |
 | odometro_entrada | INT | Odometro na entrada |
 | odometro_usado | INT | Calculado: entrada - saida |

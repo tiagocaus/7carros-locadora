@@ -243,13 +243,23 @@ class FinanceiroController extends BaseRelatorioController
 
             [$filialWhere, $filialParams] = $this->getFilialFilter();
 
+            $statusPagamento = $request->query('status', 'S');
+            if (!in_array($statusPagamento, ['S', 'N', 'all'], true)) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.relatorios.financeiro.dre.invalid_status'),
+                ], 422);
+                return;
+            }
+
             $model = new FinanceiroReport();
             $result = $model->dre(
                 $filters['data_inicio'],
                 $filters['data_fim'],
                 $filialWhere,
                 $filialParams,
-                $filters['filial']
+                $filters['filial'],
+                $statusPagamento
             );
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
@@ -748,9 +758,25 @@ class FinanceiroController extends BaseRelatorioController
         $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
         if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
 
+        $statusPagamento = $request->query('status', 'S');
+        if (!in_array($statusPagamento, ['S', 'N', 'all'], true)) {
+            Response::html(
+                '<h3>' . htmlspecialchars(t('modules.relatorios.financeiro.dre.invalid_status')) . '</h3>',
+                422
+            );
+            return;
+        }
+
         [$filialWhere, $filialParams] = $this->getFilialFilter();
         $model = new FinanceiroReport();
-        $result = $model->dre($filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams, $filters['filial']);
+        $result = $model->dre(
+            $filters['data_inicio'],
+            $filters['data_fim'],
+            $filialWhere,
+            $filialParams,
+            $filters['filial'],
+            $statusPagamento
+        );
 
         $this->renderPdf('dre.php', t('modules.relatorios.financeiro.dre.title'), t('modules.relatorios.financeiro.dre.description'), $result['totals'], $result['details'], $filters['data_inicio'], $filters['data_fim']);
     }

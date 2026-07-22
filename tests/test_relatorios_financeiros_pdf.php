@@ -75,6 +75,19 @@ $cases = [
         ],
         'expected' => '3',
     ],
+    'dre.php' => [
+        'totals' => [
+            'receita_bruta' => 1000,
+            'lucro_bruto' => 700,
+            'lucro_operacional' => 500,
+            'lucro_liquido' => 500,
+        ],
+        'details' => [
+            ['descricao' => 'Receita Bruta', 'valor' => 1000, 'percentual' => 100, 'indent' => 0, 'type' => 'value'],
+            ['descricao' => 'Lucro Líquido', 'valor' => 500, 'percentual' => 50, 'indent' => 0, 'type' => 'subtotal'],
+        ],
+        'expected' => 'R$ 1.000,00',
+    ],
     'contas-bancarias.php' => [
         'totals' => ['total_entradas' => 500, 'total_saidas' => 100, 'saldo_geral' => 400, 'total_contas' => 2],
         'details' => [['conta' => 'Principal', 'banco' => 'Banco', 'entradas' => 500, 'saidas' => 100, 'saldo' => 400]],

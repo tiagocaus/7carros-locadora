@@ -459,8 +459,13 @@ class FinanceiroReport extends BaseReportModel
         string $dataFim,
         string $filialWhere,
         array $filialParams,
-        string $filialId = ''
+        string $filialId = '',
+        string $statusPagamento = 'S'
     ): array {
+        $statusPagamento = in_array($statusPagamento, ['S', 'N', 'all'], true)
+            ? $statusPagamento
+            : 'S';
+
         // --- Receita bruta ---
         $queryReceita = $this->qb
             ->table('financeiro', 'f')
@@ -472,6 +477,10 @@ class FinanceiroReport extends BaseReportModel
             ->whereRaw('f.data_criada BETWEEN ? AND ?', [$dataInicio, $dataFim]);
 
         $this->applyFilialFilter($queryReceita, $filialWhere, $filialParams, $filialId);
+
+        if ($statusPagamento !== 'all') {
+            $queryReceita->whereRaw('f.pago = ?', [$statusPagamento]);
+        }
 
         $resultReceita = $queryReceita->first();
         $receitaBruta = (float) ($resultReceita['receita_bruta'] ?? 0);
@@ -494,6 +503,10 @@ class FinanceiroReport extends BaseReportModel
             ->orderByRaw('pc.hierarquia ASC');
 
         $this->applyFilialFilter($queryDespesas, $filialWhere, $filialParams, $filialId);
+
+        if ($statusPagamento !== 'all') {
+            $queryDespesas->whereRaw('f.pago = ?', [$statusPagamento]);
+        }
 
         $despesasRows = $queryDespesas->get();
 
