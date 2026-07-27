@@ -307,7 +307,7 @@ return [
         'remove' => 'Rimuovi',
         'deactivate_card' => 'Disattiva carta',
         'set_default_card' => 'Imposta come predefinito',
-        'import_actions' => 'Importazione clienti',
+        'import_actions' => 'Altre azioni',
     ],
     'buttons' => [
         'add_client' => 'Aggiungi Cliente',

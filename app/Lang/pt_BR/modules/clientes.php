@@ -334,7 +334,7 @@ return [
         'remove' => 'Remover',
         'deactivate_card' => 'Desativar cartão',
         'set_default_card' => 'Definir como padrão',
-        'import_actions' => 'Importação de clientes',
+        'import_actions' => 'Mais ações',
     ],
 
     // Botões específicos

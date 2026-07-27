@@ -20,7 +20,7 @@
                         aria-label="{{ t('modules.clientes.tooltips.import_actions') }}"
                         aria-haspopup="menu"
                         aria-expanded="false">
-                        <i class="fas fa-file-import" aria-hidden="true"></i>
+                        <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
                     </button>
                     <div class="action-menu-panel" role="menu" aria-label="{{ t('modules.clientes.tooltips.import_actions') }}">
                         <button type="button" id="btnImportarClientes" class="action-menu-item" role="menuitem">

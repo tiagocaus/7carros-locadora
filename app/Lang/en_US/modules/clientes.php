@@ -334,7 +334,7 @@ return [
         'remove' => 'Remove',
         'deactivate_card' => 'Deactivate card',
         'set_default_card' => 'Set as default',
-        'import_actions' => 'Customer import',
+        'import_actions' => 'More actions',
     ],
 
     // Module-specific buttons
