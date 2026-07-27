@@ -681,6 +681,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
 
     // Paginas iframe - Veiculos
     $router->get('/pages/veiculos', [VeiculosController::class, 'view']);
+    $router->get('/pages/veiculos/ajustar-valores-fracao', [VeiculosController::class, 'viewAjustarValoresFracao']);
     $router->get('/pages/veiculos/adicionar', [VeiculosController::class, 'viewAdicionar']);
     $router->get('/pages/veiculos/{id}/editar', [VeiculosController::class, 'viewAdicionar']);
 
@@ -688,12 +689,14 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/api/veiculos', [VeiculosController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/buscar', [VeiculosController::class, 'buscar'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/por-grupo', [VeiculosController::class, 'porGrupo'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/veiculos/valores-fracao', [VeiculosController::class, 'valoresFracao'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/{id}', [VeiculosController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/{id}/manutencoes', [VeiculosController::class, 'manutencoes'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/{id}/faturas', [VeiculosController::class, 'faturas'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Veiculos
     $router->post('/veiculos/salvar', [VeiculosController::class, 'store'], ['csrf', 'rate_limit']);
+    $router->post('/veiculos/valores-fracao/atualizar', [VeiculosController::class, 'atualizarValoresFracao'], ['csrf', 'rate_limit']);
     $router->post('/veiculos/{id}/atualizar', [VeiculosController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/veiculos/{id}/excluir', [VeiculosController::class, 'destroy'], ['csrf', 'rate_limit']);
     $router->post('/veiculos/{id}/desativar', [VeiculosController::class, 'desativar'], ['csrf', 'rate_limit']);

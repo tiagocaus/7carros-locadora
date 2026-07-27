@@ -151,6 +151,126 @@ class Veiculo extends Model
     }
 
     /**
+     * Lista os veiculos de uma filial para ajuste do valor por fracao.
+     *
+     * O QueryBuilder aplica automaticamente o filtro de tenant. O filtro de
+     * acesso a filial deve ser validado pelo Controller antes desta chamada.
+     */
+    public function listarParaAjusteValorFracao(int $filialId): array
+    {
+        return $this->qb
+            ->table('veiculos', 'v')
+            ->select([
+                'v.id',
+                'v.placa',
+                'v.marca',
+                'v.modelo',
+                'v.id_grupo',
+                'v.id_matriz_filial',
+                'v.valor_por_fracao',
+                'g.nome AS grupo_nome',
+            ])
+            ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
+            ->where('v.id_matriz_filial', '=', $filialId)
+            ->orderBy('g.nome', 'ASC')
+            ->orderBy('v.marca', 'ASC')
+            ->orderBy('v.modelo', 'ASC')
+            ->orderBy('v.placa', 'ASC')
+            ->get();
+    }
+
+    /**
+     * Atualiza valores por fracao em lote com controle otimista de concorrencia.
+     *
+     * @param int $filialId Filial unica do lote
+     * @param array<int,array{id:int,valor_original:float,novo_valor:float}> $alteracoes
+     * @return array<int,array{id:int,placa:string,marca:string,modelo:string,valor_original:float,novo_valor:float}>
+     */
+    public function atualizarValoresFracaoEmLote(int $filialId, array $alteracoes): array
+    {
+        if ($filialId <= 0 || empty($alteracoes)) {
+            return [];
+        }
+
+        $ids = array_values(array_unique(array_map(
+            static fn(array $item): int => (int) ($item['id'] ?? 0),
+            $alteracoes
+        )));
+
+        if (count($ids) !== count($alteracoes) || in_array(0, $ids, true)) {
+            throw new \InvalidArgumentException('A lista de veiculos contem IDs invalidos ou duplicados.');
+        }
+
+        $this->qb->beginTransaction();
+
+        try {
+            $registros = $this->qb
+                ->table('veiculos')
+                ->select(['id', 'placa', 'marca', 'modelo', 'valor_por_fracao'])
+                ->where('id_matriz_filial', '=', $filialId)
+                ->whereIn('id', $ids)
+                ->lockForUpdate()
+                ->get();
+
+            if (count($registros) !== count($ids)) {
+                throw new \DomainException('A lista de veiculos mudou. Recarregue a tela antes de salvar.');
+            }
+
+            $porId = [];
+            foreach ($registros as $registro) {
+                $porId[(int) $registro['id']] = $registro;
+            }
+
+            $atualizados = [];
+            foreach ($alteracoes as $alteracao) {
+                $id = (int) $alteracao['id'];
+                $registro = $porId[$id] ?? null;
+
+                if (!$registro) {
+                    throw new \DomainException('A lista de veiculos mudou. Recarregue a tela antes de salvar.');
+                }
+
+                $valorBanco = round((float) ($registro['valor_por_fracao'] ?? 0), 2);
+                $valorOriginal = round((float) $alteracao['valor_original'], 2);
+                $novoValor = round((float) $alteracao['novo_valor'], 2);
+
+                if ((int) round($valorBanco * 100) !== (int) round($valorOriginal * 100)) {
+                    throw new \DomainException('Um ou mais valores foram alterados por outro usuario. Recarregue a tela antes de salvar.');
+                }
+
+                if ((int) round($valorBanco * 100) === (int) round($novoValor * 100)) {
+                    continue;
+                }
+
+                $afetadas = $this->qb
+                    ->table('veiculos')
+                    ->where('id', '=', $id)
+                    ->where('id_matriz_filial', '=', $filialId)
+                    ->update(['valor_por_fracao' => $novoValor]);
+
+                if ($afetadas !== 1) {
+                    throw new \RuntimeException('Nao foi possivel atualizar todos os veiculos do lote.');
+                }
+
+                $atualizados[] = [
+                    'id' => $id,
+                    'placa' => (string) ($registro['placa'] ?? ''),
+                    'marca' => (string) ($registro['marca'] ?? ''),
+                    'modelo' => (string) ($registro['modelo'] ?? ''),
+                    'valor_original' => $valorBanco,
+                    'novo_valor' => $novoValor,
+                ];
+            }
+
+            $this->qb->commit();
+            return $atualizados;
+        } catch (\Throwable $e) {
+            $this->qb->rollback();
+            throw $e;
+        }
+    }
+
+    /**
      * Conta o total de veiculos do tenant
      *
      * @param string $chave Chave do tenant

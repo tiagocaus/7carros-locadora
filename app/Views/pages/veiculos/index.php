@@ -11,6 +11,24 @@
                 <input type="text" placeholder="{{ t('modules.veiculos.placeholders.search') }}" class="form-input-focus sm:w-72 pr-8" id="searchInput">
                 <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
             </div>
+            <?php if (\App\Core\Auth::can('veiculos.editar')): ?>
+                <div class="action-menu" data-action-menu>
+                    <button type="button"
+                        class="action-menu-trigger"
+                        title="{{ t('modules.veiculos.fraction_adjustment.more_actions') }}"
+                        aria-label="{{ t('modules.veiculos.fraction_adjustment.more_actions') }}"
+                        aria-haspopup="menu"
+                        aria-expanded="false">
+                        <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
+                    </button>
+                    <div class="action-menu-panel" role="menu" aria-label="{{ t('modules.veiculos.fraction_adjustment.more_actions') }}">
+                        <button type="button" id="btnAjustarValoresFracao" class="action-menu-item" role="menuitem">
+                            <i class="fas fa-calculator" aria-hidden="true"></i>
+                            <span>{{ t('modules.veiculos.fraction_adjustment.menu_label') }}</span>
+                        </button>
+                    </div>
+                </div>
+            <?php endif; ?>
             <button id="btnNovoVeiculo" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
                 <i class="fas fa-plus mr-2"></i>{{ t('common.buttons.new') }}
             </button>
@@ -436,6 +454,11 @@ $i18nVeiculos = [
         if (!await verificarLimitePlanoVeiculos()) return;
 
         navegarPara('/pages/veiculos/adicionar');
+    });
+
+    document.getElementById('btnAjustarValoresFracao')?.addEventListener('click', function () {
+        window.ActionMenu?.closeAll();
+        navegarPara('/pages/veiculos/ajustar-valores-fracao');
     });
 
     // ===== EXCLUSAO =====

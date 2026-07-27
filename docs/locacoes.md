@@ -82,6 +82,10 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
   - `km_excedente` (se plano KMC e ultrapassou franquia)
   - `combustivel_usado = combustivel_saida - combustivel_entrada`
   - `combustivel_valor = combustivel_usado * veiculos.valor_por_fracao` quando `combustivel_usado > 0`
+- O `valor_por_fracao` e consultado no cadastro atual do veiculo no momento da
+  devolucao. Alteracoes individuais ou em lote feitas em
+  `/pages/veiculos/ajustar-valores-fracao` entram em vigor imediatamente,
+  inclusive para locacoes que ja estejam abertas.
 - Antes de fechar, exige que o saldo financeiro efetivo lancado seja igual ao total
   esperado: `total_pagar_final + total_avarias`
 - Quando o total esperado e o total lancado forem ambos `0,00`, permite fechar sem

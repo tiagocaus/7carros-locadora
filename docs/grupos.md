@@ -732,6 +732,14 @@ if (empty($dados['nome'])) {
 
 ## Frontend e Interface
 
+### Ajuste do valor por fracao dos veiculos
+
+A tela `/pages/veiculos/ajustar-valores-fracao` organiza os veiculos visualmente
+por grupo para facilitar ajustes em lote. O campo `valor_por_fracao`, porem,
+continua pertencendo a cada registro de `veiculos`; o agrupamento nao transforma
+esse valor em preco do grupo. A edicao e feita em uma filial por vez e tambem
+exibe veiculos sem grupo.
+
 ### Estrutura de Abas
 
 O formulário é dividido em 2 abas:

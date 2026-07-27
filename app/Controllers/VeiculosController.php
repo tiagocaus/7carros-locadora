@@ -38,6 +38,259 @@ class VeiculosController
     }
 
     /**
+     * Exibe a pagina de ajuste em lote do valor por fracao.
+     *
+     * GET /pages/veiculos/ajustar-valores-fracao
+     */
+    public function viewAjustarValoresFracao(Request $request): void
+    {
+        if (!Auth::can('veiculos.editar')) {
+            Response::forbidden('Voce nao tem permissao para editar veiculos');
+        }
+
+        $filialAtual = (int) (Auth::idMatrizFilial() ?? 0);
+        $filialSelecionada = null;
+
+        if ($filialAtual > 0 && FilialHelper::temAcessoFilial($filialAtual)) {
+            $filial = (new MatrizFilial())->buscarPorId($filialAtual);
+            if ($filial && ($filial['status'] ?? '') === 'A') {
+                $filialSelecionada = [
+                    'id' => (int) $filial['id'],
+                    'nome' => $filial['razao_social']
+                        ?: ($filial['nome_fantasia'] ?: 'Matriz/Filial #' . $filial['id']),
+                ];
+            }
+        }
+
+        $html = Template::render('pages.veiculos.ajustar-valores-fracao', [
+            'filialSelecionada' => $filialSelecionada,
+        ]);
+        Response::html($html);
+    }
+
+    /**
+     * Lista veiculos de uma filial agrupados para ajuste do valor por fracao.
+     *
+     * GET /api/veiculos/valores-fracao?id_matriz_filial={id}
+     */
+    public function valoresFracao(Request $request): void
+    {
+        try {
+            if (!Auth::can('veiculos.editar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.veiculos.fraction_adjustment.messages.permission_denied'),
+                ], 403);
+                return;
+            }
+
+            $filialId = (int) $request->query('id_matriz_filial', 0);
+            if ($filialId <= 0) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.veiculos.fraction_adjustment.messages.branch_required'),
+                ], 400);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($filialId)) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.veiculos.fraction_adjustment.messages.branch_denied'),
+                ], 403);
+                return;
+            }
+
+            $filial = (new MatrizFilial())->buscarPorId($filialId);
+            if (!$filial || ($filial['status'] ?? '') !== 'A') {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.veiculos.fraction_adjustment.messages.branch_not_found'),
+                ], 404);
+                return;
+            }
+
+            $veiculos = (new Veiculo())->listarParaAjusteValorFracao($filialId);
+            $grupos = [];
+
+            foreach ($veiculos as $veiculo) {
+                $grupoId = !empty($veiculo['id_grupo']) ? (int) $veiculo['id_grupo'] : null;
+                $grupoKey = $grupoId === null ? 'sem-grupo' : 'grupo-' . $grupoId;
+
+                if (!isset($grupos[$grupoKey])) {
+                    $grupos[$grupoKey] = [
+                        'id' => $grupoId,
+                        'nome' => $grupoId === null
+                            ? t('modules.veiculos.fraction_adjustment.without_group')
+                            : (string) ($veiculo['grupo_nome'] ?? ''),
+                        'veiculos' => [],
+                    ];
+                }
+
+                $grupos[$grupoKey]['veiculos'][] = [
+                    'id' => (int) $veiculo['id'],
+                    'placa' => (string) ($veiculo['placa'] ?? ''),
+                    'marca' => (string) ($veiculo['marca'] ?? ''),
+                    'modelo' => (string) ($veiculo['modelo'] ?? ''),
+                    'valor_por_fracao' => number_format((float) ($veiculo['valor_por_fracao'] ?? 0), 2, '.', ''),
+                ];
+            }
+
+            Response::json([
+                'success' => true,
+                'data' => [
+                    'filial' => [
+                        'id' => (int) $filial['id'],
+                        'nome' => (string) ($filial['nome_fantasia'] ?: $filial['razao_social']),
+                        'currency' => $this->configMoedaFilial($filial),
+                    ],
+                    'grupos' => array_values($grupos),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Response::json([
+                'success' => false,
+                'message' => t('modules.veiculos.fraction_adjustment.messages.load_error'),
+            ], 500);
+        }
+    }
+
+    /**
+     * Atualiza o valor por fracao de varios veiculos da mesma filial.
+     *
+     * POST /veiculos/valores-fracao/atualizar
+     */
+    public function atualizarValoresFracao(Request $request): void
+    {
+        try {
+            if (!Auth::can('veiculos.editar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.veiculos.fraction_adjustment.messages.permission_denied'),
+                ], 403);
+                return;
+            }
+
+            $dados = $request->all();
+            $filialId = (int) ($dados['id_matriz_filial'] ?? 0);
+            $itens = $dados['veiculos'] ?? [];
+
+            if ($filialId <= 0 || !is_array($itens) || empty($itens)) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.veiculos.fraction_adjustment.messages.no_changes'),
+                ], 400);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($filialId)) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.veiculos.fraction_adjustment.messages.branch_denied'),
+                ], 403);
+                return;
+            }
+
+            $filialModel = new MatrizFilial();
+            $filial = $filialModel->buscarPorId($filialId);
+            if (!$filial || ($filial['status'] ?? '') !== 'A') {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.veiculos.fraction_adjustment.messages.branch_not_found'),
+                ], 404);
+                return;
+            }
+
+            $alteracoes = [];
+            $ids = [];
+
+            foreach ($itens as $item) {
+                if (!is_array($item)) {
+                    throw new \InvalidArgumentException(t('modules.veiculos.fraction_adjustment.messages.invalid_values'));
+                }
+
+                $id = (int) ($item['id'] ?? 0);
+                $valorOriginalRaw = (string) ($item['valor_original'] ?? '');
+                $novoValorRaw = (string) ($item['novo_valor'] ?? '');
+
+                if (
+                    $id <= 0
+                    || isset($ids[$id])
+                    || !preg_match('/^\d+(?:\.\d{1,2})?$/', $valorOriginalRaw)
+                    || !preg_match('/^\d+(?:\.\d{1,2})?$/', $novoValorRaw)
+                ) {
+                    throw new \InvalidArgumentException(t('modules.veiculos.fraction_adjustment.messages.invalid_values'));
+                }
+
+                $valorOriginal = round((float) $valorOriginalRaw, 2);
+                $novoValor = round((float) $novoValorRaw, 2);
+
+                if ($valorOriginal < 0 || $novoValor < 0 || $novoValor > 99999999.99) {
+                    throw new \InvalidArgumentException(t('modules.veiculos.fraction_adjustment.messages.invalid_values'));
+                }
+
+                $ids[$id] = true;
+                $alteracoes[] = [
+                    'id' => $id,
+                    'valor_original' => $valorOriginal,
+                    'novo_valor' => $novoValor,
+                ];
+            }
+
+            $atualizados = (new Veiculo())->atualizarValoresFracaoEmLote($filialId, $alteracoes);
+
+            foreach ($atualizados as $veiculo) {
+                $identificacao = trim(
+                    $veiculo['placa'] . ' - ' . $veiculo['marca'] . ' ' . $veiculo['modelo'],
+                    " -"
+                );
+
+                try {
+                    AuditLogService::registrarComCampos(
+                        ($_SESSION['user_name'] ?? 'Sistema') . ", atualizou em lote o veiculo [{$identificacao}]",
+                        [
+                            AuditLogService::campo(
+                                t('modules.veiculos.fields.fraction_value'),
+                                $filialModel->formatarMoeda($veiculo['valor_original'], $filialId),
+                                $filialModel->formatarMoeda($veiculo['novo_valor'], $filialId),
+                                t('modules.veiculos.fraction_adjustment.title')
+                            ),
+                        ]
+                    );
+                } catch (\Throwable $auditError) {
+                    error_log('Falha ao registrar auditoria do ajuste de valor por fracao: ' . $auditError->getMessage());
+                }
+            }
+
+            Response::json([
+                'success' => true,
+                'message' => t('modules.veiculos.fraction_adjustment.messages.save_success', [
+                    'count' => count($atualizados),
+                ]),
+                'data' => [
+                    'atualizados' => count($atualizados),
+                ],
+            ]);
+        } catch (\DomainException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'conflict' => true,
+            ], 409);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        } catch (\Throwable $e) {
+            Response::json([
+                'success' => false,
+                'message' => t('modules.veiculos.fraction_adjustment.messages.save_error'),
+            ], 500);
+        }
+    }
+
+    /**
      * Exibe a pagina de adicionar/editar veiculo
      *
      * GET /pages/veiculos/adicionar
@@ -1076,6 +1329,39 @@ class VeiculosController
                 'message' => 'Erro ao excluir encargo: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Monta a configuracao usada pelo helper Currency no iframe.
+     */
+    private function configMoedaFilial(array $filial): array
+    {
+        $locale = (string) ($filial['locale'] ?? 'pt_BR');
+        $currency = (string) ($filial['currency_code'] ?? 'BRL');
+
+        $locales = [
+            'pt_BR' => ['decimal' => ',', 'thousands' => '.', 'symbolPosition' => 'before'],
+            'en_US' => ['decimal' => '.', 'thousands' => ',', 'symbolPosition' => 'before'],
+            'pt_PT' => ['decimal' => ',', 'thousands' => '.', 'symbolPosition' => 'after'],
+            'es_ES' => ['decimal' => ',', 'thousands' => '.', 'symbolPosition' => 'after'],
+            'it_IT' => ['decimal' => ',', 'thousands' => '.', 'symbolPosition' => 'after'],
+        ];
+        $symbols = [
+            'BRL' => 'R$',
+            'USD' => '$',
+            'EUR' => '€',
+            'GBP' => '£',
+        ];
+        $localeConfig = $locales[$locale] ?? $locales['pt_BR'];
+
+        return [
+            'locale' => $locale,
+            'currency' => $currency,
+            'symbol' => $symbols[$currency] ?? $currency,
+            'decimal' => $localeConfig['decimal'],
+            'thousands' => $localeConfig['thousands'],
+            'symbolPosition' => $localeConfig['symbolPosition'],
+        ];
     }
 
     private function normalizarVencimentoEncargo(?string $vencimento): ?string
