@@ -263,6 +263,9 @@ log interno `storage/logs/whmcs-operations.log`.
 - A ordem de exclusão é calculada pelas foreign keys `RESTRICT`/`NO ACTION`, sempre com a tabela filha antes da tabela-pai.
 - Tabelas tenant adicionadas ou removidas por migrations entram ou saem automaticamente do término.
 - Dependência restritiva sem coluna `chave` ou ciclo impossível de ordenar interrompe a operação antes da transação.
+- Antes da transação de exclusão, holds `pending` ou `authorized` de locações e
+  contratos são liberados no gateway em modo de melhor esforço. Falhas são
+  registradas no evento `terminate_hold_release`, mas não impedem o término.
 - `feature_requests`, `feature_request_followers` e `feature_request_votes` são preservadas por pertencerem ao sistema interno da 7Carros.
 - Um retry após o banco já ter sido limpo ainda remove uploads e certificados remanescentes.
 - Falhas geram o evento `terminate_failed` em `storage/logs/whmcs-operations.log`, com fase e tabela, sem expor credenciais na resposta HTTP.

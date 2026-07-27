@@ -79,6 +79,40 @@ class ContratoBloqueio extends Model
     }
 
     /**
+     * Lista bloqueios que ainda podem reter limite no cartao.
+     *
+     * A chave explicita e usada por fluxos administrativos sem sessao, como
+     * o encerramento de tenant pelo WHMCS.
+     */
+    public function listarLiberaveisPorContrato(int $idContrato, ?string $chave = null): array
+    {
+        $query = $this->qb
+            ->table('contratos_bloqueios')
+            ->where('id_contrato', '=', $idContrato)
+            ->whereIn('status', ['pending', 'authorized'])
+            ->orderBy('id', 'ASC');
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Lista bloqueios liberaveis de todos os contratos de um tenant.
+     */
+    public function listarLiberaveisPorTenant(string $chave): array
+    {
+        return $this->qb
+            ->table('contratos_bloqueios')
+            ->withChave($chave)
+            ->whereIn('status', ['pending', 'authorized'])
+            ->orderBy('id', 'ASC')
+            ->get();
+    }
+
+    /**
      * Busca um bloqueio pelo external_id do gateway
      */
     public function buscarPorExternalId(string $externalId): ?array
@@ -96,7 +130,12 @@ class ContratoBloqueio extends Model
      * @param string $status Novo status
      * @param array $extras Campos adicionais (capturado_em, liberado_em, valor_capturado, payload)
      */
-    public function atualizarStatus(int $id, string $status, array $extras = []): int
+    public function atualizarStatus(
+        int $id,
+        string $status,
+        array $extras = [],
+        ?string $chave = null
+    ): int
     {
         $dados = ['status' => $status];
 
@@ -122,9 +161,14 @@ class ContratoBloqueio extends Model
             $dados['expira_em'] = $extras['expira_em'];
         }
 
-        return $this->qb
+        $query = $this->qb
             ->table('contratos_bloqueios')
-            ->where('id', '=', $id)
-            ->update($dados);
+            ->where('id', '=', $id);
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        return $query->update($dados);
     }
 }

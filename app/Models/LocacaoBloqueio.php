@@ -66,7 +66,7 @@ class LocacaoBloqueio extends Model
     public function listarPorLocacao(int $idLocacao): array
     {
         return $this->qb
-            ->table('locacoes_bloqueios')
+            ->table('locacoes_bloqueios', 'lb')
             ->select([
                 'lb.*',
                 'cc.bandeira',
@@ -75,6 +75,40 @@ class LocacaoBloqueio extends Model
             ->leftJoin('clientes_cartoes', 'cc', 'lb.id_cartao', '=', 'cc.id')
             ->where('lb.id_locacao', '=', $idLocacao)
             ->orderBy('lb.id', 'DESC')
+            ->get();
+    }
+
+    /**
+     * Lista bloqueios que ainda podem reter limite no cartao.
+     *
+     * A chave explicita e usada por fluxos administrativos sem sessao, como
+     * o encerramento de tenant pelo WHMCS.
+     */
+    public function listarLiberaveisPorLocacao(int $idLocacao, ?string $chave = null): array
+    {
+        $query = $this->qb
+            ->table('locacoes_bloqueios')
+            ->where('id_locacao', '=', $idLocacao)
+            ->whereIn('status', ['pending', 'authorized'])
+            ->orderBy('id', 'ASC');
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Lista bloqueios liberaveis de todas as locacoes de um tenant.
+     */
+    public function listarLiberaveisPorTenant(string $chave): array
+    {
+        return $this->qb
+            ->table('locacoes_bloqueios')
+            ->withChave($chave)
+            ->whereIn('status', ['pending', 'authorized'])
+            ->orderBy('id', 'ASC')
             ->get();
     }
 
@@ -96,7 +130,12 @@ class LocacaoBloqueio extends Model
      * @param string $status Novo status
      * @param array $extras Campos adicionais (capturado_em, liberado_em, valor_capturado, payload)
      */
-    public function atualizarStatus(int $id, string $status, array $extras = []): int
+    public function atualizarStatus(
+        int $id,
+        string $status,
+        array $extras = [],
+        ?string $chave = null
+    ): int
     {
         $dados = ['status' => $status];
 
@@ -122,9 +161,14 @@ class LocacaoBloqueio extends Model
             $dados['expira_em'] = $extras['expira_em'];
         }
 
-        return $this->qb
+        $query = $this->qb
             ->table('locacoes_bloqueios')
-            ->where('id', '=', $id)
-            ->update($dados);
+            ->where('id', '=', $id);
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        return $query->update($dados);
     }
 }

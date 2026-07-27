@@ -83,6 +83,12 @@ Usada em: **Locacoes** (`LocacoesController`) e **Contratos** (`ContratosControl
 
 **Stripe**: Usa `PaymentIntent` com `capture_method='manual'`. Hold padrao 7 dias, extended ate 31 dias.
 
+A liberacao de holds e centralizada em
+`AuthorizationHoldReleaseService`. Exclusoes de locacoes/reservas e contratos
+usam politica estrita: se o gateway nao confirmar que o limite deixou de estar
+retido, o registro principal nao e excluido. O encerramento de tenant pelo
+WHMCS usa o mesmo servico em modo de melhor esforco.
+
 ### AbstractPaymentGateway
 
 Fornece:

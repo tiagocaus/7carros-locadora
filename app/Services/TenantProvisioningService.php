@@ -24,13 +24,18 @@ class TenantProvisioningService
     private RolePermission $rolePermissionModel;
     private Permission $permissionModel;
     private TenantProvisioning $tenantModel;
+    private AuthorizationHoldReleaseService $holdReleaseService;
 
-    public function __construct(?TenantProvisioning $tenantModel = null)
+    public function __construct(
+        ?TenantProvisioning $tenantModel = null,
+        ?AuthorizationHoldReleaseService $holdReleaseService = null
+    )
     {
         $this->roleModel = new Role();
         $this->rolePermissionModel = new RolePermission();
         $this->permissionModel = new Permission();
         $this->tenantModel = $tenantModel ?? new TenantProvisioning();
+        $this->holdReleaseService = $holdReleaseService ?? new AuthorizationHoldReleaseService();
         $this->qb = new QueryBuilder(Model::sharedMysqli());
     }
 
@@ -293,6 +298,7 @@ class TenantProvisioningService
         $fase = 'validacao';
         $transacaoAtiva = false;
         $counts = [];
+        $holdRelease = null;
 
         try {
             $this->validarChaveParaArquivos($chave);
@@ -306,6 +312,26 @@ class TenantProvisioningService
 
                 $fase = 'consulta_roles';
                 $roleIds = $this->tenantModel->roleIds($chave);
+
+                $fase = 'liberacao_bloqueios';
+                try {
+                    $holdRelease = $this->holdReleaseService->liberarDoTenant($chave);
+                } catch (\Throwable $releaseError) {
+                    $holdRelease = [
+                        'total' => 0,
+                        'released' => 0,
+                        'already_safe' => 0,
+                        'failed' => 1,
+                        'failures' => [[
+                            'origem' => 'tenant',
+                            'id' => 0,
+                            'exception' => get_class($releaseError),
+                            'message' => $releaseError->getMessage(),
+                        ]],
+                    ];
+                }
+                $holdRelease = $this->sanitizarResultadoBloqueios($holdRelease);
+                $this->logOperacaoWhmcs('terminate_hold_release', $chave, $holdRelease);
 
                 $fase = 'inicio_transacao';
                 $this->tenantModel->beginTransaction();
@@ -327,7 +353,10 @@ class TenantProvisioningService
             $fase = 'arquivos';
             $this->apagarArquivosDoTenant($chave);
 
-            $extra = ['deleted_tables' => $counts];
+            $extra = [
+                'deleted_tables' => $counts,
+                'hold_release' => $holdRelease,
+            ];
             if ($alreadyTerminated) {
                 $extra['already_terminated'] = true;
             }
@@ -393,6 +422,17 @@ class TenantProvisioningService
         ) ?? $message;
 
         return substr(str_replace(["\r", "\n"], ' ', $message), 0, 1000);
+    }
+
+    private function sanitizarResultadoBloqueios(array $result): array
+    {
+        foreach ($result['failures'] ?? [] as $index => $failure) {
+            $result['failures'][$index]['message'] = $this->sanitizarErro(
+                (string) ($failure['message'] ?? '')
+            );
+        }
+
+        return $result;
     }
 
     /**

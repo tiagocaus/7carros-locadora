@@ -18,6 +18,7 @@ use App\Controllers\WhmcsController;
 use App\Core\Request;
 use App\Models\TenantProvisioning;
 use App\Services\TenantProvisioningService;
+use App\Services\AuthorizationHoldReleaseService;
 
 if (($argv[1] ?? '') === '--response-contract') {
     $_POST = [];
@@ -225,9 +226,37 @@ try {
     }
     file_put_contents($certificatePath, 'teste');
 
-    $resultado = $service->terminarTenant($chave);
+    $holdReleaseComFalha = new class extends AuthorizationHoldReleaseService {
+        public function __construct()
+        {
+        }
+
+        public function liberarDoTenant(string $chave): array
+        {
+            throw new RuntimeException(
+                'falha simulada token=token-secreto'
+            );
+        }
+    };
+    $serviceComFalhaBloqueio = new TenantProvisioningService(
+        new TenantProvisioning(),
+        $holdReleaseComFalha
+    );
+    $logOffsetBloqueio = is_file($logPath) ? filesize($logPath) : 0;
+    $resultado = $serviceComFalhaBloqueio->terminarTenant($chave);
 
     verificarWhmcs($resultado['success'] === true, 'primeiro término retorna sucesso');
+    clearstatcache(true, $logPath);
+    $logBloqueio = is_file($logPath)
+        ? (string) file_get_contents($logPath, false, null, $logOffsetBloqueio)
+        : '';
+    verificarWhmcs(
+        str_contains($logBloqueio, '"acao":"terminate_hold_release"')
+        && str_contains($logBloqueio, '"failed":1')
+        && str_contains($logBloqueio, 'token=[redacted]')
+        && !str_contains($logBloqueio, 'token-secreto'),
+        'falha ao liberar hold e registrada e nao impede termino WHMCS'
+    );
     verificarWhmcs(
         ($resultado['deleted_tables']['comissoes_funcionarios'] ?? 0) === 1,
         'tabela recente sem cascade é contabilizada'

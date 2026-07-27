@@ -150,7 +150,7 @@ misturar esses dados no cadastro principal da locacao.
 | Coluna | Tipo | Descricao |
 |--------|------|-----------|
 | id | INT UNSIGNED PK | Identificador |
-| chave | VARCHAR(20) | Tenant |
+| chave | VARCHAR(45) | Tenant |
 | id_locacao | INT UNSIGNED FK | FK locacoes (CASCADE) |
 | id_cliente | INT UNSIGNED NULL | FK cliente vinculado a locacao |
 | id_conta | INT UNSIGNED NULL | FK conta bancaria da caucao |
@@ -177,6 +177,12 @@ Bloqueio = reserva de valor no limite do cartao, sem cobrar. Pode ser capturado 
 `RotateAuthorizationHoldsJob` (diario 06:30) rotaciona holds 2 dias antes de expirar:
 libera o hold atual e cria um novo, mantendo o bloqueio ativo indefinidamente.
 Este job cobre tanto `locacoes_bloqueios` quanto `contratos_bloqueios`.
+
+**Exclusao segura:** antes de excluir uma reserva ou locacao, todos os holds
+locais com status `pending` ou `authorized` devem ter a liberacao confirmada no
+gateway. Se a confirmacao falhar, a exclusao e bloqueada e os dados locais sao
+preservados para nova tentativa. Holds ja liberados, expirados ou capturados
+nao impedem a exclusao.
 
 | Coluna | Tipo | Descricao |
 |--------|------|-----------|

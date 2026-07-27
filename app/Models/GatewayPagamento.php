@@ -294,6 +294,29 @@ class GatewayPagamento extends Model
     }
 
     /**
+     * Busca gateway por ID dentro de uma chave explicita.
+     *
+     * Necessario em rotinas administrativas sem sessao, mantendo o isolamento
+     * tenant-scoped sem desabilitar o filtro automatico de chave.
+     */
+    public function buscarPorIdComCredenciaisParaTenant(int $id, string $chave): ?array
+    {
+        $gateway = $this->qb
+            ->table('gateways_pagamento')
+            ->withChave($chave)
+            ->where('id', '=', $id)
+            ->first();
+
+        if ($gateway && !empty($gateway['credentials'])) {
+            $gateway['credentials'] = $this->decryptCredentials($gateway['credentials']);
+        } elseif ($gateway) {
+            $gateway['credentials'] = [];
+        }
+
+        return $gateway;
+    }
+
+    /**
      * Busca gateway por chave e código
      *
      * @param string $chave Chave do tenant

@@ -2559,7 +2559,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                             ? '<span class="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800"><i class="fas fa-star mr-1"></i>' + i18n.cardDefault + '</span>'
                             : '<span class="text-slate-400 text-xs">-</span>'}
                     </td>
-                    <td class="table-cell w-28 text-center">
+                    <td class="table-cell w-28 text-right">
                         ${!viewMode && !isPadrao ? `<button type="button" class="btn-icon text-yellow-500 hover:text-yellow-700 btn-padrao-cartao" data-id="${c.id}" title="${i18n.tooltipSetDefaultCard}">
                             <i class="fas fa-star"></i>
                         </button>` : ''}

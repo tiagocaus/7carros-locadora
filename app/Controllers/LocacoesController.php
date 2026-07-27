@@ -34,8 +34,10 @@ use App\Config\Planos;
 use App\I18n\TemplateRenderer;
 use App\Core\Database;
 use App\Services\AuditLogService;
+use App\Services\AuthorizationHoldReleaseService;
 use App\Services\GrupoPrecoPeriodoService;
 use App\Services\PromocaoAplicacaoService;
+use App\Exceptions\AuthorizationHoldReleaseException;
 use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
 
 /**
@@ -1468,12 +1470,21 @@ class LocacoesController
                 return;
             }
 
+            (new AuthorizationHoldReleaseService())->liberarDaLocacao(
+                $id,
+                $locacao['chave']
+            );
             $locacaoModel->deletarComAuditoria($id);
 
             Response::json([
                 'success' => true,
                 'message' => $this->apiMessage('deleted')
             ]);
+        } catch (AuthorizationHoldReleaseException) {
+            Response::json([
+                'success' => false,
+                'message' => $this->apiMessage('delete_hold_release_failed')
+            ], 409);
         } catch (\InvalidArgumentException $e) {
             Response::json([
                 'success' => false,
@@ -3541,39 +3552,10 @@ class LocacoesController
                 return;
             }
 
-            $bloqueioModel = new \App\Models\LocacaoBloqueio();
-            $bloqueio = $bloqueioModel->buscarPorId((int) $locacao['id_bloqueio_ativo']);
-            if (!$bloqueio || $bloqueio['status'] !== 'authorized') {
-                Response::json(['success' => false, 'message' => $this->apiMessage('hold_not_authorized')], 400);
-                return;
-            }
-
-            // Instanciar gateway
-            $gatewayModel = new \App\Models\GatewayPagamento();
-            $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais((int) $bloqueio['id_gateway']);
-            if (!$gatewayConfig) {
-                Response::json(['success' => false, 'message' => $this->apiMessage('gateway_not_found')], 400);
-                return;
-            }
-
-            $gateway = \App\Services\Gateways\GatewayFactory::create(
-                $gatewayConfig['gateway_code'],
-                $gatewayConfig['credentials'] ?? [],
-                $gatewayConfig['ambiente'] === 'sandbox',
-                (int) $gatewayConfig['id']
+            (new AuthorizationHoldReleaseService())->liberarDaLocacao(
+                $id,
+                $locacao['chave']
             );
-
-            $result = $gateway->releaseHold($bloqueio['external_id']);
-            if (!$result['success']) {
-                Response::json(['success' => false, 'message' => $result['message'] ?? 'Erro ao liberar'], 400);
-                return;
-            }
-
-            // Atualizar status do bloqueio
-            $bloqueioModel->atualizarStatus((int) $bloqueio['id'], 'released', [
-                'liberado_em' => DateHelper::nowForDatabase(),
-                'payload' => $result['raw'] ?? null,
-            ]);
 
             // Remover referencia na locacao
             $locacaoModel->atualizar($id, ['id_bloqueio_ativo' => null]);
@@ -3584,6 +3566,11 @@ class LocacoesController
                 'data' => ['status' => 'released'],
             ]);
 
+        } catch (AuthorizationHoldReleaseException) {
+            Response::json([
+                'success' => false,
+                'message' => $this->apiMessage('hold_release_not_confirmed')
+            ], 400);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => $this->apiMessage('hold_release_error', ['message' => $e->getMessage()])], 500);
         }

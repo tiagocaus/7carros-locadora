@@ -494,7 +494,7 @@ Estrutura identica a `locacoes_bloqueios`, mas com `id_contrato` em vez de `id_l
 | Coluna | Tipo | Descricao |
 |--------|------|-----------|
 | id | INT PK | Primary key |
-| chave | VARCHAR(20) | Tenant key |
+| chave | VARCHAR(45) | Tenant key |
 | id_contrato | INT UNSIGNED | FK contratos |
 | id_cliente | INT UNSIGNED | FK clientes |
 | id_cartao | INT UNSIGNED | FK clientes_cartoes |
@@ -530,6 +530,11 @@ A tabela `contratos` tem coluna `id_bloqueio_ativo` (FK para `contratos_bloqueio
 4. Cron `RotateAuthorizationHoldsJob` rotaciona holds 2 dias antes de expirar (cobre locacoes E contratos)
 5. Ao capturar: cria lancamento financeiro (receita) com plano de contas 1.1.5.01
 6. Ao liberar: cancela hold no gateway, limpa `id_bloqueio_ativo`
+
+Ao excluir um contrato, todos os holds locais `pending` ou `authorized` devem
+ter a liberacao confirmada no gateway. Uma falha bloqueia a exclusao e preserva
+o contrato para nova tentativa. Holds ja liberados, expirados ou capturados
+nao impedem a exclusao.
 
 ### Na Fatura PDF
 

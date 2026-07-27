@@ -537,7 +537,11 @@
                     <p class="text-amber-700 text-sm"><i class="fas fa-exclamation-triangle mr-1"></i> <?= t('modules.locacoes.block.no_gateway') ?></p>
                 </div>
 
-                <div id="bloqueioFormFields">
+                <div id="bloqueioEstadoNovo" class="<?= isset($locacao) ? 'hidden' : '' ?> rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
+                    <i class="fas fa-info-circle mr-2 text-slate-400"></i><?= t('modules.locacoes.form.save_before_hold') ?>
+                </div>
+
+                <div id="bloqueioFormFields" class="<?= isset($locacao) ? '' : 'hidden' ?>">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div class="md:col-span-6 form-input-group">
                             <label for="bloqueio_id_cartao" class="form-label-group"><?= t('modules.locacoes.block.card') ?></label>
@@ -3032,8 +3036,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             try {
                 const result = await API.get(`/api/clientes/${idCliente}/gateways-cartao`);
                 const temHold = result.success && result.data?.some(g => g.gateway_code === 'stripe' || g.gateway_code === 'square');
-                document.getElementById('bloqueioSemGateway')?.classList.toggle('hidden', temHold);
-                document.getElementById('bloqueioFormFields')?.classList.toggle('hidden', !temHold);
+                const registroSalvo = Boolean(document.getElementById('registroId')?.value);
+                document.getElementById('bloqueioEstadoNovo')?.classList.toggle('hidden', registroSalvo);
+                document.getElementById('bloqueioSemGateway')?.classList.toggle('hidden', !registroSalvo || temHold);
+                document.getElementById('bloqueioFormFields')?.classList.toggle('hidden', !registroSalvo || !temHold);
 
                 // Guardar publishable_key do Stripe para o modal
                 if (result.success && result.data) {
@@ -3244,7 +3250,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             document.getElementById('bloqueioCartaoInfo').textContent =
                 `**** ${data.cartao_ultimos_digitos || '****'} ${data.cartao_bandeira || ''}`;
             document.getElementById('bloqueioValorInfo').textContent =
-                data.valor ? `R$ ${parseFloat(data.valor).toFixed(2).replace('.', ',')}` : '';
+                data.valor ? fmtCurrency(parseFloat(data.valor)) : '';
 
             // Data de expiracao
             if (data.expires_at) {

@@ -34,7 +34,9 @@ use App\Models\Sms;
 use App\Config\Planos;
 use App\I18n\TemplateRenderer;
 use App\Services\AuditLogService;
+use App\Services\AuthorizationHoldReleaseService;
 use App\Services\InvoiceBatchNotificationService;
+use App\Exceptions\AuthorizationHoldReleaseException;
 use App\Core\Database;
 use App\Helpers\FileHelper;
 use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
@@ -1229,12 +1231,21 @@ class ContratosController
                 return;
             }
 
+            (new AuthorizationHoldReleaseService())->liberarDoContrato(
+                $id,
+                $contrato['chave']
+            );
             $contratoModel->deletarComAuditoria($id);
 
             Response::json([
                 'success' => true,
                 'message' => 'Contrato excluido com sucesso'
             ]);
+        } catch (AuthorizationHoldReleaseException) {
+            Response::json([
+                'success' => false,
+                'message' => t('modules.contratos.messages.delete_hold_release_failed')
+            ], 409);
         } catch (\InvalidArgumentException $e) {
             Response::json([
                 'success' => false,
@@ -4475,39 +4486,10 @@ class ContratosController
                 return;
             }
 
-            $bloqueioModel = new \App\Models\ContratoBloqueio();
-            $bloqueio = $bloqueioModel->buscarPorId((int) $contrato['id_bloqueio_ativo']);
-            if (!$bloqueio || $bloqueio['status'] !== 'authorized') {
-                Response::json(['success' => false, 'message' => 'Bloqueio nao esta autorizado'], 400);
-                return;
-            }
-
-            // Instanciar gateway
-            $gatewayModel = new \App\Models\GatewayPagamento();
-            $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais((int) $bloqueio['id_gateway']);
-            if (!$gatewayConfig) {
-                Response::json(['success' => false, 'message' => 'Gateway nao encontrado'], 400);
-                return;
-            }
-
-            $gateway = \App\Services\Gateways\GatewayFactory::create(
-                $gatewayConfig['gateway_code'],
-                $gatewayConfig['credentials'] ?? [],
-                $gatewayConfig['ambiente'] === 'sandbox',
-                (int) $gatewayConfig['id']
+            (new AuthorizationHoldReleaseService())->liberarDoContrato(
+                $id,
+                $contrato['chave']
             );
-
-            $result = $gateway->releaseHold($bloqueio['external_id']);
-            if (!$result['success']) {
-                Response::json(['success' => false, 'message' => $result['message'] ?? 'Erro ao liberar'], 400);
-                return;
-            }
-
-            // Atualizar status do bloqueio
-            $bloqueioModel->atualizarStatus((int) $bloqueio['id'], 'released', [
-                'liberado_em' => DateHelper::nowForDatabase(),
-                'payload' => $result['raw'] ?? null,
-            ]);
 
             // Remover referencia no contrato
             $contratoModel->atualizar($id, ['id_bloqueio_ativo' => null]);
@@ -4518,6 +4500,11 @@ class ContratosController
                 'data' => ['status' => 'released'],
             ]);
 
+        } catch (AuthorizationHoldReleaseException) {
+            Response::json([
+                'success' => false,
+                'message' => t('modules.contratos.messages.hold_release_not_confirmed')
+            ], 400);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao liberar bloqueio: ' . $e->getMessage()], 500);
         }
