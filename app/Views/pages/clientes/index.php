@@ -11,6 +11,29 @@
                 <input type="text" placeholder="{{ t('modules.clientes.placeholders.search_list') }}" class="form-input-focus sm:w-64 pr-8" id="searchInput">
                 <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
             </div>
+            <?php if (\App\Core\Auth::can('clientes.criar')): ?>
+                <div class="action-menu" data-action-menu>
+                    <button type="button"
+                        id="btnMenuImportacaoClientes"
+                        class="action-menu-trigger"
+                        title="{{ t('modules.clientes.tooltips.import_actions') }}"
+                        aria-label="{{ t('modules.clientes.tooltips.import_actions') }}"
+                        aria-haspopup="menu"
+                        aria-expanded="false">
+                        <i class="fas fa-file-import" aria-hidden="true"></i>
+                    </button>
+                    <div class="action-menu-panel" role="menu" aria-label="{{ t('modules.clientes.tooltips.import_actions') }}">
+                        <button type="button" id="btnImportarClientes" class="action-menu-item" role="menuitem">
+                            <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
+                            <span>{{ t('modules.clientes.buttons.import_clients') }}</span>
+                        </button>
+                        <button type="button" id="btnBaixarModeloClientes" class="action-menu-item" role="menuitem">
+                            <i class="fas fa-file-arrow-down" aria-hidden="true"></i>
+                            <span>{{ t('modules.clientes.buttons.download_import_template') }}</span>
+                        </button>
+                    </div>
+                </div>
+            <?php endif; ?>
             <button id="btnAdicionarCliente" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
                 <i class="fas fa-plus mr-2"></i>{{ t('modules.clientes.buttons.add_client') }}
             </button>
@@ -104,6 +127,23 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                 action: 'navigate',
                 page: '/pages/clientes/adicionar'
             }, '*');
+        }
+    });
+
+    document.getElementById('btnImportarClientes')?.addEventListener('click', function () {
+        window.parent.postMessage({ action: 'openClienteImportacaoModal' }, '*');
+    });
+
+    document.getElementById('btnBaixarModeloClientes')?.addEventListener('click', function () {
+        window.location.href = '/clientes/modelo-importacao';
+    });
+
+    window.addEventListener('message', function (event) {
+        if (event.data?.action === 'clienteImportacaoConcluida') {
+            currentPage = 1;
+            carregarClientes(currentPage, perPage, searchTerm);
+        } else if (event.data?.action === 'clienteImportacaoModalClosed') {
+            document.getElementById('btnMenuImportacaoClientes')?.focus();
         }
     });
 

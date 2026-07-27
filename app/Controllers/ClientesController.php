@@ -17,6 +17,7 @@ use App\Models\GatewayPagamento;
 use App\Services\AuditLogService;
 use App\Services\Gateways\GatewayFactory;
 use App\Services\PagamentoLinkSyncService;
+use App\Services\ClienteImportacaoService;
 
 /**
  * Controller de Clientes
@@ -25,6 +26,166 @@ use App\Services\PagamentoLinkSyncService;
  */
 class ClientesController
 {
+    /**
+     * Lista matrizes/filiais ativas disponiveis para a importacao.
+     */
+    public function filiaisImportacao(Request $request): void
+    {
+        if (!Auth::can('clientes.criar')) {
+            Response::json([
+                'success' => false,
+                'message' => 'Você não tem permissão para importar clientes',
+            ], 403);
+            return;
+        }
+
+        try {
+            $filiais = (new ClienteImportacaoService())->listarFiliaisDisponiveis();
+            $filialAtual = (int) ($_SESSION['id_matriz_filial'] ?? 0);
+
+            Response::json([
+                'success' => true,
+                'data' => $filiais,
+                'selected_id' => $filialAtual > 0 ? $filialAtual : null,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Erro ao listar filiais para importacao de clientes: ' . $e->getMessage());
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao carregar matrizes/filiais disponíveis.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Baixa o modelo CSV oficial para importacao de clientes.
+     */
+    public function modeloImportacao(Request $request): void
+    {
+        if (!Auth::can('clientes.criar')) {
+            Response::forbidden('Você não tem permissão para importar clientes');
+            return;
+        }
+
+        try {
+            $conteudo = (new ClienteImportacaoService())->gerarModelo();
+
+            header('Content-Type: text/csv; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="modelo_importacao_clientes.csv"');
+            header('Content-Length: ' . strlen($conteudo));
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            echo $conteudo;
+            exit;
+        } catch (\Throwable $e) {
+            Response::serverError('Erro ao gerar o modelo de importação');
+        }
+    }
+
+    /**
+     * Valida e importa clientes de um arquivo CSV.
+     */
+    public function importar(Request $request): void
+    {
+        if (!Auth::can('clientes.criar')) {
+            Response::json([
+                'success' => false,
+                'message' => 'Você não tem permissão para importar clientes',
+            ], 403);
+            return;
+        }
+
+        $filialInformada = $request->input('id_matriz_filial', '');
+        if (
+            is_array($filialInformada)
+            || is_object($filialInformada)
+            || !ctype_digit((string) $filialInformada)
+            || (int) $filialInformada <= 0
+        ) {
+            Response::json([
+                'success' => false,
+                'message' => 'Selecione uma matriz/filial válida.',
+                'errors' => [[
+                    'line' => null,
+                    'field' => 'id_matriz_filial',
+                    'message' => 'A matriz/filial é obrigatória.',
+                ]],
+            ], 422);
+            return;
+        }
+        $filialId = (int) $filialInformada;
+
+        $arquivo = $request->file('arquivo');
+        if (!$arquivo || ($arquivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            Response::json([
+                'success' => false,
+                'message' => 'Selecione um arquivo CSV válido.',
+                'errors' => [['line' => null, 'field' => 'arquivo', 'message' => 'Falha no envio do arquivo.']],
+            ], 422);
+            return;
+        }
+
+        if (($arquivo['size'] ?? 0) <= 0 || $arquivo['size'] > ClienteImportacaoService::MAX_FILE_SIZE) {
+            Response::json([
+                'success' => false,
+                'message' => 'Arquivo fora do limite permitido.',
+                'errors' => [['line' => null, 'field' => 'arquivo', 'message' => 'O CSV deve ter no máximo 2 MB.']],
+            ], 422);
+            return;
+        }
+
+        $extensao = strtolower(pathinfo((string) ($arquivo['name'] ?? ''), PATHINFO_EXTENSION));
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file((string) $arquivo['tmp_name']) ?: '';
+        $mimesPermitidos = ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'];
+
+        if ($extensao !== 'csv' || !in_array($mime, $mimesPermitidos, true)) {
+            Response::json([
+                'success' => false,
+                'message' => 'Formato de arquivo inválido.',
+                'errors' => [['line' => null, 'field' => 'arquivo', 'message' => 'Envie somente o arquivo CSV do modelo oficial.']],
+            ], 422);
+            return;
+        }
+
+        try {
+            $resultado = (new ClienteImportacaoService())->importar(
+                (string) $arquivo['tmp_name'],
+                $filialId
+            );
+            if (!$resultado['success']) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'A importação foi bloqueada. Corrija os dados indicados.',
+                    'errors' => $resultado['errors'] ?? [],
+                ], 422);
+                return;
+            }
+
+            $quantidade = (int) ($resultado['importados'] ?? 0);
+            $ignorados = (int) ($resultado['ignorados'] ?? 0);
+            AuditLogService::registrar(
+                ($_SESSION['user_name'] ?? 'Sistema')
+                . ", importou {$quantidade} cliente(s) e ignorou {$ignorados} registro(s) duplicado(s) via CSV"
+            );
+
+            Response::json([
+                'success' => true,
+                'message' => "{$quantidade} cliente(s) importado(s) com sucesso. {$ignorados} registro(s) ignorado(s).",
+                'data' => [
+                    'importados' => $quantidade,
+                    'ignorados' => $ignorados,
+                    'ignorados_detalhes' => $resultado['ignorados_detalhes'] ?? [],
+                ],
+            ], 201);
+        } catch (\Throwable $e) {
+            error_log('Erro na importacao de clientes: ' . $e->getMessage());
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao importar clientes. Nenhum registro foi gravado.',
+            ], 500);
+        }
+    }
+
     /**
      * Normaliza o tipo de cliente para os códigos aceitos pela coluna clientes.tipo.
      */

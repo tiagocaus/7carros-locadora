@@ -250,6 +250,8 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/api/clientes', [ClientesController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/clientes/buscar', [ClientesController::class, 'buscar'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/clientes/por-documento', [ClientesController::class, 'buscarPorDocumento'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/clientes/importacao/filiais', [ClientesController::class, 'filiaisImportacao'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/clientes/importar', [ClientesController::class, 'importar'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/clientes/{id}/financeiro', [ClientesController::class, 'financeiro'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/clientes/financeiro/{id}/cobranca', [ClientesController::class, 'enviarCobrancaFinanceiro'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/clientes/{id}', [ClientesController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
@@ -267,6 +269,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->post('/api/clientes/{id}/cartoes/{cartaoId}/padrao', [ClientesController::class, 'definirCartaoPadrao'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Clientes
+    $router->get('/clientes/modelo-importacao', [ClientesController::class, 'modeloImportacao']);
     $router->post('/clientes/salvar', [ClientesController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/clientes/{id}/atualizar', [ClientesController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/clientes/{id}/excluir', [ClientesController::class, 'destroy'], ['csrf', 'rate_limit']);

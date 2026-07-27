@@ -131,6 +131,92 @@ class Cliente extends Model
     }
 
     /**
+     * Busca documentos canonicos ja cadastrados no tenant atual.
+     *
+     * @param array<int,string> $documentos Documentos sem pontuacao
+     * @return array<int,string>
+     */
+    public function buscarDocumentosExistentesParaImportacao(array $documentos): array
+    {
+        $encontrados = [];
+        foreach (array_chunk(array_values(array_unique($documentos)), 200) as $lote) {
+            if ($lote === []) {
+                continue;
+            }
+
+            $placeholders = implode(',', array_fill(0, count($lote), '?'));
+            $rows = $this->qb
+                ->table('clientes')
+                ->select(['cpf_cnpj'])
+                ->whereRaw(
+                    "UPPER(REPLACE(REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '-', ''), '/', ''), ' ', '')) IN ({$placeholders})",
+                    $lote
+                )
+                ->get();
+
+            foreach ($rows as $row) {
+                $encontrados[] = (string) ($row['cpf_cnpj'] ?? '');
+            }
+        }
+
+        return $encontrados;
+    }
+
+    /**
+     * Importa clientes e seus contatos principais em uma unica transacao.
+     *
+     * @param array<int,array> $registros
+     */
+    public function importarLote(array $registros): int
+    {
+        $this->qb->beginTransaction();
+
+        try {
+            foreach ($registros as $registro) {
+                $email = $registro['_email'] ?? null;
+                $telefone = $registro['_telefone'] ?? null;
+                unset($registro['_email'], $registro['_telefone']);
+
+                $clienteId = $this->criar($registro);
+
+                if (is_array($email)) {
+                    $this->qb
+                        ->table('contatos_emails')
+                        ->insert([
+                            'entidade_tipo' => 'cliente',
+                            'entidade_id' => $clienteId,
+                            'email' => $email['email'],
+                            'descricao' => $email['descricao'],
+                            'principal' => 'S',
+                            'recebe_email' => $email['recebe_email'],
+                        ]);
+                }
+
+                if (is_array($telefone)) {
+                    $this->qb
+                        ->table('contatos_telefones')
+                        ->insert([
+                            'entidade_tipo' => 'cliente',
+                            'entidade_id' => $clienteId,
+                            'telefone' => $telefone['telefone'],
+                            'descricao' => $telefone['descricao'],
+                            'principal' => 'S',
+                            'whatsapp' => $telefone['whatsapp'],
+                            'telegram' => $telefone['telegram'],
+                            'sms' => $telefone['sms'],
+                        ]);
+                }
+            }
+
+            $this->qb->commit();
+            return count($registros);
+        } catch (\Throwable $e) {
+            $this->qb->rollback();
+            throw $e;
+        }
+    }
+
+    /**
      * Atualiza um cliente existente
      *
      * @param int $id ID do cliente

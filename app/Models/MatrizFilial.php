@@ -583,6 +583,29 @@ class MatrizFilial extends Model
     }
 
     /**
+     * Lista filiais ativas disponiveis para importacao de clientes.
+     */
+    public function listarParaImportacao(?string $where = null, array $params = []): array
+    {
+        $query = $this->qb
+            ->table('matrizes_filiais')
+            ->select(['id', 'razao_social', 'nome_fantasia'])
+            ->where('status', '=', 'A');
+
+        if (!empty($where) && $where !== '1=1') {
+            $query->whereRaw($where, $params);
+        }
+
+        return array_map(static function (array $row): array {
+            return [
+                'id' => (int) $row['id'],
+                'nome' => $row['razao_social'] ?: ($row['nome_fantasia'] ?: 'Matriz/Filial #' . $row['id']),
+                'nome_fantasia' => $row['nome_fantasia'] ?? '',
+            ];
+        }, $query->orderBy('razao_social', 'ASC')->get());
+    }
+
+    /**
      * Busca dados da empresa pelo chave do tenant (para paginas publicas)
      *
      * @param string $chave Chave do tenant

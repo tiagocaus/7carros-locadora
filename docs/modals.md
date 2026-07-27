@@ -235,6 +235,35 @@ window.parent.postMessage({
 | `openEditBatchModal` | Edicao em lote | `title`, `fields`, `callbackId` |
 | `openAddCartaoLocacaoModal` | Adicionar cartao de credito (locacao) | `id_cliente`, `gateways` |
 | `openPromissoriaParcelaModal` | Adicionar/editar parcela de promissoria | `mode`, `id`, `valor_parcela`, `data_vencimento` |
+| `openClienteImportacaoModal` | Selecionar filial, enviar CSV e acompanhar importacao de clientes | - |
+
+### Modal de importacao de clientes
+
+O modal `clienteImportacaoModal` fica em `app/Views/layouts/app.php` porque deve cobrir toda a aplicacao. A lista de clientes solicita sua abertura pelo iframe:
+
+```javascript
+window.parent.postMessage({ action: 'openClienteImportacaoModal' }, '*');
+```
+
+O documento pai carrega apenas as filiais ativas permitidas ao usuario, envia `id_matriz_filial` e `arquivo` para `/api/clientes/importar` e mantem no proprio modal os estados de envio, processamento, erro e sucesso. Durante a requisicao, o modal nao pode ser fechado.
+
+Documentos ja cadastrados no tenant e repeticoes posteriores do mesmo documento
+no CSV sao ignorados sem bloquear os demais clientes. No sucesso, a API retorna
+as quantidades `importados` e `ignorados`, alem de `ignorados_detalhes` com a
+linha e o motivo; o modal deve apresentar esse resumo ao usuario.
+
+Quando a importacao termina, o pai notifica exclusivamente o iframe que iniciou a operacao:
+
+```javascript
+sourceIframe.postMessage({
+    action: 'clienteImportacaoConcluida',
+    importados: quantidade
+}, '*');
+```
+
+Ao fechar, o pai envia `clienteImportacaoModalClosed` para o iframe restaurar o foco no botao que abriu o modal.
+
+Os erros do backend devem ser renderizados com `textContent` e agrupados por linha. Nunca injete mensagens do CSV com `innerHTML`.
 
 ### Modais de Midia
 

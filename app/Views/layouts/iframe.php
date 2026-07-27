@@ -52,7 +52,7 @@
     <script src="<?= asset('js/cep.min.js'); ?>"></script>
     <script src="<?= asset('js/form-validation.min.js'); ?>"></script>
     <script src="<?= asset('js/toast.js'); ?>"></script>
-    <script src="<?= asset('js/components.js'); ?>"></script>
+    <script src="<?= asset('js/components.min.js'); ?>"></script>
     <script src="<?= asset('js/autocomplete-guard.min.js'); ?>"></script>
     <script src="<?= asset('js/form-audit.min.js'); ?>"></script>
 

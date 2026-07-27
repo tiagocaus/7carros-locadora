@@ -228,6 +228,87 @@
         </div>
     </div>
 
+    <!-- Modal Global de Importação de Clientes -->
+    <div id="clienteImportacaoModal" class="modal-overlay" aria-hidden="true">
+        <div class="modal-box cliente-importacao-modal-box" role="dialog" aria-modal="true" aria-labelledby="clienteImportacaoModalTitle">
+            <div class="cliente-importacao-header">
+                <i class="fas fa-file-import cliente-importacao-header-icon" aria-hidden="true"></i>
+                <h3 class="modal-title" id="clienteImportacaoModalTitle">
+                    <?= t('modules.clientes.import_modal.title') ?>
+                </h3>
+            </div>
+
+            <div id="clienteImportacaoConfig">
+                <div class="form-input-group">
+                    <label class="form-label-group" for="clienteImportacaoFilial">
+                        <?= t('modules.clientes.import_modal.branch') ?> <span class="text-red-500">*</span>
+                    </label>
+                    <select
+                        id="clienteImportacaoFilial"
+                        class="form-input-group-field chosen-select"
+                        data-chosen-placeholder="<?= htmlspecialchars(t('modules.clientes.import_modal.select_branch'), ENT_QUOTES, 'UTF-8') ?>"
+                        data-chosen-placement="bottom"
+                        data-chosen-allow-clear="false"
+                        disabled
+                    >
+                        <option value=""><?= t('modules.clientes.import_modal.loading_branches') ?></option>
+                    </select>
+                </div>
+
+                <div class="form-input-group mt-4">
+                    <label class="form-label-group" for="clienteImportacaoArquivo">
+                        <?= t('modules.clientes.import_modal.file') ?> <span class="text-red-500">*</span>
+                        <?= aviso(t('modules.clientes.import_modal.file_hint')) ?>
+                    </label>
+                    <input type="file" id="clienteImportacaoArquivo" class="form-input-group-field" accept=".csv,text/csv">
+                </div>
+            </div>
+
+            <div id="clienteImportacaoProgress" class="cliente-importacao-progress hidden" aria-live="polite">
+                <div class="cliente-importacao-progress-row">
+                    <span id="clienteImportacaoProgressStatus"><?= t('modules.clientes.import_modal.uploading') ?></span>
+                    <strong id="clienteImportacaoProgressPercent">0%</strong>
+                </div>
+                <div class="cliente-importacao-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div id="clienteImportacaoProgressBar" class="cliente-importacao-progress-bar"></div>
+                </div>
+            </div>
+
+            <div id="clienteImportacaoErrors" class="cliente-importacao-feedback cliente-importacao-feedback-error hidden" role="alert">
+                <h4>
+                    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                    <?= t('modules.clientes.import_modal.errors_title') ?>
+                </h4>
+                <div id="clienteImportacaoErrorsList" class="cliente-importacao-errors-list"></div>
+            </div>
+
+            <div id="clienteImportacaoSuccess" class="cliente-importacao-feedback cliente-importacao-feedback-success hidden" role="status">
+                <h4>
+                    <i class="fas fa-circle-check" aria-hidden="true"></i>
+                    <?= t('modules.clientes.import_modal.success_title') ?>
+                </h4>
+                <p id="clienteImportacaoSuccessMessage"></p>
+                <div id="clienteImportacaoSkipped" class="cliente-importacao-skipped hidden">
+                    <h5 id="clienteImportacaoSkippedTitle"></h5>
+                    <ul id="clienteImportacaoSkippedList"></ul>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" id="clienteImportacaoCancelBtn" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium">
+                    <?= t('modules.clientes.import_modal.cancel') ?>
+                </button>
+                <button type="button" id="clienteImportacaoSubmitBtn" class="btn-blue py-2 px-4 rounded-md text-sm font-medium" disabled>
+                    <i class="fas fa-file-import mr-1" aria-hidden="true"></i>
+                    <?= t('modules.clientes.import_modal.import') ?>
+                </button>
+                <button type="button" id="clienteImportacaoCloseBtn" class="btn-blue py-2 px-4 rounded-md text-sm font-medium hidden">
+                    <?= t('modules.clientes.import_modal.close') ?>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de Alerta Global -->
     <div id="alertModal" class="modal-overlay">
         <div class="modal-box">
@@ -1082,6 +1163,7 @@
         window.APP_I18N = window.APP_I18N || {};
         window.APP_I18N.common = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('common'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.APP_I18N.dashboard = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.dashboard'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        window.APP_I18N.clientes = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.clientes'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.APP_I18N.screenRecorder = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.gravacoes')['recorder'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.layoutI18n = <?= json_encode(\App\I18n\Translator::getInstance()->getFile('modules.layout'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         window.layoutLocale = <?= json_encode(current_locale()) ?>;
@@ -2182,6 +2264,8 @@
             } else if (event.data && event.data.action === 'openCameraArquivoModal') {
                 // Abrir modal da câmera para arquivos no documento pai (com seletor de câmera)
                 abrirModalCameraArquivo(event.source, event.data.arquivoTipo, event.data.arquivoNome);
+            } else if (event.data && event.data.action === 'openClienteImportacaoModal') {
+                openClienteImportacaoModal(event.source);
             } else if (event.data && event.data.action === 'openValidationModal') {
                 // Abrir modal de validação de formulário
                 openValidationModal(event.data.errors);
@@ -3142,6 +3226,374 @@
             }
         });
 
+        // ===== MODAL DE IMPORTAÇÃO DE CLIENTES =====
+        let clienteImportacaoSource = null;
+        let clienteImportacaoRunning = false;
+        let clienteImportacaoCompleted = false;
+        const clienteImportacaoI18n = window.APP_I18N?.clientes?.import_modal || {};
+
+        function clienteImportacaoSetHidden(elementId, hidden) {
+            document.getElementById(elementId)?.classList.toggle('hidden', hidden);
+        }
+
+        function clienteImportacaoUpdateSubmit() {
+            const filial = document.getElementById('clienteImportacaoFilial');
+            const arquivo = document.getElementById('clienteImportacaoArquivo');
+            const submit = document.getElementById('clienteImportacaoSubmitBtn');
+            if (!submit) return;
+            submit.disabled = clienteImportacaoRunning || !filial?.value || !arquivo?.files?.[0];
+        }
+
+        function clienteImportacaoSetBranchDisabled(disabled, placeholder = null) {
+            const select = document.getElementById('clienteImportacaoFilial');
+            if (!select) return;
+
+            if (select.chosenSelect?.setDisabled) {
+                select.chosenSelect.setDisabled(disabled, placeholder);
+                return;
+            }
+
+            select.disabled = Boolean(disabled);
+        }
+
+        function clienteImportacaoSetProgress(percent, status, processing = false) {
+            const progress = document.getElementById('clienteImportacaoProgress');
+            const track = progress?.querySelector('.cliente-importacao-progress-track');
+            const bar = document.getElementById('clienteImportacaoProgressBar');
+            const percentEl = document.getElementById('clienteImportacaoProgressPercent');
+            const statusEl = document.getElementById('clienteImportacaoProgressStatus');
+            const normalized = Math.max(0, Math.min(100, Number(percent) || 0));
+
+            progress?.classList.remove('hidden');
+            track?.classList.toggle('is-processing', processing);
+            track?.setAttribute('aria-valuenow', String(Math.round(normalized)));
+            if (bar) bar.style.width = processing ? '35%' : normalized + '%';
+            if (percentEl) {
+                percentEl.textContent = processing ? '100%' : Math.round(normalized) + '%';
+            }
+            if (statusEl) statusEl.textContent = status;
+        }
+
+        function clienteImportacaoRenderErrors(errors, fallbackMessage = '') {
+            const container = document.getElementById('clienteImportacaoErrorsList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const normalizedErrors = Array.isArray(errors) && errors.length
+                ? errors
+                : [{ line: null, field: '', message: fallbackMessage || clienteImportacaoI18n.connection_error }];
+            const groups = new Map();
+
+            normalizedErrors.forEach((error) => {
+                const groupName = error?.line
+                    ? `${clienteImportacaoI18n.line || 'Linha'} ${error.line}`
+                    : (clienteImportacaoI18n.file_group || 'Arquivo CSV');
+                if (!groups.has(groupName)) groups.set(groupName, []);
+                groups.get(groupName).push(error);
+            });
+
+            groups.forEach((items, groupName) => {
+                const group = document.createElement('section');
+                group.className = 'cliente-importacao-error-group';
+
+                const title = document.createElement('h5');
+                title.textContent = groupName;
+                group.appendChild(title);
+
+                const list = document.createElement('ul');
+                items.forEach((error) => {
+                    const item = document.createElement('li');
+                    const field = String(error?.field || '').trim();
+                    item.textContent = field
+                        ? `${field}: ${error?.message || ''}`
+                        : String(error?.message || '');
+                    list.appendChild(item);
+                });
+                group.appendChild(list);
+                container.appendChild(group);
+            });
+
+            clienteImportacaoSetHidden('clienteImportacaoErrors', false);
+        }
+
+        function clienteImportacaoTranslate(template, values = {}) {
+            return Object.entries(values).reduce(
+                (text, [key, value]) => String(text).replaceAll(`:${key}`, String(value)),
+                String(template || '')
+            );
+        }
+
+        function clienteImportacaoRenderSkipped(details, total) {
+            const container = document.getElementById('clienteImportacaoSkipped');
+            const title = document.getElementById('clienteImportacaoSkippedTitle');
+            const list = document.getElementById('clienteImportacaoSkippedList');
+            if (!container || !title || !list) return;
+
+            list.innerHTML = '';
+            const items = Array.isArray(details) ? details : [];
+            const skippedTotal = Math.max(0, Number(total) || items.length);
+
+            if (skippedTotal === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            title.textContent = clienteImportacaoTranslate(
+                clienteImportacaoI18n.skipped_summary,
+                { skipped: skippedTotal }
+            );
+
+            items.forEach((item) => {
+                const row = document.createElement('li');
+                const template = item?.reason === 'documento_repetido_arquivo'
+                    ? clienteImportacaoI18n.skipped_file_duplicate
+                    : clienteImportacaoI18n.skipped_existing;
+                row.textContent = clienteImportacaoTranslate(template, { line: item?.line || '-' });
+                list.appendChild(row);
+            });
+
+            container.classList.remove('hidden');
+        }
+
+        function clienteImportacaoResetView() {
+            clienteImportacaoRunning = false;
+            clienteImportacaoCompleted = false;
+            clienteImportacaoSetHidden('clienteImportacaoConfig', false);
+            clienteImportacaoSetHidden('clienteImportacaoProgress', true);
+            clienteImportacaoSetHidden('clienteImportacaoErrors', true);
+            clienteImportacaoSetHidden('clienteImportacaoSuccess', true);
+            clienteImportacaoSetHidden('clienteImportacaoCancelBtn', false);
+            clienteImportacaoSetHidden('clienteImportacaoSubmitBtn', false);
+            clienteImportacaoSetHidden('clienteImportacaoCloseBtn', true);
+            document.getElementById('clienteImportacaoErrorsList').innerHTML = '';
+            document.getElementById('clienteImportacaoSuccessMessage').textContent = '';
+            document.getElementById('clienteImportacaoSkippedList').innerHTML = '';
+            clienteImportacaoSetHidden('clienteImportacaoSkipped', true);
+            document.getElementById('clienteImportacaoArquivo').value = '';
+            clienteImportacaoUpdateSubmit();
+        }
+
+        async function clienteImportacaoLoadBranches() {
+            const select = document.getElementById('clienteImportacaoFilial');
+            if (!select) return;
+
+            select.innerHTML = '';
+            const loadingOption = document.createElement('option');
+            loadingOption.value = '';
+            loadingOption.textContent = clienteImportacaoI18n.loading_branches;
+            select.appendChild(loadingOption);
+            clienteImportacaoSetBranchDisabled(true, clienteImportacaoI18n.loading_branches);
+
+            try {
+                const result = await API.get('/api/clientes/importacao/filiais');
+                if (!result?.success) {
+                    throw new Error(result?.message || clienteImportacaoI18n.load_error);
+                }
+
+                const filiais = Array.isArray(result.data) ? result.data : [];
+                select.innerHTML = '';
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = clienteImportacaoI18n.select_branch;
+                select.appendChild(placeholder);
+
+                filiais.forEach((filial) => {
+                    const option = document.createElement('option');
+                    option.value = String(filial.id);
+                    const nome = filial.nome || `#${filial.id}`;
+                    option.textContent = filial.nome_fantasia && filial.nome_fantasia !== nome
+                        ? `${nome} — ${filial.nome_fantasia}`
+                        : nome;
+                    select.appendChild(option);
+                });
+
+                if (filiais.length === 0) {
+                    placeholder.textContent = clienteImportacaoI18n.no_branches;
+                    clienteImportacaoSetBranchDisabled(true, clienteImportacaoI18n.no_branches);
+                    clienteImportacaoRenderErrors([], clienteImportacaoI18n.no_branches);
+                    return;
+                }
+
+                select.value = '';
+                clienteImportacaoSetBranchDisabled(false, clienteImportacaoI18n.select_branch);
+                clienteImportacaoUpdateSubmit();
+            } catch (error) {
+                select.innerHTML = '';
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = clienteImportacaoI18n.load_error;
+                select.appendChild(option);
+                clienteImportacaoSetBranchDisabled(true, clienteImportacaoI18n.load_error);
+                clienteImportacaoRenderErrors([], error?.message || clienteImportacaoI18n.load_error);
+            }
+        }
+
+        function clienteImportacaoUpload(formData, retried = false) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/clientes/importar');
+                xhr.setRequestHeader('X-CSRF-TOKEN', API.getToken());
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+                xhr.upload.addEventListener('progress', (event) => {
+                    if (!event.lengthComputable) return;
+                    clienteImportacaoSetProgress(
+                        Math.round((event.loaded / event.total) * 100),
+                        clienteImportacaoI18n.uploading
+                    );
+                });
+                xhr.upload.addEventListener('load', () => {
+                    clienteImportacaoSetProgress(100, clienteImportacaoI18n.processing, true);
+                });
+                xhr.addEventListener('load', async () => {
+                    if (xhr.status === 419 && !retried) {
+                        try {
+                            await API.refreshCsrfToken();
+                            resolve(await clienteImportacaoUpload(formData, true));
+                        } catch (error) {
+                            API.showSessionExpiredModal();
+                            reject(error);
+                        }
+                        return;
+                    }
+                    if (xhr.status === 401) {
+                        window.location.href = '/login';
+                        reject(new Error(clienteImportacaoI18n.connection_error));
+                        return;
+                    }
+
+                    let data = null;
+                    try {
+                        data = JSON.parse(xhr.responseText);
+                    } catch (error) {
+                        reject(new Error(clienteImportacaoI18n.connection_error));
+                        return;
+                    }
+                    resolve(data);
+                });
+                xhr.addEventListener('error', () => reject(new Error(clienteImportacaoI18n.connection_error)));
+                xhr.send(formData);
+            });
+        }
+
+        async function openClienteImportacaoModal(source) {
+            if (clienteImportacaoRunning) return;
+            clienteImportacaoSource = source;
+            clienteImportacaoResetView();
+
+            const modal = document.getElementById('clienteImportacaoModal');
+            modal?.classList.add('open');
+            modal?.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('modal-open');
+            document.getElementById('clienteImportacaoCancelBtn')?.focus();
+            await clienteImportacaoLoadBranches();
+        }
+
+        function closeClienteImportacaoModal() {
+            if (clienteImportacaoRunning) return;
+            const modal = document.getElementById('clienteImportacaoModal');
+            modal?.classList.remove('open');
+            modal?.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('modal-open');
+            clienteImportacaoSource?.postMessage({ action: 'clienteImportacaoModalClosed' }, '*');
+            clienteImportacaoSource = null;
+            clienteImportacaoResetView();
+        }
+
+        async function submitClienteImportacao() {
+            if (clienteImportacaoRunning) return;
+            const filial = document.getElementById('clienteImportacaoFilial');
+            const arquivoInput = document.getElementById('clienteImportacaoArquivo');
+            const arquivo = arquivoInput?.files?.[0];
+
+            clienteImportacaoSetHidden('clienteImportacaoErrors', true);
+            if (!filial?.value) {
+                clienteImportacaoRenderErrors([
+                    { line: null, field: 'id_matriz_filial', message: clienteImportacaoI18n.branch_required }
+                ]);
+                filial?.focus();
+                return;
+            }
+            if (!arquivo) {
+                clienteImportacaoRenderErrors([
+                    { line: null, field: 'arquivo', message: clienteImportacaoI18n.file_required }
+                ]);
+                arquivoInput?.focus();
+                return;
+            }
+            if (!arquivo.name.toLowerCase().endsWith('.csv') || arquivo.size <= 0 || arquivo.size > 2 * 1024 * 1024) {
+                clienteImportacaoRenderErrors([
+                    { line: null, field: 'arquivo', message: clienteImportacaoI18n.invalid_file }
+                ]);
+                arquivoInput?.focus();
+                return;
+            }
+
+            clienteImportacaoRunning = true;
+            clienteImportacaoSetHidden('clienteImportacaoErrors', true);
+            document.getElementById('clienteImportacaoSubmitBtn').disabled = true;
+            document.getElementById('clienteImportacaoCancelBtn').disabled = true;
+            clienteImportacaoSetBranchDisabled(true);
+            arquivoInput.disabled = true;
+            clienteImportacaoSetProgress(0, clienteImportacaoI18n.uploading);
+
+            const formData = new FormData();
+            formData.append('id_matriz_filial', filial.value);
+            formData.append('arquivo', arquivo);
+
+            try {
+                const result = await clienteImportacaoUpload(formData);
+                if (!result?.success) {
+                    clienteImportacaoSetHidden('clienteImportacaoProgress', true);
+                    clienteImportacaoRenderErrors(result?.errors, result?.message);
+                    return;
+                }
+
+                clienteImportacaoCompleted = true;
+                clienteImportacaoSetHidden('clienteImportacaoConfig', true);
+                clienteImportacaoSetHidden('clienteImportacaoProgress', true);
+                clienteImportacaoSetHidden('clienteImportacaoErrors', true);
+                clienteImportacaoSetHidden('clienteImportacaoSuccess', false);
+                clienteImportacaoSetHidden('clienteImportacaoCancelBtn', true);
+                clienteImportacaoSetHidden('clienteImportacaoSubmitBtn', true);
+                clienteImportacaoSetHidden('clienteImportacaoCloseBtn', false);
+                const importados = Number(result?.data?.importados) || 0;
+                const ignorados = Number(result?.data?.ignorados) || 0;
+                document.getElementById('clienteImportacaoSuccessMessage').textContent =
+                    clienteImportacaoTranslate(
+                        clienteImportacaoI18n.success_summary,
+                        { imported: importados }
+                    ) || result.message || '';
+                clienteImportacaoRenderSkipped(result?.data?.ignorados_detalhes, ignorados);
+                clienteImportacaoSource?.postMessage({
+                    action: 'clienteImportacaoConcluida',
+                    importados,
+                    ignorados
+                }, '*');
+                setTimeout(() => document.getElementById('clienteImportacaoCloseBtn')?.focus(), 50);
+            } catch (error) {
+                clienteImportacaoSetHidden('clienteImportacaoProgress', true);
+                clienteImportacaoRenderErrors([], error?.message || clienteImportacaoI18n.connection_error);
+            } finally {
+                clienteImportacaoRunning = false;
+                if (!clienteImportacaoCompleted) {
+                    clienteImportacaoSetBranchDisabled(false, clienteImportacaoI18n.select_branch);
+                    arquivoInput.disabled = false;
+                    document.getElementById('clienteImportacaoCancelBtn').disabled = false;
+                    clienteImportacaoUpdateSubmit();
+                }
+            }
+        }
+
+        document.getElementById('clienteImportacaoFilial')?.addEventListener('change', clienteImportacaoUpdateSubmit);
+        document.getElementById('clienteImportacaoArquivo')?.addEventListener('change', clienteImportacaoUpdateSubmit);
+        document.getElementById('clienteImportacaoSubmitBtn')?.addEventListener('click', submitClienteImportacao);
+        document.getElementById('clienteImportacaoCancelBtn')?.addEventListener('click', closeClienteImportacaoModal);
+        document.getElementById('clienteImportacaoCloseBtn')?.addEventListener('click', closeClienteImportacaoModal);
+        document.getElementById('clienteImportacaoModal')?.addEventListener('click', function(event) {
+            if (event.target === this) closeClienteImportacaoModal();
+        });
+
         /**
          * Abre o modal de validação de formulário
          */
@@ -3389,7 +3841,32 @@
 
         // Fechar modais com ESC
         document.addEventListener('keydown', function(e) {
+            const clienteImportacaoModal = document.getElementById('clienteImportacaoModal');
+            if (
+                e.key === 'Tab'
+                && clienteImportacaoModal
+                && clienteImportacaoModal.classList.contains('open')
+            ) {
+                const focusable = Array.from(clienteImportacaoModal.querySelectorAll(
+                    'button:not([disabled]), select:not([disabled]), input:not([disabled])'
+                )).filter((element) => !element.classList.contains('hidden') && element.offsetParent !== null);
+                if (focusable.length) {
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+                    if (e.shiftKey && document.activeElement === first) {
+                        e.preventDefault();
+                        last.focus();
+                    } else if (!e.shiftKey && document.activeElement === last) {
+                        e.preventDefault();
+                        first.focus();
+                    }
+                }
+            }
             if (e.key === 'Escape') {
+                if (clienteImportacaoModal && clienteImportacaoModal.classList.contains('open')) {
+                    closeClienteImportacaoModal();
+                    return;
+                }
                 const printModal = document.getElementById('printModal');
                 if (printModal && printModal.classList.contains('open')) {
                     closePrintModal();

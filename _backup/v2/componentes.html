@@ -213,6 +213,7 @@
                     <h3 class="font-semibold text-slate-700 mb-3">Índice</h3>
                     <nav class="space-y-1">
                         <a href="#lista-modelo" class="component-nav-link">Lista Modelo</a>
+                        <a href="#menu-acoes" class="component-nav-link">Menu de Ações</a>
                         <a href="#botoes" class="component-nav-link">Botões</a>
                         <a href="#forms-tabs" class="component-nav-link">Forms e Tabs</a>
                         <a href="#tabs-verticais" class="component-nav-link">Tabs Verticais</a>
@@ -231,6 +232,40 @@
 
             <!-- Conteúdo Principal -->
             <main class="flex-1">
+                <section id="menu-acoes" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Menu de Ações</h2>
+                    <p class="text-slate-600 mb-4">
+                        Dropdown reutilizável para agrupar ações em um botão compacto. Possui suporte a teclado,
+                        fechamento ao clicar fora e atributos ARIA sincronizados pelo <code>components.min.js</code>.
+                    </p>
+                    <div class="component-example">
+                        <div class="action-menu" data-action-menu>
+                            <button type="button" class="action-menu-trigger" aria-label="Ações de importação"
+                                aria-haspopup="menu" aria-expanded="false">
+                                <i class="fas fa-file-import" aria-hidden="true"></i>
+                            </button>
+                            <div class="action-menu-panel" role="menu" aria-label="Ações de importação">
+                                <button type="button" class="action-menu-item" role="menuitem">
+                                    <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
+                                    <span>Importar</span>
+                                </button>
+                                <button type="button" class="action-menu-item" role="menuitem">
+                                    <i class="fas fa-file-arrow-down" aria-hidden="true"></i>
+                                    <span>Baixar modelo</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="component-info">
+                        <h4>Uso:</h4>
+                        <ul>
+                            <li>Adicione <code>data-action-menu</code> ao contêiner.</li>
+                            <li>Use <code>action-menu-trigger</code>, <code>action-menu-panel</code> e <code>action-menu-item</code>.</li>
+                            <li>Informe <code>aria-label</code> quando o gatilho tiver somente um ícone.</li>
+                        </ul>
+                    </div>
+                </section>
+
                 <!-- Seção: Lista Modelo -->
                 <section id="lista-modelo" class="component-section mb-12">
                     <h2 class="title-section mb-4">Lista Modelo (Abstração da Lista de Clientes)</h2>

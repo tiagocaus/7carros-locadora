@@ -136,7 +136,6 @@ const HelpHint = {
             popover.style.position = 'fixed';
             popover.style.top = popoverTop + 'px';
             popover.style.left = popoverLeft + 'px';
-            popover.style.zIndex = '10000';
             popover.classList.add('show');
 
             // Armazenar referências e adicionar listener de scroll
@@ -360,3 +359,102 @@ const FuelLabels = {
 
 // Exportar para uso global
 window.FuelLabels = FuelLabels;
+
+/**
+ * ActionMenu - Menu reutilizavel de acoes acionado por um botao compacto.
+ */
+const ActionMenu = {
+    initialized: false,
+
+    init() {
+        if (this.initialized) return;
+        this.initialized = true;
+
+        document.addEventListener('click', (event) => {
+            const trigger = event.target.closest('[data-action-menu] .action-menu-trigger');
+            if (trigger) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.toggle(trigger.closest('[data-action-menu]'));
+                return;
+            }
+
+            if (event.target.closest('[data-action-menu] .action-menu-item')) {
+                this.closeAll();
+                return;
+            }
+
+            if (!event.target.closest('[data-action-menu]')) {
+                this.closeAll();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            const menu = event.target.closest('[data-action-menu]');
+
+            if (event.key === 'Escape') {
+                const openMenu = document.querySelector('[data-action-menu].is-open');
+                if (openMenu) {
+                    event.preventDefault();
+                    const trigger = openMenu.querySelector('.action-menu-trigger');
+                    this.closeAll();
+                    trigger?.focus();
+                }
+                return;
+            }
+
+            if (!menu) return;
+
+            const trigger = menu.querySelector('.action-menu-trigger');
+            const items = Array.from(menu.querySelectorAll('.action-menu-item:not(:disabled)'));
+            const currentIndex = items.indexOf(document.activeElement);
+
+            if (event.target === trigger && ['ArrowDown', 'Enter', ' '].includes(event.key)) {
+                event.preventDefault();
+                this.open(menu);
+                items[0]?.focus();
+            } else if (event.key === 'ArrowDown' && currentIndex >= 0) {
+                event.preventDefault();
+                items[(currentIndex + 1) % items.length]?.focus();
+            } else if (event.key === 'ArrowUp' && currentIndex >= 0) {
+                event.preventDefault();
+                items[(currentIndex - 1 + items.length) % items.length]?.focus();
+            } else if (event.key === 'Home' && currentIndex >= 0) {
+                event.preventDefault();
+                items[0]?.focus();
+            } else if (event.key === 'End' && currentIndex >= 0) {
+                event.preventDefault();
+                items[items.length - 1]?.focus();
+            }
+        });
+    },
+
+    toggle(menu) {
+        if (!menu) return;
+        menu.classList.contains('is-open') ? this.close(menu) : this.open(menu);
+    },
+
+    open(menu) {
+        this.closeAll(menu);
+        menu.classList.add('is-open');
+        menu.querySelector('.action-menu-trigger')?.setAttribute('aria-expanded', 'true');
+    },
+
+    close(menu) {
+        if (!menu) return;
+        menu.classList.remove('is-open');
+        menu.querySelector('.action-menu-trigger')?.setAttribute('aria-expanded', 'false');
+    },
+
+    closeAll(except = null) {
+        document.querySelectorAll('[data-action-menu].is-open').forEach((menu) => {
+            if (menu !== except) this.close(menu);
+        });
+    }
+};
+
+document.readyState === 'loading'
+    ? document.addEventListener('DOMContentLoaded', () => ActionMenu.init())
+    : ActionMenu.init();
+
+window.ActionMenu = ActionMenu;

@@ -183,6 +183,34 @@ Para inputs, use a classe `input-km`:
 
 ## Helpers de UI
 
+### JavaScript/CSS - Menu de ações (`ActionMenu`)
+
+Dropdown compacto para agrupar ações relacionadas em um botão, inclusive quando o gatilho exibe apenas um ícone. O comportamento é inicializado automaticamente por `components.min.js`: abre por clique ou teclado, fecha ao selecionar uma ação, clicar fora ou pressionar `Esc`, e mantém `aria-expanded` sincronizado.
+
+```html
+<div class="action-menu" data-action-menu>
+    <button type="button"
+        class="action-menu-trigger"
+        aria-label="Ações de importação"
+        aria-haspopup="menu"
+        aria-expanded="false">
+        <i class="fas fa-file-import" aria-hidden="true"></i>
+    </button>
+    <div class="action-menu-panel" role="menu" aria-label="Ações de importação">
+        <button type="button" class="action-menu-item" role="menuitem">
+            <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
+            <span>Importar</span>
+        </button>
+        <a href="/modelo.csv" class="action-menu-item" role="menuitem">
+            <i class="fas fa-file-arrow-down" aria-hidden="true"></i>
+            <span>Baixar modelo</span>
+        </a>
+    </div>
+</div>
+```
+
+Use `window.ActionMenu.closeAll()` quando uma ação precisar fechar o menu antes de iniciar um fluxo assíncrono. O componente aceita vários menus na mesma página e mantém somente um aberto.
+
 ### PHP - `aviso()`
 
 Gera ícone de ajuda [?] com popover de instrução.
@@ -323,7 +351,7 @@ if ($apiKey === null) {
 | `app/Helpers/FilialHelper.php` | Filtros de filial |
 | `app/Helpers/PdfHelper.php` | Geração de PDF + resolução de imagens para mPDF; constantes `DOCUMENTO_HTML_*` / `DOCUMENTO_MULTAS_*` para margens do corpo com header/footer HTML |
 | `app/Helpers/SequenciaHelper.php` | Geração de sequências |
-| `public/assets/js/components.js` | Helpers JS (Str, Km, HelpHint, FuelLabels) |
+| `public/assets/js/components.js` | Helpers JS (Str, Km, HelpHint, FuelLabels, ActionMenu) |
 | `public/assets/js/currency.js` | Helper JS de moeda |
 | `public/assets/js/percent.js` | Helper JS de porcentagem |
 | `public/assets/js/date.js` | Helper JS de data |
