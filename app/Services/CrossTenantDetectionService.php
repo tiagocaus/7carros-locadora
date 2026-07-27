@@ -339,7 +339,7 @@ class CrossTenantDetectionService
                 'to' => $email,
                 'subject' => "[ALERTA SEGURANCA] Tentativa de acesso cross-tenant detectada",
                 'body' => $body,
-            ]);
+            ], null, true);
         } catch (\Throwable $e) {
             // Falha silenciosa - nao interromper o fluxo por erro de email
             error_log("Erro ao enviar alerta cross-tenant: " . $e->getMessage());

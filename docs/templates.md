@@ -394,6 +394,18 @@ $service->restoreDefault('welcome', 'email', 'pt_BR');
 
 Emails são automaticamente envolvidos em um layout base.
 
+O layout de tenant exibe a logo cadastrada na matriz principal por uma URL
+absoluta e assinada. Quando a logo estiver ausente ou o arquivo nao existir, o
+cabecalho usa apenas o nome fantasia. O rodape mantem telefone, email, razao
+social, CNPJ e endereco. Esse mesmo layout deve ser aplicado a conteudos HTML
+consolidados por `MessageTemplateService::renderEmailLayout()`, mesmo quando o
+corpo nao vier de um template individual.
+
+O layout padrao permanece limitado a `600px`. Conteudos tabulares que informam
+`_email_layout = wide`, como lotes com duas ou mais cobrancas, usam `100%` da
+largura disponivel com limite de `1000px`. Em telas de ate `640px`, o container
+volta a `100%` e reduz os espacamentos para preservar a leitura.
+
 ### Estrutura
 
 ```html
@@ -404,9 +416,11 @@ Emails são automaticamente envolvidos em um layout base.
 </head>
 <body>
     <table width="600">
+        <!-- ou width="100%" e max-width:1000px no modo wide -->
         <!-- HEADER -->
         <tr>
             <td style="background: #1a56db;">
+                [logo do tenant, quando disponivel]
                 <h1>{{empresa.nome_fantasia}}</h1>
             </td>
         </tr>

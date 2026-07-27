@@ -12,8 +12,8 @@ use App\Database\Migration;
  * Model antigo GrupoPrecoDia removido; endpoints antigos (precos/salvarPrecos)
  * removidos do GruposController.
  *
- * TenantProvisioningService mantem referencia a `grupos_precos_dias` na lista
- * de deletes — e idempotente, nao quebra apos drop.
+ * O termino de tenants descobre as tabelas existentes no schema, portanto
+ * passa a considerar apenas `grupos_precos_dias_filiais` apos este drop.
  */
 return new class extends Migration
 {

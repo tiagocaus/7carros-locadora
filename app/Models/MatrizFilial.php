@@ -13,6 +13,8 @@ use IntlDateFormatter;
  */
 class MatrizFilial extends Model
 {
+    private ?bool $configuracaoCobrancaVencidaDisponivel = null;
+
     use Auditable;
 
     /**
@@ -84,6 +86,72 @@ class MatrizFilial extends Model
     }
 
     /**
+     * Mantem o deploy compativel enquanto a migration da nova configuracao
+     * ainda nao tiver sido executada no ambiente.
+     */
+    public function possuiConfiguracaoCobrancaVencida(): bool
+    {
+        if ($this->configuracaoCobrancaVencidaDisponivel !== null) {
+            return $this->configuracaoCobrancaVencidaDisponivel;
+        }
+
+        $result = $this->getMysqli()->query(
+            "SHOW COLUMNS FROM matrizes_filiais LIKE 'notificacao_cobranca_vencida'"
+        );
+        $this->configuracaoCobrancaVencidaDisponivel = $result !== false && $result->num_rows > 0;
+        if ($result instanceof \mysqli_result) {
+            $result->free();
+        }
+
+        return $this->configuracaoCobrancaVencidaDisponivel;
+    }
+
+    /**
+     * Busca somente os dados necessarios para validar canais de notificacao.
+     */
+    public function buscarConfiguracoesNotificacao(int $id, ?string $chave = null): ?array
+    {
+        $query = $this->qb
+            ->table('matrizes_filiais');
+
+        if ($chave !== null && $chave !== '') {
+            $query->withChave($chave);
+        }
+
+        return $query
+            ->select([
+                'id',
+                'razao_social',
+                'nome_fantasia',
+                'notificacao_email',
+                'notificacao_sms',
+                'notificacao_whatsapp',
+            ])
+            ->where('id', '=', $id)
+            ->first();
+    }
+
+    /**
+     * Fallback exclusivo para mensagens legadas da fila sem filial gravada.
+     */
+    public function buscarConfiguracoesNotificacaoMatriz(string $chave): ?array
+    {
+        return $this->qb
+            ->table('matrizes_filiais')
+            ->withChave($chave)
+            ->select([
+                'id',
+                'razao_social',
+                'nome_fantasia',
+                'notificacao_email',
+                'notificacao_sms',
+                'notificacao_whatsapp',
+            ])
+            ->where('tipo', '=', 'M')
+            ->first();
+    }
+
+    /**
      * Cria uma nova matriz/filial
      *
      * @param array $dados Dados da matriz/filial
@@ -115,6 +183,10 @@ class MatrizFilial extends Model
             'impressao_variavel_negrito' => 'N',
             'impressao_remover_tarja_amarela' => 'N',
         ];
+
+        if ($this->possuiConfiguracaoCobrancaVencida()) {
+            $defaults['notificacao_cobranca_vencida'] = 'S';
+        }
 
         foreach ($defaults as $key => $value) {
             if (!isset($dados[$key])) {

@@ -684,10 +684,16 @@ O cron `SendFinanceiroCobrancasJob` envia cobrancas de receitas pendentes com cl
 
 - 1 dia antes do vencimento: template `payment_reminder`.
 - Depois de vencida: template `overdue_notice`, no maximo uma vez a cada 7 dias por fatura/canal.
+- A opcao `notificacao_cobranca_vencida` da matriz/filial controla somente o
+  `overdue_notice` automatico. Quando estiver em `N`, faturas vencidas daquela
+  filial nao entram no CRON; lembretes pre-vencimento, envios manuais e
+  indicadores internos continuam ativos.
 - Email e enviado quando o cliente possui email. WhatsApp e SMS dependem de telefone no cliente e conexao validada/conectada na filial.
 - As faturas elegiveis sao agrupadas por tenant e cliente. Cada execucao enfileira no maximo uma mensagem por cliente/canal, com secoes separadas para faturas a vencer e vencidas.
 - Todas as faturas do lote ficam vinculadas ao mesmo `message_id` em `financeiro_cobrancas_notificacoes`.
 - Lotes com uma unica fatura preservam o template customizavel do tipo de aviso; lotes com duas ou mais usam o resumo consolidado.
+- Em email, cobrancas unitarias e agrupadas usam o mesmo layout do tenant, com logo, nome fantasia e dados empresariais da matriz principal. Sem logo valida, o nome fantasia permanece como fallback.
+- O resumo com duas ou mais cobrancas usa `100%` da largura disponivel, limitado a `1000px`; emails unitarios continuam limitados a `600px`.
 - O controle de duplicidade fica em `financeiro_cobrancas_notificacoes`.
 
 Antes de enfileirar a mensagem, o cron cria ou reutiliza o link publico da fatura por `PagamentoLinkSyncService`. O link segue estavel e reflete valor, vencimento, juros, multa e desconto atuais.

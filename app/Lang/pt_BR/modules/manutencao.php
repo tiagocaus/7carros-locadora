@@ -192,6 +192,7 @@ return [
         'os' => 'OS',
         'vehicle' => 'Veículo',
         'workshop' => 'Oficina',
+        'creation_date' => 'Data Criação',
         'send_date' => 'Data Envio',
         'total' => 'Total',
         'status' => 'Status',

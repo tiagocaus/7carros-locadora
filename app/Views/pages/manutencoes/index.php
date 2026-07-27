@@ -24,6 +24,7 @@
                     <th class="table-header w-36"><?= t('modules.manutencao.table.os') ?></th>
                     <th class="table-header"><?= t('modules.manutencao.table.vehicle') ?></th>
                     <th class="table-header hidden sm:table-cell"><?= t('modules.manutencao.table.workshop') ?></th>
+                    <th class="table-header hidden md:table-cell text-center"><?= t('modules.manutencao.table.creation_date') ?></th>
                     <th class="table-header hidden md:table-cell text-center"><?= t('modules.manutencao.table.send_date') ?></th>
                     <th class="table-header hidden lg:table-cell text-right"><?= t('modules.manutencao.table.total') ?></th>
                     <th class="table-header w-28 text-center"><?= t('modules.manutencao.table.status') ?></th>
@@ -136,7 +137,7 @@ $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED
         if (!manutencoes || manutencoes.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="text-center py-8 text-slate-500">
+                    <td colspan="8" class="text-center py-8 text-slate-500">
                         <i class="fas fa-wrench text-4xl mb-3 opacity-30"></i>
                         <p>${i18n.noRecords}</p>
                     </td>
@@ -176,6 +177,7 @@ $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED
                     <td class="table-cell font-mono text-sm">${m.os}</td>
                     <td class="table-cell">${veiculo}</td>
                     <td class="table-cell hidden sm:table-cell">${oficina}</td>
+                    <td class="table-cell hidden md:table-cell text-center">${m.created_at_formatted || '-'}</td>
                     <td class="table-cell hidden md:table-cell text-center">${m.data_enviado_formatted || '-'}</td>
                     <td class="table-cell hidden lg:table-cell text-right font-medium">${Currency.format(m.total_servicos, true)}</td>
                     <td class="table-cell text-center">${statusBadge}</td>

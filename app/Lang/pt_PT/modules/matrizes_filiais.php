@@ -160,6 +160,9 @@ return [
         'email_desc' => 'Enviar notificações por e-mail',
         'whatsapp_title' => 'WhatsApp',
         'whatsapp_desc' => 'Enviar notificações por WhatsApp',
+        'financial_automation' => 'Automatização financeira',
+        'overdue_billing_title' => 'Cobrança automática de faturas vencidas',
+        'overdue_billing_desc' => 'Enviar avisos periódicos enquanto a fatura permanecer vencida',
     ],
     'print' => [
         'bold_variables' => 'Variáveis em Negrito',

@@ -389,8 +389,9 @@ class PromissoriasController
             }
             $empresa['id'] = $empresa['id'] ?? $filialId;
 
-            queue_template_message('signature_request', 'whatsapp', [
+            $messageId = queue_template_message('signature_request', 'whatsapp', [
                 'cliente' => [
+                    'id' => (int) ($promissoria['id_cliente'] ?? 0),
                     'nome' => $promissoria['cliente_nome'] ?? '',
                     'email' => $promissoria['cliente_email'] ?? '',
                     'telefone' => $telefone,
@@ -403,6 +404,9 @@ class PromissoriasController
                 ],
                 'id_matriz_filial' => $filialId,
             ], $chave);
+            if ($messageId <= 0) {
+                throw new \InvalidArgumentException('Cliente sem WhatsApp autorizado para envio');
+            }
 
             Response::json([
                 'success' => true,

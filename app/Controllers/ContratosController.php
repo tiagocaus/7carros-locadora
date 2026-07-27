@@ -2571,6 +2571,17 @@ class ContratosController
                     throw new \InvalidArgumentException('Cliente sem email autorizado para envio');
                 }
                 $destinatario = (string) $emailsAutorizados[0]['email'];
+            } else {
+                $telefonesAutorizados = (new ContatoTelefone())->listarParaEnvio(
+                    'cliente',
+                    (int) $contrato['id_cliente'],
+                    $canal,
+                    $chave
+                );
+                if ($telefonesAutorizados === []) {
+                    throw new \InvalidArgumentException("Cliente sem telefone autorizado para {$canal}");
+                }
+                $destinatario = (string) $telefonesAutorizados[0]['telefone'];
             }
 
             validate_queue_message($canal, [
@@ -2601,18 +2612,18 @@ class ContratosController
                 ], $chave);
             } elseif ($canal === 'whatsapp') {
                 $publicUrl = rtrim(env('APP_URL', ''), '/') . '/storage/temp/' . $filename;
-                queue_message('whatsapp', [
+                queue_client_phone('whatsapp', (int) $contrato['id_cliente'], [
                     'to' => $destinatario,
                     'media_url' => $publicUrl,
                     'caption' => 'Contrato ' . $contrato['codigo'] . ' - ' . $nomeEmpresa,
                     'id_matriz_filial' => $contrato['id_matriz_filial_retirada'] ?? null,
-                ]);
+                ], $chave);
             } elseif ($canal === 'sms') {
-                queue_message('sms', [
+                queue_client_phone('sms', (int) $contrato['id_cliente'], [
                     'to' => $destinatario,
                     'message' => 'Seu contrato ' . $contrato['codigo'] . ' esta disponivel. ' . $nomeEmpresa,
                     'id_matriz_filial' => $contrato['id_matriz_filial_retirada'] ?? null,
-                ]);
+                ], $chave);
             }
 
             Response::json(['success' => true, 'message' => 'Documento enviado com sucesso']);
@@ -2667,8 +2678,9 @@ class ContratosController
             $empresa = $this->buscarDadosEmpresa($filialId) ?? [];
             $empresa['id'] = $empresa['id'] ?? $filialId;
 
-            queue_template_message('signature_request', 'whatsapp', [
+            $messageId = queue_template_message('signature_request', 'whatsapp', [
                 'cliente' => [
+                    'id' => (int) ($contrato['id_cliente'] ?? 0),
                     'nome' => $contrato['cliente_nome'] ?? '',
                     'email' => $contrato['cliente_email'] ?? '',
                     'telefone' => $telefone,
@@ -2681,6 +2693,9 @@ class ContratosController
                 ],
                 'id_matriz_filial' => $filialId,
             ], $chave);
+            if ($messageId <= 0) {
+                throw new \InvalidArgumentException('Cliente sem WhatsApp autorizado para envio');
+            }
 
             Response::json(['success' => true, 'message' => 'Link de assinatura enviado por WhatsApp']);
 

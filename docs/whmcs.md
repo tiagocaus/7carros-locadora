@@ -247,17 +247,25 @@ curl -X POST https://locadora.7carros.com/webhook/whmcs/terminar \
 **Resposta (200):**
 ```json
 {
-    "success": true,
-    "deleted_tables": {
-        "funcionarios": 3,
-        "matrizes_filiais": 1,
-        "veiculos": 15,
-        "clientes": 42
-    }
+    "success": true
 }
 ```
 
+O endpoint expõe somente `success` em caso de êxito. Em caso de erro, retorna
+`success: false` e `message`, sem detalhes internos das tabelas processadas.
+As contagens de exclusão e o indicador de retry idempotente ficam restritos ao
+log interno `storage/logs/whmcs-operations.log`.
+
 > **Atenção:** Esta acao e irreversivel. Remove TODOS os registros com a chave do tenant e a pasta `storage/uploads/{chave}`.
+
+**Garantias do término:**
+- `App\Models\TenantProvisioning` descobre no schema atual todas as tabelas com coluna `chave`.
+- A ordem de exclusão é calculada pelas foreign keys `RESTRICT`/`NO ACTION`, sempre com a tabela filha antes da tabela-pai.
+- Tabelas tenant adicionadas ou removidas por migrations entram ou saem automaticamente do término.
+- Dependência restritiva sem coluna `chave` ou ciclo impossível de ordenar interrompe a operação antes da transação.
+- `feature_requests`, `feature_request_followers` e `feature_request_votes` são preservadas por pertencerem ao sistema interno da 7Carros.
+- Um retry após o banco já ter sido limpo ainda remove uploads e certificados remanescentes.
+- Falhas geram o evento `terminate_failed` em `storage/logs/whmcs-operations.log`, com fase e tabela, sem expor credenciais na resposta HTTP.
 
 ---
 
@@ -411,9 +419,10 @@ SELECT * FROM logs WHERE mensagem LIKE '[WHMCS]%' ORDER BY data DESC;
 
 | Arquivo | Responsabilidade |
 |---------|-----------------|
-| `app/Middleware/WhmcsAuthMiddleware.php` | Valida Bearer token |
+| `app/Middleware/WhmcsAuthMiddleware.php` | Valida o `accesshash` |
 | `app/Controllers/WhmcsController.php` | Validação de input, delegação ao Service |
 | `app/Services/TenantProvisioningService.php` | Lógica de negócio (CRUD de tenant) |
+| `app/Models/TenantProvisioning.php` | Descoberta do schema, ordenação e exclusão tenant-scoped |
 | `app/Routes/web.php` | Definição das rotas POST |
 | `app/Config/Security.php` | Rate limit para `/webhook/whmcs` |
 
@@ -452,4 +461,17 @@ O `usuario` enviado no criar já existe para outro tenant. Gerar um username dif
 Buscar por `[WHMCS]` no log do PHP:
 ```bash
 grep '\[WHMCS\]' /var/log/php/error.log
+```
+
+### Falha ao terminar tenant
+Consultar o evento mais recente `terminate_failed`:
+```bash
+grep '"acao":"terminate_failed"' storage/logs/whmcs-operations.log | tail -1
+```
+
+O campo `fase` indica se a falha ocorreu no preflight, roles, tabela tenant,
+commit ou arquivos. Quando `fase` for `tabelas_tenant`, o campo `tabela`
+identifica o `DELETE` que falhou. Após corrigir a causa, execute:
+```bash
+php tests/test_whmcs_tenant_termination.php
 ```

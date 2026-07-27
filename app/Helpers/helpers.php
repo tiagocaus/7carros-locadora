@@ -523,7 +523,12 @@ if (!function_exists('validate_queue_message')) {
             $payload['id_matriz_filial'] = $_SESSION['id_matriz_filial'];
         }
 
-        queue_message_service()->validateForPublication($type, $payload, $validateContent);
+        queue_message_service()->validateForPublication(
+            $type,
+            $payload,
+            $validateContent,
+            $_SESSION['chave'] ?? null
+        );
     }
 }
 
@@ -540,9 +545,17 @@ if (!function_exists('queue_system_message')) {
      * @param string|null $chave Chave do tenant destinatario (opcional)
      * @return int ID da mensagem
      */
-    function queue_system_message(string $type, array $payload, ?string $chave = null): int
+    function queue_system_message(
+        string $type,
+        array $payload,
+        ?string $chave = null,
+        bool $ignorarBloqueioEmpresa = false
+    ): int
     {
         $payload['_system_message'] = true;
+        if ($ignorarBloqueioEmpresa) {
+            $payload['_company_channel_bypass'] = 'platform';
+        }
 
         if ($type === 'whatsapp' && !empty($payload['message'])) {
             $payload['message'] = "*[7Carros]*\n" . $payload['message'];
@@ -552,6 +565,56 @@ if (!function_exists('queue_system_message')) {
         }
 
         return queue_message($type, $payload, $chave);
+    }
+}
+
+if (!function_exists('queue_client_phone')) {
+    /**
+     * Enfileira uma copia para cada telefone autorizado do cliente.
+     *
+     * @return array<int, int> IDs das mensagens criadas
+     */
+    function queue_client_phone(
+        string $channel,
+        int $clienteId,
+        array $payload,
+        ?string $chave = null,
+        ?string $batchId = null
+    ): array {
+        if (!in_array($channel, ['whatsapp', 'sms'], true)) {
+            throw new \InvalidArgumentException('Canal de telefone invalido');
+        }
+        if ($clienteId <= 0) {
+            throw new \InvalidArgumentException('Cliente nao informado para envio');
+        }
+
+        $chave = $chave ?? ($_SESSION['chave'] ?? null);
+        if (empty($chave)) {
+            throw new \RuntimeException('Chave do tenant nao definida');
+        }
+
+        $destinatarios = (new \App\Models\ContatoTelefone())
+            ->listarParaEnvio('cliente', $clienteId, $channel, $chave);
+        $ids = [];
+        $telefonesEnfileirados = [];
+
+        foreach ($destinatarios as $destinatario) {
+            $telefone = trim((string) ($destinatario['telefone'] ?? ''));
+            $normalizado = preg_replace('/\D/', '', $telefone);
+            if ($normalizado === '' || isset($telefonesEnfileirados[$normalizado])) {
+                continue;
+            }
+            $telefonesEnfileirados[$normalizado] = true;
+
+            $payloadDestinatario = $payload;
+            $payloadDestinatario['to'] = $telefone;
+            $payloadDestinatario['_recipient_entity_type'] = 'cliente';
+            $payloadDestinatario['_recipient_entity_id'] = $clienteId;
+
+            $ids[] = queue_message($channel, $payloadDestinatario, $chave, $batchId);
+        }
+
+        return $ids;
     }
 }
 
@@ -731,7 +794,7 @@ if (!function_exists('queue_template_message')) {
         // Sem destinatario para o canal nao e erro: cliente sem email/celular
         // simplesmente nao recebe naquele canal.
         $emailRecuperacao = $channel === 'email' && $templateSlug === 'cliente_nova_senha';
-        if (empty($payload['to']) && ($channel !== 'email' || $emailRecuperacao)) {
+        if (empty($payload['to']) && $channel === 'email' && $emailRecuperacao) {
             return 0;
         }
 
@@ -755,8 +818,10 @@ if (!function_exists('queue_template_message')) {
             return $messageIds[0] ?? 0;
         }
 
-        // Enfileirar mensagem dos demais canais
-        return queue_message($channel, $payload, $chave, $batchId);
+        $clienteId = (int) ($cliente['id'] ?? $cliente['id_cliente'] ?? 0);
+        $messageIds = queue_client_phone($channel, $clienteId, $payload, $chave, $batchId);
+
+        return $messageIds[0] ?? 0;
     }
 }
 

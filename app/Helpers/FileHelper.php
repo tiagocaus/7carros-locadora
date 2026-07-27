@@ -256,7 +256,12 @@ class FileHelper
      */
     private static function getUploadDir(string $chave): string
     {
-        return $_SERVER['DOCUMENT_ROOT'] . '/..' . self::UPLOAD_DIR . $chave . '/';
+        $documentRoot = rtrim((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+        if ($documentRoot !== '') {
+            return $documentRoot . '/..' . self::UPLOAD_DIR . $chave . '/';
+        }
+
+        return dirname(__DIR__, 2) . self::UPLOAD_DIR . $chave . '/';
     }
 
     /**

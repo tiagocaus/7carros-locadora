@@ -12,6 +12,7 @@ use App\Models\MatrizFilial;
 use App\Models\PlanoDeContas;
 use App\Models\Cliente;
 use App\Models\ContatoEmail;
+use App\Models\ContatoTelefone;
 use App\Models\Fornecedor;
 use App\Models\FormaPagamento;
 use App\Models\GatewayPagamento;
@@ -1411,6 +1412,17 @@ class FinanceiroController
                     throw new \InvalidArgumentException('Cliente sem email autorizado para envio');
                 }
                 $destinatario = (string) $emailsAutorizados[0]['email'];
+            } else {
+                $telefonesAutorizados = (new ContatoTelefone())->listarParaEnvio(
+                    'cliente',
+                    (int) $lancamento['id_cliente'],
+                    $canal,
+                    $chave
+                );
+                if ($telefonesAutorizados === []) {
+                    throw new \InvalidArgumentException("Cliente sem telefone autorizado para {$canal}");
+                }
+                $destinatario = (string) $telefonesAutorizados[0]['telefone'];
             }
 
             validate_queue_message($canal, [
@@ -1462,7 +1474,7 @@ class FinanceiroController
                 ], $chave);
             } elseif ($canal === 'whatsapp') {
                 $publicUrl = rtrim(env('APP_URL', ''), '/') . '/storage/temp/' . $filename;
-                queue_message('whatsapp', [
+                queue_client_phone('whatsapp', (int) $lancamento['id_cliente'], [
                     'to' => $destinatario,
                     'media_url' => $publicUrl,
                     'caption' => 'Fatura ' . $codigo . ' - ' . $nomeEmpresa
@@ -1470,13 +1482,13 @@ class FinanceiroController
                         . "\nVencimento: " . $venciBR
                         . $parcelaTexto,
                     'id_matriz_filial' => $lancamento['id_matriz_filial'] ?? null,
-                ]);
+                ], $chave);
             } else { // sms
-                queue_message('sms', [
+                queue_client_phone('sms', (int) $lancamento['id_cliente'], [
                     'to' => $destinatario,
                     'message' => $nomeEmpresa . ': Fatura ' . $codigo . ' - R$ ' . $valorBR . ', vence ' . $venciBR . $parcelaTexto,
                     'id_matriz_filial' => $lancamento['id_matriz_filial'] ?? null,
-                ]);
+                ], $chave);
             }
 
             Response::json(['success' => true, 'message' => 'Fatura enviada com sucesso']);

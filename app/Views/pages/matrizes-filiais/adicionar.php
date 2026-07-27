@@ -389,6 +389,22 @@
                     <label for="notificacao_titulo" class="form-label-group"><?= t('modules.matrizes_filiais.fields.notification_title') ?></label>
                     <input type="text" id="notificacao_titulo" name="notificacao_titulo" class="form-input-group-field" placeholder="<?= t('modules.matrizes_filiais.fields.notification_title_placeholder') ?>">
                 </div>
+
+                <div class="mt-4">
+                    <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                        <?= t('modules.matrizes_filiais.notifications.financial_automation') ?>
+                    </h4>
+                    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                        <div>
+                            <h4 class="font-medium"><?= t('modules.matrizes_filiais.notifications.overdue_billing_title') ?></h4>
+                            <p class="text-sm text-slate-500"><?= t('modules.matrizes_filiais.notifications.overdue_billing_desc') ?></p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="notificacao_cobranca_vencida" name="notificacao_cobranca_vencida" value="S" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                </div>
             </div>
 
             <!-- Secao: Impressao -->
@@ -1112,6 +1128,7 @@
             if (data.notificacao_sms === 'S') document.getElementById('notificacao_sms').checked = true;
             if (data.notificacao_email === 'S') document.getElementById('notificacao_email').checked = true;
             if (data.notificacao_whatsapp === 'S') document.getElementById('notificacao_whatsapp').checked = true;
+            document.getElementById('notificacao_cobranca_vencida').checked = data.notificacao_cobranca_vencida !== 'N';
             if (data.notificacao_titulo) document.getElementById('notificacao_titulo').value = data.notificacao_titulo;
 
             // Impressao
@@ -1867,6 +1884,7 @@
             dados.notificacao_sms = document.getElementById('notificacao_sms').checked ? 'S' : 'N';
             dados.notificacao_email = document.getElementById('notificacao_email').checked ? 'S' : 'N';
             dados.notificacao_whatsapp = document.getElementById('notificacao_whatsapp').checked ? 'S' : 'N';
+            dados.notificacao_cobranca_vencida = document.getElementById('notificacao_cobranca_vencida').checked ? 'S' : 'N';
             dados.impressao_variavel_negrito = document.getElementById('impressao_variavel_negrito').checked ? 'S' : 'N';
             dados.impressao_remover_tarja_amarela = document.getElementById('impressao_remover_tarja_amarela').checked ? 'S' : 'N';
 

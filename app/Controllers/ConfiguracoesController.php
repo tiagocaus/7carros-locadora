@@ -64,6 +64,7 @@ class ConfiguracoesController
                     'notificacao_sms' => $matriz['notificacao_sms'] ?? 'N',
                     'notificacao_email' => $matriz['notificacao_email'] ?? 'N',
                     'notificacao_whatsapp' => $matriz['notificacao_whatsapp'] ?? 'N',
+                    'notificacao_cobranca_vencida' => $matriz['notificacao_cobranca_vencida'] ?? 'S',
                     'notificacao_titulo' => $matriz['notificacao_titulo'] ?? '',
                     'impressao_variavel_negrito' => $matriz['impressao_variavel_negrito'] ?? 'N',
                     'impressao_remover_tarja_amarela' => $matriz['impressao_remover_tarja_amarela'] ?? 'N',
@@ -143,7 +144,16 @@ class ConfiguracoesController
             $seqFinanceiro = max((int) $matriz['sequencia_financeiro'], (int) $request->input('sequencia_financeiro', $matriz['sequencia_financeiro']));
 
             // Campos toggle (S/N)
-            $toggleFields = ['notificacao_sms', 'notificacao_email', 'notificacao_whatsapp', 'impressao_variavel_negrito', 'impressao_remover_tarja_amarela'];
+            $toggleFields = [
+                'notificacao_sms',
+                'notificacao_email',
+                'notificacao_whatsapp',
+                'impressao_variavel_negrito',
+                'impressao_remover_tarja_amarela',
+            ];
+            if ($model->possuiConfiguracaoCobrancaVencida()) {
+                $toggleFields[] = 'notificacao_cobranca_vencida';
+            }
             $dados = [
                 'locale' => $locale,
                 'currency_code' => $currency,

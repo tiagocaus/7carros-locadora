@@ -929,6 +929,7 @@ class ClientesController
             // Preparar contexto para o template (empresa.* vem do enrichment no service)
             $context = [
                 'cliente' => [
+                    'id' => (int) ($cliente['id'] ?? $financeiro['id_cliente'] ?? 0),
                     'nome' => $cliente['nome_rsocial'],
                     'primeiro_nome' => explode(' ', $cliente['nome_rsocial'])[0],
                     'email' => $email,
@@ -954,6 +955,9 @@ class ClientesController
 
             // Enviar mensagem via template
             $messageId = queue_template_message('payment_reminder', 'whatsapp', $context);
+            if ($messageId <= 0) {
+                throw new \InvalidArgumentException('Cliente sem WhatsApp autorizado para envio');
+            }
 
             Response::json([
                 'success' => true,

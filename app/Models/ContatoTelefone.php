@@ -103,6 +103,56 @@ class ContatoTelefone extends Model
     }
 
     /**
+     * Lista todos os telefones autorizados para um canal.
+     *
+     * @return array<int, array{id:int,telefone:string,descricao:?string,principal:string}>
+     */
+    public function listarParaEnvio(string $tipo, int $id, string $canal, ?string $chave = null): array
+    {
+        if (!in_array($canal, ['whatsapp', 'sms'], true)) {
+            throw new \InvalidArgumentException('Canal de telefone invalido');
+        }
+
+        $query = $this->qb->table('contatos_telefones');
+        if ($chave !== null && $chave !== '') {
+            $query->withChave($chave);
+        }
+
+        return $query
+            ->select(['id', 'telefone', 'descricao', 'principal'])
+            ->where('entidade_tipo', '=', $tipo)
+            ->where('entidade_id', '=', $id)
+            ->where($canal, '=', 'S')
+            ->orderByDesc('principal')
+            ->orderBy('id', 'ASC')
+            ->get();
+    }
+
+    /**
+     * Revalida um telefone autorizado imediatamente antes do envio.
+     */
+    public function podeEnviarPara(
+        string $tipo,
+        int $id,
+        string $telefone,
+        string $canal,
+        ?string $chave = null
+    ): bool {
+        $procurado = preg_replace('/\D/', '', $telefone);
+        if ($procurado === '') {
+            return false;
+        }
+
+        foreach ($this->listarParaEnvio($tipo, $id, $canal, $chave) as $contato) {
+            if (preg_replace('/\D/', '', (string) $contato['telefone']) === $procurado) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Salva telefones de uma entidade (substitui todos existentes)
      *
      * @param string $tipo Tipo da entidade

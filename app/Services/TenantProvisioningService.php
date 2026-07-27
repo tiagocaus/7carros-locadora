@@ -3,10 +3,11 @@
 namespace App\Services;
 
 use App\Classes\QueryBuilder;
-use App\Core\Database;
+use App\Models\Model;
 use App\Models\Role;
 use App\Models\RolePermission;
 use App\Models\Permission;
+use App\Models\TenantProvisioning;
 
 /**
  * Service para provisionamento de tenants via WHMCS
@@ -14,8 +15,7 @@ use App\Models\Permission;
  * Gerencia o ciclo de vida completo: criar, suspender, reativar,
  * mudar plano, atualizar senha e terminar.
  *
- * Usa withoutChave() em todas as queries pois opera em contexto
- * cross-tenant sem sessão (exceção legítima documentada no CLAUDE.md).
+ * Opera sem sessão, sempre informando a chave do tenant nas queries isoladas.
  */
 class TenantProvisioningService
 {
@@ -23,35 +23,15 @@ class TenantProvisioningService
     private Role $roleModel;
     private RolePermission $rolePermissionModel;
     private Permission $permissionModel;
+    private TenantProvisioning $tenantModel;
 
-    public function __construct()
+    public function __construct(?TenantProvisioning $tenantModel = null)
     {
         $this->roleModel = new Role();
         $this->rolePermissionModel = new RolePermission();
         $this->permissionModel = new Permission();
-        // Cria conexão mysqli para o QueryBuilder (mesmo padrão do MessageQueueService)
-        $this->qb = new QueryBuilder($this->createMysqliConnection());
-    }
-
-    /**
-     * Cria conexão mysqli direta (QueryBuilder usa mysqli, não PDO)
-     */
-    private function createMysqliConnection(): \mysqli
-    {
-        $mysqli = new \mysqli(
-            Database::env('DB_HOST', 'localhost'),
-            Database::env('DB_USERNAME'),
-            Database::env('DB_PASSWORD'),
-            Database::env('DB_DATABASE'),
-            (int) Database::env('DB_PORT', '3306')
-        );
-
-        if ($mysqli->connect_error) {
-            throw new \RuntimeException('Erro ao conectar com o banco de dados: ' . $mysqli->connect_error);
-        }
-
-        $mysqli->set_charset('utf8mb4');
-        return $mysqli;
+        $this->tenantModel = $tenantModel ?? new TenantProvisioning();
+        $this->qb = new QueryBuilder(Model::sharedMysqli());
     }
 
     /**
@@ -67,9 +47,8 @@ class TenantProvisioningService
         // Idempotência: verifica se chave já existe
         $existente = $this->qb
             ->table('funcionarios')
-            ->withoutChave()
+            ->withChave($chave)
             ->select(['id', 'chave', 'usuario', 'email', 'plano'])
-            ->where('chave', '=', $chave)
             ->first();
 
         if ($existente) {
@@ -100,9 +79,8 @@ class TenantProvisioningService
             // 1. Cria o funcionário admin
             $idFuncionario = $this->qb
                 ->table('funcionarios')
-                ->withoutChave()
+                ->withChave($chave)
                 ->insert([
-                    'chave' => $chave,
                     'nome' => $dados['nomeCompleto'],
                     'usuario' => $dados['usuario'],
                     'email' => $dados['email'],
@@ -114,9 +92,8 @@ class TenantProvisioningService
             // 2. Cria a matriz (filial principal)
             $idMatriz = $this->qb
                 ->table('matrizes_filiais')
-                ->withoutChave()
+                ->withChave($chave)
                 ->insert([
-                    'chave' => $chave,
                     'tipo' => 'M',
                     'razao_social' => $dados['razao_social'] ?? $dados['nomeCompleto'],
                     'nome_fantasia' => $dados['nome_fantasia'] ?? $dados['nomeCompleto'],
@@ -133,17 +110,16 @@ class TenantProvisioningService
             // 3. Link funcionário → filial
             $this->qb
                 ->table('funcionarios_filiais')
-                ->withoutChave()
+                ->withChave($chave)
                 ->insert([
                     'id_funcionario' => $idFuncionario,
                     'id_matriz_filial' => $idMatriz,
-                    'chave' => $chave,
                 ]);
 
             // 4. Atualiza id_matriz_filial no funcionário
             $this->qb
                 ->table('funcionarios')
-                ->withoutChave()
+                ->withChave($chave)
                 ->where('id', '=', $idFuncionario)
                 ->update(['id_matriz_filial' => $idMatriz]);
 
@@ -162,7 +138,7 @@ class TenantProvisioningService
             // 6. Atualiza id_role no funcionário
             $this->qb
                 ->table('funcionarios')
-                ->withoutChave()
+                ->withChave($chave)
                 ->where('id', '=', $idFuncionario)
                 ->update(['id_role' => $roleId]);
 
@@ -204,8 +180,7 @@ class TenantProvisioningService
 
         $affected = $this->qb
             ->table('funcionarios')
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('status', '=', 'A')
             ->update(['status' => 'S']);
 
@@ -227,8 +202,7 @@ class TenantProvisioningService
 
         $affected = $this->qb
             ->table('funcionarios')
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('status', '=', 'S')
             ->update(['status' => 'A']);
 
@@ -251,17 +225,15 @@ class TenantProvisioningService
         // Captura plano anterior para log
         $usuario = $this->qb
             ->table('funcionarios')
-            ->withoutChave()
+            ->withChave($chave)
             ->select(['plano'])
-            ->where('chave', '=', $chave)
             ->first();
 
         $planoAnterior = $usuario['plano'] ?? 'N/A';
 
         $affected = $this->qb
             ->table('funcionarios')
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->update(['plano' => $plano]);
 
         $this->logAuditoria($chave, "Plano alterado via WHMCS: {$planoAnterior} → {$plano}. {$affected} usuário(s) afetado(s).");
@@ -286,9 +258,8 @@ class TenantProvisioningService
     {
         $funcionario = $this->qb
             ->table('funcionarios')
-            ->withoutChave()
+            ->withChave($chave)
             ->select(['id'])
-            ->where('chave', '=', $chave)
             ->where('usuario', '=', $usuario)
             ->first();
 
@@ -298,7 +269,7 @@ class TenantProvisioningService
 
         $this->qb
             ->table('funcionarios')
-            ->withoutChave()
+            ->withChave($chave)
             ->where('id', '=', $funcionario['id'])
             ->update(['senha' => password_hash($senha, PASSWORD_ARGON2ID)]);
 
@@ -319,161 +290,109 @@ class TenantProvisioningService
      */
     public function terminarTenant(string $chave): array
     {
-        // Idempotencia: terminate ja executado antes retorna sucesso, nao 404
-        if (!$this->tenantExiste($chave)) {
-            $this->logOperacaoWhmcs('terminate', $chave, ['already_terminated' => true]);
-            return [
-                'success' => true,
-                'already_terminated' => true,
-                'deleted_tables' => [],
-            ];
-        }
-
-        $this->qb->beginTransaction();
+        $fase = 'validacao';
+        $transacaoAtiva = false;
+        $counts = [];
 
         try {
-            // Única tabela SEM coluna chave: funcionarios_role_permissions
-            // Precisa buscar os role_ids primeiro
-            $roleIds = $this->qb
-                ->table('funcionarios_roles')
-                ->withoutChave()
-                ->select(['id'])
-                ->where('chave', '=', $chave)
-                ->pluck('id');
+            $this->validarChaveParaArquivos($chave);
 
-            if (!empty($roleIds)) {
-                foreach ($roleIds as $roleId) {
-                    $this->qb
-                        ->table('funcionarios_role_permissions')
-                        ->withoutChave()
-                        ->where('role_id', '=', $roleId)
-                        ->delete();
-                }
+            $fase = 'consulta_tenant';
+            $alreadyTerminated = !$this->tenantExiste($chave);
+
+            if (!$alreadyTerminated) {
+                $fase = 'preflight_schema';
+                $tabelas = $this->tenantModel->tabelasParaTermino();
+
+                $fase = 'consulta_roles';
+                $roleIds = $this->tenantModel->roleIds($chave);
+
+                $fase = 'inicio_transacao';
+                $this->tenantModel->beginTransaction();
+                $transacaoAtiva = true;
+
+                $fase = 'permissoes_roles';
+                $this->tenantModel->apagarPermissoesRoles($roleIds);
+
+                $fase = 'tabelas_tenant';
+                $counts = $this->tenantModel->apagarDadosTenant($chave, $tabelas);
+
+                $fase = 'commit';
+                $this->tenantModel->commit();
+                $transacaoAtiva = false;
             }
 
-            // Todas as tabelas com coluna `chave` — ordem respeitando dependências
-            // NÃO incluir: feature_requests, feature_request_followers, feature_request_votes (sistema interno 7Carros)
-            $tabelas = [
-                'funcionarios_filiais',
-                'funcionarios_tokens',
-                'logs',
-                'checklist',
-                'checklist_modelos',
-                'contratos_taxaseservicos',
-                'contratos_odometros',
-                'contratos_veiculos',
-                'contratos',
-                'locacoes_taxaseservicos',
-                'locacoes_veiculos',
-                'locacoes',
-                'financeiro_itens',
-                'financeiro_transacoes',
-                'financeiro',
-                'manutencoes_itens',
-                'manutencoes',
-                'manutencoes_plano',
-                'estoque',
-                'veiculos_acessorios_vinculados',
-                'veiculos_acessorios',
-                'veiculos_encargos',
-                'veiculos',
-                'grupos_precos_dias_filiais',
-                'grupos_precos_dias',
-                'grupos_precos_filiais',
-                'temporadas_grupos',
-                'grupos',
-                'clientes_arquivos',
-                'clientes_cartoes',
-                'clientes',
-                'fornecedores',
-                'oficinas',
-                'temporadas',
-                'feriados',
-                'taxaseservicos_filiais',
-                'taxaseservicos',
-                'formas_pagamento_comandos',
-                'formas_pagamento_filiais',
-                'formas_pagamento_gateways',
-                'formas_pagamento',
-                'contas_bancarias',
-                'gateways_filiais',
-                'gateways_pagamento',
-                'promocoes_valores_filiais',
-                'promocoes_filiais',
-                'promocoes',
-                'comissoes_investidores',
-                'documentos',
-                'message_templates',
-                'multas',
-                'assinaturas',
-                'pagamentos_links',
-                'notificacoes',
-                'configuracoes',
-                'promissorias',
-                'promissoria_templates',
-                'planos_de_contas',
-                'nfse_configuracoes',
-                'nfse',
-                'serpro_configuracoes',
-                'serpro_consultas_log',
-                'serpro_indicacoes',
-                'serpro_saldo',
-                'serpro_transacoes',
-                'messages_queue',
-                'whatsapp_filiais',
-                'whatsapp',
-                'sms_filiais',
-                'sms',
-                'smtp_filiais',
-                'smtp',
-                'horarios_excecoes',
-                'horarios_funcionamento',
-                'codigos_indicacao',
-                'sistema_gravacoes',
-                'security_logs',
-                'security_user_quotas',
-                'agenda',
-                'contatos_emails',
-                'contatos_telefones',
-                'funcionarios_roles',
-                'matrizes_filiais',
-                'funcionarios',
-            ];
-
-            $counts = [];
-
-            foreach ($tabelas as $tabela) {
-                $deleted = $this->qb
-                    ->table($tabela)
-                    ->withoutChave()
-                    ->where('chave', '=', $chave)
-                    ->delete();
-
-                if ($deleted > 0) {
-                    $counts[$tabela] = $deleted;
-                }
-            }
-
-            $this->qb->commit();
-
-            // Apaga pasta de uploads do tenant
+            // Também roda no retry idempotente, concluindo uma eventual limpeza
+            // de arquivos que tenha falhado depois do commit do banco.
+            $fase = 'arquivos';
             $this->apagarArquivosDoTenant($chave);
 
-            // Log no error_log pois a tabela logs foi deletada
+            $extra = ['deleted_tables' => $counts];
+            if ($alreadyTerminated) {
+                $extra['already_terminated'] = true;
+            }
+
             error_log("[WHMCS] Tenant terminado: {$chave}. Tabelas afetadas: " . json_encode($counts));
+            $this->logOperacaoWhmcs('terminate', $chave, $extra);
 
-            // Trilha de auditoria sistemica (sobrevive a delecao da tabela logs)
-            $this->logOperacaoWhmcs('terminate', $chave, ['deleted_tables' => $counts]);
-
-            return [
+            $resultado = [
                 'success' => true,
                 'deleted_tables' => $counts,
             ];
 
-        } catch (\Exception $e) {
-            $this->qb->rollback();
+            if ($alreadyTerminated) {
+                $resultado['already_terminated'] = true;
+            }
+
+            return $resultado;
+        } catch (\Throwable $e) {
+            $rollbackError = null;
+
+            if ($transacaoAtiva) {
+                try {
+                    $this->tenantModel->rollback();
+                } catch (\Throwable $rollbackException) {
+                    $rollbackError = $this->sanitizarErro($rollbackException->getMessage());
+                }
+            }
+
+            $extra = [
+                'fase' => $fase,
+                'tabela' => $fase === 'tabelas_tenant'
+                    ? $this->tenantModel->ultimaTabelaProcessada()
+                    : null,
+                'exception' => get_class($e),
+                'message' => $this->sanitizarErro($e->getMessage()),
+            ];
+
+            if ($rollbackError !== null) {
+                $extra['rollback_error'] = $rollbackError;
+            }
+
+            $this->logOperacaoWhmcs('terminate_failed', $chave, $extra);
             throw $e;
         }
+    }
+
+    /**
+     * Impede path traversal e metacaracteres de glob na limpeza de arquivos.
+     */
+    private function validarChaveParaArquivos(string $chave): void
+    {
+        if (!preg_match('/^[A-Za-z0-9_-]+$/D', $chave)) {
+            throw new \InvalidArgumentException('Chave do tenant inválida');
+        }
+    }
+
+    private function sanitizarErro(string $message): string
+    {
+        $message = preg_replace(
+            '/\\b(accesshash|password|passwd|senha|secret|token)\\s*([=:])\\s*([^\\s&,;]+)/iu',
+            '$1$2[redacted]',
+            $message
+        ) ?? $message;
+
+        return substr(str_replace(["\r", "\n"], ' ', $message), 0, 1000);
     }
 
     /**
@@ -495,8 +414,8 @@ class TenantProvisioningService
     private function apagarArquivosPorPadrao(string $pattern): void
     {
         foreach (glob($pattern) ?: [] as $path) {
-            if (is_file($path)) {
-                unlink($path);
+            if (is_file($path) && !@unlink($path) && is_file($path)) {
+                throw new \RuntimeException("Não foi possível remover o arquivo: {$path}");
             }
         }
     }
@@ -517,13 +436,21 @@ class TenantProvisioningService
 
         foreach ($iterator as $file) {
             if ($file->isDir()) {
-                rmdir($file->getRealPath());
+                $dirPath = $file->getRealPath();
+                if (!@rmdir($dirPath) && is_dir($dirPath)) {
+                    throw new \RuntimeException("Não foi possível remover o diretório: {$dirPath}");
+                }
             } else {
-                unlink($file->getRealPath());
+                $filePath = $file->getRealPath();
+                if (!@unlink($filePath) && is_file($filePath)) {
+                    throw new \RuntimeException("Não foi possível remover o arquivo: {$filePath}");
+                }
             }
         }
 
-        rmdir($path);
+        if (!@rmdir($path) && is_dir($path)) {
+            throw new \RuntimeException("Não foi possível remover o diretório: {$path}");
+        }
 
         error_log("[WHMCS] Diretorio removido: {$path}");
     }
@@ -543,11 +470,7 @@ class TenantProvisioningService
      */
     private function tenantExiste(string $chave): bool
     {
-        return $this->qb
-            ->table('funcionarios')
-            ->withoutChave()
-            ->where('chave', '=', $chave)
-            ->exists();
+        return $this->tenantModel->tenantExiste($chave);
     }
 
     /**
@@ -561,9 +484,8 @@ class TenantProvisioningService
         try {
             $this->qb
                 ->table('logs')
-                ->withoutChave()
+                ->withChave($chave)
                 ->insert([
-                    'chave' => $chave,
                     'id_funcionario' => $idFuncionario ?? 0,
                     'data' => now(),
                     'ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
@@ -587,8 +509,8 @@ class TenantProvisioningService
     {
         try {
             $logDir = APP_ROOT . '/storage/logs';
-            if (!is_dir($logDir)) {
-                mkdir($logDir, 0755, true);
+            if (!is_dir($logDir) && !@mkdir($logDir, 0755, true) && !is_dir($logDir)) {
+                throw new \RuntimeException('Não foi possível criar storage/logs');
             }
 
             $linha = json_encode([
@@ -599,12 +521,16 @@ class TenantProvisioningService
                 'extra' => $extra,
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
 
-            file_put_contents(
+            $written = @file_put_contents(
                 $logDir . '/whmcs-operations.log',
                 $linha,
                 FILE_APPEND | LOCK_EX
             );
-        } catch (\Exception $e) {
+
+            if ($written === false) {
+                throw new \RuntimeException('Não foi possível gravar whmcs-operations.log');
+            }
+        } catch (\Throwable $e) {
             error_log('[WHMCS] Erro ao gravar whmcs-operations.log: ' . $e->getMessage());
         }
     }

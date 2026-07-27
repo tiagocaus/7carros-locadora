@@ -175,13 +175,13 @@ class WhmcsController
         $chave = $request->input('chave', '');
 
         if (empty($chave)) {
-            Response::error('Campo obrigatório ausente: chave', ['chave'], 400);
+            Response::error('Campo obrigatório ausente: chave', null, 400);
             return;
         }
 
         try {
-            $resultado = $this->service->terminarTenant($chave);
-            Response::json($resultado);
+            $this->service->terminarTenant($chave);
+            Response::success();
         } catch (\InvalidArgumentException $e) {
             Response::error($e->getMessage(), null, 404);
         } catch (\Exception $e) {

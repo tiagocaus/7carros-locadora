@@ -7,8 +7,10 @@ use App\Services\EmailService;
 use App\Services\SmsService;
 use App\Services\WhatsAppService;
 use App\Models\ContatoEmail;
+use App\Models\ContatoTelefone;
 use App\Classes\QueryBuilder;
 use App\Core\Database;
+use App\Services\NotificationChannelPolicyService;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Exception\AMQPTimeoutException;
 use PhpAmqpLib\Message\AMQPMessage;
@@ -28,12 +30,14 @@ class ProcessMessageQueueJob extends BaseJob
     private int $maxMessages;
     private int $maxAttempts;
     private int $timeout;
+    private NotificationChannelPolicyService $channelPolicy;
 
-    public function __construct()
+    public function __construct(?NotificationChannelPolicyService $channelPolicy = null)
     {
         $this->maxMessages = (int) Database::env('QUEUE_MAX_MESSAGES_PER_RUN', 50);
         $this->maxAttempts = (int) Database::env('QUEUE_MAX_ATTEMPTS', 3);
         $this->timeout = (int) Database::env('QUEUE_CONSUME_TIMEOUT', 30);
+        $this->channelPolicy = $channelPolicy ?? new NotificationChannelPolicyService();
     }
 
     /**
@@ -282,11 +286,20 @@ class ProcessMessageQueueJob extends BaseJob
         }
 
         try {
-            if ($type === 'email' && !$this->emailAutorizado($payload, $chave)) {
+            $channelDecision = $this->channelPolicy->evaluate($type, $payload, $chave, true);
+            if (!$channelDecision['allowed']) {
                 return [
                     'success' => true,
                     'skipped' => true,
-                    'message' => 'Email desmarcado nas preferencias do cliente',
+                    'message' => $channelDecision['message'],
+                ];
+            }
+
+            if (!$this->destinatarioAutorizado($type, $payload, $chave)) {
+                return [
+                    'success' => true,
+                    'skipped' => true,
+                    'message' => 'Canal desmarcado nas preferencias do cliente',
                 ];
             }
 
@@ -307,7 +320,7 @@ class ProcessMessageQueueJob extends BaseJob
      * Revalida a preferencia imediatamente antes do envio.
      * Payloads legados e mensagens nao destinadas a clientes permanecem compativeis.
      */
-    private function emailAutorizado(array $payload, ?string $chave): bool
+    private function destinatarioAutorizado(string $type, array $payload, ?string $chave): bool
     {
         if (($payload['_email_preference_bypass'] ?? '') === 'cliente_password_reset') {
             return true;
@@ -318,12 +331,31 @@ class ProcessMessageQueueJob extends BaseJob
         }
 
         $clienteId = (int) ($payload['_recipient_entity_id'] ?? 0);
-        $email = trim((string) ($payload['to'] ?? ''));
-        if ($clienteId <= 0 || $email === '') {
+        $destinatario = trim((string) ($payload['to'] ?? ''));
+        if ($clienteId <= 0 || $destinatario === '') {
             return false;
         }
 
-        return (new ContatoEmail())->podeEnviarPara('cliente', $clienteId, $email, $chave);
+        if ($type === 'email') {
+            return (new ContatoEmail())->podeEnviarPara(
+                'cliente',
+                $clienteId,
+                $destinatario,
+                $chave
+            );
+        }
+
+        if (in_array($type, ['whatsapp', 'sms'], true)) {
+            return (new ContatoTelefone())->podeEnviarPara(
+                'cliente',
+                $clienteId,
+                $destinatario,
+                $type,
+                $chave
+            );
+        }
+
+        return false;
     }
 
     /**

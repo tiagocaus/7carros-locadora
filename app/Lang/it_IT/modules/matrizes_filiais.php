@@ -159,6 +159,9 @@ return [
         'email_desc' => 'Invia notifiche tramite e-mail',
         'whatsapp_title' => 'WhatsApp',
         'whatsapp_desc' => 'Invia notifiche tramite WhatsApp',
+        'financial_automation' => 'Automazione finanziaria',
+        'overdue_billing_title' => 'Sollecito automatico delle fatture scadute',
+        'overdue_billing_desc' => 'Invia avvisi periodici finché una fattura rimane scaduta',
     ],
     'print' => [
         'bold_variables' => 'Variabili in Grassetto',

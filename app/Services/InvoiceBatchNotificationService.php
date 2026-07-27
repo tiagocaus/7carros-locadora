@@ -12,6 +12,14 @@ use App\Services\PagamentoLinkSyncService;
 
 class InvoiceBatchNotificationService
 {
+    /** @var null|callable(string, array, string, ?string): string */
+    private $emailLayoutRenderer;
+
+    public function __construct(?callable $emailLayoutRenderer = null)
+    {
+        $this->emailLayoutRenderer = $emailLayoutRenderer;
+    }
+
     /**
      * Monta o payload de uma cobranca agrupada sem publica-la na fila.
      * Usado pelo CRON para manter o controle de envio por fatura.
@@ -45,7 +53,13 @@ class InvoiceBatchNotificationService
                 'to' => $email,
                 'to_name' => $cliente['nome_rsocial'] ?? $cliente['nome'] ?? '',
                 'subject' => $this->buildGroupedSubject($faturas, $origemLabel),
-                'body' => $this->buildEmailBody($faturas, $cliente, $origemLabel),
+                'body' => $this->buildGroupedEmailWithLayout(
+                    $faturas,
+                    $cliente,
+                    $filialId,
+                    $origemLabel,
+                    $options
+                ),
                 'body_text' => $this->buildTextMessage($faturas, $cliente, $origemLabel, false),
                 'id_matriz_filial' => $filialId ?: null,
             ],
@@ -60,6 +74,43 @@ class InvoiceBatchNotificationService
                 'id_matriz_filial' => $filialId ?: null,
             ],
         };
+    }
+
+    private function buildGroupedEmailWithLayout(
+        array $faturas,
+        array $cliente,
+        int $filialId,
+        string $origemLabel,
+        array $options
+    ): string {
+        $chave = trim((string) ($options['chave'] ?? $faturas[0]['chave'] ?? ''));
+        if ($chave === '') {
+            throw new \RuntimeException('Chave do tenant nao definida para o layout da cobranca agrupada');
+        }
+
+        $content = $this->buildEmailBody($faturas, $cliente, $origemLabel);
+        $context = [
+            'cliente' => [
+                'nome' => $cliente['nome_rsocial'] ?? $cliente['nome'] ?? '',
+                'email' => $cliente['email'] ?? '',
+                'preferred_locale' => $cliente['preferred_locale'] ?? null,
+            ],
+            'empresa' => [
+                'id' => $filialId ?: null,
+            ],
+            'id_matriz_filial' => $filialId ?: null,
+        ];
+        if (count($faturas) > 1) {
+            $context['_email_layout'] = 'wide';
+        }
+        $locale = $cliente['preferred_locale'] ?? null;
+
+        if ($this->emailLayoutRenderer !== null) {
+            return ($this->emailLayoutRenderer)($content, $context, $chave, $locale);
+        }
+
+        return (new MessageTemplateService(null, $chave))
+            ->renderEmailLayout($content, $context, $locale);
     }
 
     /**
@@ -153,13 +204,15 @@ class InvoiceBatchNotificationService
 
             try {
                 $messageId = queue_template_message('payment_reminder', $canal, $context, $chave);
-                $enfileirado = $canal !== 'email' || $messageId > 0;
+                $enfileirado = $messageId > 0;
                 $resultado[] = [
                     'parcela_id' => (int) $financeiro['id'],
                     'canal' => $canal,
                     'success' => $enfileirado,
                     'message_id' => $messageId,
-                    'message' => $enfileirado ? "message_id={$messageId}" : 'Cliente sem email autorizado para envio',
+                    'message' => $enfileirado
+                        ? "message_id={$messageId}"
+                        : "Cliente sem {$canal} autorizado para envio",
                 ];
             } catch (\Throwable $e) {
                 $resultado[] = ['parcela_id' => (int) $financeiro['id'], 'canal' => $canal, 'success' => false, 'message' => $e->getMessage()];
@@ -202,15 +255,24 @@ class InvoiceBatchNotificationService
                     );
                     $messageId = $messageIds[0] ?? 0;
                 } else {
-                    $messageId = queue_message($canal, $payload, $chave, $batchId);
+                    $messageIds = queue_client_phone(
+                        $canal,
+                        (int) ($cliente['id'] ?? $faturas[0]['id_cliente'] ?? 0),
+                        $payload,
+                        $chave,
+                        $batchId
+                    );
+                    $messageId = $messageIds[0] ?? 0;
                 }
-                $enfileirado = $canal !== 'email' || $messageId > 0;
+                $enfileirado = $messageId > 0;
                 $resultado[] = [
                     'parcela_id' => null,
                     'canal' => $canal,
                     'success' => $enfileirado,
                     'message_id' => $messageId,
-                    'message' => $enfileirado ? "message_id={$messageId}" : 'Cliente sem email autorizado para envio',
+                    'message' => $enfileirado
+                        ? "message_id={$messageId}"
+                        : "Cliente sem {$canal} autorizado para envio",
                     'total_faturas' => count($faturas),
                 ];
             } catch (\Throwable $e) {
@@ -300,22 +362,22 @@ class InvoiceBatchNotificationService
                 : '-';
             $rows .= '<tr>'
                 . '<td style="padding:8px;border:1px solid #e5e7eb;">' . htmlspecialchars($this->numeroFatura($fatura), ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">' . htmlspecialchars($this->descricaoParcela($fatura, $locale) ?: '-', ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td class="invoice-nowrap" style="padding:8px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap;">' . htmlspecialchars($this->descricaoParcela($fatura, $locale) ?: '-', ENT_QUOTES, 'UTF-8') . '</td>'
                 . '<td style="padding:8px;border:1px solid #e5e7eb;">' . htmlspecialchars((string) ($fatura['descricao'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">' . htmlspecialchars($this->formatData($fatura['data_venci'] ?? null), ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">' . htmlspecialchars($this->formatValor((float) ($fatura['valor_total'] ?? 0)), ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">' . $linkHtml . '</td>'
+                . '<td class="invoice-nowrap" style="padding:8px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap;">' . htmlspecialchars($this->formatData($fatura['data_venci'] ?? null), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td class="invoice-nowrap" style="padding:8px;border:1px solid #e5e7eb;text-align:right;white-space:nowrap;">' . htmlspecialchars($this->formatValor((float) ($fatura['valor_total'] ?? 0)), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td class="invoice-nowrap" style="padding:8px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap;">' . $linkHtml . '</td>'
                 . '</tr>';
         }
 
-        return '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;">'
+        return '<table class="invoice-table" style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #e5e7eb;">'
             . '<thead><tr style="background:#f8fafc;">'
-            . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Fatura</th>'
-            . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:center;">' . htmlspecialchars($parcelaLabel, ENT_QUOTES, 'UTF-8') . '</th>'
-            . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Descricao</th>'
-            . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:center;">Vencimento</th>'
-            . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:right;">Valor</th>'
-            . '<th style="padding:8px;border:1px solid #e5e7eb;text-align:center;">Pagamento</th>'
+            . '<th style="width:13%;padding:8px;border:1px solid #e5e7eb;text-align:left;">Fatura</th>'
+            . '<th style="width:14%;padding:8px;border:1px solid #e5e7eb;text-align:center;">' . htmlspecialchars($parcelaLabel, ENT_QUOTES, 'UTF-8') . '</th>'
+            . '<th style="width:31%;padding:8px;border:1px solid #e5e7eb;text-align:left;">Descricao</th>'
+            . '<th style="width:14%;padding:8px;border:1px solid #e5e7eb;text-align:center;">Vencimento</th>'
+            . '<th style="width:14%;padding:8px;border:1px solid #e5e7eb;text-align:right;">Valor</th>'
+            . '<th style="width:14%;padding:8px;border:1px solid #e5e7eb;text-align:center;">Pagamento</th>'
             . '</tr></thead><tbody>' . $rows . '</tbody></table>';
     }
 

@@ -84,7 +84,7 @@ class WebsiteService
         if ($this->systemMessagePublisher !== null) {
             ($this->systemMessagePublisher)('email', $payload);
         } else {
-            queue_system_message('email', $payload);
+            queue_system_message('email', $payload, null, true);
         }
 
         // Atualizar status para pendente

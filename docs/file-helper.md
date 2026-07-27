@@ -82,6 +82,11 @@ $url = FileHelper::url($registro['logo'], $registro['chave']);
 $registro['logo_url'] = FileHelper::url($registro['logo'], $registro['chave']);
 ```
 
+Em execucoes CLI/CRON, onde `$_SERVER['DOCUMENT_ROOT']` nao esta definido, o
+helper resolve `storage/uploads/{chave}` a partir da raiz do projeto. Assim,
+`FileHelper::exists()` e os demais acessos continuam funcionando sem montar
+caminhos manualmente.
+
 ### Deletar arquivo
 
 ```php

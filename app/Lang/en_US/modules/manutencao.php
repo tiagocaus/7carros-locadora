@@ -188,6 +188,7 @@ return [
         'os' => 'WO',
         'vehicle' => 'Vehicle',
         'workshop' => 'Workshop',
+        'creation_date' => 'Creation Date',
         'send_date' => 'Send Date',
         'total' => 'Total',
         'status' => 'Status',

@@ -282,7 +282,10 @@ Para NFS-e rejeitada:
 
 ## Emissao Manual pelo Financeiro
 
-A tela `GET /pages/nfse/emitir?id_financeiro={id}` emite NFS-e a partir de uma receita paga do modulo financeiro.
+A tela `GET /pages/nfse/emitir?id_financeiro={id}` emite NFS-e a partir de uma
+receita paga ou pendente do modulo financeiro. A listagem exibe a acao manual
+nos dois estados; a emissao automatica continua restrita a pagamentos
+confirmados.
 
 Regras da tela:
 

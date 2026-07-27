@@ -351,13 +351,13 @@ Jobs recorrentes por minuto, 5, 15 ou 30 minutos não entram nesse resumo.
 
 1. Busca receitas pendentes (`financeiro.tipo = 'R'`, `financeiro.pago = 'N'`) com cliente vinculado.
 2. Seleciona as faturas para `payment_reminder` 1 dia antes do vencimento (`data_venci = amanhã`).
-3. Seleciona as faturas vencidas para `overdue_notice` (`data_venci < hoje`) no máximo uma vez a cada 7 dias por fatura/canal.
+3. Seleciona as faturas vencidas para `overdue_notice` (`data_venci < hoje`) no máximo uma vez a cada 7 dias por fatura/canal, somente quando `matrizes_filiais.notificacao_cobranca_vencida = 'S'` na filial exata da fatura.
 4. Antes do envio, cria ou reutiliza o link público de pagamento com `PagamentoLinkSyncService`, mantendo o mesmo `/pagar/{codigo}` atualizado.
 5. Agrupa todas as faturas elegíveis por tenant e cliente e enfileira no máximo uma mensagem por canal em cada execução. Quando houver faturas a vencer e vencidas, elas aparecem em seções distintas da mesma mensagem.
 6. Enfileira email quando o cliente possui email. WhatsApp e SMS só são enfileirados se ao menos uma filial do lote tiver conexão validada/conectada e o cliente possuir telefone.
 7. Registra cada fatura/canal em `financeiro_cobrancas_notificacoes`; faturas da mesma mensagem compartilham o mesmo `message_id`.
 
-Quando apenas uma fatura estiver elegível para o canal, o job preserva o template customizável `payment_reminder` ou `overdue_notice`. Com duas ou mais faturas, utiliza o resumo consolidado com tabela e links individuais.
+Quando apenas uma fatura estiver elegível para o canal, o job preserva o template customizável `payment_reminder` ou `overdue_notice`. Com duas ou mais faturas, utiliza o resumo consolidado com tabela e links individuais. Em email, ambos os casos recebem o layout compartilhado do tenant, com logo, nome fantasia e dados empresariais da matriz principal. O resumo consolidado ocupa `100%` da largura disponível, limitado a `1000px`; mensagens unitárias permanecem limitadas a `600px`.
 
 O job não cria cobrança externa diretamente no gateway. A cobrança externa é criada no fluxo público de pagamento quando o cliente acessa o link e escolhe a forma/gateway.
 

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Classes\QueryBuilder;
+use App\Core\Database;
+use App\Helpers\FileHelper;
 use App\I18n\TemplateRenderer;
 use App\I18n\TemplateVariables;
 use App\I18n\Translator;
@@ -144,7 +146,7 @@ class MessageTemplateService
 
         // Para emails, envolver no layout base
         if ($channel === 'email') {
-            $renderedContent = $this->wrapInEmailLayout($renderedContent, $context);
+            $renderedContent = $this->renderEmailLayout($renderedContent, $context, $locale);
         }
 
         return [
@@ -158,6 +160,25 @@ class MessageTemplateService
             'type_slug' => $typeSlug,
             'is_custom' => $template['is_custom'],
         ];
+    }
+
+    /**
+     * Aplica o layout e o branding do tenant a um conteudo HTML ja renderizado.
+     *
+     * Permite que mensagens consolidadas, que nao usam um template individual,
+     * compartilhem o mesmo cabecalho e rodape dos demais emails do tenant.
+     */
+    public function renderEmailLayout(string $content, array $context, ?string $locale = null): string
+    {
+        $locale = $locale
+            ?? $context['cliente']['preferred_locale']
+            ?? $context['empresa']['locale']
+            ?? Translator::getInstance()->getLocale();
+
+        $this->renderer->setLocale($locale);
+        $context = $this->enrichEmpresaContext($context);
+
+        return $this->wrapInEmailLayout($content, $context);
     }
 
     private function templateExibeParcela(string $content): bool
@@ -195,8 +216,7 @@ class MessageTemplateService
             try {
                 $matriz = $this->db
                     ->table('matrizes_filiais')
-                    ->withoutChave()
-                    ->where('chave', '=', $this->chave)
+                    ->withChave($this->chave)
                     ->where('tipo', '=', 'M')
                     ->first();
             } catch (\Throwable $e) {
@@ -222,6 +242,7 @@ class MessageTemplateService
                 'uf'            => $matriz['estado'] ?? '',
                 'cep'           => $matriz['cep'] ?? '',
                 'site'          => $matriz['site'] ?? '',
+                'logo_url'      => $this->resolveLogoUrl($matriz['logo'] ?? null),
                 'locale'        => $matriz['locale'] ?? 'pt_BR',
             ];
         }
@@ -267,11 +288,95 @@ class MessageTemplateService
 
         $layout = file_get_contents($layoutPath);
 
+        $layoutOptions = $this->resolveEmailLayoutOptions($context);
+        $layout = str_replace(
+            ['%%EMAIL_LAYOUT_WIDTH%%', '%%EMAIL_LAYOUT_MAX_WIDTH%%', '%%EMAIL_LAYOUT_CSS_WIDTH%%'],
+            [
+                $layoutOptions['width_attribute'],
+                $layoutOptions['max_width'],
+                $layoutOptions['css_width'],
+            ],
+            $layout
+        );
+
         // Substituir {{content}} pelo conteudo renderizado
         $layout = str_replace('{{content}}', $content, $layout);
+        $layout = str_replace(
+            '{{empresa.branding_header}}',
+            $this->buildBrandingHeader($context['empresa'] ?? []),
+            $layout
+        );
 
         // Renderizar variaveis da empresa no layout
         return $this->renderer->render($layout, $context);
+    }
+
+    /**
+     * Mantem o layout compacto por padrao e amplia apenas conteudos tabulares
+     * que declaram explicitamente o modo wide.
+     *
+     * @return array{width_attribute: string, max_width: string, css_width: string}
+     */
+    private function resolveEmailLayoutOptions(array $context): array
+    {
+        if (($context['_email_layout'] ?? '') === 'wide') {
+            return [
+                'width_attribute' => '100%',
+                'max_width' => '1000px',
+                'css_width' => '100%',
+            ];
+        }
+
+        return [
+            'width_attribute' => '600',
+            'max_width' => '600px',
+            'css_width' => '100%',
+        ];
+    }
+
+    private function resolveLogoUrl(?string $filename): string
+    {
+        $filename = trim((string) $filename);
+        if ($filename === '' || !FileHelper::exists($filename, $this->chave)) {
+            return '';
+        }
+
+        try {
+            $relativeUrl = FileHelper::url($filename, $this->chave);
+            if ($relativeUrl === '') {
+                return '';
+            }
+
+            $appUrl = rtrim(Database::env('APP_URL', 'https://locadora.7carros.com'), '/');
+            return $appUrl . '/' . ltrim($relativeUrl, '/');
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    private function buildBrandingHeader(array $empresa): string
+    {
+        $nome = trim((string) ($empresa['nome_fantasia'] ?? ''));
+        $logoUrl = trim((string) ($empresa['logo_url'] ?? ''));
+        $nomeEscapado = htmlspecialchars($nome, ENT_QUOTES, 'UTF-8');
+        $logoSegura = filter_var($logoUrl, FILTER_VALIDATE_URL)
+            && in_array(strtolower((string) parse_url($logoUrl, PHP_URL_SCHEME)), ['http', 'https'], true);
+
+        if (!$logoSegura) {
+            return '<h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:600;">'
+                . $nomeEscapado
+                . '</h1>';
+        }
+
+        $logoEscapada = htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8');
+
+        return '<div style="display:inline-block;background:#ffffff;border-radius:8px;padding:10px 16px;margin-bottom:12px;">'
+            . '<img src="' . $logoEscapada . '" alt="' . $nomeEscapado . '" '
+            . 'style="display:block;max-width:220px;max-height:90px;width:auto;height:auto;border:0;">'
+            . '</div>'
+            . '<div style="margin:0;color:#ffffff;font-size:20px;font-weight:600;">'
+            . $nomeEscapado
+            . '</div>';
     }
 
     /**

@@ -176,7 +176,8 @@ class MatrizFilialController
                 return;
             }
 
-            $dados = $this->mapearDados($request);
+            $model = new MatrizFilial();
+            $dados = $this->mapearDados($request, $model->possuiConfiguracaoCobrancaVencida());
 
             if (($dados['status'] ?? 'A') === 'I') {
                 $dados['status'] = 'A';
@@ -193,7 +194,6 @@ class MatrizFilialController
                 return $value !== '' && $value !== null;
             });
 
-            $model = new MatrizFilial();
             $id = $model->criarComAuditoria($dados);
 
             // Salvar horários de funcionamento
@@ -281,7 +281,7 @@ class MatrizFilialController
                 return;
             }
 
-            $dados = $this->mapearDados($request);
+            $dados = $this->mapearDados($request, $model->possuiConfiguracaoCobrancaVencida());
 
             if (
                 ($registroExistente['status'] ?? 'A') === 'A'
@@ -781,11 +781,11 @@ class MatrizFilialController
     /**
      * Mapeia os dados do request para o formato do banco
      */
-    private function mapearDados(Request $request): array
+    private function mapearDados(Request $request, bool $incluirCobrancaVencida = true): array
     {
         $timezone = $this->normalizarTimezone($request->input('timezone'));
 
-        return [
+        $dados = [
             // Dados básicos
             'tipo' => $request->input('tipo'),
             'status' => in_array($request->input('status'), ['A', 'I'], true) ? $request->input('status') : 'A',
@@ -834,6 +834,15 @@ class MatrizFilialController
             'impressao_variavel_negrito' => $request->input('impressao_variavel_negrito'),
             'impressao_remover_tarja_amarela' => $request->input('impressao_remover_tarja_amarela'),
         ];
+
+        if ($incluirCobrancaVencida) {
+            $dados['notificacao_cobranca_vencida'] = $request->input(
+                'notificacao_cobranca_vencida',
+                'S'
+            ) === 'S' ? 'S' : 'N';
+        }
+
+        return $dados;
     }
 
     /**

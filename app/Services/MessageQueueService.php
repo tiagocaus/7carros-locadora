@@ -27,10 +27,15 @@ class MessageQueueService
     private string $user;
     private string $password;
     private string $vhost;
+    private NotificationChannelPolicyService $channelPolicy;
 
-    public function __construct(?QueryBuilder $qb = null)
+    public function __construct(
+        ?QueryBuilder $qb = null,
+        ?NotificationChannelPolicyService $channelPolicy = null
+    )
     {
         $this->qb = $qb ?? $this->createQueryBuilder();
+        $this->channelPolicy = $channelPolicy ?? new NotificationChannelPolicyService();
         
         // Carrega configurações do RabbitMQ
         $this->host = Database::env('RABBITMQ_HOST', 'localhost');
@@ -120,12 +125,12 @@ class MessageQueueService
             throw new \InvalidArgumentException("Tipo de mensagem inválido. Deve ser um de: " . implode(', ', $allowedTypes));
         }
 
-        $this->validateForPublication($type, $payload);
-
         // Obtém chave do tenant
         if ($chave === null) {
             $chave = $_SESSION['chave'] ?? null;
         }
+
+        $this->validateForPublication($type, $payload, true, $chave);
 
         // Verifica se deve bloquear notificação em desenvolvimento
         if ($this->shouldBlockNotification($chave)) {
@@ -287,7 +292,12 @@ class MessageQueueService
     /**
      * Valida dados minimos antes de salvar/publicar mensagem.
      */
-    public function validateForPublication(string $type, array $payload, bool $validateContent = true): void
+    public function validateForPublication(
+        string $type,
+        array $payload,
+        bool $validateContent = true,
+        ?string $chave = null
+    ): void
     {
         $allowedTypes = ['email', 'sms', 'whatsapp'];
         if (!in_array($type, $allowedTypes, true)) {
@@ -300,6 +310,8 @@ class MessageQueueService
             $this->validateContent($type, $payload);
         }
 
+        $chave = $chave ?? ($_SESSION['chave'] ?? null);
+        $this->channelPolicy->assertAllowed($type, $payload, $chave);
         $this->validateChannelAvailability($type, $payload);
     }
 

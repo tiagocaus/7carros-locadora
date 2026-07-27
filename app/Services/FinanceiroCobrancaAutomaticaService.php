@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Classes\QueryBuilder;
 use App\Models\Model;
+use App\Models\MatrizFilial;
 use App\Models\Sms;
 use App\Models\Whatsapp;
 
@@ -15,13 +16,18 @@ class FinanceiroCobrancaAutomaticaService
     private \mysqli $mysqli;
     private PagamentoLinkSyncService $linkSyncService;
     private InvoiceBatchNotificationService $batchNotificationService;
+    private MatrizFilial $matrizFilialModel;
 
-    public function __construct(?QueryBuilder $qb = null, ?PagamentoLinkSyncService $linkSyncService = null)
-    {
+    public function __construct(
+        ?QueryBuilder $qb = null,
+        ?PagamentoLinkSyncService $linkSyncService = null,
+        ?MatrizFilial $matrizFilialModel = null
+    ) {
         $this->mysqli = Model::sharedMysqli();
         $this->qb = $qb ?? new QueryBuilder($this->mysqli);
         $this->linkSyncService = $linkSyncService ?? new PagamentoLinkSyncService();
         $this->batchNotificationService = new InvoiceBatchNotificationService();
+        $this->matrizFilialModel = $matrizFilialModel ?? new MatrizFilial();
     }
 
     public function processar(): array
@@ -94,7 +100,16 @@ class FinanceiroCobrancaAutomaticaService
 
     private function buscarFaturasVencidas(string $chave, string $hoje, string $limiteReenvio): array
     {
-        return $this->baseQueryFaturas($chave)
+        $query = $this->baseQueryFaturas($chave);
+
+        if ($this->matrizFilialModel->possuiConfiguracaoCobrancaVencida()) {
+            $query
+                ->innerJoin('matrizes_filiais', 'mf', 'f.id_matriz_filial', '=', 'mf.id')
+                ->whereRaw('mf.chave = f.chave')
+                ->where('mf.notificacao_cobranca_vencida', '=', 'S');
+        }
+
+        return $query
             ->where('f.data_venci', '<', $hoje)
             ->whereRaw(
                 "NOT EXISTS (
@@ -274,7 +289,14 @@ class FinanceiroCobrancaAutomaticaService
                     );
                     $messageId = $messageIds[0] ?? 0;
                 } else {
-                    $messageId = queue_message($canal, $payload, $chave, $batchId);
+                    $messageIds = queue_client_phone(
+                        $canal,
+                        (int) ($faturas[0]['id_cliente'] ?? 0),
+                        $payload,
+                        $chave,
+                        $batchId
+                    );
+                    $messageId = $messageIds[0] ?? 0;
                 }
             }
 

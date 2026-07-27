@@ -295,6 +295,11 @@ Sempre que veiculos ou periodo mudam, taxas com `base_calculo=PER` ou `base_calc
 - Pelo menos uma filial deve ser selecionada
 - Valor obrigatorio e maior que 0
 
+No formulario, nenhuma filial selecionada deve ser exibida como
+`Selecione as filiais...`. Esse estado nao representa todas as filiais: cada
+filial participante precisa ser marcada explicitamente. Para valores monetarios,
+cada filial selecionada recebe seu proprio campo de valor.
+
 ### Ao Excluir Taxa
 
 - Verifica se existem contratos vinculados

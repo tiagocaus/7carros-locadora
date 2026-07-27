@@ -148,7 +148,6 @@
             noBranches: '<?= addslashes(t('modules.taxas_servicos.messages.no_branches')) ?>',
             noBranchesText: '<?= addslashes(t('modules.taxas_servicos.messages.no_branches_text')) ?>',
             selectBranches: '<?= addslashes(t('modules.taxas_servicos.placeholders.select_branches')) ?>',
-            allBranches: '<?= addslashes(t('modules.taxas_servicos.placeholders.all_branches')) ?>',
             select: '<?= addslashes(t('modules.taxas_servicos.placeholders.select')) ?>',
             displaySystem: '<?= addslashes(t('modules.taxas_servicos.display_options.system')) ?>',
             displaySite: '<?= addslashes(t('modules.taxas_servicos.display_options.site')) ?>',
@@ -277,7 +276,7 @@
                 .map(cb => cb.closest('.filial-item').dataset.nome);
 
             if (selecionados.length === 0) {
-                dropdownText.textContent = i18n.allBranches;
+                dropdownText.textContent = i18n.selectBranches;
             } else if (selecionados.length <= 3) {
                 dropdownText.textContent = selecionados.join(', ');
             } else {

@@ -162,6 +162,9 @@ return [
         'email_desc' => 'Send notifications via email',
         'whatsapp_title' => 'WhatsApp',
         'whatsapp_desc' => 'Send notifications via WhatsApp',
+        'financial_automation' => 'Financial automation',
+        'overdue_billing_title' => 'Automatic collection of overdue invoices',
+        'overdue_billing_desc' => 'Send periodic notices while an invoice remains overdue',
     ],
     'print' => [
         'bold_variables' => 'Bold Variables',

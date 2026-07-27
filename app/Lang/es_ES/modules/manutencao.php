@@ -188,6 +188,7 @@ return [
         'os' => 'OT',
         'vehicle' => 'Vehículo',
         'workshop' => 'Taller',
+        'creation_date' => 'Fecha de Creación',
         'send_date' => 'Fecha Envío',
         'total' => 'Total',
         'status' => 'Estado',

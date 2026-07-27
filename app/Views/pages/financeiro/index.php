@@ -196,8 +196,8 @@ $i18nFinanceiro = [
         }
     }
 
-    function montarBotaoNfse(lancamento, pago, isReceita) {
-        if (!pago || !isReceita) {
+    function montarBotaoNfse(lancamento, isReceita) {
+        if (!isReceita) {
             return '';
         }
 
@@ -389,7 +389,7 @@ $i18nFinanceiro = [
                 }
             }
 
-            const botaoNfse = montarBotaoNfse(l, pago, isReceita);
+            const botaoNfse = montarBotaoNfse(l, isReceita);
 
             tableRows += `
                 <tr class="border-b border-slate-200 hover:bg-slate-50">

@@ -11,6 +11,7 @@ use App\Models\Manutencao;
 use App\Models\ManutencaoItem;
 use App\Models\MatrizFilial;
 use App\Models\Financeiro;
+use App\Helpers\DateHelper;
 use App\Helpers\FileHelper;
 use App\Helpers\FilialHelper;
 use App\Helpers\PdfHelper;
@@ -104,6 +105,9 @@ class ManutencoesController
                 $m['total_servicos_formatted'] = currency_format((float) $m['total_servicos']);
                 $m['total_pago_formatted'] = currency_format((float) $m['total_pago']);
                 $m['total_pendente_formatted'] = currency_format((float) $m['total_pendente']);
+                $m['created_at_formatted'] = format_date(
+                    DateHelper::businessDateFromDateTime($m['created_at'] ?? null)
+                );
                 $m['data_enviado_formatted'] = $m['data_enviado'] ? format_operational_datetime($m['data_enviado']) : '';
                 $m['data_retorno_formatted'] = $m['data_retorno'] ? format_operational_datetime($m['data_retorno']) : '';
                 $m['tem_financeiro_vinculado'] = !empty($m['id_financeiro_principal']) || (int) ($m['qtd_financeiros_itens'] ?? 0) > 0;

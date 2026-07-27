@@ -57,11 +57,47 @@ MessageQueueService                     → Tenant com SMTP? Usa do tenant
 
 `MessageQueueService::publish()` valida canais de tenant antes de registrar a mensagem como `pending`:
 
+- **Bloqueio mestre da empresa/filial:** todo envio de tenant exige
+  `id_matriz_filial` e consulta `matrizes_filiais.notificacao_email`,
+  `notificacao_sms` ou `notificacao_whatsapp`. Se o canal estiver em `N`, a
+  publicacao falha antes da geracao de anexos e antes de chegar ao RabbitMQ.
 - **WhatsApp:** exige `id_matriz_filial` e instancia conectada via `Whatsapp::buscarConectadaPorFilial()`. Sem instancia conectada, a chamada falha imediatamente e nao cria item pendente na fila.
 - **SMS:** exige `id_matriz_filial` e conexao validada via `Sms::buscarValidadaPorFilial()`. Sem conexao validada, a chamada falha imediatamente e nao cria item pendente na fila.
 - **Email:** nao bloqueia a publicacao, porque pode usar SMTP da filial ou fallback do ENV.
 
 Excecao: `queue_system_message('whatsapp', ...)` usa credenciais do sistema e nao passa pela validacao de instancia da filial.
+
+O worker repete a validacao do bloqueio mestre imediatamente antes do provedor.
+Assim, uma mensagem que estava na fila quando o canal foi desativado recebe
+status `skipped`, sem retry e sem envio.
+
+### Hierarquia de Autorizacao
+
+Uma configuracao de outra filial do mesmo tenant nunca libera o envio. A
+mensagem usa a matriz/filial vinculada ao contrato, locacao, cobranca, reserva,
+NFS-e ou outro registro de origem:
+
+1. o canal precisa estar ativo na matriz/filial;
+2. para clientes, o contato tambem precisa autorizar o canal;
+3. WhatsApp e SMS exigem, adicionalmente, conexao valida da mesma filial.
+
+Para clientes:
+
+- email usa todos os enderecos com `recebe_email = 'S'`;
+- WhatsApp usa todos os telefones com `whatsapp = 'S'`;
+- SMS usa todos os telefones com `sms = 'S'`;
+- destinatarios repetidos sao deduplicados;
+- cada copia e revalidada novamente pelo worker.
+
+O controle `matrizes_filiais.notificacao_cobranca_vencida` e especifico do
+CRON financeiro: em `N`, impede apenas o `overdue_notice` automatico da filial.
+Ele nao desativa lembretes pre-vencimento, cobrancas manuais nem outros tipos
+de mensagem.
+
+Excecoes permitidas sao restritas a recuperacao de senha solicitada pelo
+usuario, testes tecnicos manuais e mensagens globais da plataforma marcadas
+explicitamente com bypass. Mensagens comerciais enviadas com credenciais da
+7Carros continuam respeitando a empresa/filial.
 
 ## Configuracao
 
@@ -224,7 +260,8 @@ Para mensagens da plataforma 7Carros para tenants. Usa credenciais do ENV.
 queue_system_message('whatsapp', [
     'to' => $tenant['telefone'],
     'message' => "Nova reserva recebida!\n\nCliente: Joao Silva\nVeiculo: Honda Civic 2024",
-]);
+    'id_matriz_filial' => $tenant['id'],
+], $tenant['chave']);
 // Resultado WhatsApp: "*[7Carros]*\nNova reserva recebida!\n\nCliente: Joao Silva..."
 
 // Alerta de seguranca
@@ -232,7 +269,7 @@ queue_system_message('email', [
     'to' => 'admin@7carros.com',
     'subject' => '[ALERTA] Tentativa de acesso cross-tenant',
     'body' => $alertBody,
-]);
+], null, true);
 ```
 
 ## Campos do Payload
@@ -332,8 +369,11 @@ queue_message('email', [
 
 ```php
 // 7Carros notificando um tenant
-queue_system_message('email', [...]);   // Usa ENV, layout 7Carros
-queue_system_message('whatsapp', [...]); // Usa ENV, prefixo *[7Carros]*
+queue_system_message('email', [...], null, true); // Alerta global com bypass explicito
+queue_system_message('whatsapp', [
+    ...,
+    'id_matriz_filial' => $filialId,
+], $chave); // Mensagem comercial: usa ENV, mas respeita o bloqueio da filial
 
 // Tenant enviando para seu cliente
 queue_template_message('welcome', 'email', [...]); // Usa SMTP do tenant
@@ -366,6 +406,19 @@ $ids = queue_client_email($clienteId, [
 ], $chave);
 ```
 
+### Preferencia de WhatsApp e SMS do Cliente
+
+Para destinatarios clientes, use `queue_client_phone()` em vez de publicar
+WhatsApp ou SMS diretamente. O helper cria uma mensagem para cada telefone
+autorizado e inclui os metadados usados na revalidacao do worker:
+
+```php
+$ids = queue_client_phone('whatsapp', $clienteId, [
+    'message' => 'Seu contrato esta disponivel.',
+    'id_matriz_filial' => $filialId,
+], $chave);
+```
+
 ## Referencia de API
 
 ```php
@@ -387,6 +440,15 @@ function queue_client_email(
     bool $ignorarPreferencia = false // uso interno: recuperacao de senha
 ): array;
 
+// WhatsApp/SMS para todos os telefones autorizados do cliente
+function queue_client_phone(
+    string $channel,     // 'whatsapp' ou 'sms'
+    int $clienteId,
+    array $payload,
+    ?string $chave = null,
+    ?string $batchId = null
+): array;
+
 // Mensagem direta (Tenant → Cliente/Interno)
 function queue_message(
     string $type,        // 'email', 'sms', 'whatsapp'
@@ -399,7 +461,8 @@ function queue_message(
 function queue_system_message(
     string $type,        // 'email', 'whatsapp'
     array $payload,      // Dados da mensagem
-    ?string $chave = null
+    ?string $chave = null,
+    bool $ignorarBloqueioEmpresa = false // apenas mensagens globais da plataforma
 ): int;
 ```
 
@@ -427,4 +490,4 @@ function queue_system_message(
 
 ---
 
-**Ultima atualizacao**: 2026-07-13
+**Ultima atualizacao**: 2026-07-24

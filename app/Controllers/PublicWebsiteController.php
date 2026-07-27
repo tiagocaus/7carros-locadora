@@ -876,6 +876,7 @@ class PublicWebsiteController
                     queue_system_message('whatsapp', [
                         'to' => preg_replace('/\D/', '', (string) $empresaMatriz['celular']),
                         'message' => $msgLocadora,
+                        'id_matriz_filial' => (int) ($empresaMatriz['id'] ?? 0),
                     ], $chave);
                 } catch (\Throwable $e) {
                     error_log('[Site/Publico] Erro ao notificar locadora por WhatsApp: ' . $e->getMessage());
@@ -1325,6 +1326,7 @@ HTML;
                     'subject'  => 'Contato do Site - ' . htmlspecialchars($dados['nome']),
                     'body'     => $body,
                     'reply_to' => $dados['email'],
+                    'id_matriz_filial' => (int) ($tenant['id'] ?? 0),
                 ], $chave);
             }
 

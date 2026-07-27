@@ -15,6 +15,7 @@ use App\Models\VeiculoDisponibilidadeSync;
 use App\Models\TaxaServico;
 use App\Models\Cliente;
 use App\Models\ContatoEmail;
+use App\Models\ContatoTelefone;
 use App\Models\Fornecedor;
 use App\Models\MatrizFilial;
 use App\Models\PlanoDeContas;
@@ -2413,6 +2414,17 @@ class LocacoesController
                     throw new \InvalidArgumentException('Cliente sem email autorizado para envio');
                 }
                 $destinatario = (string) $emailsAutorizados[0]['email'];
+            } else {
+                $telefonesAutorizados = (new ContatoTelefone())->listarParaEnvio(
+                    'cliente',
+                    (int) $locacao['id_cliente'],
+                    $canal,
+                    $chave
+                );
+                if ($telefonesAutorizados === []) {
+                    throw new \InvalidArgumentException("Cliente sem telefone autorizado para {$canal}");
+                }
+                $destinatario = (string) $telefonesAutorizados[0]['telefone'];
             }
 
             validate_queue_message($canal, [
@@ -2450,14 +2462,14 @@ class LocacoesController
                 ], $chave);
             } elseif ($canal === 'whatsapp') {
                 $publicUrl = rtrim(env('APP_URL', ''), '/') . '/storage/temp/' . $filename;
-                queue_message('whatsapp', [
+                queue_client_phone('whatsapp', (int) $locacao['id_cliente'], [
                     'to' => $destinatario,
                     'media_url' => $publicUrl,
                     'caption' => $documentoLabel . ' ' . $locacao['codigo'] . ' - ' . $nomeEmpresa,
                     'id_matriz_filial' => $locacao['id_matriz_filial_retirada'] ?? null,
-                ]);
+                ], $chave);
             } elseif ($canal === 'sms') {
-                queue_message('sms', [
+                queue_client_phone('sms', (int) $locacao['id_cliente'], [
                     'to' => $destinatario,
                     'message' => t('modules.locacoes.api.document_sms_body', [
                         'document' => strtolower($documentoLabel),
@@ -2465,7 +2477,7 @@ class LocacoesController
                         'company' => $nomeEmpresa,
                     ]),
                     'id_matriz_filial' => $locacao['id_matriz_filial_retirada'] ?? null,
-                ]);
+                ], $chave);
             }
 
             Response::json(['success' => true, 'message' => $this->apiMessage('document_sent')]);
@@ -2520,8 +2532,9 @@ class LocacoesController
             $empresa = $this->buscarDadosEmpresa($filialId) ?? [];
             $empresa['id'] = $empresa['id'] ?? $filialId;
 
-            queue_template_message('signature_request', 'whatsapp', [
+            $messageId = queue_template_message('signature_request', 'whatsapp', [
                 'cliente' => [
+                    'id' => (int) ($locacao['id_cliente'] ?? 0),
                     'nome' => $locacao['cliente_nome_completo'] ?? $locacao['cliente_nome'] ?? '',
                     'email' => $locacao['cliente_email'] ?? '',
                     'telefone' => $telefone,
@@ -2534,6 +2547,9 @@ class LocacoesController
                 ],
                 'id_matriz_filial' => $filialId,
             ], $chave);
+            if ($messageId <= 0) {
+                throw new \InvalidArgumentException('Cliente sem WhatsApp autorizado para envio');
+            }
 
             Response::json(['success' => true, 'message' => $this->apiMessage('signature_link_sent')]);
 

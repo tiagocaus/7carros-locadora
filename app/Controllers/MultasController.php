@@ -11,6 +11,7 @@ use App\Models\Veiculo;
 use App\Models\Documento;
 use App\Models\Cliente;
 use App\Models\ContatoEmail;
+use App\Models\ContatoTelefone;
 use App\Models\MatrizFilial;
 use App\Helpers\FilialHelper;
 use App\Helpers\FileHelper;
@@ -872,6 +873,17 @@ class MultasController
                     throw new \InvalidArgumentException('Cliente sem email autorizado para envio');
                 }
                 $destinatario = (string) $emailsAutorizados[0]['email'];
+            } else {
+                $telefonesAutorizados = (new ContatoTelefone())->listarParaEnvio(
+                    'cliente',
+                    (int) ($multa['id_cliente'] ?? 0),
+                    $canal,
+                    $chave
+                );
+                if ($telefonesAutorizados === []) {
+                    throw new \InvalidArgumentException("Cliente sem telefone autorizado para {$canal}");
+                }
+                $destinatario = (string) $telefonesAutorizados[0]['telefone'];
             }
 
             validate_queue_message($canal, [
@@ -958,18 +970,18 @@ class MultasController
                 ], $chave);
             } elseif ($canal === 'whatsapp') {
                 $publicUrl = rtrim(env('APP_URL', ''), '/') . '/storage/temp/' . $filename;
-                queue_message('whatsapp', [
+                queue_client_phone('whatsapp', (int) $multa['id_cliente'], [
                     'to' => $destinatario,
                     'media_url' => $publicUrl,
                     'caption' => $assuntoBase . ' - ' . $nomeEmpresa,
                     'id_matriz_filial' => $multa['id_matriz_filial'] ?? null,
-                ]);
+                ], $chave);
             } elseif ($canal === 'sms') {
-                queue_message('sms', [
+                queue_client_phone('sms', (int) $multa['id_cliente'], [
                     'to' => $destinatario,
                     'message' => $assuntoBase . '. ' . $nomeEmpresa,
                     'id_matriz_filial' => $multa['id_matriz_filial'] ?? null,
-                ]);
+                ], $chave);
             }
 
             $this->limparArquivosTemporarios();

@@ -950,7 +950,7 @@ class FeatureRequestsController
                     'to' => $email,
                     'subject' => $assuntoEmail,
                     'body' => $corpoEmailCriador,
-                ], $chavePedido);
+                ], $chavePedido, true);
             } catch (\Throwable $e) {
                 error_log("Erro ao enfileirar email de pedido de recurso {$featureRequestId} para {$email}: " . $e->getMessage());
             }
@@ -962,7 +962,7 @@ class FeatureRequestsController
                     'to' => $email,
                     'subject' => $assuntoEmail,
                     'body' => $corpoEmailSeguidor,
-                ], $chavePedido);
+                ], $chavePedido, true);
             } catch (\Throwable $e) {
                 error_log("Erro ao enfileirar email de pedido de recurso {$featureRequestId} para {$email}: " . $e->getMessage());
             }
@@ -995,7 +995,7 @@ class FeatureRequestsController
                 queue_system_message('whatsapp', [
                     'to' => $telefone,
                     'message' => $mensagemWhatsApp,
-                ], $chavePedido);
+                ], $chavePedido, true);
             } catch (\Throwable $e) {
                 error_log("Erro ao enfileirar WhatsApp de pedido de recurso {$featureRequestId} para {$telefone}: " . $e->getMessage());
             }
