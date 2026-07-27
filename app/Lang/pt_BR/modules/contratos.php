@@ -775,7 +775,7 @@ return [
         'sending' => 'Enviando...',
         'send_success' => 'Documento enviado com sucesso!',
         'send_error' => 'Erro ao enviar documento.',
-        'save_before_hold' => 'Salve o contrato antes de criar o bloqueio',
+        'save_before_hold' => 'Salve o contrato para poder criar o bloqueio diretamente no cartão do cliente.',
         'hold_create_error' => 'Erro ao criar bloqueio',
         'hold_release_error' => 'Erro ao liberar bloqueio',
         'hold_release_not_confirmed' => 'Não foi possível confirmar a liberação do bloqueio no cartão.',

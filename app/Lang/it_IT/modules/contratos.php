@@ -733,7 +733,7 @@ return [
         'sending' => 'Invio in corso...',
         'send_success' => 'Documento inviato con successo!',
         'send_error' => 'Errore nell\'invio del documento.',
-        'save_before_hold' => 'Salva il contratto prima di creare il blocco',
+        'save_before_hold' => 'Salva il contratto per poter creare il blocco direttamente sulla carta del cliente.',
         'hold_create_error' => 'Errore nella creazione del blocco',
         'hold_release_error' => 'Errore nel rilascio del blocco',
         'hold_release_not_confirmed' => 'Non è stato possibile confermare lo sblocco sulla carta.',

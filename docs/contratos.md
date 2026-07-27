@@ -524,12 +524,14 @@ A tabela `contratos` tem coluna `id_bloqueio_ativo` (FK para `contratos_bloqueio
 
 ### Fluxo
 
-1. Usuario seleciona cartao e valor na aba Financeiro do contrato
-2. `POST /api/contratos/{id}/bloqueio/criar` → gateway cria PaymentIntent manual
-3. Hold fica ativo (status=authorized) com expiracao em 7 dias
-4. Cron `RotateAuthorizationHoldsJob` rotaciona holds 2 dias antes de expirar (cobre locacoes E contratos)
-5. Ao capturar: cria lancamento financeiro (receita) com plano de contas 1.1.5.01
-6. Ao liberar: cancela hold no gateway, limpa `id_bloqueio_ativo`
+1. Em contrato novo, a secao orienta o usuario a salvar antes de exibir cartao,
+   valor e acao de criar bloqueio
+2. Depois de salvo, o usuario seleciona cartao e valor na aba Financeiro do contrato
+3. `POST /api/contratos/{id}/bloqueio/criar` → gateway cria PaymentIntent manual
+4. Hold fica ativo (status=authorized) com expiracao em 7 dias
+5. Cron `RotateAuthorizationHoldsJob` rotaciona holds 2 dias antes de expirar (cobre locacoes E contratos)
+6. Ao capturar: cria lancamento financeiro (receita) com plano de contas 1.1.5.01
+7. Ao liberar: cancela hold no gateway, limpa `id_bloqueio_ativo`
 
 Ao excluir um contrato, todos os holds locais `pending` ou `authorized` devem
 ter a liberacao confirmada no gateway. Uma falha bloqueia a exclusao e preserva

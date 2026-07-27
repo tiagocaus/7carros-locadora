@@ -734,7 +734,7 @@ return [
         'sending' => 'Sending...',
         'send_success' => 'Document sent successfully!',
         'send_error' => 'Error sending document.',
-        'save_before_hold' => 'Save the contract before creating the hold',
+        'save_before_hold' => 'Save the contract before creating the hold directly on the customer card.',
         'hold_create_error' => 'Error creating hold',
         'hold_release_error' => 'Error releasing hold',
         'hold_release_not_confirmed' => 'The card hold release could not be confirmed.',
