@@ -276,6 +276,7 @@ class Fornecedor extends Model
                 'cidade' => $dados['cidade'] ?? null,
                 'bairro' => $dados['bairro'] ?? null,
                 'email' => $dados['email'] ?? null,
+                'senha' => $dados['senha'] ?? null,
                 'tel1' => $dados['tel1'] ?? null,
                 'tel2' => $dados['tel2'] ?? null,
                 'obs' => $dados['obs'] ?? null,
@@ -337,6 +338,10 @@ class Fornecedor extends Model
             }
         }
 
+        if (array_key_exists('senha', $dados) && $dados['senha'] !== '') {
+            $dadosUpdate['senha'] = $dados['senha'];
+        }
+
         if (empty($dadosUpdate)) {
             return 0;
         }
@@ -347,6 +352,37 @@ class Fornecedor extends Model
             ->table('fornecedores')
             ->where('id', '=', $id)
             ->update($dadosUpdate);
+    }
+
+    /**
+     * Busca investidor para login publico por email ou CPF/CNPJ.
+     * Retorna ate dois registros para detectar ambiguidade.
+     */
+    public function buscarInvestidoresParaLogin(string $usuario): array
+    {
+        $usuario = trim($usuario);
+        if ($usuario === '') {
+            return [];
+        }
+
+        $documento = preg_replace('/\D/', '', $usuario);
+        $query = $this->qb
+            ->table('fornecedores')
+            ->select(['id', 'nome_rsocial', 'nome_fantasia', 'email', 'senha', 'investidor'])
+            ->where('investidor', '=', 1);
+
+        if ($documento !== '' && preg_match('/^[\d.\/\-\s]+$/', $usuario) === 1) {
+            $query->whereRaw(
+                "REPLACE(REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '-', ''), '/', ''), ' ', '') = ?",
+                [$documento]
+            );
+        } elseif (filter_var($usuario, FILTER_VALIDATE_EMAIL)) {
+            $query->where('email', '=', $usuario);
+        } else {
+            return [];
+        }
+
+        return $query->limit(2)->get();
     }
 
     /**

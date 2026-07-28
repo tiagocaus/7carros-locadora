@@ -107,6 +107,68 @@ class SiteApi
     }
 
     /**
+     * Encaminha chamadas autenticadas do painel sem expor os tokens ao browser.
+     */
+    public function portalRequest(
+        string $method,
+        string $endpoint,
+        array $dados = [],
+        string $portalToken = ''
+    ): array {
+        $method = strtoupper($method);
+        $portalHeaders = $this->portalClientHeaders();
+        if ($method === 'GET') {
+            $dados['chave'] = $this->config['chave'];
+            $url = $this->config['api_url'] . $endpoint . '?' . http_build_query($dados);
+            return $this->request('GET', $url, null, $portalToken, $portalHeaders);
+        }
+
+        $dados['chave'] = $this->config['chave'];
+        $url = $this->config['api_url'] . $endpoint;
+        return $this->request($method, $url, $dados, $portalToken, $portalHeaders);
+    }
+
+    /**
+     * Baixa um documento binario autenticado do portal.
+     *
+     * @return array{status:int,content_type:string,body:string}
+     */
+    public function portalDocument(string $endpoint, string $portalToken): array
+    {
+        $url = $this->config['api_url'] . $endpoint . '?' . http_build_query([
+            'chave' => $this->config['chave'],
+        ]);
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HTTPHEADER => array_merge([
+                'X-Site-Token: ' . $this->config['api_token'],
+                'X-Portal-Token: ' . $portalToken,
+            ], $this->portalClientHeaders()),
+        ]);
+        $body = (string) curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $contentType = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+        return ['status' => $status, 'content_type' => $contentType, 'body' => $body];
+    }
+
+    private function portalClientHeaders(): array
+    {
+        $headers = [];
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+            $headers[] = 'X-Portal-Client-IP: ' . $ip;
+        }
+        $agent = str_replace(["\r", "\n"], '', (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+        if ($agent !== '') {
+            $headers[] = 'X-Portal-Client-Agent: ' . substr($agent, 0, 500);
+        }
+        return $headers;
+    }
+
+    /**
      * Limpar cache local
      */
     public function limparCache(): void
@@ -151,19 +213,33 @@ class SiteApi
         return $this->request('POST', $url, $dados);
     }
 
-    private function request(string $method, string $url, ?array $body = null): array
+    private function request(
+        string $method,
+        string $url,
+        ?array $body = null,
+        string $portalToken = '',
+        array $extraHeaders = []
+    ): array
     {
         $ch = curl_init($url);
+        $headers = [
+            'Content-Type: application/json',
+            'X-Site-Token: ' . $this->config['api_token'],
+        ];
+        if ($portalToken !== '') {
+            $headers[] = 'X-Portal-Token: ' . $portalToken;
+        }
+        $headers = array_merge($headers, $extraHeaders);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 10,
-            CURLOPT_HTTPHEADER     => [
-                'Content-Type: application/json',
-                'X-Site-Token: ' . $this->config['api_token'],
-            ],
+            CURLOPT_HTTPHEADER     => $headers,
         ]);
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+        } elseif ($method !== 'GET') {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
         }
         $response = curl_exec($ch);

@@ -85,8 +85,7 @@ class SiteConfig extends Model
         return $this->qb
             ->table('site_config')
             ->select(['*'])
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->first();
     }
 

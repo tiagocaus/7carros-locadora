@@ -74,6 +74,7 @@ use App\Controllers\Relatorios\KpisController;
 use App\Controllers\Relatorios\FinanceiroController as FinanceiroReportController;
 use App\Controllers\WebsiteController;
 use App\Controllers\PublicWebsiteController;
+use App\Controllers\PortalController;
 use App\Controllers\N8nController;
 
 // Rota raiz - redireciona para login ou dashboard
@@ -186,6 +187,20 @@ $router->post('/api/public/promocao-validar', [PublicWebsiteController::class, '
 $router->post('/api/public/reserva', [PublicWebsiteController::class, 'criarReserva'], ['rate_limit']);
 $router->post('/api/public/contato', [PublicWebsiteController::class, 'contato'], ['rate_limit']);
 $router->post('/api/public/limpar-cache', [PublicWebsiteController::class, 'limparCache'], ['rate_limit']);
+
+// Portal do cliente e fornecedor investidor (site-token + sessao opaca)
+$router->post('/api/public/portal/login', [PortalController::class, 'login'], ['rate_limit']);
+$router->post('/api/public/portal/logout', [PortalController::class, 'logout'], ['rate_limit']);
+$router->get('/api/public/portal/sessao', [PortalController::class, 'sessao'], ['rate_limit']);
+$router->get('/api/public/portal/dashboard', [PortalController::class, 'dashboard'], ['rate_limit']);
+$router->get('/api/public/portal/{recurso}', [PortalController::class, 'listar'], ['rate_limit']);
+$router->put('/api/public/portal/perfil', [PortalController::class, 'atualizarPerfil'], ['rate_limit']);
+$router->post('/api/public/portal/senha', [PortalController::class, 'trocarSenha'], ['rate_limit']);
+$router->post('/api/public/portal/senha/solicitar', [PortalController::class, 'solicitarReset'], ['rate_limit']);
+$router->get('/public/portal/redefinir-senha', [PortalController::class, 'exibirReset'], ['rate_limit']);
+$router->post('/api/public/portal/senha/definir', [PortalController::class, 'definirReset'], ['rate_limit']);
+$router->post('/api/public/portal/faturas/{id}/link-pagamento', [PortalController::class, 'linkPagamento'], ['rate_limit']);
+$router->get('/api/public/portal/faturas/{id}/recibo', [PortalController::class, 'recibo'], ['rate_limit']);
 
 // Rotas do sistema administrativo (requerem autenticacao e acesso web)
 $router->group(['middleware' => ['auth', 'web_system_access']], function ($router) {

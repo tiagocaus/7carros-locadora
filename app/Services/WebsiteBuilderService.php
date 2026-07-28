@@ -90,6 +90,8 @@ class WebsiteBuilderService
             'assets/js/chosen-select.min.js',
             // Helper CEP (ViaCEP + zippopotam) pre-minificado
             'assets/js/cep.min.js',
+            'assets/css/portal.min.css',
+            'assets/js/portal.min.js',
         ];
         foreach ($libs as $rel) {
             $origem = $this->templatePath . '/' . $rel;
@@ -331,7 +333,7 @@ class WebsiteBuilderService
     private function copiarPaginas(string $buildDir): void
     {
         $paginas = [
-            'index.php', 'sobre.php', 'veiculos.php', 'contato.php', 'reserva.php',
+            'index.php', 'sobre.php', 'veiculos.php', 'contato.php', 'reserva.php', 'painel.php',
             // Proxies AJAX usados pelo JS do site para chamar /api/public/...
             'ajax-disponibilidade.php',
             'ajax-reserva.php',
@@ -341,6 +343,10 @@ class WebsiteBuilderService
             'ajax-cliente-login.php',
             'ajax-cliente-logout.php',
             'ajax-cliente-senha-reset.php',
+            'ajax-portal-login.php',
+            'ajax-portal-api.php',
+            'ajax-portal-logout.php',
+            'portal-recibo.php',
         ];
         foreach ($paginas as $pagina) {
             $this->copiarArquivo(
@@ -353,7 +359,8 @@ class WebsiteBuilderService
     private function copiarIncludes(string $buildDir): void
     {
         $includes = ['header.php', 'footer.php', 'head.php', 'whatsapp-float.php',
-                      'structured-data.php', 'manutencao.php', 'functions.php', 'api.php'];
+                      'structured-data.php', 'manutencao.php', 'functions.php', 'api.php',
+                      'portal-session.php'];
         foreach ($includes as $file) {
             $this->copiarArquivo(
                 $this->templatePath . '/includes/' . $file,

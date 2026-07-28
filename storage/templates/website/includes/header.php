@@ -51,8 +51,7 @@ $langBadge = function (string $code): string {
                         <a class="nav-link text-white" href="<?= langUrl('contato.php') ?>" data-track="nav_contato"><?= t('nav.contato') ?></a>
                     </li>
                     <li class="nav-item">
-                        <!-- TODO: painel do cliente — provavelmente virará iframe apontando para locadoranovo.7carros.com/painelcliente -->
-                        <a class="nav-link text-white" href="#" data-track="nav_painel_cliente"><?= t('nav.painel_cliente') ?></a>
+                        <a class="nav-link text-white" href="<?= langUrl('painel.php') ?>" data-track="nav_painel_cliente"><?= t('nav.painel_cliente') ?></a>
                     </li>
 
                     <?php if (count($idiomasAtivos) > 1): ?>

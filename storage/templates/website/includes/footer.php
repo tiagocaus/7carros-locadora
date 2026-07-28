@@ -28,8 +28,7 @@ $iconesFa4 = [
                         <div class="col-sm-5"><a href="<?= langUrl('sobre.php') ?>" data-track="footer_sobre"><?= t('nav.sobre') ?></a></div>
                         <div class="col-sm-5"><a href="<?= langUrl('veiculos.php') ?>" data-track="footer_veiculos"><?= t('nav.veiculos') ?></a></div>
                         <div class="col-sm-5"><a href="<?= langUrl('contato.php') ?>" data-track="footer_contato"><?= t('nav.contato') ?></a></div>
-                        <!-- TODO: painel do cliente — iframe futuramente -->
-                        <div class="col-sm-5"><a href="#" data-track="footer_painel_cliente"><?= t('nav.painel_cliente') ?></a></div>
+                        <div class="col-sm-5"><a href="<?= langUrl('painel.php') ?>" data-track="footer_painel_cliente"><?= t('nav.painel_cliente') ?></a></div>
                     </div>
                 </div>
 

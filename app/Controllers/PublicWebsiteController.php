@@ -1125,7 +1125,7 @@ class PublicWebsiteController
             $this->setTenantContext($chave);
             $hash = password_hash($senha, PASSWORD_ARGON2ID);
             (new \App\Models\Cliente())->atualizar($idCliente, ['senha' => $hash]);
-            $resetModel->marcarUsado((int) $reset['id']);
+            $resetModel->marcarUsado((int) $reset['id'], $chave);
             \App\Core\Session::forget('reset_csrf_token');
             $this->restoreTenantContext();
 

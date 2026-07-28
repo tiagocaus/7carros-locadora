@@ -51,6 +51,8 @@ return [
         'bank_branch' => 'Sucursal',
         'bank_account' => 'Cuenta',
         'bank_account_type' => 'Tipo de Cuenta',
+        'portal_password' => 'Contraseña del portal',
+        'portal_password_help' => 'Use al menos 8 caracteres. Al editar, déjelo en blanco para conservar la contraseña actual.',
     ],
 
     // Opciones de tipo

@@ -51,6 +51,8 @@ return [
         'bank_branch' => 'Branch',
         'bank_account' => 'Account',
         'bank_account_type' => 'Account Type',
+        'portal_password' => 'Portal password',
+        'portal_password_help' => 'Use at least 8 characters. When editing, leave it blank to keep the current password.',
     ],
 
     // Type options

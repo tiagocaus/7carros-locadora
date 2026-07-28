@@ -51,6 +51,8 @@ return [
         'bank_branch' => 'Agência',
         'bank_account' => 'Conta',
         'bank_account_type' => 'Tipo de Conta',
+        'portal_password' => 'Senha do portal',
+        'portal_password_help' => 'Use pelo menos 8 caracteres. Ao editar, deixe em branco para manter a senha atual.',
     ],
 
     // Opções de tipo

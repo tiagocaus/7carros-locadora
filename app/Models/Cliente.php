@@ -251,35 +251,51 @@ class Cliente extends Model
      */
     public function buscarPorUsuarioParaLogin(string $usuario): ?array
     {
+        $resultados = $this->buscarUsuariosParaLogin($usuario);
+        return count($resultados) === 1 ? $resultados[0] : null;
+    }
+
+    /**
+     * Retorna no maximo dois resultados para permitir bloquear identificadores
+     * ambiguos sem expor ao portal quais cadastros estao duplicados.
+     */
+    public function buscarUsuariosParaLogin(string $usuario): array
+    {
         $usuario = trim($usuario);
-        if ($usuario === '') return null;
+        if ($usuario === '') return [];
 
         $soDigitos = preg_replace('/\D/', '', $usuario);
-        $parecerDocumento = $soDigitos !== '' && strlen($soDigitos) >= 11;
+        // Alguns cadastros legados possuem documento incompleto; mantemos a
+        // compatibilidade desde que o identificador informado seja numerico.
+        $parecerDocumento = $soDigitos !== ''
+            && preg_match('/^[\d.\/\-\s]+$/', $usuario) === 1;
 
-        // Por email: join com contatos_emails (entidade_tipo='cliente')
         if (!$parecerDocumento && filter_var($usuario, FILTER_VALIDATE_EMAIL)) {
-            $row = $this->qb
+            return $this->qb
                 ->table('clientes', 'c')
-                ->select(['c.id', 'c.nome_rsocial', 'c.senha'])
+                ->select(['c.id', 'c.nome_rsocial', 'c.nome_fantasia', 'c.senha', 'c.situacao'])
                 ->join('contatos_emails', 'ce', 'ce.entidade_id', '=', 'c.id')
                 ->where('ce.entidade_tipo', '=', 'cliente')
+                ->whereRaw('ce.chave = c.chave')
                 ->where('ce.email', '=', $usuario)
-                ->first();
-            return $row ?: null;
+                ->groupBy('c.id')
+                ->limit(2)
+                ->get();
         }
 
-        // Por CPF/CNPJ
         if ($parecerDocumento) {
-            $row = $this->qb
+            return $this->qb
                 ->table('clientes')
-                ->select(['id', 'nome_rsocial', 'senha'])
-                ->where('cpf_cnpj', '=', $soDigitos)
-                ->first();
-            return $row ?: null;
+                ->select(['id', 'nome_rsocial', 'nome_fantasia', 'senha', 'situacao'])
+                ->whereRaw(
+                    "REPLACE(REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '-', ''), '/', ''), ' ', '') = ?",
+                    [$soDigitos]
+                )
+                ->limit(2)
+                ->get();
         }
 
-        return null;
+        return [];
     }
 
     /**

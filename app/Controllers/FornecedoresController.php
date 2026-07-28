@@ -129,6 +129,7 @@ class FornecedoresController
             } else {
                 $fornecedor['comissao_regras'] = [];
             }
+            unset($fornecedor['senha']);
 
             Response::json([
                 'success' => true,
@@ -161,6 +162,8 @@ class FornecedoresController
                 ], 400);
                 return;
             }
+
+            $this->prepararSenhaPortal($dados);
 
             $model = new Fornecedor();
             $id = $model->criar($dados);
@@ -222,6 +225,7 @@ class FornecedoresController
             }
 
             $dados = $request->all();
+            $this->prepararSenhaPortal($dados);
             $model->atualizar($id, $dados);
             (new FornecedorComissaoRegra())->salvarParaFornecedor(
                 $id,
@@ -253,6 +257,25 @@ class FornecedoresController
                 'message' => 'Erro ao atualizar fornecedor: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Valida e transforma a senha informada no hash persistido pelo portal.
+     * Campo vazio em uma edicao significa manter a senha atual.
+     */
+    private function prepararSenhaPortal(array &$dados): void
+    {
+        $senha = (string) ($dados['senha'] ?? '');
+        if ($senha === '') {
+            unset($dados['senha']);
+            return;
+        }
+
+        if (mb_strlen($senha) < 8) {
+            throw new \InvalidArgumentException('A senha do portal deve ter pelo menos 8 caracteres.');
+        }
+
+        $dados['senha'] = password_hash($senha, PASSWORD_ARGON2ID);
     }
 
     /**

@@ -233,6 +233,17 @@
                     </div>
                 </div>
 
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
+                    <div class="md:col-span-6 form-input-group">
+                        <label for="senha" class="form-label-group">
+                            <?= t('modules.fornecedores.fields.portal_password') ?>
+                            <?= aviso(t('modules.fornecedores.fields.portal_password_help')) ?>
+                        </label>
+                        <input type="password" id="senha" name="senha" class="form-input-group-field"
+                               minlength="8" maxlength="255" autocomplete="new-password">
+                    </div>
+                </div>
+
                 <div class="mt-6 border-t border-slate-200 pt-5">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                         <div>
@@ -416,6 +427,7 @@
         document.getElementById('banco_agencia').value = data.banco_agencia || '';
         document.getElementById('banco_conta').value = data.banco_conta || '';
         document.getElementById('banco_tipo').value = data.banco_tipo || '';
+        document.getElementById('senha').value = '';
         renderizarRegrasComissao(data.comissao_regras || []);
 
         // Observacoes
@@ -564,6 +576,7 @@
                 dados.banco_agencia = '';
                 dados.banco_conta = '';
                 dados.banco_tipo = '';
+                dados.senha = '';
                 dados.comissao_regras = [];
             } else {
                 dados.comissao_regras = coletarRegrasComissao();

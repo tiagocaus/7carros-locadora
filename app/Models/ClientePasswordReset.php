@@ -31,18 +31,16 @@ class ClientePasswordReset extends Model
 
         // Invalida tokens pendentes anteriores deste cliente
         $this->qb
-            ->withoutChave()
             ->table('cliente_password_resets')
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('id_cliente', '=', $idCliente)
             ->whereNull('used_at')
             ->update(['used_at' => now()]);
 
         $this->qb
-            ->withoutChave()
             ->table('cliente_password_resets')
+            ->withChave($chave)
             ->insert([
-                'chave' => $chave,
                 'id_cliente' => $idCliente,
                 'token_hash' => $tokenHash,
                 'expires_at' => $expiresAt,
@@ -85,11 +83,11 @@ class ClientePasswordReset extends Model
         return $row;
     }
 
-    public function marcarUsado(int $id): void
+    public function marcarUsado(int $id, string $chave): void
     {
         $this->qb
-            ->withoutChave()
             ->table('cliente_password_resets')
+            ->withChave($chave)
             ->where('id', '=', $id)
             ->update(['used_at' => now()]);
     }

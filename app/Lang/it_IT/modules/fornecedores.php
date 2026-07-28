@@ -51,6 +51,8 @@ return [
         'bank_branch' => 'Filiale',
         'bank_account' => 'Conto',
         'bank_account_type' => 'Tipo di Conto',
+        'portal_password' => 'Password del portale',
+        'portal_password_help' => 'Usa almeno 8 caratteri. Durante la modifica, lascia vuoto per mantenere la password attuale.',
     ],
 
     // Opzioni di tipo
