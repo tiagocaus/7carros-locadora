@@ -198,22 +198,48 @@ class WebsiteBuilderService
      *
      * @return array{success: bool, message: string, detalhes: array}
      */
-    public function deploy(string $chave, ?int $funcionarioId = null): array
+    public function deploy(
+        string $chave,
+        ?int $funcionarioId = null,
+        string $tipo = 'deploy',
+        array $metadata = []
+    ): array
     {
+        $tiposPermitidos = ['deploy', 'redeploy', 'update', 'rollback'];
+        if (!in_array($tipo, $tiposPermitidos, true)) {
+            throw new \InvalidArgumentException('Tipo de deploy invalido');
+        }
+
         $startTime = microtime(true);
         $versao = $this->getVersaoArquivo();
         $buildPath = null;
+        $ftpService = null;
+        $deployLogModel = null;
+        $logId = null;
+        $contexto = array_merge($metadata, [
+            'versao_anterior' => null,
+            'versao_destino'  => $versao,
+        ]);
 
         // Setar chave na sessao para os Models funcionarem
         $hadChave = array_key_exists('chave', $_SESSION);
         $oldChave = $_SESSION['chave'] ?? null;
         $_SESSION['chave'] = $chave;
 
-        // Registrar inicio do deploy
-        $deployLogModel = new SiteDeployLog();
-        $logId = $deployLogModel->registrar($versao, 'deploy', 'iniciado', null, $funcionarioId);
-
         try {
+            $configAnterior = (new SiteConfig())->buscarPorChave();
+            $contexto['versao_anterior'] = $configAnterior['versao'] ?? null;
+
+            // Registrar inicio do deploy
+            $deployLogModel = new SiteDeployLog();
+            $logId = $deployLogModel->registrar(
+                $versao,
+                $tipo,
+                'iniciado',
+                $contexto,
+                $funcionarioId
+            );
+
             // 1. Build
             $buildPath = $this->build($chave);
 
@@ -250,9 +276,6 @@ class WebsiteBuilderService
             // 4. Upload recursivo
             $uploadResult = $ftpService->uploadDirectory($buildPath, $remoteDir);
 
-            // 5. Desconectar
-            $ftpService->disconnect();
-
             if ($uploadResult['arquivos_enviados'] < 1) {
                 throw new \RuntimeException('Nenhum arquivo foi enviado ao FTP');
             }
@@ -270,11 +293,11 @@ class WebsiteBuilderService
             $buildPath = null;
 
             $tempoSegundos = round(microtime(true) - $startTime, 2);
-            $detalhes = [
+            $detalhes = array_merge($contexto, [
                 'arquivos_enviados' => $uploadResult['arquivos_enviados'],
                 'tempo_segundos'    => $tempoSegundos,
                 'erros'             => $uploadResult['erros'],
-            ];
+            ]);
 
             // 7. Atualizar versao e timestamp
             $configModel = new SiteConfig();
@@ -283,39 +306,27 @@ class WebsiteBuilderService
             // 8. Registrar sucesso no log
             $deployLogModel->atualizarStatus($logId, 'sucesso', $detalhes);
 
-            // Restaurar sessao
-            if ($hadChave) {
-                $_SESSION['chave'] = $oldChave;
-            } else {
-                unset($_SESSION['chave']);
-            }
-
             return [
                 'success'  => true,
                 'message'  => "Deploy realizado com sucesso ({$uploadResult['arquivos_enviados']} arquivos em {$tempoSegundos}s)",
                 'detalhes' => $detalhes,
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Cleanup em caso de erro
             if ($buildPath && is_dir($buildPath)) {
                 $this->cleanup($buildPath);
             }
 
             $tempoSegundos = round(microtime(true) - $startTime, 2);
-            $detalhes = [
+            $detalhes = array_merge($contexto, [
                 'erro'            => $e->getMessage(),
                 'tempo_segundos'  => $tempoSegundos,
-            ];
+            ]);
 
             // Registrar falha
-            $deployLogModel->atualizarStatus($logId, 'falha', $detalhes);
-
-            // Restaurar sessao
-            if ($hadChave) {
-                $_SESSION['chave'] = $oldChave;
-            } else {
-                unset($_SESSION['chave']);
+            if ($deployLogModel instanceof SiteDeployLog && $logId !== null) {
+                $deployLogModel->atualizarStatus($logId, 'falha', $detalhes);
             }
 
             return [
@@ -323,6 +334,16 @@ class WebsiteBuilderService
                 'message'  => 'Erro no deploy: ' . $e->getMessage(),
                 'detalhes' => $detalhes,
             ];
+        } finally {
+            if ($ftpService instanceof FtpService) {
+                $ftpService->disconnect();
+            }
+
+            if ($hadChave) {
+                $_SESSION['chave'] = $oldChave;
+            } else {
+                unset($_SESSION['chave']);
+            }
         }
     }
 

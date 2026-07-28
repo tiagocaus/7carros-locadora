@@ -46,6 +46,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 - **NUNCA editar arquivos `*.min.*`** - sempre editar o arquivo original (ex: `components.css`, não `components.min.css`)
 - **SEMPRE minificar arquivos CSS e JS após edição** - usar `npx terser arquivo.js -o arquivo.min.js --compress --mangle` para JS e ferramenta equivalente para CSS
 - **SEMPRE publicar no FTP após alterações** - usar `temp-lftp.txt`, preservar os caminhos relativos e enviar somente os arquivos do escopo alterado. Para CSS/JS, editar a fonte e gerar o respectivo `*.min.*`, mas enviar ao FTP somente a versão minificada. Nunca enviar `temp-lftp.txt`, arquivos de credenciais ou outros arquivos ignorados pelo Git.
+- **ATUALIZACOES EM LOTE DOS WEBSITES DEVEM SER EXECUTADAS NO TERMINAL DO SERVIDOR** - ao concluir uma alteracao em `storage/templates/website`, informe os comandos completos de dry-run e aplicacao de `scripts/publicar-atualizacao-websites.php`, usando `--env=production` e a versao real de `versao.json`. O comando usa o `.env.production` do servidor com `DB_HOST=localhost`; nunca fixe host ou credenciais no PHP e nunca use `temp-bd.txt` para essa publicacao.
 - **NUNCA exibir instruções, explicações ou avisos abaixo de inputs, selects ou textareas** - associe o texto ao rótulo do campo usando o helper `aviso()` (veja `docs/helpers.md` e `docs/best-practices.md`)
 
 ## Documentação

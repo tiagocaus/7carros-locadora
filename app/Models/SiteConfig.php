@@ -90,6 +90,38 @@ class SiteConfig extends Model
     }
 
     /**
+     * Lista configuracoes para a publicacao administrativa do template.
+     *
+     * Sem filtro, esta e uma consulta cross-tenant exclusiva do comando CLI.
+     * Com chave explicita, o isolamento normal do QueryBuilder e preservado.
+     */
+    public function listarParaAtualizacaoEmLote(?string $chave = null): array
+    {
+        $query = $this->qb
+            ->table('site_config', 'sc')
+            ->select([
+                'sc.chave',
+                'sc.status',
+                'sc.versao',
+                "(sc.api_token IS NOT NULL AND sc.api_token <> '') AS tem_api_token",
+                'cr.id AS credencial_id',
+                'cr.usuario AS ftp_usuario',
+            ])
+            ->leftJoinRaw('site_credenciais', 'cr', 'cr.chave = sc.chave')
+            ->orderBy('sc.chave', 'ASC');
+
+        if ($chave === null) {
+            return $query
+                ->withoutChave()
+                ->get();
+        }
+
+        return $query
+            ->withChave($chave)
+            ->get();
+    }
+
+    /**
      * Retorna QueryBuilder apontando para outra tabela (reutiliza conexao singleton)
      * Permite queries em tabelas auxiliares sem criar novas conexoes
      */

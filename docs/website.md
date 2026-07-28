@@ -2253,7 +2253,12 @@ Justificativa: o pacote é leve (~20 arquivos PHP + CSS + JS + assets). Upload c
 class WebsiteBuilderService
 {
     public function build(string $chave): string;  // Retorna path do diretório com output
-    public function deploy(string $chave): array;  // Build + FTP upload
+    public function deploy(
+        string $chave,
+        ?int $funcionarioId = null,
+        string $tipo = 'deploy',
+        array $metadata = []
+    ): array; // Build + FTP upload
     public function preview(string $chave): string; // Build sem deploy, retorna path temporário
     public function getVersaoArquivo(): string;     // Lê versao.json do template
 }
@@ -2298,6 +2303,63 @@ Sistema simples de comparação entre duas fontes:
 4. Se versão do arquivo > versão do BD → mostra botão "Atualizar para v1.1.0"
 5. Tenant clica "Atualizar" → re-deploy (build com template atualizado + dados do tenant no BD)
 6. `site_config.versao` é atualizado para `1.1.0`
+
+### Publicação administrativa em lote
+
+Atualizações do template também podem ser distribuídas pela equipe 7Carros sem
+depender do acesso de cada cliente ao painel. O comando é sempre *dry-run* por
+padrão:
+
+```bash
+php scripts/publicar-atualizacao-websites.php --env=production
+```
+
+O fluxo operacional obrigatório é:
+
+```bash
+# 1. Simular e conferir candidatos/ignorados
+php scripts/publicar-atualizacao-websites.php --env=production
+
+# 2. Publicar primeiro em um tenant piloto
+php scripts/publicar-atualizacao-websites.php \
+  --env=production \
+  --usuario-ftp=USUARIO_FTP_DO_PILOTO \
+  --apply \
+  --confirm=VERSAO_ATUAL
+
+# 3. Depois da validação do piloto, publicar nos demais sites elegíveis
+php scripts/publicar-atualizacao-websites.php \
+  --env=production \
+  --apply \
+  --confirm=VERSAO_ATUAL
+```
+
+`--confirm` deve coincidir exatamente com a versão de
+`storage/templates/website/versao.json`. O piloto pode ser selecionado por
+`--chave=CHAVE` ou por `--usuario-ftp=USUARIO`; o filtro por usuário só prossegue
+quando encontra exatamente um site. Também existem `--limit=N`, útil para lotes
+menores, e `--stop-on-error`, quando for desejável interromper na primeira falha.
+
+Um site só é candidato quando:
+
+- `site_config.status = ativo`;
+- existem credenciais em `site_credenciais`;
+- existe `site_config.api_token`;
+- a versão publicada está vazia ou é menor que a versão atual do template.
+
+A execução é sequencial. Por padrão, uma falha é registrada e os sites seguintes
+continuam sendo processados. Cada sucesso atualiza `site_config.versao` e cria um
+registro `update` em `site_deploy_log`, com versão anterior, versão de destino e
+origem `cli_bulk_template`. Isso torna a retomada segura: ao executar novamente,
+os sites já atualizados são ignorados pela comparação de versão.
+
+O método `SiteConfig::listarParaAtualizacaoEmLote()` usa `withoutChave()` apenas
+na listagem administrativa cross-tenant sem filtro. Quando `--chave` é
+informado, a consulta usa `withChave($chave)` e preserva o isolamento normal do
+QueryBuilder.
+
+A publicação individual pelo painel permanece disponível e continua sendo
+registrada como `deploy`.
 
 **Customizações do cliente NÃO se perdem** porque:
 - Cores, textos, CSS, banners, SEO, links → tudo vem do BD

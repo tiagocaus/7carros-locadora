@@ -37,8 +37,20 @@ Este arquivo define a rotina obrigatoria para qualquer alteracao dentro de
 
 ## Deploy do site publicado
 
-- Depois de alterar o template, execute deploy/publicacao do tenant quando a
-  mudanca precisar aparecer no site publicado.
+- Depois de publicar os arquivos do sistema principal, simule a atualizacao dos
+  sites ativos:
+  `php scripts/publicar-atualizacao-websites.php --env=production`.
+- Execute primeiro um piloto com a chave de um site de teste:
+  `php scripts/publicar-atualizacao-websites.php --env=production --usuario-ftp=USUARIO --apply --confirm=VERSAO`
+  (ou use `--chave=CHAVE`).
+- Valide o site piloto e, somente depois, publique nos demais:
+  `php scripts/publicar-atualizacao-websites.php --env=production --apply --confirm=VERSAO`.
+- O comando ignora sites inativos, sem credenciais, sem token da API ou que ja
+  estejam na mesma versao (ou em versao superior). Falhas em um site nao
+  interrompem os demais, salvo quando `--stop-on-error` for informado.
+- A execucao pode ser retomada com o mesmo comando: sites atualizados com
+  sucesso sao ignorados pela comparacao de versao.
+- A publicacao individual pelo painel continua disponivel para o cliente.
 - O build copia `versao.json` e gera CSS/JS finais para o FTP do cliente.
 
 ## Checklist final
