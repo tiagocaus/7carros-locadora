@@ -57,6 +57,7 @@ Campos adicionais na tabela `fornecedores`:
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `investidor` | TINYINT(1) | 1 = é investidor |
+| `senha` | VARCHAR(255) | Hash Argon2id da senha do Portal do Investidor |
 | `split_gateway` | ENUM | Gateway (asaas, gerencianet, stripe, inter) |
 | `split_gateway_conta` | VARCHAR(100) | Wallet/conta no gateway |
 | `pix_chave` | VARCHAR(100) | Chave PIX |
@@ -65,6 +66,25 @@ Campos adicionais na tabela `fornecedores`:
 | `banco_agencia` | VARCHAR(10) | Agência |
 | `banco_conta` | VARCHAR(20) | Número da conta |
 | `banco_tipo` | ENUM | corrente, poupanca |
+
+### Senha e acesso ao portal
+
+O campo **Senha do portal** fica na seção **Investidor** do cadastro de
+fornecedor, imediatamente antes de **Regras de comissão**.
+
+- a senha deve ter no mínimo oito caracteres;
+- somente o hash Argon2id é persistido;
+- em edição, campo vazio preserva a senha existente;
+- o hash não é devolvido pela API do cadastro;
+- somente fornecedor com `investidor = 1` pode autenticar;
+- redefinição de senha usa token de uso único com validade de 60 minutos.
+
+No Portal do Investidor, o fornecedor acompanha apenas seus veículos,
+operações, manutenções, comissões e desempenho. O cálculo continua seguindo as
+regras deste módulo e o relatório `FornecedoresReport::investidor()`; o portal
+não calcula comissões hipotéticas.
+
+Consulte [Portal do Cliente e do Fornecedor Investidor](./portal-cliente-investidor.md).
 
 ## Arquitetura
 
@@ -95,6 +115,7 @@ Campos adicionais na tabela `fornecedores`:
 | `00118_add_plano_conta_comissoes.php` | Plano de conta "Comissões Investidores" |
 | `00119_add_comissoes_permissions.php` | Permissões RBAC |
 | `00400_create_fornecedores_comissoes_regras.php` | Regras específicas de comissão por investidor |
+| `00412_create_portal_cliente_investidor.php` | Senha do investidor, sessões, auditoria, indicação e índices do portal |
 
 ## Rotas
 

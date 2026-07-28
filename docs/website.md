@@ -472,6 +472,11 @@ storage/
       veiculos.php                  # Grupos de veículos
       contato.php                   # Formulário de contato
       reserva.php                   # Wizard de reserva (5 etapas)
+      painel.php                    # Portal do Cliente e do Investidor
+      ajax-portal-login.php         # Proxy de login do portal
+      ajax-portal-api.php           # Proxy autenticado dos recursos do portal
+      ajax-portal-logout.php        # Logout e revogação da sessão
+      portal-recibo.php             # Proxy autenticado do recibo em PDF
       includes/
         config.exemplo.php          # Modelo do config.php (gerado por tenant no deploy)
         header.php                  # Navbar + seletor de idioma
@@ -482,22 +487,27 @@ storage/
         manutencao.php              # Página de manutenção
         functions.php               # Helpers: t(), moeda(), cache, etc.
         api.php                     # Classe SiteApi — chama API do sistema
+        portal-session.php          # Sessão PHP e CSRF locais do portal
       assets/
         css/
           style.css                 # CSS base com :root vars
+          portal.css                # Fonte dos estilos do portal
+          portal.min.css            # Versão publicada dos estilos do portal
           bg.png
           marcador.png
           v_retorno.png
           v_saida.png
         js/
           custom.js                 # JS (booking, horários, dataLayer)
+          portal.js                 # Fonte da interface do portal
+          portal.min.js             # Versão publicada da interface do portal
       lang/
         pt_BR.php                   # Traduções português
         en_US.php                   # Traduções inglês
         es_ES.php                   # Traduções espanhol
         it_IT.php                   # Traduções italiano
         pt_PT.php                   # Traduções português (Portugal)
-      versao.json                   # {"versao":"1.0.0"}
+      versao.json                   # {"versao":"1.3.0"}
 ```
 
 **Por que `storage/templates/`:**
@@ -505,7 +515,9 @@ storage/
 - Segue o padrão do projeto para arquivos gerados/templates
 - Um único diretório de template (sem versionamento por pasta)
 
-**Pré-requisito:** O diretório `storage/templates/website/` não existe ainda e precisa ser criado antes da implementação. Os subdiretórios existentes em `storage/` são: `cache/`, `certificates/`, `cron/`, `logs/`, `uploads/`.
+O diretório `storage/templates/website/` é a fonte atual do template. Os
+arquivos fonte CSS/JS não devem ser enviados ao FTP; o build publica as versões
+minificadas.
 
 ### Arquitetura: Site em PHP com API
 
@@ -520,6 +532,7 @@ O site do cliente roda em PHP no hosting dele. Os dados (veículos, preços, fil
 │   reserva.php ───────────┼────────>│ /api/public/disponibilidade│
 │   reserva.php ───────────┼────────>│ /api/public/reserva      │
 │   contato.php ───────────┼────────>│ /api/public/contato      │
+│   painel.php + proxies ───┼────────>│ /api/public/portal/*     │
 │                          │         │                          │
 │   config.php             │         │  Valida chave + token    │
 │   ├─ chave               │         │  Retorna dados do tenant │
@@ -579,7 +592,7 @@ return [
     'cache_dir'          => __DIR__ . '/cache/',
 
     // Versão do template (código) — vem de versao.json, estável entre deploys
-    'versao'             => '1.0.0',
+    'versao'             => '1.3.0',
 
     // Token único por deploy — 8 hex chars (ex: 'a1b2c3d4')
     // Regenerado em CADA publicação; usado como ?v={deploy} em assets locais
@@ -599,6 +612,8 @@ Todo arquivo estático local copiado pro deploy recebe `?v={deploy}` na URL pra 
 |-------|---------------------|--------|
 | `style.min.css` | `includes/head.php` | `assets/css/style.min.css?v={deploy}` |
 | `custom.min.js` | `includes/footer.php` | `assets/js/custom.min.js?v={deploy}` |
+| `portal.min.css` | `painel.php` | `assets/css/portal.min.css?v={deploy}` |
+| `portal.min.js` | `painel.php` | `assets/js/portal.min.js?v={deploy}` |
 | Favicon | `includes/head.php` | `{favicon_url}?v={deploy}` |
 | Logo (header) | `includes/header.php` | `{logo_url}?v={deploy}` |
 | Logo (manutenção) | `includes/manutencao.php` | `{logo_url}?v={deploy}` |
@@ -615,7 +630,11 @@ Para cache-busting de assets do cliente, sempre usar `deploy`, não `versao`.
 
 ### SiteApi (includes/api.php)
 
-Classe que faz chamadas à API do sistema com cache local em arquivo:
+Classe que faz chamadas à API do sistema com cache local em arquivo. Além dos
+métodos públicos do website, `portalRequest()` e `portalDocument()` fazem as
+chamadas autenticadas do portal, enviando `X-Site-Token`, `X-Portal-Token` e os
+headers do cliente encaminhados pelos proxies. O token do portal nunca é
+retornado ao JavaScript.
 
 ```php
 <?php
@@ -914,6 +933,8 @@ O build agora é mais simples — copia PHP, gera config e compila CSS:
 │                                                            │
 │  5. COPIAR assets estáticos                                │
 │     ├─ JS minificado → copia para temp/assets/js/custom.min.js │
+│     ├─ portal.min.css → temp/assets/css/portal.min.css     │
+│     ├─ portal.min.js → temp/assets/js/portal.min.js        │
 │     └─ Imagens CSS → temp/assets/css/                      │
 │                                                            │
 │  6. COPIAR idiomas habilitados                             │
@@ -945,12 +966,17 @@ O build agora é mais simples — copia PHP, gera config e compila CSS:
 ├── veiculos.php                # Grupos de veículos
 ├── contato.php                 # Formulário de contato
 ├── reserva.php                 # Wizard de reserva (5 etapas)
+├── painel.php                  # Portal do Cliente e do Investidor
 ├── ajax-disponibilidade.php    # Proxy AJAX → /api/public/disponibilidade (mantém X-Site-Token server-side)
 ├── ajax-reserva.php            # Proxy AJAX → /api/public/reserva (injeta cliente_id de $_SESSION)
 ├── ajax-cliente-existe.php     # Proxy AJAX → /api/public/cliente-existe (check bool)
 ├── ajax-cliente-login.php      # Proxy AJAX → /api/public/cliente-login (grava $_SESSION['cliente_id'])
 ├── ajax-cliente-logout.php     # Destroi $_SESSION
 ├── ajax-cliente-senha-reset.php # Proxy AJAX → /api/public/cliente-senha-reset
+├── ajax-portal-login.php       # Login do portal; guarda token apenas na sessão PHP
+├── ajax-portal-api.php         # Proxy JSON autenticado + CSRF
+├── ajax-portal-logout.php      # Revoga sessão opaca e limpa a sessão local
+├── portal-recibo.php           # Proxy autenticado do recibo
 ├── sitemap.xml                 # Gerado no build
 ├── robots.txt                  # Gerado no build
 ├── versao.json                 # Versão do template
@@ -963,16 +989,19 @@ O build agora é mais simples — copia PHP, gera config e compila CSS:
 │   ├── structured-data.php     # JSON-LD Schema.org
 │   ├── manutencao.php          # Página de manutenção
 │   ├── functions.php           # Helpers: t(), detectarIdioma()
+│   ├── portal-session.php      # Cookie, sessão e CSRF do portal
 │   └── api.php                 # Classe SiteApi (chamadas + cache)
 ├── assets/
 │   ├── css/
 │   │   ├── style.min.css       # COMPILADO: cores do tenant aplicadas
+│   │   ├── portal.min.css      # Estilos minificados do portal
 │   │   ├── bg.png
 │   │   ├── marcador.png
 │   │   ├── v_retorno.png
 │   │   └── v_saida.png
 │   └── js/
 │       ├── custom.min.js       # Minificado
+│       ├── portal.min.js       # Interface minificada do portal
 │       ├── cep.min.js          # ViaCEP + zippopotam — autofill de endereço
 │       └── chosen-select.min.js
 ├── lang/
@@ -1002,6 +1031,11 @@ Endpoints que o site PHP do cliente chama:
 | `/api/public/contato` | POST | Não | Envia mensagem de contato |
 | `/api/public/limpar-cache` | POST | Não | Invalida cache do site (chamado ao publicar) |
 
+As rotas `/api/public/portal/*` também são consumidas pelo website, mas usam
+sessão opaca e proxies server-to-server próprios. A lista de endpoints,
+recursos e regras de segurança está centralizada em
+[Portal do Cliente e do Fornecedor Investidor](./portal-cliente-investidor.md).
+
 O passo Pré-cadastro aceita código digitado ou carregado por `?promo=XXXXX`.
 Quando o parâmetro chega pela página inicial, o formulário o preserva até
 `reserva.php`.
@@ -1012,7 +1046,9 @@ validação antes de criar cliente, locação, financeiro ou cobrança. Consulte
 [promocoes.md](./promocoes.md) para as regras de canal, filial, validade e dias.
 
 **Autenticação da API:**
-- Header `X-Site-Token` com token único por tenant
+- endpoints comuns usam `X-Site-Token` com token único por tenant;
+- endpoints autenticados do portal também usam `X-Portal-Token`, mantido
+  exclusivamente na sessão PHP do website.
 - Token gerado na ativação, armazenado em `site_config.api_token` (encrypted)
 - CORS configurado para aceitar apenas o domínio do tenant
 
@@ -2542,3 +2578,5 @@ WEBSITE_SAC_EMAIL=sac@hostcia.net
 - [ ] Reserva: criar reserva via API pública
 - [ ] Manutenção: ativar/desativar
 - [ ] Permissões: testar acesso com/sem permissão
+- [ ] Portal: login e recursos dos perfis Cliente e Investidor
+- [ ] Portal: sessão, CSRF, link de pagamento e recibo

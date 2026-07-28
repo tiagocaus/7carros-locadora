@@ -2,8 +2,14 @@
 
 ## Visão Geral
 
-Todos os endpoints da API (`/api/*`) são protegidos por validação de token CSRF.
-Requisições diretas via navegador são bloqueadas com erro 419.
+Os endpoints internos da API (`/api/*`) consumidos pelas telas administrativas
+são protegidos por validação de token CSRF. Requisições diretas do navegador
+sem o token são bloqueadas com erro 419.
+
+Rotas explicitamente públicas, webhooks e integrações possuem autenticação
+própria. Em especial, `/api/public/portal/*` é consumida pelos proxies PHP do
+website com `X-Site-Token` e sessão opaca, conforme
+[Portal Cliente/Investidor](./portal-cliente-investidor.md).
 
 Para fazer requisições à API, use o helper JavaScript `API` disponível globalmente.
 
@@ -171,7 +177,7 @@ class ApiCsrfMiddleware
 
 ### Rotas Protegidas
 
-Todas as rotas que começam com `/api/` usam o middleware `api_csrf`:
+As rotas internas registradas com o middleware `api_csrf` exigem o token:
 
 ```php
 // web.php
@@ -209,3 +215,6 @@ Ao criar novas páginas que fazem requisições à API:
 
 - **[Arquitetura](./architecture.md)** - Estrutura de middlewares
 - **[Boas Práticas](./best-practices.md)** - Guidelines de segurança
+- **[Portal Cliente/Investidor](./portal-cliente-investidor.md)** - API pública
+  server-to-server do website, com `X-Site-Token`, sessão opaca e proxy PHP.
+  Esse fluxo não usa o helper JavaScript `API` descrito neste documento.

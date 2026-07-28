@@ -22,6 +22,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 | Financeiro / Parcelamento | `docs/financeiro.md` |
 | Gateways de Pagamento | `docs/gateways.md` |
 | Checklist Digital | `docs/checklists.md` |
+| Portal Cliente / Investidor | `docs/portal-cliente-investidor.md` |
 
 **Regras de Ouro:**
 1. **NUNCA use `withoutChave()` em CRUD normal** - exceto nos contextos listados em `docs/querybuilder.md` (CRON, Auth, migrations, provisioning, webhooks, rotas publicas, templates globais, tabelas sem coluna chave). **NUNCA** faca `withoutChave()->where('chave','=',$chave)` (redundante) nem `withoutChave()->where('id','=',$id)` (bug de cross-tenant)
@@ -95,6 +96,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 - **[Manutenção Preventiva](docs/preventive-maintenance.md)** - Planos de manutenção e geração automática de OS
 - **[Templates de Mensagem](docs/templates.md)** - Sistema de templates para email, WhatsApp e SMS
 - **[Comissões Investidores](docs/comissoes-investidores.md)** - Comissões para fornecedores investidores de veículos
+- **[Portal Cliente/Investidor](docs/portal-cliente-investidor.md)** - Área autenticada publicada no website para clientes e fornecedores investidores
 - **[Relatórios](docs/relatorios.md)** - Especificação funcional de todos os relatórios do sistema
 - **[Relatórios - Dev](docs/relatorios-dev.md)** - Guia técnico para desenvolvimento de relatórios (arquitetura, padrões, checklist)
 - **[Gateways de Pagamento](docs/gateways.md)** - Multi-gateway, links públicos, webhooks e tokenização

@@ -424,11 +424,24 @@ json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
 
 ### Hashing de senhas (Argon2id)
 
-**Arquivo:** `app/Core/Auth.php`, `app/Models/Funcionario.php`, `app/Controllers/PublicWebsiteController.php`, `app/Services/TenantProvisioningService.php`
+**Arquivo:** `app/Core/Auth.php`, `app/Models/Funcionario.php`,
+`app/Controllers/PublicWebsiteController.php`,
+`app/Controllers/FornecedoresController.php`,
+`app/Services/PortalAuthService.php` e
+`app/Services/TenantProvisioningService.php`
 
-Todas as senhas novas (funcionários, clientes, provisionamento WHMCS) usam `password_hash($senha, PASSWORD_ARGON2ID)`. Argon2id é resistente a GPU/ASIC (Memory-Hard), superior a bcrypt para ataques offline pós-vazamento.
+Todas as senhas novas (funcionários, clientes, fornecedores investidores e
+provisionamento WHMCS) usam `password_hash($senha, PASSWORD_ARGON2ID)`.
+Argon2id é resistente a GPU/ASIC (Memory-Hard), superior a bcrypt para ataques
+offline pós-vazamento.
 
-**Rehash transparente (zero downtime):** no `Auth::attempt()` (funcionários) e `PublicWebsiteController::clienteLogin()` (clientes), após `password_verify()` bem-sucedido o código chama `password_needs_rehash($hashAtual, PASSWORD_ARGON2ID)` e, se necessário, re-hashea com Argon2id e atualiza o BD. Usuários legados (bcrypt) migram automaticamente no próximo login, sem pedir para trocar senha.
+**Rehash transparente (zero downtime):** no `Auth::attempt()` (funcionários),
+`PublicWebsiteController::clienteLogin()` (clientes na reserva) e
+`PortalAuthService::login()` (clientes e investidores no portal), após
+`password_verify()` bem-sucedido o código chama
+`password_needs_rehash($hashAtual, PASSWORD_ARGON2ID)` e, se necessário,
+re-hashea com Argon2id e atualiza o BD. Usuários legados migram automaticamente
+no próximo login, sem pedir para trocar senha.
 
 ### Reset de senha de cliente (token one-time)
 
@@ -437,6 +450,50 @@ Todas as senhas novas (funcionários, clientes, provisionamento WHMCS) usam `pas
 Endpoint `/api/public/cliente-senha-reset` **não** envia senha em texto plano por email. Gera token de 64 hex chars (~256 bits), grava hash SHA-256 no BD com `expires_at = agora+60min` e `used_at = null`, e envia link por email via template `cliente_nova_senha`. Cliente clica → form HTML standalone (`/public/redefinir-senha?token=...`) → POST `/api/public/cliente-senha-definir` valida token + CSRF da sessão e aplica nova senha com Argon2id. Token marcado `used_at` após uso (single-use) e todos os tokens pendentes anteriores do mesmo cliente são invalidados ao gerar um novo.
 
 Ver [website.md](./website.md#esqueci-minha-senha) para detalhes do fluxo.
+
+### Segurança do Portal do Cliente e do Investidor
+
+O portal publicado no website possui uma sessão própria, independente da
+sessão de funcionários e do login usado durante a reserva.
+
+O acesso usa duas credenciais server-to-server:
+
+- `X-Site-Token` autentica o website ativo e estabelece o tenant;
+- `X-Portal-Token` identifica perfil e entidade da sessão.
+
+O token opaco do portal tem 32 bytes aleatórios. Somente seu hash SHA-256 é
+armazenado em `portal_sessions`; o valor original permanece na sessão PHP do
+website e não é exposto ao JavaScript. A API sempre deriva `id_cliente` ou
+`id_fornecedor` da sessão, impedindo IDOR por identificadores enviados pelo
+navegador.
+
+| Controle | Regra |
+|----------|-------|
+| Inatividade | 30 minutos |
+| Expiração absoluta | 12 horas |
+| Navegador | Sessão vinculada ao hash do user-agent |
+| Logout | Grava `revoked_at` |
+| Troca/reset de senha | Revoga todas as sessões da entidade |
+| Tentativas de login | 5 falhas bloqueiam por 15 minutos |
+| Senha | Argon2id, mínimo de 8 caracteres |
+| Reset | Token one-time, hash SHA-256, validade de 60 minutos |
+
+Login e reset aceitam e-mail ou CPF/CNPJ apenas quando existe exatamente um
+cadastro compatível no tenant e perfil selecionados. Resultado inexistente ou
+duplicado recebe resposta neutra. Cliente precisa estar ativo e fornecedor
+precisa ter `investidor = 1`.
+
+Os proxies do website usam cookie local `HttpOnly` e `SameSite=Lax`, com
+`Secure` quando o site está em HTTPS, regeneram o ID após login e exigem CSRF
+nas alterações. IP e user-agent do navegador são encaminhados em
+`X-Portal-Client-IP` e `X-Portal-Client-Agent`; a API só considera esses
+headers depois de validar o site token.
+
+Atualizações cadastrais usam whitelist e são registradas em
+`portal_audit_logs`. Alterações de senha nunca registram valor ou hash.
+
+Consulte [Portal do Cliente e do Fornecedor Investidor](./portal-cliente-investidor.md)
+para rotas, perfis e fluxo completo.
 
 ### IP do cliente (TRUSTED_PROXIES)
 
@@ -557,3 +614,5 @@ $stats = CrossTenantDetectionService::getUserAttemptStats();
 - **[FilialHelper](./filial-helper.md)** - Controle de acesso por filiais
 - **[Best Practices](./best-practices.md)** - Boas práticas de segurança
 - **[API](./api.md)** - Helper para requisições com CSRF
+- **[Portal Cliente/Investidor](./portal-cliente-investidor.md)** - Autenticação
+  pública em duas camadas, sessão opaca e isolamento dos perfis
