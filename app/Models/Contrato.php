@@ -1449,8 +1449,10 @@ class Contrato extends Model
             $dataFim = $config['data_fim'] ?? DateHelper::todayForDatabase();
         }
 
+        // total_pagar ja representa o valor liquido do desconto, tanto no
+        // contrato salvo quanto no payload do preview stateless.
         $valorDesconto = currency_parse($config['valor_desconto'] ?? 0);
-        $valorBase = $valorTotal - $valorDesconto;
+        $valorBase = $valorTotal;
         $idFormaPagamento = (int) ($config['id_forma_pagamento'] ?? 0);
         $idConta = (int) ($config['id_conta'] ?? 0);
         $primeiroVencimento = $config['primeiro_vencimento'] ?? DateHelper::todayForDatabase();
