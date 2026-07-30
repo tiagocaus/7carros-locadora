@@ -15,7 +15,8 @@ Para fazer requisições à API, use o helper JavaScript `API` disponível globa
 
 ## Helper JavaScript API
 
-Localização: `/public/assets/js/api.js`
+Fonte: `/public/assets/js/api.js`. Os layouts de produção devem carregar
+`/public/assets/js/api.min.js`.
 
 Carregado automaticamente em todas as páginas que usam o layout `iframe.php`.
 
@@ -67,6 +68,16 @@ if (result.success) {
     console.log(result.data);        // Array de clientes
     console.log(result.pagination);  // Info de paginação
 }
+```
+
+O helper preserva parametros que ja estejam na URL e acrescenta os novos com
+`&`. Isso permite combinar filtros fixos e dinamicos sem perder nenhum deles:
+
+```javascript
+await API.get('/api/taxas-e-servicos/buscar?id_filial=762', {
+    q: 'Taxa'
+});
+// /api/taxas-e-servicos/buscar?id_filial=762&q=Taxa
 ```
 
 #### POST - Criar registro
@@ -206,7 +217,7 @@ document.querySelector('meta[name="csrf-token"]')?.content
 
 Ao criar novas páginas que fazem requisições à API:
 
-- [ ] Usar layout que carrega `api.js` (ex: `layouts.iframe`)
+- [ ] Usar layout que carrega `api.min.js` (ex: `layouts.iframe`)
 - [ ] Usar `API.get()` em vez de `fetch()` para endpoints `/api/*`
 - [ ] Tratar erros com try/catch
 - [ ] Verificar `result.success` antes de usar os dados

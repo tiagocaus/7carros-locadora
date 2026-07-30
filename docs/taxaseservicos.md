@@ -204,7 +204,7 @@ Define onde a taxa esta disponivel (separado por virgula):
 | GET | /api/taxas-e-servicos | Lista paginada |
 | GET | /api/taxas-e-servicos/select | Para selects |
 | GET | /api/taxas-e-servicos/buscar | Chosen server-side |
-| GET | /api/taxas-e-servicos/{id} | Detalhes |
+| GET | /api/taxas-e-servicos/{id} | Detalhes; aceita `id_filial` para validar o vinculo e resolver o valor monetario da filial |
 
 ### CRUD
 
@@ -277,11 +277,15 @@ A permissao `contratos.editar_valor_taxas` controla se o usuario pode alterar va
 
 ### Fluxo no Frontend
 
-1. Usuario seleciona taxa no select (busca server-side)
-2. Sistema carrega `base_calculo` e `tipo_valor` da taxa
+1. Usuario seleciona taxa no select (busca server-side filtrada pela filial de retirada)
+2. Sistema consulta a taxa selecionada por ID e `id_filial`, carregando `base_calculo`, `tipo_valor` e o valor resolvido da filial
 3. Usuario adiciona a lista
 4. Ao salvar, dados sao enviados com snapshot dos valores
 5. Backend recalcula totais usando as regras de calculo
+
+O preenchimento da taxa selecionada nao pode depender apenas do preload do
+Chosen Select, que retorna no maximo 50 registros. Resultados encontrados pela
+busca remota devem ser consultados por ID antes de preencher os campos.
 
 ### Recalculo de Totais
 

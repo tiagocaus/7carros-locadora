@@ -1526,6 +1526,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             // Invalida cache de valores — cada filial tem sua moeda/tabela
             valoresGrupoCache = {};
             valoresGrupoAtuais = null;
+            atualizarBuscaTaxasPorFilial(true);
             carregarGrupos();
             const grupoId = document.getElementById('id_grupo')?.value;
             if (grupoId) {
@@ -1766,22 +1767,44 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         // ===== TAXAS =====
 
         const taxas = [];
-        let taxasDisponiveis = [];
         let taxaSelecionadaAtual = null;
         let totalPagoFinanceiro = 0;
         let totalReembolsadoFinanceiro = 0;
         let totalAvariasFinanceiro = 0;
 
-        // Carregar cache de todas as taxas disponiveis
-        async function carregarTaxasDisponiveis() {
-            try {
-                const result = await API.get('/api/taxas-e-servicos/buscar');
-                if (result.success && result.data) {
-                    taxasDisponiveis = result.data;
+        function limparTaxaSelecionada() {
+            taxaSelecionadaAtual = null;
+            const nomeEl = document.getElementById('taxa_nome');
+            const quantidadeEl = document.getElementById('taxa_qtd');
+            const valorEl = document.getElementById('taxa_valor');
+            const simboloEl = valorEl?.parentElement?.querySelector('.currency-symbol');
+
+            if (nomeEl) nomeEl.value = '';
+            if (quantidadeEl) quantidadeEl.value = '1';
+            if (valorEl) valorEl.value = '';
+            if (simboloEl) simboloEl.textContent = 'R$';
+        }
+
+        function atualizarBuscaTaxasPorFilial(limparSelecao = false) {
+            const select = document.getElementById('taxa_select');
+            if (!select) return;
+
+            const filialId = document.getElementById('id_matriz_filial_retirada')?.value || '';
+            const searchUrl = filialId
+                ? `/api/taxas-e-servicos/buscar?id_filial=${encodeURIComponent(filialId)}`
+                : '/api/taxas-e-servicos/buscar';
+
+            select.dataset.chosenSearchUrl = searchUrl;
+            if (select.chosenSelect) {
+                select.chosenSelect.options.searchUrl = searchUrl;
+                if (limparSelecao) {
+                    select.chosenSelect.clear();
                 }
-            } catch (error) {
-                console.error('Erro ao carregar taxas:', error);
+            } else if (limparSelecao) {
+                select.value = '';
             }
+
+            if (limparSelecao) limparTaxaSelecionada();
         }
 
         // Carregar taxas automaticas (aplicar=S, onde_usar=SIS) para novas locacoes
@@ -1808,16 +1831,37 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             }
         }
 
-        // Preencher campos ao selecionar taxa no chosen-select
-        document.getElementById('taxa_select')?.addEventListener('change', function() {
-            const taxa = taxasDisponiveis.find(t => t.id == this.value);
+        // Preencher campos buscando o registro selecionado por ID.
+        // O resultado do Chosen pode estar fora do preload inicial de 50 itens.
+        document.getElementById('taxa_select')?.addEventListener('change', async function() {
+            const taxaId = this.value;
+            const filialId = document.getElementById('id_matriz_filial_retirada')?.value || '';
             const simboloEl = document.querySelector('#taxa_valor')?.parentElement?.querySelector('.currency-symbol');
             const inputValor = document.getElementById('taxa_valor');
 
-            if (taxa) {
+            limparTaxaSelecionada();
+            if (!taxaId || !filialId || !inputValor) return;
+
+            try {
+                const result = await API.get(`/api/taxas-e-servicos/${taxaId}`, {
+                    id_filial: filialId
+                });
+
+                // Ignorar resposta atrasada se a selecao ou a filial mudou.
+                if (this.value !== taxaId
+                    || document.getElementById('id_matriz_filial_retirada')?.value !== filialId) {
+                    return;
+                }
+
+                if (!result.success || !result.data) {
+                    limparTaxaSelecionada();
+                    return;
+                }
+
+                const taxa = result.data;
                 taxaSelecionadaAtual = {
                     id: taxa.id,
-                    nome: taxa.text || '',
+                    nome: taxa.nome || '',
                     valor: taxa.valor,
                     base_calculo: taxa.base_calculo || 'FIX',
                     tipo_valor: taxa.tipo_valor || 'MON'
@@ -1828,16 +1872,18 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
                 if (taxaSelecionadaAtual.tipo_valor === 'POR') {
                     if (simboloEl) simboloEl.textContent = '%';
-                    inputValor.value = taxa.valor ? taxa.valor.toString().replace('.', ',') : '';
+                    inputValor.value = taxa.valor !== null && taxa.valor !== undefined
+                        ? taxa.valor.toString().replace('.', ',')
+                        : '';
                 } else {
                     if (simboloEl) simboloEl.textContent = 'R$';
-                    inputValor.value = taxa.valor ? Currency.format(taxa.valor) : '';
+                    inputValor.value = taxa.valor !== null && taxa.valor !== undefined
+                        ? Currency.format(taxa.valor)
+                        : '';
                 }
-            } else {
-                taxaSelecionadaAtual = null;
-                document.getElementById('taxa_nome').value = '';
-                document.getElementById('taxa_valor').value = '';
-                if (simboloEl) simboloEl.textContent = 'R$';
+            } catch (error) {
+                console.error('Erro ao carregar taxa selecionada:', error);
+                if (this.value === taxaId) limparTaxaSelecionada();
             }
         });
 
@@ -3945,7 +3991,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         configurarAbas();
         configurarTogglesFinanceiroLocacao();
-        carregarTaxasDisponiveis();
+        atualizarBuscaTaxasPorFilial(false);
         if (!isEditing) carregarTaxasAutomaticas();
         atualizarCamposPlano();
         atualizarCaucaoRequired();

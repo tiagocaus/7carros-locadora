@@ -101,11 +101,18 @@ class HorarioFuncionamento extends Model
      *     ['dia_semana' => 1, 'abertura' => '08:00', 'fechamento' => '12:00', 'periodo' => 1],
      *     ['dia_semana' => 1, 'abertura' => '14:00', 'fechamento' => '18:00', 'periodo' => 2],
      *   ]
+     * @param bool $gerenciarTransacao False quando participa de uma transacao externa
      * @return bool Sucesso
      */
-    public function salvar(int $matrizFilialId, array $horarios): bool
+    public function salvar(
+        int $matrizFilialId,
+        array $horarios,
+        bool $gerenciarTransacao = true
+    ): bool
     {
-        $this->qb->beginTransaction();
+        if ($gerenciarTransacao) {
+            $this->qb->beginTransaction();
+        }
 
         try {
             // Remover horários existentes
@@ -132,10 +139,14 @@ class HorarioFuncionamento extends Model
                     ]);
             }
 
-            $this->qb->commit();
+            if ($gerenciarTransacao) {
+                $this->qb->commit();
+            }
             return true;
-        } catch (\Exception $e) {
-            $this->qb->rollback();
+        } catch (\Throwable $e) {
+            if ($gerenciarTransacao) {
+                $this->qb->rollback();
+            }
             throw $e;
         }
     }

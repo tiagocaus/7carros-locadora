@@ -280,7 +280,7 @@ Localização: `public/assets/css/components.css`
 ```
 1. CSS (Tailwind, FontAwesome, custom)
 2. Conteúdo HTML (@yield('content'))
-3. Scripts base (api.js, currency.js, etc.)
+3. Scripts base minificados (`api.min.js`, `currency.min.js`, etc.)
 4. Helper pageLoading ← DEVE vir antes de @yield('scripts')
 5. Scripts da página (@yield('scripts'))
 ```

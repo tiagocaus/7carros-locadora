@@ -50,7 +50,10 @@ const API = {
      */
     async get(url, params = {}) {
         const query = new URLSearchParams(params).toString();
-        const fullUrl = query ? `${url}?${query}` : url;
+        const separator = url.includes('?')
+            ? (url.endsWith('?') || url.endsWith('&') ? '' : '&')
+            : '?';
+        const fullUrl = query ? `${url}${separator}${query}` : url;
 
         const response = await fetch(fullUrl, {
             method: 'GET',

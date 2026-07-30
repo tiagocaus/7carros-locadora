@@ -121,9 +121,18 @@ class TaxasServicosController
             $chave = Auth::chave();
             $search = $request->query('q', '');
             $filialId = $request->query('id_filial');
+            $filialId = $filialId ? (int) $filialId : null;
+
+            if ($filialId && !FilialHelper::temAcessoFilial($filialId)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Acesso negado a filial informada'
+                ], 403);
+                return;
+            }
 
             $model = new TaxaServico();
-            $taxas = $model->listarParaSelect($chave, $search, $filialId ? (int) $filialId : null);
+            $taxas = $model->listarParaSelect($chave, $search, $filialId);
 
             // Formatar para chosen-select (text ao inves de nome)
             $resultado = array_map(fn($t) => [
@@ -179,6 +188,7 @@ class TaxasServicosController
      * Exibe uma taxa ou servico especifico
      *
      * GET /api/taxas-e-servicos/{id}
+     * Query params: id_filial (opcional, resolve o valor e valida o vinculo)
      */
     public function show(Request $request, int $id): void
     {
@@ -201,6 +211,34 @@ class TaxasServicosController
                     'message' => 'Taxa/servico nao encontrado'
                 ], 404);
                 return;
+            }
+
+            $filialId = $request->query('id_filial');
+            $filialId = $filialId ? (int) $filialId : null;
+
+            if ($filialId) {
+                if (!FilialHelper::temAcessoFilial($filialId)) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Acesso negado a filial informada'
+                    ], 403);
+                    return;
+                }
+
+                $filiaisTaxa = array_map(
+                    static fn(array $filial): int => (int) $filial['id'],
+                    $taxa['filiais'] ?? []
+                );
+
+                if (!in_array($filialId, $filiaisTaxa, true)) {
+                    Response::json([
+                        'success' => false,
+                        'message' => 'Taxa/servico nao disponivel para a filial informada'
+                    ], 404);
+                    return;
+                }
+
+                $taxa['valor'] = $model->resolverValor($taxa, $filialId);
             }
 
             Response::json([

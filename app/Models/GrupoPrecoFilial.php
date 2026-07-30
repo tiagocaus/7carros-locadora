@@ -159,8 +159,7 @@ class GrupoPrecoFilial extends Model
      */
     public function garantirEntriesParaFilial(int $filialId): void
     {
-        $chave = $_SESSION['chave'] ?? null;
-        if (!$chave) {
+        if (empty($_SESSION['chave'])) {
             return;
         }
 
@@ -177,7 +176,6 @@ class GrupoPrecoFilial extends Model
             $this->qb
                 ->table('grupos_precos_filiais')
                 ->insert([
-                    'chave' => $chave,
                     'id_grupo' => (int) $grupoId,
                     'id_matriz_filial' => $filialId,
                 ]);

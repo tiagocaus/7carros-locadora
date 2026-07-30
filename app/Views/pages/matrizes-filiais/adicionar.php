@@ -772,6 +772,7 @@
             // Salvar
             saveError: '<?= addslashes(t('modules.matrizes_filiais.messages.save_error')) ?>',
             serverError: '<?= addslashes(t('modules.matrizes_filiais.messages.server_error')) ?>',
+            saving: '<?= addslashes(t('common.labels.saving')) ?>',
             noFileSelected: '<?= addslashes(t('modules.matrizes_filiais.nfse_ui.no_file_selected')) ?>',
             testing: '<?= addslashes(t('modules.matrizes_filiais.nfse_ui.testing')) ?>',
             confirmTitle: '<?= addslashes(t('modules.matrizes_filiais.confirm.title')) ?>',
@@ -809,6 +810,7 @@
         // Estado dos locais de atendimento (aliases)
         let locais = [];
         let pendingClearHours = false;
+        let salvandoFormulario = false;
 
         function showAlert(message) {
             window.parent.postMessage({
@@ -1872,8 +1874,21 @@
         document.getElementById('formMatrizFilial')?.addEventListener('submit', async function(e) {
             e.preventDefault();
 
+            if (salvandoFormulario) {
+                return;
+            }
+
+            salvandoFormulario = true;
+            const btnSalvar = document.getElementById('btnSalvar');
+            const btnSalvarHtmlOriginal = btnSalvar?.innerHTML || '';
+            if (btnSalvar) {
+                btnSalvar.disabled = true;
+                btnSalvar.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${i18n.saving}`;
+            }
+
             const formData = new FormData(this);
             const dados = {};
+            let salvamentoConcluido = false;
 
             // Converter FormData para objeto
             for (let [key, value] of formData.entries()) {
@@ -1913,6 +1928,7 @@
                 const result = await API.post(url, dados);
 
                 if (result.success) {
+                    salvamentoConcluido = true;
                     // Voltar para lista
                     if (window.parent !== window) {
                         window.parent.postMessage({
@@ -1926,6 +1942,14 @@
             } catch (error) {
                 console.error('Erro ao salvar:', error);
                 showAlert(i18n.serverError);
+            } finally {
+                if (!salvamentoConcluido) {
+                    salvandoFormulario = false;
+                    if (btnSalvar) {
+                        btnSalvar.disabled = false;
+                        btnSalvar.innerHTML = btnSalvarHtmlOriginal;
+                    }
+                }
             }
         });
 

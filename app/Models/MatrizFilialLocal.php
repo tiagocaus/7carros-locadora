@@ -34,7 +34,6 @@ class MatrizFilialLocal extends Model
         return $this->qb
             ->table('matrizes_filiais_locais')
             ->insert([
-                'chave' => $dados['chave'],
                 'id_matriz_filial' => (int) $dados['id_matriz_filial'],
                 'nome' => $dados['nome'] ?? null,
                 'cep' => $dados['cep'] ?? null,
@@ -81,9 +80,9 @@ class MatrizFilialLocal extends Model
      * - Itens com `id` viram UPDATE
      * - Itens existentes fora da lista recebida viram DELETE
      *
-     * Tudo dentro de transacao implicita via shared mysqli.
+     * Participa da transacao ativa da conexao Singleton, quando houver.
      */
-    public function sincronizar(int $filialId, string $chave, array $locais): void
+    public function sincronizar(int $filialId, array $locais): void
     {
         $existentes = $this->listarPorFilial($filialId);
         $idsExistentes = array_map(fn($l) => (int) $l['id'], $existentes);
@@ -91,7 +90,6 @@ class MatrizFilialLocal extends Model
 
         foreach ($locais as $local) {
             $localData = $local;
-            $localData['chave'] = $chave;
             $localData['id_matriz_filial'] = $filialId;
 
             $idEnviado = isset($local['id']) ? (int) $local['id'] : 0;

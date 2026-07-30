@@ -161,11 +161,19 @@ class ContatoTelefone extends Model
      *   [
      *     ['telefone' => '+55 11 99999-9999', 'descricao' => 'Celular', 'whatsapp' => 'S', 'telegram' => 'N', 'sms' => 'S', 'principal' => 'S'],
      *   ]
+     * @param bool $gerenciarTransacao False quando participa de uma transacao externa
      * @return bool Sucesso
      */
-    public function salvar(string $tipo, int $id, array $telefones): bool
+    public function salvar(
+        string $tipo,
+        int $id,
+        array $telefones,
+        bool $gerenciarTransacao = true
+    ): bool
     {
-        $this->qb->beginTransaction();
+        if ($gerenciarTransacao) {
+            $this->qb->beginTransaction();
+        }
 
         try {
             // Remover telefones existentes
@@ -212,10 +220,14 @@ class ContatoTelefone extends Model
                     ]);
             }
 
-            $this->qb->commit();
+            if ($gerenciarTransacao) {
+                $this->qb->commit();
+            }
             return true;
-        } catch (\Exception $e) {
-            $this->qb->rollback();
+        } catch (\Throwable $e) {
+            if ($gerenciarTransacao) {
+                $this->qb->rollback();
+            }
             throw $e;
         }
     }

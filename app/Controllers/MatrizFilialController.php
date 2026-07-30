@@ -17,6 +17,7 @@ use App\Helpers\ImageHelper;
 use App\Helpers\FilialHelper;
 use App\Helpers\PlanoLimiteHelper;
 use App\Services\AuditLogService;
+use App\Services\MatrizFilialCadastroService;
 
 /**
  * Controller de Matrizes/Filiais
@@ -155,6 +156,8 @@ class MatrizFilialController
      */
     public function store(Request $request): void
     {
+        $logoSalvo = null;
+
         try {
             if (!Auth::can('matrizes_filiais.criar')) {
                 Response::json([
@@ -186,7 +189,8 @@ class MatrizFilialController
             // Processar upload de logo como imagem.
             $logoBase64 = $request->input('logo_base64', '');
             if (!empty($logoBase64)) {
-                $dados['logo'] = $this->salvarLogoImagem($logoBase64);
+                $logoSalvo = $this->salvarLogoImagem($logoBase64);
+                $dados['logo'] = $logoSalvo;
             }
 
             // Remover campos vazios
@@ -194,47 +198,29 @@ class MatrizFilialController
                 return $value !== '' && $value !== null;
             });
 
-            $id = $model->criarComAuditoria($dados);
+            $relacionados = [
+                'horarios' => $this->normalizarLista($request->input('horarios_funcionamento', [])),
+                'excecoes' => $this->normalizarLista($request->input('horarios_excecoes', [])),
+                'emails' => $this->normalizarLista($request->input('emails', [])),
+                'telefones' => $this->normalizarLista($request->input('telefones', [])),
+                'locais' => $this->normalizarLista($request->input('locais', [])),
+            ];
 
-            // Salvar horários de funcionamento
-            $horarios = $request->input('horarios_funcionamento', []);
-            if (!empty($horarios) && is_array($horarios)) {
-                $horarioModel = new HorarioFuncionamento();
-                $horarioModel->salvar($id, $horarios);
+            $id = (new MatrizFilialCadastroService())->criar($dados, $relacionados);
+
+            try {
+                $identificadorAuditoria = $dados['razao_social']
+                    ?? $dados['nome_fantasia']
+                    ?? (string) $id;
+                AuditLogService::registrarComAuditFrontend(
+                    ($_SESSION['user_name'] ?? 'Sistema')
+                        . ", adicionou a matriz/filial [{$identificadorAuditoria}]",
+                    $request->input('_audit_data'),
+                    null
+                );
+            } catch (\Throwable $auditError) {
+                error_log('[MatrizFilial/Auditoria] ' . $auditError->getMessage());
             }
-
-            // Salvar exceções de horário
-            $excecoes = $request->input('horarios_excecoes', []);
-            if (!empty($excecoes) && is_array($excecoes)) {
-                $excecaoModel = new HorarioExcecao();
-                foreach ($excecoes as $excecao) {
-                    $excecao['matriz_filial_id'] = $id;
-                    $excecaoModel->salvar($excecao);
-                }
-            }
-
-            // Salvar emails de contato
-            $emails = $request->input('emails', '');
-            if (!empty($emails)) {
-                $emailsArray = is_string($emails) ? json_decode($emails, true) : $emails;
-                if (!empty($emailsArray) && is_array($emailsArray)) {
-                    $emailModel = new ContatoEmail();
-                    $emailModel->salvar('matriz_filial', $id, $emailsArray);
-                }
-            }
-
-            // Salvar telefones de contato
-            $telefones = $request->input('telefones', '');
-            if (!empty($telefones)) {
-                $telefonesArray = is_string($telefones) ? json_decode($telefones, true) : $telefones;
-                if (!empty($telefonesArray) && is_array($telefonesArray)) {
-                    $telefoneModel = new ContatoTelefone();
-                    $telefoneModel->salvar('matriz_filial', $id, $telefonesArray);
-                }
-            }
-
-            // Sincronizar locais de atendimento (aliases)
-            $this->sincronizarLocais($request, $id, $dados['chave']);
 
             Response::json([
                 'success' => true,
@@ -242,14 +228,17 @@ class MatrizFilialController
                 'data' => ['id' => $id]
             ], 201);
         } catch (\InvalidArgumentException $e) {
+            $this->removerLogoEmFalha($logoSalvo);
             Response::json([
                 'success' => false,
                 'message' => $e->getMessage()
             ], 422);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $this->removerLogoEmFalha($logoSalvo);
+            error_log('[MatrizFilial/Cadastro] ' . $e->getMessage());
             Response::json([
                 'success' => false,
-                'message' => 'Erro ao criar matriz/filial: ' . $e->getMessage()
+                'message' => 'Não foi possível criar a matriz/filial. Tente novamente.'
             ], 500);
         }
     }
@@ -373,7 +362,7 @@ class MatrizFilialController
             }
 
             // Sincronizar locais de atendimento (aliases)
-            $this->sincronizarLocais($request, $id, $registroExistente['chave']);
+            $this->sincronizarLocais($request, $id);
 
             // Log de auditoria com dados do frontend
             AuditLogService::registrarComAuditFrontend(
@@ -876,16 +865,48 @@ class MatrizFilialController
      * Sincroniza locais de atendimento de uma filial a partir do payload.
      * Aceita `locais` como array ou string JSON. Se nao vier no payload, nao altera nada.
      */
-    private function sincronizarLocais(Request $request, int $filialId, string $chave): void
+    private function sincronizarLocais(Request $request, int $filialId): void
     {
         $locais = $request->input('locais', null);
         if ($locais === null) {
             return;
         }
-        $arr = is_string($locais) ? json_decode($locais, true) : $locais;
-        if (!is_array($arr)) {
+        (new MatrizFilialLocal())->sincronizar($filialId, $this->normalizarLista($locais));
+    }
+
+    /**
+     * Normaliza arrays recebidos diretamente ou como JSON.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizarLista(mixed $valor): array
+    {
+        if (is_array($valor)) {
+            return $valor;
+        }
+
+        if (!is_string($valor) || trim($valor) === '') {
+            return [];
+        }
+
+        $decodificado = json_decode($valor, true);
+        if (!is_array($decodificado)) {
+            throw new \InvalidArgumentException('Dados relacionados inválidos');
+        }
+
+        return $decodificado;
+    }
+
+    private function removerLogoEmFalha(?string $logo): void
+    {
+        if ($logo === null || $logo === '') {
             return;
         }
-        (new MatrizFilialLocal())->sincronizar($filialId, $chave, $arr);
+
+        try {
+            FileHelper::delete($logo, Auth::chave());
+        } catch (\Throwable $e) {
+            error_log('[MatrizFilial/Logo] Falha ao remover arquivo órfão: ' . $e->getMessage());
+        }
     }
 }
