@@ -3,11 +3,12 @@
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 use App\Helpers\PdfHelper;
+use App\I18n\Translator;
 
 if (!function_exists('t')) {
     function t(string $key): string
     {
-        return $key;
+        return Translator::getInstance()->get($key, [], 'pt_BR');
     }
 }
 
@@ -61,6 +62,23 @@ function renderFinanceiroPdfTemplate(string $template, array $totals, array $det
     return (string) ob_get_clean();
 }
 
+function assertTemplateTranslationsExist(string $template): void
+{
+    $viewPath = dirname(__DIR__) . '/app/Views/pages/relatorios/imprimir/financeiro/' . $template;
+    $source = (string) file_get_contents($viewPath);
+
+    preg_match_all('/t\\([\'"]([^\'"]+)[\'"]\\)/', $source, $matches);
+
+    $translator = Translator::getInstance();
+    foreach (array_unique($matches[1] ?? []) as $key) {
+        $translation = $translator->get($key, [], 'pt_BR');
+        assertReportPdf(
+            $translation !== $key,
+            "Template {$template} usa a chave de traducao inexistente {$key}."
+        );
+    }
+}
+
 $cases = [
     'faturamento.php' => [
         'totals' => [
@@ -95,7 +113,10 @@ $cases = [
     ],
     'plano-contas.php' => [
         'totals' => ['total_receitas' => 500, 'total_despesas' => 100, 'total_categorias' => 4],
-        'details' => [['codigo' => '1.1', 'descricao' => 'Receitas', 'tipo' => 'R', 'valor' => 500, 'percentual' => 100]],
+        'details' => [
+            ['codigo' => '1.1', 'descricao' => 'Receitas', 'tipo' => 'R', 'valor' => 500, 'percentual' => 100],
+            ['codigo' => '2.1', 'descricao' => 'Despesas', 'tipo' => 'D', 'valor' => 100, 'percentual' => 100],
+        ],
         'expected' => '4',
     ],
     'projecao-receitas.php' => [
@@ -125,8 +146,21 @@ set_error_handler(static function (int $severity, string $message, string $file,
 
 try {
     foreach ($cases as $template => $case) {
+        if ($template === 'plano-contas.php') {
+            assertTemplateTranslationsExist($template);
+        }
+
         $html = renderFinanceiroPdfTemplate($template, $case['totals'], $case['details']);
         assertReportPdf(str_contains($html, $case['expected']), "Template {$template} nao exibiu os dados esperados.");
+
+        if ($template === 'plano-contas.php') {
+            foreach (['Receita', 'Despesa', 'Categorias'] as $label) {
+                assertReportPdf(
+                    str_contains($html, $label),
+                    "Template {$template} nao exibiu o rotulo traduzido {$label}."
+                );
+            }
+        }
 
         $pdf = PdfHelper::generateAsString($html, ['watermark' => false]);
         assertReportPdf(str_starts_with($pdf, '%PDF-'), "Template {$template} nao gerou um PDF valido.");

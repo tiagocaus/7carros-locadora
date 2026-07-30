@@ -16,7 +16,7 @@
                 <div class="totals-value"><?= currency_format($totals['total_despesas']) ?></div>
             </td>
             <td>
-                <div class="totals-label"><?= t('modules.relatorios.financeiro.plano_contas.categorias') ?></div>
+                <div class="totals-label"><?= t('modules.relatorios.financeiro.plano_contas.total_categorias') ?></div>
                 <div class="totals-value"><?= number_format($totals['total_categorias'], 0, ',', '.') ?></div>
             </td>
         </tr>
@@ -43,8 +43,8 @@
                 <td class="center">
                     <span class="badge <?= $tipoBadge ?>">
                         <?= ($row['tipo'] ?? '') === 'R'
-                            ? t('modules.relatorios.financeiro.plano_contas.tipo_receita')
-                            : t('modules.relatorios.financeiro.plano_contas.tipo_despesa') ?>
+                            ? t('modules.relatorios.financeiro.tipo_receita')
+                            : t('modules.relatorios.financeiro.tipo_despesa') ?>
                     </span>
                 </td>
                 <td class="right"><?= currency_format($row['valor'] ?? 0) ?></td>
