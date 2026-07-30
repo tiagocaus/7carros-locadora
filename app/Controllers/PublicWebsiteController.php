@@ -21,7 +21,7 @@ use App\Models\Veiculo;
 use App\Models\HorarioFuncionamento;
 use App\Models\HorarioExcecao;
 use App\Models\Feriado;
-use App\Models\LocacaoDocumento;
+use App\Models\Cliente;
 use App\Models\FormaPagamento;
 use App\Models\Financeiro;
 use App\Helpers\DateHelper;
@@ -521,7 +521,7 @@ class PublicWebsiteController
 
             if ($clienteIdSessao > 0) {
                 // Cliente logado pelo site. Carrega do BD (multi-tenant) e ignora form.
-                $clienteModel = new \App\Models\Cliente();
+                $clienteModel = new Cliente();
                 $clienteBD = $clienteModel->buscarPorId($clienteIdSessao);
                 if (!$clienteBD || (($clienteBD['chave'] ?? '') !== $chave)) {
                     $this->restoreTenantContext();
@@ -585,6 +585,8 @@ class PublicWebsiteController
                 // $clienteIdFinal sera preenchido apos o INSERT do cliente (abaixo)
             }
 
+            $this->validarDocumentosCliente($documentos);
+
             // Calcula dias entre data_saida e data_chegada (mínimo 1)
             $d1 = strtotime($dados['data_saida']);
             $d2 = strtotime($dados['data_chegada']);
@@ -623,7 +625,7 @@ class PublicWebsiteController
             // Se visitante novo, cria registro em `clientes` com senha padrao = CPF/CNPJ hash
             if ($clienteIdFinal === null) {
                 $docSoDigitos = preg_replace('/\D/', '', (string) $clienteInfo['documento']);
-                $clienteModel = new \App\Models\Cliente();
+                $clienteModel = new Cliente();
                 $clienteIdFinal = $clienteModel->criar([
                     'chave'        => $chave,
                     'nome_rsocial' => $clienteInfo['nome'],
@@ -643,6 +645,8 @@ class PublicWebsiteController
                 $this->inserirContato('cliente', $clienteIdFinal, 'emails',    'email',    $clienteInfo['email'],    $chave);
                 $this->inserirContato('cliente', $clienteIdFinal, 'telefones', 'telefone', $clienteInfo['telefone'], $chave);
             }
+
+            $this->salvarDocumentosCliente($clienteIdFinal, $documentos, $chave);
 
             // Monta obs com dados funcionais (locacoes nao tem colunas dedicadas p/ isso)
             $obs = [
@@ -710,19 +714,6 @@ class PublicWebsiteController
                 }
                 if (!empty($taxasMontadas)) {
                     (new \App\Models\LocacaoTaxaServico())->sincronizar($locacaoId, $taxasMontadas, $chave);
-                }
-            }
-
-            // Salva documentos via ImageHelper (aceita PDFs tambem)
-            if (!empty($documentos) && is_array($documentos)) {
-                $docModel = new LocacaoDocumento();
-                foreach (LocacaoDocumento::TIPOS as $tipo) {
-                    $base64 = $documentos[$tipo] ?? null;
-                    if (empty($base64)) continue;
-                    $arquivo = ImageHelper::save($base64, 'doc_' . $tipo, 'original', 80, $chave);
-                    if ($arquivo) {
-                        $docModel->upsert($locacaoId, $tipo, $arquivo);
-                    }
                 }
             }
 
@@ -897,10 +888,102 @@ class PublicWebsiteController
                     : 'Reserva criada com sucesso',
             ]);
 
+        } catch (\InvalidArgumentException $e) {
+            $this->restoreTenantContext();
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             $this->restoreTenantContext();
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Valida todos os anexos antes de criar cliente ou reserva.
+     */
+    private function validarDocumentosCliente(mixed $documentos): void
+    {
+        if (!is_array($documentos) || $documentos === []) {
+            return;
+        }
+
+        foreach ($this->tiposDocumentosCliente() as $tipo => $config) {
+            $base64 = $documentos[$tipo] ?? null;
+            if (empty($base64)) {
+                continue;
+            }
+
+            $validacao = ImageHelper::validate((string) $base64);
+            if (empty($validacao['valid'])) {
+                $erro = (string) ($validacao['error'] ?? 'arquivo invalido');
+                throw new \InvalidArgumentException("Documento {$config['nome']}: {$erro}");
+            }
+        }
+    }
+
+    /**
+     * Salva os documentos enviados na reserva diretamente na aba de arquivos do cliente.
+     *
+     * Os uploads publicos ficam aguardando revisao da locadora. Se qualquer persistencia
+     * falhar, os arquivos e registros criados nesta tentativa sao removidos.
+     */
+    private function salvarDocumentosCliente(int $clienteId, mixed $documentos, string $chave): void
+    {
+        if (!is_array($documentos) || $documentos === []) {
+            return;
+        }
+
+        $clienteModel = new Cliente();
+        $salvos = [];
+
+        try {
+            foreach ($this->tiposDocumentosCliente() as $tipo => $config) {
+                $base64 = $documentos[$tipo] ?? null;
+                if (empty($base64)) {
+                    continue;
+                }
+
+                $arquivo = ImageHelper::save((string) $base64, 'clientearquivo_' . $tipo, 'original', 80, $chave);
+                if (!$arquivo) {
+                    throw new \RuntimeException("Nao foi possivel salvar o documento {$config['nome']}");
+                }
+
+                $indice = count($salvos);
+                $salvos[] = ['id' => null, 'arquivo' => $arquivo];
+
+                $extensao = strtolower((string) pathinfo($arquivo, PATHINFO_EXTENSION));
+                $nome = $config['nome'] . '_site_' . DateHelper::systemNow('Ymd_His');
+                if ($extensao !== '') {
+                    $nome .= '.' . $extensao;
+                }
+
+                $salvos[$indice]['id'] = $clienteModel->inserirArquivo($clienteId, [
+                    'nome' => $nome,
+                    'arquivo' => $arquivo,
+                    'tipo' => $config['id'],
+                ], null);
+            }
+        } catch (\Throwable $e) {
+            foreach (array_reverse($salvos) as $salvo) {
+                if (!empty($salvo['id'])) {
+                    $clienteModel->excluirArquivoPorId((int) $salvo['id']);
+                }
+                FileHelper::delete((string) $salvo['arquivo'], $chave);
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * @return array<string,array{id:int,nome:string}>
+     */
+    private function tiposDocumentosCliente(): array
+    {
+        return [
+            'cnh' => ['id' => 1, 'nome' => 'CNH'],
+            'cpf' => ['id' => 2, 'nome' => 'CPF'],
+            'rg' => ['id' => 3, 'nome' => 'RG_Passaporte'],
+            'comprovante' => ['id' => 4, 'nome' => 'Comprovante_Endereco'],
+        ];
     }
 
     /**

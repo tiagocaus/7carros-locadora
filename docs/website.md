@@ -1947,6 +1947,29 @@ Resposta do reset inicial sempre `success=true` — mitiga enumeration. Senha m�
 - Passo 4 **não** mostra form de CPF/nome/email/endereço/documentos — exibe apenas um alerta "Você está logado como **Nome** · Sair".
 - O botão "Concluir reserva" envia payload sem `cliente` / `documentos`; o proxy `ajax-reserva.php` injeta `cliente_id` do `$_SESSION` server-side (JS não controla isso).
 
+### Documentos enviados no pré-cadastro
+
+Quando `site_config.envio_documentos` está ativo, o visitante novo pode enviar
+CNH, CPF, RG/Passaporte e comprovante de endereço. O backend valida o conteúdo
+real do arquivo, aceita imagens e PDF com até 5 MB e salva o arquivo físico em
+`storage/uploads/{chave}/`.
+
+Os registros pertencem ao cadastro do cliente e são gravados em
+`clientes_arquivos`, usando os mesmos tipos da aba **Arquivos**:
+
+| Documento do site | `clientes_arquivos.tipo` |
+|-------------------|----------------------------|
+| CNH | `1` |
+| CPF | `2` |
+| RG/Passaporte | `3` |
+| Comprovante de endereço | `4` |
+
+Uploads feitos pelo site entram com `status = NULL` (**Aguardando**) para revisão
+da locadora. A reserva não deve retornar sucesso se um anexo informado não puder
+ser validado, salvo fisicamente ou vinculado ao cliente. Documentos não são
+vinculados a `locacoes`: a fonte única para consulta e gestão é
+`clientes_arquivos`.
+
 ### Cálculo server-side do total (segurança)
 
 O total da reserva é **calculado no backend**, ignorando qualquer valor enviado pelo JS. Serviço: `App\Services\WebsiteReservaCalcService::calcular()`.

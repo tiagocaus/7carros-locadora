@@ -25,6 +25,7 @@ foreach ($argv as $arg) {
 
 // Define variável de ambiente
 putenv("APP_ENV=$env");
+$_ENV['APP_ENV'] = $env;
 
 echo "🚀 7Carros Migration Runner\n";
 echo "Environment: $env\n";

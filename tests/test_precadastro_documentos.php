@@ -4,10 +4,10 @@
  *
  * Valida:
  *  1. Flags novas estao na tabela site_config
- *  2. Tabela locacoes_documentos existe
+ *  2. Tabela clientes_arquivos suporta documentos do site
  *  3. Templates pedido_reserva e confirmacao_reserva estao cadastrados
  *  4. Permissao locacoes.confirmar existe
- *  5. LocacaoDocumento::upsert e listarPorLocacao funcionam
+ *  5. Cliente::inserirArquivo aceita status aguardando
  *
  * Execute: php tests/test_precadastro_documentos.php
  */
@@ -17,6 +17,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 if (!defined('APP_ROOT')) define('APP_ROOT', dirname(__DIR__));
 require_once APP_ROOT . '/app/Helpers/helpers.php';
 
+ini_set('session.save_path', sys_get_temp_dir());
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 use App\Core\Database;
@@ -47,15 +48,14 @@ $cols = Database::fetchAll("
 check('as 7 flags presentes', count($cols), 7);
 echo "\n";
 
-// 2. Tabela locacoes_documentos
-echo "2. Tabela locacoes_documentos existe\n";
-$tbl = Database::fetchAll("SHOW TABLES LIKE 'locacoes_documentos'");
-check('tabela existe', count($tbl), 1);
-$colsLD = Database::fetchAll("
+// 2. Tabela clientes_arquivos
+echo "2. Tabela clientes_arquivos suporta documentos do site\n";
+$colsArquivos = Database::fetchAll("
     SELECT column_name FROM information_schema.columns
-    WHERE table_schema=DATABASE() AND table_name='locacoes_documentos'
+    WHERE table_schema=DATABASE() AND table_name='clientes_arquivos'
+      AND column_name IN ('chave','id_cliente','nome','arquivo','tipo','status','created_at')
 ");
-check('schema tem colunas esperadas (>=6)', count($colsLD) >= 6, true);
+check('schema tem as 7 colunas esperadas', count($colsArquivos), 7);
 echo "\n";
 
 // 3. Templates pedido_reserva e confirmacao_reserva
@@ -91,36 +91,35 @@ $perm = Database::fetchAll("SELECT id FROM permissions WHERE `key` = 'locacoes.c
 check('permissao cadastrada', count($perm), 1);
 echo "\n";
 
-// 5. LocacaoDocumento — upsert + listar (usa uma locacao existente do tenant; limpa ao final)
-echo "5. LocacaoDocumento::upsert + listarPorLocacao\n";
-$locExistente = Database::fetchAll(
-    "SELECT id FROM locacoes WHERE chave = ? ORDER BY id DESC LIMIT 1",
+// 5. Cliente::inserirArquivo com status aguardando (limpa ao final)
+echo "5. Cliente::inserirArquivo com status aguardando\n";
+$clienteExistente = Database::fetchAll(
+    "SELECT id FROM clientes WHERE chave = ? ORDER BY id DESC LIMIT 1",
     [$CHAVE_TESTE]
 );
-if (empty($locExistente)) {
-    echo "   (pulando — nenhuma locacao no tenant de teste)\n";
+if (empty($clienteExistente)) {
+    echo "   (pulando — nenhum cliente no tenant de teste)\n";
 } else {
-    $locacaoId = (int) $locExistente[0]['id'];
-    $model = new \App\Models\LocacaoDocumento();
+    $clienteId = (int) $clienteExistente[0]['id'];
+    $model = new \App\Models\Cliente();
+    $arquivoId = null;
     try {
-        $model->upsert($locacaoId, 'cnh', 'cnh_fake_001.jpg');
-        $model->upsert($locacaoId, 'cpf', 'cpf_fake_001.jpg');
-        $list = $model->listarPorLocacao($locacaoId);
-        check('upsert + listar retorna 2 docs', count($list), 2);
-
-        // upsert do mesmo tipo substitui (nao duplica)
-        $model->upsert($locacaoId, 'cnh', 'cnh_fake_002.jpg');
-        $list2 = $model->listarPorLocacao($locacaoId);
-        check('upsert substitui mesmo tipo (nao cria duplicata)', count($list2), 2);
-        $cnh = array_values(array_filter($list2, fn($d) => $d['tipo'] === 'cnh'))[0] ?? null;
-        check('upsert atualizou arquivo', $cnh['arquivo'] ?? null, 'cnh_fake_002.jpg');
+        $arquivoId = $model->inserirArquivo($clienteId, [
+            'nome' => 'CNH_site_teste.jpg',
+            'arquivo' => 'cnh_site_teste_nao_fisico.jpg',
+            'tipo' => 1,
+        ], null);
+        $arquivo = $model->buscarArquivo($arquivoId);
+        check('arquivo inserido para o cliente correto', (int) ($arquivo['id_cliente'] ?? 0), $clienteId);
+        check('tipo CNH persistido', (int) ($arquivo['tipo'] ?? 0), 1);
+        check(
+            'status fica aguardando',
+            array_key_exists('status', $arquivo ?? []) ? $arquivo['status'] : 'campo-ausente',
+            null
+        );
     } finally {
-        // Cleanup
-        foreach (\App\Models\LocacaoDocumento::TIPOS as $tipo) {
-            $r = $model->buscarPorLocacaoTipo($locacaoId, $tipo);
-            if ($r && str_contains((string) $r['arquivo'], '_fake_')) {
-                $model->excluir((int) $r['id']);
-            }
+        if ($arquivoId !== null) {
+            $model->excluirArquivoPorId($arquivoId);
         }
     }
 }

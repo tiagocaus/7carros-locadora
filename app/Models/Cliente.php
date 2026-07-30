@@ -630,9 +630,10 @@ class Cliente extends Model
      *
      * @param int $clienteId ID do cliente
      * @param array $dados Dados do arquivo (nome, arquivo, tipo)
+     * @param int|null $status Status inicial (1 aprovado, 0 reprovado, null aguardando)
      * @return int ID do arquivo inserido
      */
-    public function inserirArquivo(int $clienteId, array $dados): int
+    public function inserirArquivo(int $clienteId, array $dados, ?int $status = 1): int
     {
         return $this->qb
             ->table('clientes_arquivos')
@@ -642,7 +643,7 @@ class Cliente extends Model
                 'nome' => $dados['nome'],
                 'arquivo' => $dados['arquivo'],
                 'tipo' => $dados['tipo'],
-                'status' => 1, // Aprovado por padrão quando enviado pelo sistema
+                'status' => $status,
                 'created_at' => now()
             ]);
     }
