@@ -65,6 +65,12 @@ MessageQueueService                     → Tenant com SMTP? Usa do tenant
 - **SMS:** exige `id_matriz_filial` e conexao validada via `Sms::buscarValidadaPorFilial()`. Sem conexao validada, a chamada falha imediatamente e nao cria item pendente na fila.
 - **Email:** nao bloqueia a publicacao, porque pode usar SMTP da filial ou fallback do ENV.
 
+Bloqueio mestre e ausencia de conexao valida lancam
+`NotificationChannelUnavailableException`. Essa excecao representa uma
+notificacao opcional ignorada por configuracao, nao falha de banco, RabbitMQ ou
+provedor. Fluxos que tentam automaticamente todos os canais devem captura-la
+sem registrar erro no Apache; excecoes inesperadas continuam sendo registradas.
+
 Excecao: `queue_system_message('whatsapp', ...)` usa credenciais do sistema e nao passa pela validacao de instancia da filial.
 
 O worker repete a validacao do bloqueio mestre imediatamente antes do provedor.
@@ -94,10 +100,11 @@ CRON financeiro: em `N`, impede apenas o `overdue_notice` automatico da filial.
 Ele nao desativa lembretes pre-vencimento, cobrancas manuais nem outros tipos
 de mensagem.
 
-Excecoes permitidas sao restritas a recuperacao de senha solicitada pelo
-usuario, testes tecnicos manuais e mensagens globais da plataforma marcadas
-explicitamente com bypass. Mensagens comerciais enviadas com credenciais da
-7Carros continuam respeitando a empresa/filial.
+Excecoes permitidas sao restritas a recuperacao de senha de cliente ou
+funcionario solicitada pelo usuario, testes tecnicos manuais e mensagens
+globais da plataforma marcadas explicitamente com bypass. O bypass de senha e
+aceito somente para email; ele nao libera SMS ou WhatsApp. Mensagens comerciais
+enviadas com credenciais da 7Carros continuam respeitando a empresa/filial.
 
 ## Configuracao
 

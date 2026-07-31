@@ -241,6 +241,23 @@ O Asaas envia eventos de cobranca por `POST` em JSON, com `event` no topo e os d
 
 O endpoint deve responder `200` rapidamente para payloads validos recebidos do Asaas, mesmo quando o evento for apenas informativo ou quando a transacao local ainda nao puder ser reconciliada. Erros `400` devem ser evitados nesses casos para nao interromper a fila de webhooks no Asaas. Token/assinatura invalida continua retornando erro de autenticacao quando houver token configurado.
 
+Eventos sem `externalReference` no formato `link_{id}` podem pertencer a
+cobrancas criadas fora do sistema. Quando nao houver transacao local, eles sao
+respondidos com `200` e `ignored=true`, sem gerar erro no Apache. Uma referencia
+`link_{id}` nao reconciliada continua sendo registrada como alerta, pois indica
+inconsistencia em um link criado pela plataforma.
+
+O log detalhado de entrada fica desativado por padrao. Para diagnostico
+temporario, habilite e depois desabilite novamente:
+
+```env
+PAYMENT_WEBHOOK_DEBUG=true
+```
+
+Mesmo em debug, o log inclui apenas gateway, evento, identificadores,
+referencia e nomes das chaves recebidas; payload completo e credenciais nao
+devem ser registrados.
+
 ### Protegidas (requer autenticacao)
 
 ```

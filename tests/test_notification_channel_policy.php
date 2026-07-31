@@ -58,6 +58,13 @@ foreach (['email', 'sms', 'whatsapp'] as $channel) {
     assertNotificationPolicy($allowed['allowed'], "Canal {$channel} deveria estar ativo na filial 11.");
 }
 
+try {
+    $policy->assertAllowed('email', ['id_matriz_filial' => 10], '1111111111111');
+    throw new RuntimeException('Canal bloqueado deveria lancar excecao tipada.');
+} catch (\App\Exceptions\NotificationChannelUnavailableException) {
+    // Esperado: chamadores podem ignorar esta condicao sem poluir error_log.
+}
+
 $missing = $policy->evaluate('email', [], '1111111111111');
 assertNotificationPolicy(!$missing['allowed'], 'Publicacao nova sem empresa/filial deve falhar fechada.');
 
@@ -71,9 +78,30 @@ $platform = $policy->evaluate('email', ['_company_channel_bypass' => 'platform']
 assertNotificationPolicy($platform['allowed'], 'Mensagem global da plataforma deveria usar bypass explicito.');
 
 $passwordReset = $policy->evaluate('email', [
-    '_email_preference_bypass' => 'cliente_password_reset',
+    '_email_preference_bypass' => NotificationChannelPolicyService::EMAIL_BYPASS_CLIENT_PASSWORD_RESET,
 ], '1111111111111');
 assertNotificationPolicy($passwordReset['allowed'], 'Recuperacao de senha deveria permanecer permitida.');
+
+$employeePasswordReset = $policy->evaluate('email', [
+    '_email_preference_bypass' => NotificationChannelPolicyService::EMAIL_BYPASS_EMPLOYEE_PASSWORD_RESET,
+], '1111111111111');
+assertNotificationPolicy(
+    $employeePasswordReset['allowed'],
+    'Recuperacao de senha de funcionario deveria permanecer permitida.'
+);
+
+$passwordResetSms = $policy->evaluate('sms', [
+    '_email_preference_bypass' => NotificationChannelPolicyService::EMAIL_BYPASS_EMPLOYEE_PASSWORD_RESET,
+], '1111111111111');
+assertNotificationPolicy(
+    !$passwordResetSms['allowed'],
+    'Bypass de recuperacao de senha nao pode liberar SMS.'
+);
+
+$unknownBypass = $policy->evaluate('email', [
+    '_email_preference_bypass' => 'valor_nao_permitido',
+], '1111111111111');
+assertNotificationPolicy(!$unknownBypass['allowed'], 'Bypass desconhecido deve permanecer bloqueado.');
 
 $telefoneModel = new class extends ContatoTelefone {
     public function __construct()

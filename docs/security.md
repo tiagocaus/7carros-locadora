@@ -232,6 +232,12 @@ Formulários autenticados do sistema não devem acionar autocomplete do navegado
 
 `session.gc_maxlifetime` e `session.cookie_lifetime` são 4h (`Session.php:24-25`). A política atual é expiração por inatividade: não há expiração absoluta baseada no horário do login. Cada hit HTTP válido no servidor renova a janela de sessão PHP. "Atividade" significa requisição HTTP, não movimento de mouse/teclado.
 
+`Session::start()` valida o resultado da abertura nativa antes de acessar
+`$_SESSION`. Um identificador recebido que seja invalido ou corrompido e
+descartado e recebe somente uma nova tentativa. Se o armazenamento de sessoes
+continuar indisponivel, o front controller responde `503` generico e registra
+uma unica falha sanitizada, sem recursao e sem expor o cookie de sessao.
+
 Para que usuários preenchendo formulários longos (locação, contrato, multa, promissória) não percam dados por timeout silencioso, o `api.js` mantém a sessão viva via heartbeat:
 
 | Aspecto | Valor |

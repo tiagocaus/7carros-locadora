@@ -813,6 +813,8 @@ class PublicWebsiteController
                 foreach (['email', 'whatsapp'] as $canal) {
                     try {
                         queue_template_message('pedido_reserva', $canal, $context, $chave);
+                    } catch (\App\Exceptions\NotificationChannelUnavailableException) {
+                        // Canal desativado ou sem conexao: notificacao opcional ignorada.
                     } catch (\Throwable $e) {
                         error_log("[Site/Publico] Erro ao enfileirar pedido_reserva/{$canal}: " . $e->getMessage());
                     }
@@ -822,6 +824,8 @@ class PublicWebsiteController
                     foreach (['email', 'whatsapp', 'sms'] as $canal) {
                         try {
                             queue_template_message('confirmacao_reserva', $canal, $context, $chave);
+                        } catch (\App\Exceptions\NotificationChannelUnavailableException) {
+                            // Canal desativado ou sem conexao: notificacao opcional ignorada.
                         } catch (\Throwable $e) {
                             error_log("[Site/Publico] Erro ao enfileirar confirmacao_reserva/{$canal}: " . $e->getMessage());
                         }

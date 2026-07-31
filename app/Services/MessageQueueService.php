@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Classes\QueryBuilder;
 use App\Core\Database;
+use App\Exceptions\NotificationChannelUnavailableException;
 use App\Models\Sms;
 use App\Models\Whatsapp;
 use App\Models\Model;
@@ -414,14 +415,14 @@ class MessageQueueService
         $idMatrizFilial = (int) ($payload['id_matriz_filial'] ?? 0);
 
         if ($idMatrizFilial <= 0) {
-            throw new \InvalidArgumentException("Filial nao informada para envio por {$type}");
+            throw new NotificationChannelUnavailableException("Filial nao informada para envio por {$type}");
         }
 
         if ($type === 'whatsapp') {
             $whatsapp = (new Whatsapp())->buscarConectadaPorFilial($idMatrizFilial);
 
             if (!$whatsapp) {
-                throw new \InvalidArgumentException('Nenhuma instancia WhatsApp conectada para esta filial');
+                throw new NotificationChannelUnavailableException('Nenhuma instancia WhatsApp conectada para esta filial');
             }
 
             return;
@@ -431,7 +432,7 @@ class MessageQueueService
             $sms = (new Sms())->buscarValidadaPorFilial($idMatrizFilial);
 
             if (!$sms) {
-                throw new \InvalidArgumentException('Nenhuma conexao SMS configurada ou validada para esta filial');
+                throw new NotificationChannelUnavailableException('Nenhuma conexao SMS configurada ou validada para esta filial');
             }
         }
     }

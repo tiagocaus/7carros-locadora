@@ -233,6 +233,8 @@ class LocacoesController
             foreach (['email', 'whatsapp', 'sms'] as $canal) {
                 try {
                     queue_template_message($templateSlug, $canal, $context, $locacao['chave'] ?? Auth::chave());
+                } catch (\App\Exceptions\NotificationChannelUnavailableException) {
+                    // Canal desativado ou sem conexao: notificacao opcional ignorada.
                 } catch (\Throwable $e) {
                     error_log("Erro ao enfileirar {$templateSlug}/{$canal}: " . $e->getMessage());
                 }
@@ -1576,6 +1578,8 @@ class LocacoesController
                 foreach (['email', 'whatsapp', 'sms'] as $canal) {
                     try {
                         queue_template_message('confirmacao_reserva', $canal, $context, Auth::chave());
+                    } catch (\App\Exceptions\NotificationChannelUnavailableException) {
+                        // Canal desativado ou sem conexao: notificacao opcional ignorada.
                     } catch (\Throwable $e) {
                         error_log("Erro ao enfileirar confirmacao_reserva/{$canal}: " . $e->getMessage());
                     }

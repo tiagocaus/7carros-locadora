@@ -15,31 +15,92 @@ class Session
      */
     public static function start(): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            // Configurações de segurança da sessão
-            ini_set('session.cookie_httponly', '1');
-            ini_set('session.use_only_cookies', '1');
-            ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) ? '1' : '0');
-            ini_set('session.cookie_samesite', 'Lax');
-            ini_set('session.gc_maxlifetime', '14400'); // 4 horas
-            ini_set('session.cookie_lifetime', '14400'); // 4 horas
+        $status = session_status();
+        if ($status === PHP_SESSION_ACTIVE) {
+            return;
+        }
+        if ($status === PHP_SESSION_DISABLED) {
+            throw new \RuntimeException('Sessoes PHP indisponiveis');
+        }
 
-            session_start();
+        self::configure();
 
-            // Proteção contra session hijacking
-            if (!self::has('_session_initiated')) {
-                session_regenerate_id(true);
-                self::set('_session_initiated', true);
-                self::set('_user_agent', $_SERVER['HTTP_USER_AGENT'] ?? '');
-                self::set('_ip_address', $_SERVER['REMOTE_ADDR'] ?? '');
-            }
+        // O PHP 8.3 pode manter o modulo de sessao inutilizavel durante toda a
+        // request depois de rejeitar um ID ilegal. Valida antes da primeira
+        // chamada nativa para que a recuperacao ainda seja possivel.
+        if (!self::isIncomingSessionIdValid()) {
+            self::discardIncomingSessionId();
+        }
 
-            // Validar fingerprint da sessão
-            if (!self::validateFingerprint()) {
-                self::destroy();
-                session_start();
+        if (!self::openNativeSession()) {
+            // Um cookie de sessao corrompido/invalido nao pode provocar novas
+            // chamadas recursivas a start(). Descarta somente o identificador
+            // recebido e faz uma unica tentativa com um ID novo.
+            self::discardIncomingSessionId();
+            if (!self::openNativeSession()) {
+                throw new \RuntimeException('Nao foi possivel iniciar a sessao');
             }
         }
+
+        self::initializeMetadata();
+
+        if (!self::validateFingerprint()) {
+            self::destroyActiveSession();
+            if (!self::openNativeSession()) {
+                throw new \RuntimeException('Nao foi possivel reiniciar a sessao');
+            }
+            self::initializeMetadata();
+        }
+    }
+
+    private static function configure(): void
+    {
+        $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+        $isSecure = $https !== '' && $https !== 'off';
+
+        ini_set('session.cookie_httponly', '1');
+        ini_set('session.use_only_cookies', '1');
+        ini_set('session.cookie_secure', $isSecure ? '1' : '0');
+        ini_set('session.cookie_samesite', 'Lax');
+        ini_set('session.gc_maxlifetime', '14400'); // 4 horas
+        ini_set('session.cookie_lifetime', '14400'); // 4 horas
+    }
+
+    private static function openNativeSession(): bool
+    {
+        return @session_start() && session_status() === PHP_SESSION_ACTIVE;
+    }
+
+    private static function isIncomingSessionIdValid(): bool
+    {
+        $id = (string) ($_COOKIE[session_name()] ?? session_id());
+        if ($id === '') {
+            return true;
+        }
+
+        return strlen($id) <= 256 && preg_match('/^[A-Za-z0-9,-]+$/D', $id) === 1;
+    }
+
+    private static function initializeMetadata(): void
+    {
+        if (isset($_SESSION['_session_initiated'])) {
+            return;
+        }
+
+        if (!session_regenerate_id(true)) {
+            throw new \RuntimeException('Nao foi possivel regenerar a sessao');
+        }
+
+        $_SESSION['_session_initiated'] = true;
+        $_SESSION['_user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $_SESSION['_ip_address'] = $_SERVER['REMOTE_ADDR'] ?? '';
+    }
+
+    private static function discardIncomingSessionId(): void
+    {
+        self::expireSessionCookie();
+        unset($_COOKIE[session_name()]);
+        @session_id('');
     }
 
     /**
@@ -49,7 +110,7 @@ class Session
     {
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
 
-        if (self::has('_user_agent') && self::get('_user_agent') !== $userAgent) {
+        if (isset($_SESSION['_user_agent']) && $_SESSION['_user_agent'] !== $userAgent) {
             return false;
         }
 
@@ -174,25 +235,43 @@ class Session
     {
         self::start();
 
+        self::destroyActiveSession();
+    }
+
+    private static function destroyActiveSession(): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+
         // Limpa todas as variáveis de sessão
         $_SESSION = [];
 
         // Remove o cookie de sessão
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $params['path'],
-                $params['domain'],
-                $params['secure'],
-                $params['httponly']
-            );
-        }
+        self::expireSessionCookie();
 
         // Destrói a sessão
         session_destroy();
+        unset($_COOKIE[session_name()]);
+        @session_id('');
+    }
+
+    private static function expireSessionCookie(): void
+    {
+        if (!ini_get('session.use_cookies') || headers_sent()) {
+            return;
+        }
+
+        $params = session_get_cookie_params();
+        setcookie(
+            session_name(),
+            '',
+            time() - 42000,
+            $params['path'],
+            $params['domain'],
+            $params['secure'],
+            $params['httponly']
+        );
     }
 
     /**

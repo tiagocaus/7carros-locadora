@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\NotificationChannelUnavailableException;
 use App\Models\MatrizFilial;
 
 /**
@@ -9,6 +10,9 @@ use App\Models\MatrizFilial;
  */
 class NotificationChannelPolicyService
 {
+    public const EMAIL_BYPASS_CLIENT_PASSWORD_RESET = 'cliente_password_reset';
+    public const EMAIL_BYPASS_EMPLOYEE_PASSWORD_RESET = 'funcionario_password_reset';
+
     private const CHANNEL_FIELDS = [
         'email' => 'notificacao_email',
         'sms' => 'notificacao_sms',
@@ -37,7 +41,7 @@ class NotificationChannelPolicyService
             ];
         }
 
-        if ($this->isBypassAllowed($payload)) {
+        if ($this->isBypassAllowed($channel, $payload)) {
             return [
                 'allowed' => true,
                 'message' => '',
@@ -101,13 +105,27 @@ class NotificationChannelPolicyService
     {
         $decision = $this->evaluate($channel, $payload, $chave);
         if (!$decision['allowed']) {
-            throw new \InvalidArgumentException($decision['message']);
+            throw new NotificationChannelUnavailableException($decision['message']);
         }
     }
 
-    private function isBypassAllowed(array $payload): bool
+    private function isBypassAllowed(string $channel, array $payload): bool
     {
-        return ($payload['_company_channel_bypass'] ?? '') === 'platform'
-            || ($payload['_email_preference_bypass'] ?? '') === 'cliente_password_reset';
+        if (($payload['_company_channel_bypass'] ?? '') === 'platform') {
+            return true;
+        }
+
+        if ($channel !== 'email') {
+            return false;
+        }
+
+        return in_array(
+            $payload['_email_preference_bypass'] ?? '',
+            [
+                self::EMAIL_BYPASS_CLIENT_PASSWORD_RESET,
+                self::EMAIL_BYPASS_EMPLOYEE_PASSWORD_RESET,
+            ],
+            true
+        );
     }
 }

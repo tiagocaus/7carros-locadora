@@ -571,7 +571,7 @@ class PagamentoPublicoController
             $externalId = $parsedPayload['external_id'] ?? '';
             $event = $parsedPayload['event'] ?? 'unknown';
 
-            error_log(sprintf(
+            $this->webhookDebugLog(sprintf(
                 '[Webhook] Recebido gateway=%s event=%s external_id=%s reference=%s keys=%s',
                 $gatewayCode,
                 $event,
@@ -581,13 +581,13 @@ class PagamentoPublicoController
             ));
 
             if (empty($externalId)) {
-                error_log("[Webhook] external_id ausente gateway={$gatewayCode} event={$event}");
-
                 if ($this->isAsaasWebhook($gatewayCode, $payload)) {
+                    $this->webhookDebugLog("[Webhook] external_id ausente gateway={$gatewayCode} event={$event}");
                     Response::json(['success' => true, 'ignored' => true, 'message' => 'Webhook sem cobrança processável']);
                     return;
                 }
 
+                error_log("[Webhook] external_id ausente gateway={$gatewayCode} event={$event}");
                 Response::json(['error' => 'external_id não encontrado no payload'], 400);
                 return;
             }
@@ -633,7 +633,16 @@ class PagamentoPublicoController
             }
 
             if (!$transacao) {
-                error_log("[Webhook] Transacao nao encontrada gateway={$gatewayCode} external_id={$externalId}");
+                $externalReference = trim((string) ($parsedPayload['external_reference'] ?? ''));
+                $message = "[Webhook] Transacao nao encontrada gateway={$gatewayCode} external_id={$externalId}"
+                    . ' reference=' . ($externalReference !== '' ? $externalReference : '-');
+
+                if ($this->shouldAlertMissingTransaction($externalReference)) {
+                    error_log($message);
+                } else {
+                    $this->webhookDebugLog($message);
+                }
+
                 // Transação não encontrada, mas retornar OK para não reenviar
                 Response::json(['success' => true, 'ignored' => true, 'message' => 'Transação não encontrada']);
                 return;
@@ -732,6 +741,20 @@ class PagamentoPublicoController
             error_log("[Webhook] Erro gateway={$gatewayCode}: " . $e->getMessage());
             Response::json(['success' => false, 'message' => 'Erro ao processar webhook'], 500);
         }
+    }
+
+    private function webhookDebugLog(string $message): void
+    {
+        if (\App\Core\Database::env('PAYMENT_WEBHOOK_DEBUG', 'false') !== 'true') {
+            return;
+        }
+
+        error_log($message);
+    }
+
+    private function shouldAlertMissingTransaction(string $externalReference): bool
+    {
+        return str_starts_with(trim($externalReference), 'link_');
     }
 
     /**
@@ -1096,6 +1119,8 @@ class PagamentoPublicoController
                 foreach (['email', 'whatsapp', 'sms'] as $canal) {
                     try {
                         queue_template_message('confirmacao_reserva', $canal, $context, $chave);
+                    } catch (\App\Exceptions\NotificationChannelUnavailableException) {
+                        // Canal desativado ou sem conexao: notificacao opcional ignorada.
                     } catch (\Throwable $e) {
                         error_log("[Webhook/Reserva] Erro ao enfileirar confirmacao_reserva/{$canal}: " . $e->getMessage());
                     }

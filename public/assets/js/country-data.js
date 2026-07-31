@@ -3,7 +3,7 @@
  *
  * Lista de países suportados para o componente intl customizado.
  * Ordem: Brasil, EUA, Canadá, Portugal, Espanha, Itália, Paraguai,
- * Reino Unido, França, Alemanha, Argentina, Uruguai, Chile, Colômbia e México.
+ * Reino Unido, França, Bélgica, Alemanha, Argentina, Uruguai, Chile, Colômbia e México.
  */
 
 const countryData = [
@@ -110,6 +110,17 @@ const countryData = [
         // Máscara: # ## ## ## ##
         maskFormat: function (number) {
             return number.replace(/^(\d{1})(\d{2})(\d{2})(\d{2})(\d{0,2}).*/, '$1 $2 $3 $4 $5');
+        }
+    },
+    {
+        name: 'Bélgica',
+        code: 'BE',
+        dialCode: '+32',
+        flag: '🇧🇪',
+        placeholder: '470 12 34 56',
+        // Máscara: ### ## ## ##
+        maskFormat: function (number) {
+            return number.replace(/^(\d{3})(\d{2})(\d{2})(\d{0,2}).*/, '$1 $2 $3 $4');
         }
     },
     {

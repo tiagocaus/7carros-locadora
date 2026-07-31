@@ -206,6 +206,7 @@ class AuthPasswordResetService
             'body' => $rendered['content'],
             'body_text' => $rendered['content_plain'],
             'id_matriz_filial' => $funcionario['id_matriz_filial'] ?? null,
+            '_email_preference_bypass' => NotificationChannelPolicyService::EMAIL_BYPASS_EMPLOYEE_PASSWORD_RESET,
         ];
 
         queue_message_service()->publish('email', $payload, $chave);

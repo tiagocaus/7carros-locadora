@@ -25,7 +25,15 @@ use App\Core\Database;
 date_default_timezone_set(Database::env('APP_TIMEZONE', 'America/Sao_Paulo'));
 
 // Inicia a sessão
-Session::start();
+try {
+    Session::start();
+} catch (\Throwable $e) {
+    error_log('[Session] Falha controlada ao iniciar sessao: ' . $e->getMessage());
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=UTF-8');
+    echo 'Servico temporariamente indisponivel.';
+    exit;
+}
 
 // Captura a requisição
 $request = Request::capture();

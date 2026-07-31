@@ -54,7 +54,7 @@ Sistema para gerenciar templates de mensagens enviadas por email, WhatsApp e SMS
 |------|-----------|--------|-----------|
 | `welcome` | onboarding | email, whatsapp | Boas-vindas ao cliente |
 | `rental_confirmation` | rental | email, whatsapp, sms | Confirmação de locação |
-| `contract_confirmation` | rental | email, whatsapp | Confirmação de contrato |
+| `contract_confirmation` | rental | email, whatsapp, sms | Confirmação de contrato |
 | `signature_request` | rental | email, whatsapp, sms | Pedido de assinatura digital |
 | `return_reminder` | reminder | email, whatsapp, sms | Lembrete de devolução |
 | `payment_reminder` | reminder | email, whatsapp, sms | Lembrete de pagamento |
