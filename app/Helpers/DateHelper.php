@@ -154,6 +154,83 @@ class DateHelper
     }
 
     /**
+     * Retorna o primeiro dia do periodo civil que contem a data informada.
+     * Semanas seguem ISO-8601 (segunda a domingo).
+     */
+    public static function periodStartForDatabase(string $date, string $granularity): string
+    {
+        $normalized = self::normalizeDateOnly($date);
+        if ($normalized === null) {
+            throw new \InvalidArgumentException('Data invalida para agrupamento por periodo.');
+        }
+
+        $period = self::normalizePeriodGranularity($granularity);
+        $value = \DateTimeImmutable::createFromFormat('!Y-m-d', $normalized);
+
+        return match ($period) {
+            'dia' => $value->format('Y-m-d'),
+            'semana' => $value->modify('monday this week')->format('Y-m-d'),
+            'mes' => $value->format('Y-m-01'),
+            'ano' => $value->format('Y-01-01'),
+        };
+    }
+
+    /**
+     * Avanca ou retrocede uma quantidade de periodos civis.
+     */
+    public static function addPeriodsForDatabase(
+        int $amount,
+        string $baseDate,
+        string $granularity
+    ): string {
+        $start = self::periodStartForDatabase($baseDate, $granularity);
+        $period = self::normalizePeriodGranularity($granularity);
+        $value = \DateTimeImmutable::createFromFormat('!Y-m-d', $start);
+        $unit = match ($period) {
+            'dia' => 'days',
+            'semana' => 'weeks',
+            'mes' => 'months',
+            'ano' => 'years',
+        };
+
+        return $value->modify(($amount >= 0 ? '+' : '') . $amount . ' ' . $unit)->format('Y-m-d');
+    }
+
+    /**
+     * Retorna o ultimo dia do periodo civil que contem a data informada.
+     */
+    public static function periodEndForDatabase(string $date, string $granularity): string
+    {
+        $next = self::addPeriodsForDatabase(1, $date, $granularity);
+        return self::addDaysForDatabase(-1, $next);
+    }
+
+    /**
+     * Formata um periodo para graficos e tabelas respeitando o formato do tenant.
+     */
+    public static function formatPeriodLabel(string $periodStart, string $granularity): string
+    {
+        $start = self::periodStartForDatabase($periodStart, $granularity);
+        $period = self::normalizePeriodGranularity($granularity);
+
+        return match ($period) {
+            'dia' => self::format($start),
+            'semana' => self::format($start) . ' - ' . self::format(self::periodEndForDatabase($start, $period)),
+            'mes' => substr($start, 5, 2) . '/' . substr($start, 0, 4),
+            'ano' => substr($start, 0, 4),
+        };
+    }
+
+    private static function normalizePeriodGranularity(string $granularity): string
+    {
+        if (!in_array($granularity, ['dia', 'semana', 'mes', 'ano'], true)) {
+            throw new \InvalidArgumentException('Granularidade de periodo invalida.');
+        }
+
+        return $granularity;
+    }
+
+    /**
      * Timestamp Unix tecnico para nomes de arquivo, cache e integracoes.
      */
     public static function timestamp(): int

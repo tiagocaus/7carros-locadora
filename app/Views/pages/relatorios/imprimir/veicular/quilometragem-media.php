@@ -25,10 +25,13 @@
                 <th><?= t('modules.relatorios.veicular.quilometragem_media.col_placa') ?></th>
                 <th><?= t('modules.relatorios.veicular.quilometragem_media.col_veiculo') ?></th>
                 <th><?= t('modules.relatorios.veicular.quilometragem_media.col_grupo') ?></th>
+                <th class="right"><?= t('modules.relatorios.veicular.quilometragem_media.col_km_inicial') ?></th>
+                <th class="right"><?= t('modules.relatorios.veicular.quilometragem_media.col_km_final') ?></th>
                 <th class="right"><?= t('modules.relatorios.veicular.quilometragem_media.col_km_total') ?></th>
                 <th class="center"><?= t('modules.relatorios.veicular.quilometragem_media.col_locacoes') ?></th>
                 <th class="right"><?= t('modules.relatorios.veicular.quilometragem_media.col_km_dia') ?></th>
                 <th class="right"><?= t('modules.relatorios.veicular.quilometragem_media.col_km_locacao') ?></th>
+                <th class="center"><?= t('modules.relatorios.veicular.quilometragem_media.col_alerta') ?></th>
             </tr>
         </thead>
         <tbody>
@@ -37,10 +40,18 @@
                 <td><?= htmlspecialchars($row['placa'] ?? '-') ?></td>
                 <td><?= htmlspecialchars($row['veiculo'] ?? '-') ?></td>
                 <td><?= htmlspecialchars($row['grupo'] ?? '-') ?></td>
+                <td class="right"><?= number_format((int) $row['km_inicial'], 0, ',', '.') ?></td>
+                <td class="right"><?= number_format((int) $row['km_final'], 0, ',', '.') ?></td>
                 <td class="right"><?= number_format((int) $row['km_total'], 0, ',', '.') ?></td>
                 <td class="center"><?= (int) $row['qtd_locacoes'] ?></td>
                 <td class="right"><?= number_format((float) $row['km_dia'], 1, ',', '.') ?></td>
                 <td class="right"><?= number_format((int) $row['km_locacao'], 0, ',', '.') ?></td>
+                <td class="center"><?= htmlspecialchars(t('modules.relatorios.veicular.quilometragem_media.alert_' . match ($row['alerta_km'] ?? '') {
+                    'alto' => 'high',
+                    'baixo' => 'low',
+                    'normal' => 'normal',
+                    default => 'insufficient',
+                })) ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

@@ -119,6 +119,7 @@ return [
         'veh_depreciation' => 'Depreciação de frota',
         'veh_avg_idle_time' => 'Tempo médio parado',
         'veh_avg_mileage' => 'Quilometragem média',
+        'veh_mileage_evolution' => 'Evolução da quilometragem',
 
         'veh_total_cost' => 'Custo total de propriedade',
         // Clientes

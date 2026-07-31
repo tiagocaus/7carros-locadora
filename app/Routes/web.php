@@ -1518,6 +1518,11 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/api/relatorios/veicular/quilometragem-media', [\App\Controllers\Relatorios\VeicularController::class, 'quilometragemMedia'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/relatorios/veicular/quilometragem-media/pdf', [\App\Controllers\Relatorios\VeicularController::class, 'quilometragemMediaPdf']);
 
+    // 3.12 Evolucao da Quilometragem
+    $router->get('/pages/relatorios/veicular/evolucao-quilometragem', [\App\Controllers\Relatorios\VeicularController::class, 'viewEvolucaoQuilometragem']);
+    $router->get('/api/relatorios/veicular/evolucao-quilometragem', [\App\Controllers\Relatorios\VeicularController::class, 'evolucaoQuilometragem'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/relatorios/veicular/evolucao-quilometragem/pdf', [\App\Controllers\Relatorios\VeicularController::class, 'evolucaoQuilometragemPdf']);
+
     // 3.11 TCO
     $router->get('/pages/relatorios/veicular/tco', [\App\Controllers\Relatorios\VeicularController::class, 'viewTco']);
     $router->get('/api/relatorios/veicular/tco', [\App\Controllers\Relatorios\VeicularController::class, 'tco'], ['api_csrf', 'rate_limit', 'throttle']);

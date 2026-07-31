@@ -80,6 +80,26 @@ function assertTemplateTranslationsExist(string $template): void
 }
 
 $cases = [
+    'movimentacoes.php' => [
+        'totals' => [
+            'total_receitas' => 1000,
+            'total_despesas' => 250,
+            'saldo' => 750,
+            'quantidade' => 2,
+        ],
+        'details' => [
+            [
+                'data' => '2026-07-10',
+                'tipo' => 'R',
+                'categoria' => 'Receitas',
+                'descricao' => 'Locacao',
+                'valor' => 1000,
+                'status' => 'pago',
+                'conta' => 'Principal',
+            ],
+        ],
+        'expected' => 'Lançamentos',
+    ],
     'faturamento.php' => [
         'totals' => [
             'faturamento_bruto' => 1000,
@@ -146,7 +166,7 @@ set_error_handler(static function (int $severity, string $message, string $file,
 
 try {
     foreach ($cases as $template => $case) {
-        if ($template === 'plano-contas.php') {
+        if (in_array($template, ['movimentacoes.php', 'plano-contas.php'], true)) {
             assertTemplateTranslationsExist($template);
         }
 

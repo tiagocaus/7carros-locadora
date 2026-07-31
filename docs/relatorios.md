@@ -876,20 +876,32 @@ O filtro de situação é aplicado tanto às receitas quanto às despesas do dem
 
 **Objetivo**: Analisar o uso dos veículos em termos de quilometragem.
 
+**Regra temporal**: A quilometragem é reconhecida na data em que existe uma
+medição verificável. Para locações, isso ocorre na devolução. Para contratos,
+ocorre em cada leitura intermediária de odômetro e, na devolução, apenas para o
+trecho posterior à última leitura. Saídas sem leitura posterior não representam
+zero quilômetro e não entram no cálculo do período.
+
 **Informações a exibir**:
 
-| Veículo | Km Inicial | Km Final | Km Rodado | Km/Dia | Locações | Km/Locação |
+| Veículo | Km Inicial | Km Final | Km Rodado | Km/Dia | Utilizações | Km/Utilização |
 |---------|------------|----------|-----------|--------|----------|------------|
 | [Placa] | | | | | | |
 
 **Totalizadores**:
 - Km total da frota no período
 - Média de km por veículo
-- Média de km por locação
+- Média de km por utilização
 
 **Alertas**:
-- Veículos com km muito acima da média (desgaste acelerado)
-- Veículos com km muito abaixo (subutilização)
+- Veículos com km acima da distribuição esperada do grupo (desgaste acelerado)
+- Veículos com km abaixo da distribuição esperada do grupo (subutilização)
+
+Os alertas comparam somente veículos do mesmo grupo usando as cercas de Tukey:
+limite inferior `Q1 - 1,5 x IQR` (nunca menor que zero) e limite superior
+`Q3 + 1,5 x IQR`. A classificação exige ao menos cinco veículos medidos no
+grupo e `IQR > 0`; fora dessas condições, o relatório informa amostra
+insuficiente. Os alertas indicam pontos para investigação, não erros de dados.
 
 ---
 
@@ -918,6 +930,33 @@ O filtro de situação é aplicado tanto às receitas quanto às despesas do dem
 - Breakdown do TCO por componente
 - Comparativo TCO vs Receita
 - Veículos com TCO crítico
+
+---
+
+### 3.12 Evolução da Quilometragem
+
+**Objetivo**: Mostrar quanto a frota rodou ao longo do tempo, sem cálculos de média.
+
+**Regra temporal**: Usa os mesmos eventos verificáveis do relatório Quilometragem
+Média: devolução de locação, leitura intermediária de contrato e trecho posterior
+à última leitura na devolução do contrato. Essa fonte compartilhada evita dupla
+contagem e divergência entre os relatórios.
+
+**Filtros específicos**:
+- Granularidade: dia, semana ISO (segunda a domingo), mês ou ano
+- Filial
+- Grupo de veículos
+- Veículo
+
+**Informações a exibir**:
+
+| Período | Início | Fim | Km utilizado | Veículos | Utilizações |
+|---------|--------|-----|--------------|----------|-------------|
+| [Período civil] | | | | | |
+
+Períodos sem leitura aparecem com zero. Os totalizadores mostram km total,
+veículos medidos, utilizações e o maior uso em um período. O gráfico apresenta
+a série completa de quilômetros reconhecidos na granularidade selecionada.
 
 ---
 

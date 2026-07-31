@@ -158,7 +158,8 @@ O erro mais comum em relatorios e o desalinhamento entre as chaves que o Model r
 ### Templates PDF
 - Usar `include __DIR__ . '/_partial.php'` (PDF nao passa pelo Template engine)
 - Usar tabelas HTML, NAO flexbox/grid
-- `PdfHelper::outputInline()` para exibir no modal
+- Nos Controllers de relatorios, usar `resolveReportPdfCompany()` para preparar `$empresa` e `outputReportPdf()` para exibir no modal
+- Nao assumir que todo funcionario possui `id_matriz_filial`; o fallback deve continuar tenant-scoped
 - Output buffering: `ob_start()` → `include` → `ob_get_clean()`
 
 ---
@@ -174,6 +175,8 @@ O erro mais comum em relatorios e o desalinhamento entre as chaves que o Model r
 | `getFilialFilter()` | Retorna FilialHelper::whereFiliais() |
 | `checkPermission(key)` | Verifica Auth::can(), retorna 403 |
 | `validateFilialAccess(id)` | Verifica acesso a filial especifica |
+| `resolveReportPdfCompany(user)` | Resolve a unidade do cabecalho; sem filial na sessao, usa a matriz ou a primeira unidade do tenant |
+| `outputReportPdf(html, filename, options, context)` | Gera o PDF inline e registra contexto tecnico em caso de falha |
 | `reportResponse(data, totals, chart)` | JSON padronizado |
 | `reportPaginatedResponse(...)` | JSON com paginacao |
 

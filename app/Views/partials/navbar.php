@@ -152,6 +152,7 @@
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/veicular/depreciacao', '<?= t('menu.relatorios_menu.veh_depreciation') ?>', 'fas fa-chart-line'); return false;">{{ t('menu.relatorios_menu.veh_depreciation') }}</a>
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/veicular/tempo-parado', '<?= t('menu.relatorios_menu.veh_avg_idle_time') ?>', 'fas fa-hourglass-half'); return false;">{{ t('menu.relatorios_menu.veh_avg_idle_time') }}</a>
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/veicular/quilometragem-media', '<?= t('menu.relatorios_menu.veh_avg_mileage') ?>', 'fas fa-road'); return false;">{{ t('menu.relatorios_menu.veh_avg_mileage') }}</a>
+                                <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/veicular/evolucao-quilometragem', '<?= t('menu.relatorios_menu.veh_mileage_evolution') ?>', 'fas fa-chart-line'); return false;">{{ t('menu.relatorios_menu.veh_mileage_evolution') }}</a>
 
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/veicular/tco', '<?= t('menu.relatorios_menu.veh_total_cost') ?>', 'fas fa-coins'); return false;">{{ t('menu.relatorios_menu.veh_total_cost') }}</a>
                             </div>

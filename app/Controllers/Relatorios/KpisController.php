@@ -7,8 +7,6 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
 use App\Models\Relatorios\KpiReport;
-use App\Models\MatrizFilial;
-use App\Helpers\PdfHelper;
 
 /**
  * Controller de Relatórios KPIs / Indicadores de Desempenho
@@ -518,15 +516,7 @@ class KpisController extends BaseRelatorioController
         string $orientation = 'P'
     ): void {
         $user = Auth::user();
-        $filialModel = new MatrizFilial();
-        $empresa = $filialModel->buscarPorId((int) ($user['id_matriz_filial'] ?? 0));
-        $empresa['logo'] = $this->resolveLogoPath($empresa);
-
-        $empresaData = [
-            'nome' => $empresa['nome'] ?? '',
-            'logo' => $empresa['logo'],
-        ];
-
+        $empresa = $this->resolveReportPdfCompany($user);
         $usuario = $user['nome'] ?? '';
 
         ob_start();
@@ -534,9 +524,9 @@ class KpisController extends BaseRelatorioController
         include $viewPath;
         $html = ob_get_clean();
 
-        PdfHelper::outputInline($html, 'relatorio.pdf', [
+        $this->outputReportPdf($html, 'relatorio.pdf', [
             'orientation' => $orientation,
-        ]);
+        ], 'kpis/' . $templateFile);
     }
 
     /** GET /relatorios/kpis/taxa-ocupacao/pdf */

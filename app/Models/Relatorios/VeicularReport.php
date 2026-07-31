@@ -3,11 +3,12 @@
 namespace App\Models\Relatorios;
 
 use App\Core\Auth;
+use App\Helpers\DateHelper;
 
 /**
  * Model para relatórios da categoria Veicular
  *
- * Métodos de agregação para os 11 relatórios:
+ * Métodos de agregação para os 12 relatórios:
  * - Manutenções
  * - Lucro por Veículo
  * - Despesas Veicular
@@ -18,6 +19,7 @@ use App\Core\Auth;
  * - Depreciação
  * - Tempo Médio Parado
  * - Quilometragem Média
+ * - Evolução da Quilometragem
  * - Custo Total de Propriedade (TCO)
  */
 class VeicularReport extends BaseReportModel
@@ -581,9 +583,9 @@ class VeicularReport extends BaseReportModel
 
         $rows = $this->qb
             ->table('veiculos', 'v')
-            ->select(['v.id', 'v.placa', 'v.marca', 'v.modelo'])
+            ->select(['v.id', 'v.id_grupo', 'v.placa', 'v.marca', 'v.modelo'])
             ->selectRaw('g.nome AS grupo_nome')
-            ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
+            ->leftJoinRaw('grupos', 'g', 'g.id = v.id_grupo AND g.chave = v.chave')
             ->whereIn('v.id', $ids)
             ->get();
 
@@ -1467,86 +1469,59 @@ class VeicularReport extends BaseReportModel
     // =====================================================
 
     /**
-     * Quilometragem rodada por veículo no período (soma de odometro_entrada − odometro_saida
-     * em locacoes_veiculos + contratos_veiculos).
+     * Quilometragem reconhecida na data da medicao: devolucao de locacao,
+     * leitura intermediaria de contrato ou devolucao de contrato.
      */
     public function quilometragemMedia(
         string $dataInicio,
         string $dataFim,
-        string $filialWhere,
-        array $filialParams,
+        string $locacaoFilialWhere,
+        array $locacaoFilialParams,
+        string $contratoFilialWhere,
+        array $contratoFilialParams,
         string $filialId = '',
         string $grupoId = '',
         string $veiculoId = ''
     ): array {
-        $kmPorVeiculo = [];
-        $qtdLocacoesPorVeiculo = [];
+        $eventos = $this->buscarEventosQuilometragem(
+            $dataInicio,
+            $dataFim,
+            $locacaoFilialWhere,
+            $locacaoFilialParams,
+            $contratoFilialWhere,
+            $contratoFilialParams,
+            $filialId,
+            $grupoId,
+            $veiculoId
+        );
 
-        // Locações
-        $queryL = $this->qb
-            ->table('locacoes_veiculos', 'lv')
-            ->select(['lv.id_veiculo'])
-            ->selectRaw('COALESCE(SUM(GREATEST(0, lv.odometro_entrada - lv.odometro_saida)), 0) AS km, COUNT(*) AS qtd')
-            ->innerJoin('locacoes', 'l', 'lv.id_locacao', '=', 'l.id')
-            ->whereIn('l.status', ['A', 'F'])
-            ->whereNotNull('lv.odometro_entrada')
-            ->whereBetween('lv.data_saida', $dataInicio . ' 00:00:00', $dataFim . ' 23:59:59');
-
-        if (!empty($filialWhere)) {
-            $queryL->whereRaw(str_replace('id_matriz_filial', 'l.id_matriz_filial_retirada', $filialWhere), $filialParams);
-        }
-        if (!empty($filialId)) $queryL->where('l.id_matriz_filial_retirada', '=', (int) $filialId);
-        if (!empty($grupoId)) $queryL->where('lv.id_grupo', '=', (int) $grupoId);
-        if (!empty($veiculoId)) $queryL->where('lv.id_veiculo', '=', (int) $veiculoId);
-
-        foreach ($queryL->groupBy('lv.id_veiculo')->get() as $r) {
-            $vid = (int) $r['id_veiculo'];
-            $kmPorVeiculo[$vid] = ($kmPorVeiculo[$vid] ?? 0) + (int) $r['km'];
-            $qtdLocacoesPorVeiculo[$vid] = ($qtdLocacoesPorVeiculo[$vid] ?? 0) + (int) $r['qtd'];
-        }
-
-        // Contratos
-        $queryC = $this->qb
-            ->table('contratos_veiculos', 'cv')
-            ->select(['cv.id_veiculo'])
-            ->selectRaw('COALESCE(SUM(GREATEST(0, cv.odometro_entrada - cv.odometro_saida)), 0) AS km, COUNT(*) AS qtd')
-            ->innerJoin('contratos', 'c', 'cv.id_contrato', '=', 'c.id')
-            ->whereIn('c.status', ['A', 'F'])
-            ->whereNotNull('cv.odometro_entrada')
-            ->whereBetween('cv.data_saida', $dataInicio . ' 00:00:00', $dataFim . ' 23:59:59');
-
-        if (!empty($filialWhere)) {
-            $queryC->whereRaw(str_replace('id_matriz_filial', 'c.id_matriz_filial_retirada', $filialWhere), $filialParams);
-        }
-        if (!empty($filialId)) $queryC->where('c.id_matriz_filial_retirada', '=', (int) $filialId);
-        if (!empty($grupoId)) $queryC->where('cv.id_grupo', '=', (int) $grupoId);
-        if (!empty($veiculoId)) $queryC->where('cv.id_veiculo', '=', (int) $veiculoId);
-
-        foreach ($queryC->groupBy('cv.id_veiculo')->get() as $r) {
-            $vid = (int) $r['id_veiculo'];
-            $kmPorVeiculo[$vid] = ($kmPorVeiculo[$vid] ?? 0) + (int) $r['km'];
-            $qtdLocacoesPorVeiculo[$vid] = ($qtdLocacoesPorVeiculo[$vid] ?? 0) + (int) $r['qtd'];
-        }
-
-        $idsVeiculos = array_keys($kmPorVeiculo);
+        $consolidado = $this->consolidarEventosQuilometragem($eventos);
+        $idsVeiculos = array_keys($consolidado);
         $veiculosInfo = $this->buscarVeiculosInfo($idsVeiculos);
-        $diasPeriodo = $this->daysBetween($dataInicio, $dataFim) ?: 1;
+        $diasPeriodo = $this->daysBetween($dataInicio, $dataFim) + 1;
 
         $details = [];
         $totKm = 0;
-        $totLocacoes = 0;
+        $utilizacoesGlobais = [];
 
         foreach ($veiculosInfo as $vid => $vinfo) {
-            $km = (int) ($kmPorVeiculo[$vid] ?? 0);
-            $qtd = (int) ($qtdLocacoesPorVeiculo[$vid] ?? 0);
-            $kmDia = $diasPeriodo > 0 ? round($km / $diasPeriodo, 1) : 0;
+            $dados = $consolidado[$vid] ?? null;
+            if (!$dados) continue;
+
+            $km = (int) $dados['km_total'];
+            $qtd = count($dados['utilizacoes']);
+            $kmDia = round($km / $diasPeriodo, 1);
             $kmLocacao = $qtd > 0 ? round($km / $qtd, 0) : 0;
+            foreach ($dados['utilizacoes'] as $utilizacao => $_) $utilizacoesGlobais[$utilizacao] = true;
 
             $details[] = [
                 'id' => (int) $vid,
+                'id_grupo' => (int) ($vinfo['id_grupo'] ?? $dados['id_grupo'] ?? 0),
                 'placa' => $vinfo['placa'] ?? '-',
                 'veiculo' => trim(($vinfo['marca'] ?? '') . ' ' . ($vinfo['modelo'] ?? '')) ?: '-',
                 'grupo' => $vinfo['grupo_nome'] ?? '-',
+                'km_inicial' => (int) $dados['km_inicial'],
+                'km_final' => (int) $dados['km_final'],
                 'km_total' => $km,
                 'qtd_locacoes' => $qtd,
                 'km_dia' => $kmDia,
@@ -1554,10 +1529,11 @@ class VeicularReport extends BaseReportModel
             ];
 
             $totKm += $km;
-            $totLocacoes += $qtd;
         }
 
+        $this->aplicarAlertasQuilometragem($details);
         usort($details, fn($a, $b) => $b['km_total'] <=> $a['km_total']);
+        $totLocacoes = count($utilizacoesGlobais);
 
         return [
             'totals' => [
@@ -1576,6 +1552,365 @@ class VeicularReport extends BaseReportModel
         ];
     }
 
+    /**
+     * Evolucao temporal da quilometragem reconhecida, sem calculos de media.
+     */
+    public function evolucaoQuilometragem(
+        string $dataInicio,
+        string $dataFim,
+        string $locacaoFilialWhere,
+        array $locacaoFilialParams,
+        string $contratoFilialWhere,
+        array $contratoFilialParams,
+        string $filialId = '',
+        string $grupoId = '',
+        string $veiculoId = '',
+        string $granularidade = 'dia'
+    ): array {
+        $primeiroPeriodo = DateHelper::periodStartForDatabase($dataInicio, $granularidade);
+        $eventos = $this->buscarEventosQuilometragem(
+            $dataInicio,
+            $dataFim,
+            $locacaoFilialWhere,
+            $locacaoFilialParams,
+            $contratoFilialWhere,
+            $contratoFilialParams,
+            $filialId,
+            $grupoId,
+            $veiculoId
+        );
+
+        $periodos = [];
+        $inicioPeriodo = $primeiroPeriodo;
+        while ($inicioPeriodo <= $dataFim) {
+            $fimPeriodo = DateHelper::periodEndForDatabase($inicioPeriodo, $granularidade);
+            $periodos[$inicioPeriodo] = [
+                'periodo' => $inicioPeriodo,
+                'label' => DateHelper::formatPeriodLabel($inicioPeriodo, $granularidade),
+                'data_inicio' => max($inicioPeriodo, $dataInicio),
+                'data_fim' => min($fimPeriodo, $dataFim),
+                'km_total' => 0,
+                'veiculos' => [],
+                'utilizacoes' => [],
+            ];
+            $inicioPeriodo = DateHelper::addPeriodsForDatabase(1, $inicioPeriodo, $granularidade);
+        }
+
+        $veiculosGlobais = [];
+        $utilizacoesGlobais = [];
+        foreach ($eventos as $idVeiculo => $itens) {
+            foreach ($itens as $evento) {
+                $dataEvento = substr((string) $evento['data'], 0, 10);
+                $chavePeriodo = DateHelper::periodStartForDatabase($dataEvento, $granularidade);
+                if (!isset($periodos[$chavePeriodo])) continue;
+
+                $utilizacao = (string) $evento['utilizacao'];
+                $periodos[$chavePeriodo]['km_total'] += (int) $evento['km'];
+                $periodos[$chavePeriodo]['veiculos'][(int) $idVeiculo] = true;
+                $periodos[$chavePeriodo]['utilizacoes'][$utilizacao] = true;
+                $veiculosGlobais[(int) $idVeiculo] = true;
+                $utilizacoesGlobais[$utilizacao] = true;
+            }
+        }
+
+        $details = [];
+        $picoKm = 0;
+        $picoPeriodo = '';
+        foreach ($periodos as $periodo) {
+            $kmTotal = (int) $periodo['km_total'];
+            if ($picoPeriodo === '' || $kmTotal > $picoKm) {
+                $picoKm = $kmTotal;
+                $picoPeriodo = (string) $periodo['label'];
+            }
+
+            $details[] = [
+                'periodo' => $periodo['periodo'],
+                'label' => $periodo['label'],
+                'data_inicio' => $periodo['data_inicio'],
+                'data_fim' => $periodo['data_fim'],
+                'km_total' => $kmTotal,
+                'qtd_veiculos' => count($periodo['veiculos']),
+                'qtd_utilizacoes' => count($periodo['utilizacoes']),
+            ];
+        }
+
+        return [
+            'totals' => [
+                'km_total' => array_sum(array_column($details, 'km_total')),
+                'qtd_veiculos' => count($veiculosGlobais),
+                'qtd_utilizacoes' => count($utilizacoesGlobais),
+                'qtd_periodos' => count($details),
+                'pico_km' => $picoKm,
+                'pico_periodo' => $picoPeriodo,
+                'granularidade' => $granularidade,
+            ],
+            'details' => $details,
+            'chart' => [
+                'labels' => array_column($details, 'label'),
+                'datasets' => [[
+                    'label' => t('modules.relatorios.veicular.evolucao_quilometragem.chart_km'),
+                    'data' => array_column($details, 'km_total'),
+                ]],
+            ],
+        ];
+    }
+
+    /**
+     * Coleta os eventos atomicos usados por todos os calculos de quilometragem.
+     *
+     * @return array<int, list<array<string, mixed>>>
+     */
+    private function buscarEventosQuilometragem(
+        string $dataInicio,
+        string $dataFim,
+        string $locacaoFilialWhere,
+        array $locacaoFilialParams,
+        string $contratoFilialWhere,
+        array $contratoFilialParams,
+        string $filialId = '',
+        string $grupoId = '',
+        string $veiculoId = ''
+    ): array {
+        $eventos = [];
+
+        $queryL = $this->qb
+            ->table('locacoes_veiculos', 'lv')
+            ->select([
+                'lv.id', 'lv.id_locacao', 'lv.id_veiculo', 'lv.id_grupo',
+                'lv.data_entrada', 'lv.odometro_saida', 'lv.odometro_entrada',
+            ])
+            ->joinRaw('locacoes', 'l', 'l.id = lv.id_locacao AND l.chave = lv.chave')
+            ->whereIn('l.status', ['A', 'F'])
+            ->whereNotNull('lv.id_veiculo')
+            ->whereNotNull('lv.odometro_entrada')
+            ->whereBetween('lv.data_entrada', $dataInicio . ' 00:00:00', $dataFim . ' 23:59:59');
+
+        if (!empty($locacaoFilialWhere) && $locacaoFilialWhere !== '1=1') {
+            $queryL->whereRaw($locacaoFilialWhere, $locacaoFilialParams);
+        }
+        if (!empty($filialId)) {
+            $queryL->whereRaw(
+                '(l.id_matriz_filial_retirada = ? OR l.id_matriz_filial_devolucao = ?)',
+                [(int) $filialId, (int) $filialId]
+            );
+        }
+        if (!empty($grupoId)) $queryL->where('lv.id_grupo', '=', (int) $grupoId);
+        if (!empty($veiculoId)) $queryL->where('lv.id_veiculo', '=', (int) $veiculoId);
+
+        foreach ($queryL->get() as $r) {
+            $this->adicionarEventoQuilometragem($eventos, [
+                'id_veiculo' => (int) $r['id_veiculo'],
+                'id_grupo' => (int) ($r['id_grupo'] ?? 0),
+                'utilizacao' => 'L:' . (int) $r['id_locacao'],
+                'data' => (string) $r['data_entrada'],
+                'ordem' => (int) $r['id'],
+                'odometro_inicial' => (int) ($r['odometro_saida'] ?? 0),
+                'odometro_final' => (int) ($r['odometro_entrada'] ?? 0),
+            ]);
+        }
+
+        $queryLeituras = $this->qb
+            ->table('contratos_odometros', 'co')
+            ->select([
+                'co.id', 'co.id_contrato', 'co.id_contrato_veiculo', 'co.data', 'co.odometro',
+                'cv.id_veiculo', 'cv.id_grupo', 'cv.odometro_saida',
+            ])
+            ->joinRaw('contratos_veiculos', 'cv', 'cv.id = co.id_contrato_veiculo AND cv.chave = co.chave')
+            ->joinRaw('contratos', 'c', 'c.id = cv.id_contrato AND c.chave = cv.chave')
+            ->whereIn('c.status', ['A', 'F'])
+            ->whereRaw('co.data >= DATE(cv.data_saida)')
+            ->whereRaw('(cv.data_entrada IS NULL OR co.data <= DATE(cv.data_entrada))')
+            ->whereRaw('co.data <= ?', [$dataFim])
+            ->whereRaw('(cv.data_entrada IS NULL OR DATE(cv.data_entrada) >= ?)', [$dataInicio]);
+
+        if (!empty($contratoFilialWhere) && $contratoFilialWhere !== '1=1') {
+            $queryLeituras->whereRaw($contratoFilialWhere, $contratoFilialParams);
+        }
+        if (!empty($filialId)) $queryLeituras->where('c.id_matriz_filial_retirada', '=', (int) $filialId);
+        if (!empty($grupoId)) $queryLeituras->where('cv.id_grupo', '=', (int) $grupoId);
+        if (!empty($veiculoId)) $queryLeituras->where('cv.id_veiculo', '=', (int) $veiculoId);
+
+        $odometrosAnteriores = [];
+        foreach ($queryLeituras->orderBy('co.id_contrato_veiculo')->orderBy('co.data')->orderBy('co.id')->get() as $r) {
+            $idContratoVeiculo = (int) $r['id_contrato_veiculo'];
+            $odometroAnterior = (int) ($odometrosAnteriores[$idContratoVeiculo] ?? $r['odometro_saida'] ?? 0);
+            $odometroFinal = (int) $r['odometro'];
+            $odometrosAnteriores[$idContratoVeiculo] = max($odometroAnterior, $odometroFinal);
+            if ((string) $r['data'] < $dataInicio) continue;
+
+            $this->adicionarEventoQuilometragem($eventos, [
+                'id_veiculo' => (int) $r['id_veiculo'],
+                'id_grupo' => (int) ($r['id_grupo'] ?? 0),
+                'utilizacao' => 'C:' . (int) $r['id_contrato'],
+                'data' => (string) $r['data'] . ' 00:00:00',
+                'ordem' => (int) $r['id'],
+                'odometro_inicial' => $odometroAnterior,
+                'odometro_final' => $odometroFinal,
+            ]);
+        }
+
+        $queryDevolucoes = $this->qb
+            ->table('contratos_veiculos', 'cv')
+            ->select([
+                'cv.id', 'cv.id_contrato', 'cv.id_veiculo', 'cv.id_grupo',
+                'cv.data_entrada', 'cv.odometro_saida', 'cv.odometro_entrada',
+            ])
+            ->joinRaw('contratos', 'c', 'c.id = cv.id_contrato AND c.chave = cv.chave')
+            ->whereIn('c.status', ['A', 'F'])
+            ->whereNotNull('cv.odometro_entrada')
+            ->whereBetween('cv.data_entrada', $dataInicio . ' 00:00:00', $dataFim . ' 23:59:59');
+
+        if (!empty($contratoFilialWhere) && $contratoFilialWhere !== '1=1') {
+            $queryDevolucoes->whereRaw($contratoFilialWhere, $contratoFilialParams);
+        }
+        if (!empty($filialId)) $queryDevolucoes->where('c.id_matriz_filial_retirada', '=', (int) $filialId);
+        if (!empty($grupoId)) $queryDevolucoes->where('cv.id_grupo', '=', (int) $grupoId);
+        if (!empty($veiculoId)) $queryDevolucoes->where('cv.id_veiculo', '=', (int) $veiculoId);
+
+        $devolucoes = $queryDevolucoes->get();
+        $leiturasPorContratoVeiculo = $this->ultimasLeiturasContratosDevolvidos($devolucoes);
+
+        foreach ($devolucoes as $r) {
+            $idContratoVeiculo = (int) $r['id'];
+            $odometroInicial = (int) ($leiturasPorContratoVeiculo[$idContratoVeiculo] ?? $r['odometro_saida'] ?? 0);
+            $this->adicionarEventoQuilometragem($eventos, [
+                'id_veiculo' => (int) $r['id_veiculo'],
+                'id_grupo' => (int) ($r['id_grupo'] ?? 0),
+                'utilizacao' => 'C:' . (int) $r['id_contrato'],
+                'data' => (string) $r['data_entrada'],
+                'ordem' => PHP_INT_MAX,
+                'odometro_inicial' => $odometroInicial,
+                'odometro_final' => (int) ($r['odometro_entrada'] ?? 0),
+            ]);
+        }
+
+        return $eventos;
+    }
+
+    private function adicionarEventoQuilometragem(array &$eventos, array $evento): void
+    {
+        $idVeiculo = (int) ($evento['id_veiculo'] ?? 0);
+        if ($idVeiculo <= 0) return;
+
+        $inicial = max(0, (int) ($evento['odometro_inicial'] ?? 0));
+        $final = max(0, (int) ($evento['odometro_final'] ?? 0));
+        $evento['odometro_inicial'] = $inicial;
+        $evento['odometro_final'] = $final;
+        $evento['km'] = max(0, $final - $inicial);
+        $eventos[$idVeiculo][] = $evento;
+    }
+
+    private function ultimasLeiturasContratosDevolvidos(array $devolucoes): array
+    {
+        if (empty($devolucoes)) return [];
+
+        $ids = array_values(array_unique(array_map(fn($r) => (int) $r['id'], $devolucoes)));
+        $limites = [];
+        foreach ($devolucoes as $r) {
+            $limites[(int) $r['id']] = substr((string) $r['data_entrada'], 0, 10);
+        }
+
+        $leituras = $this->qb
+            ->table('contratos_odometros', 'co')
+            ->select(['co.id', 'co.id_contrato_veiculo', 'co.data', 'co.odometro'])
+            ->whereIn('co.id_contrato_veiculo', $ids)
+            ->orderBy('co.data')
+            ->orderBy('co.id')
+            ->get();
+
+        $ultimas = [];
+        foreach ($leituras as $leitura) {
+            $id = (int) $leitura['id_contrato_veiculo'];
+            if ((string) $leitura['data'] <= ($limites[$id] ?? '')) {
+                $ultimas[$id] = (int) $leitura['odometro'];
+            }
+        }
+        return $ultimas;
+    }
+
+    private function consolidarEventosQuilometragem(array $eventos): array
+    {
+        $consolidado = [];
+        foreach ($eventos as $idVeiculo => $itens) {
+            usort($itens, static function (array $a, array $b): int {
+                $porData = strcmp((string) $a['data'], (string) $b['data']);
+                return $porData !== 0 ? $porData : ((int) $a['ordem'] <=> (int) $b['ordem']);
+            });
+
+            $primeiro = $itens[0];
+            $ultimo = $itens[count($itens) - 1];
+            $utilizacoes = [];
+            $kmTotal = 0;
+            foreach ($itens as $item) {
+                $kmTotal += (int) $item['km'];
+                $utilizacoes[(string) $item['utilizacao']] = true;
+            }
+
+            $consolidado[(int) $idVeiculo] = [
+                'id_grupo' => (int) ($ultimo['id_grupo'] ?? 0),
+                'km_inicial' => (int) $primeiro['odometro_inicial'],
+                'km_final' => (int) $ultimo['odometro_final'],
+                'km_total' => $kmTotal,
+                'utilizacoes' => $utilizacoes,
+            ];
+        }
+        return $consolidado;
+    }
+
+    private function aplicarAlertasQuilometragem(array &$details): void
+    {
+        $indicesPorGrupo = [];
+        foreach ($details as $indice => $row) {
+            $indicesPorGrupo[(int) ($row['id_grupo'] ?? 0)][] = $indice;
+        }
+
+        foreach ($indicesPorGrupo as $indices) {
+            $valores = array_map(fn($indice) => (float) $details[$indice]['km_total'], $indices);
+            sort($valores, SORT_NUMERIC);
+            $amostra = count($valores);
+            $q1 = $this->percentilQuilometragem($valores, 0.25);
+            $q3 = $this->percentilQuilometragem($valores, 0.75);
+            $iqr = $q3 - $q1;
+            $suficiente = $amostra >= 5 && $iqr > 0;
+            $limiteInferior = $suficiente ? max(0.0, $q1 - (1.5 * $iqr)) : null;
+            $limiteSuperior = $suficiente ? $q3 + (1.5 * $iqr) : null;
+
+            foreach ($indices as $indice) {
+                $valor = (float) $details[$indice]['km_total'];
+                $alerta = 'amostra_insuficiente';
+                if ($suficiente) {
+                    $alerta = $valor < $limiteInferior
+                        ? 'baixo'
+                        : ($valor > $limiteSuperior ? 'alto' : 'normal');
+                }
+                $details[$indice]['alerta_km'] = $alerta;
+                $details[$indice]['alerta_referencia'] = [
+                    'amostra' => $amostra,
+                    'q1' => round($q1, 1),
+                    'q3' => round($q3, 1),
+                    'limite_inferior' => $limiteInferior !== null ? round($limiteInferior, 1) : null,
+                    'limite_superior' => $limiteSuperior !== null ? round($limiteSuperior, 1) : null,
+                ];
+            }
+        }
+    }
+
+    private function percentilQuilometragem(array $valores, float $percentil): float
+    {
+        $quantidade = count($valores);
+        if ($quantidade === 0) return 0.0;
+        if ($quantidade === 1) return (float) $valores[0];
+
+        $posicao = ($quantidade - 1) * $percentil;
+        $inferior = (int) floor($posicao);
+        $superior = (int) ceil($posicao);
+        if ($inferior === $superior) return (float) $valores[$inferior];
+
+        $fracao = $posicao - $inferior;
+        return (float) $valores[$inferior]
+            + (((float) $valores[$superior] - (float) $valores[$inferior]) * $fracao);
+    }
+
     // =====================================================
     // 3.11 CUSTO TOTAL DE PROPRIEDADE (TCO)
     // =====================================================
@@ -1589,6 +1924,10 @@ class VeicularReport extends BaseReportModel
         string $dataFim,
         string $filialWhere,
         array $filialParams,
+        string $locacaoFilialWhere,
+        array $locacaoFilialParams,
+        string $contratoFilialWhere,
+        array $contratoFilialParams,
         string $filialId = '',
         string $grupoId = '',
         string $veiculoId = ''
@@ -1606,7 +1945,17 @@ class VeicularReport extends BaseReportModel
         }
 
         // KM rodado por veículo
-        $kmResult = $this->quilometragemMedia($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId);
+        $kmResult = $this->quilometragemMedia(
+            $dataInicio,
+            $dataFim,
+            $locacaoFilialWhere,
+            $locacaoFilialParams,
+            $contratoFilialWhere,
+            $contratoFilialParams,
+            $filialId,
+            $grupoId,
+            $veiculoId
+        );
         $kmPorVeiculo = [];
         foreach ($kmResult['details'] as $d) {
             $kmPorVeiculo[$d['id']] = $d['km_total'];

@@ -114,6 +114,10 @@ DateHelper::systemToday();           // data tecnica
 DateHelper::systemNow();             // data/hora tecnica
 DateHelper::addDaysForDatabase(7);   // soma dias no timezone de negocio
 DateHelper::addMonthsForDatabase(1); // soma meses no timezone de negocio
+DateHelper::periodStartForDatabase('2026-07-15', 'semana'); // segunda-feira da semana ISO
+DateHelper::periodEndForDatabase('2026-07-15', 'mes');      // ultimo dia do mes
+DateHelper::addPeriodsForDatabase(1, '2026-07-15', 'ano');  // inicio do proximo ano
+DateHelper::formatPeriodLabel('2026-07-01', 'mes');         // rotulo do periodo para relatorios
 DateHelper::normalizeDueDateForGateway('2026-07-02'); // vencimento de cobranca externa
 DateHelper::timestamp();             // timestamp tecnico
 DateHelper::isoNow();                // ISO 8601 tecnico
@@ -122,6 +126,10 @@ DateHelper::businessDateFromDateTime('2026-07-17 01:30:00'); // Y-m-d no timezon
 ```
 
 `formatDateTime()` interpreta o valor do banco no timezone da aplicacao (`app_timezone`) e converte para o timezone da matriz/filial. `parseDateTime()` faz o caminho inverso antes de retornar o formato `Y-m-d H:i:s`.
+
+Os helpers de período aceitam somente `dia`, `semana`, `mes` e `ano`. Semanas
+seguem ISO-8601, de segunda a domingo; as operações trabalham com datas civis
+do tenant e não convertem campos operacionais por timezone.
 
 ### Datas/Horas Operacionais
 

@@ -7,8 +7,6 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
 use App\Models\Relatorios\ComercialReport;
-use App\Models\MatrizFilial;
-use App\Helpers\PdfHelper;
 
 /**
  * Controller de Relatórios da categoria Comercial.
@@ -254,15 +252,7 @@ class ComercialController extends BaseRelatorioController
         string $orientation = 'P'
     ): void {
         $user = Auth::user();
-        $filialModel = new MatrizFilial();
-        $empresa = $filialModel->buscarPorId((int) ($user['id_matriz_filial'] ?? 0));
-        $empresa['logo'] = $this->resolveLogoPath($empresa);
-
-        $empresaData = [
-            'nome' => $empresa['nome'] ?? '',
-            'logo' => $empresa['logo'],
-        ];
-
+        $empresa = $this->resolveReportPdfCompany($user);
         $usuario = $user['nome'] ?? '';
 
         ob_start();
@@ -270,8 +260,8 @@ class ComercialController extends BaseRelatorioController
         include $viewPath;
         $html = ob_get_clean();
 
-        PdfHelper::outputInline($html, 'relatorio.pdf', [
+        $this->outputReportPdf($html, 'relatorio.pdf', [
             'orientation' => $orientation,
-        ]);
+        ], 'comercial/' . $templateFile);
     }
 }

@@ -7,13 +7,12 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
 use App\Models\Relatorios\VeicularReport;
-use App\Models\MatrizFilial;
-use App\Helpers\PdfHelper;
+use App\Helpers\FilialHelper;
 
 /**
  * Controller de Relatórios da categoria Veicular
  *
- * Implementa os 11 relatórios:
+ * Implementa os 12 relatórios:
  *  - Manutenções
  *  - Lucro por Veículo
  *  - Despesas Veicular
@@ -24,6 +23,7 @@ use App\Helpers\PdfHelper;
  *  - Depreciação
  *  - Tempo Médio Parado
  *  - Quilometragem Média
+ *  - Evolução da Quilometragem
  *  - Custo Total de Propriedade (TCO)
  */
 class VeicularController extends BaseRelatorioController
@@ -627,10 +627,13 @@ class VeicularController extends BaseRelatorioController
             if ($erro) { Response::json(['success' => false, 'message' => $erro], 422); return; }
             if (!$this->validateFilialAccess($filters['filial'])) return;
 
-            [$filialWhere, $filialParams] = $this->getFilialFilter();
+            [$locacaoFilialWhere, $locacaoFilialParams] = FilialHelper::whereLocacoes('l');
+            [$contratoFilialWhere, $contratoFilialParams] = FilialHelper::whereContratos('c');
             $model = new VeicularReport();
             $result = $model->quilometragemMedia(
-                $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams,
+                $filters['data_inicio'], $filters['data_fim'],
+                $locacaoFilialWhere, $locacaoFilialParams,
+                $contratoFilialWhere, $contratoFilialParams,
                 $filters['filial'], $request->query('grupo', ''), $request->query('veiculo', '')
             );
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
@@ -646,14 +649,114 @@ class VeicularController extends BaseRelatorioController
         $filters = $this->parseFilters($request);
         $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
         if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
+        if (!$this->validateFilialAccess($filters['filial'])) return;
 
-        [$filialWhere, $filialParams] = $this->getFilialFilter();
+        [$locacaoFilialWhere, $locacaoFilialParams] = FilialHelper::whereLocacoes('l');
+        [$contratoFilialWhere, $contratoFilialParams] = FilialHelper::whereContratos('c');
         $model = new VeicularReport();
         $result = $model->quilometragemMedia(
-            $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams,
+            $filters['data_inicio'], $filters['data_fim'],
+            $locacaoFilialWhere, $locacaoFilialParams,
+            $contratoFilialWhere, $contratoFilialParams,
             $filters['filial'], $request->query('grupo', ''), $request->query('veiculo', '')
         );
         $this->renderPdf('quilometragem-media.php', t('modules.relatorios.veicular.quilometragem_media.title'), t('modules.relatorios.veicular.quilometragem_media.description'), $result['totals'], $result['details'], $filters['data_inicio'], $filters['data_fim'], 'L');
+    }
+
+    // =====================================================
+    // EVOLUCAO DA QUILOMETRAGEM
+    // =====================================================
+
+    /** GET /pages/relatorios/veicular/evolucao-quilometragem */
+    public function viewEvolucaoQuilometragem(Request $request): void
+    {
+        $html = Template::render('pages.relatorios.veicular.evolucao-quilometragem');
+        Response::html($html);
+    }
+
+    /** GET /api/relatorios/veicular/evolucao-quilometragem */
+    public function evolucaoQuilometragem(Request $request): void
+    {
+        try {
+            if (!$this->checkPermission('relatorios.veicular.evolucao_quilometragem')) return;
+
+            $filters = $this->parseFilters($request);
+            $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
+            if ($erro) { Response::json(['success' => false, 'message' => $erro], 422); return; }
+            if (!$this->validateFilialAccess($filters['filial'])) return;
+
+            $granularidade = (string) $request->query('granularidade', 'dia');
+            if (!in_array($granularidade, ['dia', 'semana', 'mes', 'ano'], true)) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.relatorios.veicular.evolucao_quilometragem.invalid_granularity'),
+                ], 422);
+                return;
+            }
+
+            [$locacaoFilialWhere, $locacaoFilialParams] = FilialHelper::whereLocacoes('l');
+            [$contratoFilialWhere, $contratoFilialParams] = FilialHelper::whereContratos('c');
+            $model = new VeicularReport();
+            $result = $model->evolucaoQuilometragem(
+                $filters['data_inicio'],
+                $filters['data_fim'],
+                $locacaoFilialWhere,
+                $locacaoFilialParams,
+                $contratoFilialWhere,
+                $contratoFilialParams,
+                $filters['filial'],
+                $request->query('grupo', ''),
+                $request->query('veiculo', ''),
+                $granularidade
+            );
+            $this->reportResponse($result['details'], $result['totals'], $result['chart']);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => t('modules.relatorios.messages.load_error')], 500);
+        }
+    }
+
+    /** GET /relatorios/veicular/evolucao-quilometragem/pdf */
+    public function evolucaoQuilometragemPdf(Request $request): void
+    {
+        if (!$this->checkPermission('relatorios.veicular.evolucao_quilometragem')) return;
+
+        $filters = $this->parseFilters($request);
+        $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
+        if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
+        if (!$this->validateFilialAccess($filters['filial'])) return;
+
+        $granularidade = (string) $request->query('granularidade', 'dia');
+        if (!in_array($granularidade, ['dia', 'semana', 'mes', 'ano'], true)) {
+            Response::html('<h3>' . t('modules.relatorios.veicular.evolucao_quilometragem.invalid_granularity') . '</h3>');
+            return;
+        }
+
+        [$locacaoFilialWhere, $locacaoFilialParams] = FilialHelper::whereLocacoes('l');
+        [$contratoFilialWhere, $contratoFilialParams] = FilialHelper::whereContratos('c');
+        $model = new VeicularReport();
+        $result = $model->evolucaoQuilometragem(
+            $filters['data_inicio'],
+            $filters['data_fim'],
+            $locacaoFilialWhere,
+            $locacaoFilialParams,
+            $contratoFilialWhere,
+            $contratoFilialParams,
+            $filters['filial'],
+            $request->query('grupo', ''),
+            $request->query('veiculo', ''),
+            $granularidade
+        );
+
+        $this->renderPdf(
+            'evolucao-quilometragem.php',
+            t('modules.relatorios.veicular.evolucao_quilometragem.title'),
+            t('modules.relatorios.veicular.evolucao_quilometragem.description'),
+            $result['totals'],
+            $result['details'],
+            $filters['data_inicio'],
+            $filters['data_fim'],
+            'L'
+        );
     }
 
     // =====================================================
@@ -679,9 +782,13 @@ class VeicularController extends BaseRelatorioController
             if (!$this->validateFilialAccess($filters['filial'])) return;
 
             [$filialWhere, $filialParams] = $this->getFilialFilter();
+            [$locacaoFilialWhere, $locacaoFilialParams] = FilialHelper::whereLocacoes('l');
+            [$contratoFilialWhere, $contratoFilialParams] = FilialHelper::whereContratos('c');
             $model = new VeicularReport();
             $result = $model->tco(
                 $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams,
+                $locacaoFilialWhere, $locacaoFilialParams,
+                $contratoFilialWhere, $contratoFilialParams,
                 $filters['filial'], $request->query('grupo', ''), $request->query('veiculo', '')
             );
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
@@ -699,9 +806,13 @@ class VeicularController extends BaseRelatorioController
         if ($erro) { Response::html("<h3>{$erro}</h3>"); return; }
 
         [$filialWhere, $filialParams] = $this->getFilialFilter();
+        [$locacaoFilialWhere, $locacaoFilialParams] = FilialHelper::whereLocacoes('l');
+        [$contratoFilialWhere, $contratoFilialParams] = FilialHelper::whereContratos('c');
         $model = new VeicularReport();
         $result = $model->tco(
             $filters['data_inicio'], $filters['data_fim'], $filialWhere, $filialParams,
+            $locacaoFilialWhere, $locacaoFilialParams,
+            $contratoFilialWhere, $contratoFilialParams,
             $filters['filial'], $request->query('grupo', ''), $request->query('veiculo', '')
         );
         $this->renderPdf('tco.php', t('modules.relatorios.veicular.tco.title'), t('modules.relatorios.veicular.tco.description'), $result['totals'], $result['details'], $filters['data_inicio'], $filters['data_fim'], 'L');
@@ -715,7 +826,7 @@ class VeicularController extends BaseRelatorioController
      * Renderiza o template PDF de um relatório veicular.
      *
      * Usa output buffering para capturar o HTML do template (não Blade)
-     * e envia para o mPDF via PdfHelper::outputInline.
+     * e envia para o mPDF pelo helper compartilhado de relatorios.
      */
     private function renderPdf(
         string $templateFile,
@@ -729,15 +840,7 @@ class VeicularController extends BaseRelatorioController
         array $viewData = []
     ): void {
         $user = Auth::user();
-        $filialModel = new MatrizFilial();
-        $empresa = $filialModel->buscarPorId((int) ($user['id_matriz_filial'] ?? 0));
-        $empresa['logo'] = $this->resolveLogoPath($empresa);
-
-        $empresaData = [
-            'nome' => $empresa['nome'] ?? '',
-            'logo' => $empresa['logo'],
-        ];
-
+        $empresa = $this->resolveReportPdfCompany($user);
         $usuario = $user['nome'] ?? '';
 
         ob_start();
@@ -746,8 +849,8 @@ class VeicularController extends BaseRelatorioController
         include $viewPath;
         $html = ob_get_clean();
 
-        PdfHelper::outputInline($html, 'relatorio.pdf', [
+        $this->outputReportPdf($html, 'relatorio.pdf', [
             'orientation' => $orientation,
-        ]);
+        ], 'veicular/' . $templateFile);
     }
 }

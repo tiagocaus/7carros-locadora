@@ -5,8 +5,6 @@ namespace App\Controllers\Relatorios;
 use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
-use App\Helpers\PdfHelper;
-use App\Models\MatrizFilial;
 use App\Models\Relatorios\ContratosReport;
 use App\Views\Template;
 
@@ -318,11 +316,7 @@ class ContratosController extends BaseRelatorioController
         string $orientation = 'P'
     ): void {
         $user = Auth::user();
-        $filialModel = new MatrizFilial();
-        $empresa = $filialModel->buscarPorId((int) ($user['id_matriz_filial'] ?? 0));
-
-        $empresa['logo'] = $this->resolveLogoPath($empresa);
-        $empresaData = ['nome' => $empresa['nome'] ?? '', 'logo' => $empresa['logo']];
+        $empresa = $this->resolveReportPdfCompany($user);
         $usuario = $user['nome'] ?? '';
 
         ob_start();
@@ -330,6 +324,6 @@ class ContratosController extends BaseRelatorioController
         include $viewPath;
         $html = ob_get_clean();
 
-        PdfHelper::outputInline($html, 'relatorio.pdf', ['orientation' => $orientation]);
+        $this->outputReportPdf($html, 'relatorio.pdf', ['orientation' => $orientation], 'contratos/' . $templateFile);
     }
 }

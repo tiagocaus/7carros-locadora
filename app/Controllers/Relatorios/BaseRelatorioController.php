@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Helpers\FilialHelper;
 use App\Helpers\PdfHelper;
+use App\Models\MatrizFilial;
 
 /**
  * Controller base para todos os relatórios
@@ -125,6 +126,61 @@ abstract class BaseRelatorioController
             return '';
         }
         return PdfHelper::resolveImagePath($empresa['logo'] ?? null, $empresa['chave']);
+    }
+
+    /**
+     * Monta o contexto da empresa usado no cabecalho dos PDFs de relatorios.
+     *
+     * Funcionarios sem filial vinculada sao validos no sistema. Nesse caso,
+     * usa a matriz do tenant e, se ela nao existir, a primeira unidade
+     * disponivel. Todas as consultas permanecem tenant-scoped pelo QueryBuilder.
+     *
+     * @return array<string, mixed>
+     */
+    protected function resolveReportPdfCompany(?array $user = null): array
+    {
+        $user ??= Auth::user() ?? [];
+        $filialModel = new MatrizFilial();
+        $filialId = (int) ($user['id_matriz_filial'] ?? 0);
+
+        $empresa = $filialId > 0 ? $filialModel->buscarPorId($filialId) : null;
+        $empresa ??= $filialModel->buscarMatriz();
+        $empresa ??= $filialModel->listar()[0] ?? null;
+
+        if ($empresa === null) {
+            return ['nome' => '', 'logo' => ''];
+        }
+
+        $empresa['nome'] = $empresa['nome_fantasia']
+            ?? $empresa['razao_social']
+            ?? '';
+        $empresa['logo'] = $this->resolveLogoPath($empresa);
+
+        return $empresa;
+    }
+
+    /**
+     * Envia um PDF de relatorio e acrescenta contexto tecnico ao log em falhas.
+     */
+    protected function outputReportPdf(
+        string $html,
+        string $filename,
+        array $options = [],
+        string $context = ''
+    ): void {
+        try {
+            PdfHelper::outputInline($html, $filename, $options);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                'Report PDF error [%s] tenant=%s user=%s: %s: %s',
+                $context !== '' ? $context : 'unknown',
+                (string) (Auth::chave() ?? ''),
+                (string) (Auth::id() ?? ''),
+                $e::class,
+                $e->getMessage()
+            ));
+            throw $e;
+        }
     }
 
     /**
