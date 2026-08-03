@@ -86,7 +86,8 @@ AuditLogService::campo('Nome', 'Valor Antigo', 'Valor Novo', 'Aba Principal');
 ### Dados Capturados Automaticamente
 
 - `chave` - Tenant (de `$_SESSION['chave']`)
-- `id_funcionario` - Usuário logado (de `$_SESSION['user_id']`)
+- `id_funcionario` - Usuário logado (de `$_SESSION['user_id']`) ou `0` para
+  webhooks, CRONs e outros processos automáticos sem funcionário em sessão
 - `ip` - Endereço IP (de `$_SERVER['REMOTE_ADDR']`)
 - `data` - Data/hora do evento
 
@@ -830,7 +831,7 @@ FormAudit.helpers.normalizeValue(val)    // Normaliza para comparação
 CREATE TABLE logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     chave VARCHAR(45) NOT NULL,
-    id_funcionario INT,
+    id_funcionario INT UNSIGNED NOT NULL,
     data DATETIME NOT NULL,
     ip VARCHAR(45),
     mensagem TEXT NOT NULL,

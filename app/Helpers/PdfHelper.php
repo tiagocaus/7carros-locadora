@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use Mpdf\Mpdf;
+use App\Core\Database;
 use App\Helpers\FileHelper;
 
 /**
@@ -32,6 +33,9 @@ use App\Helpers\FileHelper;
  */
 class PdfHelper
 {
+    /** Limite padrao aplicado somente ao request que gera o PDF. */
+    private const DEFAULT_MEMORY_LIMIT = '256M';
+
     /**
      * Margens do corpo (mm) quando o PDF usa SetHTMLHeader / SetHTMLFooter para documentos
      * personalizados. Devem reservar a área onde cabeçalho e rodapé são pintados;
@@ -87,6 +91,8 @@ class PdfHelper
      */
     public static function create(array $options = []): Mpdf
     {
+        self::configureMemoryLimit();
+
         // Extrair opções customizadas que não são do mPDF
         $showWatermark = $options['watermark'] ?? true;
         $watermarkText = $options['watermark_text'] ?? self::getWatermarkText();
@@ -123,6 +129,54 @@ class PdfHelper
         }
 
         return $mpdf;
+    }
+
+    /**
+     * Eleva a memoria disponivel para o mPDF sem reduzir configuracoes maiores.
+     *
+     * O valor -1 do PHP (ilimitado) e sempre preservado. Valores invalidos em
+     * PDF_MEMORY_LIMIT usam o padrao seguro de 256M.
+     */
+    private static function configureMemoryLimit(): void
+    {
+        if (!function_exists('ini_get') || !function_exists('ini_set')) {
+            return;
+        }
+
+        $configured = trim((string) Database::env('PDF_MEMORY_LIMIT', self::DEFAULT_MEMORY_LIMIT));
+        $targetBytes = self::memoryLimitToBytes($configured);
+        if ($targetBytes === null || $targetBytes <= 0) {
+            $configured = self::DEFAULT_MEMORY_LIMIT;
+            $targetBytes = self::memoryLimitToBytes($configured);
+        }
+
+        $current = trim((string) ini_get('memory_limit'));
+        if ($current === '-1') {
+            return;
+        }
+
+        $currentBytes = self::memoryLimitToBytes($current);
+        if ($targetBytes !== null && ($currentBytes === null || $currentBytes < $targetBytes)) {
+            @ini_set('memory_limit', $configured);
+        }
+    }
+
+    /** Converte limites do php.ini (bytes, K, M ou G) para bytes. */
+    private static function memoryLimitToBytes(string $value): ?int
+    {
+        if (!preg_match('/^(\d+)\s*([KMG]?)$/i', trim($value), $matches)) {
+            return null;
+        }
+
+        $bytes = (int) $matches[1];
+        $multiplier = match (strtoupper($matches[2])) {
+            'K' => 1024,
+            'M' => 1024 ** 2,
+            'G' => 1024 ** 3,
+            default => 1,
+        };
+
+        return $bytes * $multiplier;
     }
 
     /**

@@ -1119,8 +1119,8 @@ class PagamentoPublicoController
                 foreach (['email', 'whatsapp', 'sms'] as $canal) {
                     try {
                         queue_template_message('confirmacao_reserva', $canal, $context, $chave);
-                    } catch (\App\Exceptions\NotificationChannelUnavailableException) {
-                        // Canal desativado ou sem conexao: notificacao opcional ignorada.
+                    } catch (\App\Exceptions\NotificationChannelUnavailableException|\App\Exceptions\NotificationRecipientUnavailableException) {
+                        // Canal ou destinatario indisponivel: notificacao opcional ignorada.
                     } catch (\Throwable $e) {
                         error_log("[Webhook/Reserva] Erro ao enfileirar confirmacao_reserva/{$canal}: " . $e->getMessage());
                     }

@@ -299,6 +299,19 @@ $logoPath = APP_ROOT . '/storage/uploads/' . $chave . '/' . $empresa['logo'];
 | `default_font` | Fonte padrão | `'Arial'` |
 | `orientation` | Orientação | `'P'` (Portrait) ou `'L'` (Landscape) |
 
+### Limite de memoria
+
+`PdfHelper::create()` eleva o `memory_limit` somente para o request que gera o
+PDF. O valor e configuravel no ambiente e usa `256M` por padrao:
+
+```env
+PDF_MEMORY_LIMIT=256M
+```
+
+O helper nunca reduz um limite maior definido pelo servidor e preserva `-1`
+(memoria ilimitada). Valores vazios ou invalidos usam o fallback `256M`. Nao
+configure `-1` na aplicacao como solucao para relatorios grandes.
+
 ### Formatos de Papel
 
 - `'A4'` - 210 x 297 mm (padrão)

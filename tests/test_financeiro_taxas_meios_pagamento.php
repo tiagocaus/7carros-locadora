@@ -12,6 +12,7 @@ if (session_status() === PHP_SESSION_NONE) {
 use App\Models\Financeiro;
 use App\Models\FinanceiroTaxa;
 use App\Models\FormaPagamento;
+use App\Core\Database;
 use App\Services\FinanceiroTaxaService;
 
 $_SESSION['chave'] = '1111111111111';
@@ -74,9 +75,19 @@ try {
     $idsRetroativo = array_map('intval', array_column($taxaModel->listarReceitasParaRetroativo(), 'id'));
     verificar(in_array($idReceita, $idsRetroativo, true), 'Receita paga sem despesa deve aparecer no retroativo');
 
+    unset($_SESSION['user_id']);
+    $_SESSION['user_name'] = 'Sistema';
     (new FinanceiroTaxaService())->sincronizar($idReceita);
     $despesaRecriada = $taxaModel->buscarDespesaVinculada($idReceita);
     verificar($despesaRecriada !== null, 'Retroativo deve recriar a despesa ausente');
+
+    $logSistema = Database::fetchOne(
+        'SELECT id_funcionario FROM logs WHERE chave = ? AND mensagem LIKE ? ORDER BY id DESC LIMIT 1',
+        [$_SESSION['chave'], "%Financeiro #{$idReceita}, Despesa #%"]
+    );
+    verificar((int) ($logSistema['id_funcionario'] ?? -1) === 0, 'Webhook sem usuario deve auditar a taxa como Sistema');
+    $_SESSION['user_id'] = 7;
+    $_SESSION['user_name'] = 'Teste automatizado';
 
     $idDespesa = (int) $despesaRecriada['id'];
     (new FinanceiroTaxaService())->sincronizar($idReceita);
@@ -87,6 +98,12 @@ try {
 
     echo "OK: contabilizacao, idempotencia e estorno da taxa\n";
 } finally {
+    if ($idReceita !== null) {
+        Database::execute(
+            'DELETE FROM logs WHERE chave = ? AND mensagem LIKE ?',
+            [$_SESSION['chave'], "%Financeiro #{$idReceita}%"]
+        );
+    }
     if ($idReceita !== null) {
         $financeiroModel->deletar($idReceita);
     }

@@ -443,6 +443,29 @@ echo "Peak memory: " . number_format(memory_get_peak_usage() / 1024 / 1024, 2) .
 5. Regenerate autoloader: `composer dump-autoload --optimize`
 6. Restart web server if needed
 
+### Publicacao FTP atomica de arquivos PHP
+
+Publicacoes manuais com `temp-lftp.txt` devem preservar o caminho relativo e
+nao podem substituir um PHP enquanto ele ainda esta sendo transferido. Para
+cada arquivo de runtime:
+
+1. validar localmente com `php -l`;
+2. enviar no mesmo diretorio remoto com sufixo temporario `.uploading`;
+3. depois que o upload terminar, renomear o temporario para o nome definitivo
+   com `mv` no LFTP;
+4. remover temporarios somente se uma publicacao falhar;
+5. nunca enviar `temp-lftp.txt`, credenciais, testes ou arquivos fora do escopo.
+
+Exemplo conceitual:
+
+```lftp
+put -o app/Services/MeuService.php.uploading app/Services/MeuService.php
+mv app/Services/MeuService.php.uploading app/Services/MeuService.php
+```
+
+Para um conjunto de arquivos, conclua todos os `put` antes dos `mv`. Assim, o
+servidor continua usando a versao anterior se alguma transferencia falhar.
+
 ## Environment-Specific Commands
 
 ### Development

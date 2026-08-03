@@ -29,7 +29,7 @@ class AuditLogService
         ?string $auditChanges = null
     ): int {
         $chave = $_SESSION['chave'] ?? null;
-        $usuarioId = $_SESSION['user_id'] ?? null;
+        $usuarioId = self::resolveFuncionarioId();
         $ip = $_SERVER['REMOTE_ADDR'] ?? null;
 
         if (!$chave) {
@@ -132,7 +132,7 @@ class AuditLogService
         array $camposAlterados = []
     ): int {
         $chave = $_SESSION['chave'] ?? null;
-        $usuarioId = $_SESSION['user_id'] ?? null;
+        $usuarioId = self::resolveFuncionarioId();
         $ip = $_SERVER['REMOTE_ADDR'] ?? null;
 
         if (!$chave) {
@@ -161,7 +161,7 @@ class AuditLogService
     public static function registrar(string $mensagem): int
     {
         $chave = $_SESSION['chave'] ?? null;
-        $usuarioId = $_SESSION['user_id'] ?? null;
+        $usuarioId = self::resolveFuncionarioId();
         $ip = $_SERVER['REMOTE_ADDR'] ?? null;
 
         if (!$chave) {
@@ -189,6 +189,18 @@ class AuditLogService
         $mensagem = "{$nomeUsuario}, Entrou no sistema []";
 
         return self::registrar($mensagem);
+    }
+
+    /**
+     * Resolve o ator da auditoria.
+     *
+     * Webhooks, CRONs e outros processos automaticos nao possuem funcionario
+     * em sessao. A tabela logs usa o identificador 0 para representar Sistema.
+     */
+    private static function resolveFuncionarioId(): int
+    {
+        $usuarioId = (int) ($_SESSION['user_id'] ?? 0);
+        return $usuarioId > 0 ? $usuarioId : 0;
     }
 
     /**

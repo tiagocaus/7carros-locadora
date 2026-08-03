@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Exceptions\NotificationChannelUnavailableException;
+use App\Exceptions\NotificationRecipientUnavailableException;
 use App\Models\Funcionario;
 use Closure;
 
@@ -48,6 +50,8 @@ class WebsiteReservationNotificationService
             try {
                 ($this->publisher)('email', $this->buildPayload($funcionario, $filialId, $reserva), $chave);
                 $enfileiradas++;
+            } catch (NotificationChannelUnavailableException|NotificationRecipientUnavailableException) {
+                // Canal ou destinatario indisponivel: notificacao opcional ignorada.
             } catch (\Throwable $e) {
                 $falhas++;
                 error_log('[Site/Publico] Erro ao notificar funcionario sobre nova reserva: ' . $e->getMessage());

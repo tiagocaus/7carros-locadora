@@ -100,4 +100,18 @@ assertWebsiteReservationNotification($resultadoComFalha === [
     'falhas' => 1,
 ], 'Falha de um destinatario nao pode impedir os demais envios.');
 
+$publisherIndisponivel = static function (): int {
+    throw new \App\Exceptions\NotificationRecipientUnavailableException('Email invalido');
+};
+$serviceIndisponivel = new WebsiteReservationNotificationService($funcionarioModel, $publisherIndisponivel);
+$resultadoIndisponivel = $serviceIndisponivel->notificarNovaReserva('1111111111111', 14, [
+    'codigo' => 'R12345678',
+]);
+
+assertWebsiteReservationNotification($resultadoIndisponivel === [
+    'destinatarios' => 2,
+    'enfileiradas' => 0,
+    'falhas' => 0,
+], 'Destinatario indisponivel deve ser ignorado sem virar falha tecnica.');
+
 echo "OK: notificacao interna de reserva respeita permissao, filial e deduplicacao.\n";

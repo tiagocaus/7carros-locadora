@@ -71,6 +71,12 @@ notificacao opcional ignorada por configuracao, nao falha de banco, RabbitMQ ou
 provedor. Fluxos que tentam automaticamente todos os canais devem captura-la
 sem registrar erro no Apache; excecoes inesperadas continuam sendo registradas.
 
+Destinatario ausente ou com email/telefone invalido lanca
+`NotificationRecipientUnavailableException`. Ela tambem representa uma
+notificacao opcional nao enviada e deve ser ignorada pelos fluxos automaticos
+sem registrar erro no Apache. Erros de conteudo, template, banco, RabbitMQ ou
+provedor nao usam essa excecao e continuam visiveis no log.
+
 Excecao: `queue_system_message('whatsapp', ...)` usa credenciais do sistema e nao passa pela validacao de instancia da filial.
 
 O worker repete a validacao do bloqueio mestre imediatamente antes do provedor.

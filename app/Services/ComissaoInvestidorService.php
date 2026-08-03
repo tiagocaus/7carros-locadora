@@ -527,10 +527,6 @@ class ComissaoInvestidorService
 
             $comissaoId = $this->calcularComissaoPorPagamento($dadosFinanceiro, $veiculo);
 
-            if ($comissaoId) {
-                error_log("[Comissao] Comissao #{$comissaoId} gerada para financeiro #{$idFinanceiro}");
-            }
-
             return $comissaoId;
 
         } catch (\Exception $e) {

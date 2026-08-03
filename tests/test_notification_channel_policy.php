@@ -6,6 +6,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use App\Crons\Jobs\ProcessMessageQueueJob;
 use App\Models\ContatoTelefone;
 use App\Models\MatrizFilial;
+use App\Services\MessageQueueService;
 use App\Services\NotificationChannelPolicyService;
 
 function assertNotificationPolicy(bool $condition, string $message): void
@@ -164,5 +165,19 @@ assertNotificationPolicy(
         && ($workerResult['message'] ?? '') === 'Bloqueado no consumo',
     'Worker deve marcar como skipped antes de chamar o provedor.'
 );
+
+$queue = (new ReflectionClass(MessageQueueService::class))->newInstanceWithoutConstructor();
+foreach ([
+    ['email', ['to' => 'email-invalido']],
+    ['whatsapp', ['to' => '123']],
+    ['sms', ['to' => '']],
+] as [$channel, $payload]) {
+    try {
+        $queue->validateForPublication($channel, $payload, false, '1111111111111');
+        throw new RuntimeException("Destinatario invalido de {$channel} deveria lancar excecao tipada.");
+    } catch (\App\Exceptions\NotificationRecipientUnavailableException) {
+        // Esperado: fluxo automatico pode ignorar sem registrar erro.
+    }
+}
 
 echo "OK: bloqueio mestre, isolamento por filial, excecoes e revalidacao validados.\n";

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Classes\QueryBuilder;
 use App\Core\Database;
 use App\Exceptions\NotificationChannelUnavailableException;
+use App\Exceptions\NotificationRecipientUnavailableException;
 use App\Models\Sms;
 use App\Models\Whatsapp;
 use App\Models\Model;
@@ -325,11 +326,11 @@ class MessageQueueService
 
         if ($type === 'email') {
             if ($to === '') {
-                throw new \InvalidArgumentException('Cliente sem email cadastrado');
+                throw new NotificationRecipientUnavailableException('Cliente sem email cadastrado');
             }
 
             if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-                throw new \InvalidArgumentException('Email do cliente invalido');
+                throw new NotificationRecipientUnavailableException('Email do cliente invalido');
             }
 
             return;
@@ -343,14 +344,14 @@ class MessageQueueService
             $message = $type === 'whatsapp'
                 ? 'Cliente nao tem WhatsApp cadastrado'
                 : 'Cliente sem telefone cadastrado';
-            throw new \InvalidArgumentException($message);
+            throw new NotificationRecipientUnavailableException($message);
         }
 
         if (!$this->isValidPhone($to)) {
             $message = $type === 'whatsapp'
                 ? 'Cliente nao tem WhatsApp cadastrado'
                 : 'Telefone do cliente invalido';
-            throw new \InvalidArgumentException($message);
+            throw new NotificationRecipientUnavailableException($message);
         }
     }
 
