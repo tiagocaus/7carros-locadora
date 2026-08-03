@@ -181,6 +181,9 @@ return [
         'status_paid' => 'PAID',
         'status_overdue' => 'OVERDUE',
         'status_open' => 'OPEN',
+        'rental_service_invoice_title' => 'Vehicle rental service invoice without driver',
+        'rental_service_cnae' => 'Service code / Activity / CNAE: 7711-0/00',
+        'rental_service_tax_notice' => 'NO WITHHOLDING OF TAXES ON SERVICES. Complementary Law No. 116/2003 amended ISS legislation and vetoed municipal tax on movable property rental.',
     ],
 
     // Messages

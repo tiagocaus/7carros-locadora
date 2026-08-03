@@ -46,6 +46,7 @@ if ($pago) {
 }
 $htmlLocale = locale_info()['code'] ?? 'pt-BR';
 $documentCode = $codigo ?: '#' . ($lancamento['id'] ?? '');
+$faturaLocacaoVeiculo = !empty($lancamento['id_contrato']) || !empty($lancamento['id_locacao']);
 ?><!DOCTYPE html>
 <html lang="<?= htmlspecialchars($htmlLocale, ENT_QUOTES, 'UTF-8') ?>">
 <head>
@@ -84,6 +85,9 @@ $documentCode = $codigo ?: '#' . ($lancamento['id'] ?? '');
         .pagamento-box { margin-top: 18px; padding: 12px; border: 1px dashed #2563eb; background: #eff6ff; font-size: 9pt; word-break: break-all; }
         .pagamento-box strong { display: block; margin-bottom: 4px; color: #1e40af; }
         .footer { text-align: center; font-size: 8pt; color: #999; margin-top: 25px; padding-top: 8px; border-top: 1px solid #eee; }
+        .fatura-locacao-titulo { text-align: center; font-size: 12pt; font-weight: bold; text-transform: uppercase; margin: 0 0 15px; padding: 8px 0; border-bottom: 1px solid #ddd; }
+        .fatura-locacao-cnae { text-align: center; font-size: 9pt; font-weight: bold; margin: 0 0 10px; padding: 6px 0; }
+        .fatura-locacao-iss { text-align: center; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-top: 18px; padding: 10px 12px; border: 1px solid #ddd; background: #fafafa; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -130,6 +134,10 @@ $documentCode = $codigo ?: '#' . ($lancamento['id'] ?? '');
     </tr>
 </table>
 
+<?php if ($faturaLocacaoVeiculo): ?>
+<div class="fatura-locacao-titulo"><?= t('modules.financeiro.print_pdf.rental_service_invoice_title') ?></div>
+<?php endif; ?>
+
 <!-- Cliente/Fornecedor -->
 <div class="section">
     <div class="section-title"><?= $contraparteLabel ?></div>
@@ -174,6 +182,9 @@ $documentCode = $codigo ?: '#' . ($lancamento['id'] ?? '');
 </div>
 
 <!-- Itens (se houver) -->
+<?php if ($faturaLocacaoVeiculo): ?>
+<div class="fatura-locacao-cnae"><?= t('modules.financeiro.print_pdf.rental_service_cnae') ?></div>
+<?php endif; ?>
 <?php if (!empty($lancamento['itens']) && is_array($lancamento['itens'])): ?>
 <div class="section">
     <div class="section-title"><?= t('modules.financeiro.print_pdf.items') ?></div>
@@ -254,6 +265,10 @@ $documentCode = $codigo ?: '#' . ($lancamento['id'] ?? '');
     <strong><?= t('modules.financeiro.print_pdf.online_payment_link') ?>:</strong>
     <?= htmlspecialchars($linkPagamento) ?>
 </div>
+<?php endif; ?>
+
+<?php if ($faturaLocacaoVeiculo): ?>
+<div class="fatura-locacao-iss"><?= t('modules.financeiro.print_pdf.rental_service_tax_notice') ?></div>
 <?php endif; ?>
 
 <div class="footer">

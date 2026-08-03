@@ -87,57 +87,81 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
 <!-- DADOS DO CLIENTE -->
 <div class="section">
     <div class="section-title"><?= t('modules.locacoes.pdf.client_data') ?></div>
-    <table class="data-table">
-        <tr>
-            <td style="width: 15%;"><strong><?= t('modules.locacoes.pdf.client_label') ?></strong></td>
-            <td style="width: 35%;"><?= htmlspecialchars($locacao['cliente_nome_completo'] ?? '-') ?></td>
-            <td style="width: 15%;"><strong><?= t('modules.locacoes.pdf.cpf_cnpj_label') ?></strong></td>
-            <td style="width: 35%;"><?= htmlspecialchars($locacao['cliente_cpf_cnpj'] ?? '-') ?></td>
-        </tr>
-        <tr>
-            <td><strong><?= t('modules.locacoes.pdf.phone_label') ?></strong></td>
-            <td><?= htmlspecialchars($locacao['cliente_telefone'] ?? '-') ?></td>
-            <td><strong><?= t('modules.locacoes.pdf.email_label') ?></strong></td>
-            <td><?= htmlspecialchars($locacao['cliente_email'] ?? '-') ?></td>
-        </tr>
-        <?php if (!empty($locacao['cliente_endereco_completo'])): ?>
-        <tr>
-            <td><strong><?= t('modules.locacoes.pdf.address_label') ?></strong></td>
-            <td colspan="3"><?= htmlspecialchars($locacao['cliente_endereco_completo']) ?></td>
-        </tr>
-        <?php endif; ?>
-    </table>
+    <div class="section-body">
+        <table class="fields-table" cellpadding="0" cellspacing="0">
+            <tr>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.pdf.client_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($locacao['cliente_nome_completo'] ?? '-') ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.pdf.cpf_cnpj_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($locacao['cliente_cpf_cnpj'] ?? '-') ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.pdf.phone_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($locacao['cliente_telefone'] ?? '-') ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.pdf.email_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($locacao['cliente_email'] ?? '-') ?></div>
+                </td>
+            </tr>
+            <?php if (!empty($locacao['cliente_endereco_completo'])): ?>
+            <tr>
+                <td class="w100" colspan="4">
+                    <div class="field-label"><?= t('modules.locacoes.pdf.address_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($locacao['cliente_endereco_completo']) ?></div>
+                </td>
+            </tr>
+            <?php endif; ?>
+        </table>
+    </div>
 </div>
 
 <!-- DADOS DA LOCACAO -->
 <div class="section">
     <div class="section-title"><?= $_faturaDadosTitulo ?></div>
-    <table class="data-table">
-        <tr>
-            <td style="width: 25%;"><strong><?= t('modules.locacoes.pdf.checkout_label') ?></strong></td>
-            <td style="width: 25%;"><?= $_formatarDataFatura($locacao['data_saida'] ?? null, true) ?></td>
-            <td style="width: 25%;"><strong><?= $_labelDevolucaoFatura ?></strong></td>
-            <td style="width: 25%;"><?= $_formatarDataFatura($_dataDevolucaoFatura, true) ?></td>
-        </tr>
-        <tr>
-            <td><strong><?= t('modules.locacoes.odometer_fuel.odometer_out') ?></strong></td>
-            <td><?= $_formatarOdometroFatura($locacao['odometro_ini'] ?? null) ?></td>
-            <td><strong><?= t('modules.locacoes.odometer_fuel.odometer_return') ?></strong></td>
-            <td><?= $_formatarOdometroFatura($locacao['odometro_fim'] ?? null) ?></td>
-        </tr>
-        <tr>
-            <td><strong><?= t('modules.locacoes.odometer_fuel.fuel_out') ?></strong></td>
-            <td><?= $_formatarCombustivelFatura($locacao['combustivel_ini'] ?? null) ?></td>
-            <td><strong><?= t('modules.locacoes.odometer_fuel.fuel_return') ?></strong></td>
-            <td><?= $_formatarCombustivelFatura($locacao['combustivel_fim'] ?? null) ?></td>
-        </tr>
-        <tr>
-            <td><strong><?= t('modules.locacoes.pdf.days_label') ?></strong></td>
-            <td><?= (int) ($locacao['dias'] ?? $locacao['quantidade_dias'] ?? 0) ?></td>
-            <td><strong><?= t('modules.locacoes.pdf.method_label') ?></strong></td>
-            <td><?= htmlspecialchars($locacao['forma_pagamento_descricao'] ?? '-') ?></td>
-        </tr>
-    </table>
+    <div class="section-body">
+        <table class="fields-table" cellpadding="0" cellspacing="0">
+            <tr>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.pdf.checkout_label') ?></div>
+                    <div class="field-value"><?= $_formatarDataFatura($locacao['data_saida'] ?? null, true) ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= rtrim($_labelDevolucaoFatura, ':') ?></div>
+                    <div class="field-value"><?= $_formatarDataFatura($_dataDevolucaoFatura, true) ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.odometer_fuel.odometer_out') ?></div>
+                    <div class="field-value"><?= $_formatarOdometroFatura($locacao['odometro_ini'] ?? null) ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.odometer_fuel.odometer_return') ?></div>
+                    <div class="field-value"><?= $_formatarOdometroFatura($locacao['odometro_fim'] ?? null) ?></div>
+                </td>
+            </tr>
+            <tr>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.odometer_fuel.fuel_out') ?></div>
+                    <div class="field-value"><?= $_formatarCombustivelFatura($locacao['combustivel_ini'] ?? null) ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.odometer_fuel.fuel_return') ?></div>
+                    <div class="field-value"><?= $_formatarCombustivelFatura($locacao['combustivel_fim'] ?? null) ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.pdf.days_label') ?></div>
+                    <div class="field-value"><?= (int) ($locacao['dias'] ?? $locacao['quantidade_dias'] ?? 0) ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.locacoes.pdf.method_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($locacao['forma_pagamento_descricao'] ?? '-') ?></div>
+                </td>
+            </tr>
+        </table>
+    </div>
 </div>
 
 <!-- COMPOSICAO DA FATURA -->
@@ -262,6 +286,7 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
 <?php if (!empty($linhasFatura)): ?>
 <div class="section">
     <div class="section-title"><?= t('modules.locacoes.pdf.invoice_composition') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -273,32 +298,32 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
         </thead>
         <tbody>
             <?php foreach ($linhasFatura as $linha): ?>
-            <tr<?= !empty($linha['km_franquia_info']) ? ' class="has-km-franquia"' : '' ?>>
-                <td><?= htmlspecialchars($linha['descricao']) ?></td>
+            <tr>
+                <td>
+                    <?= htmlspecialchars($linha['descricao']) ?>
+                    <?php if (!empty($linha['km_franquia_info'])): ?>
+                    <div class="row-meta"><?= htmlspecialchars($linha['km_franquia_info']) ?></div>
+                    <?php endif; ?>
+                </td>
                 <td class="text-center"><?= htmlspecialchars($linha['qtd']) ?></td>
                 <td class="text-right"><?= currency_format((float) $linha['unitario']) ?></td>
                 <td class="text-right"><?= currency_format((float) $linha['total']) ?></td>
             </tr>
-            <?php if (!empty($linha['km_franquia_info'])): ?>
-            <tr class="km-franquia-row">
-                <td class="km-franquia-info"><?= htmlspecialchars($linha['km_franquia_info']) ?></td>
-                <td class="text-center">&nbsp;</td>
-                <td class="text-right">&nbsp;</td>
-                <td class="text-right">&nbsp;</td>
-            </tr>
-            <?php endif; ?>
             <?php endforeach; ?>
             <?php if ($kmRodadosFatura !== null): ?>
             <tr>
-                <td colspan="4" style="font-size: 8pt; color: #666;">
-                    <?= t('modules.locacoes.pdf.odometer_label') ?>: <?= number_format((int) $locacao['odometro_ini'], 0, ',', '.') ?>
-                    <?= t('modules.locacoes.pdf.to_label') ?> <?= number_format((int) $locacao['odometro_fim'], 0, ',', '.') ?>
-                    (<?= number_format($kmRodadosFatura, 0, ',', '.') ?> km)
+                <td colspan="4">
+                    <div class="row-meta">
+                        <?= t('modules.locacoes.pdf.odometer_label') ?>: <?= number_format((int) $locacao['odometro_ini'], 0, ',', '.') ?>
+                        <?= t('modules.locacoes.pdf.to_label') ?> <?= number_format((int) $locacao['odometro_fim'], 0, ',', '.') ?>
+                        (<?= number_format($kmRodadosFatura, 0, ',', '.') ?> km)
+                    </div>
                 </td>
             </tr>
             <?php endif; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -328,7 +353,7 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
         </tr>
         <tr>
             <td class="label-col"><?= htmlspecialchars($descontoLabelPdf) ?></td>
-            <td class="value-col" style="color: #c00;">- <?= currency_format($valorDescontoPdf) ?></td>
+            <td class="value-col">- <?= currency_format($valorDescontoPdf) ?></td>
         </tr>
         <tr>
             <td class="label-col"><?= $_faturaTotalRegistroLabel ?></td>
@@ -349,13 +374,13 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
         <?php if ($totalPagoPdf > 0): ?>
         <tr>
             <td class="label-col"><?= t('modules.locacoes.installments.total_paid') ?></td>
-            <td class="value-col" style="color: #07803a;">- <?= currency_format($totalPagoPdf) ?></td>
+            <td class="value-col">- <?= currency_format($totalPagoPdf) ?></td>
         </tr>
         <?php endif; ?>
         <?php if ($totalReembolsadoPdf > 0): ?>
         <tr>
             <td class="label-col"><?= t('modules.locacoes.pdf.total_refunded_label') ?></td>
-            <td class="value-col" style="color: #be123c;">- <?= currency_format($totalReembolsadoPdf) ?></td>
+            <td class="value-col">- <?= currency_format($totalReembolsadoPdf) ?></td>
         </tr>
         <?php endif; ?>
         <tr class="total-row">
@@ -367,9 +392,10 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
 
 <!-- PAGAMENTOS -->
 <?php if (!empty($parcelasFinanceirasPdf)): ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.locacoes.installments.payments') ?></div>
-    <table class="data-table" style="margin-top: 6px;">
+    <div class="section-body">
+    <table class="data-table">
         <thead>
             <tr>
                 <th style="width: 12%;"><?= t('modules.locacoes.installments.title') ?></th>
@@ -401,6 +427,7 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -409,8 +436,9 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
     $condutores = !empty($locacao['condutor_adicional']) ? json_decode($locacao['condutor_adicional'], true) : [];
     if (!empty($condutores)):
 ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.locacoes.pdf.additional_driver') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -431,13 +459,15 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
 <!-- REFERENCIAS / INTERVENIENTES -->
 <?php if (!empty($referenciasFatura ?? [])): ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.locacoes.pdf.references_interveners') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -458,15 +488,18 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
             <?php if (!empty($referencia['endereco'])): ?>
             <tr>
                 <td>&nbsp;</td>
-                <td colspan="3" style="font-size: 8pt; color: #666;">
-                    <strong><?= t('modules.locacoes.pdf.address_label') ?></strong>
-                    <?= htmlspecialchars($referencia['endereco']) ?>
+                <td colspan="3">
+                    <div class="row-meta">
+                        <strong><?= t('modules.locacoes.pdf.address_label') ?></strong>
+                        <?= htmlspecialchars($referencia['endereco']) ?>
+                    </div>
                 </td>
             </tr>
             <?php endif; ?>
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -482,8 +515,9 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
     }
 ?>
 <?php if ($mostrarHistoricoVeiculosPdf): ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.locacoes.pdf.vehicle_history_substitutions') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -504,13 +538,15 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
 <!-- MULTAS VINCULADAS -->
 <?php if (!empty($multas ?? [])): ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.locacoes.pdf.linked_fines_section') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -532,6 +568,7 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -545,8 +582,9 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
 
     if ($bloqueioValorPdf > 0 || $caucaoValorPdf > 0):
 ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.locacoes.summary_section.guarantees') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -560,7 +598,7 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
             <tr>
                 <td><?= t('modules.locacoes.sections.block') ?>
                     <?php if (!empty($locacao['bloqueio_cartao_bandeira'])): ?>
-                        <span style="color: #999; font-size: 9px;">(**** <?= htmlspecialchars($locacao['bloqueio_cartao_ultimos_digitos'] ?? '') ?> <?= htmlspecialchars($locacao['bloqueio_cartao_bandeira'] ?? '') ?>)</span>
+                        <span style="font-size: 9px;">(**** <?= htmlspecialchars($locacao['bloqueio_cartao_ultimos_digitos'] ?? '') ?> <?= htmlspecialchars($locacao['bloqueio_cartao_bandeira'] ?? '') ?>)</span>
                     <?php endif; ?>
                 </td>
                 <td>
@@ -583,7 +621,7 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
                 <td><?= t('modules.locacoes.sections.deposit') ?>
                     <?php $formaPagamentoCaucao = $locacao['forma_pagamento_caucao_descricao'] ?? $locacao['caucao_tipo'] ?? ''; ?>
                     <?php if (!empty($formaPagamentoCaucao)): ?>
-                        <span style="color: #999; font-size: 9px;">(<?= htmlspecialchars($formaPagamentoCaucao) ?>)</span>
+                        <span style="font-size: 9px;">(<?= htmlspecialchars($formaPagamentoCaucao) ?>)</span>
                     <?php endif; ?>
                 </td>
                 <td>
@@ -600,14 +638,17 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
             <?php endif; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
 <!-- OBSERVACOES -->
 <?php if (!empty($locacao['obs'])): ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.locacoes.pdf.observations_section') ?></div>
-    <div class="obs-box"><?= nl2br(htmlspecialchars($locacao['obs'])) ?></div>
+    <div class="section-body">
+        <div class="obs-box"><?= nl2br(htmlspecialchars($locacao['obs'])) ?></div>
+    </div>
 </div>
 <?php endif; ?>
 

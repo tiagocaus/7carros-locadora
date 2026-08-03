@@ -84,26 +84,36 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 <!-- DADOS DO CLIENTE -->
 <div class="section">
     <div class="section-title"><?= t('modules.contratos.pdf.client_data') ?></div>
-    <table class="data-table">
-        <tr>
-            <td style="width: 15%;"><strong><?= t('modules.contratos.pdf.client_label') ?></strong></td>
-            <td style="width: 35%;"><?= htmlspecialchars($contrato['cliente_nome'] ?? '-') ?></td>
-            <td style="width: 15%;"><strong><?= t('modules.contratos.pdf.cpf_cnpj_label') ?></strong></td>
-            <td style="width: 35%;"><?= htmlspecialchars($contrato['cliente_cpf_cnpj'] ?? '-') ?></td>
-        </tr>
-        <tr>
-            <td><strong><?= t('modules.contratos.pdf.phone_label') ?></strong></td>
-            <td><?= htmlspecialchars($contrato['cliente_telefone'] ?? '-') ?></td>
-            <td><strong><?= t('modules.contratos.pdf.email_label') ?></strong></td>
-            <td><?= htmlspecialchars($contrato['cliente_email'] ?? '-') ?></td>
-        </tr>
-        <?php if (!empty($contrato['cliente_endereco_completo'])): ?>
-        <tr>
-            <td><strong><?= t('modules.contratos.pdf.address_label') ?></strong></td>
-            <td colspan="3"><?= htmlspecialchars($contrato['cliente_endereco_completo']) ?></td>
-        </tr>
-        <?php endif; ?>
-    </table>
+    <div class="section-body">
+        <table class="fields-table" cellpadding="0" cellspacing="0">
+            <tr>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.contratos.pdf.client_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($contrato['cliente_nome'] ?? '-') ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.contratos.pdf.cpf_cnpj_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($contrato['cliente_cpf_cnpj'] ?? '-') ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.contratos.pdf.phone_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($contrato['cliente_telefone'] ?? '-') ?></div>
+                </td>
+                <td class="w25">
+                    <div class="field-label"><?= t('modules.contratos.pdf.email_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($contrato['cliente_email'] ?? '-') ?></div>
+                </td>
+            </tr>
+            <?php if (!empty($contrato['cliente_endereco_completo'])): ?>
+            <tr>
+                <td class="w100" colspan="4">
+                    <div class="field-label"><?= t('modules.contratos.pdf.address_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($contrato['cliente_endereco_completo']) ?></div>
+                </td>
+            </tr>
+            <?php endif; ?>
+        </table>
+    </div>
 </div>
 
 <!-- DADOS DO CONTRATO -->
@@ -123,28 +133,39 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
             default => $contrato['auto_renovacao'] . 'x'
         };
     ?>
-    <table class="data-table">
-        <tr>
-            <td style="width: 12%;"><strong><?= t('modules.contratos.pdf.start_label') ?></strong></td>
-            <td style="width: 22%;"><?= $_formatarDataContratoFatura($contrato['data_ini'] ?? null, true) ?></td>
-            <td style="width: 12%;"><strong><?= t('modules.contratos.pdf.end_label') ?></strong></td>
-            <td style="width: 22%;"><?= !empty($contrato['auto_renovacao']) && $contrato['auto_renovacao'] === 'auto' ? t('modules.contratos.pdf.indeterminate') : $_formatarDataContratoFatura($contrato['data_fim'] ?? null, true) ?></td>
-            <td style="width: 8%;"><strong><?= htmlspecialchars($periodoLabel) ?>:</strong></td>
-            <td style="width: 8%;"><?= (int) $contrato['dias'] ?></td>
-            <td style="width: 8%;"><strong><?= t('modules.contratos.pdf.method_label') ?></strong></td>
-            <td style="width: 8%;"><?= htmlspecialchars($contrato['forma_pagamento_tipo'] ?? $contrato['forma_pagamento_descricao'] ?? '-') ?></td>
-        </tr>
-        <tr>
-            <td><strong><?= t('modules.contratos.pdf.renewal_label') ?></strong></td>
-            <td><?= $autoRenovacaoNome ?></td>
-            <?php if (!empty($contrato['data_renovacao'])): ?>
-            <td><strong><?= t('modules.contratos.pdf.next_label') ?></strong></td>
-            <td colspan="5"><?= $_formatarDataContratoFatura($contrato['data_renovacao']) ?></td>
-            <?php else: ?>
-            <td colspan="6"></td>
-            <?php endif; ?>
-        </tr>
-    </table>
+    <div class="section-body">
+        <?php $colunasContratoPdf = !empty($contrato['data_renovacao']) ? 6 : 5; ?>
+        <table class="fields-table" cellpadding="0" cellspacing="0">
+            <tr>
+                <td style="width: <?= (int) floor(100 / $colunasContratoPdf) ?>%;">
+                    <div class="field-label"><?= t('modules.contratos.pdf.start_label') ?></div>
+                    <div class="field-value"><?= $_formatarDataContratoFatura($contrato['data_ini'] ?? null, true) ?></div>
+                </td>
+                <td style="width: <?= (int) floor(100 / $colunasContratoPdf) ?>%;">
+                    <div class="field-label"><?= t('modules.contratos.pdf.end_label') ?></div>
+                    <div class="field-value"><?= !empty($contrato['auto_renovacao']) && $contrato['auto_renovacao'] === 'auto' ? t('modules.contratos.pdf.indeterminate') : $_formatarDataContratoFatura($contrato['data_fim'] ?? null, true) ?></div>
+                </td>
+                <td style="width: <?= (int) floor(100 / $colunasContratoPdf) ?>%;">
+                    <div class="field-label"><?= htmlspecialchars($periodoLabel) ?></div>
+                    <div class="field-value"><?= (int) $contrato['dias'] ?></div>
+                </td>
+                <td style="width: <?= (int) floor(100 / $colunasContratoPdf) ?>%;">
+                    <div class="field-label"><?= t('modules.contratos.pdf.method_label') ?></div>
+                    <div class="field-value"><?= htmlspecialchars($contrato['forma_pagamento_tipo'] ?? $contrato['forma_pagamento_descricao'] ?? '-') ?></div>
+                </td>
+                <td style="width: <?= (int) floor(100 / $colunasContratoPdf) ?>%;">
+                    <div class="field-label"><?= t('modules.contratos.pdf.renewal_label') ?></div>
+                    <div class="field-value"><?= $autoRenovacaoNome ?></div>
+                </td>
+                <?php if (!empty($contrato['data_renovacao'])): ?>
+                <td style="width: <?= (int) floor(100 / $colunasContratoPdf) ?>%;">
+                    <div class="field-label"><?= t('modules.contratos.pdf.next_label') ?></div>
+                    <div class="field-value"><?= $_formatarDataContratoFatura($contrato['data_renovacao']) ?></div>
+                </td>
+                <?php endif; ?>
+            </tr>
+        </table>
+    </div>
 </div>
 
 <!-- CONDUTOR ADICIONAL -->
@@ -154,6 +175,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 ?>
 <div class="section">
     <div class="section-title"><?= t('modules.contratos.pdf.additional_driver') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -174,6 +196,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -190,6 +213,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 ?>
 <div class="section">
     <div class="section-title"><?= t('modules.contratos.pdf.guarantors_endorsers_witnesses') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -208,6 +232,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -215,6 +240,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 <?php if (!empty($contrato['veiculos'])): ?>
 <div class="section">
     <div class="section-title"><?= t('modules.contratos.pdf.vehicles_section') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -227,7 +253,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($contrato['veiculos'] as $v): ?>
+            <?php foreach ($contrato['veiculos'] as $vIndex => $v): ?>
             <?php
                 $planoNome = match($v['plano'] ?? 'KL') {
                     'KL' => t('modules.contratos.vehicles.plan_km_free'),
@@ -266,13 +292,20 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
                 $combustivelEntradaRaw = $v['combustivel_entrada'] ?? null;
                 $temDadosDevolucao = (int) ($v['odometro_entrada'] ?? 0) > 0
                     || ($combustivelEntradaRaw !== null && $combustivelEntradaRaw !== '');
+                $isLastVehicle = $vIndex === count($contrato['veiculos']) - 1;
             ?>
-            <tr class="vehicle-main-row">
+            <tr class="vehicle-group<?= $isLastVehicle ? ' vehicle-group-last' : '' ?>">
                 <td>
                     <div class="vehicle-primary"><?= htmlspecialchars($veiculoNome !== '' ? $veiculoNome : '-') ?></div>
                     <?php if ($veiculoMeta): ?>
                     <div class="vehicle-meta"><?= htmlspecialchars(implode(' · ', $veiculoMeta)) ?></div>
                     <?php endif; ?>
+                    <div class="vehicle-meta">
+                        <strong><?= t('modules.contratos.pdf.insurances_label') ?>:</strong>
+                        <?= t('modules.contratos.pdf.vehicle_insurance_short') ?> - <?= htmlspecialchars($_formatarSeguroContratoFatura($segVeicContratado, $segVeic)) ?>
+                        <span class="vehicle-insurance-separator">·</span>
+                        <?= t('modules.contratos.pdf.third_party_insurance_short') ?> - <?= htmlspecialchars($_formatarSeguroContratoFatura($segTercContratado, $segTerc)) ?>
+                    </div>
                 </td>
                 <td>
                     <div><?= htmlspecialchars($planoNome) ?></div>
@@ -295,17 +328,10 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
                 <td class="text-right"><?= currency_format($valorPlano) ?></td>
                 <td class="text-right"><?= currency_format($totalDia) ?></td>
             </tr>
-            <tr class="vehicle-insurance-row">
-                <td colspan="6">
-                    <strong><?= t('modules.contratos.pdf.insurances_label') ?>:</strong>
-                    <?= t('modules.contratos.pdf.vehicle_insurance_short') ?> - <?= htmlspecialchars($_formatarSeguroContratoFatura($segVeicContratado, $segVeic)) ?>
-                    <span class="vehicle-insurance-separator">·</span>
-                    <?= t('modules.contratos.pdf.third_party_insurance_short') ?> - <?= htmlspecialchars($_formatarSeguroContratoFatura($segTercContratado, $segTerc)) ?>
-                </td>
-            </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -321,8 +347,9 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
     }
 ?>
 <?php if ($mostrarHistoricoVeiculosContratoPdf): ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.contratos.pdf.vehicle_history_substitutions') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -343,6 +370,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -350,6 +378,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 <?php if (!empty($contrato['taxas'])): ?>
 <div class="section">
     <div class="section-title"><?= t('modules.contratos.pdf.fees_section') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -370,6 +399,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -383,7 +413,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
         <?php if ((float) ($contrato['valor_desconto'] ?? 0) > 0): ?>
         <tr>
             <td class="label-col"><?= t('modules.contratos.pdf.discount_label') ?></td>
-            <td class="value-col" style="color: #c00;">- <?= currency_format((float) $contrato['valor_desconto']) ?></td>
+            <td class="value-col">- <?= currency_format((float) $contrato['valor_desconto']) ?></td>
         </tr>
         <?php endif; ?>
         <tr class="total-row">
@@ -405,8 +435,9 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 
     if ($bloqueioValorPdf > 0):
 ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.contratos.summary_section.guarantees') ?></div>
+    <div class="section-body">
     <table class="data-table">
         <thead>
             <tr>
@@ -419,7 +450,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
             <tr>
                 <td><?= t('modules.contratos.block.title') ?>
                     <?php if (!empty($contrato['bloqueio_cartao_bandeira'])): ?>
-                        <span style="color: #999; font-size: 9px;">(**** <?= htmlspecialchars($contrato['bloqueio_cartao_ultimos_digitos'] ?? '') ?> <?= htmlspecialchars($contrato['bloqueio_cartao_bandeira'] ?? '') ?>)</span>
+                        <span style="font-size: 9px;">(**** <?= htmlspecialchars($contrato['bloqueio_cartao_ultimos_digitos'] ?? '') ?> <?= htmlspecialchars($contrato['bloqueio_cartao_bandeira'] ?? '') ?>)</span>
                     <?php endif; ?>
                 </td>
                 <td>
@@ -438,14 +469,17 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
             </tr>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 
 <!-- OBSERVACOES -->
 <?php if (!empty($contrato['obs'])): ?>
-<div class="section" style="margin-top: 12px;">
+<div class="section">
     <div class="section-title"><?= t('modules.contratos.pdf.observations_section') ?></div>
-    <div class="obs-box"><?= nl2br(htmlspecialchars($contrato['obs'])) ?></div>
+    <div class="section-body">
+        <div class="obs-box"><?= nl2br(htmlspecialchars($contrato['obs'])) ?></div>
+    </div>
 </div>
 <?php endif; ?>
 

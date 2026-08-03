@@ -180,6 +180,9 @@ return [
         'status_paid' => 'PAGATO',
         'status_overdue' => 'SCADUTO',
         'status_open' => 'APERTO',
+        'rental_service_invoice_title' => 'Fattura di servizio noleggio veicolo senza conducente',
+        'rental_service_cnae' => 'Codice servizio / Attività / CNAE: 7711-0/00',
+        'rental_service_tax_notice' => 'NESSUNA RITENUTA DI IMPOSTE SUI SERVIZI. La Legge Complementare nº 116/2003 ha modificato la normativa sull\'ISS e ha vietato l\'imposta municipale sul noleggio di beni mobili.',
     ],
 
     // Messaggi

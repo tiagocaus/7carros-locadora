@@ -164,7 +164,10 @@ assertContratoFatura(str_contains($html, 'Terceiros - Contratado'), 'Seguro cont
 assertContratoFatura(!str_contains($html, 'Contratado (R$ 0,00)'), 'Seguro sem valor nao deve exibir zero.');
 assertContratoFatura(str_contains($html, 'Veículo - Não contratado'), 'Seguro desabilitado nao foi informado.');
 assertContratoFatura(!str_contains($html, 'R$ 91,00'), 'Valor residual de seguro desabilitado foi exibido.');
-assertContratoFatura(substr_count($html, 'class="vehicle-insurance-row"') === 2, 'Cada veiculo deve ter uma linha de seguros.');
+assertContratoFatura(substr_count($html, 'Seguros:') === 2, 'Cada veiculo deve exibir os seguros inline.');
+assertContratoFatura(str_contains($html, 'class="fields-table"'), 'Campos estaticos devem usar fields-table.');
+assertContratoFatura(str_contains($html, 'class="section-body"'), 'Secoes devem usar section-body.');
+assertContratoFatura(!str_contains($html, 'class="vehicle-insurance-row"'), 'Seguros nao devem usar linha separada com borda.');
 assertContratoFatura(substr_count($html, 'R$ 350,00') >= 2, 'Plano sem seguros deve manter Valor e Total iguais.');
 
 foreach (['dia' => 'Dia', 'semana' => 'Semana', 'mes' => 'Mês', 'ano' => 'Ano'] as $contagem => $label) {

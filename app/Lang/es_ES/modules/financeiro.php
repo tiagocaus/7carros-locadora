@@ -174,6 +174,9 @@ return [
         'status_paid' => 'PAGADO',
         'status_overdue' => 'VENCIDO',
         'status_open' => 'ABIERTO',
+        'rental_service_invoice_title' => 'Factura de servicio de alquiler de vehículo sin conductor',
+        'rental_service_cnae' => 'Código del servicio / Actividad / CNAE: 7711-0/00',
+        'rental_service_tax_notice' => 'NO RETENCIÓN DE IMPUESTOS SOBRE SERVICIOS. La Ley Complementaria nº 116/2003 modificó la legislación sobre ISS y vetó el cobro del impuesto municipal sobre alquiler de bienes muebles.',
     ],
 
     // Mensagens

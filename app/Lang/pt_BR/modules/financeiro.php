@@ -181,6 +181,9 @@ return [
         'status_paid' => 'PAGO',
         'status_overdue' => 'VENCIDO',
         'status_open' => 'EM ABERTO',
+        'rental_service_invoice_title' => 'Fatura de serviço locação do veículo sem condutor',
+        'rental_service_cnae' => 'Código do serviço / Atividade / CNAE: 7711-0/00',
+        'rental_service_tax_notice' => 'NÃO RETENÇÃO DE IMPOSTOS SOBRE SERVIÇOS, Lei complementar nº 116/2003, alterou a legislação sobre ISS, vetou a cobrança do imposto municipal sobre locação de bens móveis.',
     ],
 
     // Mensagens
