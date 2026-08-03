@@ -1456,14 +1456,14 @@ body.modal-open {
     min-height: 2.75rem;
 }
 
-#clienteImportacaoArquivo {
+.importacao-arquivo {
     padding: .25rem;
     color: #475569;
     background: #fff;
     cursor: pointer;
 }
 
-#clienteImportacaoArquivo::file-selector-button {
+.importacao-arquivo::file-selector-button {
     min-height: 2.25rem;
     margin-right: .75rem;
     padding: .375rem .875rem;
@@ -1477,7 +1477,7 @@ body.modal-open {
     transition: background-color .15s ease, color .15s ease;
 }
 
-#clienteImportacaoArquivo:hover::file-selector-button {
+.importacao-arquivo:hover::file-selector-button {
     background: #cbd5e1;
     color: #0f172a;
 }

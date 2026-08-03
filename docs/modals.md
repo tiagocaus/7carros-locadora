@@ -80,6 +80,31 @@ window.addEventListener('message', function(event) {
 | `.modal-message` | Conteudo/corpo do modal |
 | `.modal-actions` | Container dos botoes de acao |
 
+### Campo de arquivo em modais de importacao
+
+Todo campo de arquivo usado em modal de importacao deve reutilizar a classe
+`.importacao-arquivo`, que define o mesmo visual do seletor de CSV da importacao
+de clientes. Nao crie estilos baseados no ID do input nem regras de altura
+especificas para cada modal.
+
+```php
+<div class="form-input-group">
+    <label class="form-label-group" for="moduloImportacaoArquivo">
+        <?= t('modules.modulo.import_modal.file') ?> <span class="text-red-500">*</span>
+        <?= aviso(t('modules.modulo.import_modal.file_hint')) ?>
+    </label>
+    <input
+        type="file"
+        id="moduloImportacaoArquivo"
+        class="form-input-group-field importacao-arquivo"
+        accept=".csv,text/csv"
+    >
+</div>
+```
+
+O atributo `accept` deve refletir os formatos realmente validados pelo fluxo. A
+explicacao do campo deve permanecer no `aviso()` associado ao label.
+
 ### Estrutura HTML Basica
 
 ```html

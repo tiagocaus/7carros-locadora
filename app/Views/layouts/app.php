@@ -260,7 +260,7 @@
                         <?= t('modules.clientes.import_modal.file') ?> <span class="text-red-500">*</span>
                         <?= aviso(t('modules.clientes.import_modal.file_hint')) ?>
                     </label>
-                    <input type="file" id="clienteImportacaoArquivo" class="form-input-group-field" accept=".csv,text/csv">
+                    <input type="file" id="clienteImportacaoArquivo" class="form-input-group-field importacao-arquivo" accept=".csv,text/csv">
                 </div>
             </div>
 
@@ -411,7 +411,7 @@
                         <?= t('modules.veiculos.import_modal.file') ?> <span class="text-red-500">*</span>
                         <?= aviso(t('modules.veiculos.import_modal.file_hint')) ?>
                     </label>
-                    <input type="file" id="veiculoImportacaoArquivo" class="form-input-group-field" accept=".csv,text/csv">
+                    <input type="file" id="veiculoImportacaoArquivo" class="form-input-group-field importacao-arquivo" accept=".csv,text/csv">
                 </div>
             </div>
 

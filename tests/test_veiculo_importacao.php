@@ -255,7 +255,10 @@ $assert(!str_contains($rotas, "'/api/veiculos/importacao/opcoes'"), 'endpoint de
 $cssComponentes = file_get_contents(APP_ROOT . '/public/assets/css/components.css');
 $assert(!str_contains($cssComponentes, '#veiculoImportacaoConfig .form-label-group'), 'modal nao sobrescreve altura dos labels do formulario');
 $assert(!str_contains($cssComponentes, '#veiculoImportacaoConfig .form-input-group-field'), 'modal nao sobrescreve altura dos campos do formulario');
-$assert(!str_contains($cssComponentes, '#veiculoImportacaoArquivo::file-selector-button'), 'arquivo do modal segue o tamanho padrao dos formularios');
+$assert(substr_count($layout, 'class="form-input-group-field importacao-arquivo"') === 2, 'clientes e veiculos usam a classe compartilhada do campo de arquivo');
+$assert(str_contains($cssComponentes, '.importacao-arquivo::file-selector-button'), 'campo de arquivo reutiliza o botao padrao da importacao de clientes');
+$assert(!str_contains($cssComponentes, '#clienteImportacaoArquivo::file-selector-button'), 'estilo do arquivo nao depende mais do ID do modal de clientes');
+$assert(!str_contains($cssComponentes, '#veiculoImportacaoArquivo::file-selector-button'), 'estilo do arquivo nao depende do ID do modal de veiculos');
 
 if ($falhas > 0) {
     echo "\n{$falhas} teste(s) falharam.\n";
