@@ -18,6 +18,7 @@ use App\Models\Financeiro;
 use App\Helpers\FilialHelper;
 use App\Helpers\PlanoLimiteHelper;
 use App\Services\AuditLogService;
+use App\Services\VeiculoImportacaoService;
 
 /**
  * Controller de Veiculos
@@ -26,6 +27,143 @@ use App\Services\AuditLogService;
  */
 class VeiculosController
 {
+    /**
+     * Baixa o modelo CSV oficial para importacao de veiculos.
+     */
+    public function modeloImportacao(Request $request): void
+    {
+        if (!Auth::can('veiculos.criar')) {
+            Response::forbidden('Voce nao tem permissao para importar veiculos');
+            return;
+        }
+
+        try {
+            $conteudo = (new VeiculoImportacaoService())->gerarModelo();
+            header('Content-Type: text/csv; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="modelo_importacao_veiculos.csv"');
+            header('Content-Length: ' . strlen($conteudo));
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            echo $conteudo;
+            exit;
+        } catch (\Throwable $e) {
+            error_log('Erro ao gerar modelo de importacao de veiculos: ' . $e->getMessage());
+            Response::serverError('Erro ao gerar o modelo de importacao');
+        }
+    }
+
+    /**
+     * Valida e importa veiculos de um arquivo CSV.
+     */
+    public function importar(Request $request): void
+    {
+        if (!Auth::can('veiculos.criar')) {
+            Response::json([
+                'success' => false,
+                'message' => 'Voce nao tem permissao para importar veiculos',
+            ], 403);
+            return;
+        }
+
+        try {
+            $opcoes = [
+                'id_matriz_filial' => $this->normalizarIdImportacao($request->input('id_matriz_filial', ''), true),
+                'id_fornecedor' => $this->normalizarIdImportacao($request->input('id_fornecedor', ''), true),
+                'id_grupo' => $this->normalizarIdImportacao($request->input('id_grupo', ''), true),
+                'id_matriz_filial_localizacao' => $this->normalizarIdImportacao(
+                    $request->input('id_matriz_filial_localizacao', ''),
+                    false
+                ),
+                'id_plano_manutencao' => $this->normalizarIdImportacao($request->input('id_plano_manutencao', ''), true),
+            ];
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'errors' => [[
+                    'line' => null,
+                    'field' => 'opcoes',
+                    'message' => $e->getMessage(),
+                ]],
+            ], 422);
+            return;
+        }
+
+        $arquivo = $request->file('arquivo');
+        if (!$arquivo || ($arquivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            Response::json([
+                'success' => false,
+                'message' => 'Selecione um arquivo CSV valido.',
+                'errors' => [['line' => null, 'field' => 'arquivo', 'message' => 'Falha no envio do arquivo.']],
+            ], 422);
+            return;
+        }
+
+        if (($arquivo['size'] ?? 0) <= 0 || $arquivo['size'] > VeiculoImportacaoService::MAX_FILE_SIZE) {
+            Response::json([
+                'success' => false,
+                'message' => 'Arquivo fora do limite permitido.',
+                'errors' => [['line' => null, 'field' => 'arquivo', 'message' => 'O CSV deve ter no maximo 2 MB.']],
+            ], 422);
+            return;
+        }
+
+        $extensao = strtolower(pathinfo((string) ($arquivo['name'] ?? ''), PATHINFO_EXTENSION));
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file((string) $arquivo['tmp_name']) ?: '';
+        $mimesPermitidos = ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'];
+
+        if ($extensao !== 'csv' || !in_array($mime, $mimesPermitidos, true)) {
+            Response::json([
+                'success' => false,
+                'message' => 'Formato de arquivo invalido.',
+                'errors' => [['line' => null, 'field' => 'arquivo', 'message' => 'Envie somente o CSV do modelo oficial.']],
+            ], 422);
+            return;
+        }
+
+        try {
+            $usage = PlanoLimiteHelper::getUsage('veiculos');
+            $vagasDisponiveis = max(0, (int) $usage['limite'] - (int) $usage['atual']);
+            $resultado = (new VeiculoImportacaoService())->importar(
+                (string) $arquivo['tmp_name'],
+                $opcoes,
+                $vagasDisponiveis
+            );
+
+            if (!$resultado['success']) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'A importacao foi bloqueada. Corrija os dados indicados.',
+                    'errors' => $resultado['errors'] ?? [],
+                ], 422);
+                return;
+            }
+
+            $quantidade = (int) ($resultado['importados'] ?? 0);
+            $ignorados = (int) ($resultado['ignorados'] ?? 0);
+            AuditLogService::registrar(
+                ($_SESSION['user_name'] ?? 'Sistema')
+                . ", importou {$quantidade} veiculo(s) e ignorou {$ignorados} placa(s) duplicada(s) via CSV"
+            );
+
+            Response::json([
+                'success' => true,
+                'message' => "{$quantidade} veiculo(s) importado(s) com sucesso. {$ignorados} registro(s) ignorado(s).",
+                'data' => [
+                    'importados' => $quantidade,
+                    'ignorados' => $ignorados,
+                    'ignorados_detalhes' => $resultado['ignorados_detalhes'] ?? [],
+                ],
+            ], 201);
+        } catch (\Throwable $e) {
+            error_log('Erro na importacao de veiculos: ' . $e->getMessage());
+            Response::json([
+                'success' => false,
+                'message' => 'Erro ao importar veiculos. Nenhum registro foi gravado.',
+            ], 500);
+        }
+    }
+
     /**
      * Exibe a pagina de listagem de veiculos
      *
@@ -1362,6 +1500,23 @@ class VeiculosController
             'thousands' => $localeConfig['thousands'],
             'symbolPosition' => $localeConfig['symbolPosition'],
         ];
+    }
+
+    private function normalizarIdImportacao(mixed $value, bool $obrigatorio): ?int
+    {
+        if (is_array($value) || is_object($value)) {
+            throw new \InvalidArgumentException('As opcoes selecionadas sao invalidas.');
+        }
+
+        $value = trim((string) $value);
+        if ($value === '' && !$obrigatorio) {
+            return null;
+        }
+        if ($value === '' || !ctype_digit($value) || (int) $value <= 0) {
+            throw new \InvalidArgumentException('Preencha todas as opcoes obrigatorias da importacao.');
+        }
+
+        return (int) $value;
     }
 
     private function normalizarVencimentoEncargo(?string $vencimento): ?string

@@ -25,6 +25,24 @@ class ManutencaoPlano extends Model
     }
 
     /**
+     * Lista planos ativos para importacao de veiculos.
+     *
+     * @return array<int,array{id:int,nome:string}>
+     */
+    public function listarParaImportacaoVeiculos(): array
+    {
+        return array_map(static fn(array $row): array => [
+            'id' => (int) $row['id'],
+            'nome' => (string) $row['nome'],
+        ], $this->qb
+            ->table('manutencoes_plano')
+            ->select(['id', 'nome'])
+            ->where('status', '=', 'A')
+            ->orderBy('nome', 'ASC')
+            ->get());
+    }
+
+    /**
      * Lista planos do tenant com paginação e busca
      *
      * @param string $chave Chave do tenant
@@ -273,5 +291,30 @@ class ManutencaoPlano extends Model
             ->where('status', '=', 'A')
             ->orderBy('nome', 'ASC')
             ->get();
+    }
+
+    /**
+     * Busca planos ativos para o Chosen Select server-side.
+     *
+     * @return array<int,array{id:int,text:string}>
+     */
+    public function buscarParaSelect(string $search = ''): array
+    {
+        $query = $this->qb
+            ->table('manutencoes_plano')
+            ->select(['id', 'nome AS text'])
+            ->where('status', '=', 'A');
+
+        if ($search !== '') {
+            $query->where('nome', 'LIKE', '%' . $search . '%');
+        }
+
+        return array_map(static fn(array $plano): array => [
+            'id' => (int) $plano['id'],
+            'text' => (string) $plano['text'],
+        ], $query
+            ->orderBy('nome', 'ASC')
+            ->limit(50)
+            ->get());
     }
 }

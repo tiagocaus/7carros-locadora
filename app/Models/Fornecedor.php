@@ -204,6 +204,27 @@ class Fornecedor extends Model
     }
 
     /**
+     * Lista todos os fornecedores disponiveis para importacao de veiculos.
+     *
+     * @return array<int,array{id:int,nome:string}>
+     */
+    public function listarParaImportacaoVeiculos(): array
+    {
+        $rows = $this->qb
+            ->table('fornecedores')
+            ->select(['id', 'nome_rsocial', 'nome_fantasia'])
+            ->orderBy('nome_rsocial', 'ASC')
+            ->get();
+
+        return array_map(static function (array $row): array {
+            return [
+                'id' => (int) $row['id'],
+                'nome' => (string) ($row['nome_fantasia'] ?: ($row['nome_rsocial'] ?: 'Fornecedor #' . $row['id'])),
+            ];
+        }, $rows);
+    }
+
+    /**
      * Lista fornecedores de carro (de_carro = 'S') para select
      *
      * @param string $chave Chave do tenant

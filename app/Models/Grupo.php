@@ -55,6 +55,23 @@ class Grupo extends Model
     }
 
     /**
+     * Lista todos os grupos para importacao de veiculos.
+     *
+     * @return array<int,array{id:int,nome:string}>
+     */
+    public function listarParaImportacaoVeiculos(): array
+    {
+        return array_map(static fn(array $row): array => [
+            'id' => (int) $row['id'],
+            'nome' => (string) $row['nome'],
+        ], $this->qb
+            ->table('grupos')
+            ->select(['id', 'nome'])
+            ->orderBy('nome', 'ASC')
+            ->get());
+    }
+
+    /**
      * Lista grupos do tenant com paginacao e busca
      *
      * @param int $page Pagina atual

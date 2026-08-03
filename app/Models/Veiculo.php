@@ -439,6 +439,60 @@ class Veiculo extends Model
     }
 
     /**
+     * Busca placas canonicas ja cadastradas no tenant atual.
+     *
+     * @param array<int,string> $placas Placas somente com letras e numeros
+     * @return array<int,string>
+     */
+    public function buscarPlacasExistentesParaImportacao(array $placas): array
+    {
+        $encontradas = [];
+        foreach (array_chunk(array_values(array_unique($placas)), 200) as $lote) {
+            if ($lote === []) {
+                continue;
+            }
+
+            $placeholders = implode(',', array_fill(0, count($lote), '?'));
+            $rows = $this->qb
+                ->table('veiculos')
+                ->select(['placa'])
+                ->whereRaw(
+                    "UPPER(REPLACE(REPLACE(placa, '-', ''), ' ', '')) IN ({$placeholders})",
+                    $lote
+                )
+                ->get();
+
+            foreach ($rows as $row) {
+                $encontradas[] = (string) ($row['placa'] ?? '');
+            }
+        }
+
+        return $encontradas;
+    }
+
+    /**
+     * Importa veiculos em uma unica transacao.
+     *
+     * @param array<int,array> $registros
+     */
+    public function importarLote(array $registros): int
+    {
+        $this->qb->beginTransaction();
+
+        try {
+            foreach ($registros as $registro) {
+                $this->criar($registro);
+            }
+
+            $this->qb->commit();
+            return count($registros);
+        } catch (\Throwable $e) {
+            $this->qb->rollback();
+            throw $e;
+        }
+    }
+
+    /**
      * Busca veiculo por placa em todos os tenants.
      *
      * Uso permitido para webhooks publicos/cross-tenant, onde nao existe sessao

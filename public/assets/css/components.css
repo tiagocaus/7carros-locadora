@@ -1385,8 +1385,9 @@ body.modal-open {
     color: #0284c7;
 }
 
-/* ===== Cliente Importacao Modal ===== */
-#clienteImportacaoModal {
+/* ===== Modais de Importacao ===== */
+#clienteImportacaoModal,
+#veiculoImportacaoModal {
     padding: 1rem !important;
 }
 
@@ -1425,12 +1426,14 @@ body.modal-open {
     font-size: 1.125rem;
 }
 
-#clienteImportacaoConfig {
+#clienteImportacaoConfig,
+#veiculoImportacaoConfig {
     display: grid;
     gap: 1.25rem;
 }
 
-#clienteImportacaoConfig .form-input-group {
+#clienteImportacaoConfig .form-input-group,
+#veiculoImportacaoConfig .form-input-group {
     margin-top: 0 !important;
     text-align: left;
 }
@@ -1477,6 +1480,21 @@ body.modal-open {
 #clienteImportacaoArquivo:hover::file-selector-button {
     background: #cbd5e1;
     color: #0f172a;
+}
+
+.veiculo-importacao-modal-box {
+    width: min(58rem, calc(100vw - 2rem));
+    max-width: 58rem;
+}
+
+.veiculo-importacao-config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.veiculo-importacao-plan-field {
+    grid-column: 1 / -1;
 }
 
 .cliente-importacao-modal-box > .modal-actions {
@@ -1615,7 +1633,8 @@ body.modal-open {
 }
 
 @media (max-width: 480px) {
-    #clienteImportacaoModal {
+    #clienteImportacaoModal,
+    #veiculoImportacaoModal {
         padding: .75rem !important;
     }
 
@@ -1628,6 +1647,14 @@ body.modal-open {
     .cliente-importacao-header {
         margin-bottom: 1.125rem;
         padding-bottom: .875rem;
+    }
+
+    .veiculo-importacao-config-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .veiculo-importacao-plan-field {
+        grid-column: auto;
     }
 
     .cliente-importacao-modal-box > .modal-actions {

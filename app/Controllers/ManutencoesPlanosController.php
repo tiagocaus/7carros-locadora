@@ -17,6 +17,30 @@ use App\Services\AuditLogService;
 class ManutencoesPlanosController
 {
     /**
+     * Lista planos ativos para o Chosen Select server-side.
+     *
+     * GET /api/manutencoes-planos/select?q=termo
+     */
+    public function select(Request $request): void
+    {
+        try {
+            $search = trim((string) $request->query('q', ''));
+            $planos = (new ManutencaoPlano())->buscarParaSelect($search);
+
+            Response::json([
+                'success' => true,
+                'data' => $planos,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Erro ao buscar planos de manutencao para select: ' . $e->getMessage());
+            Response::json([
+                'success' => false,
+                'message' => t('modules.manutencao_plano.messages.load_error'),
+            ], 500);
+        }
+    }
+
+    /**
      * Renderiza a página de planos de manutenção
      *
      * GET /pages/manutencoes-planos

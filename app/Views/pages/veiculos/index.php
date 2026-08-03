@@ -11,9 +11,10 @@
                 <input type="text" placeholder="{{ t('modules.veiculos.placeholders.search') }}" class="form-input-focus sm:w-72 pr-8" id="searchInput">
                 <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
             </div>
-            <?php if (\App\Core\Auth::can('veiculos.editar')): ?>
+            <?php if (\App\Core\Auth::can('veiculos.editar') || \App\Core\Auth::can('veiculos.criar')): ?>
                 <div class="action-menu" data-action-menu>
                     <button type="button"
+                        id="btnMenuAcoesVeiculos"
                         class="action-menu-trigger"
                         title="{{ t('modules.veiculos.fraction_adjustment.more_actions') }}"
                         aria-label="{{ t('modules.veiculos.fraction_adjustment.more_actions') }}"
@@ -22,10 +23,22 @@
                         <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
                     </button>
                     <div class="action-menu-panel" role="menu" aria-label="{{ t('modules.veiculos.fraction_adjustment.more_actions') }}">
-                        <button type="button" id="btnAjustarValoresFracao" class="action-menu-item" role="menuitem">
-                            <i class="fas fa-calculator" aria-hidden="true"></i>
-                            <span>{{ t('modules.veiculos.fraction_adjustment.menu_label') }}</span>
-                        </button>
+                        <?php if (\App\Core\Auth::can('veiculos.criar')): ?>
+                            <button type="button" id="btnImportarVeiculos" class="action-menu-item" role="menuitem">
+                                <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
+                                <span>{{ t('modules.veiculos.buttons.import_vehicles') }}</span>
+                            </button>
+                            <button type="button" id="btnBaixarModeloVeiculos" class="action-menu-item" role="menuitem">
+                                <i class="fas fa-file-arrow-down" aria-hidden="true"></i>
+                                <span>{{ t('modules.veiculos.buttons.download_import_template') }}</span>
+                            </button>
+                        <?php endif; ?>
+                        <?php if (\App\Core\Auth::can('veiculos.editar')): ?>
+                            <button type="button" id="btnAjustarValoresFracao" class="action-menu-item" role="menuitem">
+                                <i class="fas fa-calculator" aria-hidden="true"></i>
+                                <span>{{ t('modules.veiculos.fraction_adjustment.menu_label') }}</span>
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endif; ?>
@@ -132,6 +145,25 @@ $i18nVeiculos = [
     const i18n = <?= json_encode($i18nVeiculos, $jsFlags) ?>;
 
     // ===== NAVEGACAO =====
+
+    document.getElementById('btnImportarVeiculos')?.addEventListener('click', function () {
+        window.ActionMenu?.closeAll();
+        window.parent.postMessage({ action: 'openVeiculoImportacaoModal' }, '*');
+    });
+
+    document.getElementById('btnBaixarModeloVeiculos')?.addEventListener('click', function () {
+        window.ActionMenu?.closeAll();
+        window.location.href = '/veiculos/modelo-importacao';
+    });
+
+    window.addEventListener('message', function (event) {
+        if (event.data?.action === 'veiculoImportacaoConcluida') {
+            currentPage = 1;
+            carregarVeiculos(currentPage, perPage, searchTerm);
+        } else if (event.data?.action === 'veiculoImportacaoModalClosed') {
+            document.getElementById('btnMenuAcoesVeiculos')?.focus();
+        }
+    });
 
     function navegarPara(page) {
         if (window.parent !== window) {

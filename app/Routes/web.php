@@ -702,6 +702,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
 
     // API Veiculos (com protecao anti-scraping e CSRF)
     $router->get('/api/veiculos', [VeiculosController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/veiculos/importar', [VeiculosController::class, 'importar'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/buscar', [VeiculosController::class, 'buscar'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/por-grupo', [VeiculosController::class, 'porGrupo'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/veiculos/valores-fracao', [VeiculosController::class, 'valoresFracao'], ['api_csrf', 'rate_limit', 'throttle']);
@@ -710,6 +711,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/api/veiculos/{id}/faturas', [VeiculosController::class, 'faturas'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Veiculos
+    $router->get('/veiculos/modelo-importacao', [VeiculosController::class, 'modeloImportacao']);
     $router->post('/veiculos/salvar', [VeiculosController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/veiculos/valores-fracao/atualizar', [VeiculosController::class, 'atualizarValoresFracao'], ['csrf', 'rate_limit']);
     $router->post('/veiculos/{id}/atualizar', [VeiculosController::class, 'update'], ['csrf', 'rate_limit']);
@@ -753,6 +755,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
 
     // API Manutencoes Planos
     $router->get('/api/manutencoes-planos', [ManutencoesPlanosController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/manutencoes-planos/select', [ManutencoesPlanosController::class, 'select'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/manutencoes-planos/{id}', [ManutencoesPlanosController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Manutencoes Planos

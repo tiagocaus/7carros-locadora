@@ -236,6 +236,7 @@ window.parent.postMessage({
 | `openAddCartaoLocacaoModal` | Adicionar cartao de credito (locacao) | `id_cliente`, `gateways` |
 | `openPromissoriaParcelaModal` | Adicionar/editar parcela de promissoria | `mode`, `id`, `valor_parcela`, `data_vencimento` |
 | `openClienteImportacaoModal` | Selecionar filial, enviar CSV e acompanhar importacao de clientes | - |
+| `openVeiculoImportacaoModal` | Definir dados comuns, enviar CSV e acompanhar importacao de veiculos | - |
 
 ### Modal de importacao de clientes
 
@@ -264,6 +265,43 @@ sourceIframe.postMessage({
 Ao fechar, o pai envia `clienteImportacaoModalClosed` para o iframe restaurar o foco no botao que abriu o modal.
 
 Os erros do backend devem ser renderizados com `textContent` e agrupados por linha. Nunca injete mensagens do CSV com `innerHTML`.
+
+### Modal de importacao de veiculos
+
+O modal `veiculoImportacaoModal` tambem fica em `app/Views/layouts/app.php` e e
+aberto pela lista de veiculos:
+
+```javascript
+window.parent.postMessage({ action: 'openVeiculoImportacaoModal' }, '*');
+```
+
+Matriz/filial, fornecedor, grupo, localizacao atual e plano de manutencao usam
+o Chosen Select server-side, seguindo o mesmo padrao do formulario de veiculos.
+Os quatro primeiros relacionamentos reutilizam as APIs das respectivas
+entidades e os planos ativos usam `/api/manutencoes-planos/select`.
+Matriz/filial, fornecedor, grupo e plano de manutencao sao obrigatorios;
+localizacao atual e opcional e, quando vazia, representa a mesma matriz/filial
+proprietaria. Os valores selecionados sao aplicados a todos os veiculos do
+arquivo.
+
+O upload usa `/api/veiculos/importar`. Placas ja cadastradas no tenant e
+repeticoes posteriores no CSV sao ignoradas, mas qualquer linha invalida
+bloqueia a gravacao de todo o arquivo. A importacao tambem valida o limite de
+veiculos ativos do plano e grava o lote em uma unica transacao.
+
+Ao concluir, o pai notifica apenas o iframe de origem:
+
+```javascript
+sourceIframe.postMessage({
+    action: 'veiculoImportacaoConcluida',
+    importados: quantidade,
+    ignorados: duplicados
+}, '*');
+```
+
+Ao fechar, envia `veiculoImportacaoModalClosed` para restaurar o foco. Durante
+o processamento o modal nao pode ser fechado. Mensagens e valores provenientes
+do CSV devem ser inseridos exclusivamente com `textContent`.
 
 ### Modais de Midia
 
