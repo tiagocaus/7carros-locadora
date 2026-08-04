@@ -796,6 +796,10 @@ class Financeiro extends Model
             ->update($dadosUpdate);
 
         if ($afetadas > 0 && array_key_exists('pago', $dadosUpdate)) {
+            if (!empty($lancamento['id_multa'])) {
+                (new Multa())->sincronizarStatusFinanceiros((int) $lancamento['id_multa']);
+            }
+
             if ($dadosUpdate['pago'] === 'S') {
                 (new \App\Services\FinanceiroTaxaService())->sincronizar($id);
             } elseif ($dadosUpdate['pago'] === 'N' && ($lancamento['pago'] ?? 'N') === 'S') {
@@ -1022,6 +1026,10 @@ class Financeiro extends Model
             if (!empty($itensDiferenca)) {
                 (new FinanceiroItem())->salvarTodos($idDiferenca, $chave, $itensDiferenca);
                 $this->recalcularTotal($idDiferenca);
+            }
+
+            if (!empty($lancamento['id_multa'])) {
+                (new Multa())->sincronizarStatusFinanceiros((int) $lancamento['id_multa']);
             }
 
             $mysqli->commit();
@@ -1556,8 +1564,20 @@ class Financeiro extends Model
             ->update($dadosUpdate);
 
         if ($afetadas > 0 && isset($dadosUpdate['pago'])) {
+            $idsNormalizados = array_values(array_unique(array_filter(array_map('intval', $ids))));
+            $idsMultas = $this->qb
+                ->table('financeiro')
+                ->whereIn('id', $idsNormalizados)
+                ->whereNotNull('id_multa')
+                ->pluck('id_multa');
+
+            $multaModel = new Multa();
+            foreach (array_values(array_unique(array_map('intval', $idsMultas))) as $idMulta) {
+                $multaModel->sincronizarStatusFinanceiros($idMulta);
+            }
+
             $service = new \App\Services\FinanceiroTaxaService();
-            foreach (array_values(array_unique(array_map('intval', $ids))) as $id) {
+            foreach ($idsNormalizados as $id) {
                 if ($dadosUpdate['pago'] === 'S') {
                     $service->sincronizar($id);
                 } else {

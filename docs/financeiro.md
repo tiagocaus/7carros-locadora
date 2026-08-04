@@ -840,6 +840,12 @@ o sentido financeiro:
 - `cliente`: receita (`financeiro.tipo='R'`) com `financeiro.id_cliente`.
 - `empresa`: despesa (`financeiro.tipo='D'`) sem cliente/fornecedor.
 
+Alterações de `financeiro.pago`, inclusive por webhook e atualização em lote,
+recalculam o status da multa vinculada. A multa fica paga somente quando possui
+ao menos um lançamento e todos os financeiros com o mesmo `id_multa` estão
+pagos. No desdobramento de uma baixa parcial, a fatura da diferença mantém a
+multa pendente até sua quitação.
+
 ### Manutencoes e cliente pagador
 
 Na tela de nova/edicao de manutencao, o campo **Cliente responsavel pelo

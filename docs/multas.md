@@ -114,6 +114,13 @@ multa/financeiro para reduzir contenção em
 financeiro, alterações de pagador, vencimento ou valor devem sincronizar o
 lançamento financeiro existente.
 
+O status de pagamento também é sincronizado nos dois sentidos. Baixas
+individuais, em lote e confirmadas por webhook recalculam `multas.pago` a partir
+de todos os registros de `financeiro` com o mesmo `id_multa`. A multa somente é
+considerada paga quando existe ao menos um lançamento vinculado e nenhum deles
+está pendente; por isso, uma baixa parcial mantém a multa pendente até o
+pagamento da fatura criada para a diferença.
+
 Erros transitórios de banco, como lock wait timeout ou deadlock, não devem ser
 expostos ao usuário com a mensagem técnica do MySQL. O controller deve registrar
 o detalhe em log e responder uma mensagem amigável em português pedindo para

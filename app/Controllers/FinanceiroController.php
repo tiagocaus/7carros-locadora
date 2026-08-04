@@ -485,16 +485,6 @@ class FinanceiroController
             // Atualizar lancamento com auditoria
             $financeiroModel->atualizarComAuditoria($id, $dados);
 
-            // Sincronizar multa vinculada (se existir)
-            if (isset($dados['pago']) && !empty($lancamento['id_multa'])) {
-                $multaModel = new \App\Models\Multa();
-                if ($dados['pago'] === 'S') {
-                    $multaModel->marcarPagoSemSyncFinanceiro((int) $lancamento['id_multa']);
-                } elseif ($dados['pago'] === 'N') {
-                    $multaModel->marcarNaoPagoSemSyncFinanceiro((int) $lancamento['id_multa']);
-                }
-            }
-
             // Hook: Gerar comissao de investidor quando fatura e marcada como paga
             if (
                 isset($dados['pago']) &&

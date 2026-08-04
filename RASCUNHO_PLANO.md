@@ -5,7 +5,6 @@
 - No processo de manutenção, garantir que o staatus de um veículo que esteja locado não seja alterado. Só permitir ir para oficina veículos com status de disponíveis, se estiver com outro, é necessário fazer a substituição do veículo ou dar baixa, para o veículo ficar como disponivel. Na substituição do veículo permitir enviar para oficina pelo campo "Acao para este veiculo".
 - Quando tiver substituição veícular, criar um novo checklist digital.
 - Impressão dos checklist não está boa, precisa ajudar.
-- Tela de contrato, aba financeiro, ao clicar em "+ Adicionar Parcela Avulsa", está aparecendo um prompt, isso ta errado, tem que ser algo moderno seguindo padrao do sistema. Qual sua sugestão para isso?
 - Percebi que que em "messages_queue", foi enviado ao cliente essa URL "https://locadora.7carros.com/storage/temp/fatura_C1380S945L26_1781380935.pdf", acredito que seja porque o whatsapp precisa, mas depois de enviado esse arquivo é excluirdo de alguma forma?
 
 ### SUGESTÕES DE CLIENTES
@@ -14,12 +13,11 @@
 - Plano de fidelidade
 - Lançar despesas do "Sem Parar", no contrato e locação.precisamos de uma função nova, temos que poder lançar as despesas do SEM PARAR no contrato
 - Integração com TAG CRX
-- Estatistica de uso do peneu. Ligado com manutenção e manutenção preventiva.
+- Estatistica de uso do pneu. Ligado com manutenção e manutenção preventiva.
 - Gerar fatura para seguradora.
 - Importar clientes e veículos por planilha
 - Na no dasboard não está mostrando chegada pensente.
 - Colocar opção para imprimir o contrato ou locação em nome da seguradora.
-- Colocar opção de pagamento parcial na tela do financeiro.
 - Na impressão da reserva/voucher, mostrar os "possiveis carros da categoria".
 - Incluir no appLoja a opção para assinar tambem "Fiador, Avalista, Testemunhas,..."
 
@@ -34,7 +32,4 @@ Vou pedir para fazer outra analize. Imadinando que um cliente, de locadora norma
 
 
 ### OUTROS
-UPDATE usuarios SET funcao = 'proprietário' WHERE chave_mestre IS NOT NULL AND chave_mestre <> '';
-UPDATE funcionarios SET id_role = 10 WHERE chave_mestre IS NOT NULL AND chave_mestre <> '';
-
 Vi que tem o comando extract, isso condir com o padrão do sistema em usar querybulder?

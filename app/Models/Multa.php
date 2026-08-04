@@ -542,31 +542,33 @@ class Multa extends Model
     }
 
     /**
-     * Marca multa como paga SEM sincronizar financeiro
-     * Usado pelo FinanceiroController para evitar loop infinito
+     * Recalcula o status da multa a partir de todos os lancamentos vinculados.
+     *
+     * A multa somente fica paga quando possui ao menos um lancamento e nenhum
+     * deles esta pendente. Isso preserva a pendencia durante uma baixa parcial,
+     * pois o desdobramento cria um novo financeiro para a diferenca.
      */
-    public function marcarPagoSemSyncFinanceiro(int $id): void
+    public function sincronizarStatusFinanceiros(int $id): int
     {
-        $this->qb
-            ->table('multas')
-            ->where('id', '=', $id)
-            ->update([
-                'pago' => 'S',
-                'updated_at' => now(),
-            ]);
-    }
+        $resumo = $this->qb
+            ->table('financeiro')
+            ->selectRaw("COUNT(*) AS total, SUM(CASE WHEN pago = 'N' THEN 1 ELSE 0 END) AS pendentes")
+            ->where('id_multa', '=', $id)
+            ->first();
 
-    /**
-     * Marca multa como nao paga SEM sincronizar financeiro
-     * Usado pelo FinanceiroController para evitar loop infinito
-     */
-    public function marcarNaoPagoSemSyncFinanceiro(int $id): void
-    {
-        $this->qb
+        $total = (int) ($resumo['total'] ?? 0);
+        if ($total === 0) {
+            return 0;
+        }
+
+        $pago = (int) ($resumo['pendentes'] ?? 0) === 0 ? 'S' : 'N';
+
+        return $this->qb
             ->table('multas')
             ->where('id', '=', $id)
+            ->where('pago', '<>', $pago)
             ->update([
-                'pago' => 'N',
+                'pago' => $pago,
                 'updated_at' => now(),
             ]);
     }
