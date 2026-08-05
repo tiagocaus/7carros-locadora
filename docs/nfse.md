@@ -10,6 +10,10 @@ O legado `NFSE_IMPLEMENTACAO.md` pode ser usado como referencia historica, mas n
 
 O modulo emite NFS-e por filial a partir de configuracoes em `nfse_configuracoes`.
 
+O contato do prestador usa o email e o telefone principais das tabelas
+`contatos_emails` e `contatos_telefones`, resolvidos pela Model `MatrizFilial`.
+Nao use campos diretos de contato da tabela `matrizes_filiais`.
+
 Tipos de emissao suportados:
 
 | tipo_emissao | Modelo | Protocolo | XML | Assinatura | Fluxo |

@@ -108,10 +108,8 @@ $faturaLocacaoVeiculo = !empty($lancamento['id_contrato']) || !empty($lancamento
             <?php if ($cidadeUf): ?>
             <div class="empresa-detalhe"><?= htmlspecialchars($cidadeUf) ?><?= !empty($empresa['cep']) ? ' - ' . t('modules.financeiro.print_pdf.zip') . ': ' . htmlspecialchars($empresa['cep']) : '' ?></div>
             <?php endif; ?>
-            <?php if (!empty($empresa['celular'])): ?>
-            <div class="empresa-detalhe"><?= t('modules.financeiro.print_pdf.phone_short') ?>: <?= htmlspecialchars($empresa['celular']) ?></div>
-            <?php elseif (!empty($empresa['fixo'])): ?>
-            <div class="empresa-detalhe"><?= t('modules.financeiro.print_pdf.phone_short') ?>: <?= htmlspecialchars($empresa['fixo']) ?></div>
+            <?php if (!empty($empresa['telefone'])): ?>
+            <div class="empresa-detalhe"><?= t('modules.financeiro.print_pdf.phone_short') ?>: <?= htmlspecialchars($empresa['telefone']) ?></div>
             <?php endif; ?>
         </td>
         <td style="width: 25%;">

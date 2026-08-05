@@ -22,6 +22,7 @@ use App\Models\HorarioFuncionamento;
 use App\Models\HorarioExcecao;
 use App\Models\Feriado;
 use App\Models\Cliente;
+use App\Models\ContatoEmail;
 use App\Models\FormaPagamento;
 use App\Models\Financeiro;
 use App\Helpers\DateHelper;
@@ -79,10 +80,7 @@ class PublicWebsiteController
                 $cidade       = trim($f['cidade'] ?? '');
                 $nomeFantasia = trim($f['nome_fantasia'] ?? $f['razao_social'] ?? '');
                 $cidadeOuNome = $cidade !== '' ? $cidade : $nomeFantasia;
-                $telefone     = trim($this->qbPrimeiroContato('matriz_filial', (int) $f['id'], 'telefones', 'telefone'));
-                if ($telefone === '') {
-                    $telefone = trim($f['celular'] ?? '');
-                }
+                $telefone     = trim((string) ($f['telefone'] ?? ''));
 
                 // Pula filiais sem dados uteis pra exibir no select
                 if ($estado === '' && $cidadeOuNome === '') {
@@ -99,7 +97,8 @@ class PublicWebsiteController
                     'label'             => $label,
                     'email'             => $f['email'] ?? '',
                     'telefone'          => $telefone,
-                    'celular'           => $f['celular'] ?? '',
+                    'celular'           => $telefone,
+                    'whatsapp'          => $f['whatsapp'] ?? '',
                     'currency_code'     => $f['currency_code'] ?? 'BRL',
                     'locale'            => $f['locale'] ?? 'pt_BR',
                     'simbolo_moeda'     => $c[0],
@@ -859,7 +858,7 @@ class PublicWebsiteController
             }
 
             // Notificacao 7Carros -> locadora (whatsapp sistema, dados da reserva)
-            if (function_exists('queue_system_message') && !empty($empresaMatriz['celular'])) {
+            if (function_exists('queue_system_message') && !empty($empresaMatriz['whatsapp'])) {
                 $msgLocadora = "🔔 *Novo pedido de reserva*\n\n"
                     . "Codigo: *{$codigo}*\n"
                     . "Cliente: " . ($clienteInfo['nome'] ?? '-') . "\n"
@@ -869,7 +868,7 @@ class PublicWebsiteController
                     . ($pagamentoAntecipado ? "\n💳 Aguarda pagamento do cliente." : '');
                 try {
                     queue_system_message('whatsapp', [
-                        'to' => preg_replace('/\D/', '', (string) $empresaMatriz['celular']),
+                        'to' => preg_replace('/\D/', '', (string) $empresaMatriz['whatsapp']),
                         'message' => $msgLocadora,
                         'id_matriz_filial' => (int) ($empresaMatriz['id'] ?? 0),
                     ], $chave);
@@ -1392,10 +1391,13 @@ HTML;
             // Buscar email do tenant (matriz) via MatrizFilial Model
             $mfModel = new MatrizFilial();
             $tenant = $mfModel->buscarMatriz();
+            $emailsDestino = !empty($tenant['id'])
+                ? (new ContatoEmail())->listarParaEnvio('matriz_filial', (int) $tenant['id'], $chave)
+                : [];
 
             $this->restoreTenantContext();
 
-            $emailDestino = $tenant['email'] ?? '';
+            $emailDestino = (string) ($emailsDestino[0]['email'] ?? '');
             if (empty($emailDestino)) {
                 Response::json(['success' => false, 'message' => 'Email de destino nao configurado'], 500);
                 return;

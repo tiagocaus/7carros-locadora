@@ -103,13 +103,25 @@ class TenantProvisioningService
                     'razao_social' => $dados['razao_social'] ?? $dados['nomeCompleto'],
                     'nome_fantasia' => $dados['nome_fantasia'] ?? $dados['nomeCompleto'],
                     'cpf_cnpj' => $dados['cpf_cnpj'] ?? '',
-                    'email' => $dados['email'],
                     'locale' => 'pt_BR',
                     'currency_code' => 'BRL',
                     'date_format' => 'd/m/Y H:i:s',
                     'sequencia_locacoes' => 1,
                     'sequencia_contratos' => 1,
                     'sequencia_financeiro' => 1,
+                ]);
+
+            // O email da empresa pertence a tabela normalizada de contatos.
+            $this->qb
+                ->table('contatos_emails')
+                ->withChave($chave)
+                ->insert([
+                    'entidade_tipo' => 'matriz_filial',
+                    'entidade_id' => $idMatriz,
+                    'email' => $dados['email'],
+                    'descricao' => 'Principal',
+                    'principal' => 'S',
+                    'recebe_email' => 'S',
                 ]);
 
             // 3. Link funcionário → filial

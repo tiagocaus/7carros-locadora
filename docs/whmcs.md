@@ -33,6 +33,8 @@ O WHMCS envia automaticamente o `accesshash` do Server Module em cada chamada. A
 ### 1. Criar Tenant
 
 Cria o usuário admin, a matriz (filial principal), a role "Proprietário" com todas as permissões e vincula tudo.
+O email recebido pertence ao funcionário e também cria o email principal da
+matriz em `contatos_emails`; a coluna legada `matrizes_filiais.email` não é usada.
 
 ```
 POST /webhook/whmcs/criar

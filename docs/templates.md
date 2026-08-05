@@ -407,6 +407,11 @@ O layout padrao permanece limitado a `600px`. Conteudos tabulares que informam
 largura disponivel com limite de `1000px`. Em telas de ate `640px`, o container
 volta a `100%` e reduz os espacamentos para preservar a leitura.
 
+`{{empresa.email}}` usa o email principal de `contatos_emails`,
+`{{empresa.telefone}}` usa o telefone principal de `contatos_telefones` e
+`{{empresa.whatsapp}}` usa o primeiro telefone autorizado para WhatsApp. As
+colunas diretas de contato em `matrizes_filiais` foram removidas.
+
 ### Estrutura
 
 ```html

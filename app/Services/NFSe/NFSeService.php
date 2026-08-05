@@ -805,7 +805,7 @@ class NFSeService
                 'cnpj' => $empresa['cpf_cnpj'] ?? '',
                 'razao_social' => $empresa['razao_social'] ?? '',
                 'inscricao_municipal' => $empresa['ins_muni'] ?? $empresa['inscricao_municipal'] ?? '',
-                'telefone' => $empresa['celular'] ?? '',
+                'telefone' => $empresa['telefone'] ?? '',
                 'email' => $empresa['email'] ?? '',
                 'regime_tributario' => (int) ($config['regime_tributario'] ?? 1),
                 'reg_apuracao_sn' => (int) ($config['reg_apuracao_sn'] ?? 1),

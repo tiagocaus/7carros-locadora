@@ -45,7 +45,7 @@ class MatrizFilial extends Model
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale', 'timezone']);
+            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'currency_code', 'locale', 'timezone']);
 
         if (!empty($where)) {
             $query->whereRaw($where, $params);
@@ -55,7 +55,7 @@ class MatrizFilial extends Model
             $query->orderByRaw($orderBy);
         }
 
-        return $query->get();
+        return $this->hidratarContatos($query->get());
     }
 
     /**
@@ -65,10 +65,12 @@ class MatrizFilial extends Model
      */
     public function buscarMatriz(): ?array
     {
-        return $this->qb
+        $matriz = $this->qb
             ->table('matrizes_filiais')
             ->where('tipo', '=', 'M')
             ->first();
+
+        return $this->hidratarContato($matriz);
     }
 
     /**
@@ -79,10 +81,12 @@ class MatrizFilial extends Model
      */
     public function buscarPorId(int $id): ?array
     {
-        return $this->qb
+        $registro = $this->qb
             ->table('matrizes_filiais')
             ->where('id', '=', $id)
             ->first();
+
+        return $this->hidratarContato($registro);
     }
 
     /**
@@ -280,7 +284,7 @@ class MatrizFilial extends Model
     {
         $query = $this->qb
             ->table('matrizes_filiais')
-            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'email', 'celular', 'currency_code', 'locale', 'timezone']);
+            ->select(['id', 'chave', 'logo', 'tipo', 'status', 'razao_social', 'nome_fantasia', 'cpf_cnpj', 'cidade', 'estado', 'currency_code', 'locale', 'timezone']);
 
         if (!empty($search)) {
             $searchTerm = "%{$search}%";
@@ -292,10 +296,12 @@ class MatrizFilial extends Model
             });
         }
 
-        return $query
+        $registros = $query
             ->orderBy('razao_social', 'ASC')
             ->paginate($page, $perPage)
             ->get();
+
+        return $this->hidratarContatos($registros);
     }
 
     /**
@@ -620,10 +626,15 @@ class MatrizFilial extends Model
                 'nome_fantasia',
                 'razao_social',
                 'cpf_cnpj',
-                'celular',
-                'email',
+                'logo',
+                'rua',
+                'num',
+                'compl',
+                'bairro',
                 'cidade',
                 'estado',
+                'cep',
+                'site',
                 'locale',
                 'currency_code',
                 'date_format',
@@ -638,18 +649,7 @@ class MatrizFilial extends Model
             return null;
         }
 
-        $telefone = $this->qb
-            ->table('contatos_telefones')
-            ->select(['telefone'])
-            ->withChave($chave)
-            ->where('entidade_tipo', '=', 'matriz_filial')
-            ->where('entidade_id', '=', (int) $empresa['id'])
-            ->where('principal', '=', 'S')
-            ->first();
-
-        $empresa['telefone'] = $telefone['telefone'] ?? $empresa['celular'] ?? '';
-
-        return $empresa;
+        return $this->hidratarContato($empresa, $chave);
     }
 
     /**
@@ -660,22 +660,103 @@ class MatrizFilial extends Model
      */
     public function buscarDadosEmpresa(?int $filialId = null): ?array
     {
-        // Primeiro tenta buscar a filial especifica
         if ($filialId) {
-            $filial = $this->qb
-                ->table('matrizes_filiais')
-                ->where('id', '=', $filialId)
-                ->first();
-
+            $filial = $this->buscarPorId($filialId);
             if ($filial) {
                 return $filial;
             }
         }
 
-        // Se nao encontrou, busca a matriz
-        return $this->qb
-            ->table('matrizes_filiais')
-            ->where('tipo', '=', 'M')
-            ->first();
+        return $this->buscarMatriz();
+    }
+
+    /**
+     * Acrescenta os contatos normalizados da empresa.
+     *
+     * @param array<string, mixed>|null $registro
+     * @return array<string, mixed>|null
+     */
+    private function hidratarContato(?array $registro, ?string $chave = null): ?array
+    {
+        if ($registro === null) {
+            return null;
+        }
+
+        return $this->hidratarContatos([$registro], $chave)[0] ?? null;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $registros
+     * @return array<int, array<string, mixed>>
+     */
+    private function hidratarContatos(array $registros, ?string $chave = null): array
+    {
+        if ($registros === []) {
+            return [];
+        }
+
+        $ids = array_values(array_unique(array_map(
+            static fn(array $registro): int => (int) ($registro['id'] ?? 0),
+            $registros
+        )));
+        $ids = array_values(array_filter($ids, static fn(int $id): bool => $id > 0));
+
+        if ($ids === []) {
+            return $registros;
+        }
+
+        $emailsQuery = $this->qb
+            ->table('contatos_emails')
+            ->select(['entidade_id', 'email'])
+            ->where('entidade_tipo', '=', 'matriz_filial')
+            ->whereIn('entidade_id', $ids)
+            ->where('principal', '=', 'S')
+            ->orderBy('id', 'ASC');
+        if ($chave !== null && $chave !== '') {
+            $emailsQuery->withChave($chave);
+        }
+
+        $emails = [];
+        foreach ($emailsQuery->get() as $email) {
+            $entidadeId = (int) $email['entidade_id'];
+            $emails[$entidadeId] ??= (string) ($email['email'] ?? '');
+        }
+
+        $telefonesQuery = $this->qb
+            ->table('contatos_telefones')
+            ->select(['entidade_id', 'telefone', 'principal', 'whatsapp'])
+            ->where('entidade_tipo', '=', 'matriz_filial')
+            ->whereIn('entidade_id', $ids)
+            ->orderByDesc('principal')
+            ->orderBy('id', 'ASC');
+        if ($chave !== null && $chave !== '') {
+            $telefonesQuery->withChave($chave);
+        }
+
+        $telefones = [];
+        $whatsapps = [];
+        foreach ($telefonesQuery->get() as $telefone) {
+            $entidadeId = (int) $telefone['entidade_id'];
+            if (($telefone['principal'] ?? 'N') === 'S') {
+                $telefones[$entidadeId] ??= (string) ($telefone['telefone'] ?? '');
+            }
+            if (($telefone['whatsapp'] ?? 'N') === 'S') {
+                $whatsapps[$entidadeId] ??= (string) ($telefone['telefone'] ?? '');
+            }
+        }
+
+        foreach ($registros as &$registro) {
+            $id = (int) ($registro['id'] ?? 0);
+            $registro['email'] = $emails[$id] ?? '';
+            $registro['telefone'] = $telefones[$id] ?? '';
+            $registro['whatsapp'] = $whatsapps[$id] ?? '';
+
+            // Alias temporario para clientes externos antigos. A origem continua
+            // sendo contatos_telefones.
+            $registro['celular'] = $registro['telefone'];
+        }
+        unset($registro);
+
+        return $registros;
     }
 }

@@ -1024,12 +1024,18 @@ Endpoints que o site PHP do cliente chama:
 | `/api/public/cliente-existe` | GET | Não | `{existe: bool}` — check se CPF/CNPJ já é cliente do tenant (neutro, sem dados pessoais) |
 | `/api/public/cliente-login` | POST | Não | Autentica cliente com CPF ou email + senha. Retorna `{id, nome}` do cliente |
 | `/api/public/cliente-senha-reset` | POST | Não | Gera **token one-time** em `cliente_password_resets` (hash SHA-256, TTL 60min), envia link `{APP_URL}/public/redefinir-senha?token=XXX` pelo template `cliente_nova_senha`. Resposta sempre neutra |
+
 | `/public/redefinir-senha?token=XXX` | GET | Não | Form HTML standalone (sem depender do site) pra cliente definir nova senha. Valida token; se inválido/expirado, mostra aviso |
 | `/api/public/cliente-senha-definir` | POST | Não | Recebe `token` + `senha` (+ `_csrf` da sessão criada no GET). Valida token, aplica `password_hash` Argon2id, marca token `used_at` |
 | `/api/public/reserva` | POST | Não | Cria reserva, calcula total **server-side**, retorna `{codigo, total, pagamento_url?}` |
 | `/api/public/promocao-validar` | POST | Não | Valida código no canal `SITE` e devolve total original, desconto e total final calculados no servidor |
 | `/api/public/contato` | POST | Não | Envia mensagem de contato |
 | `/api/public/limpar-cache` | POST | Não | Invalida cache do site (chamado ao publicar) |
+
+Os campos empresariais `email`, `telefone` e `whatsapp` de
+`/api/public/dados-site` sao resolvidos nas tabelas normalizadas
+`contatos_emails` e `contatos_telefones`. As colunas diretas equivalentes em
+`matrizes_filiais` foram removidas.
 
 As rotas `/api/public/portal/*` também são consumidas pelo website, mas usam
 sessão opaca e proxies server-to-server próprios. A lista de endpoints,

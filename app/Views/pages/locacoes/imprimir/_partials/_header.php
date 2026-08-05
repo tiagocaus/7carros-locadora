@@ -40,10 +40,8 @@ $statusLabel = match($locacao['status'] ?? 'R') {
             <?php if ($cidadeUf): ?>
             <div class="empresa-detalhe" style="font-size: 8pt; color: #666;"><?= htmlspecialchars($cidadeUf) ?><?= !empty($empresa['cep']) ? ' - ' . t('modules.locacoes.pdf.zip_label') . ' ' . htmlspecialchars($empresa['cep']) : '' ?></div>
             <?php endif; ?>
-            <?php if (!empty($empresa['celular'])): ?>
-            <div class="empresa-detalhe" style="font-size: 8pt; color: #666;"><?= t('modules.locacoes.pdf.phone_label') ?> <?= htmlspecialchars($empresa['celular']) ?></div>
-            <?php elseif (!empty($empresa['fixo'])): ?>
-            <div class="empresa-detalhe" style="font-size: 8pt; color: #666;"><?= t('modules.locacoes.pdf.phone_label') ?> <?= htmlspecialchars($empresa['fixo']) ?></div>
+            <?php if (!empty($empresa['telefone'])): ?>
+            <div class="empresa-detalhe" style="font-size: 8pt; color: #666;"><?= t('modules.locacoes.pdf.phone_label') ?> <?= htmlspecialchars($empresa['telefone']) ?></div>
             <?php endif; ?>
         </td>
         <td style="width: 20%; vertical-align: top; padding: 0;">

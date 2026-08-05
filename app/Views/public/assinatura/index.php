@@ -297,7 +297,7 @@ $signatureI18n = [
         <?php if ($empresa): ?>
         <div class="text-center text-purple-200 text-sm">
             <p class="font-medium"><?= htmlspecialchars($empresa['nome_fantasia'] ?? $empresa['razao_social']) ?></p>
-            <?php $telefoneEmpresa = $empresa['telefone'] ?? $empresa['celular'] ?? ''; ?>
+            <?php $telefoneEmpresa = $empresa['telefone'] ?? ''; ?>
             <?php if (!empty($telefoneEmpresa)): ?>
             <p><i class="fas fa-phone mr-1"></i> <?= htmlspecialchars($telefoneEmpresa) ?></p>
             <?php endif; ?>

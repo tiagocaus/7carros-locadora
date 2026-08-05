@@ -140,7 +140,7 @@ $contrato = [
         ],
     ],
 ];
-$empresa = ['nome_fantasia' => 'Locadora Teste'];
+$empresa = ['nome_fantasia' => 'Locadora Teste', 'telefone' => '+55 21 97777-6666'];
 $assinatura = null;
 $logoPath = null;
 $qrPath = null;
@@ -151,6 +151,7 @@ include dirname(__DIR__) . '/app/Views/pages/contratos/imprimir/fatura.php';
 $html = (string) ob_get_clean();
 
 assertContratoFatura(str_contains($html, '>Retirada</th>'), 'Cabecalho Retirada nao foi renderizado.');
+assertContratoFatura(str_contains($html, '+55 21 97777-6666'), 'Cabecalho deve exibir o telefone normalizado da empresa.');
 assertContratoFatura(str_contains($html, '>Devolução</th>'), 'Cabecalho Devolucao nao foi renderizado.');
 assertContratoFatura(str_contains($html, 'Novo Uno &lt;Way&gt;'), 'Nome do veiculo nao foi escapado.');
 assertContratoFatura(str_contains($html, 'NCN1219 · Grupo A'), 'Placa e grupo nao foram agrupados.');

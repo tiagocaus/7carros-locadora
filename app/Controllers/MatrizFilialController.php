@@ -794,10 +794,7 @@ class MatrizFilialController
             'estado' => $request->input('estado'),
             'pais' => $request->input('pais'),
 
-            // Contato
-            'fixo' => $request->input('telefone_fixo'),
-            'celular' => $request->input('celular'),
-            'email' => $request->input('email'),
+            // Contatos sao persistidos exclusivamente nas tabelas normalizadas.
             'site' => $request->input('site'),
 
             // Horários agora são salvos em tabela separada (horarios_funcionamento)

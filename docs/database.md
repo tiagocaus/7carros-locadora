@@ -145,6 +145,22 @@ UNIQUE INDEX uniq_email (email)
 
 ## Schema Multi-tenant
 
+### Contatos de matrizes e filiais
+
+Os contatos de matrizes/filiais usam exclusivamente as tabelas normalizadas:
+
+- `contatos_emails`, com `entidade_tipo = 'matriz_filial'`;
+- `contatos_telefones`, com `entidade_tipo = 'matriz_filial'`.
+
+O email e o telefone de apresentacao sao os registros marcados com
+`principal = 'S'`. Para WhatsApp e SMS, use as flags do canal e os metodos de
+`ContatoTelefone`; para destinatarios de email, use `ContatoEmail::listarParaEnvio()`.
+
+As colunas `matrizes_filiais.email`, `matrizes_filiais.fixo` e
+`matrizes_filiais.celular` foram removidas pela migration `00417`. A Model
+`MatrizFilial` entrega os aliases canonicos `email`, `telefone` e `whatsapp`
+a partir das tabelas de contatos; nao recrie campos diretos para esses dados.
+
 ### Coluna `chave` (Obrigatória)
 
 **TODAS as tabelas de dados de tenant DEVEM ter a coluna `chave`:**

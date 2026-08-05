@@ -10,6 +10,7 @@ use App\Helpers\FileHelper;
 use App\I18n\TemplateRenderer;
 use App\I18n\TemplateVariables;
 use App\I18n\Translator;
+use App\Models\MatrizFilial;
 use App\Models\Model;
 
 /**
@@ -201,8 +202,8 @@ class MessageTemplateService
     /**
      * Enriquece $context['empresa'] com dados da matriz do tenant.
      *
-     * Mapeia colunas da tabela matrizes_filiais para os nomes de variavel usados
-     * nos templates (ex.: cpf_cnpj -> cnpj, celular -> telefone, rua -> endereco).
+     * Mapeia os dados da matriz e seus contatos normalizados para os nomes de
+     * variavel usados nos templates (ex.: cpf_cnpj -> cnpj, rua -> endereco).
      * Merge aditivo: so preenche chaves ausentes ou com valor vazio.
      * Pula enrichment para emails do sistema (_system_message).
      */
@@ -214,11 +215,7 @@ class MessageTemplateService
 
         if ($this->empresaCache === null) {
             try {
-                $matriz = $this->db
-                    ->table('matrizes_filiais')
-                    ->withChave($this->chave)
-                    ->where('tipo', '=', 'M')
-                    ->first();
+                $matriz = (new MatrizFilial())->buscarDadosEmpresaPorChave($this->chave);
             } catch (\Throwable $e) {
                 $matriz = null;
             }
@@ -233,7 +230,8 @@ class MessageTemplateService
                 'razao_social'  => $matriz['razao_social'] ?? '',
                 'cnpj'          => $matriz['cpf_cnpj'] ?? '',
                 'email'         => $matriz['email'] ?? '',
-                'telefone'      => $matriz['celular'] ?? $matriz['fixo'] ?? '',
+                'telefone'      => $matriz['telefone'] ?? '',
+                'whatsapp'      => $matriz['whatsapp'] ?? '',
                 'endereco'      => $matriz['rua'] ?? '',
                 'numero'        => $matriz['num'] ?? '',
                 'complemento'   => $matriz['compl'] ?? '',

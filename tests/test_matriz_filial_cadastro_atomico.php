@@ -13,6 +13,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 use App\Core\Database;
+use App\Models\MatrizFilial;
 use App\Models\Model;
 use App\Services\MatrizFilialCadastroService;
 
@@ -127,6 +128,38 @@ try {
         assertMatrizFilialCadastro(
             (int) ($linha['total'] ?? 0) === $esperado && ($linha['chave'] ?? '') === $chave,
             "Falha ao persistir {$tabela} com isolamento por chave."
+        );
+    }
+
+    $filialComContatos = (new MatrizFilial())->buscarPorId($id);
+    assertMatrizFilialCadastro(
+        ($filialComContatos['email'] ?? '') === "teste-{$sufixo}@example.com",
+        'MatrizFilial nao retornou o email principal normalizado.'
+    );
+    assertMatrizFilialCadastro(
+        ($filialComContatos['telefone'] ?? '') === '+55 (27) 99999-0000',
+        'MatrizFilial nao retornou o telefone principal normalizado.'
+    );
+    assertMatrizFilialCadastro(
+        ($filialComContatos['whatsapp'] ?? '') === '+55 (27) 99999-0000',
+        'MatrizFilial nao retornou o telefone autorizado para WhatsApp.'
+    );
+
+    $migrationContatosAplicada = (int) Database::fetchColumn(
+        'SELECT COUNT(*) FROM migrations WHERE migration = ?',
+        ['00417_drop_legacy_contact_columns_from_matrizes_filiais.php']
+    ) > 0;
+    if ($migrationContatosAplicada) {
+        $colunasLegadas = (int) Database::fetchColumn(
+            "SELECT COUNT(*)
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'matrizes_filiais'
+               AND COLUMN_NAME IN ('fixo', 'celular', 'email')"
+        );
+        assertMatrizFilialCadastro(
+            $colunasLegadas === 0,
+            'A migration 00417 esta registrada, mas ainda existem colunas legadas de contato.'
         );
     }
 

@@ -104,7 +104,11 @@ function assertFinanceiroFaturaLocacao(bool $condition, string $message): void
 
 function renderFinanceiroFatura(array $lancamento): string
 {
-    $empresa = ['nome_fantasia' => 'Locadora Teste', 'cpf_cnpj' => '00.000.000/0001-00'];
+    $empresa = [
+        'nome_fantasia' => 'Locadora Teste',
+        'cpf_cnpj' => '00.000.000/0001-00',
+        'telefone' => '+55 11 98888-7777',
+    ];
     $cliente = ['nome_rsocial' => 'Cliente Teste', 'cpf_cnpj' => '000.000.000-00'];
     $fornecedor = [];
     $contraparte = $cliente;
@@ -136,6 +140,7 @@ $baseLancamento = [
 ];
 
 $htmlSemVinculo = renderFinanceiroFatura($baseLancamento);
+assertFinanceiroFaturaLocacao(str_contains($htmlSemVinculo, '+55 11 98888-7777'), 'Fatura deve exibir o telefone normalizado da empresa.');
 assertFinanceiroFaturaLocacao(!str_contains($htmlSemVinculo, 'Fatura de serviço locação do veículo sem condutor'), 'Fatura sem vinculo nao deve exibir titulo de locacao.');
 assertFinanceiroFaturaLocacao(!str_contains($htmlSemVinculo, '7711-0/00'), 'Fatura sem vinculo nao deve exibir CNAE.');
 assertFinanceiroFaturaLocacao(!str_contains($htmlSemVinculo, 'NÃO RETENÇÃO DE IMPOSTOS'), 'Fatura sem vinculo nao deve exibir aviso de ISS.');
