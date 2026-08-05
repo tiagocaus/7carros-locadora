@@ -583,9 +583,18 @@ class VeiculosController
     public function buscar(Request $request): void
     {
         try {
-            $search = $request->query('q', '');
+            $search = trim((string) $request->query('q', ''));
+            $grupoId = (int) $request->query('id_grupo', 0);
+            $filialId = (int) $request->query('id_filial', 0);
+            $somenteDisponiveis = (string) $request->query('somente_disponiveis', '') === '1';
+            $limit = max(1, min((int) $request->query('limit', 50), 100));
             $chave = Auth::chave();
             $model = new Veiculo();
+
+            if ($filialId > 0 && !FilialHelper::temAcessoFilial($filialId)) {
+                Response::json(['success' => false, 'message' => 'Voce nao tem acesso a esta filial'], 403);
+                return;
+            }
 
             // Aplicar filtro de filial
             if (Auth::can('matrizes_filiais.listar_todas')) {
@@ -595,23 +604,27 @@ class VeiculosController
                 [$filialWhere, $filialParams] = FilialHelper::whereFiliais('v.id_matriz_filial');
             }
 
-            $veiculos = $model->listarParaSelect($chave, $filialWhere, $filialParams);
+            $veiculos = $model->listarParaSelect(
+                $chave,
+                $filialWhere,
+                $filialParams,
+                $search,
+                $grupoId > 0 ? $grupoId : null,
+                $filialId > 0 ? $filialId : null,
+                $somenteDisponiveis,
+                $limit
+            );
 
-            // Aplicar filtro de busca e formatar para chosen
-            $data = [];
-            $normalize = function ($str) {
-                return preg_replace('/[\x{0300}-\x{036f}]/u', '', \Normalizer::normalize($str, \Normalizer::FORM_D));
-            };
-            $searchNorm = mb_strtolower($normalize($search));
-            foreach ($veiculos as $v) {
-                $text = $v['placa'] . ' - ' . $v['marca'] . ' ' . $v['modelo'];
-                if (empty($search) || str_contains(mb_strtolower($normalize($text)), $searchNorm)) {
-                    $data[] = ['id' => $v['id'], 'text' => $text];
-                    if (count($data) >= 50) {
-                        break;
-                    }
-                }
-            }
+            $data = array_map(static function (array $veiculo): array {
+                return [
+                    'id' => (int) $veiculo['id'],
+                    'text' => trim(
+                        ($veiculo['placa'] ?? '') . ' - ' .
+                        trim(($veiculo['marca'] ?? '') . ' ' . ($veiculo['modelo'] ?? '')),
+                        ' -'
+                    ),
+                ];
+            }, $veiculos);
 
             Response::json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
@@ -769,7 +782,7 @@ class VeiculosController
             }
 
             // Tratar checkbox vender
-            $dados['vender'] = isset($dados['vender']) && $dados['vender'] ? 'S' : 'N';
+            $dados['vender'] = $this->normalizarFlagSimNao($dados['vender'] ?? null);
 
             // Converter plano_manutencao_array para JSON
             if (!empty($dados['plano_manutencao_array'])) {
@@ -976,8 +989,8 @@ class VeiculosController
             }
 
             // Tratar checkbox vender
-            if (isset($dados['vender'])) {
-                $dados['vender'] = $dados['vender'] ? 'S' : 'N';
+            if (array_key_exists('vender', $dados)) {
+                $dados['vender'] = $this->normalizarFlagSimNao($dados['vender']);
             }
 
             // Converter plano_manutencao_array para JSON
@@ -1517,6 +1530,14 @@ class VeiculosController
         }
 
         return (int) $value;
+    }
+
+    /**
+     * Normaliza flags persistidas como S/N sem usar truthiness de strings.
+     */
+    private function normalizarFlagSimNao(mixed $valor): string
+    {
+        return $valor === 'S' ? 'S' : 'N';
     }
 
     private function normalizarVencimentoEncargo(?string $vencimento): ?string

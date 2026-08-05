@@ -792,23 +792,59 @@ class Veiculo extends Model
      * @param string $chave Chave do tenant
      * @param string|null $filialWhere Clausula WHERE de filiais
      * @param array $filialParams Parametros da clausula de filiais
+     * @param string $search Busca por placa, marca ou modelo
+     * @param int|null $grupoId Grupo selecionado (opcional)
+     * @param int|null $filialId Filial selecionada (opcional)
+     * @param bool $somenteDisponiveis Restringe aos veiculos com disponibilidade D
+     * @param int $limit Limite de resultados (maximo 100)
      * @return array Lista de veiculos
      */
     public function listarParaSelect(
         string $chave,
         ?string $filialWhere = null,
-        array $filialParams = []
+        array $filialParams = [],
+        string $search = '',
+        ?int $grupoId = null,
+        ?int $filialId = null,
+        bool $somenteDisponiveis = false,
+        int $limit = 50
     ): array {
         $query = $this->qb
             ->table('veiculos', 'v')
             ->select(['v.id', 'v.placa', 'v.modelo', 'v.marca']);
 
+        if ($grupoId !== null) {
+            $query->where('v.id_grupo', '=', $grupoId);
+        }
+
+        if ($filialId !== null) {
+            $query->where('v.id_matriz_filial', '=', $filialId);
+        }
+
+        if ($somenteDisponiveis) {
+            $query->where('v.disponibilidade', '=', 'D');
+        }
+
         if (!empty($filialWhere)) {
             $query->whereRaw($filialWhere, $filialParams);
         }
 
+        $search = trim($search);
+        if ($search !== '') {
+            $searchTerm = '%' . $search . '%';
+            $placaNormalizada = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $search) ?? '');
+            $placaTerm = '%' . $placaNormalizada . '%';
+
+            $query->whereRaw(
+                "(v.placa LIKE ? OR v.marca LIKE ? OR v.modelo LIKE ? OR UPPER(REPLACE(REPLACE(v.placa, '-', ''), ' ', '')) LIKE ?)",
+                [$searchTerm, $searchTerm, $searchTerm, $placaTerm]
+            );
+        }
+
         return $query
             ->orderBy('v.modelo', 'ASC')
+            ->orderBy('v.placa', 'ASC')
+            ->limit(max(1, min($limit, 100)))
             ->get();
     }
 

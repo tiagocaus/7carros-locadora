@@ -52,7 +52,7 @@ app/
 | GET | /api/contratos | ContratosController@index | Lista paginada |
 | GET | /api/contratos/{id} | ContratosController@show | Detalhes |
 | GET | /api/contratos/grupos | ContratosController@gruposPorFilial | Grupos disponiveis |
-| GET | /api/contratos/veiculos | ContratosController@veiculosPorGrupo | Veiculos disponiveis |
+| GET | /api/veiculos/buscar | VeiculosController@buscar | Busca server-side de veiculos disponiveis por grupo/filial |
 | GET | /api/contratos/valores-grupo/{id} | ContratosController@valoresGrupo | Valores do grupo |
 
 ### CRUD
@@ -135,6 +135,8 @@ O formulario possui 9 abas:
 
 ### Aba 2: Veiculos
 - Lista de veiculos adicionados ao contrato
+- O select de veiculo usa busca server-side: abre com ate 100 disponiveis do grupo/filial e, a partir de 3 caracteres, pesquisa no conjunto completo antes de aplicar o limite
+- A busca considera placa (com ou sem hifen), marca e modelo, sempre preservando os filtros de tenant, grupo, filial e disponibilidade
 - Campos por veiculo:
   - Grupo e Veiculo (filtros cascata)
   - Plano: KL (Km Livre), KMC (Km Controlado), KP (Km Pago/Cobrado)

@@ -27,7 +27,12 @@
         <!-- Veiculo -->
         <div class="form-input-group mb-4">
             <label for="veiculo" class="form-label-group"><?= t('modules.contratos.substitution.vehicle') ?> <span class="text-red-500">*</span></label>
-            <select id="veiculo" class="form-input-group-field chosen-select">
+            <select id="veiculo"
+                    class="form-input-group-field chosen-select"
+                    data-chosen-type="server-side"
+                    data-chosen-min-chars="3"
+                    data-chosen-placeholder="<?= t('modules.contratos.messages.select_vehicle_hint') ?>"
+                    disabled>
                 <option value=""><?= t('modules.contratos.messages.select_group_first') ?></option>
             </select>
         </div>
@@ -291,37 +296,34 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
     }
 
-    async function carregarVeiculosDoGrupo(grupoId, veiculoIdEditar = null, aplicarValoresPadrao = true) {
-        if (!grupoId || !filialId) return;
+    function configurarBuscaVeiculos(grupoId, limparSelecao = true) {
+        const habilitado = Boolean(grupoId && filialId);
+        const paramsBusca = new URLSearchParams({
+            id_grupo: String(grupoId || ''),
+            id_filial: String(filialId || ''),
+            somente_disponiveis: '1',
+            limit: '100'
+        });
+        const searchUrl = `/api/veiculos/buscar?${paramsBusca.toString()}`;
 
-        try {
-            const result = await API.get('/api/veiculos/por-grupo', {
-                id_grupo: grupoId,
-                id_filial: filialId
-            });
+        selectVeiculo.dataset.chosenSearchUrl = searchUrl;
+        if (selectVeiculo.chosenSelect) {
+            selectVeiculo.chosenSelect.options.searchUrl = searchUrl;
+        }
 
-            if (result.success) {
-                veiculosDisponiveis = result.data;
-                selectVeiculo.innerHTML = `<option value="">${i18n.selectVehicleHint}</option>`;
-                result.data.forEach(v => {
-                    // Nao filtrar se estamos editando (o veiculo atual deve aparecer)
-                    selectVeiculo.add(new Option(`${v.placa} - ${v.modelo}`, v.id));
-                });
-                // Atualizar Chosen Select
-                if (selectVeiculo.chosenSelect) {
-                    selectVeiculo.chosenSelect.refresh();
-                }
+        if (limparSelecao) {
+            veiculosDisponiveis = [];
+            selectVeiculo.innerHTML = `<option value="">${habilitado ? i18n.selectVehicleHint : i18n.selectGroupFirst}</option>`;
+            selectVeiculo.value = '';
+        }
 
-                if (aplicarValoresPadrao) {
-                    await carregarValoresGrupo(grupoId);
-                }
-            }
-        } catch (error) {
-            console.error('Erro ao carregar veiculos:', error);
-            window.parent.postMessage({
-                action: 'openAlert',
-                message: i18n.loadVehiclesError
-            }, '*');
+        if (selectVeiculo.chosenSelect) {
+            selectVeiculo.chosenSelect.setDisabled(
+                !habilitado,
+                habilitado ? i18n.selectVehicleHint : i18n.selectGroupFirst
+            );
+        } else {
+            selectVeiculo.disabled = !habilitado;
         }
     }
 
@@ -398,32 +400,32 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         selectGrupo.value = dados.id_grupo || '';
         if (selectGrupo.chosenSelect) selectGrupo.chosenSelect.refresh();
 
-        // Carregar veiculos do grupo e depois selecionar o veiculo
+        // Configurar busca server-side e selecionar o veiculo atual
         if (dados.id_grupo) {
-            carregarVeiculosDoGrupo(dados.id_grupo, dados.id_veiculo, false).then(() => {
-                // Se o veiculo atual nao esta na lista (ex: disponibilidade != 'D'), adicionar
-                if (dados.id_veiculo && !veiculosDisponiveis.find(v => v.id == dados.id_veiculo)) {
-                    veiculosDisponiveis.push({
-                        id: dados.id_veiculo,
-                        placa: dados.placa,
-                        marca: '',
-                        modelo: dados.modelo,
-                        tipo_combustivel: dados.tipo_combustivel || ''
-                    });
-                    selectVeiculo.add(new Option(`${dados.placa} - ${dados.modelo}`, dados.id_veiculo));
+            configurarBuscaVeiculos(dados.id_grupo, true);
+
+            if (dados.id_veiculo) {
+                const veiculoAtual = {
+                    id: dados.id_veiculo,
+                    placa: dados.placa,
+                    marca: '',
+                    modelo: dados.modelo,
+                    tipo_combustivel: dados.tipo_combustivel || '',
+                    odometro: dados.odometro_saida || '',
+                    tanque_fracao: dados.combustivel_saida || ''
+                };
+                veiculosDisponiveis.push(veiculoAtual);
+                selectVeiculo.add(new Option(`${dados.placa} - ${dados.modelo}`, dados.id_veiculo));
+                selectVeiculo.value = dados.id_veiculo;
+                if (selectVeiculo.chosenSelect) {
+                    selectVeiculo.chosenSelect.refresh();
                 }
-                selectVeiculo.value = dados.id_veiculo || '';
-                if (selectVeiculo.chosenSelect) selectVeiculo.chosenSelect.refresh();
 
                 // Veiculo salvo: bloquear troca de veiculo
-                if (dados._salvo) {
-                    selectVeiculo.disabled = true;
-                    if (selectVeiculo.chosenSelect) {
-                        selectVeiculo.chosenSelect.wrapper.style.pointerEvents = 'none';
-                        selectVeiculo.chosenSelect.wrapper.style.opacity = '0.6';
-                    }
+                if (dados._salvo && selectVeiculo.chosenSelect) {
+                    selectVeiculo.chosenSelect.setDisabled(true);
                 }
-            });
+            }
         }
 
         // Veiculo salvo: bloquear troca de grupo
@@ -463,13 +465,39 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         FuelLabels.updateSelectOptions(selectTanque, tipoCombustivel, i18n.fuelFull, i18n.fuelReserve);
     }
 
-    function carregarDadosVeiculo(veiculoId) {
-        const veiculoData = veiculosDisponiveis.find(v => v.id == veiculoId);
+    async function carregarDadosVeiculo(veiculoId) {
+        let veiculoData = veiculosDisponiveis.find(v => v.id == veiculoId);
+
+        if (!veiculoData && veiculoId) {
+            try {
+                const result = await API.get(`/api/veiculos/${veiculoId}`);
+
+                // Ignorar resposta atrasada se a selecao mudou.
+                if (selectVeiculo.value != veiculoId) {
+                    return null;
+                }
+
+                if (result.success && result.data) {
+                    veiculoData = result.data;
+                    veiculosDisponiveis.push(veiculoData);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dados do veiculo:', error);
+                window.parent.postMessage({
+                    action: 'openAlert',
+                    message: i18n.loadVehiclesError
+                }, '*');
+                return null;
+            }
+        }
+
         if (veiculoData) {
             inputOdometro.value = veiculoData.odometro || '';
             atualizarLabelsTanque(veiculoData.tipo_combustivel || '');
             selectTanque.value = veiculoData.tanque_fracao || '';
         }
+
+        return veiculoData || null;
     }
 
     function configurarEventos() {
@@ -481,19 +509,17 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         // Grupo muda
         selectGrupo.addEventListener('change', function() {
             if (selectGrupo.value) {
-                carregarVeiculosDoGrupo(selectGrupo.value);
+                configurarBuscaVeiculos(selectGrupo.value, true);
+                carregarValoresGrupo(selectGrupo.value);
             } else {
-                selectVeiculo.innerHTML = `<option value="">${i18n.selectGroupFirst}</option>`;
-                if (selectVeiculo.chosenSelect) {
-                    selectVeiculo.chosenSelect.refresh();
-                }
+                configurarBuscaVeiculos('', true);
             }
         });
 
         // Veiculo selecionado
-        selectVeiculo.addEventListener('change', function() {
+        selectVeiculo.addEventListener('change', async function() {
             if (selectVeiculo.value) {
-                carregarDadosVeiculo(selectVeiculo.value);
+                await carregarDadosVeiculo(selectVeiculo.value);
             }
         });
 
@@ -510,7 +536,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
     }
 
-    function salvarVeiculo() {
+    async function salvarVeiculo() {
         const plano = selectPlano.value;
         const grupoId = selectGrupo.value;
         const veiculoId = selectVeiculo.value;
@@ -530,7 +556,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
 
         // Buscar dados do veiculo
-        const veiculoData = veiculosDisponiveis.find(v => v.id == veiculoId);
+        let veiculoData = veiculosDisponiveis.find(v => v.id == veiculoId);
+        if (!veiculoData) {
+            veiculoData = await carregarDadosVeiculo(veiculoId);
+        }
         if (!veiculoData) {
             window.parent.postMessage({ action: 'openAlert', message: i18n.vehicleNotFound }, '*');
             return;
