@@ -246,7 +246,7 @@ Exemplos:
 |----------|------|-----------|
 | `nome` | text | Nome completo |
 | `primeiro_nome` | computed | Primeiro nome |
-| `cpf_cnpj` | document | CPF ou CNPJ formatado |
+| `cpf_cnpj` | document | CPF ou CNPJ formatado; documentos estrangeiros alfanuméricos são preservados como cadastrados |
 | `email` | text | Email |
 | `telefone` | phone | Telefone formatado |
 | `endereco_completo` | computed | Endereço completo |
@@ -336,9 +336,10 @@ Exemplos:
 {{cliente.telefone}}
 // (11) 98765-4321
 
-// DOCUMENT - CPF/CNPJ
+// DOCUMENT - CPF/CNPJ ou documento estrangeiro
 {{cliente.cpf_cnpj}}
 // 123.456.789-00
+// PAZ451648 (identificadores alfanuméricos são preservados)
 
 // COMPUTED - Calculado
 {{cliente.primeiro_nome}}     // João

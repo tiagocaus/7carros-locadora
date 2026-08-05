@@ -2860,10 +2860,14 @@ class TemplateVariables
     }
 
     /**
-     * Formata CPF ou CNPJ
+     * Formata CPF ou CNPJ e preserva documentos estrangeiros alfanumericos.
      */
     private static function formatDocument(string $doc): string
     {
+        if (preg_match('/[^\d\s.\/-]/u', $doc) === 1) {
+            return $doc;
+        }
+
         $doc = preg_replace('/\D/', '', $doc);
 
         if (strlen($doc) === 11) {
