@@ -86,7 +86,7 @@
                     <th class="table-header hidden md:table-cell text-center"><?= t('modules.financeiro.table.due_date') ?></th>
                     <th class="table-header hidden lg:table-cell text-right"><?= t('modules.financeiro.table.value') ?></th>
                     <th class="table-header w-36 text-center"><?= t('common.labels.status') ?></th>
-                    <th class="table-header px-2 w-48 text-center"><?= t('common.labels.actions') ?></th>
+                    <th class="table-header px-2 w-60 text-center"><?= t('common.labels.actions') ?></th>
                 </tr>
             </thead>
             <tbody id="financeirosTableBody" class="bg-white divide-y divide-slate-200">
@@ -404,7 +404,7 @@ $i18nFinanceiro = [
                     <td class="table-cell hidden md:table-cell text-center">${dataVenci}</td>
                     <td class="table-cell hidden lg:table-cell text-right font-medium ${corValor}">${valorDisplay}</td>
                     <td class="table-cell w-36 text-center">${statusBadge}</td>
-                    <td class="table-cell px-2 w-48 text-right">
+                    <td class="table-cell px-2 w-60 whitespace-nowrap text-right">
                         ${!pago && isReceita ? `<button title="${i18n.paymentLink}" class="btn-icon text-blue-600 hover:text-blue-800 btn-payment-link" data-id="${l.id}"><i class="fas fa-external-link-alt"></i></button>` : ''}
                         ${botaoNfse}
                         <button title="${i18n.printSend}" class="btn-icon text-blue-600 hover:text-blue-800 btn-imprimir-fatura" data-id="${l.id}"><i class="fas fa-print"></i></button>
