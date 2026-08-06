@@ -9,6 +9,10 @@ namespace App\Crons\Jobs;
  */
 abstract class BaseJob
 {
+    public const STATUS_SUCCESS = 'success';
+    public const STATUS_PARTIAL = 'partial';
+    public const STATUS_FAILED = 'failed';
+
     protected string $name = 'Unnamed Job';
     protected string $description = '';
     protected float $startTime = 0;
@@ -17,7 +21,7 @@ abstract class BaseJob
     /**
      * Executa o job
      *
-     * @return array ['success' => bool, 'message' => string, 'data' => array]
+     * @return array ['success' => bool, 'status' => success|partial|failed, 'message' => string, 'data' => array]
      */
     public function run(): array
     {
@@ -38,6 +42,12 @@ abstract class BaseJob
                 $result['data'] = [];
             }
 
+            $result['status'] = self::normalizeStatus(
+                $result['status'] ?? null,
+                (bool) $result['success']
+            );
+            $result['success'] = $result['status'] === self::STATUS_SUCCESS;
+
             $result['duration'] = $this->getDuration();
             $result['logs'] = $this->logs;
 
@@ -48,6 +58,7 @@ abstract class BaseJob
             
             return [
                 'success' => false,
+                'status' => self::STATUS_FAILED,
                 'message' => $e->getMessage(),
                 'errors' => [$e->getMessage()],
                 'duration' => $this->getDuration(),
@@ -59,7 +70,7 @@ abstract class BaseJob
     /**
      * Implementa a lógica do job (deve ser implementado pelas classes filhas)
      *
-     * @return array ['success' => bool, 'message' => string, 'data' => array]
+     * @return array ['success' => bool, 'status' => success|partial|failed, 'message' => string, 'data' => array]
      */
     abstract protected function handle(): array;
 
@@ -114,5 +125,14 @@ abstract class BaseJob
     public function getJobId(): string
     {
         return static::class;
+    }
+
+    public static function normalizeStatus(?string $status, bool $success): string
+    {
+        if (in_array($status, [self::STATUS_SUCCESS, self::STATUS_PARTIAL, self::STATUS_FAILED], true)) {
+            return $status;
+        }
+
+        return $success ? self::STATUS_SUCCESS : self::STATUS_FAILED;
     }
 }

@@ -73,6 +73,9 @@ class CalculateOverdueFeesJob extends BaseJob
 
         return [
             'success' => empty($falhas),
+            'status' => empty($falhas)
+                ? self::STATUS_SUCCESS
+                : ($totalAtualizados > 0 ? self::STATUS_PARTIAL : self::STATUS_FAILED),
             'message' => $message,
             'data' => [
                 'elegiveis' => $totalElegiveis,

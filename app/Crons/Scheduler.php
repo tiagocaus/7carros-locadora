@@ -85,6 +85,7 @@ class Scheduler
                     'job' => $job->getName(),
                     'job_id' => $jobId,
                     'success' => $result['success'] ?? false,
+                    'status' => $result['status'] ?? BaseJob::STATUS_FAILED,
                     'message' => $result['message'] ?? '',
                     'duration' => $result['duration'] ?? 0,
                     'data' => $result['data'] ?? [],
@@ -94,7 +95,11 @@ class Scheduler
                 $this->results[] = $entry;
                 $this->recordDailySummary($entry);
 
-                $status = $result['success'] ? '✓ SUCESSO' : '✗ FALHOU';
+                $status = match ($result['status'] ?? BaseJob::STATUS_FAILED) {
+                    BaseJob::STATUS_SUCCESS => '✓ SUCESSO',
+                    BaseJob::STATUS_PARTIAL => '⚠ SUCESSO PARCIAL',
+                    default => '✗ FALHOU',
+                };
                 echo "Status: {$status}\n";
                 echo "Duração: {$result['duration']}s\n";
                 echo "Mensagem: {$result['message']}\n";
@@ -109,6 +114,7 @@ class Scheduler
                     'job' => $job->getName(),
                     'job_id' => $jobId,
                     'success' => false,
+                    'status' => BaseJob::STATUS_FAILED,
                     'message' => 'Erro fatal: ' . $e->getMessage(),
                     'duration' => 0,
                     'data' => [],
@@ -338,11 +344,15 @@ class Scheduler
     private function getSummary(float $totalDuration, int $executed, int $skipped): array
     {
         $successful = 0;
+        $partial = 0;
         $failed = 0;
 
         foreach ($this->results as $result) {
-            if ($result['success']) {
+            $status = $result['status'] ?? ($result['success'] ? BaseJob::STATUS_SUCCESS : BaseJob::STATUS_FAILED);
+            if ($status === BaseJob::STATUS_SUCCESS) {
                 $successful++;
+            } elseif ($status === BaseJob::STATUS_PARTIAL) {
+                $partial++;
             } else {
                 $failed++;
             }
@@ -353,6 +363,7 @@ class Scheduler
             'executed' => $executed,
             'skipped' => $skipped,
             'successful' => $successful,
+            'partial' => $partial,
             'failed' => $failed,
             'duration' => $totalDuration,
             'timestamp' => now(),

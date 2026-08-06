@@ -140,6 +140,9 @@ class CheckPreventiveMaintenanceJob extends BaseJob
 
         return [
             'success' => empty($erros),
+            'status' => empty($erros)
+                ? self::STATUS_SUCCESS
+                : ($veiculosProcessados > count($erros) ? self::STATUS_PARTIAL : self::STATUS_FAILED),
             'message' => t('modules.manutencao.cron.result', [
                 'tenants' => $tenantsProcessados,
                 'veiculos' => $veiculosProcessados,

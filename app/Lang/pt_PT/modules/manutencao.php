@@ -57,8 +57,8 @@ return [
     'cron' => [
         'processing_tenant' => 'A processar tenant: :chave',
         'os_generated' => 'OS :código gerada para veículo :placa',
-        'finished' => 'Finalizado: :tenants tenants | :veículos veículos | :os OS geradas',
-        'result' => 'Processados :tenants tenants, :veículos veículos, :os OS geradas',
+        'finished' => 'Finalizado: :tenants tenants | :veiculos veículos | :os OS geradas',
+        'result' => 'Processados :tenants tenants, :veiculos veículos, :os OS geradas',
     ],
 
     // Logs de auditoria

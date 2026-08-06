@@ -241,6 +241,7 @@ try {
         echo "======================================\n";
         echo "Total Jobs: {$summary['total_jobs']}\n";
         echo "Successful: {$summary['successful']}\n";
+        echo "Partial: {$summary['partial']}\n";
         echo "Failed: {$summary['failed']}\n";
         echo "Duration: {$summary['duration']}s\n";
         echo "======================================\n\n";
@@ -261,6 +262,7 @@ try {
     echo "Executed: {$summary['executed']}\n";
     echo "Skipped: {$summary['skipped']}\n";
     echo "Successful: {$summary['successful']}\n";
+    echo "Partial: {$summary['partial']}\n";
     echo "Failed: {$summary['failed']}\n";
     echo "Duration: {$summary['duration']}s\n";
     echo "Timestamp: {$summary['timestamp']}\n";

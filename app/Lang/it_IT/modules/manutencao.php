@@ -57,8 +57,8 @@ return [
     'cron' => [
         'processing_tenant' => 'Elaborazione tenant: :chave',
         'os_generated' => 'OdL :código generato per veicolo :placa',
-        'finished' => 'Completato: :tenants tenants | :veículos veicoli | :os OdL generati',
-        'result' => 'Elaborati :tenants tenants, :veículos veicoli, :os OdL generati',
+        'finished' => 'Completato: :tenants tenants | :veiculos veicoli | :os OdL generati',
+        'result' => 'Elaborati :tenants tenants, :veiculos veicoli, :os OdL generati',
     ],
 
     // Log di audit

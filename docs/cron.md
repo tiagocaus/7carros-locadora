@@ -326,6 +326,22 @@ O `Scheduler` registra o resultado dos jobs diários em `storage/cron/daily-summ
 O `SendDailyCronSummaryJob` envia um email único para `APP_COMPANY_EMAIL` com status, duração, mensagem e contadores de cada job diário.
 Jobs recorrentes por minuto, 5, 15 ou 30 minutos não entram nesse resumo.
 
+O resultado dos jobs usa três estados:
+
+- `success`: execução integral, sem erros;
+- `partial`: parte do trabalho foi concluída, mas houve erros em itens individuais;
+- `failed`: falha fatal ou nenhum item concluído.
+
+O campo booleano `success` é mantido para compatibilidade e só é `true` no estado
+`success`. Sucessos parciais são destacados no email, contabilizados separadamente
+e usam o prefixo `[ATENCAO]` no assunto quando não há falhas ou jobs ausentes. Falhas
+e jobs ausentes usam o prefixo `[ERRO]`.
+
+Logs `WARNING` e `ERROR` repetidos são agrupados por nível, componente e motivo.
+O resumo mostra a quantidade e até três exemplos de entidades afetadas, limitado
+aos dez grupos mais recentes. Arquivos de resumo antigos, que armazenam logs como
+strings e não possuem o campo `status`, continuam compatíveis com o envio.
+
 ### RenovarContratosJob
 
 **Descrição**: processa contratos ativos com `auto_renovacao = 'auto'` e `data_renovacao <= hoje`.

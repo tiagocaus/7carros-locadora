@@ -83,6 +83,9 @@ class CleanupOldRecordingsJob extends BaseJob
 
         return [
             'success' => $erros === 0,
+            'status' => $erros === 0
+                ? self::STATUS_SUCCESS
+                : ($removidas > 0 ? self::STATUS_PARTIAL : self::STATUS_FAILED),
             'message' => "Removidas {$removidas} de {$totalEncontradas} gravacoes" . ($erros > 0 ? " ({$erros} erros)" : ''),
             'data' => [
                 'encontradas' => $totalEncontradas,

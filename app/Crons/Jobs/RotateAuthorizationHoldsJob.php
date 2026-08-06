@@ -150,7 +150,10 @@ class RotateAuthorizationHoldsJob extends BaseJob
         $this->log("Finalizado: {$rotacionados} rotacionados, {$expirados} expirados, " . count($erros) . " erros");
 
         return [
-            'success' => true,
+            'success' => empty($erros),
+            'status' => empty($erros)
+                ? self::STATUS_SUCCESS
+                : (($rotacionados + $expirados) > 0 ? self::STATUS_PARTIAL : self::STATUS_FAILED),
             'message' => "{$rotacionados} hold(s) rotacionado(s), {$expirados} expirado(s)",
             'data' => [
                 'rotacionados' => $rotacionados,

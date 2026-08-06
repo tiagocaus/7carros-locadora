@@ -96,6 +96,9 @@ class SerproAutoConsultaJob extends BaseJob
 
         return [
             'success' => $totalErros === 0,
+            'status' => $totalErros === 0
+                ? self::STATUS_SUCCESS
+                : ($totalProcessados > 0 ? self::STATUS_PARTIAL : self::STATUS_FAILED),
             'message' => $mensagem,
             'data' => [
                 'tenants_processados' => $totalProcessados,

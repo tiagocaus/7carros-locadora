@@ -69,6 +69,9 @@ class GerarEncargosFinanceiroJob extends BaseJob
 
         return [
             'success' => empty($erros),
+            'status' => empty($erros)
+                ? self::STATUS_SUCCESS
+                : (($lancamentosGerados + $encargosRenovados) > 0 ? self::STATUS_PARTIAL : self::STATUS_FAILED),
             'message' => "{$lancamentosGerados} lancamento(s) gerado(s), {$encargosRenovados} encargo(s) renovado(s)",
             'data' => [
                 'tenants_processados' => $tenantsProcessados,

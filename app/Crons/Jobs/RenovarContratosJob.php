@@ -71,7 +71,10 @@ class RenovarContratosJob extends BaseJob
         $this->log("Finalizado: {$tenantsProcessados} tenants, {$renovados} contratos renovados, " . count($erros) . " erros");
 
         return [
-            'success' => true,
+            'success' => empty($erros),
+            'status' => empty($erros)
+                ? self::STATUS_SUCCESS
+                : ($renovados > 0 ? self::STATUS_PARTIAL : self::STATUS_FAILED),
             'message' => "{$renovados} contrato(s) renovado(s) em {$tenantsProcessados} tenant(s)",
             'data' => [
                 'tenants_processados' => $tenantsProcessados,
