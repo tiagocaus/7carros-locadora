@@ -174,21 +174,8 @@
             return icons[code] || 'fa-solid fa-plug';
         }
 
-        function getCountryFlag(code) {
-            const gatewayCountries = {
-                'asaas': 'BR',
-                'stripe': 'INTL',
-                'square': 'INTL',
-                'cora': 'BR',
-                'efipay': 'BR',
-                'inter': 'BR',
-                'sicoob': 'BR',
-                'bradesco': 'BR',
-                'itau': 'BR',
-                'bancard': 'PY',
-                'pagopar': 'PY'
-            };
-            const country = gatewayCountries[code] || 'INTL';
+        function getCountryFlag(country) {
+            country = String(country || 'INTL').toUpperCase();
 
             if (country === 'BR') return `<span class="mr-1" title="${i18n.countryBR}">🇧🇷</span>`;
             if (country === 'PY') return `<span class="mr-1" title="${i18n.countryPY}">🇵🇾</span>`;
@@ -275,7 +262,7 @@
                             </div>
                             <div>
                                 <div class="font-medium flex items-center">
-                                    ${getCountryFlag(gatewayCode)}
+                                    ${getCountryFlag(item.country)}
                                     ${nomeEscapado}
                                 </div>
                                 <div class="text-xs text-slate-500">
