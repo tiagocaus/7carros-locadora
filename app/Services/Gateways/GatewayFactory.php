@@ -24,6 +24,7 @@ class GatewayFactory
         'sicoob' => SicoobGateway::class,
         'bradesco' => BradescoGateway::class,
         'itau' => ItauGateway::class,
+        'santander' => SantanderGateway::class,
         'bancard' => BancardGateway::class,
         'pagopar' => PagoparGateway::class,
     ];
@@ -96,6 +97,7 @@ class GatewayFactory
                     'methods' => $instance->getSupportedMethods(),
                     'supported_currencies' => $instance->getSupportedCurrencies(),
                     'config_schema' => $instance->getConfigSchema(),
+                    'certificate_config' => $instance->getCertificateConfig(),
                     'documentation_url' => $instance->getDocumentationUrl(),
                 ];
             } catch (\Exception $e) {
@@ -185,6 +187,7 @@ class GatewayFactory
                 'methods' => $instance->getSupportedMethods(),
                 'supported_currencies' => $instance->getSupportedCurrencies(),
                 'config_schema' => $instance->getConfigSchema(),
+                'certificate_config' => $instance->getCertificateConfig(),
                 'documentation_url' => $instance->getDocumentationUrl(),
             ];
         } catch (\Exception $e) {

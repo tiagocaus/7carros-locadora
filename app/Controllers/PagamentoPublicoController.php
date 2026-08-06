@@ -327,7 +327,22 @@ class PagamentoPublicoController
                 $chargeData['customer_name'] = $link['cliente_nome'] ?? 'Cliente';
                 $chargeData['customer_email'] = $link['cliente_email'] ?? null;
                 $chargeData['customer_phone'] = $link['cliente_telefone'] ?? null;
+                $chargeData['customer_address'] = $link['cliente_endereco'] ?? null;
+                $chargeData['customer_address_number'] = $link['cliente_numero'] ?? null;
+                $chargeData['customer_neighborhood'] = $link['cliente_bairro'] ?? null;
+                $chargeData['customer_city'] = $link['cliente_cidade'] ?? null;
+                $chargeData['customer_state'] = $link['cliente_estado'] ?? null;
+                $chargeData['customer_postal_code'] = $link['cliente_cep'] ?? null;
             }
+
+            $chargeData['beneficiary_name'] = $link['empresa_razao_social'] ?? $link['empresa_nome'] ?? null;
+            $chargeData['beneficiary_document'] = $link['empresa_cnpj'] ?? null;
+            $chargeData['beneficiary_address'] = $link['empresa_endereco'] ?? null;
+            $chargeData['beneficiary_address_number'] = $link['empresa_numero'] ?? null;
+            $chargeData['beneficiary_neighborhood'] = $link['empresa_bairro'] ?? null;
+            $chargeData['beneficiary_city'] = $link['empresa_cidade'] ?? null;
+            $chargeData['beneficiary_state'] = $link['empresa_uf'] ?? null;
+            $chargeData['beneficiary_postal_code'] = $link['empresa_cep'] ?? null;
 
             // Se for cartão, incluir dados do cartão
             if (in_array($metodo, ['credit_card', 'debit_card'], true)) {
@@ -924,6 +939,16 @@ class PagamentoPublicoController
     public function webhookItauInfo(Request $request): void
     {
         $this->renderWebhookInfo('itau');
+    }
+
+    public function webhookSantander(Request $request): void
+    {
+        $this->webhook($request, 'santander');
+    }
+
+    public function webhookSantanderInfo(Request $request): void
+    {
+        $this->renderWebhookInfo('santander');
     }
 
     public function webhookBancard(Request $request): void

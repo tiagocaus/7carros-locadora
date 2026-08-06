@@ -2,7 +2,7 @@
 
 ## Visao Geral
 
-Sistema multi-gateway para processamento de pagamentos online com link publico de pagamento. Suporta 11 gateways (Brasil, Paraguai e Internacional) com arquitetura baseada em Interface + Factory Pattern.
+Sistema multi-gateway para processamento de pagamentos online com link publico de pagamento. Suporta 12 gateways (Brasil, Paraguai e Internacional) com arquitetura baseada em Interface + Factory Pattern.
 
 ## Gateways Disponiveis
 
@@ -17,6 +17,7 @@ Sistema multi-gateway para processamento de pagamentos online com link publico d
 | **Sicoob** | `sicoob` | BR | PIX, Boleto | REST com OAuth2 + mTLS |
 | **Bradesco** | `bradesco` | BR | PIX, Boleto | REST com certificado .pfx |
 | **Itau** | `itau` | BR | PIX, Boleto | REST com mTLS (BoleCode) |
+| **Banco Santander** | `santander` | BR | PIX, Boleto/Boleto SX | REST com OAuth2 + mTLS |
 | **Bancard** | `bancard` | PY | Cartao | REST (vPOS 2.0) |
 | **Pagopar** | `pagopar` | PY | Cartao, Transferencia | REST |
 
@@ -39,6 +40,7 @@ app/Services/Gateways/
 ├── SicoobGateway.php
 ├── BradescoGateway.php
 ├── ItauGateway.php
+├── SantanderGateway.php
 ├── BancardGateway.php
 └── PagoparGateway.php
 ```
@@ -55,6 +57,7 @@ Metodos principais:
 | `getSupportedMethods()` | `array` | ['pix', 'boleto', 'credit_card', 'debit_card'] |
 | `getSupportedCurrencies()` | `array` | Codigos ISO 4217 (ex: ['BRL']) |
 | `getConfigSchema()` | `array` | Schema dos campos de configuracao |
+| `getCertificateConfig()` | `array|null` | Informa se o gateway aceita/exige certificado e formatos permitidos |
 | `validateCredentials(array $credentials)` | `array` | {valid, message} |
 | `createCharge(array $data)` | `array` | {success, external_id, status, payment_url, pix_code, barcode, ...} |
 | `getChargeStatus(string $externalId)` | `array` | {success, status, paid_at} |
@@ -147,15 +150,15 @@ $existe = GatewayFactory::exists('stripe'); // true
 
 ### Certificados Bancarios
 
-Gateways bancarios que exigem mTLS devem armazenar apenas o arquivo enviado pelo usuario e metadados no JSON de `credentials`. Para o Sicoob, o certificado deve ser A1 em `.pfx` ou `.p12`, enviado pela tela do gateway depois que o registro ja existir. O sistema valida o certificado com a senha informada, armazena o arquivo em `storage/certificates/gateways` e guarda a senha criptografada em `credentials`.
+Os gateways Cora, EfiPay, Inter, Sicoob, Bradesco, Itau e Santander usam a secao generica de certificado. Ela aceita A1 em `.pfx`/`.p12` ou certificado `.pem`/`.crt`/`.cer` acompanhado de chave privada `.pem`/`.key`. O sistema valida validade e correspondencia da chave, armazena os arquivos com permissao `0600` em `storage/certificates/gateways` e guarda a senha de PFX/P12 criptografada em `credentials`.
 
-Nao cadastre manualmente caminho de certificado, caminho de chave privada, URL base da API, URL de token OAuth ou `X-Client-Certificate` para Sicoob. A URL base e a URL OAuth sao definidas pelo codigo conforme o campo `ambiente`. Durante cada chamada mTLS, `GatewayCertificateService` extrai temporariamente o certificado publico e a chave privada do `.pfx/.p12`, aplica `CURLOPT_SSLCERT`/`CURLOPT_SSLKEY`, gera o header `X-Client-Certificate` a partir do certificado publico e remove os arquivos temporarios ao final.
+Nao cadastre caminhos de arquivos pelo formulario. Durante chamadas mTLS, `GatewayCertificateService` prepara o certificado e a chave para cURL e remove artefatos temporarios ao final. Credenciais antigas que ainda contenham `certificate_path` ou `private_key_path` permanecem como fallback de execucao; ao enviar um certificado pela tela, os campos legados sao removidos. Remover um certificado obrigatorio tambem inativa o gateway.
 
-Rotas autenticadas para certificado Sicoob:
+Rotas autenticadas para certificados de gateways:
 
 | Rota | Metodo | Descricao |
 |------|--------|-----------|
-| `/gateways-pagamento/{id}/certificado` | POST multipart | Envia/substitui certificado `.pfx/.p12` |
+| `/gateways-pagamento/{id}/certificado` | POST multipart | Envia/substitui certificado; `chave_privada` acompanha PEM/CRT/CER |
 | `/gateways-pagamento/{id}/certificado/remover` | POST | Remove certificado e metadados do gateway |
 
 ### Tabela `gateways_filiais`
@@ -229,7 +232,13 @@ GET  /webhook/{gateway_code}    # Diagnostico para abertura no navegador
 POST /webhook/{gateway_code}    # Recebe notificacoes de cada gateway
 ```
 
-Rotas individuais por gateway: `/webhook/asaas`, `/webhook/stripe`, `/webhook/square`, `/webhook/cora`, `/webhook/efipay`, `/webhook/inter`, `/webhook/sicoob`, `/webhook/bradesco`, `/webhook/itau`, `/webhook/bancard`, `/webhook/pagopar`.
+Rotas individuais por gateway: `/webhook/asaas`, `/webhook/stripe`, `/webhook/square`, `/webhook/cora`, `/webhook/efipay`, `/webhook/inter`, `/webhook/sicoob`, `/webhook/bradesco`, `/webhook/itau`, `/webhook/santander`, `/webhook/bancard`, `/webhook/pagopar`. O Santander tambem aceita o alias `/webhook/santander/pix` exigido pelo cadastro do webhook Pix.
+
+#### Banco Santander
+
+A integracao usa duas APIs oficiais independentes: Pix Recebimentos (`cobv`, consulta, cancelamento e devolucao) e API de Cobranca v2 (`workspaces`, registro e consulta de boletos). Ambas usam `client_id`, `client_secret`, OAuth2 client credentials e mTLS. O cadastro exige tambem chave Pix, tipo da chave, Workspace ID e codigo do convenio. Cartoes e Pix Automatico nao fazem parte deste gateway.
+
+O webhook Pix do Santander exige `GET` habilitado para validacao e envia eventos por `POST`. Antes de aceitar uma notificacao como paga, `SantanderGateway::validateWebhookSignature()` consulta a cobranca na API autenticada do banco; um payload isolado nao liquida o financeiro local.
 
 No controller, cada rota individual `POST` deve ter um wrapper (`webhookAsaas`, `webhookStripe`, etc.) chamando o handler generico `PagamentoPublicoController::webhook($request, $gatewayCode)`. Isso evita erro 500 por metodo inexistente e centraliza idempotencia, validacao de assinatura e atualizacao de transacao.
 

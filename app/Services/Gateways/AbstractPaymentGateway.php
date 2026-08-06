@@ -44,6 +44,35 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
         return $this->sandbox;
     }
 
+    public function getCertificateConfig(): ?array
+    {
+        return null;
+    }
+
+    /**
+     * Prepara o certificado armazenado para uso em uma chamada cURL.
+     *
+     * @return array{certPath: string, keyPath: string, publicCert: string, temporary: bool}|null
+     */
+    protected function prepareStoredCertificate(): ?array
+    {
+        if (empty($this->credentials['certificado_arquivo'])) {
+            return null;
+        }
+
+        return (new GatewayCertificateService())->prepare($this->credentials);
+    }
+
+    /**
+     * @param array{certPath: string, keyPath: string, publicCert: string, temporary: bool}|null $certificate
+     */
+    protected function cleanupStoredCertificate(?array $certificate): void
+    {
+        if ($certificate !== null) {
+            (new GatewayCertificateService())->cleanupPrepared($certificate);
+        }
+    }
+
     /**
      * Retorna o model de transações (lazy loading)
      */

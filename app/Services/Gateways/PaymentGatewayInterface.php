@@ -54,6 +54,13 @@ interface PaymentGatewayInterface
     public function getConfigSchema(): array;
 
     /**
+     * Retorna a configuracao de certificado digital do gateway.
+     *
+     * @return array{required: bool, formats: array<string>}|null
+     */
+    public function getCertificateConfig(): ?array;
+
+    /**
      * Valida se as credenciais estão corretas
      *
      * @param array<string, mixed> $credentials Credenciais do gateway
@@ -73,6 +80,14 @@ interface PaymentGatewayInterface
      *     customer_document?: string,
      *     customer_email?: string,
      *     customer_phone?: string,
+     *     customer_address?: string,
+     *     customer_address_number?: string,
+     *     customer_neighborhood?: string,
+     *     customer_city?: string,
+     *     customer_state?: string,
+     *     customer_postal_code?: string,
+     *     beneficiary_name?: string,
+     *     beneficiary_document?: string,
      *     value: float,
      *     billing_type: string,
      *     due_date: string,

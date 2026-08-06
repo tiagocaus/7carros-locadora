@@ -40,8 +40,13 @@ class EfipayGateway extends AbstractPaymentGateway
                     'timeout' => 30,
                 ];
 
-                // Certificado PIX (opcional)
-                if (!empty($this->credentials['certificate_path']) && file_exists($this->credentials['certificate_path'])) {
+                // Upload gerenciado; caminho legado permanece somente para transição.
+                if (!empty($this->credentials['certificado_arquivo'])) {
+                    $options['certificate'] = (new GatewayCertificateService())->storedPath(
+                        (string) $this->credentials['certificado_arquivo']
+                    );
+                    $options['pwdCertificate'] = decrypt((string) ($this->credentials['certificado_senha'] ?? '')) ?? '';
+                } elseif (!empty($this->credentials['certificate_path']) && file_exists($this->credentials['certificate_path'])) {
                     $options['certificate'] = $this->credentials['certificate_path'];
                 }
 
@@ -104,13 +109,6 @@ class EfipayGateway extends AbstractPaymentGateway
                 'placeholder' => 'Client_Secret_...',
                 'help' => 'Chave secreta do cliente',
             ],
-            'certificate_path' => [
-                'type' => 'string',
-                'required' => false,
-                'label' => 'Caminho do Certificado PIX',
-                'placeholder' => '/path/to/certificate.pem',
-                'help' => 'Certificado .pem para cobranças PIX (opcional)',
-            ],
             'pix_key' => [
                 'type' => 'string',
                 'required' => false,
@@ -119,6 +117,11 @@ class EfipayGateway extends AbstractPaymentGateway
                 'help' => 'Chave PIX cadastrada na conta EFI Pay',
             ],
         ];
+    }
+
+    public function getCertificateConfig(): ?array
+    {
+        return ['required' => false, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
     }
 
     /**

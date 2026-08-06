@@ -21,17 +21,23 @@ class ItauGateway extends AbstractPaymentGateway
         return [
             'client_id' => ['type' => 'string', 'required' => true, 'label' => 'Client ID', 'help' => 'ID do cliente no Itaú Developers'],
             'client_secret' => ['type' => 'password', 'required' => true, 'label' => 'Client Secret', 'help' => 'Chave secreta'],
-            'certificate_path' => ['type' => 'string', 'required' => true, 'label' => 'Caminho do Certificado', 'help' => 'Caminho para o certificado .pem'],
-            'private_key_path' => ['type' => 'string', 'required' => true, 'label' => 'Caminho da Chave Privada', 'help' => 'Caminho para a chave privada'],
             'agencia' => ['type' => 'string', 'required' => true, 'label' => 'Agência', 'help' => 'Número da agência'],
             'conta' => ['type' => 'string', 'required' => true, 'label' => 'Conta', 'help' => 'Número da conta'],
         ];
+    }
+
+    public function getCertificateConfig(): ?array
+    {
+        return ['required' => true, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
     }
 
     public function validateCredentials(array $credentials): array
     {
         if (empty($credentials['client_id']) || empty($credentials['client_secret'])) {
             return ['valid' => false, 'message' => 'Client ID e Client Secret são obrigatórios'];
+        }
+        if (empty($credentials['certificado_arquivo']) && empty($credentials['certificate_path'])) {
+            return ['valid' => false, 'message' => 'Certificado digital é obrigatório'];
         }
         try {
             $token = $this->getAccessToken();
@@ -186,9 +192,10 @@ class ItauGateway extends AbstractPaymentGateway
             CURLOPT_SSL_VERIFYHOST => 2,
         ];
 
-        // Configurar certificados mTLS
-        $certPath = $this->credentials['certificate_path'] ?? '';
-        $keyPath = $this->credentials['private_key_path'] ?? '';
+        // Upload gerenciado; caminhos legados permanecem somente para transição.
+        $storedCertificate = $this->prepareStoredCertificate();
+        $certPath = $storedCertificate['certPath'] ?? ($this->credentials['certificate_path'] ?? '');
+        $keyPath = $storedCertificate['keyPath'] ?? ($this->credentials['private_key_path'] ?? '');
 
         if (!empty($certPath) && file_exists($certPath)) {
             $curlOptions[CURLOPT_SSLCERT] = $certPath;
@@ -215,9 +222,13 @@ class ItauGateway extends AbstractPaymentGateway
 
         curl_setopt_array($ch, $curlOptions);
 
-        $response = curl_exec($ch);
-        $error = curl_error($ch);
-        curl_close($ch);
+        try {
+            $response = curl_exec($ch);
+            $error = curl_error($ch);
+        } finally {
+            curl_close($ch);
+            $this->cleanupStoredCertificate($storedCertificate);
+        }
 
         if ($error) {
             throw new \RuntimeException("Erro cURL: {$error}");

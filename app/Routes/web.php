@@ -138,6 +138,8 @@ $router->get('/webhook/inter', [PagamentoPublicoController::class, 'webhookInter
 $router->get('/webhook/sicoob', [PagamentoPublicoController::class, 'webhookSicoobInfo'], ['rate_limit']);
 $router->get('/webhook/bradesco', [PagamentoPublicoController::class, 'webhookBradescoInfo'], ['rate_limit']);
 $router->get('/webhook/itau', [PagamentoPublicoController::class, 'webhookItauInfo'], ['rate_limit']);
+$router->get('/webhook/santander', [PagamentoPublicoController::class, 'webhookSantanderInfo'], ['rate_limit']);
+$router->get('/webhook/santander/pix', [PagamentoPublicoController::class, 'webhookSantanderInfo'], ['rate_limit']);
 $router->get('/webhook/bancard', [PagamentoPublicoController::class, 'webhookBancardInfo'], ['rate_limit']);
 $router->get('/webhook/pagopar', [PagamentoPublicoController::class, 'webhookPagoparInfo'], ['rate_limit']);
 $router->post('/webhook/asaas', [PagamentoPublicoController::class, 'webhookAsaas'], ['rate_limit']);
@@ -149,6 +151,8 @@ $router->post('/webhook/inter', [PagamentoPublicoController::class, 'webhookInte
 $router->post('/webhook/sicoob', [PagamentoPublicoController::class, 'webhookSicoob'], ['rate_limit']);
 $router->post('/webhook/bradesco', [PagamentoPublicoController::class, 'webhookBradesco'], ['rate_limit']);
 $router->post('/webhook/itau', [PagamentoPublicoController::class, 'webhookItau'], ['rate_limit']);
+$router->post('/webhook/santander', [PagamentoPublicoController::class, 'webhookSantander'], ['rate_limit']);
+$router->post('/webhook/santander/pix', [PagamentoPublicoController::class, 'webhookSantander'], ['rate_limit']);
 $router->post('/webhook/bancard', [PagamentoPublicoController::class, 'webhookBancard'], ['rate_limit']);
 $router->post('/webhook/pagopar', [PagamentoPublicoController::class, 'webhookPagopar'], ['rate_limit']);
 

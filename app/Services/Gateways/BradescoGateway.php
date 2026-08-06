@@ -21,16 +21,22 @@ class BradescoGateway extends AbstractPaymentGateway
         return [
             'client_id' => ['type' => 'string', 'required' => true, 'label' => 'Client ID', 'help' => 'ID do cliente no Bradesco Developers'],
             'client_secret' => ['type' => 'password', 'required' => true, 'label' => 'Client Secret', 'help' => 'Chave secreta'],
-            'certificate_path' => ['type' => 'string', 'required' => true, 'label' => 'Caminho do Certificado', 'help' => 'Caminho para o certificado .pfx'],
-            'certificate_password' => ['type' => 'password', 'required' => true, 'label' => 'Senha do Certificado', 'help' => 'Senha do certificado digital'],
             'merchant_id' => ['type' => 'string', 'required' => true, 'label' => 'Merchant ID', 'help' => 'ID do estabelecimento'],
         ];
+    }
+
+    public function getCertificateConfig(): ?array
+    {
+        return ['required' => true, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
     }
 
     public function validateCredentials(array $credentials): array
     {
         if (empty($credentials['client_id']) || empty($credentials['client_secret'])) {
             return ['valid' => false, 'message' => 'Client ID e Client Secret são obrigatórios'];
+        }
+        if (empty($credentials['certificado_arquivo']) && empty($credentials['certificate_path'])) {
+            return ['valid' => false, 'message' => 'Certificado digital é obrigatório'];
         }
         try {
             $token = $this->getAccessToken();
@@ -181,14 +187,20 @@ class BradescoGateway extends AbstractPaymentGateway
             CURLOPT_SSL_VERIFYHOST => 2,
         ];
 
-        // Configurar certificado
-        $certPath = $this->credentials['certificate_path'] ?? '';
+        // Upload gerenciado; caminho legado permanece somente para transição.
+        $storedCertificate = $this->prepareStoredCertificate();
+        $certPath = $storedCertificate['certPath'] ?? ($this->credentials['certificate_path'] ?? '');
+        $keyPath = $storedCertificate['keyPath'] ?? '';
         $certPassword = $this->credentials['certificate_password'] ?? '';
 
         if (!empty($certPath) && file_exists($certPath)) {
             $curlOptions[CURLOPT_SSLCERT] = $certPath;
-            $curlOptions[CURLOPT_SSLCERTTYPE] = 'P12';
-            if (!empty($certPassword)) {
+            if ($storedCertificate !== null) {
+                $curlOptions[CURLOPT_SSLKEY] = $keyPath;
+            } else {
+                $curlOptions[CURLOPT_SSLCERTTYPE] = 'P12';
+            }
+            if ($storedCertificate === null && !empty($certPassword)) {
                 $curlOptions[CURLOPT_SSLCERTPASSWD] = $certPassword;
             }
         }
@@ -210,9 +222,13 @@ class BradescoGateway extends AbstractPaymentGateway
 
         curl_setopt_array($ch, $curlOptions);
 
-        $response = curl_exec($ch);
-        $error = curl_error($ch);
-        curl_close($ch);
+        try {
+            $response = curl_exec($ch);
+            $error = curl_error($ch);
+        } finally {
+            curl_close($ch);
+            $this->cleanupStoredCertificate($storedCertificate);
+        }
 
         if ($error) {
             throw new \RuntimeException("Erro cURL: {$error}");

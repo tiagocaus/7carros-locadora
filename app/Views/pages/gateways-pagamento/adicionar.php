@@ -168,42 +168,51 @@
             </div>
         </div>
 
-        <!-- Secao: Certificado Sicoob -->
-        <div class="form-section mb-6" id="sectionCertificadoSicoob" style="display: none;">
-            <h3 class="form-section-title"><i class="fas fa-certificate mr-2"></i>Certificado Digital Sicoob</h3>
-            <p class="text-sm text-slate-600 mb-4">Envie o certificado A1 (.pfx ou .p12) do cooperado. O sistema extrai a chave privada automaticamente durante as chamadas mTLS.</p>
+        <!-- Secao: Certificado digital mTLS -->
+        <div class="form-section mb-6" id="sectionCertificadoGateway" style="display: none;">
+            <h3 class="form-section-title"><i class="fas fa-certificate mr-2"></i>Certificado Digital <span id="certGatewayName"></span></h3>
+            <p class="text-sm text-slate-600 mb-4">Envie PFX/P12 ou um certificado PEM/CRT/CER acompanhado da chave privada. Os arquivos ficam protegidos e são usados somente nas chamadas mTLS.</p>
 
-            <div id="sicoobCertSaveFirst" class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4" style="display: none;">
-                Salve o gateway primeiro para habilitar o envio do certificado.
+            <div id="gatewayCertSaveFirst" class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 mb-4" style="display: none;">
+                Ao salvar, o gateway será criado e o certificado selecionado será enviado em seguida.
             </div>
 
-            <div id="sicoobCertInfo" class="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 mb-4" style="display: none;">
+            <div id="gatewayCertInfo" class="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 mb-4" style="display: none;">
                 <div class="font-medium text-slate-800 mb-1">Certificado configurado</div>
-                <div id="sicoobCertDetails"></div>
+                <div id="gatewayCertDetails"></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div class="md:col-span-5 form-input-group">
-                    <label class="form-label-group">Arquivo do Certificado <span class="text-red-500">*</span></label>
-                    <label for="sicoobCertFile" class="flex items-center gap-3 cursor-pointer border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50">
+                <div class="md:col-span-4 form-input-group">
+                    <label class="form-label-group">Arquivo do Certificado <span class="text-red-500">*</span> <?= aviso('Formatos aceitos: PFX, P12, PEM, CRT ou CER.') ?></label>
+                    <label for="gatewayCertFile" class="flex items-center gap-3 cursor-pointer border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50">
                         <span class="inline-flex items-center px-3 py-1 bg-slate-100 border border-slate-300 rounded text-sm text-slate-700">
                             <i class="fas fa-paperclip mr-1"></i> Escolher arquivo
                         </span>
-                        <span id="sicoobCertFileName" class="text-sm text-slate-500">Nenhum arquivo selecionado</span>
+                        <span id="gatewayCertFileName" class="text-sm text-slate-500">Nenhum arquivo selecionado</span>
                     </label>
-                    <input type="file" id="sicoobCertFile" accept=".pfx,.p12" class="sr-only">
+                    <input type="file" id="gatewayCertFile" accept=".pfx,.p12,.pem,.crt,.cer" class="sr-only">
                 </div>
 
                 <div class="md:col-span-4 form-input-group">
-                    <label for="sicoobCertPassword" class="form-label-group">Senha do Certificado <span class="text-red-500">*</span></label>
-                    <input type="password" id="sicoobCertPassword" class="form-input-group-field" placeholder="Senha do .pfx/.p12">
+                    <label class="form-label-group">Chave Privada <?= aviso('Obrigatória para certificados PEM, CRT ou CER.') ?></label>
+                    <label for="gatewayPrivateKeyFile" class="flex items-center gap-3 cursor-pointer border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50">
+                        <span class="inline-flex items-center px-3 py-1 bg-slate-100 border border-slate-300 rounded text-sm text-slate-700"><i class="fas fa-key mr-1"></i>Escolher</span>
+                        <span id="gatewayPrivateKeyFileName" class="text-sm text-slate-500">Nenhum arquivo selecionado</span>
+                    </label>
+                    <input type="file" id="gatewayPrivateKeyFile" accept=".pem,.key" class="sr-only">
                 </div>
 
-                <div class="md:col-span-3 form-input-group flex items-end gap-2">
-                    <button type="button" id="btnUploadSicoobCert" class="btn-blue py-2 px-4 rounded-md text-sm flex-1">
+                <div class="md:col-span-4 form-input-group">
+                    <label for="gatewayCertPassword" class="form-label-group">Senha/Passphrase <?= aviso('Obrigatória para PFX/P12; opcional para chave privada PEM.') ?></label>
+                    <input type="password" id="gatewayCertPassword" class="form-input-group-field" placeholder="Senha ou passphrase">
+                </div>
+
+                <div class="md:col-span-12 flex justify-end gap-2">
+                    <button type="button" id="btnUploadGatewayCert" class="btn-blue py-2 px-4 rounded-md text-sm">
                         <i class="fas fa-upload mr-1"></i>Enviar
                     </button>
-                    <button type="button" id="btnRemoveSicoobCert" class="btn-secondary py-2 px-3 rounded-md text-sm" style="display: none;" title="Remover certificado">
+                    <button type="button" id="btnRemoveGatewayCert" class="btn-secondary py-2 px-3 rounded-md text-sm" style="display: none;" title="Remover certificado">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -286,7 +295,7 @@
         let filiaisSelecionadas = [];
         let dropdownFiliaisAberto = false;
         let dropdownMoedasAberto = false;
-        let certificadoSicoobAtual = null;
+        let certificadoGatewayAtual = null;
 
         function navegarPara(page) {
             if (window.parent !== window) {
@@ -476,7 +485,9 @@
                         option.dataset.methods = JSON.stringify(g.methods || []);
                         option.dataset.currencies = JSON.stringify(g.supported_currencies || ['BRL']);
                         option.dataset.schema = JSON.stringify(g.config_schema || {});
+                        option.dataset.certificateConfig = JSON.stringify(g.certificate_config || null);
                         option.dataset.docUrl = g.documentation_url || '';
+                        option.dataset.gatewayName = g.name || g.code;
                         optgroup.appendChild(option);
                     });
 
@@ -491,7 +502,7 @@
 
             if (!option || !option.value) {
                 document.getElementById('sectionCredenciais').style.display = 'none';
-                document.getElementById('sectionCertificadoSicoob').style.display = 'none';
+                document.getElementById('sectionCertificadoGateway').style.display = 'none';
                 document.getElementById('sectionWebhook').style.display = 'none';
                 document.getElementById('btnTestar').style.display = 'none';
                 atualizarMetodosSuportados([]);
@@ -501,6 +512,7 @@
             const methods = JSON.parse(option.dataset.methods || '[]');
             const currencies = JSON.parse(option.dataset.currencies || '["BRL"]');
             const schema = JSON.parse(option.dataset.schema || '{}');
+            const certificateConfig = JSON.parse(option.dataset.certificateConfig || 'null');
             const docUrl = option.dataset.docUrl || '';
 
             gatewayAtual = {
@@ -508,6 +520,8 @@
                 methods: methods,
                 currencies: currencies,
                 schema: schema,
+                certificateConfig: certificateConfig,
+                name: option.dataset.gatewayName || option.textContent,
                 docUrl: docUrl
             };
 
@@ -519,7 +533,7 @@
 
             // Gerar campos de credenciais
             gerarCamposCredenciais(schema);
-            atualizarSecaoCertificadoSicoob();
+            atualizarSecaoCertificadoGateway();
 
             // Mostrar link da documentacao
             if (docUrl) {
@@ -701,13 +715,16 @@
             Object.entries(schema).forEach(([key, config]) => {
                 const colSpan = config.type === 'textarea' ? 'md:col-span-12' : 'md:col-span-6';
                 const required = config.required ? '<span class="text-red-500">*</span>' : '';
-                const help = config.help ? `{!! aviso('${escapeHtml(config.help)}') !!}` : '';
+                const help = config.help_html || '';
 
                 let inputHtml = '';
                 if (config.type === 'textarea') {
                     inputHtml = `<textarea id="cred_${key}" name="credentials[${key}]" class="form-input-group-field" rows="3" placeholder="${escapeHtml(config.placeholder || '')}" ${config.required ? 'required' : ''}></textarea>`;
                 } else if (config.type === 'select' && config.options) {
-                    const options = config.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('');
+                    const optionEntries = Array.isArray(config.options)
+                        ? config.options.map(value => [value, value])
+                        : Object.entries(config.options);
+                    const options = optionEntries.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('');
                     inputHtml = `<select id="cred_${key}" name="credentials[${key}]" class="form-input-group-field" ${config.required ? 'required' : ''}>${options}</select>`;
                 } else {
                     const inputType = config.type === 'password' ? 'password' : 'text';
@@ -717,10 +734,9 @@
                 const fieldHtml = `
                     <div class="${colSpan} form-input-group">
                         <label for="cred_${key}" class="form-label-group">
-                            ${escapeHtml(config.label || key)} ${required}
+                            ${escapeHtml(config.label || key)} ${required} ${help}
                         </label>
                         ${inputHtml}
-                        ${config.help ? `<p class="text-xs text-slate-500 mt-1">${escapeHtml(config.help)}</p>` : ''}
                     </div>
                 `;
 
@@ -738,32 +754,37 @@
             }
         }
 
-        function atualizarSecaoCertificadoSicoob() {
-            const section = document.getElementById('sectionCertificadoSicoob');
-            const saveFirst = document.getElementById('sicoobCertSaveFirst');
-            const info = document.getElementById('sicoobCertInfo');
-            const details = document.getElementById('sicoobCertDetails');
-            const btnUpload = document.getElementById('btnUploadSicoobCert');
-            const btnRemove = document.getElementById('btnRemoveSicoobCert');
+        function atualizarSecaoCertificadoGateway() {
+            const section = document.getElementById('sectionCertificadoGateway');
+            const saveFirst = document.getElementById('gatewayCertSaveFirst');
+            const info = document.getElementById('gatewayCertInfo');
+            const details = document.getElementById('gatewayCertDetails');
+            const btnUpload = document.getElementById('btnUploadGatewayCert');
+            const btnRemove = document.getElementById('btnRemoveGatewayCert');
 
-            if (!gatewayAtual || gatewayAtual.code !== 'sicoob') {
+            if (!gatewayAtual || !gatewayAtual.certificateConfig) {
                 section.style.display = 'none';
                 return;
             }
 
             section.style.display = 'block';
+            document.getElementById('certGatewayName').textContent = gatewayAtual.name || '';
             const hasRegistro = !!registroId;
             saveFirst.style.display = hasRegistro ? 'none' : 'block';
             btnUpload.disabled = !hasRegistro;
-            document.getElementById('sicoobCertFile').disabled = !hasRegistro;
-            document.getElementById('sicoobCertPassword').disabled = !hasRegistro;
+            document.getElementById('gatewayCertFile').disabled = false;
+            document.getElementById('gatewayPrivateKeyFile').disabled = false;
+            document.getElementById('gatewayCertPassword').disabled = false;
 
-            if (certificadoSicoobAtual) {
-                const validade = certificadoSicoobAtual.validade || '-';
-                const nome = certificadoSicoobAtual.razao_social || '-';
-                const documento = certificadoSicoobAtual.documento || '-';
-                const emissor = certificadoSicoobAtual.emissor || '-';
+            if (certificadoGatewayAtual) {
+                const validade = certificadoGatewayAtual.validade || '-';
+                const nome = certificadoGatewayAtual.razao_social || '-';
+                const documento = certificadoGatewayAtual.documento || '-';
+                const emissor = certificadoGatewayAtual.emissor || '-';
+                const formato = certificadoGatewayAtual.formato || '-';
                 details.innerHTML = `
+                    ${certificadoGatewayAtual.legado ? '<div class="text-amber-700 font-medium">Configuração legada detectada. Envie o arquivo para migrar ao armazenamento seguro.</div>' : ''}
+                    <div>Formato: <strong>${escapeHtml(formato)}</strong></div>
                     <div>Validade: <strong>${escapeHtml(validade)}</strong></div>
                     <div>Titular: ${escapeHtml(nome)}</div>
                     <div>Documento: ${escapeHtml(documento)}</div>
@@ -817,7 +838,7 @@
 
             // Salvar credenciais originais (mascaradas)
             credenciaisOriginais = dados.credentials || {};
-            certificadoSicoobAtual = dados.certificado || null;
+            certificadoGatewayAtual = dados.certificado || null;
 
             // Desabilitar troca de gateway na edicao
             document.getElementById('gateway_code').disabled = true;
@@ -840,7 +861,7 @@
 
             document.getElementById('pageTitle').textContent = i18n.editTitle;
             document.getElementById('btnTestar').style.display = 'inline-flex';
-            atualizarSecaoCertificadoSicoob();
+            atualizarSecaoCertificadoGateway();
         }
 
         // Salvar
@@ -860,6 +881,13 @@
             if (!nome) {
                 mostrarAlerta(i18n.nameRequired);
                 document.getElementById('nome').focus();
+                return;
+            }
+
+            const certFile = document.getElementById('gatewayCertFile');
+            if (!registroId && gatewayAtual?.certificateConfig?.required && (!certFile.files || certFile.files.length === 0)) {
+                mostrarAlerta('Selecione o certificado digital obrigatório antes de salvar o gateway.');
+                certFile.focus();
                 return;
             }
 
@@ -905,14 +933,18 @@
                 const result = await API.post(url, dados);
 
                 if (result.success) {
-                    if (!registroId && gatewayCode === 'sicoob' && result.data && result.data.id) {
+                    if (!registroId && gatewayAtual?.certificateConfig && result.data && result.data.id && certFile.files?.length) {
                         registroId = String(result.data.id);
                         document.getElementById('registroId').value = registroId;
                         document.getElementById('gateway_code').disabled = true;
                         document.getElementById('pageTitle').textContent = i18n.editTitle;
                         document.getElementById('btnTestar').style.display = 'inline-flex';
-                        atualizarSecaoCertificadoSicoob();
-                        window.parent.postMessage({ action: 'showToast', message: 'Gateway salvo. Envie o certificado digital Sicoob.' }, '*');
+                        atualizarSecaoCertificadoGateway();
+                        const uploaded = await uploadCertificadoGateway(true);
+                        if (uploaded) {
+                            window.parent.postMessage({ action: 'showToast', message: result.message || i18n.saveSuccess }, '*');
+                            navegarPara('/pages/gateways-pagamento');
+                        }
                         return;
                     }
 
@@ -930,25 +962,32 @@
             }
         }
 
-        async function uploadCertificadoSicoob() {
-            if (!registroId || !gatewayAtual || gatewayAtual.code !== 'sicoob') {
-                mostrarAlerta('Salve o gateway Sicoob antes de enviar o certificado.');
-                return;
+        async function uploadCertificadoGateway(automatico = false) {
+            if (!registroId || !gatewayAtual || !gatewayAtual.certificateConfig) {
+                if (!automatico) mostrarAlerta('Salve o gateway antes de enviar o certificado.');
+                return false;
             }
 
-            const fileInput = document.getElementById('sicoobCertFile');
-            const passwordInput = document.getElementById('sicoobCertPassword');
-            const btn = document.getElementById('btnUploadSicoobCert');
+            const fileInput = document.getElementById('gatewayCertFile');
+            const keyInput = document.getElementById('gatewayPrivateKeyFile');
+            const passwordInput = document.getElementById('gatewayCertPassword');
+            const btn = document.getElementById('btnUploadGatewayCert');
 
             if (!fileInput.files || fileInput.files.length === 0) {
-                mostrarAlerta('Selecione o arquivo .pfx ou .p12 do certificado.');
-                return;
+                mostrarAlerta('Selecione o arquivo do certificado.');
+                return false;
             }
 
-            if (!passwordInput.value) {
-                mostrarAlerta('Informe a senha do certificado.');
+            const extension = fileInput.files[0].name.split('.').pop().toLowerCase();
+            if (['pfx', 'p12'].includes(extension) && !passwordInput.value) {
+                mostrarAlerta('Informe a senha do certificado PFX/P12.');
                 passwordInput.focus();
-                return;
+                return false;
+            }
+            if (['pem', 'crt', 'cer'].includes(extension) && (!keyInput.files || keyInput.files.length === 0)) {
+                mostrarAlerta('Selecione a chave privada correspondente ao certificado.');
+                keyInput.focus();
+                return false;
             }
 
             const formData = new FormData();
@@ -958,6 +997,10 @@
             }
             formData.append('certificado', fileInput.files[0]);
             formData.append('certificado_senha', passwordInput.value);
+            if (keyInput.files && keyInput.files.length > 0) {
+                formData.append('chave_privada', keyInput.files[0]);
+            }
+            formData.append('ativar_apos_upload', document.getElementById('status').checked ? '1' : '0');
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Enviando...';
@@ -965,33 +1008,38 @@
             try {
                 const result = await API.postForm(`/gateways-pagamento/${registroId}/certificado`, formData);
                 if (result.success) {
-                    certificadoSicoobAtual = result.data || null;
+                    certificadoGatewayAtual = result.data || null;
                     fileInput.value = '';
+                    keyInput.value = '';
                     passwordInput.value = '';
-                    document.getElementById('sicoobCertFileName').textContent = 'Nenhum arquivo selecionado';
-                    atualizarSecaoCertificadoSicoob();
+                    document.getElementById('gatewayCertFileName').textContent = 'Nenhum arquivo selecionado';
+                    document.getElementById('gatewayPrivateKeyFileName').textContent = 'Nenhum arquivo selecionado';
+                    atualizarSecaoCertificadoGateway();
                     window.parent.postMessage({ action: 'showToast', message: result.message || 'Certificado enviado com sucesso.' }, '*');
+                    return true;
                 } else {
                     mostrarAlerta(result.message || 'Erro ao enviar certificado.');
+                    return false;
                 }
             } catch (error) {
                 console.error('Erro ao enviar certificado:', error);
                 mostrarAlerta('Erro ao enviar certificado.');
+                return false;
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-upload mr-1"></i>Enviar';
             }
         }
 
-        function removerCertificadoSicoob() {
-            if (!registroId || !gatewayAtual || gatewayAtual.code !== 'sicoob') {
+        function removerCertificadoGateway() {
+            if (!registroId || !gatewayAtual || !gatewayAtual.certificateConfig) {
                 return;
             }
 
             window.parent.postMessage({
                 action: 'openGenericConfirmModal',
                 title: 'Remover certificado',
-                message: 'Deseja remover o certificado digital Sicoob deste gateway?',
+                message: `Deseja remover o certificado digital de ${gatewayAtual.name}?`,
                 confirmText: 'Remover'
             }, '*');
 
@@ -1005,8 +1053,8 @@
                 try {
                     const result = await API.post(`/gateways-pagamento/${registroId}/certificado/remover`);
                     if (result.success) {
-                        certificadoSicoobAtual = null;
-                        atualizarSecaoCertificadoSicoob();
+                        certificadoGatewayAtual = null;
+                        atualizarSecaoCertificadoGateway();
                         window.parent.postMessage({ action: 'showToast', message: result.message || 'Certificado removido.' }, '*');
                     } else {
                         mostrarAlerta(result.message || 'Erro ao remover certificado.');
@@ -1085,10 +1133,15 @@
         });
 
         document.getElementById('btnTestar')?.addEventListener('click', testarConexao);
-        document.getElementById('btnUploadSicoobCert')?.addEventListener('click', uploadCertificadoSicoob);
-        document.getElementById('btnRemoveSicoobCert')?.addEventListener('click', removerCertificadoSicoob);
-        document.getElementById('sicoobCertFile')?.addEventListener('change', function() {
-            document.getElementById('sicoobCertFileName').textContent = this.files && this.files.length > 0
+        document.getElementById('btnUploadGatewayCert')?.addEventListener('click', () => uploadCertificadoGateway(false));
+        document.getElementById('btnRemoveGatewayCert')?.addEventListener('click', removerCertificadoGateway);
+        document.getElementById('gatewayCertFile')?.addEventListener('change', function() {
+            document.getElementById('gatewayCertFileName').textContent = this.files && this.files.length > 0
+                ? this.files[0].name
+                : 'Nenhum arquivo selecionado';
+        });
+        document.getElementById('gatewayPrivateKeyFile')?.addEventListener('change', function() {
+            document.getElementById('gatewayPrivateKeyFileName').textContent = this.files && this.files.length > 0
                 ? this.files[0].name
                 : 'Nenhum arquivo selecionado';
         });

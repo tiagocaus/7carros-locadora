@@ -42,6 +42,11 @@ class SicoobGateway extends AbstractPaymentGateway
         return ['pix', 'boleto'];
     }
 
+    public function getCertificateConfig(): ?array
+    {
+        return ['required' => true, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
+    }
+
     public function getConfigSchema(): array
     {
         return [
@@ -586,11 +591,8 @@ class SicoobGateway extends AbstractPaymentGateway
             CURLOPT_SSL_VERIFYHOST => 2,
         ];
 
-        if (!empty($this->credentials['certificado_arquivo']) && !empty($this->credentials['certificado_senha'])) {
-            $pem = (new GatewayCertificateService())->extractPem(
-                (string) $this->credentials['certificado_arquivo'],
-                (string) $this->credentials['certificado_senha']
-            );
+        if (!empty($this->credentials['certificado_arquivo'])) {
+            $pem = $this->prepareStoredCertificate();
             $curlOptions[CURLOPT_SSLCERT] = $pem['certPath'];
             $curlOptions[CURLOPT_SSLKEY] = $pem['keyPath'];
             $headers[] = 'X-Client-Certificate: ' . preg_replace('/\s+/', ' ', trim($pem['publicCert']));
@@ -626,9 +628,7 @@ class SicoobGateway extends AbstractPaymentGateway
             $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         } finally {
             curl_close($ch);
-            if ($pem !== null) {
-                (new GatewayCertificateService())->cleanupPem($pem['certPath'], $pem['keyPath']);
-            }
+            $this->cleanupStoredCertificate($pem);
         }
 
         if ($error) {
