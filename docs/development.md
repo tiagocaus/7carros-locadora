@@ -419,12 +419,18 @@ echo "Peak memory: " . number_format(memory_get_peak_usage() / 1024 / 1024, 2) .
 ### Adding a New Feature
 
 1. Create feature branch (if using Git)
-2. Generate model/controller/service files
-3. Run `composer dump-autoload`
-4. Write tests
-5. Implement feature
-6. Test manually and with PHPUnit
-7. Commit and push
+2. If the feature reads, writes, or structures data, connect to the localhost database and inspect every affected table with `DESCRIBE`/`SHOW COLUMNS`
+3. Test the intended query against the local schema; never infer column names from forms or existing code
+4. Generate model/controller/service files
+5. Run `composer dump-autoload`
+6. Write tests
+7. Implement feature
+8. Test manually and with PHPUnit
+9. Commit and push
+
+If the local schema, migrations, and production schema disagree, stop and
+investigate the divergence before implementing. `temp-bd.txt` may be used only
+for read-only production diagnostics and never replaces the localhost check.
 
 ### Debugging Database Issues
 

@@ -31,7 +31,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 4. **NUNCA use `alert()` nativo do JavaScript** - use `openAlert` via postMessage (veja `docs/modals.md`)
 5. **Modais fullscreen devem estar no `app.php`** - NAO no iframe (veja `docs/modals.md`)
 6. **Se existir documentacao, siga-a** - nao assuma que codigo existente esta correto
-7. **SEMPRE ACESSE BD via terminal** - Sempre use isso, quando precisar analizar qualquer coisa na tabela ou bd
+7. **SEMPRE VALIDE O SCHEMA LOCAL via terminal antes de alterar código que acesse dados** - Conecte ao banco configurado em `.env.development` com `DB_HOST=localhost`, execute `DESCRIBE`/`SHOW COLUMNS` nas tabelas afetadas e confirme nomes, tipos e nulabilidade das colunas. Teste a consulta no localhost antes de editar Models, queries, migrations ou integrações. Nunca deduza o nome de uma coluna apenas pelo formulário ou pelo código existente. `temp-bd.txt` serve somente para diagnóstico read-only de produção quando necessário e não substitui a validação local (veja `docs/database.md`).
 8. **DEFINER MySQL em producao deve ser `7carros_locador@localhost`** - triggers, views, routines e events nao podem usar usuario pessoal, IP externo, wildcard `%` ou usuario inexistente. Recrie o objeto conectado como `7carros_locador@localhost` (veja `docs/database.md`).
 
 ## Diretrizes de Comunicação

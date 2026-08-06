@@ -1,5 +1,47 @@
 # Padrões de Banco de Dados
 
+## Verificacao Obrigatoria do Schema Antes de Alterar Codigo
+
+Toda alteracao que crie ou modifique Models, consultas, migrations, relatorios,
+gateways ou integracoes com dados deve comecar pela inspecao do banco local via
+terminal. O banco configurado em `.env.development` deve usar
+`DB_HOST=localhost`.
+
+Nao deduza nomes de tabelas ou colunas pelo rotulo de um formulario, por outro
+Model ou por convencao. O schema executado e a fonte de verdade para a estrutura
+existente.
+
+Checklist obrigatorio:
+
+1. Identifique todas as tabelas lidas ou gravadas pelo fluxo.
+2. Conecte ao MySQL local pelo terminal.
+3. Execute `DESCRIBE`, `SHOW COLUMNS` e, quando relevante, `SHOW INDEX` em cada tabela afetada.
+4. Confirme nome, tipo, tamanho, nulabilidade, indices e relacionamentos das colunas usadas.
+5. Execute no localhost o `SELECT` ou operacao equivalente que sera implementada.
+6. Somente depois altere o codigo.
+7. Se localhost, migrations e producao divergirem, interrompa a implementacao e investigue a origem da divergencia antes de decidir a correcao.
+
+Exemplo:
+
+```sql
+DESCRIBE matrizes_filiais;
+SHOW COLUMNS FROM matrizes_filiais;
+SHOW INDEX FROM matrizes_filiais;
+
+SELECT rua, num, bairro, cidade, estado, cep
+FROM matrizes_filiais
+LIMIT 1;
+```
+
+O nome exibido ao usuario pode ser "Numero", mas isso nao define o nome da
+coluna. No schema atual de `matrizes_filiais`, por exemplo, a coluna e `num`, e
+nao `numero`.
+
+O arquivo `temp-bd.txt` e reservado para diagnostico read-only de producao
+quando a verificacao do ambiente publicado for realmente necessaria. Ele nao
+substitui a inspecao primaria do localhost. Nunca copie suas credenciais para
+codigo, documentacao, comandos versionados, logs ou respostas.
+
 ## Configuração Geral
 
 ### Charset e Collation

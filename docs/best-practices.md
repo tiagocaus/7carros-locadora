@@ -1,5 +1,24 @@
 # Boas Práticas e Guidelines de Desenvolvimento
 
+## Validacao do Schema Antes de Codificar
+
+Antes de criar ou alterar qualquer Model, query, migration, relatorio, gateway
+ou integracao que leia ou grave dados:
+
+1. conecte ao banco local configurado em `.env.development` (`DB_HOST=localhost`);
+2. inspecione pelo terminal todas as tabelas envolvidas com `DESCRIBE` ou `SHOW COLUMNS`;
+3. confirme nomes, tipos, nulabilidade, indices e relacionamentos;
+4. execute localmente a consulta que sera usada;
+5. somente entao altere o codigo.
+
+Nunca presuma que o nome do input ou a convencao usada em outra tabela coincide
+com a coluna real. Exemplo: o campo visual "Numero" de uma filial corresponde a
+`matrizes_filiais.num`, nao a `matrizes_filiais.numero`.
+
+Consultas ao banco de producao via `temp-bd.txt` sao apenas para diagnostico
+read-only e nao substituem a verificacao local. Veja o checklist completo em
+[`docs/database.md`](./database.md#verificacao-obrigatoria-do-schema-antes-de-alterar-codigo).
+
 ## Segurança
 
 ### 1. Prevenção de SQL Injection

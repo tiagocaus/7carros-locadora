@@ -118,7 +118,7 @@ class PagamentoLink extends Model
                 'mf.razao_social AS empresa_razao_social',
                 'mf.cpf_cnpj AS empresa_cnpj',
                 'mf.rua AS empresa_endereco',
-                'mf.numero AS empresa_numero',
+                'mf.num AS empresa_numero',
                 'mf.bairro AS empresa_bairro',
                 'mf.cidade AS empresa_cidade',
                 'mf.estado AS empresa_uf',
