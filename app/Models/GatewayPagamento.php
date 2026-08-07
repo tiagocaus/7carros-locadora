@@ -220,8 +220,7 @@ class GatewayPagamento extends Model
                 'credit_card_enabled',
                 'debit_card_enabled',
             ])
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('status', '=', 'A')
             ->orderBy('ordem', 'ASC')
             ->get();
@@ -252,8 +251,7 @@ class GatewayPagamento extends Model
                 'credit_card_enabled',
                 'debit_card_enabled',
             ])
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('status', '=', 'A')
             ->whereIn('id', $ids)
             ->orderBy('ordem', 'ASC')
@@ -327,8 +325,7 @@ class GatewayPagamento extends Model
     {
         $gateway = $this->qb
             ->table('gateways_pagamento')
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('gateway_code', '=', $gatewayCode)
             ->where('status', '=', 'A')
             ->first();

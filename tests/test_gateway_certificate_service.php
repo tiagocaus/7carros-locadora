@@ -18,7 +18,7 @@ putenv('RANDFILE=' . $temp . '/openssl-rand');
 
 try {
     $privateKey = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    $csr = openssl_csr_new(['commonName' => '7Carros Teste'], $privateKey, ['digest_alg' => 'sha256']);
+    $csr = openssl_csr_new(['commonName' => 'Empresa Teste:12345678000199'], $privateKey, ['digest_alg' => 'sha256']);
     $certificate = openssl_csr_sign($csr, null, $privateKey, 2, ['digest_alg' => 'sha256']);
     if ($privateKey === false || $certificate === false) {
         $fail('Não foi possível gerar certificado de teste.');
@@ -46,6 +46,9 @@ try {
     if (empty($pem['success']) || $pem['format'] !== 'pem' || empty($pem['key_filename'])) {
         $fail('Par PEM + chave privada não foi armazenado.');
     }
+    if (($pem['data']['documento'] ?? null) !== '12345678000199') {
+        $fail('CNPJ completo não foi extraído do certificado PEM.');
+    }
 
     $prepared = $service->prepare([
         'certificado_formato' => 'pem',
@@ -64,6 +67,9 @@ try {
     );
     if (empty($p12['success']) || $p12['format'] !== 'pkcs12') {
         $fail('Certificado P12 não foi armazenado.');
+    }
+    if (($p12['data']['documento'] ?? null) !== '12345678000199') {
+        $fail('CNPJ completo não foi extraído do certificado P12.');
     }
     $extracted = $service->prepare([
         'certificado_formato' => 'pkcs12',

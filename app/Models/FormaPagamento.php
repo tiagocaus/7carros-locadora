@@ -28,6 +28,7 @@ class FormaPagamento extends Model
                 fp.taxa_fixa_parcela,
                 fp.taxa_percentual_parcela,
                 gp.id AS gateway_id,
+                gp.gateway_code,
                 gp.nome AS gateway_nome,
                 gp.pix_enabled,
                 gp.boleto_enabled,
@@ -88,6 +89,7 @@ class FormaPagamento extends Model
 
             $formas[$formaId]['gateways'][] = [
                 'id' => (int) $row['gateway_id'],
+                'gateway_code' => $row['gateway_code'],
                 'nome' => $row['gateway_nome'],
                 'pix_enabled' => (int) $row['pix_enabled'],
                 'boleto_enabled' => (int) $row['boleto_enabled'],

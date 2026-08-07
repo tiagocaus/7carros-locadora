@@ -3,7 +3,7 @@
  *
  * Lista de países suportados para o componente intl customizado.
  * Ordem: Brasil, EUA, Canadá, Portugal, Espanha, Itália, Paraguai,
- * Reino Unido, França, Bélgica, Alemanha, Argentina, Uruguai, Chile, Colômbia e México.
+ * Reino Unido, França, Países Baixos, Bélgica, Alemanha, Argentina, Uruguai, Chile, Colômbia e México.
  */
 
 const countryData = [
@@ -110,6 +110,17 @@ const countryData = [
         // Máscara: # ## ## ## ##
         maskFormat: function (number) {
             return number.replace(/^(\d{1})(\d{2})(\d{2})(\d{2})(\d{0,2}).*/, '$1 $2 $3 $4 $5');
+        }
+    },
+    {
+        name: 'Países Baixos',
+        code: 'NL',
+        dialCode: '+31',
+        flag: '🇳🇱',
+        placeholder: '6 12345678',
+        // Máscara: # ######## (celular)
+        maskFormat: function (number) {
+            return number.replace(/^(\d{1})(\d{0,8}).*/, '$1 $2');
         }
     },
     {

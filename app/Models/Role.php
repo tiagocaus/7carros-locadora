@@ -67,6 +67,8 @@ class Role extends Model
     {
         return $this->qb
             ->table('funcionarios_roles', 'r')
+            ->withChave($chave)
+            ->withGlobals()
             ->select([
                 'r.id',
                 'r.chave',
@@ -78,19 +80,12 @@ class Role extends Model
             ->selectRaw("CASE WHEN r.chave != '0' AND EXISTS (
                 SELECT 1 FROM funcionarios_roles rs WHERE rs.chave = '0' AND rs.name = r.name
             ) THEN 1 ELSE 0 END as is_customization")
-            ->withoutChave()
             ->whereNotIn('r.name', self::supportRoleNames())
-            ->whereNested(function ($q) use ($chave) {
-                // Roles de sistema não customizadas pelo tenant
-                $q->whereNested(function ($sub) use ($chave) {
-                    $sub->where('r.chave', '=', '0')
-                        ->whereRaw('r.name NOT IN (
-                            SELECT name FROM funcionarios_roles WHERE chave = ?
-                        )', [$chave]);
-                })
-                // Roles do tenant
-                ->orWhere('r.chave', '=', $chave);
-            })
+            ->whereRaw("(r.chave != '0' OR NOT EXISTS (
+                SELECT 1
+                FROM funcionarios_roles rt
+                WHERE rt.chave = ? AND rt.name = r.name
+            ))", [$chave])
             ->orderByRaw('is_system DESC, r.name ASC')
             ->get();
     }
@@ -103,12 +98,9 @@ class Role extends Model
         return $this->qb
             ->table('funcionarios_roles')
             ->select(['id', 'chave', 'name', 'description'])
-            ->withoutChave()
+            ->withChave($chave)
+            ->withGlobals()
             ->where('id', '=', $id)
-            ->whereNested(function ($q) use ($chave) {
-                $q->where('chave', '=', $chave)
-                  ->orWhere('chave', '=', '0');
-            })
             ->first();
     }
 
@@ -120,6 +112,7 @@ class Role extends Model
         return $this->qb
             ->table('funcionarios_roles')
             ->select(['id', 'chave', 'name', 'description'])
+            ->withChave($chave)
             ->whereIn('name', self::supportRoleNames())
             ->first();
     }
@@ -132,7 +125,7 @@ class Role extends Model
         return $this->qb
             ->table('funcionarios_roles')
             ->select(['id', 'chave', 'name'])
-            ->withoutChave()
+            ->withGlobals()
             ->where('id', '=', $id)
             ->first();
     }
@@ -145,6 +138,7 @@ class Role extends Model
         return $this->qb
             ->table('funcionarios_roles')
             ->select(['id'])
+            ->withChave($chave)
             ->where('name', '=', $nome)
             ->first();
     }
@@ -157,6 +151,7 @@ class Role extends Model
         return $this->qb
             ->table('funcionarios_roles')
             ->select(['id'])
+            ->withChave($chave)
             ->where('name', '=', $nome)
             ->where('id', '!=', $excludeId)
             ->first();
@@ -170,8 +165,7 @@ class Role extends Model
         return $this->qb
             ->table('funcionarios_roles')
             ->select(['id'])
-            ->withoutChave()
-            ->where('chave', '=', '0')
+            ->withChave('0')
             ->where('name', '=', $nome)
             ->first();
     }
@@ -191,9 +185,8 @@ class Role extends Model
     {
         return $this->qb
             ->table('funcionarios_roles')
-            ->withoutChave()
+            ->withChave($chave)
             ->insert([
-                'chave' => $chave,
                 'name' => $nome,
                 'description' => $descricao,
                 'created_at' => now(),
@@ -208,7 +201,6 @@ class Role extends Model
     {
         return $this->qb
             ->table('funcionarios_roles')
-            ->withoutChave()
             ->where('id', '=', $id)
             ->update([
                 'name' => $nome,
@@ -224,7 +216,6 @@ class Role extends Model
     {
         return $this->qb
             ->table('funcionarios_roles')
-            ->withoutChave()
             ->where('id', '=', $id)
             ->update([
                 'description' => $descricao,
@@ -239,7 +230,6 @@ class Role extends Model
     {
         return $this->qb
             ->table('funcionarios_roles')
-            ->withoutChave()
             ->where('id', '=', $id)
             ->delete();
     }
@@ -251,6 +241,7 @@ class Role extends Model
     {
         return $this->qb
             ->table('funcionarios')
+            ->withChave($chave)
             ->where('id_role', '=', $roleId)
             ->count();
     }
@@ -262,6 +253,7 @@ class Role extends Model
     {
         return $this->qb
             ->table('funcionarios')
+            ->withChave($chave)
             ->where('id_role', '=', $roleOrigem)
             ->update(['id_role' => $roleDestino]);
     }
@@ -271,13 +263,13 @@ class Role extends Model
      */
     public function listarParaSelect(string $chave): array
     {
-        return $this->qb
-            ->table('funcionarios_roles')
-            ->select(['id', 'name'])
-            ->withGlobals()
-            ->whereNotIn('name', self::supportRoleNames())
-            ->orderBy('name', 'ASC')
-            ->get();
+        return array_map(
+            static fn(array $role): array => [
+                'id' => $role['id'],
+                'name' => $role['name'],
+            ],
+            $this->listar($chave)
+        );
     }
 
     /**

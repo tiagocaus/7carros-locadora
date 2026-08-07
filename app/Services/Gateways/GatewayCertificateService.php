@@ -333,7 +333,9 @@ class GatewayCertificateService
 
         $cn = (string) ($certData['subject']['CN'] ?? '');
         $document = '';
-        if (preg_match('/(\d{11}|\d{14})/', $cn, $matches)) {
+        // CNPJ precisa vir antes de CPF; caso contrario a alternativa de 11
+        // digitos captura apenas o prefixo de um CNPJ valido.
+        if (preg_match('/(\d{14}|\d{11})/', $cn, $matches)) {
             $document = $matches[1];
         }
 

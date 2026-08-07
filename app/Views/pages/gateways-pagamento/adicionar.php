@@ -171,7 +171,7 @@
         <!-- Secao: Certificado digital mTLS -->
         <div class="form-section mb-6" id="sectionCertificadoGateway" style="display: none;">
             <h3 class="form-section-title"><i class="fas fa-certificate mr-2"></i>Certificado Digital <span id="certGatewayName"></span></h3>
-            <p class="text-sm text-slate-600 mb-4">Envie PFX/P12 ou um certificado PEM/CRT/CER acompanhado da chave privada. Os arquivos ficam protegidos e são usados somente nas chamadas mTLS.</p>
+            <p class="text-sm text-slate-600 mb-4">Envie o certificado digital utilizado na integração. Os arquivos ficam protegidos e são usados somente nas chamadas mTLS.</p>
 
             <div id="gatewayCertSaveFirst" class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 mb-4" style="display: none;">
                 Ao salvar, o gateway será criado e o certificado selecionado será enviado em seguida.
@@ -184,7 +184,7 @@
 
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-4 form-input-group">
-                    <label class="form-label-group">Arquivo do Certificado <span class="text-red-500">*</span> <?= aviso('Formatos aceitos: PFX, P12, PEM, CRT ou CER.') ?></label>
+                    <label class="form-label-group">Arquivo do Certificado <span class="text-red-500">*</span> <?= aviso('Envie PFX/P12 diretamente nesta tela quando possuir o certificado A1 completo ou use PEM/CRT/CER com a chave correspondente no campo seguinte. Prefira um A1 dedicado à integração bancária. Ao cadastrar as APIs, envie ao Bradesco somente o certificado público. Nunca envie PFX/P12, chave privada ou senha por e-mail, WhatsApp ou atendimento.') ?></label>
                     <label for="gatewayCertFile" class="flex items-center gap-3 cursor-pointer border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50">
                         <span class="inline-flex items-center px-3 py-1 bg-slate-100 border border-slate-300 rounded text-sm text-slate-700">
                             <i class="fas fa-paperclip mr-1"></i> Escolher arquivo
@@ -195,7 +195,7 @@
                 </div>
 
                 <div class="md:col-span-4 form-input-group">
-                    <label class="form-label-group">Chave Privada <?= aviso('Obrigatória para certificados PEM, CRT ou CER.') ?></label>
+                    <label class="form-label-group">Chave Privada <span id="gatewayPrivateKeyRequired" class="text-red-500" style="display: none;">*</span> <?= aviso('Obrigatória somente quando o certificado for PEM, CRT ou CER. Para PFX/P12, deixe vazio porque a chave privada já está dentro do arquivo. A chave privada é usada pelo servidor na autenticação mTLS e nunca deve ser enviada ao banco ou ao suporte.') ?></label>
                     <label for="gatewayPrivateKeyFile" class="flex items-center gap-3 cursor-pointer border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50">
                         <span class="inline-flex items-center px-3 py-1 bg-slate-100 border border-slate-300 rounded text-sm text-slate-700"><i class="fas fa-key mr-1"></i>Escolher</span>
                         <span id="gatewayPrivateKeyFileName" class="text-sm text-slate-500">Nenhum arquivo selecionado</span>
@@ -204,7 +204,7 @@
                 </div>
 
                 <div class="md:col-span-4 form-input-group">
-                    <label for="gatewayCertPassword" class="form-label-group">Senha/Passphrase <?= aviso('Obrigatória para PFX/P12; opcional para chave privada PEM.') ?></label>
+                    <label for="gatewayCertPassword" class="form-label-group">Senha/Passphrase <span id="gatewayCertPasswordRequired" class="text-red-500" style="display: none;">*</span> <?= aviso('Para PFX/P12, informe a senha diretamente nesta tela. Para PEM/KEY, informe somente se a chave estiver protegida. A senha é armazenada criptografada e não deve ser enviada ao banco, por e-mail, WhatsApp ou atendimento.') ?></label>
                     <input type="password" id="gatewayCertPassword" class="form-input-group-field" placeholder="Senha ou passphrase">
                 </div>
 
@@ -775,6 +775,7 @@
             document.getElementById('gatewayCertFile').disabled = false;
             document.getElementById('gatewayPrivateKeyFile').disabled = false;
             document.getElementById('gatewayCertPassword').disabled = false;
+            atualizarModoCertificadoGateway();
 
             if (certificadoGatewayAtual) {
                 const validade = certificadoGatewayAtual.validade || '-';
@@ -796,6 +797,26 @@
                 details.innerHTML = '';
                 info.style.display = 'none';
                 btnRemove.style.display = 'none';
+            }
+        }
+
+        function atualizarModoCertificadoGateway() {
+            const fileInput = document.getElementById('gatewayCertFile');
+            const keyInput = document.getElementById('gatewayPrivateKeyFile');
+            const passwordInput = document.getElementById('gatewayCertPassword');
+            const fileName = fileInput?.files?.[0]?.name || '';
+            const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+            const isPkcs12 = ['pfx', 'p12'].includes(extension);
+            const isPublicCertificate = ['pem', 'crt', 'cer'].includes(extension);
+
+            document.getElementById('gatewayPrivateKeyRequired').style.display = isPublicCertificate ? 'inline' : 'none';
+            document.getElementById('gatewayCertPasswordRequired').style.display = isPkcs12 ? 'inline' : 'none';
+
+            keyInput.disabled = isPkcs12;
+            passwordInput.required = isPkcs12;
+            if (isPkcs12) {
+                keyInput.value = '';
+                document.getElementById('gatewayPrivateKeyFileName').textContent = 'Nenhum arquivo selecionado';
             }
         }
 
@@ -1139,6 +1160,7 @@
             document.getElementById('gatewayCertFileName').textContent = this.files && this.files.length > 0
                 ? this.files[0].name
                 : 'Nenhum arquivo selecionado';
+            atualizarModoCertificadoGateway();
         });
         document.getElementById('gatewayPrivateKeyFile')?.addEventListener('change', function() {
             document.getElementById('gatewayPrivateKeyFileName').textContent = this.files && this.files.length > 0

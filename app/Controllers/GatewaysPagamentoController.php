@@ -328,6 +328,8 @@ class GatewaysPagamentoController
                 return;
             }
 
+            $dados = $this->normalizeSupportedPaymentMethods((string) $dados['gateway_code'], $dados);
+
             // Gerar webhook URL e secret
             $model = new GatewayPagamento();
             $certificateConfig = $this->getCertificateConfig((string) $dados['gateway_code']);
@@ -340,6 +342,11 @@ class GatewaysPagamentoController
                 (string) $dados['gateway_code'],
                 is_array($dados['credentials'] ?? null) ? $dados['credentials'] : []
             );
+            $configurationError = $this->validateGatewayMethodConfiguration((string) $dados['gateway_code'], $dados);
+            if ($configurationError !== null) {
+                Response::json(['success' => false, 'message' => $configurationError], 422);
+                return;
+            }
             $dados['webhook_url'] = $model->gerarWebhookUrl(0, $dados['gateway_code']);
             $dados['webhook_secret'] = $model->gerarWebhookSecret();
 
@@ -405,6 +412,7 @@ class GatewaysPagamentoController
             }
 
             $dados = $request->all();
+            $dados = $this->normalizeSupportedPaymentMethods((string) $gateway['gateway_code'], $dados);
 
             // Se credentials estiver vazio ou com valores mascarados, manter as existentes
             if (isset($dados['credentials']) && is_array($dados['credentials'])) {
@@ -425,6 +433,12 @@ class GatewaysPagamentoController
                     $dados['credentials'],
                     $credsExistentes
                 );
+            }
+
+            $configurationError = $this->validateGatewayMethodConfiguration((string) $gateway['gateway_code'], $dados);
+            if ($configurationError !== null) {
+                Response::json(['success' => false, 'message' => $configurationError], 422);
+                return;
             }
 
             if (($dados['status'] ?? null) === 'A') {
@@ -556,7 +570,10 @@ class GatewaysPagamentoController
                 $id
             );
 
-            $result = $gatewayInstance->validateCredentials($gateway['credentials'] ?? []);
+            $credentialsToTest = $gateway['credentials'] ?? [];
+            $credentialsToTest['_pix_enabled'] = !empty($gateway['pix_enabled']);
+            $credentialsToTest['_boleto_enabled'] = !empty($gateway['boleto_enabled']);
+            $result = $gatewayInstance->validateCredentials($credentialsToTest);
 
             AuditLogService::registrar(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", testou conexão do gateway [{$gateway['nome']}]: " .
@@ -818,6 +835,74 @@ class GatewaysPagamentoController
         }
 
         return $normalized;
+    }
+
+    /**
+     * Mantém habilitados somente os métodos efetivamente implementados pelo gateway.
+     *
+     * @param array<string, mixed> $dados
+     * @return array<string, mixed>
+     */
+    private function normalizeSupportedPaymentMethods(string $gatewayCode, array $dados): array
+    {
+        $gatewayInfo = GatewayFactory::getGatewayInfo($gatewayCode);
+        $supportedMethods = $gatewayInfo['methods'] ?? [];
+        $fieldsByMethod = [
+            'pix' => 'pix_enabled',
+            'boleto' => 'boleto_enabled',
+            'credit_card' => 'credit_card_enabled',
+            'debit_card' => 'debit_card_enabled',
+        ];
+
+        foreach ($fieldsByMethod as $method => $field) {
+            if (!in_array($method, $supportedMethods, true)) {
+                $dados[$field] = 0;
+            }
+        }
+
+        return $dados;
+    }
+
+    /** @param array<string, mixed> $dados */
+    private function validateGatewayMethodConfiguration(string $gatewayCode, array $dados): ?string
+    {
+        if ($gatewayCode !== 'bradesco' || empty($dados['boleto_enabled'])) {
+            return null;
+        }
+
+        $credentials = is_array($dados['credentials'] ?? null) ? $dados['credentials'] : [];
+        $required = [
+            'boleto_client_id' => 'Client ID do Boleto',
+            'boleto_client_secret' => 'Client Secret do Boleto',
+            'boleto_beneficiary_document' => 'CNPJ do Beneficiário',
+            'boleto_product' => 'Carteira / ID do Produto',
+            'boleto_negotiation' => 'Número da Negociação',
+        ];
+        $missing = [];
+        foreach ($required as $field => $label) {
+            if (empty($credentials[$field])) {
+                $missing[] = $label;
+            }
+        }
+
+        if ($missing !== []) {
+            return 'Para ativar Boleto Bradesco, preencha: ' . implode(', ', $missing) . '.';
+        }
+
+        $beneficiary = preg_replace('/\D+/', '', (string) $credentials['boleto_beneficiary_document']);
+        $product = preg_replace('/\D+/', '', (string) $credentials['boleto_product']);
+        $negotiation = preg_replace('/\D+/', '', (string) $credentials['boleto_negotiation']);
+        if (strlen($beneficiary) !== 14) {
+            return 'O CNPJ do Beneficiário do Boleto Bradesco deve ter 14 dígitos.';
+        }
+        if ($product === '' || strlen($product) > 2) {
+            return 'A Carteira / ID do Produto do Boleto Bradesco deve ter até 2 dígitos.';
+        }
+        if (strlen($negotiation) !== 18) {
+            return 'O Número da Negociação do Boleto Bradesco deve ter 18 dígitos.';
+        }
+
+        return null;
     }
 
     /**

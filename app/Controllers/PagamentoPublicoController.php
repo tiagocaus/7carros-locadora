@@ -254,9 +254,9 @@ class PagamentoPublicoController
 
         // Buscar gateway
         $gatewayModel = new GatewayPagamento();
-        $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais($gatewayId);
+        $gatewayConfig = $gatewayModel->buscarPorIdComCredenciaisParaTenant($gatewayId, (string) $link['chave']);
 
-        if (!$gatewayConfig || $gatewayConfig['chave'] !== $link['chave']) {
+        if (!$gatewayConfig) {
             Response::json([
                 'success' => false,
                 'message' => 'Gateway de pagamento inválido'
@@ -268,6 +268,15 @@ class PagamentoPublicoController
             Response::json([
                 'success' => false,
                 'message' => 'Gateway de pagamento inativo'
+            ], 400);
+            return;
+        }
+
+        $gatewayInfo = GatewayFactory::getGatewayInfo((string) $gatewayConfig['gateway_code']);
+        if (!$gatewayInfo || !in_array($metodo, $gatewayInfo['methods'] ?? [], true)) {
+            Response::json([
+                'success' => false,
+                'message' => 'Método de pagamento não suportado por este gateway'
             ], 400);
             return;
         }
@@ -490,7 +499,10 @@ class PagamentoPublicoController
         // Se tem external_id, consultar no gateway
         if (!empty($transacao['external_id']) && !empty($transacao['id_gateway'])) {
             $gatewayModel = new GatewayPagamento();
-            $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais($transacao['id_gateway']);
+            $gatewayConfig = $gatewayModel->buscarPorIdComCredenciaisParaTenant(
+                (int) $transacao['id_gateway'],
+                (string) $link['chave']
+            );
 
             if ($gatewayConfig) {
                 try {
@@ -665,7 +677,10 @@ class PagamentoPublicoController
 
             // Buscar gateway com credenciais
             if (!empty($transacao['id_gateway'])) {
-                $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais($transacao['id_gateway']);
+                $gatewayConfig = $gatewayModel->buscarPorIdComCredenciaisParaTenant(
+                    (int) $transacao['id_gateway'],
+                    (string) $transacao['chave']
+                );
             }
 
             // Se não encontrou pelo id_gateway, buscar pelo chave e código
@@ -1212,9 +1227,9 @@ class PagamentoPublicoController
         }
 
         $gatewayModel = new GatewayPagamento();
-        $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais($gatewayId);
+        $gatewayConfig = $gatewayModel->buscarPorIdComCredenciaisParaTenant($gatewayId, (string) $link['chave']);
 
-        if (!$gatewayConfig || $gatewayConfig['chave'] !== $link['chave']) {
+        if (!$gatewayConfig) {
             Response::json(['success' => false, 'message' => 'Gateway inválido'], 400);
             return;
         }
@@ -1273,8 +1288,8 @@ class PagamentoPublicoController
 
         if ($gatewayId > 0) {
             $gatewayModel = new GatewayPagamento();
-            $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais($gatewayId);
-            if ($gatewayConfig && $gatewayConfig['chave'] === $link['chave']) {
+            $gatewayConfig = $gatewayModel->buscarPorIdComCredenciaisParaTenant($gatewayId, (string) $link['chave']);
+            if ($gatewayConfig) {
                 $gatewayCode = $gatewayConfig['gateway_code'];
             }
         }
@@ -1312,9 +1327,9 @@ class PagamentoPublicoController
         }
 
         $gatewayModel = new GatewayPagamento();
-        $gatewayConfig = $gatewayModel->buscarPorIdComCredenciais($gatewayId);
+        $gatewayConfig = $gatewayModel->buscarPorIdComCredenciaisParaTenant($gatewayId, (string) $link['chave']);
 
-        if (!$gatewayConfig || $gatewayConfig['chave'] !== $link['chave']) {
+        if (!$gatewayConfig) {
             Response::json(['success' => false, 'message' => 'Gateway inválido'], 400);
             return;
         }
@@ -1454,6 +1469,11 @@ class PagamentoPublicoController
     {
         $metodosForma = $gateway['metodos_forma_pagamento'] ?? [];
         if (!empty($metodosForma) && !in_array($metodo, $metodosForma, true)) {
+            return false;
+        }
+
+        $gatewayInfo = GatewayFactory::getGatewayInfo((string) ($gateway['gateway_code'] ?? ''));
+        if (!$gatewayInfo || !in_array($metodo, $gatewayInfo['methods'] ?? [], true)) {
             return false;
         }
 

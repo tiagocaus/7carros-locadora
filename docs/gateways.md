@@ -15,7 +15,7 @@ Sistema multi-gateway para processamento de pagamentos online com link publico d
 | **EfiPay** | `efipay` | BR | PIX, Boleto | `efipay/sdk-php-apis-efi` |
 | **Inter** | `inter` | BR | PIX, Boleto | REST com mTLS |
 | **Sicoob** | `sicoob` | BR | PIX, Boleto | REST com OAuth2 + mTLS |
-| **Bradesco** | `bradesco` | BR | PIX, Boleto | REST com certificado .pfx |
+| **Bradesco** | `bradesco` | BR | PIX, Boleto | APIs Pix e Cobranca com OAuth2 + mTLS |
 | **Itau** | `itau` | BR | PIX, Boleto | REST com mTLS (BoleCode) |
 | **Banco Santander** | `santander` | BR | PIX, Boleto/Boleto SX | REST com OAuth2 + mTLS |
 | **Bancard** | `bancard` | PY | Cartao | REST (vPOS 2.0) |
@@ -150,7 +150,7 @@ $existe = GatewayFactory::exists('stripe'); // true
 
 ### Certificados Bancarios
 
-Os gateways Cora, EfiPay, Inter, Sicoob, Bradesco, Itau e Santander usam a secao generica de certificado. Ela aceita A1 em `.pfx`/`.p12` ou certificado `.pem`/`.crt`/`.cer` acompanhado de chave privada `.pem`/`.key`. O sistema valida validade e correspondencia da chave, armazena os arquivos com permissao `0600` em `storage/certificates/gateways` e guarda a senha de PFX/P12 criptografada em `credentials`.
+Os gateways Cora, EfiPay, Inter, Sicoob, Bradesco, Itau e Santander usam a secao generica de certificado. Ela aceita um certificado A1 completo em `.pfx`/`.p12`, que ja contem o certificado publico e a chave privada, ou certificado publico `.pem`/`.crt`/`.cer` acompanhado da respectiva chave privada `.pem`/`.key`. Um arquivo publico enviado isoladamente pelo banco nao e suficiente para autenticacao mTLS. O sistema valida validade e correspondencia da chave, armazena os arquivos com permissao `0600` em `storage/certificates/gateways` e guarda a senha de PFX/P12 ou passphrase da chave privada criptografada em `credentials`.
 
 Nao cadastre caminhos de arquivos pelo formulario. Durante chamadas mTLS, `GatewayCertificateService` prepara o certificado e a chave para cURL e remove artefatos temporarios ao final. Credenciais antigas que ainda contenham `certificate_path` ou `private_key_path` permanecem como fallback de execucao; ao enviar um certificado pela tela, os campos legados sao removidos. Remover um certificado obrigatorio tambem inativa o gateway.
 
@@ -239,6 +239,14 @@ Rotas individuais por gateway: `/webhook/asaas`, `/webhook/stripe`, `/webhook/sq
 A integracao usa duas APIs oficiais independentes: Pix Recebimentos (`cobv`, consulta, cancelamento e devolucao) e API de Cobranca v2 (`workspaces`, registro e consulta de boletos). Ambas usam `client_id`, `client_secret`, OAuth2 client credentials e mTLS. O cadastro exige tambem chave Pix, tipo da chave, Workspace ID e codigo do convenio. Cartoes e Pix Automatico nao fazem parte deste gateway.
 
 O webhook Pix do Santander exige `GET` habilitado para validacao e envia eventos por `POST`. Antes de aceitar uma notificacao como paga, `SantanderGateway::validateWebhookSignature()` consulta a cobranca na API autenticada do banco; um payload isolado nao liquida o financeiro local.
+
+#### Banco Bradesco
+
+A integracao executavel usa a API Pix Bradesco v2. Em producao, a autenticacao ocorre em `https://qrpix.bradesco.com.br/oauth/token` e os recursos em `https://qrpix.bradesco.com.br/v2`; homologacao usa os mesmos caminhos no host `qrpix-h.bradesco.com.br`. O token OAuth2 usa `client_credentials`, autenticacao HTTP Basic com `client_id` e `client_secret`, e certificado de cliente mTLS. O cadastro tambem exige a chave Pix recebedora.
+
+Cobranças com vencimento sao criadas com `PUT /cobv/{txid}`. Consulta, remocao e devolucao usam, respectivamente, `/cobv/{txid}`, o status `REMOVIDA_PELO_USUARIO_RECEBEDOR` e `/pix/{endToEndId}/devolucao/{id}`. O identificador local e persistido como `pix_{txid}`. Notificacoes Pix somente sao aceitas como pagas depois de uma consulta autenticada ao banco.
+
+O produto Boleto/Cobranca do Bradesco possui contrato e credenciais proprios, embora possa usar o mesmo certificado de cliente vinculado no banco. O gateway anuncia `pix` e `boleto`; para ativar boleto, exige Client ID, Client Secret, CNPJ do beneficiario, carteira/ID do produto e numero da negociacao. A API Cobranca usa OAuth2 client credentials com mTLS e endpoints proprios para registro, consulta e baixa. A opcao nao deve ser habilitada sem o indicador 175 ativo no contrato do cliente.
 
 No controller, cada rota individual `POST` deve ter um wrapper (`webhookAsaas`, `webhookStripe`, etc.) chamando o handler generico `PagamentoPublicoController::webhook($request, $gatewayCode)`. Isso evita erro 500 por metodo inexistente e centraliza idempotencia, validacao de assinatura e atualizacao de transacao.
 
