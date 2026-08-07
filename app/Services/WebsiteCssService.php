@@ -59,8 +59,10 @@ class WebsiteCssService
         // Remover whitespace
         $css = preg_replace('/\s+/', ' ', $css);
 
-        // Remover espacos ao redor de seletores/propriedades
-        $css = preg_replace('/\s*([{}:;,>~+])\s*/', '$1', $css);
+        // Remover espacos ao redor de seletores/propriedades.
+        // O operador "+" fica de fora porque CSS exige whitespace ao redor
+        // dele em expressoes calc(), como calc(100% + 1rem).
+        $css = preg_replace('/\s*([{}:;,>~])\s*/', '$1', $css);
 
         // Remover ultimo ; antes de }
         $css = str_replace(';}', '}', $css);
