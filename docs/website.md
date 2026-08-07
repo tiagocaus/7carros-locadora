@@ -943,15 +943,17 @@ O build agora é mais simples — copia PHP, gera config e compila CSS:
 │                                                            │
 │  7. GERAR sitemap.xml e robots.txt                         │
 │                                                            │
-│  8. COPIAR versao.json                                     │
+│  8. GERAR .htaccess (HTTPS + host canonico sem www)        │
 │                                                            │
-│  9. CRIAR cache/ com .htaccess (Deny from all)             │
+│  9. COPIAR versao.json                                     │
 │                                                            │
-│  10. Upload completo via FTP (phpseclib3)                  │
+│  10. CRIAR cache/ com .htaccess (Deny from all)            │
 │                                                            │
-│  11. Cleanup diretório temporário                          │
+│  11. Upload completo via FTP (phpseclib3)                  │
 │                                                            │
-│  12. Registrar em site_deploy_log                          │
+│  12. Cleanup diretório temporário                          │
+│                                                            │
+│  13. Registrar em site_deploy_log                          │
 │      Atualizar site_config.versao                          │
 │                                                            │
 └───────────────────────────────────────────────────────────┘
@@ -977,6 +979,7 @@ O build agora é mais simples — copia PHP, gera config e compila CSS:
 ├── ajax-portal-api.php         # Proxy JSON autenticado + CSRF
 ├── ajax-portal-logout.php      # Revoga sessão opaca e limpa a sessão local
 ├── portal-recibo.php           # Proxy autenticado do recibo
+├── .htaccess                   # GERADO: HTTPS + host canônico sem www
 ├── sitemap.xml                 # Gerado no build
 ├── robots.txt                  # Gerado no build
 ├── versao.json                 # Versão do template
@@ -1271,9 +1274,25 @@ return [
 | Sitemap.xml | Gerado automaticamente com todas as páginas/idiomas |
 | Robots.txt | Gerado com referência ao sitemap |
 | Hreflang | Tags `<link rel="alternate">` para cada idioma |
-| Canonical | `<link rel="canonical">` por página |
+| Canonical | `<link rel="canonical">` por página, sempre `https://dominio` sem `www` |
 | HTML semântico | `<header>`, `<main>`, `<footer>`, `<nav>`, `<article>` |
 | Alt text | Em todas as imagens (banners, grupos, logo) |
+
+### Host canônico e HTTPS
+
+- O domínio é normalizado sem protocolo, caminho, barra final ou prefixo `www.`.
+- O build gera `.htaccess` na raiz com redirecionamento permanente para
+  `https://dominio`, preservando caminho e query string.
+- O redirecionamento só é aplicado quando o `Host` recebido é o domínio
+  configurado ou `www.dominio`; aliases temporários de homologação continuam
+  acessíveis enquanto o DNS definitivo não estiver ativo.
+- A regra considera `X-Forwarded-Proto: https` para evitar loop quando a
+  hospedagem estiver atrás de proxy reverso.
+- O alias `www` só recebe tráfego quando DNS e certificado TLS também estiverem
+  configurados para `www.dominio`; essa infraestrutura deve ser validada antes
+  de divulgar o endereço alternativo.
+- Canonical, Open Graph, hreflang, sitemap, robots e JSON-LD usam sempre a mesma
+  URL-base sem `www`.
 
 ### JSON-LD (Schema.org)
 
@@ -2203,6 +2222,7 @@ Justificativa: o pacote é leve (~20 arquivos PHP + CSS + JS + assets). Upload c
    ├── veiculos.php
    ├── contato.php
    ├── reserva.php
+   ├── .htaccess                   # GERADO: HTTPS + host canônico sem www
    ├── includes/
    │   ├── config.php               # GERADO com dados do tenant
    │   ├── header.php               # Copiado

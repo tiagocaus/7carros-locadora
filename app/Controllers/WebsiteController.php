@@ -808,6 +808,8 @@ class WebsiteController
             $result = $service->solicitarAtivacao($dados);
 
             Response::json($result);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => t('modules.website.domain_invalid')], 422);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }

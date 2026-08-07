@@ -76,7 +76,7 @@ $empresa = $dados['empresa'] ?? [];
 
                             <?php if (empty($filiais)): ?>
                             <div class="mb-4">
-                                www.<?= e($config['dominio']) ?>
+                                <?= e($config['dominio']) ?>
                             </div>
                             <?php endif; ?>
                         </div>

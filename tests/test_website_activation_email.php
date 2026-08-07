@@ -101,6 +101,8 @@ assertWebsiteActivation(
 );
 assertWebsiteActivation(str_contains($body, 'Empresa &lt;Teste&gt;'), 'Empresa deve ser escapada.');
 assertWebsiteActivation(str_contains($body, 'usuario&lt;&amp;teste'), 'Username deve ser escapado.');
+assertWebsiteActivation(str_contains($body, 'exemplo.com.br'), 'Dominio normalizado deve aparecer no email.');
+assertWebsiteActivation(!str_contains($body, 'www.exemplo.com.br'), 'Email nao deve manter o prefixo www.');
 assertWebsiteActivation(str_contains($body, 'Intermediário (P2)'), 'Nome e codigo do plano devem aparecer.');
 assertWebsiteActivation(
     str_contains($body, 'Sim, Quero registrar o domínio.'),
@@ -108,7 +110,7 @@ assertWebsiteActivation(
 );
 assertWebsiteActivation(!str_contains($body, 'Hospedagem'), 'Hospedagem nao deve aparecer no email.');
 assertWebsiteActivation($configModel->atualizacoes === [[
-    'dominio' => 'www.exemplo.com.br',
+    'dominio' => 'exemplo.com.br',
     'status' => 'pendente',
 ]], 'Status pendente nao foi persistido corretamente.');
 

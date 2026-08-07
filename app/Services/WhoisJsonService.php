@@ -26,7 +26,7 @@ class WhoisJsonService
      */
     public function verificarDisponibilidade(string $dominio): array
     {
-        $dominioNormalizado = $this->normalizarDominio($dominio);
+        $dominioNormalizado = WebsiteDomain::normalizar($dominio);
         if ($dominioNormalizado === '') {
             throw new \InvalidArgumentException('Dominio invalido');
         }
@@ -106,25 +106,4 @@ class WhoisJsonService
         ];
     }
 
-    private function normalizarDominio(string $dominio): string
-    {
-        $dominio = strtolower(trim($dominio));
-        $dominio = preg_replace('#^https?://#i', '', $dominio);
-        $dominio = preg_split('/[\/?#]/', $dominio)[0] ?? '';
-        $dominio = rtrim(trim($dominio), '.');
-
-        if (str_starts_with($dominio, 'www.')) {
-            $dominio = substr($dominio, 4);
-        }
-
-        if (
-            $dominio === ''
-            || !str_contains($dominio, '.')
-            || filter_var($dominio, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false
-        ) {
-            return '';
-        }
-
-        return $dominio;
-    }
 }

@@ -32,6 +32,7 @@ class WebsiteService
      */
     public function solicitarAtivacao(array $dados): array
     {
+        $dominio = WebsiteDomain::exigirValido((string) ($dados['dominio'] ?? ''));
         $usuario = Auth::user();
         $chave = trim((string) ($usuario['chave'] ?? ''));
         $username = trim((string) ($usuario['usuario'] ?? ''));
@@ -66,7 +67,7 @@ class WebsiteService
         $body .= "<p><strong>Empresa:</strong> " . $escape($empresa) . "</p>";
         $body .= "<p><strong>Chave:</strong> " . $escape($chave) . "</p>";
         $body .= "<p><strong>Username:</strong> " . $escape($username) . "</p>";
-        $body .= "<p><strong>Domínio:</strong> " . $escape((string) ($dados['dominio'] ?? '')) . "</p>";
+        $body .= "<p><strong>Domínio:</strong> " . $escape($dominio) . "</p>";
         $body .= "<p><strong>Plano:</strong> " . $escape($plano) . "</p>";
         $body .= "<p><strong>Registro de domínio:</strong> "
             . ($querRegistro ? 'Sim, Quero registrar o domínio.' : 'Não, Já tenho meu domínio (vou alterar o DNS).')
@@ -90,7 +91,7 @@ class WebsiteService
         // Atualizar status para pendente
         $configModel = $this->siteConfigModel ?? new SiteConfig();
         $configModel->criarOuAtualizar([
-            'dominio' => $dados['dominio'],
+            'dominio' => $dominio,
             'status'  => 'pendente',
         ]);
 
@@ -217,15 +218,9 @@ class WebsiteService
 
     private function buildSiteRedirectUrl(?array $config): string
     {
-        $dominio = trim((string) ($config['dominio'] ?? ''));
+        $dominio = WebsiteDomain::normalizar((string) ($config['dominio'] ?? ''));
         if ($dominio !== '') {
-            $dominio = preg_replace('#^https?://#i', '', $dominio);
-            $dominio = preg_split('/[\/?#]/', $dominio)[0] ?? '';
-            $dominio = trim($dominio);
-
-            if ($dominio !== '') {
-                return 'https://' . $dominio;
-            }
+            return WebsiteDomain::urlBase($dominio);
         }
 
         return rtrim(Database::env('APP_URL', 'https://locadora.7carros.com'), '/');

@@ -9,21 +9,24 @@ $pageKeywords = !empty($seo['meta_keywords']) ? e($seo['meta_keywords']) : '';
 $ogTitle = !empty($seo['og_titulo']) ? e($seo['og_titulo']) : $pageTitle;
 $ogDesc = !empty($seo['og_descricao']) ? e($seo['og_descricao']) : $pageDesc;
 $ogImage = !empty($seo['og_imagem']) ? e($seo['og_imagem']) : '';
-$canonical = 'https://' . e($config['dominio']) . ($_SERVER['REQUEST_URI'] ?? '/');
+$baseUrl = 'https://' . $config['dominio'];
+$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$requestPath = is_string($requestPath) && $requestPath !== '' ? $requestPath : '/';
+$canonical = $baseUrl . $requestPath;
 ?>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= $pageTitle ?></title>
 <?php if ($pageDesc): ?><meta name="description" content="<?= $pageDesc ?>"><?php endif; ?>
 <?php if ($pageKeywords): ?><meta name="keywords" content="<?= $pageKeywords ?>"><?php endif; ?>
-<link rel="canonical" href="<?= $canonical ?>">
+<link rel="canonical" href="<?= e($canonical) ?>">
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="<?= $ogTitle ?>">
 <?php if ($ogDesc): ?><meta property="og:description" content="<?= $ogDesc ?>"><?php endif; ?>
 <?php if ($ogImage): ?><meta property="og:image" content="<?= $ogImage ?>"><?php endif; ?>
-<meta property="og:url" content="<?= $canonical ?>">
+<meta property="og:url" content="<?= e($canonical) ?>">
 
 <!-- Twitter Cards -->
 <meta name="twitter:card" content="summary_large_image">
@@ -33,7 +36,7 @@ $canonical = 'https://' . e($config['dominio']) . ($_SERVER['REQUEST_URI'] ?? '/
 
 <!-- Hreflang -->
 <?php foreach ($config['idiomas_ativos'] as $lang): ?>
-<link rel="alternate" hreflang="<?= substr($lang, 0, 2) ?>" href="https://<?= e($config['dominio']) ?><?= $lang === $config['idioma_padrao'] ? '/' : '/' . substr($lang, 0, 2) . '/' ?>">
+<link rel="alternate" hreflang="<?= substr($lang, 0, 2) ?>" href="<?= e($baseUrl) ?><?= $lang === $config['idioma_padrao'] ? '/' : '/' . substr($lang, 0, 2) . '/' ?>">
 <?php endforeach; ?>
 
 <!-- Favicon -->

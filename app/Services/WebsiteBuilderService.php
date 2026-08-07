@@ -61,19 +61,22 @@ class WebsiteBuilderService
         $this->gerarSitemap($chave, $buildDir);
         $this->gerarRobots($chave, $buildDir);
 
-        // 9. Copiar versao.json
+        // 9. Gerar redirecionamento canonico (HTTPS sem www)
+        $this->gerarHtaccess($chave, $buildDir);
+
+        // 10. Copiar versao.json
         $this->copiarArquivo(
             $this->templatePath . '/versao.json',
             $buildDir . '/versao.json'
         );
 
-        // 10. Criar cache/.htaccess
+        // 11. Criar cache/.htaccess
         file_put_contents($buildDir . '/cache/.htaccess', "Deny from all\n");
 
-        // 11. Copiar imagens estaticas do CSS
+        // 12. Copiar imagens estaticas do CSS
         $this->copiarImagensCss($buildDir);
 
-        // 12. Copiar libs JS/CSS pre-minificadas (chosen-select, etc)
+        // 13. Copiar libs JS/CSS pre-minificadas (chosen-select, etc)
         $this->copiarLibsAssets($buildDir);
 
         return $buildDir;
@@ -439,7 +442,7 @@ class WebsiteBuilderService
             'api_url'            => $appUrl,
             'api_token'          => $apiToken,
             'nome_empresa'       => $nomeEmpresa,
-            'dominio'            => $config['dominio'] ?? '',
+            'dominio'            => WebsiteDomain::exigirValido((string) ($config['dominio'] ?? '')),
             'idioma_padrao'      => $config['idioma_padrao'] ?? 'pt_BR',
             'idiomas_ativos'     => $idiomasAtivos,
             'whatsapp_numero'    => $config['whatsapp_numero'] ?? '',
@@ -526,8 +529,8 @@ class WebsiteBuilderService
             $_SESSION['chave'] = $oldChave;
         }
 
-        $dominio = $config['dominio'] ?? 'exemplo.com';
-        $baseUrl = 'https://' . $dominio;
+        $dominio = WebsiteDomain::exigirValido((string) ($config['dominio'] ?? ''));
+        $baseUrl = WebsiteDomain::urlBase($dominio);
         $today = today();
         $paginas = ['index.php', 'sobre.php', 'veiculos.php', 'contato.php'];
 
@@ -562,9 +565,24 @@ class WebsiteBuilderService
             $_SESSION['chave'] = $oldChave;
         }
 
-        $dominio = $config['dominio'] ?? 'exemplo.com';
-        $content = "User-agent: *\nAllow: /\n\nSitemap: https://{$dominio}/sitemap.xml\n";
+        $dominio = WebsiteDomain::exigirValido((string) ($config['dominio'] ?? ''));
+        $content = "User-agent: *\nAllow: /\n\nSitemap: "
+            . WebsiteDomain::urlBase($dominio)
+            . "/sitemap.xml\n";
         file_put_contents($buildDir . '/robots.txt', $content);
+    }
+
+    private function gerarHtaccess(string $chave, string $buildDir): void
+    {
+        $oldChave = $_SESSION['chave'] ?? null;
+        $_SESSION['chave'] = $chave;
+        $config = (new SiteConfig())->buscarPorChave();
+        if ($oldChave !== null) {
+            $_SESSION['chave'] = $oldChave;
+        }
+
+        $dominio = WebsiteDomain::exigirValido((string) ($config['dominio'] ?? ''));
+        file_put_contents($buildDir . '/.htaccess', WebsiteDomain::gerarHtaccess($dominio));
     }
 
     private function copiarImagensCss(string $buildDir): void
