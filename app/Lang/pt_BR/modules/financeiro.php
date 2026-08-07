@@ -127,6 +127,7 @@ return [
         'print_send' => 'Imprimir / Enviar Fatura',
         'remove_item' => 'Remover item',
         'create_difference' => 'Criar diferença',
+        'convert_to_installments' => 'Parcelar fatura',
     ],
 
     // Impressão e envio de fatura
@@ -222,6 +223,8 @@ return [
         'partial_difference_due_required' => 'Informe o vencimento da diferença',
         'partial_success' => 'Baixa parcial registrada com sucesso',
         'partial_error' => 'Erro ao registrar baixa parcial',
+        'existing_installment_success' => 'Fatura parcelada com sucesso',
+        'existing_installment_error' => 'Erro ao parcelar a fatura',
         'partial_use_button' => 'Use o botão Criar diferença para registrar pagamento parcial',
         // Validação
         'required_field' => 'Campo obrigatório: :field',
@@ -250,6 +253,13 @@ return [
         'step_5' => 'Clique em "Gerar Preview" para visualizar as parcelas',
         'step_6' => 'Salve o lançamento - todas as parcelas serão criadas automaticamente',
         'tip' => 'O valor será dividido igualmente entre as parcelas. Diferenças de centavos serão ajustadas na última parcela.',
+    ],
+
+    'existing_installment' => [
+        'title' => 'Converter esta fatura em parcelas',
+        'description' => 'O saldo atual será dividido, a fatura será mantida como parcela 1 e os vínculos com contrato ou locação serão preservados. Salve primeiro eventuais alterações nos dados principais.',
+        'confirm_title' => 'Confirmar parcelamento',
+        'confirm_message' => 'Deseja dividir o saldo de :valor em :quantidade parcelas? A fatura atual será mantida como parcela 1.',
     ],
 
     // Paginação

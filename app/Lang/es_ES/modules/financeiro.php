@@ -121,6 +121,7 @@ return [
         'print_send' => 'Imprimir / Enviar Factura',
         'remove_item' => 'Eliminar elemento',
         'create_difference' => 'Crear diferencia',
+        'convert_to_installments' => 'Fraccionar factura',
     ],
 
     'print' => [
@@ -215,6 +216,8 @@ return [
         'partial_difference_due_required' => 'Informe el vencimiento de la diferencia',
         'partial_success' => 'Pago parcial registrado con éxito',
         'partial_error' => 'Error al registrar pago parcial',
+        'existing_installment_success' => 'Factura fraccionada correctamente',
+        'existing_installment_error' => 'Error al fraccionar la factura',
         'partial_use_button' => 'Use el botón Crear diferencia para registrar un pago parcial',
         // Validação
         'required_field' => 'Campo obligatorio: :field',
@@ -243,6 +246,13 @@ return [
         'step_5' => 'Haga clic en "Generar Vista Previa" para visualizar las cuotas',
         'step_6' => 'Guarde el movimiento - todas las cuotas se crearán automáticamente',
         'tip' => 'El valor se dividirá a partes iguales entre las cuotas. Las diferencias de céntimos se ajustarán en la última cuota.',
+    ],
+
+    'existing_installment' => [
+        'title' => 'Fraccionar esta factura',
+        'description' => 'El saldo actual se dividirá, la factura se mantendrá como cuota 1 y se conservarán los vínculos con el contrato o alquiler. Guarde primero los cambios en los datos principales.',
+        'confirm_title' => 'Confirmar fraccionamiento',
+        'confirm_message' => '¿Desea dividir el saldo de :valor en :quantidade cuotas? La factura actual se mantendrá como cuota 1.',
     ],
 
     // Paginação

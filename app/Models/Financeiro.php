@@ -1048,6 +1048,222 @@ class Financeiro extends Model
     }
 
     /**
+     * Converte uma receita pendente ainda nao parcelada em uma serie de parcelas.
+     * A fatura original e preservada como parcela 1 e as demais apontam para ela.
+     *
+     * @return array{
+     *   id_origem:int,
+     *   ids_parcelas:array<int,int>,
+     *   quantidade:int,
+     *   valor_original:float,
+     *   subtotal_original:float,
+     *   juros_original:float,
+     *   multa_original:float,
+     *   desconto_original:float,
+     *   parcelas:array<int,array{numero:int,data_venci:string,valor:float}>
+     * }
+     */
+    public function parcelarExistente(
+        int $id,
+        int $quantidade,
+        string $dataPrimeira,
+        int $intervaloValor,
+        string $intervaloTipo,
+        string $chave
+    ): array {
+        if ($quantidade < self::MIN_PARCELAS || $quantidade > self::MAX_PARCELAS) {
+            throw new \InvalidArgumentException(sprintf(
+                'O numero de parcelas deve estar entre %d e %d',
+                self::MIN_PARCELAS,
+                self::MAX_PARCELAS
+            ));
+        }
+
+        if (!$this->dataValida($dataPrimeira)) {
+            throw new \InvalidArgumentException('Data da primeira parcela invalida');
+        }
+
+        if ($intervaloValor < 1 || $intervaloValor > 365) {
+            throw new \InvalidArgumentException('O intervalo deve estar entre 1 e 365');
+        }
+
+        if (!in_array($intervaloTipo, ['dias', 'semanas', 'meses', 'anos'], true)) {
+            throw new \InvalidArgumentException('Tipo de intervalo invalido');
+        }
+
+        $mysqli = $this->getMysqli();
+        $mysqli->begin_transaction();
+
+        try {
+            $stmt = $mysqli->prepare('SELECT * FROM financeiro WHERE id = ? AND chave = ? FOR UPDATE');
+            $stmt->bind_param('is', $id, $chave);
+            $stmt->execute();
+            $lancamento = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+
+            if (!$lancamento) {
+                throw new \InvalidArgumentException('Lancamento nao encontrado');
+            }
+
+            if (($lancamento['tipo'] ?? '') !== 'R') {
+                throw new \InvalidArgumentException('Somente faturas de clientes podem ser parceladas');
+            }
+
+            if (($lancamento['pago'] ?? 'N') !== 'N') {
+                throw new \InvalidArgumentException('Somente faturas pendentes podem ser parceladas');
+            }
+
+            if (!empty($lancamento['id_financeiro_origem']) || (int) ($lancamento['total_parcelas'] ?? 0) > 1) {
+                throw new \InvalidArgumentException('Este lancamento ja pertence a um parcelamento');
+            }
+
+            if (!empty($lancamento['id_financeiro_taxa_origem'])) {
+                throw new \InvalidArgumentException('A despesa de taxa e gerenciada automaticamente pela receita de origem');
+            }
+
+            if (!empty($lancamento['id_promissoria'])) {
+                throw new \InvalidArgumentException('Faturas vinculadas a promissoria devem ser parceladas pela propria promissoria');
+            }
+
+            if (!empty($lancamento['id_multa'])) {
+                throw new \InvalidArgumentException('Faturas de multa devem ser parceladas pelo fluxo da multa');
+            }
+
+            $stmtFilhas = $mysqli->prepare('SELECT COUNT(*) AS total FROM financeiro WHERE id_financeiro_origem = ? AND chave = ?');
+            $stmtFilhas->bind_param('is', $id, $chave);
+            $stmtFilhas->execute();
+            $totalFilhas = (int) ($stmtFilhas->get_result()->fetch_assoc()['total'] ?? 0);
+            $stmtFilhas->close();
+
+            if ($totalFilhas > 0) {
+                throw new \InvalidArgumentException('Este lancamento ja possui parcelas vinculadas');
+            }
+
+            $valorOriginal = round((float) ($lancamento['valor_total'] ?? 0), 2);
+            if ($valorOriginal <= 0) {
+                throw new \InvalidArgumentException('Lancamento sem saldo para parcelar');
+            }
+
+            $parcelas = $this->montarParcelasConversao(
+                $valorOriginal,
+                $quantidade,
+                $dataPrimeira,
+                $intervaloValor,
+                $intervaloTipo
+            );
+
+            $sequencias = [];
+            if (!empty($lancamento['id_matriz_filial']) && $quantidade > 1) {
+                $sequencias = \App\Helpers\SequenciaHelper::proximasSequencias(
+                    $chave,
+                    (int) $lancamento['id_matriz_filial'],
+                    'financeiro',
+                    $quantidade - 1
+                );
+            }
+
+            $parcelasAdicionais = array_map(
+                static fn(array $parcela): array => [
+                    'dataVenci' => $parcela['data_venci'],
+                    'valor' => $parcela['valor'],
+                ],
+                array_slice($parcelas, 1)
+            );
+            $idsFilhas = $this->criarParcelas($id, $parcelasAdicionais, $lancamento, $sequencias);
+
+            $formaPagamento = null;
+            if (!empty($lancamento['id_forma_pagamento'])) {
+                $formaPagamento = (new FormaPagamento())->buscarPorId((int) $lancamento['id_forma_pagamento']);
+            }
+
+            $valorPrimeira = (float) $parcelas[0]['valor'];
+            $valorTaxaPrimeira = $formaPagamento
+                ? $this->calcularTaxaParcela($formaPagamento, $valorPrimeira, $quantidade)
+                : 0.0;
+
+            $this->atualizar($id, [
+                'parcela' => 1,
+                'total_parcelas' => $quantidade,
+                'id_financeiro_origem' => null,
+                'data_venci' => $parcelas[0]['data_venci'],
+                'valor_subtotal' => $valorPrimeira,
+                'juros' => 0,
+                'multa' => 0,
+                'desconto' => 0,
+                'valor_taxa' => $valorTaxaPrimeira,
+                'taxa_percentual_snapshot' => $formaPagamento['taxa_percentual_parcela'] ?? null,
+                'taxa_fixa_snapshot' => $formaPagamento['taxa_fixa'] ?? null,
+                'taxa_fixa_parcela_snapshot' => $formaPagamento['taxa_fixa_parcela'] ?? null,
+            ]);
+
+            $itensOriginais = (new FinanceiroItem())->listarPorFinanceiro($id);
+            $idsParcelas = array_merge([$id], $idsFilhas);
+            if (!empty($itensOriginais)) {
+                $itemModel = new FinanceiroItem();
+                foreach ($idsParcelas as $index => $idParcela) {
+                    $itensRateados = $this->ratearItensPorValor($itensOriginais, (float) $parcelas[$index]['valor']);
+                    $itemModel->salvarTodos($idParcela, $chave, $itensRateados);
+                    $this->recalcularTotal($idParcela);
+                }
+            }
+
+            $mysqli->commit();
+
+            return [
+                'id_origem' => $id,
+                'ids_parcelas' => $idsParcelas,
+                'quantidade' => $quantidade,
+                'valor_original' => $valorOriginal,
+                'subtotal_original' => round((float) ($lancamento['valor_subtotal'] ?? 0), 2),
+                'juros_original' => round((float) ($lancamento['juros'] ?? 0), 2),
+                'multa_original' => round((float) ($lancamento['multa'] ?? 0), 2),
+                'desconto_original' => round((float) ($lancamento['desconto'] ?? 0), 2),
+                'parcelas' => $parcelas,
+            ];
+        } catch (\Throwable $e) {
+            $mysqli->rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * @return array<int,array{numero:int,data_venci:string,valor:float}>
+     */
+    private function montarParcelasConversao(
+        float $valorTotal,
+        int $quantidade,
+        string $dataPrimeira,
+        int $intervaloValor,
+        string $intervaloTipo
+    ): array {
+        $totalCentavos = (int) round($valorTotal * 100);
+        $valorBaseCentavos = intdiv($totalCentavos, $quantidade);
+        $parcelas = [];
+
+        for ($index = 0; $index < $quantidade; $index++) {
+            $valorCentavos = $index === $quantidade - 1
+                ? $totalCentavos - ($valorBaseCentavos * ($quantidade - 1))
+                : $valorBaseCentavos;
+
+            $multiplicador = $index * $intervaloValor;
+            $dataVencimento = match ($intervaloTipo) {
+                'dias' => DateHelper::addDaysForDatabase($multiplicador, $dataPrimeira),
+                'semanas' => DateHelper::addDaysForDatabase($multiplicador * 7, $dataPrimeira),
+                'meses' => DateHelper::addMonthsForDatabase($multiplicador, $dataPrimeira),
+                'anos' => DateHelper::addMonthsForDatabase($multiplicador * 12, $dataPrimeira),
+            };
+
+            $parcelas[] = [
+                'numero' => $index + 1,
+                'data_venci' => $dataVencimento,
+                'valor' => $valorCentavos / 100,
+            ];
+        }
+
+        return $parcelas;
+    }
+
+    /**
      * Divide itens existentes proporcionalmente para compor um novo total.
      */
     private function ratearItensPorValor(array $itens, float $total): array
@@ -1486,6 +1702,7 @@ class Financeiro extends Model
                     'id_cliente' => $dadosBase['id_cliente'] ?? null,
                     'id_fornecedor' => $dadosBase['id_fornecedor'] ?? null,
                     'id_funcionario' => $dadosBase['id_funcionario'] ?? null,
+                    'id_oficina' => $dadosBase['id_oficina'] ?? null,
                     'id_conta' => $dadosBase['id_conta'] ?? null,
                     'id_forma_pagamento' => $dadosBase['id_forma_pagamento'] ?? null,
                     'id_plano_de_conta' => $dadosBase['id_plano_de_conta'] ?? null,
@@ -1495,6 +1712,7 @@ class Financeiro extends Model
                     'total_parcelas' => $totalParcelas,
                     'id_financeiro_origem' => $idOrigem,
                     'documento' => $dadosBase['documento'] ?? null,
+                    'codigo' => $dadosBase['codigo'] ?? null,
                     'descricao' => $dadosBase['descricao'] ?? null,
                     'data_criada' => $dadosBase['data_criada'] ?? DateHelper::todayForDatabase(),
                     'data_venci' => $parcela['dataVenci'] ?? DateHelper::todayForDatabase(),

@@ -127,6 +127,7 @@ return [
         'print_send' => 'Stampa / Invia Fattura',
         'remove_item' => 'Rimuovi voce',
         'create_difference' => 'Crea differenza',
+        'convert_to_installments' => 'Rateizza fattura',
     ],
 
     'print' => [
@@ -221,6 +222,8 @@ return [
         'partial_difference_due_required' => 'Indicare la scadenza della differenza',
         'partial_success' => 'Pagamento parziale registrato con successo',
         'partial_error' => 'Errore durante la registrazione del pagamento parziale',
+        'existing_installment_success' => 'Fattura rateizzata con successo',
+        'existing_installment_error' => 'Errore durante la rateizzazione della fattura',
         'partial_use_button' => 'Usare il pulsante Crea differenza per registrare un pagamento parziale',
         // Validazione
         'required_field' => 'Campo obbligatorio: :field',
@@ -249,6 +252,13 @@ return [
         'step_5' => 'Cliccare su "Genera Anteprima" per visualizzare le rate',
         'step_6' => 'Salvare la registrazione - tutte le rate saranno create automaticamente',
         'tip' => "Il valore sarà diviso equamente tra le rate. Le differenze di centesimi saranno corrette nell'ultima rata.",
+    ],
+
+    'existing_installment' => [
+        'title' => 'Rateizza questa fattura',
+        'description' => 'Il saldo attuale verrà suddiviso, la fattura resterà la rata 1 e i collegamenti con contratto o noleggio saranno mantenuti. Salvare prima eventuali modifiche ai dati principali.',
+        'confirm_title' => 'Conferma rateizzazione',
+        'confirm_message' => 'Dividere il saldo di :valor in :quantidade rate? La fattura attuale resterà la rata 1.',
     ],
 
     // Paginazione

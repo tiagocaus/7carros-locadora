@@ -806,6 +806,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->post('/financeiro/salvar', [FinanceiroController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/financeiro/{id}/atualizar', [FinanceiroController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/financeiro/{id}/baixa-parcial', [FinanceiroController::class, 'baixaParcial'], ['csrf', 'rate_limit']);
+    $router->post('/financeiro/{id}/parcelar', [FinanceiroController::class, 'parcelarExistente'], ['csrf', 'rate_limit']);
     $router->post('/financeiro/{id}/excluir', [FinanceiroController::class, 'destroy'], ['csrf', 'rate_limit']);
     $router->post('/financeiro/excluir-lote', [FinanceiroController::class, 'destroyBatch'], ['csrf', 'rate_limit']);
 

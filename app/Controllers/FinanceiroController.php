@@ -638,6 +638,137 @@ class FinanceiroController
     }
 
     /**
+     * Converte uma fatura pendente em parcelas, preservando a original como parcela 1.
+     *
+     * POST /financeiro/{id}/parcelar
+     */
+    public function parcelarExistente(Request $request, int $id): void
+    {
+        try {
+            if (!Auth::can('financeiro.editar')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para editar lancamentos'
+                ], 403);
+                return;
+            }
+
+            $financeiroModel = new Financeiro();
+            $lancamento = $financeiroModel->buscarPorId($id);
+            $chave = Auth::chave();
+
+            if (!$lancamento || ($lancamento['chave'] ?? '') !== $chave) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Lancamento nao encontrado'
+                ], 404);
+                return;
+            }
+
+            if (!FilialHelper::temAcessoFilial($lancamento['id_matriz_filial'] ?? null)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Voce nao tem permissao para editar este lancamento'
+                ], 403);
+                return;
+            }
+
+            if (($lancamento['tipo'] ?? '') !== 'R' || ($lancamento['pago'] ?? 'N') !== 'N') {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Somente faturas de clientes pendentes podem ser parceladas'
+                ], 422);
+                return;
+            }
+
+            if (!empty($lancamento['id_financeiro_origem'])
+                || (int) ($lancamento['total_parcelas'] ?? 0) > 1
+                || $financeiroModel->contarParcelas($id) > 1) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Este lancamento ja pertence a um parcelamento'
+                ], 422);
+                return;
+            }
+
+            $dados = $request->all();
+            $quantidade = (int) ($dados['quantidade'] ?? 0);
+            $dataPrimeira = trim((string) ($dados['data_primeira'] ?? ''));
+            $intervaloValor = (int) ($dados['intervalo_valor'] ?? 0);
+            $intervaloTipo = trim((string) ($dados['intervalo_tipo'] ?? ''));
+
+            $dataPrimeiraNormalizada = DateHelper::parse($dataPrimeira);
+            if ($quantidade < Financeiro::MIN_PARCELAS || $quantidade > Financeiro::MAX_PARCELAS
+                || $dataPrimeiraNormalizada !== $dataPrimeira
+                || $intervaloValor < 1 || $intervaloValor > 365
+                || !in_array($intervaloTipo, ['dias', 'semanas', 'meses', 'anos'], true)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Configuracao de parcelamento invalida'
+                ], 422);
+                return;
+            }
+
+            if (!empty($lancamento['id_promissoria']) || !empty($lancamento['id_multa'])
+                || !empty($lancamento['id_financeiro_taxa_origem'])
+                || (float) ($lancamento['valor_total'] ?? 0) <= 0) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Este lancamento deve ser tratado pelo fluxo financeiro de origem'
+                ], 422);
+                return;
+            }
+
+            // Cancela uma cobranca externa antiga antes de alterar o valor da fatura.
+            // Status pago ou falha de cancelamento interrompem o fluxo no Service.
+            $linkService = new PagamentoLinkSyncService();
+            $linkService->invalidarLinksPendentes($id, $chave);
+
+            $resultado = $financeiroModel->parcelarExistente(
+                $id,
+                $quantidade,
+                $dataPrimeira,
+                $intervaloValor,
+                $intervaloTipo,
+                $chave
+            );
+
+            // Mantem um link publico ja enviado apontando para a nova parcela 1.
+            $linkService->invalidarLinksPendentes($id, $chave);
+
+            $nomeUsuario = $_SESSION['user_name'] ?? 'Sistema';
+            AuditLogService::registrarComCampos(
+                "{$nomeUsuario}, converteu o lancamento financeiro [#{$id}] em {$resultado['quantidade']} parcelas",
+                [
+                    AuditLogService::campo('Valor parcelado', currency_format($resultado['valor_original'], true), null),
+                    AuditLogService::campo('Subtotal anterior', currency_format($resultado['subtotal_original'], true), null),
+                    AuditLogService::campo('Juros consolidados', currency_format($resultado['juros_original'], true), null),
+                    AuditLogService::campo('Multa consolidada', currency_format($resultado['multa_original'], true), null),
+                    AuditLogService::campo('Desconto consolidado', currency_format($resultado['desconto_original'], true), null),
+                    AuditLogService::campo('Parcelas', '1', (string) $resultado['quantidade']),
+                    AuditLogService::campo('Primeiro vencimento', null, format_date($dataPrimeira)),
+                ]
+            );
+
+            Response::json([
+                'success' => true,
+                'message' => 'Fatura parcelada com sucesso',
+                'data' => $resultado,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        } catch (\Throwable $e) {
+            Response::json([
+                'success' => false,
+                'message' => $this->mensagemErroBanco($e, 'Erro ao parcelar fatura')
+            ], 500);
+        }
+    }
+
+    /**
      * Exclui um lancamento
      *
      * POST /financeiro/{id}/excluir

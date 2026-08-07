@@ -742,10 +742,43 @@ O frontend e o backend aplicam o mesmo limite de 2 a 120 parcelas. Quantidades f
 ### Fluxo de Edicao (Lote)
 
 Na aba "Parcelamento" do modo editar:
+- Lancamentos de receita pendentes que ainda nao pertencem a um parcelamento exibem
+  a acao **Parcelar fatura**. O saldo atual (`valor_total`) e consolidado e dividido;
+  a fatura original passa a ser a parcela 1 e as demais apontam para ela por
+  `id_financeiro_origem`.
 - Grid com todas as parcelas (checkbox, numero, vencimento, valor, status, acoes)
 - **Edicao em lote**: seleciona parcelas -> altera data de vencimento e/ou status de pagamento -> `POST /financeiro/parcelas/atualizar-lote`
 - **Exclusao em lote**: seleciona parcelas -> confirma exclusao -> `POST /financeiro/parcelas/excluir-lote` (nao permite excluir parcela origem)
 - **Edicao individual**: clica "Editar" na parcela -> carrega no formulario da aba Principal
+
+### Converter uma fatura existente em parcelas
+
+```text
+POST /financeiro/{id}/parcelar
+Body: {
+  quantidade: 3,
+  data_primeira: "2026-08-10",
+  intervalo_valor: 1,
+  intervalo_tipo: "meses"
+}
+Permissao: financeiro.editar
+```
+
+Regras:
+
+- aceita somente receitas pendentes ainda nao parceladas, entre 2 e 120 parcelas;
+- preserva o registro original como parcela 1 e herda cliente, contrato, locacao,
+  veiculo, filial, conta, forma de pagamento e demais vinculos aplicaveis;
+- consolida juros, multa e desconto ja calculados no saldo parcelado e zera esses
+  componentes nas novas parcelas, para que futuros encargos incidam por vencimento;
+- rateia os itens entre todas as parcelas, preservando plano de contas e veiculo;
+- recalcula a taxa da forma de pagamento para cada parcela;
+- cancela cobrancas externas abertas antes da conversao e mantem o link publico
+  existente sincronizado com a parcela 1;
+- bloqueia faturas pagas, ja parceladas, de promissoria, de multa e despesas
+  automaticas de taxa;
+- executa as alteracoes locais em uma unica transacao e registra auditoria com o
+  saldo e os encargos anteriores.
 
 ### Metodos do Model
 

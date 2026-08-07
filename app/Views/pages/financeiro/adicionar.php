@@ -312,7 +312,7 @@
                 <div class="form-section mb-6">
                     <h3 class="form-section-title"><i class="fas fa-calculator mr-2"></i><?= t('modules.financeiro.sections.generate_installments') ?></h3>
 
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div id="parcelamentoNovoAviso" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                         <div class="flex items-start">
                             <i class="fas fa-info-circle text-blue-500 mt-0.5 mr-3"></i>
                             <div class="text-sm text-blue-800">
@@ -329,6 +329,16 @@
                                     <i class="fas fa-lightbulb mr-1"></i>
                                     <?= t('modules.financeiro.installment_info.tip') ?>
                                 </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="parcelamentoExistenteAviso" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-file-invoice-dollar text-amber-600 mt-0.5 mr-3"></i>
+                            <div class="text-sm text-amber-900">
+                                <p class="font-medium"><?= t('modules.financeiro.existing_installment.title') ?></p>
+                                <p class="mt-1 text-amber-800"><?= t('modules.financeiro.existing_installment.description') ?></p>
                             </div>
                         </div>
                     </div>
@@ -364,7 +374,7 @@
                             <label for="intervaloValor" class="form-label-group">
                                 <?= t('modules.financeiro.fields.interval') ?> <span class="text-red-500">*</span>
                             </label>
-                            <input type="number" id="intervaloValor" name="config_parcelas[intervalo_valor]" min="1" max="12" value="1" class="form-input-group-field">
+                            <input type="number" id="intervaloValor" name="config_parcelas[intervalo_valor]" min="1" max="365" value="1" class="form-input-group-field">
                         </div>
 
                         <!-- Tipo de Intervalo -->
@@ -411,6 +421,12 @@
                                 </tr>
                             </tfoot>
                         </table>
+                    </div>
+
+                    <div id="acaoParcelarExistente" class="hidden mt-4 flex justify-end">
+                        <button type="button" id="btnParcelarExistente" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
+                            <i class="fas fa-list-ol mr-2"></i><?= t('modules.financeiro.buttons.convert_to_installments') ?>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -549,6 +565,11 @@
         partialSuccess: '<?= t("modules.financeiro.messages.partial_success") ?>',
         partialError: '<?= t("modules.financeiro.messages.partial_error") ?>',
         partialUseButton: '<?= t("modules.financeiro.messages.partial_use_button") ?>',
+        existingInstallmentConfirmTitle: <?= js_t("modules.financeiro.existing_installment.confirm_title") ?>,
+        existingInstallmentConfirmMessage: <?= js_t("modules.financeiro.existing_installment.confirm_message") ?>,
+        existingInstallmentConfirmButton: <?= js_t("modules.financeiro.buttons.convert_to_installments") ?>,
+        existingInstallmentSuccess: <?= js_t("modules.financeiro.messages.existing_installment_success") ?>,
+        existingInstallmentError: <?= js_t("modules.financeiro.messages.existing_installment_error") ?>,
         vehicleLinkItemMismatch: '<?= t("modules.financeiro.messages.vehicle_link_item_mismatch") ?>',
         select: '<?= t("common.labels.select") ?>',
         edit: '<?= t("common.buttons.edit") ?>',
@@ -563,6 +584,8 @@
     let pagoOriginal = 'N';             // Status original do lancamento carregado
     let itemPrincipalConvertido = false; // Flag para evitar criar multiplos itens automaticos
     let lancamentoTinhaItens = false;    // Flag para saber se lancamento ja tinha itens
+    let lancamentoPodeParcelar = false;  // Receita pendente ainda sem parcelamento
+    let confirmacaoParcelamentoPendente = false;
 
     // ===== NAVEGACAO =====
 
@@ -618,6 +641,15 @@
             if (event.data.callback === 'navegarParaFinanceiro') {
                 navegarPara('/pages/financeiro');
             }
+        }
+
+        if (event.data && event.data.action === 'genericConfirmed' && confirmacaoParcelamentoPendente) {
+            confirmacaoParcelamentoPendente = false;
+            parcelarLancamentoExistente();
+        }
+
+        if (event.data && event.data.action === 'genericModalClosed') {
+            confirmacaoParcelamentoPendente = false;
         }
 
         // Confirmacao de exclusao em lote de parcelas
@@ -751,6 +783,14 @@
         document.getElementById('multa').value = formatarMoedaInput(dados.multa || 0);
         document.getElementById('desconto').value = formatarMoedaInput(dados.desconto || 0);
         valorTotalOriginal = parseFloat(dados.valor_total || 0);
+        lancamentoPodeParcelar = dados.tipo === 'R'
+            && dados.pago === 'N'
+            && !dados.id_financeiro_origem
+            && Number(dados.total_parcelas || 0) <= 1
+            && !dados.id_promissoria
+            && !dados.id_multa
+            && !dados.id_financeiro_taxa_origem
+            && valorTotalOriginal > 0;
         document.getElementById('valorOriginalParcial').value = formatarMoedaInput(valorTotalOriginal);
         document.getElementById('dataVenciDiferenca').value = dados.data_venci || '';
 
@@ -797,6 +837,7 @@
 
         document.getElementById('valorPagoParcial')?.addEventListener('input', calcularDiferencaParcial);
         document.getElementById('btnCriarDiferenca')?.addEventListener('click', criarDiferencaPagamentoParcial);
+        document.getElementById('btnParcelarExistente')?.addEventListener('click', confirmarParcelamentoExistente);
 
         // Adicionar item
         document.getElementById('btnAdicionarItem')?.addEventListener('click', () => adicionarItem());
@@ -853,7 +894,7 @@
 
     function atualizarAbaParcelamento() {
         // Atualizar valor total no campo de parcelamento
-        const valorTotal = calcularValorFormulario();
+        const valorTotal = isEditMode ? valorTotalOriginal : calcularValorFormulario();
         document.getElementById('parcelaValorTotal').value = formatarMoedaInput(valorTotal);
 
         // Data da primeira parcela = data de vencimento por padrao
@@ -863,13 +904,15 @@
         }
 
         // Alternar entre modo adicionar e editar
-        if (isEditMode) {
+        if (isEditMode && !lancamentoPodeParcelar) {
             document.getElementById('parcelamentoModoAdicionar').classList.add('hidden');
             document.getElementById('parcelamentoModoEditar').classList.remove('hidden');
             carregarParcelas();
         } else {
             document.getElementById('parcelamentoModoAdicionar').classList.remove('hidden');
             document.getElementById('parcelamentoModoEditar').classList.add('hidden');
+            document.getElementById('parcelamentoNovoAviso')?.classList.toggle('hidden', isEditMode);
+            document.getElementById('parcelamentoExistenteAviso')?.classList.toggle('hidden', !isEditMode);
         }
     }
 
@@ -914,7 +957,7 @@
     function gerarPreviewParcelas() {
         const numParcelasInput = document.getElementById('numParcelas');
         const numParcelas = Number(numParcelasInput.value);
-        const valorTotal = calcularValorFormulario();
+        const valorTotal = isEditMode ? valorTotalOriginal : calcularValorFormulario();
         const dataPrimeira = document.getElementById('dataPrimeiraParcela').value;
         const intervaloValor = parseInt(document.getElementById('intervaloValor').value) || 1;
         const intervaloTipo = document.getElementById('intervaloTipo').value;
@@ -1033,6 +1076,52 @@
 
         document.getElementById('previewTotal').textContent = `R$ ${formatarMoedaInput(total)}`;
         container.classList.remove('hidden');
+        document.getElementById('acaoParcelarExistente')?.classList.toggle('hidden', !isEditMode || !lancamentoPodeParcelar);
+    }
+
+    function confirmarParcelamentoExistente() {
+        if (!isEditMode || !lancamentoPodeParcelar || parcelasPreview.length < MIN_PARCELAS) {
+            Toast.warning(i18n.informFirstDate);
+            return;
+        }
+
+        confirmacaoParcelamentoPendente = true;
+        window.parent.postMessage({
+            action: 'openGenericConfirmModal',
+            title: i18n.existingInstallmentConfirmTitle,
+            message: i18n.existingInstallmentConfirmMessage
+                .replace(':valor', formatarMoedaInput(valorTotalOriginal))
+                .replace(':quantidade', parcelasPreview.length),
+            confirmText: i18n.existingInstallmentConfirmButton,
+            confirmColor: 'blue'
+        }, '*');
+    }
+
+    async function parcelarLancamentoExistente() {
+        const botao = document.getElementById('btnParcelarExistente');
+        botao?.setAttribute('disabled', 'disabled');
+
+        try {
+            const result = await API.post(`/financeiro/${financeiroId}/parcelar`, {
+                quantidade: Number(document.getElementById('numParcelas').value),
+                data_primeira: document.getElementById('dataPrimeiraParcela').value,
+                intervalo_valor: Number(document.getElementById('intervaloValor').value),
+                intervalo_tipo: document.getElementById('intervaloTipo').value
+            });
+
+            if (result.success) {
+                Toast.success(result.message || i18n.existingInstallmentSuccess);
+                navegarPara(`/pages/financeiro/adicionar?id=${financeiroId}`);
+                return;
+            }
+
+            Toast.error(result.message || i18n.existingInstallmentError);
+        } catch (e) {
+            console.error('Erro ao parcelar fatura existente:', e);
+            Toast.error(i18n.existingInstallmentError);
+        } finally {
+            botao?.removeAttribute('disabled');
+        }
     }
 
     // ===== PARCELAS - MODO EDICAO =====

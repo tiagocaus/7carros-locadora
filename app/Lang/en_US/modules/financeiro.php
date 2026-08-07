@@ -127,6 +127,7 @@ return [
         'print_send' => 'Print / Send Invoice',
         'remove_item' => 'Remove item',
         'create_difference' => 'Create difference',
+        'convert_to_installments' => 'Split invoice into installments',
     ],
 
     // Invoice print and send
@@ -222,6 +223,8 @@ return [
         'partial_difference_due_required' => 'Enter the difference due date',
         'partial_success' => 'Partial payment registered successfully',
         'partial_error' => 'Error registering partial payment',
+        'existing_installment_success' => 'Invoice split into installments successfully',
+        'existing_installment_error' => 'Error splitting the invoice into installments',
         'partial_use_button' => 'Use the Create difference button to register a partial payment',
         // Validation
         'required_field' => 'Required field: :field',
@@ -250,6 +253,13 @@ return [
         'step_5' => 'Click "Generate Preview" to view the installments',
         'step_6' => 'Save the entry - all installments will be created automatically',
         'tip' => 'The amount will be divided equally among installments. Cent differences will be adjusted on the last installment.',
+    ],
+
+    'existing_installment' => [
+        'title' => 'Split this invoice into installments',
+        'description' => 'The current balance will be divided, the invoice will remain as installment 1, and contract or rental links will be preserved. Save any changes to the main data first.',
+        'confirm_title' => 'Confirm installments',
+        'confirm_message' => 'Do you want to divide the :valor balance into :quantidade installments? The current invoice will remain as installment 1.',
     ],
 
     // Pagination
