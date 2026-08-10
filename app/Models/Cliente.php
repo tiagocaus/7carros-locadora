@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Classes\QueryBuilder;
 use App\Traits\Auditable;
 use App\Traits\DetectsCrossTenant;
 
@@ -424,14 +425,7 @@ class Cliente extends Model
             ->table('clientes')
             ->select(['id', 'nome_rsocial', 'cpf_cnpj', 'situacao', 'foto']);
 
-        // Se houver termo de busca, adicionar condição WHERE
-        if (!empty($search)) {
-            $searchTerm = "%{$search}%";
-            $query->whereNested(function ($q) use ($searchTerm) {
-                $q->where('nome_rsocial', 'LIKE', $searchTerm)
-                  ->orWhere('cpf_cnpj', 'LIKE', $searchTerm);
-            });
-        }
+        $this->aplicarFiltroBuscaListagem($query, $search);
 
         // Se houver filtro extra (ex: filiais), adicionar
         if (!empty($extraWhere) && $extraWhere !== '1=1') {
@@ -456,14 +450,7 @@ class Cliente extends Model
     {
         $query = $this->qb->table('clientes');
 
-        // Se houver termo de busca, adicionar condição WHERE
-        if (!empty($search)) {
-            $searchTerm = "%{$search}%";
-            $query->whereNested(function ($q) use ($searchTerm) {
-                $q->where('nome_rsocial', 'LIKE', $searchTerm)
-                  ->orWhere('cpf_cnpj', 'LIKE', $searchTerm);
-            });
-        }
+        $this->aplicarFiltroBuscaListagem($query, $search);
 
         // Se houver filtro extra (ex: filiais), adicionar
         if (!empty($extraWhere) && $extraWhere !== '1=1') {
@@ -471,6 +458,49 @@ class Cliente extends Model
         }
 
         return $query->count();
+    }
+
+    /**
+     * Aplica a busca da listagem por nome, documento ou qualquer telefone.
+     *
+     * A consulta de telefones usa EXISTS para que clientes com varios numeros
+     * sejam retornados apenas uma vez. O vinculo tambem compara a chave para
+     * manter o isolamento entre tenants dentro da subconsulta.
+     */
+    private function aplicarFiltroBuscaListagem(QueryBuilder $query, ?string $search): void
+    {
+        $termo = trim((string) $search);
+        if ($termo === '') {
+            return;
+        }
+
+        $searchTerm = "%{$termo}%";
+        $digitos = preg_replace('/\D+/', '', $termo) ?? '';
+
+        $query->whereNested(function (QueryBuilder $q) use ($searchTerm, $digitos) {
+            $q->where('nome_rsocial', 'LIKE', $searchTerm)
+              ->orWhere('cpf_cnpj', 'LIKE', $searchTerm);
+
+            if ($digitos === '') {
+                return;
+            }
+
+            $searchDigits = "%{$digitos}%";
+            $q->orWhereRaw(
+                "REPLACE(REPLACE(REPLACE(REPLACE(cpf_cnpj, '.', ''), '-', ''), '/', ''), ' ', '') LIKE ?",
+                [$searchDigits]
+            )->orWhereRaw(
+                "EXISTS (
+                    SELECT 1
+                    FROM contatos_telefones ct
+                    WHERE ct.chave = clientes.chave
+                      AND ct.entidade_tipo = 'cliente'
+                      AND ct.entidade_id = clientes.id
+                      AND ct.telefone LIKE ?
+                )",
+                [$searchDigits]
+            );
+        });
     }
 
     /**
