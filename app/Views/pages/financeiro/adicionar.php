@@ -391,9 +391,12 @@
                         </div>
                     </div>
 
-                    <div class="mt-4">
+                    <div class="mt-4 flex flex-wrap gap-2">
                         <button type="button" id="btnGerarPreview" class="btn-blue py-2 px-4 rounded-md text-sm font-medium">
                             <i class="fas fa-eye mr-2"></i><?= t('modules.financeiro.buttons.generate_preview') ?>
+                        </button>
+                        <button type="button" id="btnCancelarParcelamento" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium hidden">
+                            <i class="fas fa-times mr-2"></i><?= t('modules.financeiro.buttons.cancel_installments') ?>
                         </button>
                     </div>
                 </div>
@@ -614,7 +617,7 @@
         const hoje = DateHelper.todayInput();
         document.getElementById('dataCriada').value = hoje;
         document.getElementById('dataVenci').value = hoje;
-        document.getElementById('dataPago').value = hoje;
+        document.getElementById('dataPago').value = '';
 
         // Se modo edicao, carregar dados do lancamento
         if (isEditMode) {
@@ -771,9 +774,11 @@
 
         pagoOriginal = dados.pago || 'N';
         document.getElementById('pago').value = pagoOriginal;
+        document.getElementById('dataPago').value = dados.pago === 'S'
+            ? (dados.data_pago || '')
+            : '';
         if (dados.pago === 'S') {
             document.getElementById('dataPagoContainer').classList.remove('hidden');
-            document.getElementById('dataPago').value = dados.data_pago || '';
         } else {
             document.getElementById('dataPagoContainer').classList.add('hidden');
         }
@@ -831,6 +836,7 @@
                 }
             } else {
                 container.classList.add('hidden');
+                document.getElementById('dataPago').value = '';
             }
             atualizarVisibilidadePagamentoParcial();
         });
@@ -937,6 +943,7 @@
     function configurarParcelamento() {
         // Gerar preview
         document.getElementById('btnGerarPreview')?.addEventListener('click', gerarPreviewParcelas);
+        document.getElementById('btnCancelarParcelamento')?.addEventListener('click', cancelarParcelamento);
 
         // Eventos de selecao
         document.getElementById('checkTodas')?.addEventListener('change', function() {
@@ -1005,6 +1012,16 @@
         }
 
         renderizarPreview();
+    }
+
+    function cancelarParcelamento() {
+        parcelasPreview = [];
+        document.querySelectorAll('input[name^="parcelas["]').forEach(el => el.remove());
+        document.getElementById('previewParcelasBody').innerHTML = '';
+        document.getElementById('previewTotal').textContent = `R$ ${formatarMoedaInput(0)}`;
+        document.getElementById('previewParcelasContainer').classList.add('hidden');
+        document.getElementById('acaoParcelarExistente')?.classList.add('hidden');
+        document.getElementById('btnCancelarParcelamento')?.classList.add('hidden');
     }
 
     function adicionarIntervalo(data, valor, tipo) {
@@ -1077,6 +1094,7 @@
         document.getElementById('previewTotal').textContent = `R$ ${formatarMoedaInput(total)}`;
         container.classList.remove('hidden');
         document.getElementById('acaoParcelarExistente')?.classList.toggle('hidden', !isEditMode || !lancamentoPodeParcelar);
+        document.getElementById('btnCancelarParcelamento')?.classList.toggle('hidden', isEditMode);
     }
 
     function confirmarParcelamentoExistente() {
@@ -1616,6 +1634,9 @@
 
         // Obter valor do select pago
         dados.pago = document.getElementById('pago').value || 'N';
+        if (dados.pago !== 'S') {
+            delete dados.data_pago;
+        }
 
         // Coletar itens
         const itens = [];

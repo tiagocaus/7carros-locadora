@@ -5,6 +5,7 @@ namespace App\Middleware;
 use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Session;
 use App\I18n\Translator;
 use App\Models\Funcionario;
 
@@ -27,11 +28,23 @@ class AuthMiddleware
 
         // Verifica se está autenticado
         if (!Auth::check()) {
+            $sessionReason = Session::invalidationReason()
+                ?? (isset($_COOKIE[session_name()]) ? 'unauthenticated' : 'cookie_missing');
+
             // Se for uma requisição AJAX, retorna JSON
             if ($request->isAjax()) {
+                error_log('[Auth] Sessao nao autenticada: ' . json_encode([
+                    'reason' => $sessionReason,
+                    'endpoint' => $request->path(),
+                    'has_session_cookie' => isset($_COOKIE[session_name()]),
+                    'has_remember_cookie' => isset($_COOKIE['remember_token']),
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
                 Response::json([
                     'success' => false,
                     'message' => 'Não autenticado',
+                    'session_expired' => true,
+                    'session_reason' => $sessionReason,
                     'redirect' => '/login'
                 ], 401);
             }

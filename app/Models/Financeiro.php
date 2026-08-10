@@ -523,7 +523,11 @@ class Financeiro extends Model
                 'descricao' => $dados['descricao'] ?? null,
                 'data_criada' => $dados['data_criada'] ?? DateHelper::todayForDatabase(),
                 'data_venci' => $dados['data_venci'] ?? DateHelper::todayForDatabase(),
-                'data_pago' => $pago === 'S' ? ($dados['data_pago'] ?? DateHelper::todayForDatabase()) : null,
+                'data_pago' => $pago === 'S'
+                    ? ((!empty($dados['data_pago']) && $dados['data_pago'] !== '0000-00-00')
+                        ? $dados['data_pago']
+                        : DateHelper::todayForDatabase())
+                    : null,
                 'valor_subtotal' => currency_parse($dados['valor_subtotal'] ?? 0),
                 'juros' => currency_parse($dados['juros'] ?? 0),
                 'multa' => currency_parse($dados['multa'] ?? 0),
@@ -701,14 +705,8 @@ class Financeiro extends Model
         if (isset($dados['tipo'])) {
             $dadosUpdate['tipo'] = $dados['tipo'];
         }
-        if (isset($dados['pago'])) {
+        if (array_key_exists('pago', $dados)) {
             $dadosUpdate['pago'] = $dados['pago'];
-            // Se marcou como pago e nao tem data_pago, usar hoje
-            if ($dados['pago'] === 'S' && empty($dados['data_pago'])) {
-                $dadosUpdate['data_pago'] = DateHelper::todayForDatabase();
-            } elseif ($dados['pago'] === 'N') {
-                $dadosUpdate['data_pago'] = null;
-            }
         }
         if (array_key_exists('parcela', $dados)) {
             $dadosUpdate['parcela'] = (int) $dados['parcela'];
@@ -724,8 +722,22 @@ class Financeiro extends Model
         if (isset($dados['data_venci'])) {
             $dadosUpdate['data_venci'] = $dados['data_venci'];
         }
-        if (array_key_exists('data_pago', $dados)) {
-            $dadosUpdate['data_pago'] = $dados['data_pago'];
+        if (array_key_exists('pago', $dados) || array_key_exists('data_pago', $dados)) {
+            $statusEfetivo = $dados['pago'] ?? ($lancamento['pago'] ?? 'N');
+
+            if ($statusEfetivo !== 'S') {
+                // A situacao do lancamento prevalece sobre qualquer data
+                // residual enviada por formularios ou integracoes.
+                $dadosUpdate['data_pago'] = null;
+            } elseif (!empty($dados['data_pago']) && $dados['data_pago'] !== '0000-00-00') {
+                $dadosUpdate['data_pago'] = $dados['data_pago'];
+            } elseif (($lancamento['pago'] ?? 'N') === 'S'
+                && !empty($lancamento['data_pago'])
+                && $lancamento['data_pago'] !== '0000-00-00') {
+                $dadosUpdate['data_pago'] = $lancamento['data_pago'];
+            } else {
+                $dadosUpdate['data_pago'] = DateHelper::todayForDatabase();
+            }
         }
 
         // O subtotal precisa entrar em $dadosUpdate antes do calculo do total.
@@ -1757,17 +1769,19 @@ class Financeiro extends Model
             $dadosUpdate['data_venci'] = $campos['data_venci'];
         }
 
-        if (isset($campos['pago'])) {
+        if (array_key_exists('pago', $campos)) {
             $dadosUpdate['pago'] = $campos['pago'];
-            if ($campos['pago'] === 'S' && empty($campos['data_pago'])) {
-                $dadosUpdate['data_pago'] = DateHelper::todayForDatabase();
-            } elseif ($campos['pago'] === 'N') {
+            if ($campos['pago'] !== 'S') {
                 $dadosUpdate['data_pago'] = null;
+            } elseif (!empty($campos['data_pago']) && $campos['data_pago'] !== '0000-00-00') {
+                $dadosUpdate['data_pago'] = $campos['data_pago'];
+            } else {
+                $dadosUpdate['data_pago'] = DateHelper::todayForDatabase();
             }
-        }
-
-        if (isset($campos['data_pago'])) {
-            $dadosUpdate['data_pago'] = $campos['data_pago'];
+        } elseif (array_key_exists('data_pago', $campos)) {
+            // Sem uma situacao explicita, a edicao em lote nao pode garantir
+            // a consistencia de lancamentos com estados diferentes.
+            throw new \InvalidArgumentException('Informe a situacao do pagamento ao alterar a data em lote');
         }
 
         if (empty($dadosUpdate)) {

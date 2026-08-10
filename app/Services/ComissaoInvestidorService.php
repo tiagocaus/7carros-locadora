@@ -9,6 +9,7 @@ use App\Models\Fornecedor;
 use App\Models\FornecedorComissaoRegra;
 use App\Models\Grupo;
 use App\Models\Model;
+use App\Models\PlanoDeContas;
 
 /**
  * Service ComissaoInvestidor
@@ -22,11 +23,14 @@ use App\Models\Model;
  */
 class ComissaoInvestidorService
 {
+    private const PLANO_CONTA_HIERARQUIA = '3.3.1.10';
+
     private ComissaoInvestidor $comissaoModel;
     private Fornecedor $fornecedorModel;
     private FornecedorComissaoRegra $regraModel;
     private Grupo $grupoModel;
     private Financeiro $financeiroModel;
+    private PlanoDeContas $planoDeContasModel;
     private QueryBuilder $qb;
 
     public function __construct()
@@ -36,6 +40,7 @@ class ComissaoInvestidorService
         $this->regraModel = new FornecedorComissaoRegra();
         $this->grupoModel = new Grupo();
         $this->financeiroModel = new Financeiro();
+        $this->planoDeContasModel = new PlanoDeContas();
         $this->qb = new QueryBuilder(Model::sharedMysqli());
     }
 
@@ -182,8 +187,7 @@ class ComissaoInvestidorService
                 // Verificar se ja existe comissao para este veiculo neste mes
                 $existe = $this->qb
                     ->table('comissoes_investidores')
-                    ->withoutChave()
-                    ->where('chave', '=', $veiculo['chave'])
+                    ->withChave($veiculo['chave'])
                     ->where('id_veiculo', '=', $veiculo['id'])
                     ->whereRaw("DATE_FORMAT(data_referencia, '%Y-%m') = ?", [$mesReferencia])
                     ->where('tipo_origem', '=', 'mensal')
@@ -261,15 +265,13 @@ class ComissaoInvestidorService
         $this->qb->beginTransaction();
 
         try {
-            // Buscar plano de conta de comissoes (do tenant atual)
-            $planoConta = $this->qb
-                ->table('planos_de_contas')
-                ->withoutChave()
-                ->where('chave', '=', $chave)
-                ->where('nome', 'LIKE', '%Comiss%Investidor%')
-                ->orderByDesc('id')
-                ->limit(1)
-                ->first();
+            $planoConta = $this->planoDeContasModel->buscarPorHierarquia(self::PLANO_CONTA_HIERARQUIA);
+
+            if (!$planoConta || ($planoConta['tipo'] ?? null) !== 'D') {
+                throw new \RuntimeException(
+                    'Plano de contas Comissoes Investidores (3.3.1.10) nao configurado'
+                );
+            }
 
             // Criar lancamento no financeiro (despesa - repasse ao investidor)
             $idFinanceiro = null;
@@ -289,7 +291,7 @@ class ComissaoInvestidorService
                     'data_venci' => today(),
                     'data_pago' => today(),
                     'id_fornecedor' => $comissao['id_fornecedor'],
-                    'id_plano_de_conta' => $planoConta['id'] ?? null,
+                    'id_plano_de_conta' => (int) $planoConta['id'],
                 ]);
             }
 
@@ -468,8 +470,7 @@ class ComissaoInvestidorService
                  SUM(CASE WHEN ci.status = 'pago' THEN ci.valor_repasse_investidor ELSE 0 END) AS valor_pago"
             )
             ->innerJoin('fornecedores', 'f', 'f.id', '=', 'ci.id_fornecedor')
-            ->withoutChave()
-            ->where('ci.chave', '=', $chave);
+            ->withChave($chave);
 
         if ($mesReferencia) {
             $query->whereRaw("DATE_FORMAT(ci.data_referencia, '%Y-%m') = ?", [$mesReferencia]);

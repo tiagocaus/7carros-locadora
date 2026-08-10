@@ -392,6 +392,27 @@ fechando no sucesso ou liberando os campos no erro.
 
 ---
 
+## Modal global de sessao expirada
+
+`#sessionExpiredModal` pertence ao `app.php` e cobre toda a aplicacao. Ao
+receber `401`, o `api.js` do iframe nao deve redirecionar sua propria janela
+para `/login`; deve enviar:
+
+```javascript
+window.parent.postMessage({
+    action: 'openSessionExpiredModal',
+    reason: 'inactivity'
+}, '*');
+```
+
+O parent seleciona uma mensagem traduzida pelo motivo, mantem o formulario
+visivel atras do modal e navega a janela principal para `/login` somente quando
+o usuario clicar no botao. Falhas `419` tentam renovar o CSRF e repetir a
+requisicao uma vez antes de abrir esse modal.
+
+Motivos ou mensagens nunca podem conter cookie, token CSRF ou identificador de
+sessao.
+
 ## Como Criar um Novo Modal Global
 
 ### Passo 1: Adicionar HTML no app.php

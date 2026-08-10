@@ -119,6 +119,7 @@ return [
     'buttons' => [
         'add_item' => 'Add Item',
         'generate_preview' => 'Generate Preview',
+        'cancel_installments' => 'Cancel installments',
         'edit_selected' => 'Edit Selected',
         'delete_selected' => 'Delete Selected',
         'delete_selected_count' => 'Delete selected (:count)',

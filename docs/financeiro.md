@@ -156,6 +156,34 @@ Cada atualizacao e transacional e confirma que subtotal, total, juros, multa e
 desconto continuam iguais aos valores auditados. Se houver alteracao concorrente,
 o registro nao e sobrescrito e a execucao termina com erro.
 
+### Consistencia da data de pagamento
+
+`financeiro.data_pago` so pode ser preenchida quando `financeiro.pago = 'S'`.
+Lancamentos pendentes (`pago = 'N'`) devem manter `data_pago = NULL`; o status
+prevalece mesmo quando um formulario, integracao ou edicao em lote envia uma
+data residual. Ao marcar um lancamento como pago, a data informada e usada ou,
+na ausencia dela, o sistema aplica a data operacional atual via `DateHelper`.
+
+O script `scripts/reparar-financeiro-data-pagamento.php` audita e normaliza
+registros historicos que contrariem essa regra, incluindo o legado
+`0000-00-00`. O modo padrao e sempre de previa e nenhuma entrada de auditoria e
+criada pela reparacao administrativa.
+
+```bash
+# Previa geral em producao
+php scripts/reparar-financeiro-data-pagamento.php --env=production
+
+# Previa restrita a um tenant
+php scripts/reparar-financeiro-data-pagamento.php --env=production --tenant=CHAVE
+
+# Aplicacao somente depois de validar a previa
+php scripts/reparar-financeiro-data-pagamento.php --env=production --apply --confirm=NORMALIZAR_DATA_PAGO_PENDENTES
+```
+
+Em producao, o script exige `DB_HOST=localhost`. A aplicacao processa cada
+tenant em transacao, atualiza apenas registros que ainda estejam pendentes no
+momento da operacao e termina com erro se restar alguma inconsistencia.
+
 ## Triggers Automaticos
 
 O campo `valor_total` eh mantido automaticamente por triggers:
@@ -732,10 +760,11 @@ Parcela 3 (id=12, parcela=3, total_parcelas=3, id_financeiro_origem=10)    <- fi
 1. Usuario preenche dados na aba "Dados Principais"
 2. Na aba "Parcelamento", configura: numero de parcelas (2-120), data da 1a parcela, intervalo (dias/semanas/meses/anos)
 3. Clica "Gerar Preview" - frontend calcula datas e valores (arredondamento na ultima parcela)
-4. Ao salvar, o payload inclui array `parcelas[]` junto com os dados do lancamento
-5. No Controller (`salvar()`), a 1a parcela eh o lancamento criado; as demais sao criadas via `Financeiro::criarParcelas()`
-6. As sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` antes da criacao das parcelas, reduzindo locks em `matrizes_filiais` em parcelamentos grandes
-7. Toda operacao ocorre em transacao atomica
+4. Se desistir do parcelamento, clica "Cancelar parcelamento" para limpar o preview; as configuracoes permanecem preenchidas e o payload volta a ser enviado sem `parcelas[]`
+5. Ao salvar com preview ativo, o payload inclui array `parcelas[]` junto com os dados do lancamento
+6. No Controller (`salvar()`), a 1a parcela eh o lancamento criado; as demais sao criadas via `Financeiro::criarParcelas()`
+7. As sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` antes da criacao das parcelas, reduzindo locks em `matrizes_filiais` em parcelamentos grandes
+8. Toda operacao ocorre em transacao atomica
 
 O frontend e o backend aplicam o mesmo limite de 2 a 120 parcelas. Quantidades fora desse intervalo nao geram preview e sao rejeitadas pela API com status HTTP 422.
 

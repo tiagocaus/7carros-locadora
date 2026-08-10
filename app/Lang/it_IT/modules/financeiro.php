@@ -119,6 +119,7 @@ return [
     'buttons' => [
         'add_item' => 'Aggiungi Voce',
         'generate_preview' => 'Genera Anteprima',
+        'cancel_installments' => 'Annulla rateizzazione',
         'edit_selected' => 'Modifica Selezionati',
         'delete_selected' => 'Elimina Selezionati',
         'delete_selected_count' => 'Elimina selezionati (:count)',

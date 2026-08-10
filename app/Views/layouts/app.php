@@ -611,12 +611,12 @@
             <h3 class="modal-title">
                 <i class="fas fa-clock"></i> <?= t('modules.layout.session.title') ?>
             </h3>
-            <p class="modal-message">
+            <p class="modal-message" id="sessionExpiredMessage">
                 <?= t('modules.layout.session.message') ?>
             </p>
             <div class="modal-actions" style="justify-content: center;">
                 <button type="button" class="btn-blue py-2 px-6 rounded-md text-sm font-medium" id="sessionExpiredReloadBtn">
-                    <?= t('modules.layout.buttons.reload_page') ?>
+                    <?= t('modules.layout.buttons.go_to_login') ?>
                 </button>
             </div>
         </div>
@@ -2430,7 +2430,7 @@
                 openSignatureLinkModal(event.data);
             } else if (event.data && event.data.action === 'openSessionExpiredModal') {
                 // Abrir modal de sessão expirada
-                openSessionExpiredModal();
+                openSessionExpiredModal(event.data.reason);
             } else if (event.data && event.data.action === 'csrfTokenRefreshed' && event.data.csrfToken) {
                 // Token CSRF renovado por um iframe - atualizar parent e broadcast para outros iframes
                 if (window.API && typeof window.API.syncCsrfToken === 'function') {
@@ -3598,13 +3598,17 @@
                             await API.refreshCsrfToken();
                             resolve(await clienteImportacaoUpload(formData, true));
                         } catch (error) {
-                            API.showSessionExpiredModal();
+                            API.showSessionExpiredModal(error?.sessionReason || 'unknown');
                             reject(error);
                         }
                         return;
                     }
                     if (xhr.status === 401) {
-                        window.location.href = '/login';
+                        let sessionData = {};
+                        try {
+                            sessionData = JSON.parse(xhr.responseText);
+                        } catch (error) { /* resposta sem JSON */ }
+                        API.showSessionExpiredModal(sessionData.session_reason || 'unauthenticated');
                         reject(new Error(clienteImportacaoI18n.connection_error));
                         return;
                     }
@@ -3928,13 +3932,17 @@
                             await API.refreshCsrfToken();
                             resolve(await veiculoImportacaoUpload(formData, true));
                         } catch (error) {
-                            API.showSessionExpiredModal();
+                            API.showSessionExpiredModal(error?.sessionReason || 'unknown');
                             reject(error);
                         }
                         return;
                     }
                     if (xhr.status === 401) {
-                        window.location.href = '/login';
+                        let sessionData = {};
+                        try {
+                            sessionData = JSON.parse(xhr.responseText);
+                        } catch (error) { /* resposta sem JSON */ }
+                        API.showSessionExpiredModal(sessionData.session_reason || 'unauthenticated');
                         reject(new Error(veiculoImportacaoI18n.connection_error));
                         return;
                     }
@@ -4302,15 +4310,23 @@
         });
 
         // ===== MODAL DE SESSÃO EXPIRADA =====
-        function openSessionExpiredModal() {
+        window.openSessionExpiredModal = function(reason) {
             const modal = document.getElementById('sessionExpiredModal');
             if (!modal) return;
+
+            const messages = window.layoutI18n?.session?.messages || {};
+            const message = messages[reason] || messages.unknown || window.layoutI18n?.session?.message;
+            const messageElement = document.getElementById('sessionExpiredMessage');
+            if (messageElement && message) {
+                messageElement.textContent = message;
+            }
+
             modal.classList.add('open');
             document.body.classList.add('modal-open');
-        }
+        };
 
         document.getElementById('sessionExpiredReloadBtn')?.addEventListener('click', function() {
-            window.location.reload();
+            window.location.href = '/login';
         });
 
         // Fechar modal de validação ao clicar fora

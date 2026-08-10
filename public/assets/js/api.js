@@ -168,7 +168,7 @@ const API = {
                     return this.handleResponse(retryResponse, null);
                 } catch (e) {
                     if (e.message === 'session_dead') {
-                        window.location.href = '/login';
+                        this.showSessionExpiredModal(e.sessionReason || 'unauthenticated');
                     } else {
                         this.showSessionExpiredModal();
                     }
@@ -182,7 +182,11 @@ const API = {
         // Verifica se não está autenticado
         if (response.status === 401) {
             console.error('Não autenticado');
-            window.location.href = '/login';
+            let data = {};
+            try {
+                data = await response.clone().json();
+            } catch (e) { /* resposta sem JSON */ }
+            this.showSessionExpiredModal(data.session_reason || 'unauthenticated');
             throw new Error('Não autenticado');
         }
 
@@ -211,7 +215,13 @@ const API = {
                 });
 
                 if (response.status === 401) {
-                    throw new Error('session_dead');
+                    let data = {};
+                    try {
+                        data = await response.json();
+                    } catch (e) { /* resposta sem JSON */ }
+                    const error = new Error('session_dead');
+                    error.sessionReason = data.session_reason || 'unauthenticated';
+                    throw error;
                 }
 
                 if (!response.ok) {
@@ -279,12 +289,19 @@ const API = {
      * Exibe modal de sessão expirada (fallback)
      * Usa postMessage para comunicar com o parent (sistema de iframes)
      */
-    showSessionExpiredModal() {
+    showSessionExpiredModal(reason = 'unknown') {
         if (window.parent !== window) {
             // Estamos em um iframe, notificar parent
-            window.parent.postMessage({ action: 'openSessionExpiredModal' }, '*');
+            window.parent.postMessage({
+                action: 'openSessionExpiredModal',
+                reason
+            }, '*');
         } else {
             // Estamos no document principal
+            if (typeof window.openSessionExpiredModal === 'function') {
+                window.openSessionExpiredModal(reason);
+                return;
+            }
             const modal = document.getElementById('sessionExpiredModal');
             if (modal) {
                 modal.classList.add('open');

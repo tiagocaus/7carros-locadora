@@ -51,11 +51,10 @@ class ComissaoInvestidor extends Model
                 'v.modelo AS veiculo_modelo',
                 'g.nome AS grupo_nome'
             ])
-            ->withoutChave()
+            ->withChave($chave)
             ->leftJoin('fornecedores', 'f', 'f.id', '=', 'ci.id_fornecedor')
             ->leftJoin('veiculos', 'v', 'v.id', '=', 'ci.id_veiculo')
-            ->leftJoin('grupos', 'g', 'g.id', '=', 'ci.id_grupo')
-            ->where('ci.chave', '=', $chave);
+            ->leftJoin('grupos', 'g', 'g.id', '=', 'ci.id_grupo');
 
         // Filtro por fornecedor/investidor
         if (!empty($filtros['id_fornecedor'])) {
@@ -103,8 +102,7 @@ class ComissaoInvestidor extends Model
     {
         $query = $this->qb
             ->table('comissoes_investidores')
-            ->withoutChave()
-            ->where('chave', '=', $chave);
+            ->withChave($chave);
 
         if (!empty($filtros['id_fornecedor'])) {
             $query->where('id_fornecedor', '=', (int) $filtros['id_fornecedor']);
@@ -146,7 +144,6 @@ class ComissaoInvestidor extends Model
                 'v.modelo AS veiculo_modelo',
                 'g.nome AS grupo_nome'
             ])
-            ->withoutChave()
             ->leftJoin('fornecedores', 'f', 'f.id', '=', 'ci.id_fornecedor')
             ->leftJoin('veiculos', 'v', 'v.id', '=', 'ci.id_veiculo')
             ->leftJoin('grupos', 'g', 'g.id', '=', 'ci.id_grupo')
@@ -223,7 +220,6 @@ class ComissaoInvestidor extends Model
 
         return $this->qb
             ->table('comissoes_investidores')
-            ->withoutChave()
             ->where('id', '=', $id)
             ->update($dadosUpdate);
     }
@@ -272,8 +268,7 @@ class ComissaoInvestidor extends Model
                 'COALESCE(SUM(valor_repasse_investidor), 0) AS valor_repasse',
                 'COALESCE(SUM(valor_comissao_locadora), 0) AS valor_locadora'
             ])
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('status', '=', $status);
 
         if (!empty($filtros['id_fornecedor'])) {
@@ -311,9 +306,8 @@ class ComissaoInvestidor extends Model
                 'v.placa AS veiculo_placa',
                 'v.modelo AS veiculo_modelo'
             ])
-            ->withoutChave()
+            ->withChave($chave)
             ->leftJoin('veiculos', 'v', 'v.id', '=', 'ci.id_veiculo')
-            ->where('ci.chave', '=', $chave)
             ->where('ci.id_fornecedor', '=', $idFornecedor)
             ->where('ci.status', '=', 'pendente')
             ->orderBy('ci.data_referencia', 'ASC')
@@ -331,8 +325,7 @@ class ComissaoInvestidor extends Model
     {
         $count = $this->qb
             ->table('comissoes_investidores')
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('id_financeiro_origem', '=', $idFinanceiroOrigem)
             ->where('status', '!=', 'cancelado')
             ->count();

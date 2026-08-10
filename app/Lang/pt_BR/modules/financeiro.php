@@ -119,6 +119,7 @@ return [
     'buttons' => [
         'add_item' => 'Adicionar Item',
         'generate_preview' => 'Gerar Preview',
+        'cancel_installments' => 'Cancelar parcelamento',
         'edit_selected' => 'Editar Selecionados',
         'delete_selected' => 'Excluir Selecionados',
         'delete_selected_count' => 'Excluir selecionados (:count)',

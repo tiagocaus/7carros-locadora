@@ -116,6 +116,7 @@ Consulte [Portal do Cliente e do Fornecedor Investidor](./portal-cliente-investi
 | `00119_add_comissoes_permissions.php` | Permissões RBAC |
 | `00400_create_fornecedores_comissoes_regras.php` | Regras específicas de comissão por investidor |
 | `00412_create_portal_cliente_investidor.php` | Senha do investidor, sessões, auditoria, indicação e índices do portal |
+| `00418_add_plano_conta_comissoes_investidores.php` | Recria o plano global `3.3.1.10 - Comissões Investidores` no schema com `descricao_i18n` |
 
 ## Rotas
 
@@ -221,10 +222,15 @@ Cron (dia 1 às 06:00) → GerarComissoesMensaisJob
 ```
 UI: Usuário clica "Pagar" → POST /comissoes-investidores/{id}/pagar
   → marcarComoPago()
+  → Resolve o plano global 3.3.1.10 (Comissões Investidores)
   → Cria lançamento em financeiro (tipo=despesa, id_fornecedor=investidor)
   → Vincula via id_financeiro
   → Log de auditoria
 ```
+
+O plano `3.3.1.10` classifica o repasse como custo direto dos serviços
+prestados. Se o plano não estiver configurado, a operação deve falhar e fazer
+rollback sem criar o lançamento ou alterar o status da comissão.
 
 ### Cancelamento (funcionando)
 

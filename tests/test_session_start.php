@@ -93,4 +93,110 @@ if ($fingerprint !== 'RESET') {
     throw new RuntimeException('Fingerprint divergente nao reiniciou a sessao.');
 }
 
-echo "OK: sessao recupera cookie invalido, limita falha, responde genericamente e renova fingerprint.\n";
+$activeSession = runSessionScenario($autoload, <<<'PHP'
+$_SERVER['HTTP_USER_AGENT'] = 'SessionTest/Active';
+ini_set('session.save_path', sys_get_temp_dir());
+session_name('SESSION_TEST_ACTIVE');
+\App\Core\Session::start();
+$_SESSION['authenticated'] = true;
+$_SESSION['user_id'] = 123;
+$_SESSION['_last_activity_at'] = time() - \App\Core\Session::INACTIVITY_TIMEOUT + 60;
+$oldId = session_id();
+session_write_close();
+session_id($oldId);
+\App\Core\Session::start();
+if (($_SESSION['authenticated'] ?? false) !== true || session_id() !== $oldId) {
+    exit(5);
+}
+if ((int) ($_SESSION['_last_activity_at'] ?? 0) < time() - 2) {
+    exit(6);
+}
+if ((int) session_get_cookie_params()['lifetime'] !== 0) {
+    exit(7);
+}
+echo 'ACTIVE';
+PHP);
+
+if ($activeSession !== 'ACTIVE') {
+    throw new RuntimeException('Sessao com atividade recente foi encerrada indevidamente.');
+}
+
+$expiredSession = runSessionScenario($autoload, <<<'PHP'
+$_SERVER['HTTP_USER_AGENT'] = 'SessionTest/Expired';
+$_SERVER['REQUEST_URI'] = '/clientes/salvar?diagnostico=nao-logar';
+ini_set('session.save_path', sys_get_temp_dir());
+session_name('SESSION_TEST_EXPIRED');
+\App\Core\Session::start();
+$_SESSION['authenticated'] = true;
+$_SESSION['user_id'] = 456;
+$_SESSION['chave'] = 'tenant-de-teste';
+$_SESSION['_last_activity_at'] = time() - \App\Core\Session::INACTIVITY_TIMEOUT - 1;
+$oldId = session_id();
+session_write_close();
+session_id($oldId);
+\App\Core\Session::start();
+if (($_SESSION['authenticated'] ?? false) === true || session_id() === $oldId) {
+    exit(8);
+}
+if (\App\Core\Session::invalidationReason() !== 'inactivity') {
+    exit(9);
+}
+echo 'EXPIRED';
+PHP);
+
+if ($expiredSession !== 'EXPIRED') {
+    throw new RuntimeException('Sessao inativa nao foi encerrada corretamente.');
+}
+
+$legacyCookie = runSessionScenario($autoload, <<<'PHP'
+$_SERVER['HTTP_USER_AGENT'] = 'SessionTest/LegacyCookie';
+ini_set('session.save_path', sys_get_temp_dir());
+session_name('SESSION_TEST_LEGACY_COOKIE');
+\App\Core\Session::start();
+unset($_SESSION['_cookie_policy_version']);
+$oldId = session_id();
+session_write_close();
+session_id($oldId);
+\App\Core\Session::start();
+if ((int) ($_SESSION['_cookie_policy_version'] ?? 0) < 2) {
+    exit(10);
+}
+if ((int) session_get_cookie_params()['lifetime'] !== 0) {
+    exit(11);
+}
+echo 'MIGRATED';
+PHP);
+
+if ($legacyCookie !== 'MIGRATED') {
+    throw new RuntimeException('Cookie legado nao foi migrado para a nova politica.');
+}
+
+$expiredAjax = runSessionScenario($autoload, <<<'PHP'
+$_SERVER['HTTP_USER_AGENT'] = 'SessionTest/AjaxExpired';
+$_SERVER['REQUEST_URI'] = '/clientes/salvar';
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_SERVER['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest';
+ini_set('session.save_path', sys_get_temp_dir());
+session_name('SESSION_TEST_AJAX_EXPIRED');
+\App\Core\Session::start();
+$_SESSION['authenticated'] = true;
+$_SESSION['_last_activity_at'] = time() - \App\Core\Session::INACTIVITY_TIMEOUT - 1;
+$oldId = session_id();
+session_write_close();
+session_id($oldId);
+\App\Core\Session::start();
+$request = \App\Core\Request::capture();
+(new \App\Middleware\AuthMiddleware())->handle($request);
+PHP);
+
+$expiredAjaxData = json_decode($expiredAjax, true);
+if (
+    !is_array($expiredAjaxData)
+    || ($expiredAjaxData['session_expired'] ?? false) !== true
+    || ($expiredAjaxData['session_reason'] ?? null) !== 'inactivity'
+    || ($expiredAjaxData['redirect'] ?? null) !== '/login'
+) {
+    throw new RuntimeException('Resposta AJAX expirada nao possui diagnostico de sessao.');
+}
+
+echo "OK: sessao usa inatividade real, migra cookie legado, diagnostica AJAX e preserva protecoes existentes.\n";

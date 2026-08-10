@@ -1175,6 +1175,14 @@ class FinanceiroController
                 $campos['data_pago'] = $dados['data_pago'];
             }
 
+            if (array_key_exists('data_pago', $campos) && !array_key_exists('pago', $campos)) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Informe a situacao do pagamento ao alterar a data em lote'
+                ], 422);
+                return;
+            }
+
             $idsElegiveisComissao = [];
             if (($campos['pago'] ?? null) === 'S') {
                 $idsElegiveisComissao = $financeiroModel->listarIdsElegiveisComissaoPagamentoLote($dados['ids']);

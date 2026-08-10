@@ -185,8 +185,8 @@ const result = await API.post('/api/clientes', data);
 **Em requisições AJAX:**
 - Retorna status HTTP 419
 - O helper `API.js` intercepta, chama `/api/session/refresh`, atualiza o CSRF e repete a requisição uma vez
-- Se `/api/session/refresh` retornar 401, a sessão PHP realmente acabou e o usuário é enviado para `/login`
-- Se a renovação falhar por outro motivo, o modal oferece botão "Recarregar Página"
+- Se `/api/session/refresh` retornar 401, a sessão PHP realmente acabou e o modal global oferece acesso ao login
+- Se a renovação falhar por outro motivo, o modal global informa que a sessão não pôde ser validada
 
 ```javascript
 // Fluxo interno do api.js
@@ -230,13 +230,27 @@ Formulários autenticados do sistema não devem acionar autocomplete do navegado
 
 ### Continuidade de Sessão (Heartbeat)
 
-`session.gc_maxlifetime` e `session.cookie_lifetime` são 4h (`Session.php:24-25`). A política atual é expiração por inatividade: não há expiração absoluta baseada no horário do login. Cada hit HTTP válido no servidor renova a janela de sessão PHP. "Atividade" significa requisição HTTP, não movimento de mouse/teclado.
+`Session::INACTIVITY_TIMEOUT` e `session.gc_maxlifetime` são 4h. O cookie PHP
+normal usa `session.cookie_lifetime = 0`, portanto nao possui vencimento absoluto
+contado desde o login. O servidor grava `_last_activity_at` e encerra uma sessao
+autenticada quando a primeira requisicao posterior encontra mais de 14.400
+segundos sem atividade. "Atividade" significa requisicao HTTP valida, nao
+movimento de mouse/teclado.
+
+Sessoes criadas antes desta politica sao migradas na primeira requisicao: o
+cookie persistente antigo e reemitido como cookie de navegador e recebe o
+marcador interno `_cookie_policy_version`. O deploy nao encerra imediatamente
+usuarios que ainda nao possuam `_last_activity_at`.
 
 `Session::start()` valida o resultado da abertura nativa antes de acessar
 `$_SESSION`. Um identificador recebido que seja invalido ou corrompido e
 descartado e recebe somente uma nova tentativa. Se o armazenamento de sessoes
 continuar indisponivel, o front controller responde `503` generico e registra
 uma unica falha sanitizada, sem recursao e sem expor o cookie de sessao.
+Invalidacoes conhecidas registram apenas motivo, endpoint, ID numerico do
+funcionario quando ainda disponivel e referencia irreversivel do tenant. Os
+motivos sao `inactivity`, `fingerprint_mismatch`, `invalid_cookie` e
+`storage_failure`; cookies, tokens CSRF e IDs de sessao nunca entram no log.
 
 Para que usuários preenchendo formulários longos (locação, contrato, multa, promissória) não percam dados por timeout silencioso, o `api.js` mantém a sessão viva via heartbeat:
 
@@ -248,7 +262,7 @@ Para que usuários preenchendo formulários longos (locação, contrato, multa, 
 | **Escopo** | Janela principal (`window.top === window`); iframes filhos compartilham a sessão via cookie |
 | **Auto-start** | Sim, ao carregar `api.js` |
 
-Se a aba ficar em segundo plano, o navegador for fechado ou o computador suspender por mais de 4h sem hits no servidor, a sessão normal expira. Se o login foi feito com "lembrar-me", o `remember_token` pode reautenticar o usuário por até 30 dias, desde que o token ainda exista e o funcionário esteja ativo.
+Se a aba ficar em segundo plano ou o computador suspender por mais de 4h sem hits no servidor, a sessão normal expira. Fechar o navegador remove o cookie normal. Se o login foi feito com "lembrar-me", o `remember_token` pode reautenticar o usuário por até 30 dias, desde que o token ainda exista e o funcionário esteja ativo.
 
 **API pública:**
 ```javascript
@@ -258,12 +272,13 @@ API.stopHeartbeat();                      // para o ping
 
 **Por que não enfraquece a segurança:**
 - Cookie de sessão é `HttpOnly` + `Secure` + `SameSite=Lax` — atacante remoto sem o cookie não consegue chamar `/api/session/refresh` em nome da vítima.
-- Heartbeat só roda enquanto a aba está visível; se o usuário fecha o navegador ou minimiza por muito tempo, a sessão expira normalmente pelo `gc_maxlifetime`.
+- Heartbeat só roda enquanto a aba está visível; se o usuário fecha o navegador ou minimiza por muito tempo, a sessão expira pela validacao de `_last_activity_at`.
 - O fingerprint da sessão (`Session.php:48`) ainda valida user-agent — qualquer divergência ainda destrói a sessão.
 - O heartbeat renova também o token CSRF e sincroniza `<meta name="csrf-token">` e `input[name="_token"]` para evitar falsos "Sessão expirada" em formulários longos.
 
 **Arquivos:**
 - `public/assets/js/api.js` — métodos `startHeartbeat`, `stopHeartbeat`, `_heartbeatTick` + auto-start no fim do arquivo.
+- `app/Core/Session.php` — timeout por inatividade, migracao do cookie e diagnostico sanitizado.
 
 ---
 
@@ -276,7 +291,7 @@ Verifica se o usuário está autenticado.
 **Proteções de sessão:**
 - `cookie_httponly: true` - Previne acesso via JavaScript
 - `cookie_secure: true` - Apenas HTTPS
-- `cookie_samesite: Strict` - Previne CSRF
+- `cookie_samesite: Lax` - Reduz CSRF sem quebrar navegacoes de entrada
 - `session_regenerate_id()` - Regenera ID após login
 
 #### Cookie `remember_token` (Auth.php)

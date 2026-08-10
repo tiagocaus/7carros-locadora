@@ -144,8 +144,13 @@ class Veiculo extends Model
             );
         }
 
+        $disponibilidadesInativas = "'" . implode("', '", self::DISPONIBILIDADE_INATIVA) . "'";
+
         return $query
+            ->orderByRaw("CASE WHEN v.disponibilidade IN ({$disponibilidadesInativas}) THEN 1 ELSE 0 END ASC")
             ->orderBy('v.modelo', 'ASC')
+            ->orderBy('v.placa', 'ASC')
+            ->orderBy('v.id', 'ASC')
             ->paginate($page, $perPage)
             ->get();
     }

@@ -24,6 +24,7 @@ return [
         'regularize' => 'Regularizar',
         'reset' => 'Resetar',
         'reload_page' => 'Recarregar página',
+        'go_to_login' => 'Ir para o login',
         'understood' => 'Entendi',
         'new_search' => 'Nova consulta',
         'back' => 'Voltar',
@@ -98,7 +99,16 @@ return [
     ],
     'session' => [
         'title' => 'Sessão expirada',
-        'message' => 'Não foi possível renovar sua sessão automaticamente. Recarregue a página para continuar.',
+        'message' => 'Não foi possível validar sua sessão. Entre novamente para continuar.',
+        'messages' => [
+            'inactivity' => 'Sua sessão expirou após quatro horas sem comunicação com o sistema. Entre novamente para continuar.',
+            'fingerprint_mismatch' => 'O navegador mudou durante o acesso e a sessão foi encerrada por segurança. Entre novamente para continuar.',
+            'invalid_cookie' => 'O identificador da sessão ficou inválido. Entre novamente para continuar.',
+            'storage_failure' => 'Não foi possível acessar o armazenamento da sessão. Entre novamente para continuar.',
+            'cookie_missing' => 'O navegador não enviou o cookie da sessão. Entre novamente para continuar.',
+            'unauthenticated' => 'Sua autenticação não está mais disponível. Entre novamente para continuar.',
+            'unknown' => 'Não foi possível validar sua sessão. Entre novamente para continuar.',
+        ],
     ],
     'integration' => [
         'add_title' => 'Adicionar código',

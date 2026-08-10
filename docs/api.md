@@ -118,8 +118,8 @@ O helper trata automaticamente erros comuns:
 
 | Status | Comportamento |
 |--------|---------------|
-| **419** | Token CSRF inválido → Lança erro "Sessão expirada" |
-| **401** | Não autenticado → Redireciona para `/login` |
+| **419** | Renova o CSRF e repete a requisição uma vez; abre o modal se não recuperar |
+| **401** | Abre o modal global de sessão; nunca carrega `/login` dentro do iframe |
 
 ```javascript
 try {
@@ -127,9 +127,25 @@ try {
     // Sucesso
 } catch (error) {
     console.error(error.message);
-    // "Sessão expirada. Por favor, recarregue a página."
+    // O modal global informa a expiracao e oferece acesso ao login.
 }
 ```
+
+Respostas `401` das rotas autenticadas incluem diagnostico sem dados sensiveis:
+
+```json
+{
+  "success": false,
+  "session_expired": true,
+  "session_reason": "inactivity",
+  "redirect": "/login"
+}
+```
+
+`session_reason` pode ser `inactivity`, `fingerprint_mismatch`,
+`invalid_cookie`, `storage_failure`, `cookie_missing` ou `unauthenticated`.
+O `api.js` encaminha o motivo por `postMessage` ao layout principal, que exibe
+o modal fullscreen e so navega para o login apos acao do usuario.
 
 ## Modo Antigo vs Modo Correto
 
