@@ -414,8 +414,6 @@
         const videoCamera = document.getElementById('videoCamera');
         const canvasCamera = document.getElementById('canvasCamera');
         let streamCamera = null;
-        let usuarioOriginal = '';
-
         // Verificar se está dentro de um iframe
         const isInIframe = window.parent !== window;
 
@@ -438,6 +436,16 @@
             // Remover required dos campos de senha
             document.getElementById('funcionarioSenha').removeAttribute('required');
             document.getElementById('funcionarioConfirmarSenha').removeAttribute('required');
+
+            // O nome de usuário é definido apenas no cadastro e é informativo na edição.
+            const usuarioInput = document.getElementById('funcionarioUsuario');
+            usuarioInput.disabled = true;
+            usuarioInput.classList.add('bg-slate-100', 'cursor-not-allowed');
+
+            // Campo imutável não deve aparecer entre as alterações auditadas.
+            if (window.FormAudit && !FormAudit.CONFIG.ignoredFields.includes('usuario')) {
+                FormAudit.CONFIG.ignoredFields.push('usuario');
+            }
 
             // Atualizar botão de salvar
             document.getElementById('btnSalvar').textContent = i18n.saveChanges;
@@ -505,7 +513,6 @@
             document.getElementById('funcionarioNome').value = dados.nome || '';
             document.getElementById('funcionarioEmail').value = dados.email || '';
             document.getElementById('funcionarioUsuario').value = dados.usuario || '';
-            usuarioOriginal = dados.usuario || '';
             document.getElementById('funcionarioStatus').value = dados.status || 'A';
             document.getElementById('funcionarioCPF').value = dados.cpf || '';
             document.getElementById('funcionarioNacionalidade').value = dados.nascionalidade || '';
@@ -567,6 +574,12 @@
                 dados.filiais_permitidas || [],
                 dados.id_matriz_filial
             );
+
+            // A auditoria precisa comparar contra os dados carregados via AJAX,
+            // e não contra o formulário vazio renderizado inicialmente.
+            if (window.FormAudit) {
+                FormAudit.recapture(document.getElementById('formFuncionario'));
+            }
         }
 
         // Voltar para lista
@@ -926,22 +939,11 @@
                 return;
             }
 
-            // Se for o mesmo usuário original (modo edição), não precisa verificar
-            if (editando && usuario === usuarioOriginal) {
-                this.classList.add('border-green-500');
-                this.setCustomValidity('');
-                return;
-            }
-
             // Debounce de 500ms
             const inputElement = this;
             usuarioTimeout = setTimeout(async () => {
                 try {
                     const params = { usuario: usuario };
-                    // Em modo de edição, excluir o próprio ID da verificação
-                    if (editando && funcionarioId) {
-                        params.exclude_id = funcionarioId;
-                    }
 
                     const result = await API.get('/api/funcionarios/check-usuario', params);
 

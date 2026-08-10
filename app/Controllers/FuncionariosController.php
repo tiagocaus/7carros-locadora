@@ -310,9 +310,8 @@ class FuncionariosController
                 return;
             }
 
-            // Bloquear nome/usuário com termo "suporte"
+            // Bloquear nome com termo "suporte"
             $nome = $request->input('nome', '');
-            $usuario = $request->input('usuario', '');
 
             if (stripos($nome, 'suporte') !== false) {
                 Response::json([
@@ -322,18 +321,9 @@ class FuncionariosController
                 return;
             }
 
-            if (stripos($usuario, 'suporte') !== false) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'O nome de usuário não pode conter o termo "suporte". Por favor, escolha outro.'
-                ], 400);
-                return;
-            }
-
             // Mapear campos do formulário para campos do banco
             $dados = [
                 'nome' => $request->input('nome'),
-                'usuario' => $request->input('usuario'),
                 'email' => $request->input('email'),
                 'status' => $request->input('status'),
                 'foto' => $request->input('foto'),
@@ -402,8 +392,10 @@ class FuncionariosController
             $funcionarioModel->atualizar($id, $dados);
 
             // Log de auditoria
-            AuditLogService::registrar(
-                ($_SESSION['user_name'] ?? 'Sistema') . ", atualizou funcionário [{$funcionarioExistente['nome']}]"
+            AuditLogService::registrarComAuditFrontend(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", atualizou funcionário [{$funcionarioExistente['nome']}]",
+                null,
+                $request->input('_audit_changes')
             );
 
             // Sincronizar filiais permitidas
