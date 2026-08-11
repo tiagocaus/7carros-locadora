@@ -168,7 +168,7 @@ O formulario possui 9 abas:
 - Calculo automatico de totais
 - O `id_comando_parcela` selecionado e persistido na tabela `contratos` para uso na renovacao automatica
 - Na renovacao automatica, `dias` e `contagem` definem o periodo renovado do contrato; o comando de parcelas define apenas vencimento/parcelamento financeiro.
-- Comandos simples de dia da semana (`Seg`, `Ter`, `Qua`, etc.) geram uma unica parcela com valor cheio e vencimento no dia configurado. Parcelamento semanal exige comando explicito, como `w4` ou `w4-Seg`.
+- Comandos simples de dia da semana (`Seg`, `Ter`, `Qua`, `Qui`, `Sex`, `Sab` e `Dom`) geram uma unica parcela com valor cheio. Se a data-base ja cair no dia configurado, o vencimento permanece nessa mesma data; caso contrario, avanca para a proxima ocorrencia do dia, sem forcar uma semana adicional. Parcelamento semanal exige comando explicito, como `w4` ou `w4-Seg`.
 - A autorenovacao so deve avancar `data_renovacao` depois que todas as parcelas esperadas forem criadas ou confirmadas como ja existentes.
 - Ao salvar muitas parcelas, as sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` para evitar locks repetidos em `matrizes_filiais`
 - Ao criar um contrato novo com parcelas geradas, o backend cria/reutiliza links em `pagamentos_links` e enfileira cobrancas `payment_reminder` para email, WhatsApp e SMS. Falhas por canal nao impedem a criacao do contrato nem das parcelas.
@@ -511,6 +511,11 @@ fica com disponibilidade `O` (Oficina). A resposta retorna `id_manutencao` e
 `os` dentro de `data`. Com `acao_veiculo = disponivel`, nenhuma OS e criada.
 
 **Rastreabilidade financeira:** Ao substituir um veiculo, as parcelas financeiras ja criadas mantêm o `financeiro.id_veiculo` do veiculo antigo. Novas parcelas geradas apos a substituicao recebem automaticamente o `id_veiculo` do novo veiculo via `ContratoVeiculo::buscarAtivo()`. Isso garante que receitas e despesas fiquem vinculadas ao veiculo correto em cada periodo. Ver [financeiro.md](financeiro.md#rastreabilidade-veicular) para detalhes.
+
+Quando uma parcela do contrato e marcada como paga pelo resumo financeiro, o
+mesmo fluxo processa a comissao do fornecedor investidor. O estorno da parcela
+cancela a comissao ativa; se o repasse ja tiver sido pago, a despesa vinculada
+volta para pendente. A duplicidade e impedida pelo `id_financeiro_origem`.
 
 ## Bloqueio (Pre-autorizacao no Cartao)
 

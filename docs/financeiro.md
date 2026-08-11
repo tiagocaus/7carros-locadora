@@ -246,9 +246,11 @@ Response: { success: true, id: 123, message: "..." }
 
 Quando o financeiro e gerado a partir de contrato, o comando de parcelas define
 como a fatura sera dividida e quais serao os vencimentos. Comandos simples de dia
-da semana (`Seg`, `Ter`, `Qua`, etc.) nao parcelam: eles geram uma unica parcela
-com vencimento ajustado para o dia informado. Parcelamento semanal deve ser
-explicito com `wX` ou `wX-Dia`, por exemplo `w4-Seg`.
+da semana (`Seg`, `Ter`, `Qua`, `Qui`, `Sex`, `Sab` e `Dom`) nao parcelam: eles
+geram uma unica parcela. Se a data-base ja corresponder ao dia informado, o
+vencimento permanece nessa data; caso contrario, avanca para a proxima
+ocorrencia do dia, sem forcar uma semana adicional. Parcelamento semanal deve
+ser explicito com `wX` ou `wX-Dia`, por exemplo `w4-Seg`.
 
 Na autorenovacao, as parcelas financeiras precisam ser criadas ou confirmadas
 como ja existentes antes de o contrato avancar para a proxima `data_renovacao`.
@@ -624,6 +626,11 @@ Regras:
   para evitar cobranca do valor antigo.
 - Comissao de investidor, quando aplicavel, deve considerar somente a parte
   efetivamente marcada como paga.
+- Baixas e estornos feitos pelo Financeiro, pela tela do contrato ou pela tela
+  da locacao sincronizam a comissao pelo `id_financeiro_origem`. A base mantem
+  a regra vigente de usar `valor_total`, incluindo juros/multa e desconto, sem
+  deduzir `valor_taxa`. No estorno, a comissao ativa e cancelada e um repasse ja
+  pago volta a pendente com log detalhado.
 
 ## Arquivos do Modulo
 

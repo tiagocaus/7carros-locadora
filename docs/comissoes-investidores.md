@@ -161,7 +161,46 @@ Fatura paga (manual ou webhook)
 
 **Entry points**:
 - `FinanceiroController::update()` — pagamento manual (após `atualizarComAuditoria`)
+- `ContratosController::marcarParcelaPaga()` — baixa feita no resumo financeiro do contrato
+- `LocacoesController::marcarParcelaPaga()` — baixa feita no resumo financeiro da locação
+- `FinanceiroController::atualizarParcelasLote()` — baixa de parcelas em lote
 - `PagamentoPublicoController::marcarFinanceiroPago()` — webhook de gateway
+
+A base da comissão por pagamento é o `financeiro.valor_total` persistido no
+instante do processamento: `valor_subtotal + juros + multa - desconto`. A taxa
+do meio de pagamento (`valor_taxa`) não é deduzida, pois não se usa
+`valor_liquido`. A `data_referencia` preserva `financeiro.data_pago`.
+
+### Estorno do recebimento
+
+O estorno de uma receita que originou comissão cancela automaticamente a
+comissão ativa localizada por `id_financeiro_origem`. Se o repasse já estiver
+pago, o lançamento de despesa vinculado volta para pendente e perde
+`data_pago`. O log registra financeiro de origem, comissão, status anterior,
+despesa afetada e motivo. A operação é idempotente; uma nova baixa pode criar
+outra comissão, mantendo a anterior como histórico cancelado.
+
+### Reparo de comissões históricas
+
+O script `scripts/reparar-comissoes-investidores.php` audita receitas pagas de
+contratos/locações que nunca tiveram comissão. Registros com comissão cancelada
+também são preservados e não entram no retroativo. O padrão é sempre
+somente prévia e a aplicação revalida cada registro antes de criar a comissão.
+
+```bash
+# Prévia restrita a um contrato
+php scripts/reparar-comissoes-investidores.php --env=production --contract=CODIGO
+
+# Prévia por tenant e período de pagamento
+php scripts/reparar-comissoes-investidores.php --env=production --tenant=CHAVE --since=2026-01-01 --until=2026-12-31
+
+# Aplicação somente após conferir a prévia
+php scripts/reparar-comissoes-investidores.php --env=production --contract=CODIGO --apply --confirm=GERAR_COMISSOES_INVESTIDORES
+```
+
+Em produção, o script exige `DB_HOST=localhost`. O reparo usa o `valor_total`
+atualmente persistido e não reconstrói valores antigos pelos logs. Comissões
+existentes não são recalculadas.
 
 ### Split Service (Fase 8)
 
@@ -273,7 +312,7 @@ Link no navbar em Financeiro: "Comissões Investidores" (`fas fa-hand-holding-us
 
 ## Pendente
 
-- [ ] Testar geração de comissão ao pagar fatura de locação
-- [ ] Testar geração de comissão ao pagar fatura de contrato
+- [x] Testar geração de comissão ao pagar fatura de locação
+- [x] Testar geração de comissão ao pagar fatura de contrato
 - [ ] Integrar split no fluxo de criação de cobrança
 - [ ] Testar split automático com conta Asaas sandbox

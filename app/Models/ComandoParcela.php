@@ -492,7 +492,7 @@ class ComandoParcela extends Model
 
             case 'dias_semana':
                 $data = clone $base;
-                self::ajustarParaProximoDiaSemana($data, $info['dia_semana']);
+                self::ajustarParaDiaSemana($data, $info['dia_semana']);
                 $datas[] = $data->format('Y-m-d');
                 break;
 
@@ -578,19 +578,4 @@ class ComandoParcela extends Model
         }
     }
 
-    /**
-     * Ajusta a data para a proxima ocorrencia futura do dia da semana.
-     *
-     * @param \DateTime $data Data a ajustar
-     * @param string $diaSemana Dia da semana (Seg, Ter, etc.)
-     */
-    private static function ajustarParaProximoDiaSemana(\DateTime $data, string $diaSemana): void
-    {
-        $diasMap = [
-            'Dom' => 'sunday', 'Seg' => 'monday', 'Ter' => 'tuesday', 'Qua' => 'wednesday',
-            'Qui' => 'thursday', 'Sex' => 'friday', 'Sab' => 'saturday'
-        ];
-
-        $data->modify('next ' . ($diasMap[$diaSemana] ?? 'monday'));
-    }
 }

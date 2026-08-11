@@ -37,6 +37,7 @@ use App\Services\AuditLogService;
 use App\Services\AuthorizationHoldReleaseService;
 use App\Services\GrupoPrecoPeriodoService;
 use App\Services\PromocaoAplicacaoService;
+use App\Services\ComissaoInvestidorService;
 use App\Exceptions\AuthorizationHoldReleaseException;
 use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
 
@@ -2096,6 +2097,12 @@ class LocacoesController
 
             $locacaoModel->marcarParcelaPaga($id, $idParcela, $request->all());
 
+            try {
+                (new ComissaoInvestidorService())->processarComissaoPorFinanceiro($idParcela, false);
+            } catch (\Throwable $e) {
+                error_log("[Comissao] Erro na baixa da parcela #{$idParcela} da locacao #{$id}: " . $e->getMessage());
+            }
+
             AuditLogService::registrar(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", marcou parcela como paga na locacao [{$locacao['codigo']}]"
             );
@@ -2130,6 +2137,16 @@ class LocacoesController
             }
 
             $locacaoModel->estornarParcelaPagamento($id, $idParcela);
+
+            try {
+                (new ComissaoInvestidorService())->cancelarPorFinanceiroOrigem(
+                    $idParcela,
+                    Auth::chave(),
+                    "Estorno da parcela #{$idParcela} da locacao {$locacao['codigo']}"
+                );
+            } catch (\Throwable $e) {
+                error_log("[Comissao] Erro no estorno da parcela #{$idParcela} da locacao #{$id}: " . $e->getMessage());
+            }
 
             AuditLogService::registrar(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", estornou pagamento de parcela na locacao [{$locacao['codigo']}]"

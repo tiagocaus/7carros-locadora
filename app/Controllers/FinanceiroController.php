@@ -494,9 +494,23 @@ class FinanceiroController
             ) {
                 try {
                     $comissaoService = new \App\Services\ComissaoInvestidorService();
-                    $comissaoService->processarComissaoPorFinanceiro($id);
+                    $comissaoService->processarComissaoPorFinanceiro($id, false);
                 } catch (\Exception $e) {
                     error_log("[Comissao] Erro no hook do FinanceiroController: " . $e->getMessage());
+                }
+            } elseif (
+                isset($dados['pago']) &&
+                $dados['pago'] === 'N' &&
+                $lancamento['pago'] === 'S'
+            ) {
+                try {
+                    (new ComissaoInvestidorService())->cancelarPorFinanceiroOrigem(
+                        $id,
+                        $chave,
+                        "Estorno do recebimento financeiro #{$id}"
+                    );
+                } catch (\Throwable $e) {
+                    error_log("[Comissao] Erro no estorno do FinanceiroController: " . $e->getMessage());
                 }
             }
 
@@ -601,7 +615,7 @@ class FinanceiroController
             ) {
                 try {
                     $comissaoService = new ComissaoInvestidorService();
-                    $comissaoService->processarComissaoPorFinanceiro($id);
+                    $comissaoService->processarComissaoPorFinanceiro($id, false);
                 } catch (\Exception $e) {
                     error_log("[Comissao] Erro no hook de baixa parcial: " . $e->getMessage());
                 }
@@ -1190,13 +1204,14 @@ class FinanceiroController
 
             $atualizados = $financeiroModel->atualizarParcelasLote($dados['ids'], $campos, $chave);
             $comissoesGeradas = 0;
+            $comissoesCanceladas = 0;
 
             if (!empty($idsElegiveisComissao)) {
                 $comissaoService = new ComissaoInvestidorService();
 
                 foreach ($idsElegiveisComissao as $idFinanceiro) {
                     try {
-                        $comissaoId = $comissaoService->processarComissaoPorFinanceiro((int) $idFinanceiro);
+                        $comissaoId = $comissaoService->processarComissaoPorFinanceiro((int) $idFinanceiro, false);
                         if ($comissaoId) {
                             $comissoesGeradas++;
                         }
@@ -1206,12 +1221,31 @@ class FinanceiroController
                 }
             }
 
+            if (($campos['pago'] ?? null) === 'N') {
+                $comissaoService = $comissaoService ?? new ComissaoInvestidorService();
+                foreach (array_values(array_unique(array_map('intval', $dados['ids']))) as $idFinanceiro) {
+                    try {
+                        $resultadoCancelamento = $comissaoService->cancelarPorFinanceiroOrigem(
+                            $idFinanceiro,
+                            $chave,
+                            "Estorno em lote do recebimento financeiro #{$idFinanceiro}"
+                        );
+                        if ($resultadoCancelamento['cancelada']) {
+                            $comissoesCanceladas++;
+                        }
+                    } catch (\Throwable $e) {
+                        error_log("[Comissao] Erro no estorno em lote do financeiro #{$idFinanceiro}: " . $e->getMessage());
+                    }
+                }
+            }
+
             Response::json([
                 'success' => true,
                 'message' => "{$atualizados} parcela(s) atualizada(s)",
                 'data' => [
                     'atualizados' => $atualizados,
-                    'comissoes_geradas' => $comissoesGeradas
+                    'comissoes_geradas' => $comissoesGeradas,
+                    'comissoes_canceladas' => $comissoesCanceladas
                 ]
             ]);
         } catch (\Exception $e) {

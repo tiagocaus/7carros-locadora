@@ -303,6 +303,11 @@ fechadas nao permitem substituicao; apenas exibem o historico.
 
 Ao substituir um veiculo, as parcelas financeiras ja criadas mantêm o `financeiro.id_veiculo` do veiculo antigo. Novas parcelas geradas apos a substituicao recebem automaticamente o `id_veiculo` do novo veiculo via `LocacaoVeiculo::buscarAtivo()`. Ver [financeiro.md](financeiro.md#rastreabilidade-veicular) para detalhes.
 
+Quando uma parcela da locacao e marcada como paga pelo resumo financeiro, o
+mesmo fluxo processa a comissao do fornecedor investidor. O estorno da parcela
+cancela a comissao ativa; se o repasse ja tiver sido pago, a despesa vinculada
+volta para pendente. A duplicidade e impedida pelo `id_financeiro_origem`.
+
 ## Integracao Financeira
 
 ### Código promocional

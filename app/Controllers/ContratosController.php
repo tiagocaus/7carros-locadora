@@ -38,6 +38,7 @@ use App\Services\AuditLogService;
 use App\Services\AuthorizationHoldReleaseService;
 use App\Services\InvoiceBatchNotificationService;
 use App\Services\ContratoEncerramentoService;
+use App\Services\ComissaoInvestidorService;
 use App\Exceptions\AuthorizationHoldReleaseException;
 use App\Core\Database;
 use App\Helpers\FileHelper;
@@ -4127,6 +4128,12 @@ class ContratosController
 
             $contratoModel->marcarParcelaContratoPaga($id, $idParcela, $request->all());
 
+            try {
+                (new ComissaoInvestidorService())->processarComissaoPorFinanceiro($idParcela, false);
+            } catch (\Throwable $e) {
+                error_log("[Comissao] Erro na baixa da parcela #{$idParcela} do contrato #{$id}: " . $e->getMessage());
+            }
+
             AuditLogService::registrar(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", marcou parcela como paga no contrato [{$contrato['codigo']}]"
             );
@@ -4167,6 +4174,16 @@ class ContratosController
             }
 
             $contratoModel->estornarParcelaContratoPagamento($id, $idParcela);
+
+            try {
+                (new ComissaoInvestidorService())->cancelarPorFinanceiroOrigem(
+                    $idParcela,
+                    $chave,
+                    "Estorno da parcela #{$idParcela} do contrato {$contrato['codigo']}"
+                );
+            } catch (\Throwable $e) {
+                error_log("[Comissao] Erro no estorno da parcela #{$idParcela} do contrato #{$id}: " . $e->getMessage());
+            }
 
             AuditLogService::registrar(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", estornou pagamento de parcela do contrato [{$contrato['codigo']}]"

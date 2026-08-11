@@ -22,9 +22,8 @@ class FornecedorComissaoRegra extends Model
                 'r.*',
                 'g.nome AS grupo_nome',
             ])
-            ->withoutChave()
+            ->withChave($chave)
             ->leftJoinRaw('grupos', 'g', 'g.id = r.id_grupo AND g.chave = r.chave')
-            ->where('r.chave', '=', $chave)
             ->where('r.id_fornecedor', '=', $idFornecedor)
             ->orderByRaw('CASE WHEN r.id_grupo IS NULL THEN 0 ELSE 1 END ASC')
             ->orderBy('g.nome', 'ASC')
@@ -36,8 +35,7 @@ class FornecedorComissaoRegra extends Model
         if ($idGrupo) {
             $regraGrupo = $this->qb
                 ->table('fornecedores_comissoes_regras')
-                ->withoutChave()
-                ->where('chave', '=', $chave)
+                ->withChave($chave)
                 ->where('id_fornecedor', '=', $idFornecedor)
                 ->where('id_grupo', '=', $idGrupo)
                 ->where('ativo', '=', 1)
@@ -52,8 +50,7 @@ class FornecedorComissaoRegra extends Model
 
         $regraPadrao = $this->qb
             ->table('fornecedores_comissoes_regras')
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('id_fornecedor', '=', $idFornecedor)
             ->whereNull('id_grupo')
             ->where('ativo', '=', 1)
@@ -72,8 +69,7 @@ class FornecedorComissaoRegra extends Model
     {
         $this->qb
             ->table('fornecedores_comissoes_regras')
-            ->withoutChave()
-            ->where('chave', '=', $chave)
+            ->withChave($chave)
             ->where('id_fornecedor', '=', $idFornecedor)
             ->delete();
 

@@ -53,81 +53,12 @@ class ComissaoInvestidorService
      */
     public function calcularComissaoPorPagamento(array $financeiro, array $veiculo): ?int
     {
-        // Verificar se veiculo tem investidor
-        if (empty($veiculo['id_fornecedor'])) {
+        $analise = $this->analisarDadosPagamento($financeiro, $veiculo, true);
+        if (!$analise['aplicavel']) {
             return null;
         }
 
-        // Buscar fornecedor e verificar se e investidor
-        $fornecedor = $this->fornecedorModel->buscarPorId($veiculo['id_fornecedor']);
-        if (!$fornecedor || $fornecedor['investidor'] != 1) {
-            return null;
-        }
-
-        // Buscar grupo para obter configuracao de comissao
-        if (empty($veiculo['id_grupo'])) {
-            return null;
-        }
-
-        $grupo = $this->grupoModel->buscarPorId($veiculo['id_grupo']);
-        if (!$grupo) {
-            return null;
-        }
-
-        $regra = $this->resolverRegraComissao(
-            $financeiro['chave'],
-            (int) $veiculo['id_fornecedor'],
-            (int) $veiculo['id_grupo'],
-            $grupo
-        );
-
-        if (!$regra) {
-            return null;
-        }
-
-        // Tipos mensais nao sao processados por pagamento
-        if (in_array($regra['comissao_tipo'], ['fixo_locadora_mensal', 'fixo_investidor_mensal'], true)) {
-            return null;
-        }
-
-        // Verificar se ja existe comissao para este financeiro de origem
-        $tipoOrigem = !empty($financeiro['id_locacao']) ? 'locacao' : 'contrato';
-
-        if ($this->comissaoModel->existeParaOrigem($financeiro['chave'], (int) $financeiro['id'])) {
-            return null;
-        }
-
-        // Calcular valores
-        $valorBase = (float) $financeiro['valor'];
-        $calculo = $this->calcularValores(
-            $regra['comissao_tipo'],
-            $regra['comissao_valor'],
-            $valorBase
-        );
-
-        // Criar registro de comissao
-        return $this->comissaoModel->criar([
-            'chave' => $financeiro['chave'],
-            'id_fornecedor' => $veiculo['id_fornecedor'],
-            'id_veiculo' => $veiculo['id'],
-            'id_grupo' => $veiculo['id_grupo'],
-            'tipo_origem' => $tipoOrigem,
-            'id_locacao' => $financeiro['id_locacao'] ?? null,
-            'id_contrato' => $financeiro['id_contrato'] ?? null,
-            'id_financeiro_origem' => $financeiro['id'],
-            'valor_base' => $valorBase,
-            'comissao_tipo' => $regra['comissao_tipo'],
-            'comissao_percentual' => $regra['comissao_tipo'] === 'percentual_locadora'
-                ? $regra['comissao_valor']
-                : null,
-            'comissao_valor_fixo' => in_array($regra['comissao_tipo'], ['fixo_locadora', 'fixo_locadora_mensal', 'fixo_investidor_mensal'], true)
-                ? $regra['comissao_valor']
-                : null,
-            'valor_comissao_locadora' => $calculo['locadora'],
-            'valor_repasse_investidor' => $calculo['investidor'],
-            'status' => 'pendente',
-            'data_referencia' => today(),
-        ]);
+        return $this->comissaoModel->criar($analise['dados_comissao']);
     }
 
     /**
@@ -361,10 +292,17 @@ class ComissaoInvestidorService
                 'status' => 'cancelado'
             ]);
 
-            // Log de auditoria
-            AuditLogService::registrar(
+            AuditLogService::registrarComCampos(
                 ($_SESSION['user_name'] ?? 'Sistema') . ", cancelou comissao investidor ID [{$comissaoId}]" .
-                ($motivo ? " - Motivo: {$motivo}" : '')
+                ($motivo ? " - Motivo: {$motivo}" : ''),
+                [
+                    AuditLogService::campo('Comissao', (string) $comissaoId, 'Cancelada'),
+                    AuditLogService::campo('Financeiro de origem', (string) ($comissao['id_financeiro_origem'] ?? '-'), null),
+                    AuditLogService::campo('Status da comissao', (string) $comissao['status'], 'cancelado'),
+                    AuditLogService::campo('Despesa de repasse', (string) ($comissao['id_financeiro'] ?? '-'),
+                        $comissao['status'] === 'pago' && !empty($comissao['id_financeiro']) ? 'Pagamento estornado' : null),
+                    AuditLogService::campo('Motivo', null, $motivo ?: 'Cancelamento manual'),
+                ]
             );
 
             $this->qb->commit();
@@ -487,52 +425,201 @@ class ComissaoInvestidorService
     /**
      * Processa comissao a partir de um ID de financeiro pago.
      * Resolve internamente o veiculo via locacao ou contrato.
-     * Silencioso: loga erros mas nunca lanca excecoes.
-     *
      * @param int $idFinanceiro ID do lancamento financeiro
+     * @param bool $silencioso Se false, relanca falhas inesperadas para o chamador
+     * @param bool $permitirAposCancelamento Permite nova comissao quando a anterior foi cancelada
      * @return int|null ID da comissao criada ou null
      */
-    public function processarComissaoPorFinanceiro(int $idFinanceiro): ?int
+    public function processarComissaoPorFinanceiro(
+        int $idFinanceiro,
+        bool $silencioso = true,
+        bool $permitirAposCancelamento = true
+    ): ?int
     {
         try {
-            $financeiro = $this->financeiroModel->buscarPorId($idFinanceiro);
-
-            if (!$financeiro) {
+            $analise = $this->analisarComissaoPorFinanceiro($idFinanceiro, $permitirAposCancelamento);
+            if (!$analise['aplicavel']) {
                 return null;
             }
 
-            // So processar receitas (tipo R) que estao pagas
-            if (($financeiro['tipo'] ?? '') !== 'R' || ($financeiro['pago'] ?? 'N') !== 'S') {
-                return null;
-            }
-
-            // Precisa ter id_locacao ou id_contrato
-            if (empty($financeiro['id_locacao']) && empty($financeiro['id_contrato'])) {
-                return null;
-            }
-
-            // Resolver veiculo
-            $veiculo = $this->resolverVeiculoPorFinanceiro($financeiro);
-            if (!$veiculo) {
-                return null;
-            }
-
-            // Montar array no formato esperado por calcularComissaoPorPagamento
-            $dadosFinanceiro = [
-                'id' => $financeiro['id'],
-                'chave' => $financeiro['chave'],
-                'valor' => (float) ($financeiro['valor_total'] ?? $financeiro['valor_subtotal']),
-                'id_locacao' => $financeiro['id_locacao'] ?? null,
-                'id_contrato' => $financeiro['id_contrato'] ?? null,
-            ];
-
-            $comissaoId = $this->calcularComissaoPorPagamento($dadosFinanceiro, $veiculo);
-
+            $comissaoId = $this->comissaoModel->criar($analise['dados_comissao']);
+            $this->registrarGeracao($comissaoId, $analise['dados_comissao']);
             return $comissaoId;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             error_log("[Comissao] Erro ao processar comissao para financeiro #{$idFinanceiro}: " . $e->getMessage());
+            if (!$silencioso) {
+                throw $e;
+            }
             return null;
+        }
+    }
+
+    /**
+     * Analisa, sem gravar, se um recebimento pode gerar comissao.
+     *
+     * @return array{aplicavel:bool,motivo:string,dados_comissao?:array}
+     */
+    public function analisarComissaoPorFinanceiro(
+        int $idFinanceiro,
+        bool $permitirAposCancelamento = true
+    ): array
+    {
+        $financeiro = $this->financeiroModel->buscarPorId($idFinanceiro);
+        if (!$financeiro) {
+            return ['aplicavel' => false, 'motivo' => 'financeiro_nao_encontrado'];
+        }
+
+        if (($financeiro['tipo'] ?? '') !== 'R') {
+            return ['aplicavel' => false, 'motivo' => 'nao_e_receita'];
+        }
+        if (($financeiro['pago'] ?? 'N') !== 'S') {
+            return ['aplicavel' => false, 'motivo' => 'receita_nao_paga'];
+        }
+        if (empty($financeiro['id_locacao']) && empty($financeiro['id_contrato'])) {
+            return ['aplicavel' => false, 'motivo' => 'sem_contrato_ou_locacao'];
+        }
+
+        $veiculo = $this->resolverVeiculoPorFinanceiro($financeiro);
+        if (!$veiculo) {
+            return ['aplicavel' => false, 'motivo' => 'veiculo_nao_resolvido'];
+        }
+
+        return $this->analisarDadosPagamento([
+            'id' => (int) $financeiro['id'],
+            'chave' => (string) $financeiro['chave'],
+            'valor' => (float) ($financeiro['valor_total'] ?? $financeiro['valor_subtotal']),
+            'data_pago' => $financeiro['data_pago'] ?? null,
+            'id_locacao' => $financeiro['id_locacao'] ?? null,
+            'id_contrato' => $financeiro['id_contrato'] ?? null,
+        ], $veiculo, $permitirAposCancelamento);
+    }
+
+    /**
+     * Cancela a comissao ativa originada pelo recebimento estornado.
+     *
+     * @return array{cancelada:bool,id_comissao:?int,id_financeiro_repasse:?int,status_anterior:?string}
+     */
+    public function cancelarPorFinanceiroOrigem(int $idFinanceiroOrigem, string $chave, string $motivo): array
+    {
+        $comissao = $this->comissaoModel->buscarAtivaPorOrigem($chave, $idFinanceiroOrigem);
+        if (!$comissao) {
+            return [
+                'cancelada' => false,
+                'id_comissao' => null,
+                'id_financeiro_repasse' => null,
+                'status_anterior' => null,
+            ];
+        }
+
+        $statusAnterior = (string) $comissao['status'];
+        $idFinanceiroRepasse = !empty($comissao['id_financeiro'])
+            ? (int) $comissao['id_financeiro']
+            : null;
+
+        $this->cancelar((int) $comissao['id'], $chave, $motivo);
+
+        return [
+            'cancelada' => true,
+            'id_comissao' => (int) $comissao['id'],
+            'id_financeiro_repasse' => $idFinanceiroRepasse,
+            'status_anterior' => $statusAnterior,
+        ];
+    }
+
+    /** @return array{aplicavel:bool,motivo:string,dados_comissao?:array} */
+    private function analisarDadosPagamento(
+        array $financeiro,
+        array $veiculo,
+        bool $permitirAposCancelamento
+    ): array
+    {
+        if (empty($veiculo['id_fornecedor'])) {
+            return ['aplicavel' => false, 'motivo' => 'veiculo_sem_fornecedor'];
+        }
+
+        $fornecedor = $this->fornecedorModel->buscarPorId((int) $veiculo['id_fornecedor']);
+        if (!$fornecedor || (int) ($fornecedor['investidor'] ?? 0) !== 1) {
+            return ['aplicavel' => false, 'motivo' => 'fornecedor_nao_investidor'];
+        }
+        if (empty($veiculo['id_grupo'])) {
+            return ['aplicavel' => false, 'motivo' => 'veiculo_sem_grupo'];
+        }
+
+        $grupo = $this->grupoModel->buscarPorId((int) $veiculo['id_grupo']);
+        if (!$grupo) {
+            return ['aplicavel' => false, 'motivo' => 'grupo_nao_encontrado'];
+        }
+
+        $regra = $this->resolverRegraComissao(
+            (string) $financeiro['chave'],
+            (int) $veiculo['id_fornecedor'],
+            (int) $veiculo['id_grupo'],
+            $grupo
+        );
+        if (!$regra) {
+            return ['aplicavel' => false, 'motivo' => 'sem_regra_comissao'];
+        }
+        if (in_array($regra['comissao_tipo'], ['fixo_locadora_mensal', 'fixo_investidor_mensal'], true)) {
+            return ['aplicavel' => false, 'motivo' => 'regra_mensal'];
+        }
+        $comissaoExistente = $permitirAposCancelamento
+            ? $this->comissaoModel->existeParaOrigem((string) $financeiro['chave'], (int) $financeiro['id'])
+            : $this->comissaoModel->existeQualquerParaOrigem((string) $financeiro['chave'], (int) $financeiro['id']);
+        if ($comissaoExistente) {
+            return ['aplicavel' => false, 'motivo' => 'comissao_ja_existente'];
+        }
+
+        $valorBase = (float) $financeiro['valor'];
+        $calculo = $this->calcularValores($regra['comissao_tipo'], $regra['comissao_valor'], $valorBase);
+        $tipoOrigem = !empty($financeiro['id_locacao']) ? 'locacao' : 'contrato';
+        $dataReferencia = !empty($financeiro['data_pago'])
+            ? (string) $financeiro['data_pago']
+            : today();
+
+        return [
+            'aplicavel' => true,
+            'motivo' => 'elegivel',
+            'dados_comissao' => [
+                'chave' => (string) $financeiro['chave'],
+                'id_fornecedor' => (int) $veiculo['id_fornecedor'],
+                'id_veiculo' => (int) $veiculo['id'],
+                'id_grupo' => (int) $veiculo['id_grupo'],
+                'tipo_origem' => $tipoOrigem,
+                'id_locacao' => $financeiro['id_locacao'] ?? null,
+                'id_contrato' => $financeiro['id_contrato'] ?? null,
+                'id_financeiro_origem' => (int) $financeiro['id'],
+                'valor_base' => $valorBase,
+                'comissao_tipo' => $regra['comissao_tipo'],
+                'comissao_percentual' => $regra['comissao_tipo'] === 'percentual_locadora'
+                    ? $regra['comissao_valor']
+                    : null,
+                'comissao_valor_fixo' => $regra['comissao_tipo'] === 'fixo_locadora'
+                    ? $regra['comissao_valor']
+                    : null,
+                'valor_comissao_locadora' => $calculo['locadora'],
+                'valor_repasse_investidor' => $calculo['investidor'],
+                'status' => 'pendente',
+                'data_referencia' => $dataReferencia,
+            ],
+        ];
+    }
+
+    private function registrarGeracao(int $comissaoId, array $dados): void
+    {
+        try {
+            AuditLogService::registrarComCampos(
+                ($_SESSION['user_name'] ?? 'Sistema') . ", gerou comissao investidor ID [{$comissaoId}]",
+                [
+                    AuditLogService::campo('Financeiro de origem', null, (string) $dados['id_financeiro_origem']),
+                    AuditLogService::campo('Origem', null, (string) $dados['tipo_origem']),
+                    AuditLogService::campo('Valor base', null, currency_format((float) $dados['valor_base'], true)),
+                    AuditLogService::campo('Repasse ao investidor', null, currency_format((float) $dados['valor_repasse_investidor'], true)),
+                    AuditLogService::campo('Status', null, 'pendente'),
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('[Comissao/Auditoria] ' . $e->getMessage());
         }
     }
 

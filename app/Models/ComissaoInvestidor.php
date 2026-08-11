@@ -332,4 +332,34 @@ class ComissaoInvestidor extends Model
 
         return $count > 0;
     }
+
+    public function existeQualquerParaOrigem(string $chave, int $idFinanceiroOrigem): bool
+    {
+        return $this->qb
+            ->table('comissoes_investidores')
+            ->withChave($chave)
+            ->where('id_financeiro_origem', '=', $idFinanceiroOrigem)
+            ->exists();
+    }
+
+    /**
+     * Busca a comissao ativa vinculada ao financeiro que originou o recebimento.
+     */
+    public function buscarAtivaPorOrigem(string $chave, int $idFinanceiroOrigem): ?array
+    {
+        return $this->qb
+            ->table('comissoes_investidores', 'ci')
+            ->select([
+                'ci.*',
+                'f.nome_rsocial AS fornecedor_nome',
+                'v.placa AS veiculo_placa',
+            ])
+            ->withChave($chave)
+            ->leftJoin('fornecedores', 'f', 'f.id', '=', 'ci.id_fornecedor')
+            ->leftJoin('veiculos', 'v', 'v.id', '=', 'ci.id_veiculo')
+            ->where('ci.id_financeiro_origem', '=', $idFinanceiroOrigem)
+            ->where('ci.status', '!=', 'cancelado')
+            ->orderBy('ci.id', 'DESC')
+            ->first();
+    }
 }
