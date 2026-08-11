@@ -314,7 +314,7 @@ km excedente = max(0, km rodados - franquia efetiva)
 valor km = km excedente * valor_km_excedente
 ```
 
-O periodo de uso do veiculo vai de `contratos_veiculos.data_saida` ate a data de referencia do calculo. O sistema usa no minimo 1 dia de uso. Essa regra vale para registro rapido de odometro, devolucao e substituicao.
+O periodo de uso do veiculo vai de `contratos_veiculos.data_saida` ate a data de referencia do calculo. Estimativas operacionais de odometro e substituicao podem usar no minimo 1 dia. O encerramento financeiro proporcional da devolucao usa somente blocos completos de 24 horas e, portanto, pode apurar zero diaria antes de completar o primeiro dia.
 
 Na criacao do contrato, `contratos_veiculos.data_saida` de todos os veiculos
 iniciais deve receber exatamente o `contratos.data_ini` persistido. Essa regra
@@ -411,11 +411,18 @@ retorna tambem `id_manutencao` e `os`. A permissao para essa acao e a mesma da
 devolucao (`contratos.devolver`) e, apos o sucesso, a interface retorna para a
 listagem de contratos.
 
-Quando a devolucao gera valores a cobrar do cliente (km, combustivel/carga ou
-taxas extras), o backend cria automaticamente uma receita em `financeiro`
-vinculada ao contrato (`tipo = R`). O total e recalculado a partir das regras
-oficiais e dos snapshots gravados em `contratos_taxaseservicos`; o total enviado
-pela tela nao deve ser usado como fonte de verdade.
+Antes da confirmacao, `POST /api/contratos/{id}/devolucao/preview` calcula o
+mesmo resultado que sera persistido. Na devolucao final, o contrato e apurado
+por ciclos completos e dias restantes completos de 24 horas: semana usa base
+7, mes usa ciclo de calendario e diaria de base 30, e ano usa ciclo de
+calendario e diaria de base 365. Fracoes inferiores a 24 horas nao geram
+diaria. Tolerancias configuradas para locacoes nao se aplicam a contratos.
+
+O calculo final inclui locacao, seguros, taxas contratuais recalculadas,
+adicionais de devolucao e desconto proporcional. O sistema compara esse total
+com o principal ja lancado no financeiro, excluindo taxa do meio de pagamento,
+juros, multa e caucao. Diferenca positiva cria receita; diferenca negativa cria
+credito ao cliente. Receitas e faturas originais sao preservadas.
 
 Na tela de devolucao, os dados do lancamento financeiro sao configurados pelo
 botao **Gerar pagamento** dentro do **Resumo da Devolucao**. O offcanvas coleta
@@ -423,11 +430,32 @@ conta bancaria, forma de pagamento, vencimento e status pago; quando `pago = S`,
 tambem exige data de pagamento. Esses dados sao apenas estado de tela ate o
 usuario confirmar a devolucao.
 
-O **Resumo da Devolucao** deve exibir o valor da locacao/contrato para
-conferencia junto dos adicionais apurados na devolucao. Esse valor da locacao e
-informativo nessa tela e nao deve ser incluido novamente no financeiro gerado
-pela devolucao, pois as parcelas da locacao ja sao tratadas no financeiro do
-contrato.
+O **Resumo da Devolucao** exibe separadamente ciclos completos, dias restantes,
+locacao, seguros, taxas, adicionais, desconto, total final, principal lancado e
+o ajuste a cobrar ou devolver. Em devolucao parcial, enquanto houver outro
+veiculo ativo, o aluguel nao e conciliado: apenas os adicionais do ato geram
+novo financeiro.
+
+Em contratos com multiplos veiculos, os cards do resumo mostram somente os
+veiculos selecionados na devolucao atual. Vinculos historicos e veiculos ativos
+nao selecionados nao sao exibidos. Na ultima devolucao, o historico continua
+participando dos totais e permanece no snapshot auditavel, sem aparecer na tela.
+Em devolucao parcial, o resumo omite valores de aluguel, principal lancado e
+conciliacao, informando apenas km, combustivel/carga e taxas do ato.
+
+O resumo financeiro nunca deve usar calculo local como fallback. Qualquer
+alteracao de data, odometro, combustivel/carga, selecao de veiculos ou taxas
+invalida a previa anterior. Enquanto a nova previa oficial estiver pendente ou
+se o backend rejeitar algum campo, os botoes de pagamento e confirmacao ficam
+indisponiveis e a tela apresenta o erro no proprio resumo. Em especial, o
+odometro de entrada nao pode ser inferior ao maior valor entre o odometro de
+saida do vinculo e o odometro atual do cadastro do veiculo.
+
+O encerramento final atualiza `contratos.total_fatura`, `total_pagar`, desconto,
+status e data final, e grava um snapshot imutavel em
+`contratos_encerramentos`. A devolucao dos veiculos, taxas, ajuste financeiro e
+snapshot pertencem a uma unica transacao. Nao ha backfill de encerramentos
+historicos.
 
 Antes do resumo, a secao **Faturas em aberto do contrato** consulta
 `GET /api/contratos/{id}/parcelas` e exibe somente receitas pendentes

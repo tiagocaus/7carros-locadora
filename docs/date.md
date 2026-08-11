@@ -138,6 +138,8 @@ Campos que representam horario local escolhido pelo usuario **nao devem converte
 ```php
 format_operational_datetime('2025-09-04 10:00:00'); // "04/09/2025 10:00"
 DateHelper::formatOperationalDateTime('2025-09-04 10:00:00');
+DateHelper::parseOperationalDateTime('2025-09-04 10:00:00'); // matematica civil, sem converter fuso
+DateHelper::addOperationalCalendarPeriod($data, 'mes'); // limita o dia ao ultimo dia do destino
 ```
 
 ```javascript

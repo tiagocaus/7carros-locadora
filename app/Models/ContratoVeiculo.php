@@ -38,6 +38,7 @@ class ContratoVeiculo extends Model
                 'v.odometro AS veiculo_odometro',
                 'v.diagrama AS veiculo_diagrama',
                 'v.tipo_combustivel AS veiculo_tipo_combustivel',
+                'v.valor_por_fracao AS veiculo_valor_por_fracao',
                 'v.valor_compra AS veiculo_valor_compra',
                 'f.nome_rsocial AS fornecedor_nome',
                 'f.cpf_cnpj AS fornecedor_cpf_cnpj',

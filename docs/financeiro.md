@@ -849,6 +849,7 @@ Bloqueio e Caucao sao conceitos distintos com planos de contas separados:
 | 1.1.6.01 | Caucao entrada | A | Recebimento do deposito (tipo R) |
 | 1.1.6.02 | Caucao saida | A | Devolucao do deposito (tipo D) |
 | 3.4.1.22 | Devolucao/Reembolso de locacao | D | Credito ao cliente por devolucao antecipada ou reducao do total final da locacao |
+| 3.4.1.23 | Devolucao/Reembolso de contrato | D | Credito ao cliente apurado no encerramento proporcional de contrato |
 
 **Bloqueio** = authorization hold no cartao via Stripe. NAO gera lancamento financeiro. Registrado em `locacoes_bloqueios`.
 **Caucao** = deposito real. Gera lancamento financeiro com plano 1.1.6.01 (entrada) e 1.1.6.02 (saida na devolucao).
@@ -872,26 +873,32 @@ Esse lancamento compensa o saldo financeiro efetivo da locacao, mas nao altera n
 remove a receita original. Devolucoes de caucao continuam usando `1.1.6.02` e nao
 devem ser tratadas como credito de diaria/taxa de locacao.
 
-### Valores Cobrados na Devolucao de Contrato
+### Conciliacao na Devolucao de Contrato
 
-Quando a devolucao de um contrato apura valor que o cliente deve pagar (km
-excedente, combustivel/carga ou taxas e servicos extras), o sistema deve criar
-automaticamente uma receita:
+No encerramento final, o sistema compara o total contratual recalculado com o
+principal ja lancado. O principal usa `valor_subtotal` das receitas vinculadas
+ao contrato e desconta creditos anteriores classificados em `3.4.1.23`; nao
+inclui taxa do meio de pagamento, juros, multa, caucao ou multas veiculares.
+
+Quando a diferenca e positiva, cria automaticamente uma receita:
 
 - `financeiro.tipo = R`
 - `financeiro.id_contrato` preenchido
 - `financeiro.id_cliente` preenchido a partir do contrato
 - `financeiro.id_veiculo` preenchido apenas quando a devolucao envolver um unico veiculo
 - `pago = S` somente quando o usuario marcar o recebimento na tela
+- `financeiro.id_plano_de_conta` na hierarquia `4.1.1.03`
 
-Nao registrar esse caso como contas a pagar (`tipo = D`), pois e uma cobranca ao
-cliente.
+Quando a diferenca e negativa, cria um credito pendente ao cliente:
 
-Na tela de devolucao de contrato, o total da locacao pode aparecer no resumo para
-conferencia com o cliente, mas o financeiro novo da devolucao continua limitado
-aos adicionais apurados naquele ato: km, combustivel/carga e taxas extras. Nao
-some novamente `contratos.total_pagar` ao lancamento da devolucao, para evitar
-cobranca duplicada da locacao.
+- `financeiro.tipo = D`
+- `financeiro.id_contrato` e `financeiro.id_cliente` preenchidos
+- `financeiro.id_plano_de_conta` na hierarquia `3.4.1.23`
+- `pago = N`, para posterior baixa no financeiro
+
+Os lancamentos originais nao sao alterados ou removidos. Em devolucao parcial,
+na qual ainda existe veiculo ativo, nao ha conciliacao do aluguel; o novo
+lancamento continua limitado aos adicionais daquele ato.
 
 ### Multas
 

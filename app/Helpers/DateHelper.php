@@ -383,6 +383,45 @@ class DateHelper
     }
 
     /**
+     * Interpreta um horario operacional como valor civil, sem conversao de fuso.
+     * UTC e usado apenas como escala neutra para matematica de blocos de 24 horas.
+     */
+    public static function parseOperationalDateTime(string $datetime): \DateTimeImmutable
+    {
+        $valor = trim(str_replace('T', ' ', $datetime));
+        foreach (['!Y-m-d H:i:s', '!Y-m-d H:i'] as $formato) {
+            $data = \DateTimeImmutable::createFromFormat($formato, $valor, new \DateTimeZone('UTC'));
+            if ($data instanceof \DateTimeImmutable && $data->format(substr($formato, 1)) === $valor) {
+                return $data;
+            }
+        }
+
+        throw new \InvalidArgumentException('Data/hora operacional invalida.');
+    }
+
+    /** Avanca um mes/ano civil, limitando o dia ao ultimo dia do destino. */
+    public static function addOperationalCalendarPeriod(\DateTimeImmutable $data, string $periodo): \DateTimeImmutable
+    {
+        $ano = (int) $data->format('Y');
+        $mes = (int) $data->format('n');
+        $dia = (int) $data->format('j');
+
+        if ($periodo === 'ano') {
+            $ano++;
+        } elseif ($periodo === 'mes') {
+            $mes++;
+            if ($mes > 12) {
+                $mes = 1;
+                $ano++;
+            }
+        } else {
+            throw new \InvalidArgumentException('Periodo operacional invalido.');
+        }
+
+        return $data->setDate($ano, $mes, min($dia, cal_days_in_month(CAL_GREGORIAN, $mes, $ano)));
+    }
+
+    /**
      * Converte uma data do formato local para formato internacional
      *
      * @param string|null $date Data no formato local (ex: "15/01/2024")

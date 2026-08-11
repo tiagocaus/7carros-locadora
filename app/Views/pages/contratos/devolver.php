@@ -15,7 +15,6 @@
         ? \App\Helpers\DateHelper::formatOperationalDateTime((string) $contrato['data_ini'])
         : '-';
     $hojeInput = \App\Helpers\DateHelper::todayForDatabase();
-    $resumoFinanceiro = $resumoFinanceiro ?? [];
     $canDeleteFinanceiro = \App\Core\Auth::can('financeiro.excluir');
 ?>
 <div class="pl-1 pr-2 py-0">
@@ -321,7 +320,7 @@
             <button type="button" id="btnCancelar" class="btn-secondary py-2 px-6 rounded-md text-sm font-medium">
                 <?= t('common.buttons.cancel') ?>
             </button>
-            <button type="button" id="btnConfirmar" class="btn-green py-2 px-6 rounded-md text-sm font-medium">
+            <button type="button" id="btnConfirmar" class="btn-green py-2 px-6 rounded-md text-sm font-medium" disabled>
                 <i class="fas fa-check mr-2"></i><span id="btnConfirmarTexto"><?= t('modules.contratos.return_page.confirm_return') ?></span>
             </button>
         </div>
@@ -386,19 +385,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'calcFractions' => t('modules.contratos.return_page.calc_fractions'),
         'summaryTotal' => t('modules.contratos.return_page.summary_total'),
         'summaryCharge' => t('modules.contratos.return_page.summary_charge_client'),
-        'summaryNoCharge' => t('modules.contratos.return_page.summary_no_charge'),
-        'summaryContractValues' => t('modules.contratos.return_page.summary_contract_values'),
-        'summaryReturnValues' => t('modules.contratos.return_page.summary_return_values'),
-        'summaryRentalValue' => t('modules.contratos.return_page.summary_rental_value'),
-        'summaryFinancialLaunched' => t('modules.contratos.return_page.summary_financial_launched'),
-        'summaryFinancialPaid' => t('modules.contratos.return_page.summary_financial_paid'),
-        'summaryFinancialPending' => t('modules.contratos.return_page.summary_financial_pending'),
-        'summaryAdditionalTotal' => t('modules.contratos.return_page.summary_additional_total'),
-        'summaryGrandTotal' => t('modules.contratos.return_page.summary_grand_total'),
-        'summaryGenerateNow' => t('modules.contratos.return_page.summary_generate_now'),
-        'summaryPaidValue' => t('modules.contratos.return_page.summary_paid_value'),
-        'summaryYes' => t('common.labels.yes'),
-        'summaryNo' => t('common.labels.no'),
         'departureDatetime' => t('modules.contratos.return_page.departure_datetime'),
         'returnDateBeforeDeparture' => t('modules.contratos.return_page.return_date_before_departure'),
         'openInvoicesLoading' => t('modules.contratos.return_page.open_invoices_loading'),
@@ -419,7 +405,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     const veiculosAtivos = <?= json_encode($veiculosAtivos, JSON_UNESCAPED_UNICODE) ?>;
     const contratoId = document.getElementById('contratoId').value;
     const contratoContagem = <?= json_encode($contrato['contagem'] ?? 'dia', JSON_UNESCAPED_UNICODE) ?>;
-    let contratoResumoFinanceiro = <?= json_encode($resumoFinanceiro, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const singleMode = veiculosAtivos.length === 1;
     const filialRetiradaId = <?= (int) $filialRetiradaId ?>;
     const hojeInput = <?= json_encode($hojeInput, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -427,6 +412,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     let taxasDisponiveis = [];
     let taxaSelecionadaAtual = null;
     let totalGeralAtual = 0;
+    let previewEncerramento = null;
+    let previewTimer = null;
+    let previewSequencia = 0;
     let faturasAbertasState = [];
     const faturasAbertasSelecionadas = new Set();
     const canDeleteFinanceiro = <?= $canDeleteFinanceiro ? 'true' : 'false' ?>;
@@ -726,12 +714,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
-    }
-
-    function calcularTotalTaxasExtras() {
-        return taxasExtrasState.reduce((total, taxa) => {
-            return total + ((parseInt(taxa.quantidade) || 1) * (parseFloat(taxa.valor_unitario) || 0));
-        }, 0);
     }
 
     async function carregarTaxasDisponiveis() {
@@ -1107,10 +1089,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 ? result.data.faturas_abertas
                 : [];
             faturasAbertasSelecionadas.clear();
-            if (result.data?.resumo) {
-                contratoResumoFinanceiro = result.data.resumo;
-                atualizarResumoGeral();
-            }
             renderizarFaturasAbertas();
         } catch (error) {
             console.error('Erro ao carregar faturas abertas do contrato:', error);
@@ -1281,112 +1259,198 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     // ==================== RESUMO GERAL ====================
 
     function atualizarResumoGeral() {
-        let totalGeralKm = 0;
-        let totalGeralCombustivel = 0;
-        let selecionados = 0;
-        let htmlLinhas = '';
+        const resumoEl = document.getElementById('resumoGeral');
+        const selecionados = Object.values(veiculoState).filter(state => state.selecionado || singleMode).length;
+        if (selecionados === 0) {
+            invalidarPreviewEncerramento();
+            resumoEl.classList.add('hidden');
+            return;
+        }
 
+        resumoEl.classList.remove('hidden');
+        agendarPreviewEncerramento();
+    }
+
+    function coletarVeiculosPayload() {
+        const veiculos = [];
         Object.keys(veiculoState).forEach(i => {
             const state = veiculoState[i];
             if (!state.selecionado && !singleMode) return;
-            selecionados++;
-
-            const subtotal = state.totalKm + state.totalCombustivel;
-            totalGeralKm += state.totalKm;
-            totalGeralCombustivel += state.totalCombustivel;
-
-            const tipoV = state.data.veiculo_tipo_combustivel || '';
-            const fuelLabelResumo = FuelLabels.isElectric(tipoV) ? i18n.calcChargeLabel : i18n.calcFuelLabel;
-            htmlLinhas += `
-                <div class="flex justify-between text-sm py-1">
-                    <span class="text-slate-700">${state.data.veiculo_placa} - ${(state.data.veiculo_marca || '')} ${(state.data.veiculo_modelo || '')}</span>
-                    <span class="text-slate-600">
-                        ${i18n.calcKmLabel}: ${Currency.format(state.totalKm, true)}
-                        · ${fuelLabelResumo}: ${Currency.format(state.totalCombustivel, true)}
-                        · <strong>${Currency.format(subtotal, true)}</strong>
-                    </span>
-                </div>
-            `;
+            const card = document.querySelector(`.veiculo-card[data-index="${i}"]`);
+            veiculos.push({
+                id_contrato_veiculo: state.data.id,
+                data_entrada: card.querySelector('.data-devolucao')?.value || '',
+                odometro_entrada: Km.parse(card.querySelector('.odometro-atual')?.value || '0'),
+                combustivel_entrada: card.querySelector('.tanque-chegada')?.value || null,
+                acao_veiculo: card.querySelector('.acao-veiculo')?.value || 'disponivel',
+                observacao: card.querySelector('.observacao-veiculo')?.value || null,
+            });
         });
+        return veiculos;
+    }
 
-        const totalTaxasExtras = calcularTotalTaxasExtras();
-        const totalAdicionalDevolucao = totalGeralKm + totalGeralCombustivel + totalTaxasExtras;
-        const totalLocacao = parseFloat(contratoResumoFinanceiro.total_contrato || 0);
-        const totalLancado = parseFloat(contratoResumoFinanceiro.total_lancado || 0);
-        const totalPago = parseFloat(contratoResumoFinanceiro.total_pago || 0);
-        const totalPendente = parseFloat(contratoResumoFinanceiro.total_pendente || 0);
-        const totalGeralConferencia = totalLocacao + totalAdicionalDevolucao;
-        totalGeralAtual = totalAdicionalDevolucao;
-        const resumoEl = document.getElementById('resumoGeral');
-        const resumoContent = document.getElementById('resumoContent');
-
-        if (selecionados > 0) {
-            resumoEl.classList.remove('hidden');
-            const corAdicional = totalAdicionalDevolucao > 0 ? 'text-red-600' : 'text-green-600';
-            const htmlTaxas = totalTaxasExtras > 0 ? `
-                <div class="flex justify-between text-sm py-1">
-                    <span class="text-slate-700">Taxas e servicos</span>
-                    <span class="text-slate-600"><strong>${Currency.format(totalTaxasExtras, true)}</strong></span>
-                </div>
-            ` : '';
-
-            const htmlContrato = `
-                <div class="bg-white border border-green-200 rounded-md p-3 mb-3">
-                    <h4 class="text-sm font-semibold text-green-800 mb-2">${i18n.summaryContractValues}</h4>
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-sm">
-                            <span class="text-slate-700">${i18n.summaryRentalValue}</span>
-                            <strong class="text-slate-800">${Currency.format(totalLocacao, true)}</strong>
-                        </div>
-                        <div class="flex justify-between text-xs text-slate-500">
-                            <span>${i18n.summaryFinancialLaunched}: ${totalLancado > 0 ? i18n.summaryYes : i18n.summaryNo}</span>
-                            <span>${Currency.format(totalLancado, true)}</span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs text-slate-500">
-                            <div class="flex justify-between"><span>${i18n.summaryFinancialPaid}</span><span>${Currency.format(totalPago, true)}</span></div>
-                            <div class="flex justify-between"><span>${i18n.summaryFinancialPending}</span><span>${Currency.format(totalPendente, true)}</span></div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            const pagamentoPago = totalAdicionalDevolucao > 0 && financeiroValue('financeiroPago') === 'S';
-            const htmlValoresDevolucao = `
-                <div class="bg-white border border-green-200 rounded-md p-3 mb-3">
-                    <h4 class="text-sm font-semibold text-green-800 mb-2">${i18n.summaryReturnValues}</h4>
-                    ${htmlLinhas || `<p class="text-sm text-slate-500">${i18n.summaryNoCharge}</p>`}
-                    ${htmlTaxas}
-                </div>
-            `;
-
-            const htmlTotais = `
-                <div class="border-t border-green-300 pt-3 mt-3 space-y-1">
-                    <div class="flex justify-between text-sm">
-                        <span class="text-slate-700">${i18n.summaryRentalValue}</span>
-                        <strong>${Currency.format(totalLocacao, true)}</strong>
-                    </div>
-                    <div class="flex justify-between text-sm ${corAdicional}">
-                        <span>${i18n.summaryAdditionalTotal}</span>
-                        <strong>${Currency.format(totalAdicionalDevolucao, true)}</strong>
-                    </div>
-                    <div class="flex justify-between text-base font-bold text-green-800 border-t border-green-200 pt-2">
-                        <span>${i18n.summaryGrandTotal}</span>
-                        <span>${Currency.format(totalGeralConferencia, true)}</span>
-                    </div>
-                    <div class="flex justify-between text-sm font-semibold ${pagamentoPago ? 'text-green-700' : corAdicional}">
-                        <span>${pagamentoPago ? i18n.summaryPaidValue : i18n.summaryGenerateNow}</span>
-                        <span>${Currency.format(totalAdicionalDevolucao, true)}</span>
-                    </div>
-                </div>
-            `;
-
-            resumoContent.innerHTML = htmlContrato + htmlValoresDevolucao + htmlTotais;
-        } else {
-            totalGeralAtual = 0;
-            resumoEl.classList.add('hidden');
+    function agendarPreviewEncerramento() {
+        clearTimeout(previewTimer);
+        const sequencia = ++previewSequencia;
+        const veiculos = coletarVeiculosPayload();
+        const erro = validarDadosPreview(veiculos);
+        if (erro) {
+            invalidarPreviewEncerramento(erro, 'warning', false);
+            return;
         }
 
+        invalidarPreviewEncerramento('Calculando resumo da devolucao...', 'loading', false);
+        previewTimer = setTimeout(() => carregarPreviewEncerramento(veiculos, sequencia), 250);
+    }
+
+    function validarDadosPreview(veiculos) {
+        if (!veiculos.length) return i18n.selectAtLeastOne;
+
+        Object.values(veiculoState).forEach(state => marcarOdometroInvalido(state, false));
+
+        for (const veiculo of veiculos) {
+            const state = Object.values(veiculoState).find(item => String(item.data.id) === String(veiculo.id_contrato_veiculo));
+            const placa = state?.data?.veiculo_placa || 'veiculo selecionado';
+            if (!veiculo.data_entrada) {
+                return `Informe a data/hora de devolucao de ${placa}.`;
+            }
+            if (state?.data?.data_saida && compararDateTimeInput(veiculo.data_entrada, state.data.data_saida) < 0) {
+                return mensagemDataAnteriorSaida(state.data, veiculo.data_entrada);
+            }
+            if (veiculo.odometro_entrada <= 0) {
+                marcarOdometroInvalido(state, true);
+                return `Informe o odometro de devolucao de ${placa}.`;
+            }
+
+            const minimo = Math.max(
+                parseInt(state?.data?.odometro_saida, 10) || 0,
+                parseInt(state?.data?.veiculo_odometro, 10) || 0
+            );
+            if (veiculo.odometro_entrada < minimo) {
+                marcarOdometroInvalido(state, true);
+                return `Odometro de ${placa} nao pode ser menor que ${Km.format(minimo)} km.`;
+            }
+            marcarOdometroInvalido(state, false);
+        }
+
+        return '';
+    }
+
+    function marcarOdometroInvalido(state, invalido) {
+        if (!state) return;
+        const index = Object.keys(veiculoState).find(key => veiculoState[key] === state);
+        const input = document.querySelector(`.odometro-atual[data-index="${index}"]`);
+        if (!input) return;
+        input.setAttribute('aria-invalid', invalido ? 'true' : 'false');
+        input.classList.toggle('border-red-500', invalido);
+        input.classList.toggle('focus:border-red-500', invalido);
+    }
+
+    function invalidarPreviewEncerramento(mensagem = '', tipo = 'warning', incrementarSequencia = true) {
+        clearTimeout(previewTimer);
+        if (incrementarSequencia) previewSequencia++;
+        previewEncerramento = null;
+        totalGeralAtual = 0;
         atualizarFinanceiroDevolucao();
+        document.getElementById('btnConfirmar').disabled = true;
+
+        const resumoContent = document.getElementById('resumoContent');
+        if (!resumoContent || !mensagem) return;
+        const loading = tipo === 'loading';
+        const cores = loading
+            ? 'bg-slate-50 border-slate-200 text-slate-600'
+            : 'bg-amber-50 border-amber-300 text-amber-800';
+        resumoContent.innerHTML = `
+            <div class="border rounded-md p-4 text-sm ${cores}">
+                <i class="fas ${loading ? 'fa-spinner fa-spin' : 'fa-exclamation-triangle'} mr-2"></i>${escapeHtml(mensagem)}
+            </div>
+        `;
+    }
+
+    async function carregarPreviewEncerramento(veiculos, sequencia) {
+        try {
+            const result = await API.post(`/api/contratos/${contratoId}/devolucao/preview`, {
+                veiculos,
+                taxas_extras: taxasExtrasState.map(taxa => ({
+                    id_taxa: taxa.id_taxa,
+                    quantidade: taxa.quantidade,
+                    valor_unitario: taxa.valor_unitario,
+                })),
+            });
+            if (sequencia !== previewSequencia) return;
+            if (!result.success) {
+                invalidarPreviewEncerramento(result.message || 'Nao foi possivel calcular o resumo da devolucao.', 'warning', false);
+                return;
+            }
+            previewEncerramento = result.data;
+            renderizarPreviewEncerramento(result.data);
+        } catch (error) {
+            if (sequencia !== previewSequencia) return;
+            console.error('Erro ao calcular preview do encerramento:', error);
+            invalidarPreviewEncerramento('Nao foi possivel calcular o resumo da devolucao. Tente novamente.', 'warning', false);
+        }
+    }
+
+    function linhaResumo(label, valor, destaque = '') {
+        return `<div class="flex justify-between gap-4 py-1 text-sm ${destaque}"><span>${escapeHtml(label)}</span><strong>${Currency.format(Number(valor) || 0, true)}</strong></div>`;
+    }
+
+    function renderizarPreviewEncerramento(calculo) {
+        const resumo = document.getElementById('resumoContent');
+        if (!resumo) return;
+        const rotuloPeriodo = { semana: 'semana(s)', mes: 'mes(es)', ano: 'ano(s)', dia: 'dia(s)' }[calculo.contagem] || 'periodo(s)';
+        const veiculosHtml = (calculo.veiculos || []).map(v => `
+            <div class="bg-white border border-green-200 rounded-md p-3 mb-3">
+                <div class="flex justify-between gap-3 font-semibold text-slate-800 mb-2">
+                    <span>${escapeHtml(v.placa || 'Veiculo')}</span>
+                    ${calculo.encerramento_final ? `<span>${v.ciclos_completos} ${rotuloPeriodo} + ${v.dias_restantes} diaria(s)</span>` : ''}
+                </div>
+                <div class="text-xs text-slate-500 mb-2">
+                    ${escapeHtml(formatarDataHoraResumo(v.data_saida))} ate ${escapeHtml(formatarDataHoraResumo(v.data_entrada))}
+                    ${calculo.encerramento_final ? ` · diaria proporcional ${Currency.format(v.valor_diaria, true)}` : ''}
+                </div>
+                ${calculo.encerramento_final ? linhaResumo('Locacao proporcional', v.valor_plano) : ''}
+                ${calculo.encerramento_final ? linhaResumo('Seguros proporcionais', v.valor_seguros) : ''}
+                ${linhaResumo('Quilometragem', v.km?.valor)}
+                ${linhaResumo('Combustivel/carga', v.combustivel?.valor)}
+            </div>
+        `).join('');
+        const ajusteTipo = calculo.ajuste_tipo;
+        const ajusteClasse = ajusteTipo === 'D' ? 'text-blue-700' : (ajusteTipo === 'R' ? 'text-red-700' : 'text-green-700');
+        const ajusteLabel = calculo.encerramento_final
+            ? (ajusteTipo === 'D' ? 'Credito a devolver ao cliente' : (ajusteTipo === 'R' ? 'Saldo adicional a cobrar' : 'Contrato conciliado'))
+            : (ajusteTipo === 'R' ? 'Total a lancar nesta devolucao' : 'Sem adicionais a lancar');
+
+        const resumoTotais = calculo.encerramento_final ? `
+            ${linhaResumo('Valor original do contrato', calculo.total_original)}
+            ${linhaResumo('Locacao proporcional', calculo.total_locacao)}
+            ${linhaResumo('Taxas contratuais recalculadas', calculo.total_taxas_contrato)}
+            ${linhaResumo('Adicionais da devolucao', calculo.total_adicionais_devolucao)}
+            ${linhaResumo('Desconto proporcional', -Number(calculo.desconto_aplicado || 0))}
+            ${linhaResumo('Total final recalculado', calculo.total_final, 'border-t border-slate-200 mt-2 pt-2 text-base')}
+            ${linhaResumo('Principal ja lancado', calculo.principal_lancado)}
+            ${linhaResumo(ajusteLabel, calculo.ajuste_valor, `border-t border-green-200 mt-2 pt-2 text-base ${ajusteClasse}`)}
+        ` : `
+            ${linhaResumo('Quilometragem', calculo.total_km)}
+            ${linhaResumo('Combustivel/carga', calculo.total_combustivel)}
+            ${linhaResumo('Taxas e servicos', calculo.total_taxas_devolucao)}
+            ${linhaResumo(ajusteLabel, calculo.ajuste_valor, `border-t border-green-200 mt-2 pt-2 text-base ${ajusteClasse}`)}
+        `;
+
+        resumo.innerHTML = `
+            <div class="bg-green-100 border border-green-300 rounded-md p-3 mb-3 text-sm text-green-900">
+                ${calculo.encerramento_final
+                    ? 'Esta devolucao encerra o contrato e aplica o calculo proporcional. O total final considera todo o periodo contratual.'
+                    : `Devolucao parcial: ${calculo.ativos_restantes} veiculo(s) permanecerao ativos. Aluguel, seguros e conciliacao financeira serao apurados na ultima devolucao.`}
+            </div>
+            ${veiculosHtml}
+            <div class="bg-white border border-green-200 rounded-md p-3">
+                ${resumoTotais}
+            </div>
+        `;
+        totalGeralAtual = ajusteTipo === 'R' ? Number(calculo.ajuste_valor || 0) : 0;
+        atualizarFinanceiroDevolucao();
+        document.getElementById('btnConfirmar').disabled = false;
     }
 
     // ==================== BOTAO CONFIRMAR ====================
@@ -1420,29 +1484,21 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     // ==================== SUBMISSAO ====================
 
     async function confirmarDevolucao() {
-        const veiculosPayload = [];
+        if (!previewEncerramento) {
+            window.parent.postMessage({
+                action: 'openAlert',
+                message: 'Corrija os dados da devolucao e aguarde o calculo do resumo antes de confirmar.'
+            }, '*');
+            return;
+        }
+
+        const veiculosPayload = coletarVeiculosPayload();
         let erroDataAnteriorSaida = '';
-
-        Object.keys(veiculoState).forEach(i => {
-            const state = veiculoState[i];
-            if (!state.selecionado && !singleMode) return;
-
-            const card = document.querySelector(`.veiculo-card[data-index="${i}"]`);
-            const odometro = card.querySelector('.odometro-atual').value;
-            const dataDevolucao = card.querySelector('.data-devolucao')?.value || '';
-
-            if (!erroDataAnteriorSaida && dataDevolucao && state.data.data_saida && compararDateTimeInput(dataDevolucao, state.data.data_saida) < 0) {
-                erroDataAnteriorSaida = mensagemDataAnteriorSaida(state.data, dataDevolucao);
+        veiculosPayload.forEach(vp => {
+            const state = Object.values(veiculoState).find(item => String(item.data.id) === String(vp.id_contrato_veiculo));
+            if (!erroDataAnteriorSaida && state?.data?.data_saida && compararDateTimeInput(vp.data_entrada, state.data.data_saida) < 0) {
+                erroDataAnteriorSaida = mensagemDataAnteriorSaida(state.data, vp.data_entrada);
             }
-
-            veiculosPayload.push({
-                id_contrato_veiculo: state.data.id,
-                data_entrada: dataDevolucao,
-                odometro_entrada: Km.parse(odometro || '0'),
-                combustivel_entrada: card.querySelector('.tanque-chegada').value || null,
-                acao_veiculo: card.querySelector('.acao-veiculo').value || 'disponivel',
-                observacao: card.querySelector('.observacao-veiculo').value || null,
-            });
         });
 
         if (veiculosPayload.length === 0) {
@@ -1545,7 +1601,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 message: i18n.returnError
             }, '*');
         } finally {
-            btnConfirmar.disabled = false;
+            btnConfirmar.disabled = !previewEncerramento;
             btnConfirmar.innerHTML = `<i class="fas fa-check mr-2"></i><span id="btnConfirmarTexto">${i18n.confirmReturn}</span>`;
             atualizarBotaoConfirmar();
         }

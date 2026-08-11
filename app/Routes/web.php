@@ -1041,6 +1041,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->post('/api/contratos/{id}/odometros', [ContratosController::class, 'registrarOdometro'], ['permission:contratos.editar', 'api_csrf', 'rate_limit', 'throttle']);
     $router->put('/api/contratos/{id}/odometros/{leituraId}', [ContratosController::class, 'editarOdometro'], ['permission:contratos.editar', 'api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/contratos/{id}', [ContratosController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/contratos/{id}/devolucao/preview', [ContratosController::class, 'previewDevolucao'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // CRUD Contratos
     $router->post('/contratos/salvar', [ContratosController::class, 'store'], ['csrf', 'rate_limit']);

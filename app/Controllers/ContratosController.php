@@ -11,6 +11,7 @@ use App\Models\ContratoCaucao;
 use App\Models\ContratoVeiculo;
 use App\Models\ContratoOdometro;
 use App\Models\ContratoTaxaServico;
+use App\Models\ContratoEncerramento;
 use App\Models\Grupo;
 use App\Models\Veiculo;
 use App\Models\VeiculoDisponibilidadeSync;
@@ -36,6 +37,7 @@ use App\I18n\TemplateRenderer;
 use App\Services\AuditLogService;
 use App\Services\AuthorizationHoldReleaseService;
 use App\Services\InvoiceBatchNotificationService;
+use App\Services\ContratoEncerramentoService;
 use App\Exceptions\AuthorizationHoldReleaseException;
 use App\Core\Database;
 use App\Helpers\FileHelper;
@@ -1299,14 +1301,137 @@ class ContratosController
             return;
         }
 
-        $resumoFinanceiro = $contratoModel->resumoFinanceiroContrato($id);
-
         $html = Template::render('pages.contratos.devolver', [
             'contrato' => $contrato,
             'veiculosAtivos' => $veiculosAtivos,
-            'resumoFinanceiro' => $resumoFinanceiro,
         ]);
         Response::html($html);
+    }
+
+    /**
+     * Calcula a devolucao sem persistir qualquer alteracao.
+     */
+    public function previewDevolucao(Request $request, int $id): void
+    {
+        try {
+            if (!Auth::can('contratos.devolver')) {
+                Response::json(['success' => false, 'message' => 'Sem permissao para registrar devolucao'], 403);
+                return;
+            }
+
+            $contrato = (new Contrato())->buscarPorId($id);
+            if (!$contrato || ($contrato['chave'] ?? '') !== Auth::chave()) {
+                Response::json(['success' => false, 'message' => 'Contrato nao encontrado'], 404);
+                return;
+            }
+            if (!FilialHelper::temAcessoFilial($contrato['id_matriz_filial_retirada'] ?? null)) {
+                Response::json(['success' => false, 'message' => 'Acesso negado'], 403);
+                return;
+            }
+            if (($contrato['status'] ?? '') !== 'A') {
+                Response::json(['success' => false, 'message' => 'Contrato nao esta ativo para devolucao'], 400);
+                return;
+            }
+
+            $preparo = $this->prepararCalculoDevolucao($contrato, $request->all());
+            $calculoPreview = $preparo['calculo'];
+            unset($calculoPreview['veiculos_historico_calculo']);
+            Response::json(['success' => true, 'data' => $calculoPreview]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao calcular devolucao: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /** @return array{calculo:array,veiculos:array,taxas_extras:array} */
+    private function prepararCalculoDevolucao(array $contrato, array $dados): array
+    {
+        $entradas = !empty($dados['veiculos']) && is_array($dados['veiculos'])
+            ? $dados['veiculos']
+            : (!empty($dados['id_contrato_veiculo']) ? [[
+                'id_contrato_veiculo' => $dados['id_contrato_veiculo'],
+                'data_entrada' => $dados['data_entrada'] ?? null,
+                'odometro_entrada' => $dados['odometro_entrada'] ?? 0,
+                'combustivel_entrada' => $dados['combustivel_entrada'] ?? null,
+            ]] : []);
+        if (!$entradas) {
+            throw new \InvalidArgumentException('Nenhum veiculo informado');
+        }
+
+        $veiculoModel = new ContratoVeiculo();
+        $devolucoes = [];
+        foreach ($entradas as $entrada) {
+            $idCv = (int) ($entrada['id_contrato_veiculo'] ?? 0);
+            $veiculo = $veiculoModel->buscarPorId($idCv);
+            if (!$veiculo || (int) $veiculo['id_contrato'] !== (int) $contrato['id'] || !empty($veiculo['data_entrada'])) {
+                throw new \InvalidArgumentException('Veiculo invalido ou ja devolvido');
+            }
+            $dataEntrada = $this->normalizarDataEntradaContrato($entrada['data_entrada'] ?? null);
+            if ($dataEntrada === null) {
+                throw new \InvalidArgumentException('Data/hora de devolucao invalida');
+            }
+            if (!empty($veiculo['data_saida'])
+                && DateHelper::parseOperationalDateTime($dataEntrada) < DateHelper::parseOperationalDateTime((string) $veiculo['data_saida'])) {
+                throw new \InvalidArgumentException('A devolucao nao pode ser anterior a saida do veiculo');
+            }
+            $odometro = $this->normalizarOdometroContrato($entrada['odometro_entrada'] ?? 0);
+            $odometroMinimo = max((int) ($veiculo['odometro_saida'] ?? 0), (int) ($veiculo['veiculo_odometro'] ?? 0));
+            if ($odometro <= 0) {
+                throw new \InvalidArgumentException('Informe o odometro de devolucao');
+            }
+            if ($odometro < $odometroMinimo) {
+                throw new \InvalidArgumentException('Odometro de devolucao nao pode ser menor que ' . number_format($odometroMinimo, 0, '', '.') . ' km');
+            }
+            $devolucoes[] = [
+                'id_contrato_veiculo' => $idCv,
+                'data_entrada' => $dataEntrada,
+                'odometro_entrada' => $odometro,
+                'combustivel_entrada' => ($entrada['combustivel_entrada'] ?? '') === '' ? null : (int) $entrada['combustivel_entrada'],
+            ];
+        }
+
+        $taxasExtras = [];
+        $taxaModel = new TaxaServico();
+        $filial = !empty($contrato['id_matriz_filial_retirada']) ? (int) $contrato['id_matriz_filial_retirada'] : null;
+        foreach (($dados['taxas_extras'] ?? []) as $entradaTaxa) {
+            $taxa = $taxaModel->buscarPorId((int) ($entradaTaxa['id_taxa'] ?? 0));
+            if (!$taxa || ($taxa['chave'] ?? '') !== Auth::chave()) {
+                continue;
+            }
+            $filiais = array_map(static fn(array $item): int => (int) ($item['id'] ?? 0), $taxa['filiais'] ?? []);
+            if ($filial && $filiais && !in_array($filial, $filiais, true)) {
+                continue;
+            }
+            $quantidade = max(1, (int) ($entradaTaxa['quantidade'] ?? 1));
+            $valor = Auth::can('contratos.editar_valor_taxas')
+                ? currency_parse($entradaTaxa['valor_unitario'] ?? $taxa['valor'])
+                : $taxaModel->resolverValor($taxa, $filial);
+            if ($valor <= 0) {
+                continue;
+            }
+            $taxasExtras[] = [
+                'id_taxa' => (int) $taxa['id'],
+                'nome' => $taxa['nome'],
+                'base_calculo' => $taxa['base_calculo'],
+                'tipo_valor' => $taxa['tipo_valor'],
+                'quantidade' => $quantidade,
+                'valor_unitario' => $valor,
+                'valor_total' => round($quantidade * $valor, 2),
+            ];
+        }
+
+        $encerramentoModel = new ContratoEncerramento();
+        $calculo = (new ContratoEncerramentoService())->calcular(
+            $contrato,
+            $veiculoModel->listarPorContrato((int) $contrato['id']),
+            (new ContratoTaxaServico())->listarPorContrato((int) $contrato['id']),
+            $devolucoes,
+            $taxasExtras,
+            $encerramentoModel->calcularPrincipalLancado((int) $contrato['id'])
+        );
+
+        return ['calculo' => $calculo, 'veiculos' => $devolucoes, 'taxas_extras' => $taxasExtras];
     }
 
     /**
@@ -1317,6 +1442,8 @@ class ContratosController
      */
     public function devolver(Request $request, int $id): void
     {
+        $encerramentoModel = null;
+        $transacaoAtiva = false;
         try {
             if (!Auth::can('contratos.devolver')) {
                 Response::json([
@@ -1367,7 +1494,6 @@ class ContratosController
             $veiculoModel = new ContratoVeiculo();
             $veiculoModelGeral = new Veiculo();
             $contratoTaxaModel = new ContratoTaxaServico();
-            $taxaServicoModel = new TaxaServico();
 
             // Normalizar para array de veiculos (batch ou legado)
             $veiculos = [];
@@ -1425,7 +1551,25 @@ class ContratosController
                 $veiculos[$indice]['observacao'] = $observacao !== '' ? $observacao : null;
             }
 
-            $validarFinanceiro = !empty($dados['gerar_financeiro']);
+            // A confirmacao reutiliza exatamente o mesmo calculo exibido no preview.
+            $preparo = $this->prepararCalculoDevolucao($contrato, array_merge($dados, ['veiculos' => $veiculos]));
+            $calculoEncerramento = $preparo['calculo'];
+            $taxasExtrasCanonicas = $preparo['taxas_extras'];
+            $normalizadosPorId = [];
+            foreach ($preparo['veiculos'] as $normalizado) {
+                $normalizadosPorId[(int) $normalizado['id_contrato_veiculo']] = $normalizado;
+            }
+            foreach ($veiculos as $indice => $veiculoEntrada) {
+                $idCv = (int) ($veiculoEntrada['id_contrato_veiculo'] ?? 0);
+                $veiculos[$indice] = array_merge($veiculoEntrada, $normalizadosPorId[$idCv] ?? []);
+            }
+            $detalhesCalculoPorId = [];
+            foreach ($calculoEncerramento['veiculos'] as $detalheVeiculo) {
+                $detalhesCalculoPorId[(int) $detalheVeiculo['id_contrato_veiculo']] = $detalheVeiculo;
+            }
+
+            $validarFinanceiro = ($calculoEncerramento['ajuste_tipo'] ?? 'N') === 'R'
+                && (float) ($calculoEncerramento['ajuste_valor'] ?? 0) > 0;
             $idContaFinanceiro = (int) ($dados['id_conta'] ?? 0);
             $idFormaPagamentoFinanceiro = (int) ($dados['id_forma_pagamento'] ?? 0);
             $dataVencimentoFinanceiro = $this->normalizarDataFinanceiroContrato($dados['data_venci'] ?? null);
@@ -1473,6 +1617,13 @@ class ContratosController
             $totalCobrancaDevolucao = 0.0;
             $idsVeiculosDevolvidos = [];
             $manutencaoModel = new Manutencao();
+            $encerramentoModel = new ContratoEncerramento();
+            $encerramentoModel->iniciarTransacao();
+            $transacaoAtiva = true;
+            $contratoBloqueado = $encerramentoModel->bloquearContrato($id);
+            if (!$contratoBloqueado || ($contratoBloqueado['status'] ?? '') !== 'A') {
+                throw new \RuntimeException('Contrato ja encerrado ou indisponivel para devolucao');
+            }
 
             foreach ($veiculos as $vData) {
                 $idCv = (int) ($vData['id_contrato_veiculo'] ?? 0);
@@ -1494,7 +1645,8 @@ class ContratosController
                         return;
                     }
 
-                    if (!empty($veiculoContrato['data_saida']) && strtotime($dataEntrada) < strtotime((string) $veiculoContrato['data_saida'])) {
+                    if (!empty($veiculoContrato['data_saida'])
+                        && DateHelper::parseOperationalDateTime($dataEntrada) < DateHelper::parseOperationalDateTime((string) $veiculoContrato['data_saida'])) {
                         $saidaFormatada = DateHelper::formatOperationalDateTime((string) $veiculoContrato['data_saida']);
                         $entradaFormatada = DateHelper::formatOperationalDateTime($dataEntrada);
                         Response::json([
@@ -1562,6 +1714,7 @@ class ContratosController
 
                 // 3. Calcular e criar taxas (mesmo padrao de substituir)
                 $placa = $veiculoContrato['veiculo_placa'] ?? '';
+                $detalheCalculo = $detalhesCalculoPorId[$idCv] ?? [];
                 $totalKmCobranca = 0;
                 $totalCombustivelCobranca = 0;
 
@@ -1581,6 +1734,7 @@ class ContratosController
                         'tipo_valor' => 'MON',
                         'quantidade' => $diferencaFracoes,
                         'valor_unitario' => $valorPorFracao,
+                        'origem' => 'devolucao',
                     ], $chave);
                 }
 
@@ -1591,7 +1745,7 @@ class ContratosController
                 $valorKmExcedente = (float) ($veiculoContrato['valor_km_excedente'] ?? 0);
 
                 if ($plano === 'KMC') {
-                    $kmFranquia = $this->calcularFranquiaKmEfetiva($contrato, $veiculoContrato, $dataEntradaEfetiva);
+                    $kmFranquia = (int) ($detalheCalculo['km']['franquia'] ?? 0);
                     $kmExcedente = max(0, $kmRodados - $kmFranquia);
                     if ($kmExcedente > 0 && $valorKmExcedente > 0) {
                         $totalKmCobranca = $kmExcedente * $valorKmExcedente;
@@ -1601,6 +1755,7 @@ class ContratosController
                             'tipo_valor' => 'MON',
                             'quantidade' => $kmExcedente,
                             'valor_unitario' => $valorKmExcedente,
+                            'origem' => 'devolucao',
                         ], $chave);
                     }
                 } elseif ($plano === 'KP') {
@@ -1612,6 +1767,7 @@ class ContratosController
                             'tipo_valor' => 'MON',
                             'quantidade' => $kmRodados,
                             'valor_unitario' => $valorKmExcedente,
+                            'origem' => 'devolucao',
                         ], $chave);
                     }
                 }
@@ -1642,119 +1798,83 @@ class ContratosController
             }
 
             $taxasExtrasCriadas = [];
-            if (!empty($dados['taxas_extras']) && is_array($dados['taxas_extras'])) {
-                $filialRetirada = !empty($contrato['id_matriz_filial_retirada'])
-                    ? (int) $contrato['id_matriz_filial_retirada']
-                    : null;
-
-                foreach ($dados['taxas_extras'] as $taxaExtra) {
-                    $idTaxa = (int) ($taxaExtra['id_taxa'] ?? 0);
-                    if ($idTaxa <= 0) {
-                        continue;
-                    }
-
-                    $taxaOriginal = $taxaServicoModel->buscarPorId($idTaxa);
-                    if (!$taxaOriginal || ($taxaOriginal['chave'] ?? '') !== $chave) {
-                        continue;
-                    }
-
-                    $filiaisTaxa = $taxaOriginal['filiais'] ?? [];
-                    if ($filialRetirada && !empty($filiaisTaxa)) {
-                        $idsFiliaisTaxa = array_map(static fn($filial) => (int) ($filial['id'] ?? 0), $filiaisTaxa);
-                        if (!in_array($filialRetirada, $idsFiliaisTaxa, true)) {
-                            continue;
-                        }
-                    }
-
-                    $quantidade = max(1, (int) ($taxaExtra['quantidade'] ?? 1));
-                    $valorUnitario = Auth::can('contratos.editar_valor_taxas')
-                        ? currency_parse($taxaExtra['valor_unitario'] ?? $taxaOriginal['valor'])
-                        : $taxaServicoModel->resolverValor($taxaOriginal, $filialRetirada);
-
-                    if ($valorUnitario <= 0) {
-                        continue;
-                    }
-
+            foreach ($taxasExtrasCanonicas as $taxaExtra) {
                     $contratoTaxaModel->adicionar($id, [
-                        'id_taxa' => $idTaxa,
-                        'nome' => $taxaOriginal['nome'],
-                        'base_calculo' => $taxaOriginal['base_calculo'],
-                        'tipo_valor' => $taxaOriginal['tipo_valor'],
-                        'quantidade' => $quantidade,
-                        'valor_unitario' => $valorUnitario,
+                        'id_taxa' => $taxaExtra['id_taxa'],
+                        'nome' => $taxaExtra['nome'],
+                        'base_calculo' => $taxaExtra['base_calculo'],
+                        'tipo_valor' => $taxaExtra['tipo_valor'],
+                        'quantidade' => $taxaExtra['quantidade'],
+                        'valor_unitario' => $taxaExtra['valor_unitario'],
+                        'origem' => 'devolucao',
                     ], $chave);
-
-                    $totalTaxa = $quantidade * $valorUnitario;
-                    $totalCobrancaDevolucao += $totalTaxa;
-                    $taxasExtrasCriadas[] = [
-                        'id_taxa' => $idTaxa,
-                        'nome' => $taxaOriginal['nome'],
-                        'quantidade' => $quantidade,
-                        'valor_unitario' => $valorUnitario,
-                        'valor_total' => $totalTaxa,
-                    ];
-                }
+                    $totalCobrancaDevolucao += (float) $taxaExtra['valor_total'];
+                    $taxasExtrasCriadas[] = $taxaExtra;
             }
 
-            // 5. Recalcular totais do contrato (inclui novas taxas)
-            $contratoModel->recalcularTotais($id);
-
             $idFinanceiroDevolucao = null;
-            if ($totalCobrancaDevolucao > 0) {
-                if ($idContaFinanceiro <= 0) {
-                    Response::json([
-                        'success' => false,
-                        'message' => 'Selecione a conta bancaria para gerar o financeiro'
-                    ], 422);
-                    return;
-                }
-
-                if ($idFormaPagamentoFinanceiro <= 0) {
-                    Response::json([
-                        'success' => false,
-                        'message' => 'Selecione a forma de pagamento para gerar o financeiro'
-                    ], 422);
-                    return;
-                }
-
-                if ($dataVencimentoFinanceiro === null) {
-                    Response::json([
-                        'success' => false,
-                        'message' => 'Informe um vencimento valido para gerar o financeiro'
-                    ], 422);
-                    return;
-                }
-
-                if ($pagoFinanceiro === 'S' && $dataPagamentoFinanceiro === null) {
-                    Response::json([
-                        'success' => false,
-                        'message' => 'Informe uma data de pagamento valida'
-                    ], 422);
-                    return;
-                }
-
+            if ((float) ($calculoEncerramento['ajuste_valor'] ?? 0) > 0) {
                 $idsVeiculosUnicos = array_values(array_unique($idsVeiculosDevolvidos));
+                $tipoAjuste = $calculoEncerramento['ajuste_tipo'];
                 $idFinanceiroDevolucao = $contratoModel->criarFinanceiroDevolucao($id, [
-                    'valor_total' => $totalCobrancaDevolucao,
-                    'id_conta' => $idContaFinanceiro,
-                    'id_forma_pagamento' => $idFormaPagamentoFinanceiro,
-                    'data_venci' => $dataVencimentoFinanceiro,
-                    'pago' => $pagoFinanceiro,
-                    'data_pago' => $dataPagamentoFinanceiro,
+                    'valor_total' => $calculoEncerramento['ajuste_valor'],
+                    'tipo' => $tipoAjuste,
+                    'id_conta' => $tipoAjuste === 'R' ? $idContaFinanceiro : ($contrato['id_conta'] ?? null),
+                    'id_forma_pagamento' => $tipoAjuste === 'R' ? $idFormaPagamentoFinanceiro : ($contrato['id_forma_pagamento'] ?? null),
+                    'data_venci' => $tipoAjuste === 'R' ? $dataVencimentoFinanceiro : DateHelper::todayForDatabase(),
+                    'pago' => $tipoAjuste === 'R' ? $pagoFinanceiro : 'N',
+                    'data_pago' => $tipoAjuste === 'R' ? $dataPagamentoFinanceiro : null,
                     'id_veiculo' => count($idsVeiculosUnicos) === 1 ? $idsVeiculosUnicos[0] : null,
-                    'descricao' => "Contrato #{$contrato['codigo']} - Devolucao",
+                    'descricao' => $tipoAjuste === 'D'
+                        ? "Contrato #{$contrato['codigo']} - Credito por encerramento"
+                        : "Contrato #{$contrato['codigo']} - Ajuste de encerramento",
                 ], $chave);
             }
 
             // 6. Verificar se ainda ha veiculos ativos
             $veiculosAtivosCount = $veiculoModel->contarAtivos($id);
             if ($veiculosAtivosCount === 0) {
+                foreach ($calculoEncerramento['taxas'] as $taxaCalculada) {
+                    if (!empty($taxaCalculada['id'])) {
+                        $contratoTaxaModel->atualizarValorTotal((int) $taxaCalculada['id'], (float) $taxaCalculada['valor_final']);
+                    }
+                }
                 $contratoModel->atualizarStatus($id, 'F', [
-                    'data_fim' => $ultimaDataEntrada ?? DateHelper::nowForDatabase()
+                    'data_fim' => $calculoEncerramento['data_encerramento'] ?? $ultimaDataEntrada ?? DateHelper::nowForDatabase(),
+                    'total_fatura' => (float) $calculoEncerramento['total_final'] + (float) $calculoEncerramento['desconto_aplicado'],
+                    'total_pagar' => (float) $calculoEncerramento['total_final'],
+                    'valor_desconto' => (float) $calculoEncerramento['desconto_aplicado'],
+                ]);
+
+                $encerramentoModel->criar([
+                    'chave' => $chave,
+                    'id_contrato' => $id,
+                    'id_funcionario' => Auth::id(),
+                    'data_encerramento' => $calculoEncerramento['data_encerramento'],
+                    'contagem' => $calculoEncerramento['contagem'],
+                    'base_dias' => $calculoEncerramento['base_dias'],
+                    'total_original' => $calculoEncerramento['total_original'],
+                    'total_veiculos' => $calculoEncerramento['total_veiculos'],
+                    'total_seguros' => $calculoEncerramento['total_seguros'],
+                    'total_taxas_contrato' => $calculoEncerramento['total_taxas_contrato'],
+                    'total_adicionais_devolucao' => $calculoEncerramento['total_adicionais_devolucao'],
+                    'desconto_original' => $calculoEncerramento['desconto_original'],
+                    'desconto_aplicado' => $calculoEncerramento['desconto_aplicado'],
+                    'total_final' => $calculoEncerramento['total_final'],
+                    'principal_lancado' => $calculoEncerramento['principal_lancado'],
+                    'diferenca' => $calculoEncerramento['diferenca'],
+                    'ajuste_tipo' => $calculoEncerramento['ajuste_tipo'],
+                    'id_financeiro_ajuste' => $idFinanceiroDevolucao,
+                    'calculo_json' => json_encode($calculoEncerramento, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 ]);
             }
 
+            $encerramentoModel->confirmarTransacao();
+            $transacaoAtiva = false;
+
             $qtd = count($resultados);
+            $calculoResposta = $calculoEncerramento;
+            unset($calculoResposta['veiculos_historico_calculo']);
             Response::json([
                 'success' => true,
                 'message' => $qtd . ' devolucao(oes) registrada(s) com sucesso',
@@ -1764,9 +1884,13 @@ class ContratosController
                     'taxas_extras' => $taxasExtrasCriadas,
                     'total_cobranca_devolucao' => $totalCobrancaDevolucao,
                     'id_financeiro_devolucao' => $idFinanceiroDevolucao,
+                    'calculo_encerramento' => $calculoResposta,
                 ]
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            if ($transacaoAtiva && $encerramentoModel instanceof ContratoEncerramento) {
+                $encerramentoModel->reverterTransacao();
+            }
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao registrar devolucao: ' . $e->getMessage()
@@ -4567,17 +4691,11 @@ class ContratosController
         if ($valor === '') {
             return null;
         }
-
-        $formatos = ['Y-m-d\TH:i', 'Y-m-d\TH:i:s', 'Y-m-d H:i:s', 'Y-m-d H:i'];
-
-        foreach ($formatos as $formato) {
-            $data = \DateTimeImmutable::createFromFormat($formato, $valor);
-            if ($data instanceof \DateTimeImmutable && $data->format($formato) === $valor) {
-                return $data->format('Y-m-d H:i:s');
-            }
+        try {
+            return DateHelper::parseOperationalDateTime($valor)->format('Y-m-d H:i:s');
+        } catch (\InvalidArgumentException) {
+            return null;
         }
-
-        return null;
     }
 
     private function normalizarDataFinanceiroContrato(mixed $valor): ?string

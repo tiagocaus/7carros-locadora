@@ -83,6 +83,7 @@ class ContratoTaxaServico extends Model
                 'quantidade' => $quantidade,
                 'valor_unitario' => $valorUnitario,
                 'valor_total' => $valorTotal,
+                'origem' => ($dados['origem'] ?? 'contrato') === 'devolucao' ? 'devolucao' : 'contrato',
             ]);
     }
 

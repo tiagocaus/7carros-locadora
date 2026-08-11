@@ -105,6 +105,7 @@ Taxas vinculadas a um contrato especifico (snapshot dos valores).
 | quantidade | INT | Quantidade aplicada |
 | valor_unitario | DECIMAL(10,2) | Valor unitario |
 | valor_total | DECIMAL(10,2) | Valor total calculado |
+| origem | VARCHAR(12) | `contrato` para taxa contratual; `devolucao` para km, combustivel/carga e extras da devolucao |
 | chave | VARCHAR(45) | Multi-tenancy |
 | created_at | DATETIME | Data de criacao |
 
@@ -289,7 +290,7 @@ busca remota devem ser consultados por ID antes de preencher os campos.
 
 ### Recalculo de Totais
 
-Sempre que veiculos ou periodo mudam, taxas com `base_calculo=PER` ou `base_calculo=VLT` sao recalculadas automaticamente.
+Sempre que veiculos ou periodo mudam, taxas com `base_calculo=PER` ou `base_calculo=VLT` sao recalculadas automaticamente. No encerramento proporcional, somente registros com `origem=contrato` participam desse recalculo; registros de devolucao preservam o snapshot cobrado no ato e nao podem ser multiplicados novamente.
 
 ## Validacoes
 
@@ -325,3 +326,4 @@ cada filial selecionada recebe seu proprio campo de valor.
 | 00163 | Adicionou campos em `contratos_taxaseservicos` |
 | 00315 | Criou `taxaseservicos_valores_filiais` (multi-moeda) |
 | 00316 | Backfill: copiou `taxaseservicos.valor` pra cada filial quando `tipo_valor=MON` |
+| 00419 | Identifica a origem das taxas e cria o snapshot de encerramento proporcional |

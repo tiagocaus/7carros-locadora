@@ -1681,9 +1681,16 @@ class Contrato extends Model
             ? ($dados['data_pago'] ?? DateHelper::todayForDatabase())
             : null;
 
-        $financeiro = new Financeiro();
+        $tipo = ($dados['tipo'] ?? 'R') === 'D' ? 'D' : 'R';
+        $hierarquia = $tipo === 'D' ? '3.4.1.23' : '4.1.1.03';
+        $plano = (new PlanoDeContas())->buscarPorHierarquia($hierarquia);
+        if (!$plano) {
+            throw new \RuntimeException("Plano de contas {$hierarquia} nao encontrado");
+        }
 
-        return $financeiro->criar([
+        $financeiro = new Financeiro();
+        $descricao = $dados['descricao'] ?? "Contrato #{$contrato['codigo']} - Devolucao";
+        $idFinanceiro = $financeiro->criar([
             'chave' => $chave,
             'sequencia' => $idMatrizFilial > 0
                 ? \App\Helpers\SequenciaHelper::proximaSequencia($chave, $idMatrizFilial, 'financeiro')
@@ -1695,17 +1702,27 @@ class Contrato extends Model
             'id_matriz_filial' => $idMatrizFilial ?: null,
             'id_conta' => !empty($dados['id_conta']) ? (int) $dados['id_conta'] : null,
             'id_forma_pagamento' => !empty($dados['id_forma_pagamento']) ? (int) $dados['id_forma_pagamento'] : null,
-            'tipo' => 'R',
+            'id_plano_de_conta' => (int) $plano['id'],
+            'tipo' => $tipo,
             'pago' => $pago,
             'parcela' => 1,
             'total_parcelas' => 1,
-            'descricao' => $dados['descricao'] ?? "Contrato #{$contrato['codigo']} - Devolucao",
+            'descricao' => $descricao,
             'data_criada' => DateHelper::todayForDatabase(),
             'data_venci' => $dataVencimento,
             'data_pago' => $dataPagamento,
             'valor_subtotal' => $valorTotal,
             'valor_total' => $valorTotal,
         ]);
+
+        (new FinanceiroItem())->salvarTodos($idFinanceiro, $chave, [[
+            'id_veiculo' => !empty($dados['id_veiculo']) ? (int) $dados['id_veiculo'] : null,
+            'id_plano_de_conta' => (int) $plano['id'],
+            'descricao' => $descricao,
+            'valor' => $valorTotal,
+        ]]);
+
+        return $idFinanceiro;
     }
 
     /**
