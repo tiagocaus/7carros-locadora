@@ -13,7 +13,11 @@
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1"><?= t('modules.comissoes_investidores.filters.investor') ?></label>
-                <select id="filtroInvestidor" class="form-input-focus w-full" data-chosen-type="server" data-api-url="/api/fornecedores/investidores/select">
+                <select id="filtroInvestidor"
+                        class="form-input-focus w-full chosen-select"
+                        data-chosen-type="server-side"
+                        data-chosen-search-url="/api/fornecedores/investidores/select"
+                        data-chosen-placeholder="<?= htmlspecialchars(t('modules.comissoes_investidores.status_options.all'), ENT_QUOTES, 'UTF-8') ?>">
                     <option value=""><?= t('modules.comissoes_investidores.status_options.all') ?></option>
                 </select>
             </div>
@@ -494,16 +498,16 @@
     });
 
     document.getElementById('btnLimparFiltros')?.addEventListener('click', function() {
-        document.getElementById('filtroInvestidor').value = '';
+        const filtroInvestidor = document.getElementById('filtroInvestidor');
+        if (filtroInvestidor.chosenSelect) {
+            filtroInvestidor.chosenSelect.clear();
+        } else {
+            filtroInvestidor.value = '';
+        }
         document.getElementById('filtroStatus').value = '';
         document.getElementById('filtroTipo').value = '';
         document.getElementById('filtroDataInicio').value = '';
         document.getElementById('filtroDataFim').value = '';
-
-        // Limpar Chosen se existir
-        if (typeof jQuery !== 'undefined' && jQuery.fn.chosen) {
-            jQuery('#filtroInvestidor').trigger('chosen:updated');
-        }
 
         filtros = {};
         currentPage = 1;

@@ -6,6 +6,7 @@ $arquivos = [
     'view' => file_get_contents(__DIR__ . '/../app/Views/pages/contratos/devolver.php'),
     'taxa' => file_get_contents(__DIR__ . '/../app/Models/ContratoTaxaServico.php'),
     'migration' => file_get_contents(__DIR__ . '/../app/Database/migrations/00419_create_contratos_encerramentos.php'),
+    'repair_migration' => file_get_contents(__DIR__ . '/../app/Database/migrations/00420_repair_contract_refund_chart_account.php'),
 ];
 $falhas = [];
 $assert = static function (bool $condicao, string $mensagem) use (&$falhas): void {
@@ -19,6 +20,13 @@ $assert(str_contains($arquivos['controller'], "'calculo_json' => json_encode"), 
 $assert(str_contains($arquivos['controller'], "'origem' => 'devolucao'"), 'Taxas da devolucao nao recebem origem propria');
 $assert(str_contains($arquivos['taxa'], "'origem' =>"), 'Model de taxas nao persiste a origem');
 $assert(str_contains($arquivos['migration'], "'3.4.1.23'"), 'Plano de credito contratual nao e criado');
+$assert(str_contains($arquivos['repair_migration'], "HIERARQUIA_GLOBAL = '3.4.1.23'"), 'Migration corretiva nao reserva o plano global');
+$assert(str_contains($arquivos['repair_migration'], "HIERARQUIA_REALOCADA = '3.4.1.24'"), 'Migration corretiva nao realoca a colisao');
+$assert(str_contains($arquivos['repair_migration'], "(string) \$existente['chave'] === '0'"), 'Migration corretiva nao diferencia plano global de plano tenant');
+$assert(str_contains($arquivos['repair_migration'], "->update(['hierarquia' => self::HIERARQUIA_REALOCADA])"), 'Migration corretiva nao preserva o plano tenant');
+$assert(str_contains($arquivos['repair_migration'], "'chave' => '0'"), 'Migration corretiva nao cria o plano como global');
+$assert(str_contains($arquivos['repair_migration'], '$qb->beginTransaction()'), 'Migration corretiva nao inicia transacao');
+$assert(str_contains($arquivos['repair_migration'], '$qb->rollback()'), 'Migration corretiva nao reverte falhas');
 $assert(str_contains($arquivos['view'], 'Credito a devolver ao cliente'), 'Tela nao diferencia credito ao cliente');
 $assert(str_contains($arquivos['view'], 'Principal ja lancado'), 'Tela nao apresenta a conciliacao financeira');
 $assert(str_contains($arquivos['view'], 'Sem adicionais a lancar'), 'Resumo parcial sem cobranca continua indicando conciliacao do contrato');
