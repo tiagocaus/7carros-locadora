@@ -14,6 +14,7 @@
     <link href="styles/custom-classes.css" rel="stylesheet">
     <link href="styles/iframe-pages.css" rel="stylesheet">
     <link href="styles/chosen-select.css" rel="stylesheet">
+    <link href="styles/intl-phone.css" rel="stylesheet">
     <link href="styles/nestable-list.css" rel="stylesheet">
     <style>
         .component-nav {
@@ -225,6 +226,7 @@
                         <a href="#paginacao" class="component-nav-link">Paginação</a>
                         <a href="#badges" class="component-nav-link">Badges</a>
                         <a href="#inputs" class="component-nav-link">Inputs e Labels</a>
+                        <a href="#telefone-intl" class="component-nav-link">Telefone Internacional</a>
                         <a href="#nestable-list" class="component-nav-link">Nestable List</a>
                     </nav>
                 </div>
@@ -240,8 +242,7 @@
                     </p>
                     <div class="component-example">
                         <div class="action-menu" data-action-menu>
-                            <button type="button" class="action-menu-trigger" aria-label="Ações de importação"
-                                aria-haspopup="menu" aria-expanded="false">
+                            <button type="button" class="action-menu-trigger" aria-label="Ações de importação" aria-haspopup="menu" aria-expanded="false">
                                 <i class="fas fa-file-import" aria-hidden="true"></i>
                             </button>
                             <div class="action-menu-panel" role="menu" aria-label="Ações de importação">
@@ -678,6 +679,18 @@
                                             <option>Opção 2</option>
                                         </select>
                                     </div>
+                                    <div class="form-toggle-field">
+                                        <label for="exemploAtivo" class="form-label">Ativo</label>
+                                        <input type="hidden" name="ativo" value="0">
+                                        <div class="form-toggle-control">
+                                            <label class="form-toggle" for="exemploAtivo">
+                                                <input type="checkbox" id="exemploAtivo" name="ativo" value="1" class="form-toggle-input" checked>
+                                                <span class="form-toggle-track" aria-hidden="true">
+                                                    <span class="form-toggle-thumb"></span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -764,6 +777,18 @@
                 &lt;label for="campoNome" class="form-label"&gt;Nome&lt;/label&gt;
                 &lt;input type="text" id="campoNome" class="form-input" placeholder="Digite o nome"&gt;
             &lt;/div&gt;
+            &lt;div class="form-toggle-field"&gt;
+                &lt;label for="campoAtivo" class="form-label"&gt;Ativo&lt;/label&gt;
+                &lt;input type="hidden" name="ativo" value="0"&gt;
+                &lt;div class="form-toggle-control"&gt;
+                    &lt;label class="form-toggle" for="campoAtivo"&gt;
+                        &lt;input type="checkbox" id="campoAtivo" name="ativo" value="1" class="form-toggle-input" checked&gt;
+                        &lt;span class="form-toggle-track" aria-hidden="true"&gt;
+                            &lt;span class="form-toggle-thumb"&gt;&lt;/span&gt;
+                        &lt;/span&gt;
+                    &lt;/label&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
         &lt;/div&gt;
     &lt;/div&gt;
     
@@ -847,6 +872,8 @@
                             <li><code>form-label</code> - Label dos campos</li>
                             <li><code>form-input</code> - Input padrão</li>
                             <li><code>form-input-focus</code> - Input com estilos de foco</li>
+                            <li><code>form-toggle-field</code> - Container do toggle com label e controle</li>
+                            <li><code>form-toggle</code> - Switch visual associado ao checkbox</li>
                         </ul>
                     </div>
                 </section>
@@ -1606,10 +1633,10 @@
                         <div class="kpi-card mb-6">
                             <h4 class="text-base font-semibold text-slate-800 mb-4">Histórico de Ações</h4>
                             <div class="relative">
-                                <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200"></div>
+                                <div class="absolute left-4 top-0 bottom-0 w-0.5 -translate-x-1/2 bg-slate-200"></div>
                                 <div class="space-y-4">
                                     <div class="relative flex items-start gap-4">
-                                        <div class="relative z-10 p-2 rounded-full bg-sky-100 text-sky-600">
+                                        <div class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
                                             <i class="fas fa-plus text-xs"></i>
                                         </div>
                                         <div class="flex-1 pb-4">
@@ -1619,7 +1646,7 @@
                                         </div>
                                     </div>
                                     <div class="relative flex items-start gap-4">
-                                        <div class="relative z-10 p-2 rounded-full bg-emerald-100 text-emerald-600">
+                                        <div class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                                             <i class="fas fa-check text-xs"></i>
                                         </div>
                                         <div class="flex-1 pb-4">
@@ -1629,7 +1656,7 @@
                                         </div>
                                     </div>
                                     <div class="relative flex items-start gap-4">
-                                        <div class="relative z-10 p-2 rounded-full bg-amber-100 text-amber-600">
+                                        <div class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
                                             <i class="fas fa-edit text-xs"></i>
                                         </div>
                                         <div class="flex-1">
@@ -1793,10 +1820,10 @@
 &lt;div class="kpi-card"&gt;
     &lt;h4 class="text-base font-semibold text-slate-800 mb-4"&gt;Título&lt;/h4&gt;
     &lt;div class="relative"&gt;
-        &lt;div class="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200"&gt;&lt;/div&gt;
+        &lt;div class="absolute left-4 top-0 bottom-0 w-0.5 -translate-x-1/2 bg-slate-200"&gt;&lt;/div&gt;
         &lt;div class="space-y-4"&gt;
             &lt;div class="relative flex items-start gap-4"&gt;
-                &lt;div class="relative z-10 p-2 rounded-full bg-sky-100 text-sky-600"&gt;
+                &lt;div class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600"&gt;
                     &lt;i class="fas fa-plus text-xs"&gt;&lt;/i&gt;
                 &lt;/div&gt;
                 &lt;div class="flex-1 pb-4"&gt;
@@ -2322,6 +2349,48 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="mt-6">
+                            <h3 class="font-semibold text-slate-700 mb-3">Toggle Switch</h3>
+                            <p class="text-sm text-slate-600 mb-4">Use para campos booleanos em formulários. Inclua um campo hidden com valor <code>0</code> para garantir o envio quando desligado.</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div class="form-toggle-field">
+                                    <label for="toggleAtivo" class="form-label">Ativo</label>
+                                    <input type="hidden" name="ativo" value="0">
+                                    <div class="form-toggle-control">
+                                        <label class="form-toggle" for="toggleAtivo">
+                                            <input type="checkbox" id="toggleAtivo" name="ativo" value="1" class="form-toggle-input" checked>
+                                            <span class="form-toggle-track" aria-hidden="true">
+                                                <span class="form-toggle-thumb"></span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-toggle-field">
+                                    <label for="togglePublicado" class="form-label">Publicado</label>
+                                    <input type="hidden" name="publicado" value="0">
+                                    <div class="form-toggle-control">
+                                        <label class="form-toggle" for="togglePublicado">
+                                            <input type="checkbox" id="togglePublicado" name="publicado" value="1" class="form-toggle-input">
+                                            <span class="form-toggle-track" aria-hidden="true">
+                                                <span class="form-toggle-thumb"></span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-toggle-field">
+                                    <label for="toggleDesabilitado" class="form-label">Desabilitado</label>
+                                    <input type="hidden" name="desabilitado" value="0">
+                                    <div class="form-toggle-control">
+                                        <label class="form-toggle" for="toggleDesabilitado">
+                                            <input type="checkbox" id="toggleDesabilitado" name="desabilitado" value="1" class="form-toggle-input" disabled>
+                                            <span class="form-toggle-track" aria-hidden="true">
+                                                <span class="form-toggle-thumb"></span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="code-block">
@@ -2387,6 +2456,20 @@
     &lt;div class="flex items-center"&gt;
         &lt;input type="checkbox" id="checkbox2" name="checkboxGrupo" value="opcao2" class="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded" checked&gt;
         &lt;label for="checkbox2" class="ml-2 text-sm text-slate-700"&gt;Opção 2&lt;/label&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- Toggle Switch --&gt;
+&lt;div class="form-toggle-field"&gt;
+    &lt;label for="meuToggle" class="form-label"&gt;Ativar recurso&lt;/label&gt;
+    &lt;input type="hidden" name="enabled" value="0"&gt;
+    &lt;div class="form-toggle-control"&gt;
+        &lt;label class="form-toggle" for="meuToggle"&gt;
+            &lt;input type="checkbox" id="meuToggle" name="enabled" value="1" class="form-toggle-input"&gt;
+            &lt;span class="form-toggle-track" aria-hidden="true"&gt;
+                &lt;span class="form-toggle-thumb"&gt;&lt;/span&gt;
+            &lt;/span&gt;
+        &lt;/label&gt;
     &lt;/div&gt;
 &lt;/div&gt;
 
@@ -2470,7 +2553,14 @@
                             <li><code>textarea</code> - Use a classe <code>form-input</code> também para textareas</li>
                             <li><code>radio</code> - Use classes Tailwind: <code>w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300</code></li>
                             <li><code>checkbox</code> - Use classes Tailwind: <code>w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300 rounded</code></li>
+                            <li><code>form-toggle-field</code> - Container do toggle com label textual e controle</li>
+                            <li><code>form-toggle-control</code> - Wrapper do switch com alinhamento e espaçamento</li>
+                            <li><code>form-toggle</code> - Label clicável que envolve o checkbox oculto e o track visual</li>
+                            <li><code>form-toggle-input</code> - Checkbox oculto que controla o estado do toggle</li>
+                            <li><code>form-toggle-track</code> - Trilha do switch (fundo cinza/azul)</li>
+                            <li><code>form-toggle-thumb</code> - Botão deslizante do switch</li>
                         </ul>
+                        <p class="mt-2 text-sm text-slate-600"><strong>Toggle:</strong> Use um campo hidden com valor <code>0</code> antes do checkbox para garantir envio de <code>0</code> quando desligado. O label textual deve usar <code>for</code> apontando para o <code>id</code> do checkbox.</p>
                         <p class="mt-2 text-sm text-slate-600"><strong>Nota:</strong> Todos os inputs, textareas e selects com as classes <code>form-input</code> ou <code>form-input-focus</code> exibem borda
                             azul e sombra quando estão em foco. Radio buttons e checkboxes usam classes Tailwind específicas para manter consistência visual.</p>
                         <p class="mt-2 text-sm text-slate-600"><strong>Input Group:</strong> A classe <code>form-input-group</code> cria um container com borda que envolve o label e o input. Quando qualquer
@@ -2484,6 +2574,117 @@
                             <li><code>data-chosen-min-chars</code> - Mínimo de caracteres para iniciar busca (padrão: 3)</li>
                             <li><code>data-chosen-placeholder</code> - Texto placeholder personalizado</li>
                         </ul>
+                    </div>
+                </section>
+
+                <!-- Seção: Telefone Internacional -->
+                <section id="telefone-intl" class="component-section mb-12">
+                    <h2 class="title-section mb-4">Telefone Internacional (IntlPhone)</h2>
+                    <p class="text-slate-600 mb-4">
+                        Campo de telefone com seletor de país, DDI e máscara por país. Usado no cadastro de clientes,
+                        funcionários, fornecedores e perfil. Sem dependências externas — scripts
+                        <code>country-data.js</code> + <code>intl-phone.js</code> (já incluídos no layout <code>iframe.php</code>).
+                    </p>
+
+                    <div class="component-info">
+                        <h4>Características:</h4>
+                        <ul>
+                            <li>Seletor de país com bandeira e DDI (padrão: Brasil +55)</li>
+                            <li>Máscara automática conforme o país selecionado</li>
+                            <li>Inicialização automática em campos com classe <code>intltel</code> no <code>DOMContentLoaded</code></li>
+                            <li>Valor limpo via <code>input._intlPhone.getCleanValue()</code> (DDI + dígitos)</li>
+                            <li>Re-detecção de país após preencher valor via JS com <code>detectCountryFromValue()</code></li>
+                        </ul>
+                    </div>
+
+                    <div class="component-example">
+                        <h3 class="font-semibold text-slate-700 mb-3">Uso básico (Input Group)</h3>
+                        <p class="text-sm text-slate-600 mb-4">
+                            Padrão do cadastro de funcionários e perfil: basta a classe <code>intltel</code> no input.
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="form-input-group">
+                                <label for="exemploTelFixo" class="form-label-group">Telefone Fixo</label>
+                                <input type="tel" id="exemploTelFixo" name="tel_fixo" class="form-input-group-field intltel">
+                            </div>
+                            <div class="form-input-group">
+                                <label for="exemploTelCel" class="form-label-group">Celular</label>
+                                <input type="tel" id="exemploTelCel" name="tel_cel" class="form-input-group-field intltel" value="+5511987654321">
+                            </div>
+                            <div class="form-input-group">
+                                <label for="exemploTelVazio" class="form-label-group">Telefone (vazio)</label>
+                                <input type="tel" id="exemploTelVazio" name="telefone" class="form-input-group-field intltel">
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <h3 class="font-semibold text-slate-700 mb-3">Lista dinâmica (como no cadastro de cliente)</h3>
+                            <p class="text-sm text-slate-600 mb-4">
+                                Ao criar inputs dinamicamente, inicialize manualmente com <code>new IntlPhone(input)</code>
+                                nos campos ainda não inicializados.
+                            </p>
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-sm font-medium text-slate-700">
+                                    <i class="fas fa-phone mr-2 text-green-500"></i>Telefones
+                                </h4>
+                                <button type="button" id="btnAddTelefoneExemplo" class="btn-secondary text-sm py-1 px-3 rounded">
+                                    <i class="fas fa-plus mr-1"></i> Adicionar
+                                </button>
+                            </div>
+                            <div id="telefonesExemploContainer" class="space-y-3">
+                                <!-- Preenchido via JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="code-block">
+                        <code>&lt;!-- Assets (já no layout iframe.php) --&gt;
+&lt;link href="styles/intl-phone.css" rel="stylesheet"&gt;
+&lt;script src="js/country-data.js"&gt;&lt;/script&gt;
+&lt;script src="js/intl-phone.js"&gt;&lt;/script&gt;
+
+&lt;!-- Campo simples --&gt;
+&lt;div class="form-input-group"&gt;
+    &lt;label for="telCel" class="form-label-group"&gt;Celular&lt;/label&gt;
+    &lt;input type="tel" id="telCel" name="tel_cel" class="form-input-group-field intltel"&gt;
+&lt;/div&gt;
+
+&lt;!-- Após preencher valor via JS (edição) --&gt;
+&lt;script&gt;
+document.getElementById('telCel').value = '+5511987654321';
+document.querySelectorAll('.intltel').forEach(input =&gt; {
+    if (input._intlPhone?.detectCountryFromValue) {
+        input._intlPhone.detectCountryFromValue();
+    }
+});
+&lt;/script&gt;
+
+&lt;!-- Campos criados dinamicamente (lista de telefones do cliente) --&gt;
+&lt;script&gt;
+container.querySelectorAll('.intltel:not(.intl-phone-initialized)').forEach(input =&gt; {
+    new IntlPhone(input);
+});
+
+// Valor limpo para enviar à API (DDI + dígitos)
+const telefone = input._intlPhone?.getCleanValue() || input.value;
+&lt;/script&gt;</code>
+                    </div>
+
+                    <div class="component-info">
+                        <h4>Classes e API:</h4>
+                        <ul>
+                            <li><code>intltel</code> - Classe obrigatória no <code>input[type="tel"]</code> para ativar o componente</li>
+                            <li><code>intl-phone-initialized</code> - Marcação automática após init (evita reinicializar)</li>
+                            <li><code>form-input-group-field intltel</code> - Combinação padrão com Input Group</li>
+                            <li><code>new IntlPhone(input)</code> - Inicializa um campo específico (uso em HTML dinâmico)</li>
+                            <li><code>IntlPhone.initAll()</code> - Inicializa todos os <code>.intltel</code> da página</li>
+                            <li><code>input._intlPhone.getCleanValue()</code> - Retorna DDI + dígitos (ex: <code>+5511999998888</code>)</li>
+                            <li><code>input._intlPhone.detectCountryFromValue()</code> - Detecta país a partir do valor atual do input</li>
+                        </ul>
+                        <p class="mt-2 text-sm text-slate-600">
+                            <strong>Ordem dos scripts:</strong> <code>country-data.js</code> deve vir antes de <code>intl-phone.js</code>.
+                            Em páginas do sistema, ambos já são carregados pelo layout do iframe.
+                        </p>
                     </div>
                 </section>
 
@@ -2900,7 +3101,116 @@
         });
     </script>
     <script src="js/chosen-select.js"></script>
+    <script src="js/country-data.js"></script>
+    <script src="js/intl-phone.js"></script>
     <script src="js/nestable-list.js"></script>
+    <script>
+        // Exemplo: lista dinâmica de telefones (padrão cadastro de cliente)
+        (function () {
+            const container = document.getElementById('telefonesExemploContainer');
+            const btnAdd = document.getElementById('btnAddTelefoneExemplo');
+            if (!container || !btnAdd) return;
+
+            let telefones = [
+                { telefone: '+5511987654321', descricao: 'Celular', principal: 'S' },
+                { telefone: '', descricao: '', principal: 'N' }
+            ];
+
+            function renderizarTelefones() {
+                container.innerHTML = '';
+
+                if (telefones.length === 0) {
+                    container.innerHTML = '<p class="text-slate-400 text-sm text-center py-4">Nenhum telefone cadastrado</p>';
+                    return;
+                }
+
+                telefones.forEach((tel, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'bg-white p-3 rounded border';
+                    div.innerHTML = `
+                        <div class="flex items-center gap-2 mb-2">
+                            <input type="tel" class="telefone-input intltel form-input-group-field text-sm flex-1"
+                                data-idx="${idx}" data-field="telefone"
+                                value="${tel.telefone || ''}">
+                            <input type="text" class="telefone-input form-input-group-field text-sm w-32"
+                                data-idx="${idx}" data-field="descricao"
+                                value="${tel.descricao || ''}" placeholder="Descrição">
+                            <label class="flex items-center gap-1 text-sm cursor-pointer" title="Principal">
+                                <input type="radio" name="telefone_principal_exemplo" class="telefone-principal-radio sr-only"
+                                    data-idx="${idx}" ${tel.principal === 'S' ? 'checked' : ''}>
+                                <i class="fas fa-star ${tel.principal === 'S' ? 'text-yellow-500' : 'text-slate-300'}"></i>
+                            </label>
+                            <button type="button" class="btn-remove-telefone text-red-500 hover:text-red-700"
+                                data-idx="${idx}" title="Remover">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-4 text-sm ml-4">
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" class="telefone-flag" data-idx="${idx}" data-flag="whatsapp">
+                                <i class="fab fa-whatsapp text-green-500"></i> WhatsApp
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" class="telefone-flag" data-idx="${idx}" data-flag="telegram">
+                                <i class="fab fa-telegram text-blue-400"></i> Telegram
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" class="telefone-flag" data-idx="${idx}" data-flag="sms">
+                                <i class="fas fa-sms text-purple-500"></i> SMS
+                            </label>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+
+                if (typeof IntlPhone !== 'undefined') {
+                    container.querySelectorAll('.intltel:not(.intl-phone-initialized)').forEach(input => {
+                        new IntlPhone(input);
+                    });
+                }
+
+                container.querySelectorAll('.telefone-input').forEach(input => {
+                    input.addEventListener('input', function () {
+                        const idx = parseInt(this.dataset.idx, 10);
+                        const field = this.dataset.field;
+                        telefones[idx][field] = this.value;
+                    });
+                });
+
+                container.querySelectorAll('.telefone-principal-radio').forEach(radio => {
+                    radio.addEventListener('change', function () {
+                        const idx = parseInt(this.dataset.idx, 10);
+                        telefones.forEach(t => t.principal = 'N');
+                        telefones[idx].principal = 'S';
+                        renderizarTelefones();
+                    });
+                });
+
+                container.querySelectorAll('.btn-remove-telefone').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        const idx = parseInt(this.dataset.idx, 10);
+                        telefones.splice(idx, 1);
+                        if (telefones.length > 0 && !telefones.some(t => t.principal === 'S')) {
+                            telefones[0].principal = 'S';
+                        }
+                        renderizarTelefones();
+                    });
+                });
+            }
+
+            btnAdd.addEventListener('click', function () {
+                const isPrimeiro = telefones.length === 0;
+                telefones.push({
+                    telefone: '',
+                    descricao: '',
+                    principal: isPrimeiro ? 'S' : 'N'
+                });
+                renderizarTelefones();
+            });
+
+            renderizarTelefones();
+        })();
+    </script>
     <script>
         // Funções globais para os modais do Nestable List
         function closeEditModalNestable() {
