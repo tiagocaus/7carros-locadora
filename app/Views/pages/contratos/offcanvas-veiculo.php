@@ -170,6 +170,7 @@
 @endsection
 
 @section('scripts')
+<script src="<?= asset('js/grupo-preco-periodo.min.js') ?>"></script>
 <?php
 $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
 $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $replace));
@@ -199,16 +200,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     const index = params.get('index');
     const filialId = params.get('filial_id');
     const contagem = params.get('contagem') || 'dia';
+    const quantidadePeriodos = Math.max(1, parseInt(params.get('periodos'), 10) || 1);
     let dadosIniciais = null;
-
-    // Multiplicadores por tipo de contagem (valores do grupo sao por dia)
-    const multiplicadores = {
-        'dia': 1,
-        'semana': 7,
-        'mes': 30,
-        'ano': 365
-    };
-    const multiplicador = multiplicadores[contagem] || 1;
 
     try {
         const dadosParam = params.get('dados');
@@ -341,8 +334,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             if (filialId && parseInt(filialId) > 0) {
                 const res = await API.get(`/api/grupos/${grupoId}/precos-filial/${filialId}`);
                 if (res.success && res.data?.valores) {
-                    valoresGrupoCache[cacheKey] = res.data.valores;
-                    preencherValores(res.data.valores);
+                    valoresGrupoCache[cacheKey] = res.data;
+                    preencherValores(res.data);
                     return;
                 }
             }
@@ -361,14 +354,20 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
     }
 
-    function preencherValores(valores) {
-        // Aplicar multiplicador nos valores por periodo (valores do grupo sao por dia)
-        document.getElementById('valor_diaria').value = valores.valor_plano_km_pago ? Currency.format(valores.valor_plano_km_pago * multiplicador) : '';
-        document.getElementById('valor_km_controlado').value = valores.valor_plano_km_controlado ? Currency.format(valores.valor_plano_km_controlado * multiplicador) : '';
-        document.getElementById('valor_km_livre').value = valores.valor_plano_km_livre ? Currency.format(valores.valor_plano_km_livre * multiplicador) : '';
-        document.getElementById('valor_seguro_carro').value = valores.valor_seguro_carro ? Currency.format(valores.valor_seguro_carro * multiplicador) : '';
-        document.getElementById('valor_seguro_terceiros').value = valores.valor_seguro_terceiros ? Currency.format(valores.valor_seguro_terceiros * multiplicador) : '';
-        document.getElementById('km_franquia').value = valores.km_franquia ? Km.format(valores.km_franquia * multiplicador) : '';
+    function preencherValores(payload) {
+        const valores = payload?.valores || payload || {};
+        const valoresPeriodo = GrupoPrecoPeriodo.resolverValoresPorPeriodo(
+            payload,
+            quantidadePeriodos,
+            contagem
+        );
+
+        document.getElementById('valor_diaria').value = valoresPeriodo.valor_plano_km_pago ? Currency.format(valoresPeriodo.valor_plano_km_pago) : '';
+        document.getElementById('valor_km_controlado').value = valoresPeriodo.valor_plano_km_controlado ? Currency.format(valoresPeriodo.valor_plano_km_controlado) : '';
+        document.getElementById('valor_km_livre').value = valoresPeriodo.valor_plano_km_livre ? Currency.format(valoresPeriodo.valor_plano_km_livre) : '';
+        document.getElementById('valor_seguro_carro').value = valoresPeriodo.valor_seguro_carro ? Currency.format(valoresPeriodo.valor_seguro_carro) : '';
+        document.getElementById('valor_seguro_terceiros').value = valoresPeriodo.valor_seguro_terceiros ? Currency.format(valoresPeriodo.valor_seguro_terceiros) : '';
+        document.getElementById('km_franquia').value = valoresPeriodo.km_franquia ? Km.format(valoresPeriodo.km_franquia) : '';
         // Valores por km - NAO multiplicar
         document.getElementById('valor_km_diaria').value = valores.valor_km_excedente ? Currency.format(valores.valor_km_excedente) : '';
         document.getElementById('valor_km_excedente').value = valores.valor_km_excedente ? Currency.format(valores.valor_km_excedente) : '';

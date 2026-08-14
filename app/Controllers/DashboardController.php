@@ -194,11 +194,11 @@ class DashboardController
         }
 
         if ($financial !== null && !empty($financial['overdue_count'])) {
-            $valor = number_format($financial['overdue_total'], 2, ',', '.');
+            $valor = currency_format($financial['overdue_total']);
             $alerts[] = [
                 'severity' => 'critical',
                 'icon' => 'fa-dollar-sign',
-                'message' => 'R$ ' . $valor . ' em faturas vencidas (' . $financial['overdue_count'] . ')',
+                'message' => $valor . ' em faturas vencidas (' . $financial['overdue_count'] . ')',
             ];
         }
 

@@ -295,6 +295,8 @@ edicao especial de valores.
 - `KMC` persiste o valor principal em `valor_plano_km_controlado`.
 - `KP` persiste o valor principal em `valor_plano_km_pago`.
 - Ao salvar/adicionar/substituir veiculo, os campos de valores de outros planos sao zerados para evitar reaproveitamento de valor antigo oculto na interface.
+- No offcanvas **Adicionar veiculo**, a faixa de `grupos_precos_dias_filiais` e escolhida pela duracao total equivalente em dias (`dias * 1/7/30/365`, conforme `contagem`). O valor da faixa substitui o valor base do plano; quando nao ha faixa aplicavel, usa-se `grupos_precos_filiais`.
+- O snapshot salvo em `contratos_veiculos` continua sendo o valor por unidade de contagem. Assim, a diaria resolvida e multiplicada por 7, 30 ou 365 para contratos semanais, mensais ou anuais, e o total do contrato multiplica esse valor pela quantidade de periodos.
 - `valor_km_excedente` e `km_franquia` permanecem independentes e sao usados nos calculos de km controlado/pago conforme a devolucao ou substituicao.
 
 ### Franquia efetiva no plano KMC

@@ -516,8 +516,7 @@ class MatrizFilial extends Model
 
         // Usa filial principal do usuário se disponível
         if (!empty($_SESSION['id_matriz_filial'])) {
-            $query->withoutChave()
-                  ->where('id', '=', $_SESSION['id_matriz_filial']);
+            $query->where('id', '=', $_SESSION['id_matriz_filial']);
         } else {
             // Fallback: prioriza matriz (tipo='M')
             $query->orderBy('tipo', 'DESC');

@@ -264,7 +264,7 @@
             return;
         }
 
-        let url = `/pages/contratos/offcanvas-veiculo?modo=${modo}&filial_id=${filialId}&contagem=${contagem}`;
+        let url = `/pages/contratos/offcanvas-veiculo?modo=${modo}&filial_id=${filialId}&contagem=${contagem}&periodos=${encodeURIComponent(dias)}`;
 
         if (modo === 'editar' && index !== null) {
             const dados = encodeURIComponent(JSON.stringify(veiculos[index]));

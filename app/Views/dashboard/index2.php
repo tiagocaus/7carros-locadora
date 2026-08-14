@@ -389,6 +389,10 @@
             : Date.now();
     }
 
+    function formatMoney(value) {
+        return Currency.format(Number(value) || 0, true);
+    }
+
     function updateTimestamp() {
         const el = document.getElementById('dashTimestamp');
         if (el) {
@@ -405,12 +409,12 @@
             setTxt('kpiRentedNow', fleet.rented);
             setTxt('kpiUtilization', fleet.utilization_rate.toFixed(1).replace('.', ',') + '%');
             setWidth('kpiUtilizationBar', fleet.utilization_rate);
-            setTxt('kpiADR', 'R$ ' + Math.round(fleet.average_daily_rate));
+            setTxt('kpiADR', formatMoney(fleet.average_daily_rate));
         }
 
         if (financial) {
-            setTxt('kpiRevenue', 'R$ ' + financial.revenue.toLocaleString('pt-BR'));
-            setTxt('kpiOverdue', 'R$ ' + financial.overdue_total.toLocaleString('pt-BR'));
+            setTxt('kpiRevenue', formatMoney(financial.revenue));
+            setTxt('kpiOverdue', formatMoney(financial.overdue_total));
             setTxt('kpiOverdueCount', financial.overdue_count + ' {{ t("modules.dashboard.v2.kpi.invoices") }}');
             setTxt('kpiMaintCost', financial.maintenance_cost_pct.toFixed(1).replace('.', ',') + '%');
             setWidth('kpiMaintCostBar', financial.maintenance_cost_pct);
@@ -484,13 +488,13 @@
 
         if (financial) {
             const maxVal = Math.max(financial.revenue, financial.expenses) || 1;
-            setTxt('finRevenue', 'R$ ' + financial.revenue.toLocaleString('pt-BR'));
-            setTxt('finExpenses', 'R$ ' + financial.expenses.toLocaleString('pt-BR'));
+            setTxt('finRevenue', formatMoney(financial.revenue));
+            setTxt('finExpenses', formatMoney(financial.expenses));
             setWidth('finRevenueBar', (financial.revenue / maxVal) * 100);
             setWidth('finExpensesBar', (financial.expenses / maxVal) * 100);
 
             const sign = financial.balance >= 0 ? '+ ' : '- ';
-            setTxt('finBalance', sign + 'R$ ' + Math.abs(financial.balance).toLocaleString('pt-BR'));
+            setTxt('finBalance', sign + formatMoney(Math.abs(financial.balance)));
             const balEl = document.getElementById('finBalance');
             if (balEl) {
                 balEl.className = financial.balance >= 0 ? 'font-bold text-emerald-600' : 'font-bold text-red-600';
@@ -505,7 +509,7 @@
                     total += o.valor;
                     return '<div class="flex justify-between text-xs">' +
                         '<span class="text-slate-600 truncate mr-2">' + escapeHtml(o.cliente) + '</span>' +
-                        '<span class="font-medium text-red-500 whitespace-nowrap">R$ ' + o.valor.toLocaleString('pt-BR') + '</span>' +
+                        '<span class="font-medium text-red-500 whitespace-nowrap">' + formatMoney(o.valor) + '</span>' +
                     '</div>';
                 }).join('');
                 html = html || '<div class="text-xs text-slate-400 text-center py-2">{{ t("common.labels.no_data") }}</div>';
@@ -513,7 +517,7 @@
                     html += '<div class="border-t border-slate-200 pt-2 mt-1">' +
                         '<div class="flex justify-between text-xs font-semibold">' +
                             '<span class="text-slate-700">Total</span>' +
-                            '<span class="text-red-600">R$ ' + total.toLocaleString('pt-BR') + '</span>' +
+                            '<span class="text-red-600">' + formatMoney(total) + '</span>' +
                         '</div></div>';
                 }
                 list.innerHTML = html;
@@ -528,7 +532,7 @@
                     total += u.valor;
                     return '<div class="flex justify-between text-xs">' +
                         '<span class="text-slate-600 truncate mr-2">' + escapeHtml(u.descricao) + '</span>' +
-                        '<span class="font-medium text-amber-600 whitespace-nowrap">R$ ' + u.valor.toLocaleString('pt-BR') + '</span>' +
+                        '<span class="font-medium text-amber-600 whitespace-nowrap">' + formatMoney(u.valor) + '</span>' +
                     '</div>';
                 }).join('');
                 html = html || '<div class="text-xs text-slate-400 text-center py-2">{{ t("common.labels.no_data") }}</div>';
@@ -536,7 +540,7 @@
                     html += '<div class="border-t border-slate-200 pt-2 mt-1">' +
                         '<div class="flex justify-between text-xs font-semibold">' +
                             '<span class="text-slate-700">Total</span>' +
-                            '<span class="text-amber-600">R$ ' + total.toLocaleString('pt-BR') + '</span>' +
+                            '<span class="text-amber-600">' + formatMoney(total) + '</span>' +
                         '</div></div>';
                 }
                 list.innerHTML = html;
