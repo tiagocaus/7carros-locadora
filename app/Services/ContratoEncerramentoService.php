@@ -45,6 +45,21 @@ class ContratoEncerramentoService
                 $veiculo['data_entrada'] = $devolucoesPorId[$id]['data_entrada'] ?? $veiculo['data_entrada'] ?? null;
                 $veiculo['odometro_entrada'] = $devolucoesPorId[$id]['odometro_entrada'] ?? $veiculo['odometro_entrada'] ?? null;
                 $veiculo['combustivel_entrada'] = $devolucoesPorId[$id]['combustivel_entrada'] ?? $veiculo['combustivel_entrada'] ?? null;
+                foreach (($devolucoesPorId[$id]['valores_ajustados'] ?? []) as $campo => $valor) {
+                    if (in_array($campo, [
+                        'valor_plano_km_pago',
+                        'valor_plano_km_livre',
+                        'valor_plano_km_controlado',
+                        'km_franquia',
+                        'valor_km_excedente',
+                        'seguro_carro',
+                        'valor_seguro_carro',
+                        'seguro_terceiros',
+                        'valor_seguro_terceiros',
+                    ], true)) {
+                        $veiculo[$campo] = $valor;
+                    }
+                }
             }
             if (empty($veiculo['data_entrada'])) {
                 $ativosRestantes++;

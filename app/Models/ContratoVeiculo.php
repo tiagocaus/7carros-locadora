@@ -320,6 +320,41 @@ class ContratoVeiculo extends Model
     }
 
     /**
+     * Atualiza somente valores comerciais durante a confirmacao da devolucao.
+     */
+    public function atualizarValoresDevolucao(int $id, array $dados): int
+    {
+        $permitidos = [
+            'valor_plano_km_pago',
+            'valor_plano_km_livre',
+            'valor_plano_km_controlado',
+            'km_franquia',
+            'valor_km_excedente',
+            'seguro_carro',
+            'valor_seguro_carro',
+            'seguro_terceiros',
+            'valor_seguro_terceiros',
+        ];
+        $dadosUpdate = [];
+        foreach ($permitidos as $campo) {
+            if (array_key_exists($campo, $dados)) {
+                $dadosUpdate[$campo] = $dados[$campo];
+            }
+        }
+
+        if ($dadosUpdate === []) {
+            return 0;
+        }
+
+        $dadosUpdate['updated_at'] = now();
+
+        return $this->qb
+            ->table('contratos_veiculos')
+            ->where('id', '=', $id)
+            ->update($dadosUpdate);
+    }
+
+    /**
      * Registra devolucao de um veiculo
      *
      * @param int $id ID do registro

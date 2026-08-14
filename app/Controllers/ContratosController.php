@@ -130,6 +130,107 @@ class ContratosController
         return (int) ceil(($kmFranquia / $diasBase) * $diasUso);
     }
 
+    private function contemAjustesValoresDevolucao(array $dados): bool
+    {
+        foreach (($dados['veiculos'] ?? []) as $veiculo) {
+            if (!empty($veiculo['valores_ajustados']) && is_array($veiculo['valores_ajustados'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizarValorMonetarioDevolucao(mixed $valor, string $campo, float $maximo): float
+    {
+        if ((!is_int($valor) && !is_float($valor) && !is_string($valor))
+            || (is_string($valor) && !is_numeric(trim($valor)))) {
+            throw new \InvalidArgumentException("Valor invalido para {$campo}");
+        }
+
+        $normalizado = round(currency_parse($valor), 2);
+        if (!is_finite($normalizado) || $normalizado < 0 || $normalizado > $maximo) {
+            throw new \InvalidArgumentException("Valor invalido para {$campo}");
+        }
+
+        return $normalizado;
+    }
+
+    private function normalizarBooleanoDevolucao(mixed $valor, string $campo): int
+    {
+        if ($valor === true || $valor === 1 || $valor === '1') {
+            return 1;
+        }
+        if ($valor === false || $valor === 0 || $valor === '0') {
+            return 0;
+        }
+
+        throw new \InvalidArgumentException("Valor invalido para {$campo}");
+    }
+
+    private function normalizarAjustesValoresDevolucao(array $entrada, array $veiculo): ?array
+    {
+        $recebidos = $entrada['valores_ajustados'] ?? null;
+        if (!is_array($recebidos) || $recebidos === []) {
+            return null;
+        }
+
+        foreach (['valor_plano', 'seguro_carro', 'valor_seguro_carro', 'seguro_terceiros', 'valor_seguro_terceiros'] as $campo) {
+            if (!array_key_exists($campo, $recebidos)) {
+                throw new \InvalidArgumentException("Campo obrigatorio ausente nos valores ajustados: {$campo}");
+            }
+        }
+
+        $plano = strtoupper((string) ($veiculo['plano'] ?? ''));
+        $campoPlano = match ($plano) {
+            'KP' => 'valor_plano_km_pago',
+            'KMC' => 'valor_plano_km_controlado',
+            'KL' => 'valor_plano_km_livre',
+            default => throw new \InvalidArgumentException('Plano do veiculo invalido para ajuste de valores'),
+        };
+
+        $ajustes = [
+            $campoPlano => $this->normalizarValorMonetarioDevolucao($recebidos['valor_plano'], 'valor do plano', 99999999.99),
+            'seguro_carro' => $this->normalizarBooleanoDevolucao($recebidos['seguro_carro'], 'seguro do veiculo'),
+            'valor_seguro_carro' => $this->normalizarValorMonetarioDevolucao($recebidos['valor_seguro_carro'], 'valor do seguro do veiculo', 9999999999.99),
+            'seguro_terceiros' => $this->normalizarBooleanoDevolucao($recebidos['seguro_terceiros'], 'seguro contra terceiros'),
+            'valor_seguro_terceiros' => $this->normalizarValorMonetarioDevolucao($recebidos['valor_seguro_terceiros'], 'valor do seguro contra terceiros', 9999999999.99),
+        ];
+
+        if ($plano === 'KMC') {
+            if (!array_key_exists('km_franquia', $recebidos) || !array_key_exists('valor_km_excedente', $recebidos)) {
+                throw new \InvalidArgumentException('Franquia e valor do km excedente sao obrigatorios para Km Controlado');
+            }
+            if (!is_int($recebidos['km_franquia']) && !(is_string($recebidos['km_franquia']) && ctype_digit($recebidos['km_franquia']))) {
+                throw new \InvalidArgumentException('Km franquia invalido');
+            }
+            $kmFranquia = (int) $recebidos['km_franquia'];
+            if ($kmFranquia < 0 || $kmFranquia > 4294967295) {
+                throw new \InvalidArgumentException('Km franquia invalido');
+            }
+            $ajustes['km_franquia'] = $kmFranquia;
+            $ajustes['valor_km_excedente'] = $this->normalizarValorMonetarioDevolucao($recebidos['valor_km_excedente'], 'valor do km excedente', 99999999.99);
+        } elseif ($plano === 'KP') {
+            if (!array_key_exists('valor_km_excedente', $recebidos)) {
+                throw new \InvalidArgumentException('Valor por km e obrigatorio para Km Pago');
+            }
+            $ajustes['valor_km_excedente'] = $this->normalizarValorMonetarioDevolucao($recebidos['valor_km_excedente'], 'valor por km', 99999999.99);
+        }
+
+        $alterados = [];
+        foreach ($ajustes as $campo => $valor) {
+            $original = $veiculo[$campo] ?? null;
+            $iguais = is_float($valor)
+                ? abs((float) $original - $valor) < 0.001
+                : (int) $original === (int) $valor;
+            if (!$iguais) {
+                $alterados[$campo] = $valor;
+            }
+        }
+
+        return $alterados ?: null;
+    }
+
     /**
      * Renderiza a pagina de listagem de contratos
      *
@@ -260,6 +361,19 @@ class ContratosController
     {
         $html = Template::render('pages.contratos.offcanvas-veiculo');
         Response::html($html);
+    }
+
+    /**
+     * Renderiza o offcanvas de ajuste temporario dos valores na devolucao.
+     */
+    public function offcanvasValoresDevolucao(Request $request): void
+    {
+        if (!Auth::can('contratos.devolver') || !Auth::can('contratos.editar_valores')) {
+            Response::html('<div class="p-4 text-sm text-red-600">Sem permissao para ajustar valores da devolucao.</div>', 403);
+            return;
+        }
+
+        Response::html(Template::render('pages.contratos.offcanvas-valores-devolucao'));
     }
 
     /**
@@ -1305,6 +1419,7 @@ class ContratosController
         $html = Template::render('pages.contratos.devolver', [
             'contrato' => $contrato,
             'veiculosAtivos' => $veiculosAtivos,
+            'podeEditarValores' => Auth::can('contratos.editar_valores'),
         ]);
         Response::html($html);
     }
@@ -1317,6 +1432,12 @@ class ContratosController
         try {
             if (!Auth::can('contratos.devolver')) {
                 Response::json(['success' => false, 'message' => 'Sem permissao para registrar devolucao'], 403);
+                return;
+            }
+
+            $dados = $request->all();
+            if ($this->contemAjustesValoresDevolucao($dados) && !Auth::can('contratos.editar_valores')) {
+                Response::json(['success' => false, 'message' => 'Sem permissao para ajustar valores do contrato'], 403);
                 return;
             }
 
@@ -1334,7 +1455,7 @@ class ContratosController
                 return;
             }
 
-            $preparo = $this->prepararCalculoDevolucao($contrato, $request->all());
+            $preparo = $this->prepararCalculoDevolucao($contrato, $dados);
             $calculoPreview = $preparo['calculo'];
             unset($calculoPreview['veiculos_historico_calculo']);
             Response::json(['success' => true, 'data' => $calculoPreview]);
@@ -1384,12 +1505,17 @@ class ContratosController
             if ($odometro < $odometroMinimo) {
                 throw new \InvalidArgumentException('Odometro de devolucao nao pode ser menor que ' . number_format($odometroMinimo, 0, '', '.') . ' km');
             }
-            $devolucoes[] = [
+            $devolucao = [
                 'id_contrato_veiculo' => $idCv,
                 'data_entrada' => $dataEntrada,
                 'odometro_entrada' => $odometro,
                 'combustivel_entrada' => ($entrada['combustivel_entrada'] ?? '') === '' ? null : (int) $entrada['combustivel_entrada'],
             ];
+            $ajustesValores = $this->normalizarAjustesValoresDevolucao($entrada, $veiculo);
+            if ($ajustesValores !== null) {
+                $devolucao['valores_ajustados'] = $ajustesValores;
+            }
+            $devolucoes[] = $devolucao;
         }
 
         $taxasExtras = [];
@@ -1492,6 +1618,13 @@ class ContratosController
             }
 
             $dados = $request->all();
+            if ($this->contemAjustesValoresDevolucao($dados) && !Auth::can('contratos.editar_valores')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Sem permissao para ajustar valores do contrato'
+                ], 403);
+                return;
+            }
             $veiculoModel = new ContratoVeiculo();
             $veiculoModelGeral = new Veiculo();
             $contratoTaxaModel = new ContratoTaxaServico();
@@ -1635,6 +1768,44 @@ class ContratosController
                     continue;
                 }
 
+                $ajustesValores = !empty($vData['valores_ajustados']) && is_array($vData['valores_ajustados'])
+                    ? $vData['valores_ajustados']
+                    : [];
+                if ($ajustesValores !== []) {
+                    $labelsValores = [
+                        'valor_plano_km_pago' => 'Valor do plano Km Pago',
+                        'valor_plano_km_livre' => 'Valor do plano Km Livre',
+                        'valor_plano_km_controlado' => 'Valor do plano Km Controlado',
+                        'km_franquia' => 'Km franquia',
+                        'valor_km_excedente' => 'Valor por km',
+                        'seguro_carro' => 'Seguro do veiculo',
+                        'valor_seguro_carro' => 'Valor do seguro do veiculo',
+                        'seguro_terceiros' => 'Seguro contra terceiros',
+                        'valor_seguro_terceiros' => 'Valor do seguro contra terceiros',
+                    ];
+                    $camposAlterados = [];
+                    foreach ($ajustesValores as $campo => $valorNovo) {
+                        if (!isset($labelsValores[$campo])) {
+                            continue;
+                        }
+                        $camposAlterados[] = AuditLogService::campo(
+                            $labelsValores[$campo],
+                            $veiculoContrato[$campo] ?? null,
+                            $valorNovo,
+                            'Valores da devolucao'
+                        );
+                    }
+
+                    $veiculoModel->atualizarValoresDevolucao($idCv, $ajustesValores);
+                    $veiculoContrato = array_merge($veiculoContrato, $ajustesValores);
+
+                    AuditLogService::registrarComCampos(
+                        ($_SESSION['user_name'] ?? 'Sistema')
+                        . ", ajustou valores do veiculo [{$veiculoContrato['veiculo_placa']}] na devolucao do contrato [{$contrato['codigo']}]",
+                        $camposAlterados
+                    );
+                }
+
                 $dataEntrada = null;
                 if (array_key_exists('data_entrada', $vData)) {
                     $dataEntrada = $this->normalizarDataEntradaContrato($vData['data_entrada']);
@@ -1741,15 +1912,14 @@ class ContratosController
 
                 // 3b. Calculo de km (depende do plano do veiculo)
                 $plano = $veiculoContrato['plano'] ?? 'KL';
-                $odometroSaida = (int) ($veiculoContrato['odometro_saida'] ?? 0);
-                $kmRodados = max(0, $odometroEntrada - $odometroSaida);
-                $valorKmExcedente = (float) ($veiculoContrato['valor_km_excedente'] ?? 0);
+                $kmCalculado = $detalheCalculo['km'] ?? [];
+                $kmRodados = (int) ($kmCalculado['rodados'] ?? 0);
+                $valorKmExcedente = (float) ($kmCalculado['valor_unitario'] ?? 0);
 
                 if ($plano === 'KMC') {
-                    $kmFranquia = (int) ($detalheCalculo['km']['franquia'] ?? 0);
-                    $kmExcedente = max(0, $kmRodados - $kmFranquia);
+                    $kmExcedente = (int) ($kmCalculado['excedente'] ?? 0);
                     if ($kmExcedente > 0 && $valorKmExcedente > 0) {
-                        $totalKmCobranca = $kmExcedente * $valorKmExcedente;
+                        $totalKmCobranca = (float) ($kmCalculado['valor'] ?? 0);
                         $contratoTaxaModel->adicionar($id, [
                             'nome' => "Km excedente - Devolucao [{$placa}]",
                             'base_calculo' => 'FIX',
@@ -1761,7 +1931,7 @@ class ContratosController
                     }
                 } elseif ($plano === 'KP') {
                     if ($kmRodados > 0 && $valorKmExcedente > 0) {
-                        $totalKmCobranca = $kmRodados * $valorKmExcedente;
+                        $totalKmCobranca = (float) ($kmCalculado['valor'] ?? 0);
                         $contratoTaxaModel->adicionar($id, [
                             'nome' => "Km rodados - Devolucao [{$placa}]",
                             'base_calculo' => 'FIX',

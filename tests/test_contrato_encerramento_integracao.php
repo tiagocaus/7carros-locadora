@@ -4,6 +4,10 @@ $arquivos = [
     'controller' => file_get_contents(__DIR__ . '/../app/Controllers/ContratosController.php'),
     'rotas' => file_get_contents(__DIR__ . '/../app/Routes/web.php'),
     'view' => file_get_contents(__DIR__ . '/../app/Views/pages/contratos/devolver.php'),
+    'offcanvas_valores' => file_get_contents(__DIR__ . '/../app/Views/pages/contratos/offcanvas-valores-devolucao.php'),
+    'model_veiculo' => file_get_contents(__DIR__ . '/../app/Models/ContratoVeiculo.php'),
+    'service' => file_get_contents(__DIR__ . '/../app/Services/ContratoEncerramentoService.php'),
+    'docs' => file_get_contents(__DIR__ . '/../docs/contratos.md'),
     'taxa' => file_get_contents(__DIR__ . '/../app/Models/ContratoTaxaServico.php'),
     'migration' => file_get_contents(__DIR__ . '/../app/Database/migrations/00419_create_contratos_encerramentos.php'),
     'repair_migration' => file_get_contents(__DIR__ . '/../app/Database/migrations/00420_repair_contract_refund_chart_account.php'),
@@ -40,6 +44,20 @@ $assert(str_contains($arquivos['view'], 'if (!result.success)'), 'Erro de valida
 $assert(!str_contains($arquivos['view'], 'i18n.summaryContractValues'), 'Resumo financeiro legado ainda pode ser renderizado como fallback');
 $assert(str_contains($arquivos['view'], 'id="btnConfirmar" class="btn-green py-2 px-6 rounded-md text-sm font-medium" disabled'), 'Botao de confirmacao nasce habilitado antes da previa');
 $assert(!preg_match('/\balert\s*\(/', $arquivos['view']), 'Tela usa alert nativo');
+$assert(str_contains($arquivos['rotas'], '/pages/contratos/offcanvas-valores-devolucao'), 'Rota do offcanvas de valores nao registrada');
+$assert(str_contains($arquivos['controller'], "Auth::can('contratos.editar_valores')"), 'Backend nao exige permissao para ajustar valores');
+$assert(str_contains($arquivos['controller'], 'normalizarAjustesValoresDevolucao'), 'Backend nao normaliza os ajustes por plano');
+$assert(str_contains($arquivos['controller'], 'atualizarValoresDevolucao($idCv, $ajustesValores)'), 'Confirmacao nao persiste os valores ajustados');
+$assert(str_contains($arquivos['view'], 'payload.valores_ajustados'), 'Tela nao envia ajustes no payload da previa e confirmacao');
+$assert(str_contains($arquivos['view'], 'if (!state.selecionado && !singleMode) return;'), 'Payload nao restringe ajustes aos veiculos selecionados');
+$assert(str_contains($arquivos['view'], "action: 'openOffcanvasIframe'"), 'Tela nao abre o ajuste no offcanvas global');
+$assert(str_contains($arquivos['offcanvas_valores'], "action: 'valoresDevolucaoAplicados'"), 'Offcanvas nao devolve os valores para o estado da tela');
+$assert(!str_contains($arquivos['offcanvas_valores'], 'API.post('), 'Offcanvas persiste valores antes da confirmacao');
+$assert(!preg_match('/\balert\s*\(/', $arquivos['offcanvas_valores']), 'Offcanvas usa alert nativo');
+$assert(str_contains($arquivos['model_veiculo'], 'public function atualizarValoresDevolucao'), 'Model nao possui atualizacao tenant-scoped dos valores');
+$assert(!str_contains($arquivos['model_veiculo'], 'withoutChave()'), 'Model de veiculo ignora o isolamento de tenant');
+$assert(str_contains($arquivos['service'], "\$devolucoesPorId[\$id]['valores_ajustados']"), 'Preview nao projeta os valores ajustados sem persistir');
+$assert(str_contains($arquivos['docs'], 'Ao clicar em **Aplicar valores**, nenhuma gravacao e feita no banco'), 'Fluxo temporario dos ajustes nao foi documentado');
 
 if ($falhas) {
     fwrite(STDERR, implode(PHP_EOL, $falhas) . PHP_EOL);

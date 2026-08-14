@@ -418,6 +418,25 @@ por ciclos completos e dias restantes completos de 24 horas: semana usa base
 calendario e diaria de base 365. Fracoes inferiores a 24 horas nao geram
 diaria. Tolerancias configuradas para locacoes nao se aplicam a contratos.
 
+Cada veiculo selecionado na devolucao pode ter seus valores comerciais
+ajustados pelo botao **Ajustar valores**, desde que o usuario possua
+simultaneamente `contratos.devolver` e `contratos.editar_valores`. O offcanvas
+mantem o plano somente para leitura e permite alterar o valor do plano, a
+franquia e o valor por km aplicaveis ao tipo de plano, alem da ativacao e dos
+valores dos seguros do veiculo e contra terceiros. Em contratos com varios
+veiculos, cada ajuste pertence ao seu proprio card e o botao fica disponivel
+somente para veiculos selecionados.
+
+Ao clicar em **Aplicar valores**, nenhuma gravacao e feita no banco: os dados
+ficam no estado da tela, recebem a indicacao **Valores ajustados** e sao enviados
+ao endpoint de preview para recalcular o resumo oficial. Somente a confirmacao
+da devolucao persiste os campos alterados em `contratos_veiculos`, dentro da
+mesma transacao do encerramento. Veiculos nao selecionados nao enviam nem
+persistem ajustes. O backend valida novamente permissao, plano, campos
+aplicaveis, valores nao negativos e limites do schema; o plano nunca e alterado
+por esse fluxo. Os valores efetivamente modificados tambem sao registrados no
+log de auditoria.
+
 O calculo final inclui locacao, seguros, taxas contratuais recalculadas,
 adicionais de devolucao e desconto proporcional. O sistema compara esse total
 com o principal ja lancado no financeiro, excluindo taxa do meio de pagamento,

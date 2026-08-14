@@ -82,9 +82,22 @@
                             </span>
                         </div>
                     </div>
-                    <?php if (!$singleMode): ?>
-                    <i class="fas fa-chevron-down text-slate-400 card-chevron transition-transform flex-shrink-0 ml-2" data-index="<?= $index ?>"></i>
-                    <?php endif; ?>
+                    <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+                        <?php if (!empty($podeEditarValores)): ?>
+                        <span class="valores-ajustados-badge hidden inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800" data-index="<?= $index ?>">
+                            <?= t('modules.contratos.return_page.values_adjusted') ?>
+                        </span>
+                        <button type="button"
+                                class="btn-ajustar-valores btn-secondary py-1 px-3 text-xs rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                data-index="<?= $index ?>"
+                                <?= !$singleMode ? 'disabled' : '' ?>>
+                            <i class="fas fa-sliders-h mr-1"></i><?= t('modules.contratos.return_page.adjust_values') ?>
+                        </button>
+                        <?php endif; ?>
+                        <?php if (!$singleMode): ?>
+                        <i class="fas fa-chevron-down text-slate-400 card-chevron transition-transform" data-index="<?= $index ?>"></i>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <!-- Corpo do card (colapsavel) -->
@@ -102,11 +115,11 @@
                         </div>
                         <div>
                             <span class="text-slate-500"><?= t('modules.contratos.return_page.km_franchise') ?></span>
-                            <p class="font-medium text-slate-800"><?= ($v['plano'] === 'KMC') ? number_format((int)($v['km_franquia'] ?? 0), 0, '', '.') . ' km' : '-' ?></p>
+                            <p class="font-medium text-slate-800 km-franquia-display" data-index="<?= $index ?>"><?= ($v['plano'] === 'KMC') ? number_format((int)($v['km_franquia'] ?? 0), 0, '', '.') . ' km' : '-' ?></p>
                         </div>
                         <div>
                             <span class="text-slate-500"><?= t('modules.contratos.return_page.value_per_km') ?></span>
-                            <p class="font-medium text-slate-800"><?= ($v['plano'] !== 'KL' && !empty($v['valor_km_excedente'])) ? 'R$ ' . number_format((float)($v['valor_km_excedente'] ?? 0), 2, ',', '.') : '-' ?></p>
+                            <p class="font-medium text-slate-800 valor-km-display" data-index="<?= $index ?>"><?= ($v['plano'] !== 'KL' && !empty($v['valor_km_excedente'])) ? currency_format((float)($v['valor_km_excedente'] ?? 0)) : '-' ?></p>
                         </div>
                         <div>
                             <span class="text-slate-500 fuel-out-label" data-index="<?= $index ?>"><?= t('modules.contratos.return_page.fuel_out') ?></span>
@@ -399,6 +412,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'openInvoicesDeleteType' => t('modules.contratos.return_page.open_invoices_delete_type'),
         'openInvoicesDeleteError' => t('modules.contratos.return_page.open_invoices_delete_error'),
         'openInvoicesDeletePartial' => t('modules.contratos.return_page.open_invoices_delete_partial'),
+        'adjustValuesTitle' => t('modules.contratos.return_page.adjust_values_title'),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 
     // Dados do servidor
@@ -418,6 +432,24 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     let faturasAbertasState = [];
     const faturasAbertasSelecionadas = new Set();
     const canDeleteFinanceiro = <?= $canDeleteFinanceiro ? 'true' : 'false' ?>;
+    const canEditValues = <?= !empty($podeEditarValores) ? 'true' : 'false' ?>;
+
+    function valoresComerciaisVeiculo(v) {
+        const plano = String(v.plano || '').toUpperCase();
+        const valorPlano = plano === 'KP'
+            ? Number(v.valor_plano_km_pago || 0)
+            : (plano === 'KMC' ? Number(v.valor_plano_km_controlado || 0) : Number(v.valor_plano_km_livre || 0));
+
+        return {
+            valor_plano: valorPlano,
+            km_franquia: Number.parseInt(v.km_franquia, 10) || 0,
+            valor_km_excedente: Number(v.valor_km_excedente || 0),
+            seguro_carro: Number(v.seguro_carro || 0) === 1,
+            valor_seguro_carro: Number(v.valor_seguro_carro || 0),
+            seguro_terceiros: Number(v.seguro_terceiros || 0) === 1,
+            valor_seguro_terceiros: Number(v.valor_seguro_terceiros || 0),
+        };
+    }
 
     // Estado por veiculo
     const veiculoState = {};
@@ -425,6 +457,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         veiculoState[i] = {
             selecionado: singleMode,
             data: v,
+            valoresOriginais: valoresComerciaisVeiculo(v),
+            valoresAtuais: valoresComerciaisVeiculo(v),
+            valoresAjustados: false,
             odometroInicialRaw: parseInt(v.odometro_saida) || 0,
             valorPorFracao: parseFloat(v.veiculo_valor_por_fracao) || 0,
             combustivelLabels: FuelLabels.getLevelLabels(v.veiculo_tipo_combustivel || '', i18n.fuelFull, i18n.fuelReserve),
@@ -554,6 +589,84 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             body.classList.add('hidden');
             if (chevron) chevron.classList.remove('rotate-180');
         }
+    }
+
+    function atualizarBotaoAjustarValores(index) {
+        const state = veiculoState[index];
+        const button = document.querySelector(`.btn-ajustar-valores[data-index="${index}"]`);
+        if (button) {
+            button.disabled = !canEditValues || (!singleMode && !state?.selecionado);
+        }
+    }
+
+    function abrirAjusteValores(index) {
+        const state = veiculoState[index];
+        if (!state || !canEditValues || (!singleMode && !state.selecionado)) return;
+
+        const dados = encodeURIComponent(JSON.stringify({
+            index,
+            placa: state.data.veiculo_placa || '',
+            modelo: [state.data.veiculo_marca, state.data.veiculo_modelo].filter(Boolean).join(' '),
+            plano: state.data.plano || '',
+            valores: state.valoresAtuais,
+        }));
+
+        window.parent.postMessage({
+            action: 'openOffcanvasIframe',
+            url: `/pages/contratos/offcanvas-valores-devolucao?dados=${dados}`,
+            title: i18n.adjustValuesTitle,
+            width: '500px'
+        }, '*');
+    }
+
+    function valoresComerciaisIguais(a, b) {
+        const campos = ['valor_plano', 'km_franquia', 'valor_km_excedente', 'valor_seguro_carro', 'valor_seguro_terceiros'];
+        const numericosIguais = campos.every(campo => Math.abs(Number(a[campo] || 0) - Number(b[campo] || 0)) < 0.001);
+        return numericosIguais
+            && Boolean(a.seguro_carro) === Boolean(b.seguro_carro)
+            && Boolean(a.seguro_terceiros) === Boolean(b.seguro_terceiros);
+    }
+
+    function aplicarValoresNoEstado(state) {
+        const valores = state.valoresAtuais;
+        const plano = String(state.data.plano || '').toUpperCase();
+        if (plano === 'KP') state.data.valor_plano_km_pago = valores.valor_plano;
+        if (plano === 'KMC') state.data.valor_plano_km_controlado = valores.valor_plano;
+        if (plano === 'KL') state.data.valor_plano_km_livre = valores.valor_plano;
+        state.data.km_franquia = valores.km_franquia;
+        state.data.valor_km_excedente = valores.valor_km_excedente;
+        state.data.seguro_carro = valores.seguro_carro ? 1 : 0;
+        state.data.valor_seguro_carro = valores.valor_seguro_carro;
+        state.data.seguro_terceiros = valores.seguro_terceiros ? 1 : 0;
+        state.data.valor_seguro_terceiros = valores.valor_seguro_terceiros;
+    }
+
+    function handleValoresDevolucaoMessage(event) {
+        if (event.data?.action !== 'valoresDevolucaoAplicados') return;
+        const index = Number.parseInt(event.data.index, 10);
+        const state = veiculoState[index];
+        if (!state || (!state.selecionado && !singleMode) || !event.data.valores) return;
+
+        state.valoresAtuais = {
+            valor_plano: Number(event.data.valores.valor_plano || 0),
+            km_franquia: Number.parseInt(event.data.valores.km_franquia, 10) || 0,
+            valor_km_excedente: Number(event.data.valores.valor_km_excedente || 0),
+            seguro_carro: Boolean(event.data.valores.seguro_carro),
+            valor_seguro_carro: Number(event.data.valores.valor_seguro_carro || 0),
+            seguro_terceiros: Boolean(event.data.valores.seguro_terceiros),
+            valor_seguro_terceiros: Number(event.data.valores.valor_seguro_terceiros || 0),
+        };
+        state.valoresAjustados = !valoresComerciaisIguais(state.valoresOriginais, state.valoresAtuais);
+        aplicarValoresNoEstado(state);
+
+        document.querySelector(`.valores-ajustados-badge[data-index="${index}"]`)?.classList.toggle('hidden', !state.valoresAjustados);
+        const franquia = document.querySelector(`.km-franquia-display[data-index="${index}"]`);
+        const valorKm = document.querySelector(`.valor-km-display[data-index="${index}"]`);
+        if (franquia) franquia.textContent = state.data.plano === 'KMC' ? `${Km.format(state.valoresAtuais.km_franquia)} km` : '-';
+        if (valorKm) valorKm.textContent = state.data.plano !== 'KL' ? Currency.format(state.valoresAtuais.valor_km_excedente, true) : '-';
+
+        calcularDiferencasVeiculo(index);
+        atualizarResumoGeral();
     }
 
     // ==================== CALCULOS POR VEICULO ====================
@@ -1277,14 +1390,24 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const state = veiculoState[i];
             if (!state.selecionado && !singleMode) return;
             const card = document.querySelector(`.veiculo-card[data-index="${i}"]`);
-            veiculos.push({
+            const payload = {
                 id_contrato_veiculo: state.data.id,
                 data_entrada: card.querySelector('.data-devolucao')?.value || '',
                 odometro_entrada: Km.parse(card.querySelector('.odometro-atual')?.value || '0'),
                 combustivel_entrada: card.querySelector('.tanque-chegada')?.value || null,
                 acao_veiculo: card.querySelector('.acao-veiculo')?.value || 'disponivel',
                 observacao: card.querySelector('.observacao-veiculo')?.value || null,
-            });
+            };
+            if (state.valoresAjustados) {
+                payload.valores_ajustados = { ...state.valoresAtuais };
+                if (state.data.plano === 'KL') {
+                    delete payload.valores_ajustados.km_franquia;
+                    delete payload.valores_ajustados.valor_km_excedente;
+                } else if (state.data.plano === 'KP') {
+                    delete payload.valores_ajustados.km_franquia;
+                }
+            }
+            veiculos.push(payload);
         });
         return veiculos;
     }
@@ -1625,6 +1748,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             cb.addEventListener('change', function() {
                 const index = parseInt(this.dataset.index);
                 veiculoState[index].selecionado = this.checked;
+                atualizarBotaoAjustarValores(index);
                 toggleCard(index, this.checked);
                 atualizarResumoGeral();
                 atualizarBotaoConfirmar();
@@ -1635,7 +1759,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         if (!singleMode) {
             document.querySelectorAll('.card-header').forEach(header => {
                 header.addEventListener('click', function(e) {
-                    if (e.target.closest('input[type="checkbox"]')) return;
+                    if (e.target.closest('input[type="checkbox"], .btn-ajustar-valores')) return;
                     const index = parseInt(this.dataset.index);
                     toggleCard(index);
                 });
@@ -1690,6 +1814,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         document.getElementById('btnAdicionarTaxa')?.addEventListener('click', adicionarTaxaDevolucao);
 
+        document.querySelectorAll('.btn-ajustar-valores').forEach(button => {
+            button.addEventListener('click', function(event) {
+                event.stopPropagation();
+                abrirAjusteValores(Number.parseInt(this.dataset.index, 10));
+            });
+        });
+
         document.getElementById('toggleTaxasDevolucao')?.addEventListener('click', function() {
             const conteudo = document.getElementById('conteudoTaxasDevolucao');
             const icon = document.getElementById('iconTaxasDevolucao');
@@ -1738,6 +1869,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('btnGerarPagamento')?.addEventListener('click', abrirOffcanvasPagamento);
         window.addEventListener('message', handleOffcanvasPagamentoMessage);
         window.addEventListener('message', handleFaturasAbertasMessage);
+        window.addEventListener('message', handleValoresDevolucaoMessage);
     }
 
     // Inicializar

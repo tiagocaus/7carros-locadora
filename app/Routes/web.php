@@ -1030,6 +1030,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/pages/contratos/substituir/{id}', [ContratosController::class, 'substituirView']);
     $router->get('/pages/contratos/devolver/{id}', [ContratosController::class, 'devolverView']);
     $router->get('/pages/contratos/offcanvas-veiculo', [ContratosController::class, 'offcanvasVeiculo']);
+    $router->get('/pages/contratos/offcanvas-valores-devolucao', [ContratosController::class, 'offcanvasValoresDevolucao'], ['permission:contratos.devolver']);
     $router->get('/pages/contratos/offcanvas-impressao', [ContratosController::class, 'offcanvasImpressao']);
     $router->get('/pages/contratos/offcanvas-odometro', [ContratosController::class, 'offcanvasOdometro'], ['permission:contratos.editar']);
 

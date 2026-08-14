@@ -146,9 +146,54 @@ $assert($finalComHistorico['encerramento_final'], 'Ultimo veiculo selecionado de
 $assert(count($finalComHistorico['veiculos']) === 1, 'Encerramento final deve exibir somente o veiculo devolvido agora');
 $assertValor(1400, $finalComHistorico['total_veiculos'], 'Historico oculto deve continuar compondo o total final');
 
+$valoresAjustadosKl = $devolucao(13, '2026-08-08 10:00:00');
+$valoresAjustadosKl['valores_ajustados'] = [
+    'valor_plano_km_livre' => 1000,
+    'seguro_carro' => 1,
+    'valor_seguro_carro' => 100,
+    'seguro_terceiros' => 1,
+    'valor_seguro_terceiros' => 50,
+];
+$ajusteKl = $service->calcular(
+    $contrato('semana', '2026-08-01 10:00:00', 700),
+    [$veiculo(13, '2026-08-01 10:00:00', 700)],
+    [],
+    [$valoresAjustadosKl],
+    [],
+    700
+);
+$assertValor(1000, $ajusteKl['total_veiculos'], 'Preview deve usar o valor de plano ajustado');
+$assertValor(150, $ajusteKl['total_seguros'], 'Preview deve usar ativacao e valores de seguros ajustados');
+$assertValor(1150, $ajusteKl['total_final'], 'Total final deve refletir os valores ajustados antes da persistencia');
+
+$valoresAjustadosKmc = $devolucao(14, '2026-08-08 10:00:00');
+$valoresAjustadosKmc['odometro_entrada'] = 1800;
+$valoresAjustadosKmc['valores_ajustados'] = [
+    'valor_plano_km_controlado' => 700,
+    'km_franquia' => 700,
+    'valor_km_excedente' => 2,
+];
+$ajusteKmc = $service->calcular(
+    $contrato('semana', '2026-08-01 10:00:00', 700),
+    [$veiculo(14, '2026-08-01 10:00:00', 700, [
+        'plano' => 'KMC',
+        'valor_plano_km_livre' => 0,
+        'valor_plano_km_controlado' => 700,
+        'km_franquia' => 1000,
+        'valor_km_excedente' => 1,
+    ])],
+    [],
+    [$valoresAjustadosKmc],
+    [],
+    700
+);
+$assertValor(200, $ajusteKmc['total_km'], 'Km controlado deve usar franquia e valor excedente ajustados');
+$assert(($ajusteKmc['veiculos'][0]['km']['franquia'] ?? 0) === 700, 'Preview deve exibir a franquia ajustada');
+$assert(($ajusteKmc['veiculos'][0]['km']['excedente'] ?? 0) === 100, 'Preview deve exibir o excedente calculado com a nova franquia');
+
 if ($falhas) {
     fwrite(STDERR, implode(PHP_EOL, $falhas) . PHP_EOL);
     exit(1);
 }
 
-echo "OK - calculo proporcional semanal, mensal, anual, desconto e devolucao parcial\n";
+echo "OK - calculo proporcional, devolucao parcial e valores ajustados\n";
