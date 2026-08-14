@@ -97,6 +97,7 @@ return [
         'fin_detailed' => 'Movimenti Finanziari',
         'fin_billing' => 'Fatturazione',
         'fin_income_statement' => 'Conto economico',
+        'fin_cash_result' => 'Risultato gestionale per cassa',
         'fin_cashbook' => 'Libro di cassa',
         'fin_bank_accounts' => 'Conti bancari/Casse',
         'fin_chart_accounts' => 'Piano dei conti',

@@ -433,6 +433,28 @@ O filtro de situação é aplicado tanto às receitas quanto às despesas do dem
 
 ---
 
+### 2.3.1 Resultado Gerencial por Caixa
+
+**Objetivo**: Apresentar o resultado gerencial com base exclusiva nos valores
+efetivamente recebidos e pagos no período. Não substitui a DRE contábil por
+competência nem o Livro de Caixa cronológico.
+
+**Critério temporal**:
+- Inclui somente `financeiro.pago = 'S'`.
+- Filtra receitas e despesas por `financeiro.data_pago`.
+- Cada parcela é reconhecida no mês da respectiva baixa.
+- Baixas parciais consideram somente a parte paga desdobrada pelo Financeiro.
+- Lançamentos pagos sem data válida não recebem data presumida; o relatório
+  informa quantidade e valores que ficaram sem alocação temporal.
+
+**Estrutura**:
+- Receita bruta recebida, deduções e receita líquida recebida.
+- Custos operacionais pagos.
+- Despesas operacionais pagas.
+- Resultado bruto, operacional e líquido de caixa.
+
+---
+
 ### 2.4 Livro de Caixa
 
 **Objetivo**: Registro cronológico de todas as movimentações de caixa.

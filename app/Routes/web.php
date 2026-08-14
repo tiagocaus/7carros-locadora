@@ -1298,6 +1298,10 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/pages/relatorios/financeiro/dre', [FinanceiroReportController::class, 'viewDre']);
     $router->get('/api/relatorios/financeiro/dre', [FinanceiroReportController::class, 'dre'], ['api_csrf', 'rate_limit', 'throttle']);
 
+    // Resultado Gerencial por Caixa
+    $router->get('/pages/relatorios/financeiro/resultado-caixa', [FinanceiroReportController::class, 'viewResultadoCaixa']);
+    $router->get('/api/relatorios/financeiro/resultado-caixa', [FinanceiroReportController::class, 'resultadoCaixa'], ['api_csrf', 'rate_limit', 'throttle']);
+
     // Livro de Caixa
     $router->get('/pages/relatorios/financeiro/livro-caixa', [FinanceiroReportController::class, 'viewLivroCaixa']);
     $router->get('/api/relatorios/financeiro/livro-caixa', [FinanceiroReportController::class, 'livroCaixa'], ['api_csrf', 'rate_limit', 'throttle']);
@@ -1330,6 +1334,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/relatorios/financeiro/movimentacoes/pdf', [FinanceiroReportController::class, 'movimentacoesPdf']);
     $router->get('/relatorios/financeiro/faturamento/pdf', [FinanceiroReportController::class, 'faturamentoPdf']);
     $router->get('/relatorios/financeiro/dre/pdf', [FinanceiroReportController::class, 'drePdf']);
+    $router->get('/relatorios/financeiro/resultado-caixa/pdf', [FinanceiroReportController::class, 'resultadoCaixaPdf']);
     $router->get('/relatorios/financeiro/livro-caixa/pdf', [FinanceiroReportController::class, 'livroCaixaPdf']);
     $router->get('/relatorios/financeiro/contas-bancarias/pdf', [FinanceiroReportController::class, 'contasBancariasPdf']);
     $router->get('/relatorios/financeiro/plano-contas/pdf', [FinanceiroReportController::class, 'planoContasPdf']);

@@ -12,10 +12,11 @@ use App\Models\Relatorios\FinanceiroReport;
 /**
  * Controller de Relatórios Financeiros
  *
- * Gerencia os 10 relatórios financeiros:
+ * Gerencia os relatórios financeiros:
  * - Movimentações
  * - Faturamento
  * - DRE
+ * - Resultado Gerencial por Caixa
  * - Livro de Caixa
  * - Contas Bancárias
  * - Plano de Contas
@@ -262,6 +263,47 @@ class FinanceiroController extends BaseRelatorioController
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
         } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => t('modules.relatorios.messages.load_error')], 500);
+        }
+    }
+
+    // =====================================================
+    // RESULTADO GERENCIAL POR CAIXA
+    // =====================================================
+
+    /** GET /pages/relatorios/financeiro/resultado-caixa */
+    public function viewResultadoCaixa(Request $request): void
+    {
+        $html = Template::render('pages.relatorios.financeiro.resultado-caixa');
+        Response::html($html);
+    }
+
+    /** GET /api/relatorios/financeiro/resultado-caixa */
+    public function resultadoCaixa(Request $request): void
+    {
+        try {
+            if (!$this->checkPermission('relatorios.financeiro.resultado_caixa')) return;
+
+            $filters = $this->parseFilters($request);
+            $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
+            if ($erro) {
+                Response::json(['success' => false, 'message' => $erro], 422);
+                return;
+            }
+
+            if (!$this->validateFilialAccess($filters['filial'])) return;
+
+            [$filialWhere, $filialParams] = $this->getFilialFilter();
+            $result = (new FinanceiroReport())->resultadoCaixa(
+                $filters['data_inicio'],
+                $filters['data_fim'],
+                $filialWhere,
+                $filialParams,
+                $filters['filial']
+            );
+
+            $this->reportResponse($result['details'], $result['totals'], $result['chart']);
+        } catch (\Throwable $e) {
             Response::json(['success' => false, 'message' => t('modules.relatorios.messages.load_error')], 500);
         }
     }
@@ -769,6 +811,36 @@ class FinanceiroController extends BaseRelatorioController
         );
 
         $this->renderPdf('dre.php', t('modules.relatorios.financeiro.dre.title'), t('modules.relatorios.financeiro.dre.description'), $result['totals'], $result['details'], $filters['data_inicio'], $filters['data_fim']);
+    }
+
+    /** GET /relatorios/financeiro/resultado-caixa/pdf */
+    public function resultadoCaixaPdf(Request $request): void
+    {
+        if (!$this->checkPermission('relatorios.financeiro.resultado_caixa')) return;
+
+        $filters = $this->parseFilters($request);
+        $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
+        if ($erro) { Response::html('<h3>' . htmlspecialchars($erro) . '</h3>', 422); return; }
+        if (!$this->validateFilialAccess($filters['filial'])) return;
+
+        [$filialWhere, $filialParams] = $this->getFilialFilter();
+        $result = (new FinanceiroReport())->resultadoCaixa(
+            $filters['data_inicio'],
+            $filters['data_fim'],
+            $filialWhere,
+            $filialParams,
+            $filters['filial']
+        );
+
+        $this->renderPdf(
+            'resultado-caixa.php',
+            t('modules.relatorios.financeiro.resultado_caixa.title'),
+            t('modules.relatorios.financeiro.resultado_caixa.description'),
+            $result['totals'],
+            $result['details'],
+            $filters['data_inicio'],
+            $filters['data_fim']
+        );
     }
 
     /** GET /relatorios/financeiro/livro-caixa/pdf */

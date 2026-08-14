@@ -121,6 +121,14 @@ public/assets/js/
 
 ## Padroes Obrigatorios
 
+### Relatórios pelo regime de caixa
+
+O relatório Financeiro > Resultado Gerencial por Caixa usa `pago = 'S'` e
+`data_pago` como critérios obrigatórios. Não use `data_criada` ou `data_venci`
+como fallback para lançamentos pagos sem data: esses registros devem ser
+sinalizados como não alocados. O filtro automático de tenant e o filtro de
+filial aplicam-se tanto aos totais quanto ao diagnóstico de dados incompletos.
+
 ### QueryBuilder
 - **NUNCA** usar `withoutChave()` — o auto-filter cuida do multi-tenancy
 - Unico caso para `$chave` explicito: subqueries dentro de `selectRaw()` (auto-filter nao atua em subqueries)

@@ -98,6 +98,7 @@ return [
         'fin_deposits' => 'Caução (Depósito de Garantia)',
         'fin_billing' => 'Faturamento',
         'fin_income_statement' => 'Demonstrativos de resultados',
+        'fin_cash_result' => 'Resultado gerencial por caixa',
         'fin_cashbook' => 'Livro de caixa',
         'fin_bank_accounts' => 'Contas bancárias/Caixas',
         'fin_chart_accounts' => 'Plano de contas',

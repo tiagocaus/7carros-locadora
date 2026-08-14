@@ -96,8 +96,43 @@ $consultarResumo = static function () use ($mysqli, $tenantFiltro): array {
     return $resumo;
 };
 
+$consultarPagosSemDataValida = static function () use ($mysqli, $tenantFiltro): array {
+    $sql = "
+        SELECT
+            chave,
+            COUNT(*) AS quantidade,
+            SUM(CASE WHEN tipo = 'R' THEN valor_total ELSE 0 END) AS receitas,
+            SUM(CASE WHEN tipo = 'D' THEN valor_total ELSE 0 END) AS despesas
+        FROM financeiro
+        WHERE pago = 'S'
+          AND (data_pago IS NULL OR data_pago < '1900-01-01' OR data_pago > '2100-12-31')
+    ";
+
+    if ($tenantFiltro !== null && $tenantFiltro !== '') {
+        $sql .= ' AND chave = ?';
+    }
+
+    $sql .= ' GROUP BY chave ORDER BY chave';
+
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException("Erro ao preparar auditoria de pagos: {$mysqli->error}");
+    }
+
+    if ($tenantFiltro !== null && $tenantFiltro !== '') {
+        $stmt->bind_param('s', $tenantFiltro);
+    }
+
+    $stmt->execute();
+    $resumo = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    return $resumo;
+};
+
 try {
     $resumoAntes = $consultarResumo();
+    $pagosSemDataValida = $consultarPagosSemDataValida();
 } catch (Throwable $e) {
     fwrite(STDERR, "Erro ao consultar inconsistencias: {$e->getMessage()}\n");
     Model::closeConnection();
@@ -138,6 +173,24 @@ printf(
     $totalAntes,
     $totalDatasValidas,
     $totalDatasZero
+);
+
+$totalPagosSemData = 0;
+foreach ($pagosSemDataValida as $tenant) {
+    $quantidade = (int) $tenant['quantidade'];
+    $totalPagosSemData += $quantidade;
+    printf(
+        "PAGO_SEM_DATA_VALIDA | %s | registros=%d | receitas=%.2f | despesas=%.2f\n",
+        $tenant['chave'],
+        $quantidade,
+        (float) $tenant['receitas'],
+        (float) $tenant['despesas']
+    );
+}
+printf(
+    "TOTAL_PAGOS_SEM_DATA_VALIDA | tenants=%d | registros=%d | somente_auditoria=sim\n",
+    count($pagosSemDataValida),
+    $totalPagosSemData
 );
 
 if (!$aplicar || $totalAntes === 0) {

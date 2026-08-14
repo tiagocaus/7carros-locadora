@@ -97,6 +97,7 @@ return [
         'fin_detailed' => 'Financial Transactions',
         'fin_billing' => 'Billing',
         'fin_income_statement' => 'Income statement',
+        'fin_cash_result' => 'Cash-basis management result',
         'fin_cashbook' => 'Cash book',
         'fin_bank_accounts' => 'Bank accounts/Cash registers',
         'fin_chart_accounts' => 'Chart of accounts',

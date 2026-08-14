@@ -126,6 +126,22 @@ $cases = [
         ],
         'expected' => 'R$ 1.000,00',
     ],
+    'resultado-caixa.php' => [
+        'totals' => [
+            'receita_liquida' => 900,
+            'lucro_bruto' => 700,
+            'lucro_operacional' => 500,
+            'lucro_liquido' => 500,
+            'sem_data_quantidade' => 1,
+            'sem_data_receitas' => 100,
+            'sem_data_despesas' => 0,
+        ],
+        'details' => [
+            ['label' => 'Receita Bruta Recebida', 'valor' => 1000, 'percentual' => 100, 'indent' => 0, 'type' => 'header'],
+            ['label' => 'Resultado Líquido de Caixa', 'valor' => 500, 'percentual' => 50, 'indent' => 0, 'type' => 'subtotal'],
+        ],
+        'expected' => '1 lançamento(s) pago(s) sem data de pagamento válida',
+    ],
     'contas-bancarias.php' => [
         'totals' => ['total_entradas' => 500, 'total_saidas' => 100, 'saldo_geral' => 400, 'total_contas' => 2],
         'details' => [['conta' => 'Principal', 'banco' => 'Banco', 'entradas' => 500, 'saidas' => 100, 'saldo' => 400]],
@@ -166,7 +182,7 @@ set_error_handler(static function (int $severity, string $message, string $file,
 
 try {
     foreach ($cases as $template => $case) {
-        if (in_array($template, ['movimentacoes.php', 'plano-contas.php'], true)) {
+        if (in_array($template, ['movimentacoes.php', 'plano-contas.php', 'resultado-caixa.php'], true)) {
             assertTemplateTranslationsExist($template);
         }
 

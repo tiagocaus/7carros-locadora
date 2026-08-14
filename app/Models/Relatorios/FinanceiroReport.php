@@ -7,10 +7,11 @@ use App\Core\Auth;
 /**
  * Model para relatorios financeiros
  *
- * Metodos de agregacao para os 10 relatorios financeiros:
+ * Metodos de agregacao para os relatorios financeiros:
  * - Movimentacoes
  * - Faturamento
  * - DRE (Demonstrativo de Resultado)
+ * - Resultado Gerencial por Caixa
  * - Livro Caixa
  * - Contas Bancarias
  * - Plano de Contas
@@ -654,7 +655,212 @@ class FinanceiroReport extends BaseReportModel
     }
 
     // -------------------------------------------------------------------------
-    // 4. Livro Caixa
+    // 4. Resultado Gerencial por Caixa
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resultado gerencial pelo regime de caixa.
+     *
+     * Considera somente valores efetivamente pagos/recebidos no periodo. Uma
+     * baixa parcial ja chega aqui desdobrada entre a parte paga e a diferenca
+     * pendente, conforme o modelo financeiro vigente.
+     *
+     * @return array{totals: array, details: array, chart: array}
+     */
+    public function resultadoCaixa(
+        string $dataInicio,
+        string $dataFim,
+        string $filialWhere,
+        array $filialParams,
+        string $filialId = ''
+    ): array {
+        $queryReceita = $this->qb
+            ->table('financeiro', 'f')
+            ->selectRaw("
+                COALESCE(SUM(COALESCE(f.valor_total, 0) + COALESCE(f.desconto, 0)), 0) AS receita_bruta,
+                COALESCE(SUM(f.desconto), 0) AS deducoes
+            ")
+            ->whereRaw('f.tipo = ?', ['R'])
+            ->whereRaw('f.pago = ?', ['S'])
+            ->whereRaw('f.data_pago BETWEEN ? AND ?', [$dataInicio, $dataFim]);
+
+        $this->applyFilialFilter($queryReceita, $filialWhere, $filialParams, $filialId);
+
+        $resultReceita = $queryReceita->first();
+        $receitaBruta = (float) ($resultReceita['receita_bruta'] ?? 0);
+        $deducoes = (float) ($resultReceita['deducoes'] ?? 0);
+        $receitaLiquida = $receitaBruta - $deducoes;
+
+        $queryDespesas = $this->qb
+            ->table('financeiro', 'f')
+            ->selectRaw("
+                pc.hierarquia,
+                pc.descricao_i18n,
+                pc.tipo AS tipo_plano,
+                COALESCE(SUM(f.valor_total), 0) AS valor
+            ")
+            ->leftJoin('planos_de_contas', 'pc', 'f.id_plano_de_conta', '=', 'pc.id')
+            ->whereRaw('f.tipo = ?', ['D'])
+            ->whereRaw('f.pago = ?', ['S'])
+            ->whereRaw('f.data_pago BETWEEN ? AND ?', [$dataInicio, $dataFim])
+            ->groupBy(['f.id_plano_de_conta', 'pc.hierarquia', 'pc.descricao_i18n', 'pc.tipo'])
+            ->orderByRaw('pc.hierarquia ASC');
+
+        $this->applyFilialFilter($queryDespesas, $filialWhere, $filialParams, $filialId);
+
+        $custosOperacionais = 0.0;
+        $despesasOperacionais = 0.0;
+        $despesaItems = [];
+
+        foreach ($queryDespesas->get() as $row) {
+            $valor = (float) $row['valor'];
+            $hierarquia = (string) ($row['hierarquia'] ?? '');
+            $descricao = $this->extractDescricaoI18n($row['descricao_i18n'] ?? null);
+
+            if (str_starts_with($hierarquia, '2')) {
+                $custosOperacionais += $valor;
+            } else {
+                $despesasOperacionais += $valor;
+            }
+
+            $despesaItems[] = [
+                'hierarquia' => $hierarquia,
+                'descricao' => $descricao !== ''
+                    ? $descricao
+                    : t('modules.relatorios.financeiro.resultado_caixa.sem_classificacao'),
+                'valor' => $valor,
+                'tipo_plano' => $row['tipo_plano'] ?? '',
+            ];
+        }
+
+        $lucroBruto = $receitaLiquida - $custosOperacionais;
+        $lucroOperacional = $lucroBruto - $despesasOperacionais;
+        $lucroLiquido = $lucroOperacional;
+
+        $details = [
+            [
+                'label' => t('modules.relatorios.financeiro.resultado_caixa.receita_bruta'),
+                'valor' => $receitaBruta,
+                'percentual' => 100.0,
+                'indent' => 0,
+                'type' => 'header',
+            ],
+            [
+                'label' => t('modules.relatorios.financeiro.resultado_caixa.deducoes'),
+                'valor' => -$deducoes,
+                'percentual' => $this->pct($deducoes, $receitaBruta),
+                'indent' => 1,
+                'type' => 'value',
+            ],
+            [
+                'label' => t('modules.relatorios.financeiro.resultado_caixa.receita_liquida'),
+                'valor' => $receitaLiquida,
+                'percentual' => $this->pct($receitaLiquida, $receitaBruta),
+                'indent' => 0,
+                'type' => 'subtotal',
+            ],
+            [
+                'label' => t('modules.relatorios.financeiro.resultado_caixa.custos_operacionais'),
+                'valor' => -$custosOperacionais,
+                'percentual' => $this->pct($custosOperacionais, $receitaBruta),
+                'indent' => 0,
+                'type' => 'header',
+            ],
+        ];
+
+        foreach ($despesaItems as $item) {
+            if (str_starts_with($item['hierarquia'], '2')) {
+                $details[] = [
+                    'label' => $item['descricao'],
+                    'valor' => -$item['valor'],
+                    'percentual' => $this->pct($item['valor'], $receitaBruta),
+                    'indent' => 2,
+                    'type' => 'value',
+                ];
+            }
+        }
+
+        $details[] = [
+            'label' => t('modules.relatorios.financeiro.resultado_caixa.lucro_bruto'),
+            'valor' => $lucroBruto,
+            'percentual' => $this->pct($lucroBruto, $receitaBruta),
+            'indent' => 0,
+            'type' => 'subtotal',
+        ];
+        $details[] = [
+            'label' => t('modules.relatorios.financeiro.resultado_caixa.despesas_operacionais'),
+            'valor' => -$despesasOperacionais,
+            'percentual' => $this->pct($despesasOperacionais, $receitaBruta),
+            'indent' => 0,
+            'type' => 'header',
+        ];
+
+        foreach ($despesaItems as $item) {
+            if (!str_starts_with($item['hierarquia'], '2')) {
+                $details[] = [
+                    'label' => $item['descricao'],
+                    'valor' => -$item['valor'],
+                    'percentual' => $this->pct($item['valor'], $receitaBruta),
+                    'indent' => 2,
+                    'type' => 'value',
+                ];
+            }
+        }
+
+        $details[] = [
+            'label' => t('modules.relatorios.financeiro.resultado_caixa.lucro_operacional'),
+            'valor' => $lucroOperacional,
+            'percentual' => $this->pct($lucroOperacional, $receitaBruta),
+            'indent' => 0,
+            'type' => 'subtotal',
+        ];
+        $details[] = [
+            'label' => t('modules.relatorios.financeiro.resultado_caixa.lucro_liquido'),
+            'valor' => $lucroLiquido,
+            'percentual' => $this->pct($lucroLiquido, $receitaBruta),
+            'indent' => 0,
+            'type' => 'subtotal',
+        ];
+
+        // Sem data valida nao existe criterio confiavel para alocar o caixa em
+        // um periodo. Esses registros sao informados, nunca realocados.
+        $querySemData = $this->qb
+            ->table('financeiro', 'f')
+            ->selectRaw("
+                COUNT(*) AS quantidade,
+                COALESCE(SUM(CASE WHEN f.tipo = 'R' THEN f.valor_total ELSE 0 END), 0) AS receitas,
+                COALESCE(SUM(CASE WHEN f.tipo = 'D' THEN f.valor_total ELSE 0 END), 0) AS despesas
+            ")
+            ->whereRaw('f.pago = ?', ['S'])
+            ->whereRaw(
+                '(f.data_pago IS NULL OR f.data_pago < ? OR f.data_pago > ?)',
+                ['1900-01-01', '2100-12-31']
+            );
+
+        $this->applyFilialFilter($querySemData, $filialWhere, $filialParams, $filialId);
+        $semData = $querySemData->first() ?? [];
+
+        return [
+            'totals' => [
+                'receita_bruta' => $receitaBruta,
+                'deducoes' => $deducoes,
+                'receita_liquida' => $receitaLiquida,
+                'custos_operacionais' => $custosOperacionais,
+                'lucro_bruto' => $lucroBruto,
+                'despesas_operacionais' => $despesasOperacionais,
+                'lucro_operacional' => $lucroOperacional,
+                'lucro_liquido' => $lucroLiquido,
+                'sem_data_quantidade' => (int) ($semData['quantidade'] ?? 0),
+                'sem_data_receitas' => (float) ($semData['receitas'] ?? 0),
+                'sem_data_despesas' => (float) ($semData['despesas'] ?? 0),
+            ],
+            'details' => $details,
+            'chart' => [],
+        ];
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. Livro Caixa
     // -------------------------------------------------------------------------
 
     /**

@@ -169,6 +169,12 @@ registros historicos que contrariem essa regra, incluindo o legado
 `0000-00-00`. O modo padrao e sempre de previa e nenhuma entrada de auditoria e
 criada pela reparacao administrativa.
 
+O mesmo script também lista lançamentos marcados como pagos sem uma
+`data_pago` válida. Essa parte é somente diagnóstica: como não é possível
+deduzir com segurança quando o caixa ocorreu, nenhuma data é preenchida
+automaticamente. Esses registros também aparecem como aviso no relatório
+**Resultado Gerencial por Caixa**.
+
 ```bash
 # Previa geral em producao
 php scripts/reparar-financeiro-data-pagamento.php --env=production
@@ -209,6 +215,18 @@ valor_total = (
 **Nota sobre `valor_liquido`:** Como eh uma coluna GENERATED STORED (`valor_total - valor_taxa`), o MySQL recalcula automaticamente quando `valor_total` ou `valor_taxa` mudam. Os triggers de `financeiro_itens` NAO precisam se preocupar com `valor_liquido`.
 
 ## API Endpoints
+
+### Resultado Gerencial por Caixa
+
+```
+GET /api/relatorios/financeiro/resultado-caixa
+Params: data_inicio, data_fim, filial
+Response: { success: true, data: [...], totals: {...}, chart: [] }
+```
+
+O relatório considera exclusivamente lançamentos pagos cuja `data_pago` esteja
+no período. O índice composto `idx_fin_chave_pago_data_pago` atende o filtro por
+tenant, situação e data de caixa.
 
 ### Listagem
 ```
