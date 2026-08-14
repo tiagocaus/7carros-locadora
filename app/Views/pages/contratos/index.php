@@ -82,6 +82,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             'statusDelivered' => t('modules.contratos.status.delivered'),
             'statusExpired' => t('modules.contratos.status.expired'),
             'statusRenewalIn' => t('modules.contratos.status.renewal_in'),
+            'statusDueIn' => t('modules.contratos.status.due_in'),
+            'statusDueToday' => t('modules.contratos.status.due_today'),
+            'statusOverdueBy' => t('modules.contratos.status.overdue_by'),
             'statusAuto' => t('modules.contratos.status.auto'),
             'statusEnding' => t('modules.contratos.status.ending'),
             'btnReturn' => t('modules.contratos.buttons.return'),
@@ -179,19 +182,24 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
 
         function getHojeISO() {
-            return window.DateHelper && typeof DateHelper.todayISO === 'function'
-                ? DateHelper.todayISO()
-                : new Date().toISOString().split('T')[0];
+            return DateHelper.todayISO();
         }
 
         function diffDias(inicio, fim) {
-            if (window.DateHelper && typeof DateHelper.diffDays === 'function') {
-                return DateHelper.diffDays(inicio, fim);
-            }
+            return DateHelper.diffDays(inicio, fim);
+        }
 
-            const inicioDate = new Date(inicio + 'T00:00:00');
-            const fimDate = new Date(fim + 'T00:00:00');
-            return Math.ceil((fimDate.getTime() - inicioDate.getTime()) / (1000 * 60 * 60 * 24));
+        function dataIsoValida(data) {
+            const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(data);
+            if (!match) return false;
+
+            const ano = Number(match[1]);
+            const mes = Number(match[2]);
+            const dia = Number(match[3]);
+            const bissexto = ano % 4 === 0 && (ano % 100 !== 0 || ano % 400 === 0);
+            const diasPorMes = [31, bissexto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+            return mes >= 1 && mes <= 12 && dia >= 1 && dia <= diasPorMes[mes - 1];
         }
 
         function renderContratos(contratos) {
@@ -234,6 +242,23 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 if (c.status === 'F') {
                     infoBadges += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 mr-1">${i18n.statusDelivered}</span>`;
                 } else {
+                    // Vencimento do contrato ativo sem renovacao configurada
+                    if (c.status === 'A' && !c.auto_renovacao && c.data_fim) {
+                        const dataFim = String(c.data_fim).substring(0, 10);
+
+                        if (dataIsoValida(dataFim)) {
+                            const diffDays = diffDias(hoje, dataFim);
+
+                            if (diffDays < 0) {
+                                infoBadges += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 mr-1">${i18n.statusOverdueBy.replace(':days', Math.abs(diffDays) + 'd')}</span>`;
+                            } else if (diffDays === 0) {
+                                infoBadges += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 mr-1">${i18n.statusDueToday}</span>`;
+                            } else {
+                                infoBadges += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 mr-1">${i18n.statusDueIn.replace(':days', diffDays + 'd')}</span>`;
+                            }
+                        }
+                    }
+
                     // Verificar vencimento (apenas para ativos com autorenovacao)
                     if (c.auto_renovacao === 'auto' && c.data_renovacao) {
                         const diffDays = diffDias(hoje, c.data_renovacao.substring(0, 10));
