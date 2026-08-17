@@ -82,7 +82,7 @@
                         <span class="text-sm font-semibold text-gray-900">
                             <?= !empty($contrato['data_ini']) ? format_date($contrato['data_ini']) : '-' ?>
                             a
-                            <?php if (!empty($contrato['auto_renovacao']) && $contrato['auto_renovacao'] === 'auto'): ?>
+                            <?php if (($contrato['status'] ?? '') === 'A' && ($contrato['auto_renovacao'] ?? '') === 'auto'): ?>
                                 Indeterminado
                             <?php else: ?>
                                 <?= !empty($contrato['data_fim']) ? format_date($contrato['data_fim']) : '-' ?>
