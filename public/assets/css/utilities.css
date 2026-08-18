@@ -7,6 +7,7 @@
     width: 20px;
     height: 14px;
     border: 1px solid #CBD5E1;
+    border-radius: 2px;
     object-fit: cover;
 }
 
@@ -17,10 +18,12 @@
 }
 
 .flag-icon-active {
-    font-size: 1.25rem;
-    display: inline-block;
-    line-height: 1;
-    margin-top: 4px;
+    width: 24px;
+    height: 18px;
+    display: block;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+    object-fit: cover;
 }
 
 /* Classes específicas para cada bandeira */
@@ -124,4 +127,3 @@
         flex-shrink: 0;
     }
 }
-

@@ -150,9 +150,13 @@ const countryData = [
         code: 'AR',
         dialCode: '+54',
         flag: '🇦🇷',
-        placeholder: '11 1234-5678',
-        // Máscara: ## ####-####
+        placeholder: '9 11 1234-5678',
+        // Fixo: ## ####-#### | Celular internacional: 9 ## ####-####
         maskFormat: function (number) {
+            if (number.startsWith('9')) {
+                return number.replace(/^(9)(\d{2})(\d{4})(\d{0,4}).*/, '$1 $2 $3-$4');
+            }
+
             return number.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '$1 $2-$3');
         }
     },

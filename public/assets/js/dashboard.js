@@ -263,14 +263,16 @@ document.addEventListener('DOMContentLoaded', function () {
         languageItems.forEach(item => {
             item.addEventListener('click', async (e) => {
                 e.preventDefault();
-                const flagEmoji = item.dataset.flag;
+                const flagSrc = item.dataset.flagSrc;
+                const flagAlt = item.dataset.flagAlt || '';
                 const locale = item.dataset.locale; // pt_BR, en_US, etc.
 
                 if (!locale) return;
 
                 // Atualizar UI imediatamente para feedback visual
-                if (activeLanguageFlag && flagEmoji) {
-                    activeLanguageFlag.textContent = flagEmoji;
+                if (activeLanguageFlag && flagSrc) {
+                    activeLanguageFlag.src = flagSrc;
+                    activeLanguageFlag.alt = flagAlt;
                 }
 
                 // Marcar item como ativo

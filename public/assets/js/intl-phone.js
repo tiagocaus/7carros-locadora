@@ -93,11 +93,67 @@ class IntlPhone {
      * Atualiza o botão de seleção de país
      */
     updateFlagButton() {
-        this.flagButton.innerHTML = `
-            <span class="flag-emoji">${this.selectedCountry.flag}</span>
-            <span class="intl-phone-chevron" aria-hidden="true">▾</span>
-        `;
+        const chevron = document.createElement('span');
+        chevron.className = 'intl-phone-chevron';
+        chevron.setAttribute('aria-hidden', 'true');
+        chevron.textContent = '▾';
+
+        this.flagButton.replaceChildren(
+            this.createFlagElement(this.selectedCountry),
+            chevron
+        );
         this.flagButton.title = `${this.selectedCountry.name} (${this.selectedCountry.dialCode})`;
+    }
+
+    /**
+     * Retorna a URL base das bandeiras a partir do próprio asset do componente.
+     */
+    static getFlagBaseUrl() {
+        if (IntlPhone._flagBaseUrl) {
+            return IntlPhone._flagBaseUrl;
+        }
+
+        const componentScript = Array.from(document.scripts).find((script) =>
+            script.src && /\/assets\/js\/intl-phone(?:\.min)?\.js$/.test(new URL(script.src).pathname)
+        );
+
+        IntlPhone._flagBaseUrl = componentScript
+            ? new URL('../vendor/flag-icons/flags/4x3/', componentScript.src).href
+            : new URL('/assets/vendor/flag-icons/flags/4x3/', window.location.origin).href;
+
+        return IntlPhone._flagBaseUrl;
+    }
+
+    /**
+     * Cria uma bandeira SVG independente do suporte a emojis do sistema operacional.
+     */
+    createFlagElement(country, decorative = false) {
+        const image = document.createElement('img');
+        image.className = 'country-flag-image';
+        image.src = `${IntlPhone.getFlagBaseUrl()}${encodeURIComponent(country.code.toLowerCase())}.svg`;
+        image.alt = decorative ? '' : country.name;
+        image.width = 24;
+        image.height = 18;
+
+        if (decorative) {
+            image.setAttribute('aria-hidden', 'true');
+        }
+
+        image.addEventListener('error', () => {
+            const fallback = document.createElement('span');
+            fallback.className = 'country-flag-fallback';
+            fallback.textContent = country.code;
+
+            if (decorative) {
+                fallback.setAttribute('aria-hidden', 'true');
+            } else {
+                fallback.setAttribute('aria-label', country.name);
+            }
+
+            image.replaceWith(fallback);
+        }, { once: true });
+
+        return image;
     }
 
     /**
@@ -114,11 +170,20 @@ class IntlPhone {
         countryData.forEach(country => {
             const item = document.createElement('li');
             item.className = 'intl-phone-list-item';
-            item.innerHTML = `
-                <span class="flag-emoji">${country.flag}</span>
-                <span class="country-name">${country.name}</span>
-                <span class="dial-code">${country.dialCode}</span>
-            `;
+
+            const countryName = document.createElement('span');
+            countryName.className = 'country-name';
+            countryName.textContent = country.name;
+
+            const dialCode = document.createElement('span');
+            dialCode.className = 'dial-code';
+            dialCode.textContent = country.dialCode;
+
+            item.append(
+                this.createFlagElement(country, true),
+                countryName,
+                dialCode
+            );
             item.dataset.code = country.code;
             item.addEventListener('click', () => this.selectCountry(country));
             list.appendChild(item);

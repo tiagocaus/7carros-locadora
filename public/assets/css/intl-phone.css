@@ -27,6 +27,7 @@
     background: transparent;
     cursor: pointer;
     display: flex;
+    align-items: center;
     justify-content: center;
     gap: 3px;
     z-index: 2;
@@ -43,9 +44,29 @@
     background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Emoji da bandeira */
-.intl-phone-flag-button .flag-emoji {
-    font-size: 24px;
+/* Bandeira SVG independente do suporte a emojis do sistema operacional */
+.country-flag-image,
+.country-flag-fallback {
+    width: 24px;
+    height: 18px;
+    flex-shrink: 0;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
+}
+
+.country-flag-image {
+    display: block;
+    object-fit: cover;
+}
+
+.country-flag-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f1f5f9;
+    color: #475569;
+    font-size: 10px;
+    font-weight: 700;
     line-height: 1;
     user-select: none;
 }
@@ -95,13 +116,6 @@
 
 .intl-phone-list-item:active {
     background-color: #e9ecef;
-}
-
-/* Emoji da bandeira no dropdown */
-.intl-phone-list-item .flag-emoji {
-    font-size: 24px;
-    line-height: 1;
-    flex-shrink: 0;
 }
 
 /* Nome do país */
@@ -163,12 +177,10 @@
         font-size: 12px;
     }
 
-    .intl-phone-list-item .flag-emoji {
-        font-size: 20px;
-    }
-
-    .intl-phone-flag-button .flag-emoji {
-        font-size: 20px;
+    .country-flag-image,
+    .country-flag-fallback {
+        width: 20px;
+        height: 15px;
     }
 
     .intl-phone-flag-button .intl-phone-chevron {

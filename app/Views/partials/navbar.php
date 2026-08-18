@@ -296,21 +296,34 @@
             @php
                 $currentLocale = current_locale();
                 $localeInfo = locale_info($currentLocale);
-                $currentFlag = $localeInfo['flag'] ?? '🇧🇷';
+                $currentCountryCode = strtolower(substr($currentLocale, -2));
+                $currentFlagUrl = asset('vendor/flag-icons/flags/4x3/' . $currentCountryCode . '.svg');
                 $supportedLocales = supported_locales();
             @endphp
             <div class="flex items-center space-x-1 md:space-x-2 ml-2 md:ml-0 relative">
                 <!-- Dropdown de idioma -->
                 <div class="nav-dropdown-container">
                     <button id="languageButton" class="p-2 rounded-full hover:bg-[#3578a0] focus:outline-none" title="{{ t('menu.tooltips.select_language') }}">
-                        <span class="flag-icon-active" id="activeLanguageFlag"><?= $currentFlag ?></span>
+                        <img class="flag-icon-active" id="activeLanguageFlag"
+                             src="<?= htmlspecialchars($currentFlagUrl, ENT_QUOTES, 'UTF-8') ?>"
+                             alt="<?= htmlspecialchars($localeInfo['name'] ?? $currentLocale, ENT_QUOTES, 'UTF-8') ?>">
                     </button>
                     <div id="languageDropdown" class="nav-dropdown">
                         <div class="dropdown-header"><i class="fas fa-check text-green-500"></i><?= t('common.labels.select_language') ?></div>
                         @foreach($supportedLocales as $localeCode => $info)
-                            <a href="#" class="dropdown-item<?= $localeCode === $currentLocale ? ' active' : '' ?>" data-lang="<?= $info['code'] ?>" data-locale="<?= $localeCode ?>" data-flag="<?= $info['flag'] ?>">
+                            @php
+                                $localeCountryCode = strtolower(substr($localeCode, -2));
+                                $localeFlagUrl = asset('vendor/flag-icons/flags/4x3/' . $localeCountryCode . '.svg');
+                            @endphp
+                            <a href="#" class="dropdown-item<?= $localeCode === $currentLocale ? ' active' : '' ?>"
+                               data-lang="<?= htmlspecialchars($info['code'], ENT_QUOTES, 'UTF-8') ?>"
+                               data-locale="<?= htmlspecialchars($localeCode, ENT_QUOTES, 'UTF-8') ?>"
+                               data-flag-src="<?= htmlspecialchars($localeFlagUrl, ENT_QUOTES, 'UTF-8') ?>"
+                               data-flag-alt="<?= htmlspecialchars($info['name'], ENT_QUOTES, 'UTF-8') ?>">
                                 <span><?= $info['name'] ?></span>
-                                <span style="font-size: 1.25rem;"><?= $info['flag'] ?></span>
+                                <img class="flag-icon flag-icon-sm"
+                                     src="<?= htmlspecialchars($localeFlagUrl, ENT_QUOTES, 'UTF-8') ?>"
+                                     alt="" aria-hidden="true">
                             </a>
                         @endforeach
                     </div>
