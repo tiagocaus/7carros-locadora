@@ -380,6 +380,74 @@ class TaxaServico extends Model
     }
 
     /**
+     * Lista servicos publicados no website com as filiais permitidas.
+     *
+     * Registros sem vinculo em taxaseservicos_filiais nao sao publicados: no
+     * cadastro de taxas, nenhuma filial selecionada nao representa todas.
+     */
+    public function listarParaWebsite(): array
+    {
+        $resultados = $this->qb
+            ->table('taxaseservicos', 't')
+            ->selectRaw("t.id, t.nome, t.valor, t.tipo_valor, t.base_calculo, t.aplicar,
+                GROUP_CONCAT(DISTINCT tsf.id_matriz_filial ORDER BY tsf.id_matriz_filial SEPARATOR ',') AS filiais_ids")
+            ->joinRaw(
+                'taxaseservicos_filiais',
+                'tsf',
+                'tsf.id_taxaservico = t.id AND tsf.chave = t.chave'
+            )
+            ->whereRaw("FIND_IN_SET('SITE', t.onde_usar)")
+            ->groupBy('t.id')
+            ->orderBy('t.nome', 'ASC')
+            ->get();
+
+        foreach ($resultados as &$taxa) {
+            $taxa['valor'] = (float) ($taxa['valor'] ?? 0);
+            $taxa['aplicar'] = ($taxa['aplicar'] ?? 'N') === 'S' ? 'S' : 'N';
+            $taxa['filiais_ids'] = array_values(array_filter(
+                array_map('intval', explode(',', (string) ($taxa['filiais_ids'] ?? ''))),
+                static fn(int $id): bool => $id > 0
+            ));
+        }
+        unset($taxa);
+
+        return $resultados;
+    }
+
+    /**
+     * Lista servicos validos para uma reserva do website na filial informada.
+     * O valor retornado ja e o valor oficial da filial para taxas monetarias.
+     */
+    public function listarParaWebsitePorFilial(int $filialId): array
+    {
+        if ($filialId <= 0) {
+            return [];
+        }
+
+        return $this->qb
+            ->table('taxaseservicos', 't')
+            ->selectRaw("t.id, t.nome, t.tipo_valor, t.base_calculo, t.aplicar,
+                CASE WHEN t.tipo_valor = 'MON' AND tsvf.valor IS NOT NULL
+                     THEN tsvf.valor ELSE t.valor END AS valor")
+            ->joinRaw(
+                'taxaseservicos_filiais',
+                'tsf',
+                'tsf.id_taxaservico = t.id AND tsf.chave = t.chave'
+            )
+            ->leftJoinRaw(
+                'taxaseservicos_valores_filiais',
+                'tsvf',
+                'tsvf.id_taxaservico = t.id'
+                    . ' AND tsvf.id_matriz_filial = tsf.id_matriz_filial'
+                    . ' AND tsvf.chave = t.chave'
+            )
+            ->where('tsf.id_matriz_filial', '=', $filialId)
+            ->whereRaw("FIND_IN_SET('SITE', t.onde_usar)")
+            ->orderBy('t.nome', 'ASC')
+            ->get();
+    }
+
+    /**
      * Lista taxas com aplicar='S' e onde_usar contendo 'SIS' para auto-adicionar
      *
      * @param string $chave Chave do tenant

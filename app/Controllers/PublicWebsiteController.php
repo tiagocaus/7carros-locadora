@@ -16,6 +16,7 @@ use App\Models\MatrizFilialLocal;
 use App\Models\Grupo;
 use App\Models\GrupoPrecoDiaFilial;
 use App\Models\GrupoPrecoFilial;
+use App\Models\TaxaServico;
 use App\Models\TaxaServicoValorFilial;
 use App\Models\Veiculo;
 use App\Models\HorarioFuncionamento;
@@ -135,17 +136,8 @@ class PublicWebsiteController
                 ];
             }
 
-            // Servicos adicionais via SiteConfig (proxy para qb)
-            $configModel = new SiteConfig();
-            $servicos = $configModel->queryTable('taxaseservicos')
-                ->select(['id', 'nome', 'valor', 'tipo_valor', 'base_calculo'])
-                ->whereRaw("FIND_IN_SET('SITE', onde_usar)")
-                ->orderBy('nome', 'ASC')
-                ->get();
-
-            foreach ($servicos as &$s) {
-                $s['valor'] = (float) $s['valor'];
-            }
+            // Servicos adicionais publicados e respectivas filiais permitidas.
+            $servicos = (new TaxaServico())->listarParaWebsite();
 
             $formasPagamentoSitePorFilial = [];
             $formaPagamentoModel = new FormaPagamento();
@@ -694,26 +686,22 @@ class PublicWebsiteController
                 'valor_seguro_terceiros' => (float) ($segurosCalculados['terceiros']['valor_dia'] ?? 0),
             ]);
 
-            // Servicos adicionais — usa sincronizar() do LocacaoTaxaServico para
-            // garantir preenchimento de todos os campos obrigatorios (nome, valores, etc).
-            if (!empty($dados['servicos']) && is_array($dados['servicos'])) {
-                $taxaServicoModel = new \App\Models\TaxaServico();
-                $taxasMontadas = [];
-                foreach ($dados['servicos'] as $servicoId) {
-                    $taxa = $taxaServicoModel->buscarPorId((int) $servicoId);
-                    if (!$taxa) continue;
-                    $taxasMontadas[] = [
-                        'id_taxa'        => (int) $taxa['id'],
-                        'nome'           => $taxa['nome'] ?? '',
-                        'base_calculo'   => $taxa['base_calculo'] ?? 'FIX',
-                        'tipo_valor'     => $taxa['tipo_valor'] ?? 'MON',
-                        'quantidade'     => 1,
-                        'valor_unitario' => (float) ($taxa['valor'] ?? 0),
-                    ];
-                }
-                if (!empty($taxasMontadas)) {
-                    (new \App\Models\LocacaoTaxaServico())->sincronizar($locacaoId, $taxasMontadas, $chave);
-                }
+            // Persiste o snapshot autoritativo calculado no servidor. Isso inclui
+            // servicos obrigatorios omitidos pelo navegador e exclui IDs invalidos.
+            $taxasMontadas = [];
+            foreach (($calc['breakdown']['servicos'] ?? []) as $servicoCalculado) {
+                $taxasMontadas[] = [
+                    'id_taxa'        => (int) ($servicoCalculado['id'] ?? 0),
+                    'nome'           => (string) ($servicoCalculado['nome'] ?? ''),
+                    'base_calculo'   => (string) ($servicoCalculado['base'] ?? 'FIX'),
+                    'tipo_valor'     => (string) ($servicoCalculado['tipo'] ?? 'MON'),
+                    'quantidade'     => 1,
+                    'valor_unitario' => (float) ($servicoCalculado['valor_unitario'] ?? 0),
+                    'valor_total'    => (float) ($servicoCalculado['total'] ?? 0),
+                ];
+            }
+            if ($taxasMontadas !== []) {
+                (new \App\Models\LocacaoTaxaServico())->sincronizar($locacaoId, $taxasMontadas, $chave);
             }
 
             // Contexto para templates

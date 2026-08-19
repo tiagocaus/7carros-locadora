@@ -269,6 +269,18 @@ if (empty($dados['taxas'])) {
 }
 ```
 
+No website, `aplicar='S'` tem efeito obrigatorio quando `onde_usar` contem
+`SITE`: a taxa aparece marcada e bloqueada para as filiais vinculadas em
+`taxaseservicos_filiais`. O backend inclui a taxa no calculo e no snapshot da
+locacao mesmo que o navegador omita ou adultere o ID. Taxas opcionais ou
+obrigatorias de outra filial e taxas sem o canal `SITE` nao participam da
+reserva.
+
+O bloqueio do checkbox e apenas uma protecao de UX. A fonte de verdade e
+`WebsiteReservaCalcService`, e `PublicWebsiteController::criarReserva` persiste
+os servicos retornados em `breakdown.servicos`, nunca a lista bruta enviada pelo
+navegador.
+
 ### Permissao para Editar Valores
 
 A permissao `contratos.editar_valor_taxas` controla se o usuario pode alterar valores:

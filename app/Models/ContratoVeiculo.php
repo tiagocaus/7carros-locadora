@@ -126,7 +126,55 @@ class ContratoVeiculo extends Model
             ->leftJoin('grupos', 'g', 'cv.id_grupo', '=', 'g.id')
             ->where('cv.id_contrato', '=', $contratoId)
             ->whereNull('cv.data_entrada')
+            ->orderByDesc('cv.data_saida')
+            ->orderByDesc('cv.id')
             ->first();
+    }
+
+    /**
+     * Busca o veiculo atual do contrato; se nao houver ativo, retorna o ultimo vinculado.
+     *
+     * Usado em contextos de exibicao e impressao, nos quais contratos finalizados
+     * continuam precisando mostrar o veiculo depois que `data_entrada` foi preenchida.
+     * A chave explicita atende rotas publicas sem remover o isolamento do tenant.
+     */
+    public function buscarAtualOuUltimo(int $contratoId, ?string $chave = null): ?array
+    {
+        $query = $this->qb
+            ->table('contratos_veiculos', 'cv')
+            ->select([
+                'cv.*',
+                'v.placa AS veiculo_placa',
+                'v.modelo AS veiculo_modelo',
+                'v.marca AS veiculo_marca',
+                'v.ano AS veiculo_ano',
+                'v.cor AS veiculo_cor',
+                'v.renavam AS veiculo_renavam',
+                'v.chassi AS veiculo_chassi',
+                'v.id_fornecedor',
+                'v.odometro AS veiculo_odometro',
+                'v.diagrama AS veiculo_diagrama',
+                'v.tipo_combustivel AS veiculo_tipo_combustivel',
+                'v.valor_por_fracao AS veiculo_valor_por_fracao',
+                'v.valor_compra AS veiculo_valor_compra',
+                'f.nome_rsocial AS fornecedor_nome',
+                'f.cpf_cnpj AS fornecedor_cpf_cnpj',
+                'f.investidor AS fornecedor_investidor',
+                'g.nome AS grupo_nome'
+            ])
+            ->leftJoin('veiculos', 'v', 'cv.id_veiculo', '=', 'v.id')
+            ->leftJoinRaw('fornecedores', 'f', 'v.id_fornecedor = f.id AND f.chave = cv.chave')
+            ->leftJoin('grupos', 'g', 'cv.id_grupo', '=', 'g.id')
+            ->where('cv.id_contrato', '=', $contratoId)
+            ->orderByRaw('CASE WHEN cv.data_entrada IS NULL THEN 0 ELSE 1 END ASC')
+            ->orderByDesc('cv.data_saida')
+            ->orderByDesc('cv.id');
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        return $query->first();
     }
 
     /**

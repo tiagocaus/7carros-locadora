@@ -512,6 +512,7 @@ class Contrato extends Model
         $contratoVeiculo = new ContratoVeiculo();
         $contrato['veiculos'] = $contratoVeiculo->listarPorContrato($id);
         $contrato['veiculo_ativo'] = $contratoVeiculo->buscarAtivo($id);
+        $contrato['veiculo_atual'] = $contratoVeiculo->buscarAtualOuUltimo($id);
 
         // Carregar taxas e servicos
         $contratoTaxa = new ContratoTaxaServico();

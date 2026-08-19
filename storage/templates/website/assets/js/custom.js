@@ -747,6 +747,30 @@ $(function () {
             if (seguro.obrigatorio) $input.prop('checked', true);
         });
     }
+    function aplicarDisponibilidadeServicos() {
+        var i18n = window.I18N_WEBSITE || {};
+        var filial = filialAtiva();
+        var filialId = filial ? parseInt(filial.id) : 0;
+
+        $('#itens-adicionais .servico-item').each(function () {
+            var $row = $(this);
+            var filiais = String($row.attr('data-filiais') || '')
+                .split(',')
+                .map(function (id) { return parseInt(id); })
+                .filter(function (id) { return id > 0; });
+            var disponivel = filialId > 0 && filiais.indexOf(filialId) !== -1;
+            var obrigatorio = disponivel && String($row.attr('data-aplicar') || 'N') === 'S';
+            var $input = $row.find('input[type="checkbox"]');
+
+            $row.toggle(filialId === 0 || disponivel).toggleClass('obrigatorio', obrigatorio);
+            $input.attr('data-obrigatorio', obrigatorio ? '1' : '0')
+                .attr('aria-disabled', obrigatorio ? 'true' : 'false');
+            $row.find('.addCheck').text(obrigatorio ? (i18n.obrigatorio || 'Obrigatorio') : (i18n.adicionar || 'Adicionar'));
+
+            if (!disponivel) $input.prop('checked', false);
+            if (obrigatorio) $input.prop('checked', true);
+        });
+    }
     function diasReservaAtual() {
         return parseInt($('#dias').val()) || 1;
     }
@@ -893,6 +917,7 @@ $(function () {
         // Desmarca servicos adicionais e seguros selecionados (precos mudaram)
         $('#itens-adicionais input[type="checkbox"]').prop('checked', false);
         $('.seguroCarro input[type="checkbox"], .seguroTerceiro input[type="checkbox"]').prop('checked', false);
+        aplicarDisponibilidadeServicos();
         aplicarObrigatoriedadeSeguros();
     }
     // Renderiza os servicos adicionais marcados no resumo lateral (ambas as tabs que tem .resumo-adicionais)
@@ -956,6 +981,7 @@ $(function () {
 
     // Ao marcar/desmarcar um servico adicional, renderiza no resumo e recalcula total
     $(document).on('change', '#itens-adicionais input[type="checkbox"]', function () {
+        aplicarDisponibilidadeServicos();
         renderAdicionais();
         calcTotal();
     });
@@ -1136,6 +1162,12 @@ $(function () {
 
     // O bloqueio no browser melhora a UX; a obrigatoriedade real e aplicada no backend.
     $(document).on('click keydown', '.seguro-item input[data-obrigatorio="1"]', function (event) {
+        if (event.type === 'click' || event.key === ' ' || event.key === 'Enter') {
+            event.preventDefault();
+            $(this).prop('checked', true);
+        }
+    });
+    $(document).on('click keydown', '.servico-item input[data-obrigatorio="1"]', function (event) {
         if (event.type === 'click' || event.key === ' ' || event.key === 'Enter') {
             event.preventDefault();
             $(this).prop('checked', true);
@@ -1508,6 +1540,7 @@ $(function () {
         renderPrecosServicos();
     }
     atualizarPlanosDisponiveis();
+    aplicarDisponibilidadeServicos();
     aplicarObrigatoriedadeSeguros();
     if (typeof window.__renderFormasPagamentoSite === 'function') {
         window.__renderFormasPagamentoSite();

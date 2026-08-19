@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\GrupoPrecoFilial;
-use App\Models\TaxaServicoValorFilial;
 use App\Models\SiteConfig;
+use App\Models\TaxaServico;
 
 /**
  * Calcula o total de uma reserva feita pelo site publico SERVER-SIDE.
@@ -37,7 +37,7 @@ class WebsiteReservaCalcService
         $plano    = (string) ($input['plano']  ?? '');
         $dias     = max(1, (int) ($input['dias'] ?? 1));
         $dataInicio = (string) ($input['data_inicio'] ?? '');
-        $servicos = is_array($input['servicos'] ?? null) ? $input['servicos'] : [];
+        $servicosSolicitados = is_array($input['servicos'] ?? null) ? $input['servicos'] : [];
         $siteConfig = (new SiteConfig())->buscarPorChave() ?? [];
         $segCarroObrigatorio = !empty($siteConfig['seguro_carro_obrigatorio']);
         $segTercObrigatorio = !empty($siteConfig['seguro_terceiros_obrigatorio']);
@@ -74,39 +74,44 @@ class WebsiteReservaCalcService
         }
 
         // Servicos adicionais: mistura MON/POR + FIX/PER/VLT
-        $configModel = new SiteConfig();
         $subtotalServicos = 0.0;
         $servicosDetalhe = [];
-        if (!empty($servicos)) {
-            $ids = array_map('intval', $servicos);
-            $linhas = $configModel->queryTable('taxaseservicos')
-                ->select(['id', 'tipo_valor', 'base_calculo', 'valor'])
-                ->whereIn('id', $ids)
-                ->get();
+        $idsSolicitados = array_values(array_unique(array_filter(
+            array_map('intval', $servicosSolicitados),
+            static fn(int $id): bool => $id > 0
+        )));
+        $idsSolicitadosMap = array_fill_keys($idsSolicitados, true);
+        $linhasDisponiveis = (new TaxaServico())->listarParaWebsitePorFilial($filialId);
 
-            $valoresFilialMON = (new TaxaServicoValorFilial())->listarPorFilial($filialId);
-            $valoresFilialMONMap = [];
-            foreach ($valoresFilialMON as $v) {
-                $valoresFilialMONMap[(int) $v['id_taxaservico']] = (float) $v['valor'];
+        foreach ($linhasDisponiveis as $s) {
+            $idTaxa = (int) $s['id'];
+            $obrigatorio = ($s['aplicar'] ?? 'N') === 'S';
+            if (!$obrigatorio && !isset($idsSolicitadosMap[$idTaxa])) {
+                continue;
             }
 
-            foreach ($linhas as $s) {
-                $idTaxa = (int) $s['id'];
-                $tipo   = (string) ($s['tipo_valor'] ?? 'MON');
-                $base   = (string) ($s['base_calculo'] ?? 'PER');
+            $tipo = (string) ($s['tipo_valor'] ?? 'MON');
+            $base = (string) ($s['base_calculo'] ?? 'PER');
+            $valorUnitario = (float) ($s['valor'] ?? 0);
 
-                if ($tipo === 'POR') {
-                    $pct = (float) ($s['valor'] ?? 0);
-                    $baseValor = ($base === 'FIX') ? $valorPlanoDia : $subtotalPlano;
-                    $t = $baseValor * ($pct / 100);
-                } else { // MON
-                    $valor = $valoresFilialMONMap[$idTaxa] ?? (float) ($s['valor'] ?? 0);
-                    // PER multiplica por dias; FIX e VLT cobram valor unico (VLT so faz sentido com POR)
-                    $t = ($base === 'PER') ? $valor * $dias : $valor;
-                }
-                $subtotalServicos += $t;
-                $servicosDetalhe[] = ['id' => $idTaxa, 'tipo' => $tipo, 'base' => $base, 'total' => round($t, 2)];
+            if ($tipo === 'POR') {
+                $pct = $valorUnitario;
+                $baseValor = ($base === 'FIX') ? $valorPlanoDia : $subtotalPlano;
+                $t = $baseValor * ($pct / 100);
+            } else { // MON
+                // PER multiplica por dias; FIX e VLT cobram valor unico (VLT so faz sentido com POR)
+                $t = ($base === 'PER') ? $valorUnitario * $dias : $valorUnitario;
             }
+            $subtotalServicos += $t;
+            $servicosDetalhe[] = [
+                'id' => $idTaxa,
+                'nome' => (string) ($s['nome'] ?? ''),
+                'tipo' => $tipo,
+                'base' => $base,
+                'valor_unitario' => round($valorUnitario, 2),
+                'total' => round($t, 2),
+                'obrigatorio' => $obrigatorio,
+            ];
         }
 
         $totalOriginal = round($subtotalPlano + $subtotalSeguros + $subtotalServicos, 2);

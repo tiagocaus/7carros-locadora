@@ -186,6 +186,7 @@ O formulario possui 9 abas:
 - A coluna Veiculo exibe um resumo do primeiro veiculo vinculado ao contrato no formato `PLACA - MODELO`.
 - Em contratos ativos, o resumo prioriza veiculos ainda ativos (`contratos_veiculos.data_entrada IS NULL`).
 - Em contratos finalizados, quando todos os veiculos ja foram devolvidos, o resumo usa o historico de `contratos_veiculos` para evitar exibir `-`.
+- Em exibicoes e impressoes que usam um unico veiculo, o sistema prioriza o veiculo ativo vinculado mais recentemente. Depois da finalizacao, usa o ultimo veiculo do historico, preservando os dados que eram exibidos antes do encerramento.
 - Quando houver mais de um veiculo vinculado, a listagem mostra o primeiro veiculo e o sufixo `(+N)`, onde `N` representa a quantidade de veiculos adicionais alem do primeiro.
 - O atalho de registro de odometro permanece disponivel apenas para contratos ativos com veiculo ativo.
 
@@ -219,10 +220,11 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 - Modelo customizado da entidade `documentos` (texto rico + placeholders); cabeçalho institucional e rodapé com assinaturas são aplicados pelo controller via `SetHTMLHeader`/`SetHTMLFooter` do mPDF; margens do corpo em `PdfHelper::DOCUMENTO_HTML_*`. Detalhes: [pdf.md](./pdf.md).
 - Corpo: cláusulas e dados mesclados pelo `TemplateRenderer`
 - Contratos com múltiplos veículos devem usar `{{contrato.veiculos_anexo}}` quando o objetivo for um documento contratual completo. Essa variável renderiza o Anexo I com identificação dos veículos, fornecedor/investidor quando houver, plano, valores, seguros e dados de saída. `{{contrato.veiculos_tabela}}` permanece disponível como tabela resumida.
-- Para campos escalares do veículo ativo principal, use `{{contrato.km_saida}}`, `{{contrato.km_chegada}}`, `{{contrato.tanque_saida}}` e `{{contrato.tanque_chegada}}`. Os campos de tanque são exibidos como frações legíveis (`Reserva`, `1/2`, `Cheio`, etc.).
+- Para campos escalares do veículo atual ou do último veículo histórico, use `{{contrato.km_saida}}`, `{{contrato.km_chegada}}`, `{{contrato.tanque_saida}}` e `{{contrato.tanque_chegada}}`. Os campos de tanque são exibidos como frações legíveis (`Reserva`, `1/2`, `Cheio`, etc.).
 - Para exibir somente o nome do plano comum aos veículos relevantes, use `{{contrato.info_plano}}`. A variável retorna `Km Livre`, `Km Controlado` ou `Km Pago`, sem franquia, período ou valores. Havendo planos diferentes, retorna `Conforme relação de veículos`; em contratos finalizados sem veículo ativo, considera o histórico.
 - Para o tipo de combustível cadastrado no veículo, use `{{veiculo.combustivel_tipo}}`.
-- Para o valor de compra cadastrado no veículo ativo principal, use `{{veiculo.valor_compra}}`; a variável lê `veiculos.valor_compra` e é formatada como moeda pelo `TemplateRenderer`.
+- As variáveis escalares `{{veiculo.*}}` representam o veículo ativo vinculado mais recentemente ou, em contratos finalizados, o último veículo do histórico. Para relacionar todos os veículos, use `{{contrato.veiculos_anexo}}`.
+- Para o valor de compra cadastrado no veículo atual ou no último veículo histórico, use `{{veiculo.valor_compra}}`; a variável lê `veiculos.valor_compra` e é formatada como moeda pelo `TemplateRenderer`.
 - Para cláusulas que precisam citar o valor recorrente da parcela, use `{{contrato.valor.parcela}}`. A variável considera o valor mais comum entre as parcelas financeiras vinculadas ao contrato; se houver empate, usa o primeiro valor encontrado na ordem das parcelas.
 - Para citar a periodicidade ou condição do comando de parcelas sem expor códigos técnicos, use `{{contrato.comando_parcela}}` (ex.: `w4` → `semanal`, `w4-Seg` → `segundas-feiras`, `d15` → `vencimento no dia 15`).
 - Para exibir as observações cadastradas na caução, use `{{contrato.caucao_observacoes}}`.

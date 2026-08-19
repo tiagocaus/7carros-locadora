@@ -228,7 +228,9 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
                         <?php if (!empty($servicos)): ?>
                         <div id="itens-adicionais" class="col">
                             <?php foreach ($servicos as $s): ?>
-                            <div class="row itens-adicionais">
+                            <div class="row itens-adicionais servico-item"
+                                 data-aplicar="<?= ($s['aplicar'] ?? 'N') === 'S' ? 'S' : 'N' ?>"
+                                 data-filiais="<?= e(implode(',', array_map('intval', $s['filiais_ids'] ?? []))) ?>">
                                 <div class="col-sm-6 nome"><strong><?= e($s['nome']) ?></strong></div>
                                 <div class="col-sm-3 preco servico-preco"
                                      data-servico-id="<?= (int) $s['id'] ?>"
@@ -240,7 +242,8 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
                                 </div>
                                 <div class="col-sm-3 text-center btn-warning">
                                     <span class="addCheck">Adicionar</span>
-                                    <input type="checkbox" name="servico_<?= (int) $s['id'] ?>" value="S">
+                                    <input type="checkbox" name="servico_<?= (int) $s['id'] ?>" value="S"
+                                           data-obrigatorio="0" aria-disabled="false">
                                 </div>
                             </div>
                             <?php endforeach; ?>

@@ -2608,7 +2608,7 @@ class ContratosController
     public function verificarPublico(Request $request, string $codigo): void
     {
         $model = new Contrato();
-        $contrato = $model->buscarPorCodigo($codigo);
+        $contrato = $model->buscarPublicoPorCodigo($codigo);
 
         if (!$contrato) {
             $html = Template::render('public.verificar.erro', [
@@ -2621,16 +2621,19 @@ class ContratosController
 
         // Buscar dados da empresa
         $matrizFilialModel = new MatrizFilial();
-        $empresa = $matrizFilialModel->buscarDadosEmpresa($contrato['id_matriz_filial_retirada'] ?? null);
+        $empresa = $matrizFilialModel->buscarDadosEmpresaPorChave((string) $contrato['chave']);
 
-        // Buscar veiculo ativo
+        // Buscar veiculo atual ou o ultimo do historico quando finalizado
         $contratoVeiculo = new ContratoVeiculo();
-        $veiculoAtivo = $contratoVeiculo->buscarAtivo((int) $contrato['id']);
+        $veiculoAtual = $contratoVeiculo->buscarAtualOuUltimo(
+            (int) $contrato['id'],
+            (string) $contrato['chave']
+        );
 
         $html = Template::render('public.verificar.contrato', [
             'contrato' => $contrato,
             'empresa' => $empresa,
-            'veiculo' => $veiculoAtivo
+            'veiculo' => $veiculoAtual
         ]);
         Response::html($html);
     }
@@ -2683,8 +2686,8 @@ class ContratosController
             // Buscar dados da empresa
             $empresa = $this->buscarDadosEmpresa($contrato['id_matriz_filial_retirada'] ?? null);
 
-            // Veiculo ativo (buscarAtivo retorna campos com prefixo veiculo_)
-            $veiculoAtivo = $contrato['veiculo_ativo'] ?? null;
+            // Veiculo atual ou o ultimo do historico (campos com prefixo veiculo_)
+            $veiculoAtual = $contrato['veiculo_atual'] ?? null;
 
             // Buscar assinatura do contrato
             $assinatura = $contratoModel->buscarAssinatura($id);
@@ -2702,7 +2705,7 @@ class ContratosController
                         $empresa['locale'] ?? null,
                         ($empresa['impressao_variavel_negrito'] ?? 'N') === 'S'
                     );
-                    $context = $this->buildDocumentoContext($contrato, $empresa, $veiculoAtivo);
+                    $context = $this->buildDocumentoContext($contrato, $empresa, $veiculoAtual);
                     $documentoTexto['texto'] = $renderer->render($documentoTexto['texto'], $context);
                 }
             }
@@ -2714,7 +2717,7 @@ class ContratosController
             $checklistModeloQuestoes = [];
             if ($this->tipoIncluiChecklist($tipo)) {
                 $idChecklistDigital = (int) $request->query('id_checklist_digital', 0);
-                $checklistInfo = $this->prepararDadosChecklist($contrato, $veiculoAtivo, $chave, $idChecklistDigital);
+                $checklistInfo = $this->prepararDadosChecklist($contrato, $veiculoAtual, $chave, $idChecklistDigital);
                 $checklistData = $checklistInfo['data'];
                 $checklistDigital = $checklistInfo['digital'];
                 $diagramaPath = $checklistInfo['diagramaPath'];
@@ -2738,7 +2741,7 @@ class ContratosController
                 ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
                 : '';
 
-            $veiculo = $veiculoAtivo;
+            $veiculo = $veiculoAtual;
             $viewData = compact('contrato', 'empresa', 'veiculo', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath');
 
             $pdfOptions = [
@@ -3445,8 +3448,8 @@ class ContratosController
 
         $empresa = $this->buscarDadosEmpresa($contrato['id_matriz_filial_retirada'] ?? null);
 
-        // Veiculo ativo (buscarAtivo retorna campos com prefixo veiculo_)
-        $veiculoAtivo = $contrato['veiculo_ativo'] ?? null;
+        // Veiculo atual ou o ultimo do historico (campos com prefixo veiculo_)
+        $veiculoAtual = $contrato['veiculo_atual'] ?? null;
 
         $assinatura = $contratoModel->buscarAssinatura($id);
 
@@ -3459,7 +3462,7 @@ class ContratosController
                     $empresa['locale'] ?? null,
                     ($empresa['impressao_variavel_negrito'] ?? 'N') === 'S'
                 );
-                $context = $this->buildDocumentoContext($contrato, $empresa, $veiculoAtivo);
+                $context = $this->buildDocumentoContext($contrato, $empresa, $veiculoAtual);
                 $documentoTexto['texto'] = $renderer->render($documentoTexto['texto'], $context);
             }
         }
@@ -3469,7 +3472,7 @@ class ContratosController
         $diagramaPath = null;
         $checklistModeloQuestoes = [];
         if ($this->tipoIncluiChecklist($tipo)) {
-            $checklistInfo = $this->prepararDadosChecklist($contrato, $veiculoAtivo, $chave, $idChecklistDigital);
+            $checklistInfo = $this->prepararDadosChecklist($contrato, $veiculoAtual, $chave, $idChecklistDigital);
             $checklistData = $checklistInfo['data'];
             $checklistDigital = $checklistInfo['digital'];
             $diagramaPath = $checklistInfo['diagramaPath'];
@@ -3492,7 +3495,7 @@ class ContratosController
             ? PdfHelper::resolveImagePath($assinatura['arquivo'], $chave)
             : '';
 
-        $veiculo = $veiculoAtivo;
+        $veiculo = $veiculoAtual;
         $viewData = compact('contrato', 'empresa', 'veiculo', 'assinatura', 'assinaturaPath', 'empresaAssinaturaPath', 'documentoTexto', 'checklistData', 'checklistDigital', 'diagramaPath', 'checklistModeloQuestoes', 'logoPath', 'qrPath');
 
         $pdfOptions = [

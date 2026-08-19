@@ -1020,7 +1020,7 @@ Endpoints que o site PHP do cliente chama:
 
 | Endpoint | Método | Cache | Retorna |
 |----------|--------|-------|---------|
-| `/api/public/dados-site` | GET | 1h | Filiais (com `precos_grupos`, `valores_servicos`, moeda), grupos (metadados), serviços (`onde_usar=SITE`), empresa, flags `overbooking`, `cadastro_simples`, `envio_documentos`, `doc_*_obrigatorio`, `reserva_requer_confirmacao`, `pagamento_antecipado` |
+| `/api/public/dados-site` | GET | 1h | Filiais (com `precos_grupos`, `valores_servicos`, moeda), grupos (metadados), serviços (`onde_usar=SITE`, `aplicar`, `filiais_ids`), empresa, flags `overbooking`, `cadastro_simples`, `envio_documentos`, `doc_*_obrigatorio`, `reserva_requer_confirmacao`, `pagamento_antecipado` |
 | `/api/public/conteudos` | GET | 1h | Textos, SEO, integrações, banners, links (por idioma) |
 | `/api/public/status` | GET | Não | Flags runtime: `manutencao`, `reserva_online`, `whatsapp_flutuante` |
 | `/api/public/disponibilidade` | GET | Não | Disponibilidade e cotação por período, grupo e plano, incluindo ajustes de temporada |
@@ -1858,6 +1858,11 @@ de seguros, serviços e promoção; qualquer preço ou total enviado pelo navega
 - Validação de todos os campos
 - Honeypot anti-spam no formulário
 
+O array `servicos` representa apenas a escolha do visitante. O backend filtra
+os IDs pelo tenant, canal `SITE` e filial de retirada e acrescenta todas as
+taxas com `aplicar='S'` vinculadas a essa filial. Portanto, remover uma taxa
+obrigatoria do payload nao remove a cobranca.
+
 ### Dados Dinâmicos no Site
 
 O PHP do site puxa dados via `SiteApi::getDadosSite()` com cache de 1 hora. Quando o visitante interage (ex: seleciona filial, avança etapa), chamadas adicionais podem ser feitas via AJAX para dados que dependem de seleção (ex: disponibilidade por filial).
@@ -2006,6 +2011,9 @@ O total da reserva é **calculado no backend**, ignorando qualquer valor enviado
 - **Seguros:** `valor_seguro_carro × dias` e/ou `valor_seguro_terceiros × dias` quando marcados. Se `site_config.seguro_carro_obrigatorio` ou `site_config.seguro_terceiros_obrigatorio` estiver ativo, o backend força a inclusão correspondente mesmo que o navegador omita ou altere o campo.
 - **Serviços MON:** valor de `taxaseservicos_valores_filiais[filial]` (ou `taxaseservicos.valor` global se não houver por filial). `base_calculo=PER` → × dias; `FIX` ou `VLT` → valor único.
 - **Serviços POR:** `taxaseservicos.valor%` sobre o plano × dias (PER/VLT) ou sobre plano-dia (FIX).
+- **Serviços obrigatórios:** registros com `aplicar='S'`, canal `SITE` e vinculo
+  com a filial de retirada sao incluidos mesmo quando ausentes de `servicos[]`.
+  IDs de outro tenant, canal ou filial sao ignorados.
 
 **Persiste** em `locacoes.total_fatura` e `total_pagar`. O `breakdown` vai para `locacoes.obs` (JSON) para auditoria, e `locacoes_veiculos` recebe o snapshot dos flags e valores diários dos seguros calculados no servidor.
 
@@ -2050,7 +2058,7 @@ Este aviso interno e separado das mensagens ao cliente (`pedido_reserva` e
 - `calcTotal()` deve iterar `.somar` **apenas dentro da tab ativa** (`$('.tabs_.active .resumo-detalhes .somar')`) para não contar o resumo duplicado duas vezes.
 - Ao selecionar plano, `window.__precoPlanoAtual` guarda o valor numérico para cálculos de serviços % (`base_calculo = PER/VLT`).
 - Ao trocar filial, `resetResumoValores()` desmarca radios de plano, checkboxes de serviços/seguros, zera totais e chama `aplicarDisponibilidadeNosBotoes()` para reaplicar "Esgotado"/"Selecione o plano" conforme a última disponibilidade conhecida.
-- Depois do reset, seguros configurados como obrigatórios são marcados novamente. O bloqueio do checkbox é apenas UX; cálculo, promoção, pagamento e persistência usam a política consultada no backend.
+- Depois do reset, seguros e serviços configurados como obrigatórios são marcados novamente. O bloqueio do checkbox é apenas UX; cálculo, promoção, pagamento e persistência usam a política consultada no backend.
 - O passo 3 sempre exibe Seguro do veículo e Seguro para terceiros. Valores zero aparecem como gratuitos e continuam selecionados quando obrigatórios.
 
 ---
@@ -2106,7 +2114,17 @@ GET /api/public/dados-site?chave={chave}
         }
     ],
     "grupos":   [ /* metadados: id, nome, descricao, foto_url, etc — SEM preço */ ],
-    "servicos": [ /* metadados: id, nome, tipo_valor (MON|POR), base_calculo, valor (só usado em POR) */ ],
+    "servicos": [
+        {
+            "id": 2167,
+            "nome": "Taxa de servico",
+            "tipo_valor": "POR",
+            "base_calculo": "VLT",
+            "valor": 12,
+            "aplicar": "S",
+            "filiais_ids": [14]
+        }
+    ],
     "overbooking": false
 }
 ```
@@ -2121,7 +2139,11 @@ GET /api/public/dados-site?chave={chave}
 | `valores_servicos[idTaxa]` | `taxaseservicos_valores_filiais` via `TaxaServicoValorFilial::listarPorFilial($idFilial)` (tipo MON; POR usa `valor` global) |
 | `overbooking` | `site_config.overbooking` (flag do tenant) |
 
-**Filtro de serviços exibidos:** apenas `taxaseservicos.onde_usar` contendo `SITE` aparecem no passo 3 do fluxo. Query: `WHERE FIND_IN_SET('SITE', onde_usar)`.
+**Filtro de serviços exibidos:** apenas `taxaseservicos.onde_usar` contendo
+`SITE` e com vinculo em `taxaseservicos_filiais` aparecem no passo 3. O payload
+de `/api/public/dados-site` inclui `aplicar` e `filiais_ids`; ao escolher a
+filial de retirada, o JS oculta os serviços das demais filiais e bloqueia os
+que possuem `aplicar='S'`.
 
 ### No JS do site
 
