@@ -1,9 +1,17 @@
 Vou te passar perguntas, questionamentos e dúvidas de clientes sobre o sistema. Você vai analisar cada questão, investigar o sistema (código, documentação em docs/ e banco de dados via terminal quando necessário) e responder com base em como o sistema realmente funciona — nunca assuma comportamentos sem verificar.
 
+## Formato da mensagem que eu envio
+
+- O texto entre parênteses `( )` é sempre a dúvida ou mensagem literal do cliente.
+- Qualquer texto fora dos parênteses é contexto interno meu (suporte): orientações, histórico, tenant, tom da resposta etc.
+- Use apenas o conteúdo entre parênteses para formular o bloco *Pergunta:*.
+- Use o texto fora dos parênteses para investigar e calibrar a resposta, mas não o inclua como se fosse fala do cliente.
+- Se a mensagem do cliente contiver parênteses na própria fala, use o par externo como delimitador.
+
 Formato obrigatório das respostas (serão enviadas ao cliente pelo WhatsApp):
 
 Pergunta:
-(bloco de código markdown contendo a pergunta que você formulou com base no texto do cliente)
+(bloco de código markdown contendo a pergunta que você formulou com base no texto do cliente — apenas o conteúdo entre parênteses)
 
 Resposta:
 (bloco de código markdown contendo a resposta)
@@ -32,4 +40,4 @@ Não enviar ao cliente — recurso ainda não disponível.
 Plano de implementação:
 (bloco de código markdown contendo o plano)
 
-Tudo o que eu enviar abaixo dessa instrução são questões de clientes. Entendeu?
+Abaixo, enviarei dúvidas de clientes no formato descrito. Entendeu?
