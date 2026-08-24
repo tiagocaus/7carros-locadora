@@ -9,7 +9,13 @@
         table { width: 100%; border-collapse: collapse; }
         th { background: #e8f1f6; text-align: left; color: #25658d; }
         th, td { padding: 7px; border-bottom: 1px solid #e2e8f0; }
-        .header { border-bottom: 3px solid #25658d; padding-bottom: 12px; }
+        .header { border-bottom: 3px solid #25658d; padding-bottom: 12px; table-layout: fixed; }
+        .header td { border: 0; padding-top: 0; padding-bottom: 0; vertical-align: middle; }
+        .header-logo { width: 28%; padding-left: 0; text-align: left; }
+        .header-title { width: 44%; text-align: center; }
+        .header-meta { width: 28%; padding-right: 0; text-align: right; }
+        .logo-img { max-width: 120px; max-height: 70px; }
+        .company-name { margin-top: 4px; color: #64748b; font-size: 9pt; font-weight: bold; }
         .right { text-align: right; }
         .muted { color: #64748b; font-size: 9pt; }
         .total { font-size: 15pt; font-weight: bold; color: #25658d; }
@@ -17,7 +23,17 @@
     </style>
 </head>
 <body>
-    <table class="header"><tr><td style="border:0;padding-left:0"><h1>ORÇAMENTO</h1><div class="muted"><?= e($empresa['nome_fantasia'] ?? $empresa['razao_social'] ?? '') ?></div></td><td class="right" style="border:0;padding-right:0"><strong><?= e($orcamento['codigo']) ?></strong><br><span class="muted">Emitido em <?= e(\App\Helpers\DateHelper::format($orcamento['created_at'])) ?><br>Válido até <?= e(\App\Helpers\DateHelper::format($orcamento['validade'])) ?></span></td></tr></table>
+    <?php $logoPath = $logoPath ?? ''; ?>
+    <table class="header">
+        <tr>
+            <td class="header-logo">
+                <?php if ($logoPath !== ''): ?><img src="<?= e($logoPath) ?>" class="logo-img" alt="Logo"><?php endif; ?>
+                <div class="company-name"><?= e($empresa['nome_fantasia'] ?? $empresa['razao_social'] ?? '') ?></div>
+            </td>
+            <td class="header-title"><h1>ORÇAMENTO</h1></td>
+            <td class="header-meta"><strong><?= e($orcamento['codigo']) ?></strong><br><span class="muted">Emitido em <?= e(\App\Helpers\DateHelper::format($orcamento['created_at'])) ?><br>Válido até <?= e(\App\Helpers\DateHelper::format($orcamento['validade'])) ?></span></td>
+        </tr>
+    </table>
 
     <h2>Cliente</h2>
     <table><tr><td><strong><?= e($orcamento['cliente_nome']) ?></strong><br><span class="muted"><?= e($orcamento['cliente_documento'] ?? '') ?></span></td><td><?= e(trim(implode(', ', array_filter([$orcamento['cliente_rua'] ?? '', $orcamento['cliente_numero'] ?? '', $orcamento['cliente_bairro'] ?? '', $orcamento['cliente_cidade'] ?? '', $orcamento['cliente_estado'] ?? ''])))) ?></td></tr></table>

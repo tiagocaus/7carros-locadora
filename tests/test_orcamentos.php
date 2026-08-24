@@ -107,10 +107,20 @@ try {
 
     $orcamento = $saved;
     $empresa = (new MatrizFilial())->buscarPorId((int) $fixture['filial_id']);
+    $logoPath = APP_ROOT . '/public/assets/img/logo_padrao.png';
     ob_start();
     include APP_ROOT . '/app/Views/pages/orcamentos/imprimir.php';
-    $pdf = PdfHelper::generateAsString((string) ob_get_clean());
+    $htmlPdf = (string) ob_get_clean();
+    checkQuote(str_contains($htmlPdf, 'class="logo-img"'), 'inclui a logo resolvida no cabeçalho do orçamento');
+    checkQuote(str_contains($htmlPdf, 'class="header-title"><h1>ORÇAMENTO</h1>'), 'centraliza o título na célula central do cabeçalho');
+    $pdf = PdfHelper::generateAsString($htmlPdf);
     checkQuote(str_starts_with($pdf, '%PDF-'), 'gera PDF pelo PdfHelper com output buffering');
+
+    $logoPath = '';
+    ob_start();
+    include APP_ROOT . '/app/Views/pages/orcamentos/imprimir.php';
+    $htmlSemLogo = (string) ob_get_clean();
+    checkQuote(!str_contains($htmlSemLogo, 'class="logo-img"'), 'usa fallback textual quando a filial não possui logo');
 
     $_SESSION['chave'] = 'TENANT_QUE_NAO_EXISTE_TESTE_ORCAMENTO';
     checkQuote((new Orcamento())->buscarPorId($id) === null, 'isola consulta por tenant sem withoutChave');

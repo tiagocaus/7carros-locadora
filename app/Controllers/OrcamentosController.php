@@ -425,7 +425,9 @@ class OrcamentosController
 
     private function gerarPdfHtml(array $orcamento): string
     {
-        $empresa = (new MatrizFilial())->buscarPorId((int) $orcamento['id_matriz_filial_retirada']);
+        $empresa = (new MatrizFilial())->buscarPorId((int) $orcamento['id_matriz_filial_retirada']) ?? [];
+        $chave = (string) ($empresa['chave'] ?? $orcamento['chave'] ?? Auth::chave());
+        $logoPath = PdfHelper::resolveImagePath($empresa['logo'] ?? null, $chave);
         ob_start();
         include __DIR__ . '/../Views/pages/orcamentos/imprimir.php';
         return (string) ob_get_clean();

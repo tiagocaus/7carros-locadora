@@ -7,6 +7,16 @@
     $editando = isset($orcamento);
     $data = $orcamento ?? [];
     $validadeDefault = (new DateTimeImmutable(\App\Helpers\DateHelper::todayForDatabase()))->modify('+3 days')->format('Y-m-d');
+    $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
+    $initialState = [
+        'data_saida' => $data['data_saida'] ?? null,
+        'data_prevista' => $data['data_prevista'] ?? null,
+        'subtotal_diarias' => (float) ($data['subtotal_diarias'] ?? 0),
+        'subtotal_adicionais' => (float) ($data['subtotal_adicionais'] ?? 0),
+        'valor_desconto' => (float) ($data['valor_desconto'] ?? 0),
+        'total_pagar' => (float) ($data['total_pagar'] ?? 0),
+        'veiculo_label' => trim(($data['veiculo_placa'] ?? '') . ' - ' . ($data['veiculo_marca'] ?? '') . ' ' . ($data['veiculo_modelo'] ?? '')),
+    ];
 ?>
 <div class="pl-1 pr-2 py-0">
     <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
@@ -44,8 +54,8 @@
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-3 form-input-group"><label class="form-label-group" for="filial_retirada">Filial de retirada <span class="text-red-500">*</span></label><select id="filial_retirada" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/matrizes-filiais/buscar" required><?php if (!empty($data['id_matriz_filial_retirada'])): ?><option value="<?= (int)$data['id_matriz_filial_retirada'] ?>" selected><?= e($data['filial_retirada_nome']) ?></option><?php endif; ?></select></div>
                 <div class="md:col-span-3 form-input-group"><label class="form-label-group" for="filial_devolucao">Filial de devolução <span class="text-red-500">*</span></label><select id="filial_devolucao" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/matrizes-filiais/buscar" required><?php if (!empty($data['id_matriz_filial_devolucao'])): ?><option value="<?= (int)$data['id_matriz_filial_devolucao'] ?>" selected><?= e($data['filial_devolucao_nome']) ?></option><?php endif; ?></select></div>
-                <div class="md:col-span-3 form-input-group"><label class="form-label-group" for="data_saida">Retirada <span class="text-red-500">*</span></label><input type="datetime-local" id="data_saida" class="form-input-group-field" value="<?= e(\App\Helpers\DateHelper::formatDateTimeForInput($data['data_saida'] ?? null)) ?>" required></div>
-                <div class="md:col-span-3 form-input-group"><label class="form-label-group" for="data_prevista">Devolução <span class="text-red-500">*</span></label><input type="datetime-local" id="data_prevista" class="form-input-group-field" value="<?= e(\App\Helpers\DateHelper::formatDateTimeForInput($data['data_prevista'] ?? null)) ?>" required></div>
+                <div class="md:col-span-3 form-input-group"><label class="form-label-group" for="data_saida">Retirada <span class="text-red-500">*</span></label><input type="datetime-local" id="data_saida" class="form-input-group-field" required></div>
+                <div class="md:col-span-3 form-input-group"><label class="form-label-group" for="data_prevista">Devolução <span class="text-red-500">*</span></label><input type="datetime-local" id="data_prevista" class="form-input-group-field" required></div>
             </div>
         </div>
 
@@ -109,17 +119,41 @@
 (function () {
     const editingId = <?= $editando ? (int)$data['id'] : 'null' ?>;
     const readOnly = <?= (($data['status'] ?? '') === 'C') ? 'true' : 'false' ?>;
+    const initialState = <?= json_encode($initialState, $jsonFlags) ?>;
     let taxas = <?= json_encode(array_map(fn($t) => ['id_taxa'=>(int)($t['id_taxa'] ?? 0),'nome'=>$t['nome'] ?? 'Taxa','quantidade'=>(int)($t['quantidade'] ?? 1)], is_array($data['taxas'] ?? null) ? $data['taxas'] : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     let calculateTimer = null;
     const $ = id => document.getElementById(id);
     $('status').value = <?= json_encode($data['status'] ?? 'R') ?>;
     $('origem').value = <?= json_encode($data['origem'] ?? '') ?>;
     $('plano').value = <?= json_encode($data['plano'] ?? 'KL') ?>;
+    $('data_saida').value = DateHelper.toOperationalDateTimeInput(initialState.data_saida);
+    $('data_prevista').value = DateHelper.toOperationalDateTimeInput(initialState.data_prevista);
 
     function notify(message) { window.parent.postMessage({action:'openAlert', message}, '*'); }
     function navigate(url) { window.parent !== window ? window.parent.postMessage({action:'navigate',page:url}, '*') : window.location.href=url; }
     function money(value) { return Currency.format(Number(value || 0), true); }
     function rawMoney(id) { return $(id).value || '0'; }
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+    function refreshChosen(select) {
+        if (select?.chosenSelect) select.chosenSelect.refresh();
+    }
+    function clearChosen(select) {
+        if (select?.chosenSelect) {
+            select.chosenSelect.clear();
+            return;
+        }
+        if (select) {
+            select.value = '';
+            select.dispatchEvent(new Event('change', {bubbles:true}));
+        }
+    }
     function formData() { return {
         id_orcamento:editingId,
         status:$('status').value, validade:$('validade').value, origem:$('origem').value,
@@ -139,18 +173,21 @@
             const result = await API.get('/api/grupos', {page:1,perPage:100}); if (!result.success) return;
             const current = $('id_grupo').value;
             result.data.forEach(g => { if ([...$('id_grupo').options].some(o=>o.value==g.id)) return; const o=new Option(g.nome,g.id); $('id_grupo').add(o); });
-            $('id_grupo').value=current; if (window.jQuery) jQuery('#id_grupo').trigger('chosen:updated');
+            $('id_grupo').value=current; refreshChosen($('id_grupo'));
         } catch (_) {}
     }
 
     async function loadVehicles() {
-        const group=$('id_grupo').value, branch=$('filial_retirada').value, current=$('id_veiculo').value;
-        $('id_veiculo').innerHTML='<option value="">Nenhuma preferência</option>';
+        const select=$('id_veiculo'),group=$('id_grupo').value,branch=$('filial_retirada').value,current=select.value;
+        const currentOption=[...select.options].find(option=>option.value===String(current));
+        const currentLabel=currentOption?.textContent?.trim()||initialState.veiculo_label||'Veículo preferencial';
+        select.innerHTML='<option value="">Nenhuma preferência</option>';
         if (group && branch) {
             const result=await API.get('/api/veiculos/por-grupo',{id_grupo:group,id_filial:branch,contexto:'reserva'});
-            (result.data||[]).forEach(v=>$('id_veiculo').add(new Option([v.placa,v.marca,v.modelo].filter(Boolean).join(' - '),v.id)));
+            (result.data||[]).forEach(v=>select.add(new Option([v.placa,v.marca,v.modelo].filter(Boolean).join(' - '),v.id)));
         }
-        $('id_veiculo').value=current; if(window.jQuery)jQuery('#id_veiculo').trigger('chosen:updated');
+        if(current&&![...select.options].some(option=>option.value===String(current)))select.add(new Option(currentLabel,current));
+        select.value=current; refreshChosen(select);
     }
 
     async function loadGroupDefaults() {
@@ -170,30 +207,43 @@
         $('taxasLista').innerHTML = taxas.length ? taxas.map((t,i)=>`<div class="flex items-center justify-between p-2 bg-slate-50 rounded"><span>${escapeHtml(t.nome||'Taxa')} <small class="text-slate-500">× ${t.quantidade}</small></span><button type="button" class="text-red-600" data-remove-fee="${i}"><i class="fas fa-times"></i></button></div>`).join('') : '<p class="text-sm text-slate-500">Nenhuma taxa ou serviço adicionado.</p>';
     }
 
+    function renderSummary(values) {
+        $('resumoDiarias').textContent=money(values.subtotal_diarias);
+        $('resumoAdicionais').textContent=money(values.subtotal_adicionais);
+        $('resumoDesconto').textContent='- '+money(values.valor_desconto);
+        $('resumoTotal').textContent=money(values.total_pagar);
+    }
+
+    function updatePlanFields() {
+        $('kmcFields').classList.toggle('hidden',$('plano').value!=='KMC');
+    }
+
     async function calculate(showError=false) {
         const d=formData(); if(!d.id_cliente||!d.id_matriz_filial_retirada||!d.id_matriz_filial_devolucao||!d.data_saida||!d.data_prevista||!d.id_grupo)return null;
         try {
             const result=await API.post('/api/orcamentos/calcular',d); if(!result.success)throw new Error(result.message);
             const c=result.data; if(!$('diaria_manual').checked)$('diaria_valor').value=Currency.format(c.diaria_valor);
-            $('resumoDiarias').textContent=money(c.subtotal_diarias); $('resumoAdicionais').textContent=money(c.subtotal_adicionais);
-            $('resumoDesconto').textContent='- '+money(c.valor_desconto); $('resumoTotal').textContent=money(c.total_pagar); return c;
+            renderSummary(c); return c;
         } catch(error){if(showError)notify(error.message||'Não foi possível calcular o orçamento.');return null;}
     }
     function scheduleCalculate(){clearTimeout(calculateTimer);calculateTimer=setTimeout(()=>calculate(false),350);}
 
-    $('btnAdicionarTaxa').addEventListener('click',()=>{const option=$('taxaSelect').selectedOptions[0];if(!option?.value)return notify('Selecione uma taxa ou serviço.');taxas.push({id_taxa:Number(option.value),nome:option.textContent,quantidade:Math.max(1,Number($('taxaQtd').value||1))});$('taxaSelect').value='';if(window.jQuery)jQuery('#taxaSelect').trigger('chosen:updated');renderFees();scheduleCalculate();});
+    $('btnAdicionarTaxa').addEventListener('click',()=>{const select=$('taxaSelect'),option=select.selectedOptions[0];if(!option?.value)return notify('Selecione uma taxa ou serviço.');taxas.push({id_taxa:Number(option.value),nome:option.textContent,quantidade:Math.max(1,Number($('taxaQtd').value||1))});renderFees();clearChosen(select);$('taxaQtd').value='1';scheduleCalculate();});
     $('taxasLista').addEventListener('click',e=>{const b=e.target.closest('[data-remove-fee]');if(!b)return;taxas.splice(Number(b.dataset.removeFee),1);renderFees();scheduleCalculate();});
-    $('plano').addEventListener('change',()=>{$('kmcFields').classList.toggle('hidden',$('plano').value!=='KMC');scheduleCalculate();});
+    $('plano').addEventListener('change',()=>{updatePlanFields();scheduleCalculate();});
     ['id_cliente','filial_retirada','filial_devolucao','data_saida','data_prevista','id_grupo','id_veiculo','diaria_valor','diaria_manual','seguro_carro','valor_seguro_carro','seguro_terceiros','valor_seguro_terceiros','promocao_codigo','valor_desconto'].forEach(id=>$(id).addEventListener('change',scheduleCalculate));
     $('id_grupo').addEventListener('change',async()=>{await loadVehicles();await loadGroupDefaults();scheduleCalculate();});
     $('filial_retirada').addEventListener('change',async()=>{await loadVehicles();await loadGroupDefaults();scheduleCalculate();});
 
-    $('btnSalvar').addEventListener('click',async()=>{const calculated=await calculate(true);if(!calculated)return;const url=editingId?`/orcamentos/${editingId}/atualizar`:'/orcamentos/salvar';const result=await API.post(url,formData());if(result.success){notify(result.message);navigate(editingId?'/pages/orcamentos':'/pages/orcamentos/editar/'+result.data.id);}else notify(result.message||'Não foi possível salvar.');});
+    $('btnSalvar').addEventListener('click',async()=>{const calculated=await calculate(true);if(!calculated)return;const url=editingId?`/orcamentos/${editingId}/atualizar`:'/orcamentos/salvar';const result=await API.post(url,formData());if(result.success){notify(result.message);navigate('/pages/orcamentos');}else notify(result.message||'Não foi possível salvar.');});
     document.querySelectorAll('[data-send]').forEach(button=>button.addEventListener('click',async()=>{button.disabled=true;const result=await API.post(`/orcamentos/${editingId}/enviar`,{canal:button.dataset.send});button.disabled=false;notify(result.message||'Não foi possível enviar o orçamento.');if(result.success&&$('status').value!=='C')$('status').value='E';}));
     $('btnPdf')?.addEventListener('click',()=>window.parent.postMessage({action:'openPrintModal',url:`/orcamentos/${editingId}/imprimir`,title:'Orçamento <?= e($data['codigo'] ?? '') ?>'}, '*'));
     $('btnVoltar').addEventListener('click',()=>navigate('/pages/orcamentos'));
     if(readOnly){document.querySelectorAll('input,select,textarea,button:not(#btnVoltar):not(#btnPdf):not([data-send])').forEach(el=>el.disabled=true);}
-    loadGroups().then(()=>{renderFees();$('plano').dispatchEvent(new Event('change'));loadVehicles();calculate(false);});
+    renderFees();
+    updatePlanFields();
+    if(editingId)renderSummary(initialState);else calculate(false);
+    loadGroups().then(()=>loadVehicles());
 })();
 </script>
 @endsection
