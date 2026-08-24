@@ -13,6 +13,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 | Filtros de Filial | `docs/filial-helper.md` |
 | Contratos | `docs/contratos.md` |
 | Locacoes | `docs/locacoes.md` |
+| Orcamentos | `docs/orcamentos.md` |
 | Taxas e Servicos | `docs/taxaseservicos.md` |
 | Geracao de PDF | `docs/pdf.md` |
 | Relatorios (especificacao) | `docs/relatorios.md` |
@@ -86,6 +87,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 - **[Checklist Digital](docs/checklists.md)** - Vistoria digital mobile, questionário, fotos e assinatura
 - **[Contratos](docs/contratos.md)** - Gestão de contratos de locação e impressão
 - **[Locações](docs/locacoes.md)** - Gestão de locações de curta duração (diárias)
+- **[Orçamentos](docs/orcamentos.md)** - Propostas comerciais e conversão em reservas
 - **[Multas](docs/multas.md)** - Central de Multas, integração SERPRO, indicação de condutor, impressão (4 tipos de PDF)
 - **[Documentos (modelos)](docs/documentos.md)** - Modelos de documento por tenant, tipos e usos em contratos/locações/multas
 - **[Taxas e Serviços](docs/taxaseservicos.md)** - Taxas adicionais, regras de cálculo e integração com contratos

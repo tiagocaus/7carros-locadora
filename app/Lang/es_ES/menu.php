@@ -40,6 +40,8 @@ return [
     // Menú Contrato/Alquileres
     'contratos_loc' => [
         'title' => 'Contrato/Alquileres',
+        'new_quote' => 'Nuevo presupuesto',
+        'quotes' => 'Presupuestos',
         'new_rental' => 'Nuevo Alquiler',
         'rentals_reservations' => 'Alquileres/Reservas',
         'new_contract' => 'Nuevo contrato',

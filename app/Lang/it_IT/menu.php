@@ -40,6 +40,8 @@ return [
     // Menu Contratto/Noleggi
     'contratos_loc' => [
         'title' => 'Contratto/Noleggi',
+        'new_quote' => 'Nuovo preventivo',
+        'quotes' => 'Preventivi',
         'new_rental' => 'Nuovo noleggio',
         'rentals_reservations' => 'Noleggi/Prenotazioni',
         'new_contract' => 'Nuovo contratto',

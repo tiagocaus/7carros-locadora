@@ -42,6 +42,7 @@ use App\Controllers\GravacoesController;
 use App\Controllers\ContratosController;
 use App\Controllers\CaucoesController;
 use App\Controllers\LocacoesController;
+use App\Controllers\OrcamentosController;
 use App\Controllers\AgendaController;
 use App\Controllers\AssinaturaController;
 use App\Controllers\AssinaturasController;
@@ -1087,6 +1088,21 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->post('/agenda/salvar', [AgendaController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/agenda/{id}/atualizar', [AgendaController::class, 'update'], ['csrf', 'rate_limit']);
     $router->post('/agenda/{id}/excluir', [AgendaController::class, 'destroy'], ['csrf', 'rate_limit']);
+
+    // Paginas iframe - Orcamentos
+    $router->get('/pages/orcamentos', [OrcamentosController::class, 'view']);
+    $router->get('/pages/orcamentos/adicionar', [OrcamentosController::class, 'formView']);
+    $router->get('/pages/orcamentos/editar/{id}', [OrcamentosController::class, 'editView']);
+    $router->get('/api/orcamentos', [OrcamentosController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/orcamentos/calcular', [OrcamentosController::class, 'calcular'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/orcamentos/{id}', [OrcamentosController::class, 'show'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/orcamentos/salvar', [OrcamentosController::class, 'store'], ['csrf', 'rate_limit']);
+    $router->post('/orcamentos/{id}/atualizar', [OrcamentosController::class, 'update'], ['csrf', 'rate_limit']);
+    $router->post('/api/orcamentos/{id}/status', [OrcamentosController::class, 'status'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/orcamentos/{id}/duplicar', [OrcamentosController::class, 'duplicar'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/orcamentos/{id}/converter', [OrcamentosController::class, 'converter'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/orcamentos/{id}/imprimir', [OrcamentosController::class, 'imprimir']);
+    $router->post('/orcamentos/{id}/enviar', [OrcamentosController::class, 'enviar'], ['csrf', 'rate_limit']);
 
     // Paginas iframe - Locacoes/Reservas
     $router->get('/pages/locacoes', [LocacoesController::class, 'view']);

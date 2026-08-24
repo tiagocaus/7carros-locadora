@@ -44,6 +44,13 @@
                         {{ t('menu.contratos_loc.title') }} <i class="fas fa-chevron-down fa-xs ml-1.5"></i>
                     </a>
                     <div class="submenu">
+                        <?php if (\App\Core\Auth::can('orcamentos.criar')): ?>
+                        <a href="#" onclick="openOrSwitchToTab('/pages/orcamentos/adicionar', '<?= t('menu.contratos_loc.new_quote') ?>', 'fas fa-file-invoice'); return false;">{{ t('menu.contratos_loc.new_quote') }}</a>
+                        <?php endif; ?>
+                        <?php if (\App\Core\Auth::can('orcamentos.visualizar')): ?>
+                        <a href="#" onclick="openOrSwitchToTab('/pages/orcamentos', '<?= t('menu.contratos_loc.quotes') ?>', 'fas fa-file-invoice'); return false;">{{ t('menu.contratos_loc.quotes') }}</a>
+                        <div class="submenu-divider"></div>
+                        <?php endif; ?>
                         <a href="#" onclick="openOrSwitchToTab('/pages/locacoes/adicionar', '<?= t('menu.contratos_loc.new_rental') ?>', 'fas fa-file-invoice-dollar'); return false;">{{ t('menu.contratos_loc.new_rental') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/locacoes', '<?= t('menu.contratos_loc.rentals_reservations') ?>', 'fas fa-file-invoice-dollar'); return false;">{{ t('menu.contratos_loc.rentals_reservations') }}</a>
                         <div class="submenu-divider"></div>

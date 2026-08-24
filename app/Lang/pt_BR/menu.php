@@ -40,6 +40,8 @@ return [
     // Menu Contrato/Locações
     'contratos_loc' => [
         'title' => 'Contrato/Locações',
+        'new_quote' => 'Novo orçamento',
+        'quotes' => 'Orçamentos',
         'new_rental' => 'Nova Locação',
         'rentals_reservations' => 'Locações/Reservas',
         'new_contract' => 'Novo contrato',
