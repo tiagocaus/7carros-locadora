@@ -68,6 +68,17 @@ $sinistrosLocacao = strpos($locacaoView, 'data-form-tab-target="#tabSinistros"')
 $financeiroLocacao = strpos($locacaoView, 'data-form-tab-target="#tabFinanceiro"');
 checkSinistros($taxasLocacao < $sinistrosLocacao && $sinistrosLocacao < $financeiroLocacao, 'Aba de sinistros deve ficar entre Taxas e Financeiro na locacao.');
 
+foreach ([
+    'contrato' => $contratoView,
+    'novo contrato' => $contratoAdicionarView,
+    'locacao' => $locacaoView,
+] as $contexto => $view) {
+    checkSinistros(
+        substr_count($view, '<div id="tabSinistros" class="form-tab-content">') === 1,
+        "{$contexto} deve possuir um unico conteudo de aba para Sinistros."
+    );
+}
+
 foreach (['sinistro_data_ocorrencia', 'sinistro_id_veiculo', 'sinistro_tipo', 'sinistro_descricao', 'sinistro_valor_estimado', 'sinistro_status', 'sinistro_observacoes'] as $field) {
     checkSinistros(str_contains($partial, 'id="' . $field . '"'), "Campo {$field} deve existir.");
 }

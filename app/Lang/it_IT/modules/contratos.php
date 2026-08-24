@@ -15,6 +15,7 @@ return [
     'tabs' => [
         'client' => 'Cliente',
         'vehicles' => 'Veicoli',
+        'stakeholders' => 'Parti Coinvolte',
         'driver' => 'Conducente',
         'guarantor' => 'Garante',
         'endorser' => 'Avallante',

@@ -127,7 +127,7 @@ Gerencia taxas e servicos adicionais.
 
 ## Formulario de Contratos
 
-O formulario de edicao possui 11 abas:
+O formulario de criacao e edicao possui 8 abas:
 
 ### Aba 1: Cliente
 - Select de cliente (Chosen com busca server-side)
@@ -145,30 +145,20 @@ O formulario de edicao possui 11 abas:
   - Odometro e combustivel/carga de entrada
   - Labels se adaptam automaticamente para veiculos eletricos (HE): "Tanque" → "Bateria/Carga", fracoes → porcentagens
 
-### Aba 3: Condutor Adicional
-- Lista de condutores adicionais (nome, CPF, CNH, validade)
-- Armazenado em JSON no campo `condutor_adicional`
+### Aba 3: Intervenientes
+- Condutores adicionais (nome, CPF, CNH e validade), armazenados em JSON no campo `condutor_adicional`
+- Fiadores (selecao de clientes cadastrados), armazenados em JSON no campo `array_fiadores`
+- Avalistas, armazenados em JSON no campo `array_avalistas`
+- Testemunhas, armazenadas em JSON no campo `array_testemunhas`
 
-### Aba 4: Fiador
-- Lista de fiadores (selecao de clientes cadastrados)
-- Armazenado em JSON no campo `array_fiadores`
-
-### Aba 5: Avalista
-- Lista de avalistas
-- Armazenado em JSON no campo `array_avalistas`
-
-### Aba 6: Testemunhas
-- Lista de testemunhas
-- Armazenado em JSON no campo `array_testemunhas`
-
-### Aba 7: Taxas
+### Aba 4: Taxas
 - Taxas e servicos adicionais vinculados ao contrato
 
-### Aba 8: Sinistros
+### Aba 5: Sinistros
 - Cadastro simples de sinistros vinculados aos veiculos atuais ou historicos
 - Cobranca opcional ao cliente, conforme [sinistros.md](sinistros.md)
 
-### Aba 9: Financeiro
+### Aba 6: Financeiro
 - Conta bancaria e forma de pagamento
 - Comando de parcelas (select independente com comandos do sistema + personalizados)
 - Desconto e primeiro pagamento
@@ -180,10 +170,10 @@ O formulario de edicao possui 11 abas:
 - Ao salvar muitas parcelas, as sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` para evitar locks repetidos em `matrizes_filiais`
 - Ao criar um contrato novo com parcelas geradas, o backend cria/reutiliza links em `pagamentos_links` e enfileira cobrancas `payment_reminder` para email, WhatsApp e SMS. Falhas por canal nao impedem a criacao do contrato nem das parcelas.
 
-### Aba 10: Observacoes
+### Aba 7: Observacoes
 - Campo de texto livre
 
-### Aba 11: Resumo
+### Aba 8: Resumo
 - Resumo de valores agrupado ou detalhado
 - Taxas e servicos adicionais
 - Total a pagar

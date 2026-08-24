@@ -106,17 +106,8 @@
                 <button type="button" data-form-tab-target="#tabVeiculos" class="form-tab-button">
                     <i class="fas fa-car mr-1"></i><span class="hidden sm:inline"><?= t('modules.contratos.tabs.vehicles') ?></span>
                 </button>
-                <button type="button" data-form-tab-target="#tabCondutor" class="form-tab-button">
-                    <i class="fas fa-id-card mr-1"></i><span class="hidden sm:inline"><?= t('modules.contratos.tabs.driver') ?></span>
-                </button>
-                <button type="button" data-form-tab-target="#tabFiador" class="form-tab-button">
-                    <i class="fas fa-user-shield mr-1"></i><span class="hidden sm:inline"><?= t('modules.contratos.tabs.guarantor') ?></span>
-                </button>
-                <button type="button" data-form-tab-target="#tabAvalista" class="form-tab-button">
-                    <i class="fas fa-user-check mr-1"></i><span class="hidden sm:inline"><?= t('modules.contratos.tabs.endorser') ?></span>
-                </button>
-                <button type="button" data-form-tab-target="#tabTestemunhas" class="form-tab-button">
-                    <i class="fas fa-users mr-1"></i><span class="hidden sm:inline"><?= t('modules.contratos.tabs.witnesses') ?></span>
+                <button type="button" data-form-tab-target="#tabIntervenientes" class="form-tab-button">
+                    <i class="fas fa-users mr-1"></i><span class="hidden sm:inline"><?= t('modules.contratos.tabs.stakeholders') ?></span>
                 </button>
                 <button type="button" data-form-tab-target="#tabTaxas" class="form-tab-button">
                     <i class="fas fa-receipt mr-1"></i><span class="hidden sm:inline"><?= t('modules.contratos.tabs.fees') ?></span>
@@ -207,8 +198,9 @@
             </div>
         </div>
 
-        <!-- ================== ABA 3: CONDUTOR ADICIONAL ================== -->
-        <div id="tabCondutor" class="form-tab-content">
+        <!-- ================== ABA 3: INTERVENIENTES ================== -->
+        <div id="tabIntervenientes" class="form-tab-content">
+            <!-- Condutor Adicional -->
             <div class="form-section mb-4">
                 <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-300">
                     <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-id-card mr-2"></i><?= t('modules.contratos.sections.additional_driver') ?></h3>
@@ -222,10 +214,7 @@
                     <!-- Condutores serao adicionados aqui -->
                 </div>
             </div>
-        </div>
-
-        <!-- ================== ABA 4: FIADOR ================== -->
-        <div id="tabFiador" class="form-tab-content">
+            <!-- Fiadores -->
             <div class="form-section mb-4">
                 <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-300">
                     <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-user-shield mr-2"></i><?= t('modules.contratos.sections.guarantors') ?></h3>
@@ -239,10 +228,7 @@
                     <!-- Fiadores serao adicionados aqui -->
                 </div>
             </div>
-        </div>
-
-        <!-- ================== ABA 5: AVALISTA ================== -->
-        <div id="tabAvalista" class="form-tab-content">
+            <!-- Avalistas -->
             <div class="form-section mb-4">
                 <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-300">
                     <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-user-check mr-2"></i><?= t('modules.contratos.sections.endorsers') ?></h3>
@@ -256,10 +242,7 @@
                     <!-- Avalistas serao adicionados aqui -->
                 </div>
             </div>
-        </div>
-
-        <!-- ================== ABA 6: TESTEMUNHAS ================== -->
-        <div id="tabTestemunhas" class="form-tab-content">
+            <!-- Testemunhas -->
             <div class="form-section mb-4">
                 <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-300">
                     <h3 class="form-section-title mb-0 pb-0 border-b-0"><i class="fas fa-users mr-2"></i><?= t('modules.contratos.sections.witnesses') ?></h3>
@@ -275,7 +258,7 @@
             </div>
         </div>
 
-        <!-- ================== ABA 7: TAXAS E SERVICOS ================== -->
+        <!-- ================== ABA 4: TAXAS E SERVICOS ================== -->
         <div id="tabTaxas" class="form-tab-content">
             <div class="form-section mb-4">
                 <h3 class="form-section-title"><i class="fas fa-receipt mr-2"></i><?= t('modules.contratos.sections.fees_services') ?></h3>
