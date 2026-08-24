@@ -18,6 +18,12 @@ return [
     'view_charge' => 'Ver cobrança',
     'edit_action' => 'Editar',
     'generate_charge_action' => 'Gerar cobrança',
+    'delete_action' => 'Excluir',
+    'delete_error' => 'Não foi possível excluir o sinistro.',
+    'deleted' => 'Sinistro excluído com sucesso.',
+    'delete_record_type' => 'sinistro',
+    'delete_with_charge' => 'a cobrança vinculada também será excluída',
+    'delete_paid_blocked' => 'Estorne a cobrança paga antes de excluir o sinistro.',
     'not_generated' => 'Não gerada',
     'saved' => 'Sinistro salvo com sucesso.',
     'fields' => [

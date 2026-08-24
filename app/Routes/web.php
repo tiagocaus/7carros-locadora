@@ -1152,6 +1152,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/api/sinistros', [SinistrosController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/sinistros', [SinistrosController::class, 'store'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->put('/api/sinistros/{id}', [SinistrosController::class, 'update'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->delete('/api/sinistros/{id}', [SinistrosController::class, 'destroy'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/api/sinistros/{id}/gerar-cobranca', [SinistrosController::class, 'gerarCobranca'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Impressao Locacoes

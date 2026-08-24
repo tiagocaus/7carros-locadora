@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Classes\QueryBuilder;
 use App\Core\Database;
+use mysqli;
 
 /**
  * Service para logging de auditoria de operações CRUD
@@ -149,6 +151,39 @@ class AuditLogService
                 ? json_encode($camposAlterados, JSON_UNESCAPED_UNICODE)
                 : null,
         ]);
+    }
+
+    /**
+     * Registra auditoria usando uma conexao mysqli que ja participa de uma
+     * transacao. Falhas sao propagadas para permitir rollback da operacao.
+     */
+    public static function registrarComCamposNaTransacao(
+        mysqli $connection,
+        string $mensagem,
+        array $camposAlterados = []
+    ): int {
+        $chave = $_SESSION['chave'] ?? null;
+        if (!$chave) {
+            throw new \RuntimeException('Tenant nao identificado para registrar auditoria');
+        }
+
+        $id = (new QueryBuilder($connection))
+            ->table('logs')
+            ->insert([
+                'id_funcionario' => self::resolveFuncionarioId(),
+                'data' => now(),
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'mensagem' => $mensagem,
+                'campos_alterados' => !empty($camposAlterados)
+                    ? json_encode($camposAlterados, JSON_UNESCAPED_UNICODE)
+                    : null,
+            ]);
+
+        if ($id <= 0) {
+            throw new \RuntimeException('Nao foi possivel registrar a auditoria');
+        }
+
+        return $id;
     }
 
     /**

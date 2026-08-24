@@ -75,6 +75,7 @@
             const statusClass = item.status === 'C' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700';
             const statusLabel = item.status === 'C' ? (t.status?.completed || 'Concluído') : (t.status?.open || 'Aberto');
             const vehicle = [item.veiculo_placa, item.veiculo_marca, item.veiculo_modelo].filter(Boolean).join(' - ');
+            const canDelete = config.canDelete && (!charged || config.canDeleteFinance);
             return `<div class="rounded-lg border border-slate-200 bg-white p-4" data-sinistro-id="${item.id}">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
                     <div class="md:col-span-2"><div class="text-xs text-slate-500">${escapeHtml(t.fields?.date || 'Data')}</div><div class="text-sm font-medium">${escapeHtml(formatDate(item.data_ocorrencia))}</div></div>
@@ -90,6 +91,7 @@
                         <button type="button" class="btn-secondary rounded-md px-3 py-1.5 text-xs btn-editar-sinistro" data-id="${item.id}"><i class="fas fa-edit mr-1"></i>${escapeHtml(t.edit_action || 'Editar')}</button>
                         ${!charged && config.canCreateFinance ? `<button type="button" class="btn-secondary rounded-md px-3 py-1.5 text-xs btn-cobrar-sinistro" data-id="${item.id}"><i class="fas fa-file-invoice-dollar mr-1"></i>${escapeHtml(t.generate_charge_action || 'Gerar cobrança')}</button>` : ''}
                         ${charged ? `<button type="button" class="btn-secondary rounded-md px-3 py-1.5 text-xs btn-ver-cobranca" data-id="${item.id_financeiro}"><i class="fas fa-external-link-alt mr-1"></i>${escapeHtml(t.view_charge || 'Ver cobrança')}</button>` : ''}
+                        ${canDelete ? `<button type="button" class="btn-secondary rounded-md px-3 py-1.5 text-xs text-red-600 btn-excluir-sinistro" data-id="${item.id}"><i class="fas fa-trash-alt mr-1"></i>${escapeHtml(t.delete_action || 'Excluir')}</button>` : ''}
                     </div>
                 </div>
             </div>`;
@@ -236,6 +238,37 @@
         }
     }
 
+    function requestDelete(item) {
+        if (item.id_financeiro && item.financeiro_pago === 'S') {
+            alertMessage(t.delete_paid_blocked || 'Estorne a cobrança paga antes de excluir o sinistro.');
+            return;
+        }
+
+        const recordName = `#${item.id}${item.id_financeiro ? ` — ${t.delete_with_charge || 'a cobrança vinculada também será excluída'}` : ''}`;
+        window.parent.postMessage({
+            action: 'openDeleteModal',
+            recordId: item.id,
+            recordName,
+            recordType: t.delete_record_type || 'sinistro',
+            confirmType: 'text',
+            customAction: 'deleteSinistro'
+        }, '*');
+    }
+
+    async function deleteRecord(id) {
+        try {
+            const result = await API.post(`/api/sinistros/${id}`, { _method: 'DELETE' });
+            if (!result.success) throw new Error(result.message || t.delete_error);
+            if (String(el('sinistro_id')?.value || '') === String(id)) {
+                el('sinistroEditor')?.classList.add('hidden');
+            }
+            alertMessage(result.message || t.deleted || 'Sinistro excluído com sucesso.');
+            await load(true);
+        } catch (error) {
+            alertMessage(error.message || t.delete_error || 'Não foi possível excluir o sinistro.');
+        }
+    }
+
     el('btnNovoSinistro')?.addEventListener('click', openNew);
     el('btnCancelarSinistro')?.addEventListener('click', () => el('sinistroEditor').classList.add('hidden'));
     el('btnSalvarSinistro')?.addEventListener('click', save);
@@ -254,6 +287,12 @@
         if (!item) return;
         if (button.classList.contains('btn-editar-sinistro')) openEdit(item);
         if (button.classList.contains('btn-cobrar-sinistro')) openCharge(item);
+        if (button.classList.contains('btn-excluir-sinistro')) requestDelete(item);
+    });
+    window.addEventListener('message', event => {
+        if (event.data?.action === 'confirmDelete' && event.data.customAction === 'deleteSinistro') {
+            deleteRecord(event.data.recordId);
+        }
     });
     document.querySelector('[data-form-tab-target="#tabSinistros"]')?.addEventListener('click', () => load());
     el('sinistro_valor_estimado') && Currency.applyMask(el('sinistro_valor_estimado'));

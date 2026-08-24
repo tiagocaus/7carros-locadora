@@ -50,6 +50,15 @@ class Sinistro extends Model
             ->first();
     }
 
+    public function buscarPorIdParaAtualizacao(int $id): ?array
+    {
+        return $this->qb
+            ->table('sinistros')
+            ->where('id', '=', $id)
+            ->lockForUpdate()
+            ->first();
+    }
+
     public function criar(array $dados): int
     {
         return $this->qb->table('sinistros')->insert($dados);
@@ -61,6 +70,14 @@ class Sinistro extends Model
             ->table('sinistros')
             ->where('id', '=', $id)
             ->update($dados);
+    }
+
+    public function deletar(int $id): int
+    {
+        return $this->qb
+            ->table('sinistros')
+            ->where('id', '=', $id)
+            ->delete();
     }
 
     public function veiculoPertenceAoVinculo(string $vinculo, int $idVinculo, int $idVeiculo): bool

@@ -456,6 +456,18 @@ class Financeiro extends Model
     }
 
     /**
+     * Busca e bloqueia um lancamento do tenant durante a transacao atual.
+     */
+    public function buscarPorIdParaAtualizacao(int $id): ?array
+    {
+        return $this->qb
+            ->table('financeiro')
+            ->where('id', '=', $id)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
      * Busca um lancamento com seus itens
      *
      * @param int $id ID do lancamento

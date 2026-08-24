@@ -21,6 +21,8 @@ $model = file_get_contents(APP_ROOT . '/app/Models/Sinistro.php');
 $service = file_get_contents(APP_ROOT . '/app/Services/SinistroService.php');
 $controller = file_get_contents(APP_ROOT . '/app/Controllers/SinistrosController.php');
 $routes = file_get_contents(APP_ROOT . '/app/Routes/web.php');
+$javascript = file_get_contents(APP_ROOT . '/public/assets/js/sinistros.js');
+$auditService = file_get_contents(APP_ROOT . '/app/Services/AuditLogService.php');
 $partial = file_get_contents(APP_ROOT . '/app/Views/pages/sinistros/_tab.php');
 $contratoView = file_get_contents(APP_ROOT . '/app/Views/pages/contratos/editar.php');
 $contratoAdicionarView = file_get_contents(APP_ROOT . '/app/Views/pages/contratos/adicionar.php');
@@ -30,7 +32,7 @@ $locacaoModel = file_get_contents(APP_ROOT . '/app/Models/Locacao.php');
 $locacaoController = file_get_contents(APP_ROOT . '/app/Controllers/LocacoesController.php');
 $sinistrosDoc = file_get_contents(APP_ROOT . '/docs/sinistros.md');
 
-foreach (compact('migration', 'splitMigration', 'model', 'service', 'controller', 'routes', 'partial', 'contratoView', 'contratoAdicionarView', 'locacaoView', 'report', 'locacaoModel', 'locacaoController', 'sinistrosDoc') as $name => $source) {
+foreach (compact('migration', 'splitMigration', 'model', 'service', 'controller', 'routes', 'javascript', 'auditService', 'partial', 'contratoView', 'contratoAdicionarView', 'locacaoView', 'report', 'locacaoModel', 'locacaoController', 'sinistrosDoc') as $name => $source) {
     checkSinistros($source !== false, "Fonte {$name} deve estar disponivel.");
 }
 
@@ -43,6 +45,13 @@ checkSinistros(str_contains($service, 'Sinistro::PLANO_CONTA_SINISTROS'), 'Cobra
 checkSinistros(str_contains($splitMigration, 's.id_financeiro = f.id'), 'Reclassificacao historica deve se limitar a cobrancas vinculadas a sinistros.');
 checkSinistros(str_contains($service, "financeiro.criar") === false && str_contains($controller, "Auth::can('financeiro.criar')"), 'Permissao financeira deve ser validada no Controller.');
 checkSinistros(str_contains($routes, "'/api/sinistros'"), 'API propria de sinistros deve estar registrada.');
+checkSinistros(str_contains($routes, "->delete('/api/sinistros/{id}'"), 'API deve disponibilizar exclusao de sinistros.');
+checkSinistros(str_contains($controller, "Auth::can('financeiro.excluir')"), 'Excluir sinistro com cobranca deve exigir permissao financeira.');
+checkSinistros(str_contains($service, 'buscarPorIdParaAtualizacao') && str_contains($service, "=== 'S'"), 'Exclusao deve bloquear os registros e impedir cobranca paga.');
+checkSinistros(str_contains($service, 'registrarComCamposNaTransacao'), 'Auditoria deve participar da transacao de exclusao.');
+checkSinistros(str_contains($auditService, 'new QueryBuilder($connection)'), 'Auditoria transacional deve usar a mesma conexao mysqli.');
+checkSinistros(str_contains($javascript, "_method: 'DELETE'") && str_contains($javascript, "action: 'openDeleteModal'"), 'Frontend deve usar method spoofing e o modal global de exclusao.');
+checkSinistros(!preg_match('/(^|[^A-Za-z])(?:alert|confirm)\s*\(/', $javascript), 'Frontend de sinistros nao deve usar alert ou confirm nativos.');
 
 $taxasContrato = strpos($contratoView, 'data-form-tab-target="#tabTaxas"');
 $sinistrosContrato = strpos($contratoView, 'data-form-tab-target="#tabSinistros"');
@@ -69,6 +78,7 @@ checkSinistros(!str_contains(substr($report, strpos($report, 'public function av
 checkSinistros(str_contains($locacaoModel, 'AS total_sinistros'), 'Resumo da locacao deve separar o total de sinistros.');
 checkSinistros(str_contains($locacaoController, "['total_sinistros']"), 'Fechamento da locacao deve considerar sinistros separadamente.');
 checkSinistros(str_contains($sinistrosDoc, '`4.2.2.01`') && str_contains($sinistrosDoc, '`4.2.2.05`'), 'Documentacao deve preservar a separacao contabil.');
+checkSinistros(str_contains($sinistrosDoc, 'DELETE /api/sinistros/{id}') && str_contains($sinistrosDoc, 'Cobrancas pagas bloqueiam'), 'Documentacao deve registrar as regras de exclusao.');
 
 checkSinistros(Database::env('DB_HOST') === 'localhost', 'Teste de schema deve usar o MySQL local.');
 $pdo = Database::getConnection();

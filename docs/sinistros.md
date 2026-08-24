@@ -54,11 +54,30 @@ GET  /api/sinistros?vinculo=contrato&id_vinculo={id}
 GET  /api/sinistros?vinculo=locacao&id_vinculo={id}
 POST /api/sinistros
 PUT  /api/sinistros/{id}
+DELETE /api/sinistros/{id}
 POST /api/sinistros/{id}/gerar-cobranca
 ```
 
 Visualizacao e edicao respeitam as permissoes e o acesso a filial do contrato
 ou locacao. Gerar cobranca exige adicionalmente `financeiro.criar`.
+
+No frontend, `PUT` e `DELETE` devem ser enviados com `API.post()` e method
+spoofing (`_method`), conforme `docs/api.md`.
+
+## Exclusao e auditoria
+
+- Excluir um sinistro exige `contratos.editar` ou `locacoes.editar`, conforme o
+  vinculo, e respeita o acesso a filial.
+- Quando existe cobranca vinculada, a operacao exige adicionalmente
+  `financeiro.excluir` e remove o sinistro e a cobranca na mesma transacao.
+- Cobrancas pagas bloqueiam a exclusao. O usuario deve estornar a cobranca
+  antes de excluir o sinistro.
+- Os bloqueios normais do financeiro continuam validos, incluindo promissorias
+  vinculadas.
+- Sinistro, cobranca e auditoria usam a mesma conexao e transacao. Qualquer
+  falha desfaz toda a operacao.
+- O log registra os dados anteriores do sinistro e, quando aplicavel, da
+  cobranca vinculada, agrupados separadamente em `campos_alterados`.
 
 ## Relatorio
 

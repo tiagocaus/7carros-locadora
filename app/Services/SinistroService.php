@@ -92,6 +92,88 @@ class SinistroService
         }
     }
 
+    /**
+     * Exclui o sinistro e, quando existir, sua cobranca pendente vinculada.
+     * A auditoria participa da mesma transacao para impedir exclusoes sem log.
+     */
+    public function excluir(
+        int $id,
+        string $vinculo,
+        array $parent,
+        string $nomeUsuario,
+        bool $podeExcluirFinanceiro
+    ): array
+    {
+        $mysqli = Model::sharedMysqli();
+        $mysqli->begin_transaction();
+
+        try {
+            $sinistroModel = new Sinistro();
+            $sinistro = $sinistroModel->buscarPorIdParaAtualizacao($id);
+            if (!$sinistro) {
+                throw new \InvalidArgumentException('Sinistro nao encontrado');
+            }
+
+            $campoVinculo = $vinculo === 'contrato' ? 'id_contrato' : 'id_locacao';
+            if ((int) ($sinistro[$campoVinculo] ?? 0) !== (int) ($parent['id'] ?? 0)) {
+                throw new \RuntimeException('O sinistro nao pertence ao vinculo informado');
+            }
+
+            $financeiro = null;
+            $idFinanceiro = (int) ($sinistro['id_financeiro'] ?? 0);
+            if ($idFinanceiro > 0) {
+                if (!$podeExcluirFinanceiro) {
+                    throw new \InvalidArgumentException('Sem permissao para excluir a cobranca vinculada');
+                }
+                $financeiroModel = new Financeiro();
+                $financeiroBloqueado = $financeiroModel->buscarPorIdParaAtualizacao($idFinanceiro);
+                if (!$financeiroBloqueado) {
+                    throw new \RuntimeException('Cobranca vinculada ao sinistro nao encontrada');
+                }
+                if (($financeiroBloqueado['pago'] ?? 'N') === 'S') {
+                    throw new \InvalidArgumentException('Estorne a cobranca paga antes de excluir o sinistro');
+                }
+                if (($financeiroBloqueado['tipo'] ?? '') !== 'R'
+                    || (int) ($financeiroBloqueado[$campoVinculo] ?? 0) !== (int) $parent['id']) {
+                    throw new \RuntimeException('A cobranca nao pertence ao mesmo contrato ou locacao do sinistro');
+                }
+
+                $verificacao = $financeiroModel->verificarVinculos($idFinanceiro);
+                if ($verificacao['temVinculos']) {
+                    throw new \InvalidArgumentException(
+                        'Nao e possivel excluir a cobranca vinculada: ' . implode(', ', $verificacao['detalhes'])
+                    );
+                }
+
+                $financeiro = $financeiroModel->buscarPorId($idFinanceiro) ?? $financeiroBloqueado;
+            }
+
+            $mensagem = $nomeUsuario . ', excluiu o sinistro [#' . $id . ']';
+            if ($financeiro) {
+                $identificadorFinanceiro = $financeiro['codigo'] ?: ('#' . $idFinanceiro);
+                $mensagem .= ' e a cobranca vinculada [' . $identificadorFinanceiro . ']';
+            }
+            AuditLogService::registrarComCamposNaTransacao(
+                $mysqli,
+                $mensagem,
+                $this->camposAuditoriaExclusao($sinistro, $financeiro, $vinculo, $parent)
+            );
+
+            if ($financeiro && (new Financeiro())->deletar($idFinanceiro) !== 1) {
+                throw new \RuntimeException('Nao foi possivel excluir a cobranca vinculada');
+            }
+            if ($sinistroModel->deletar($id) !== 1) {
+                throw new \RuntimeException('Nao foi possivel excluir o sinistro');
+            }
+
+            $mysqli->commit();
+            return ['id_financeiro' => $idFinanceiro > 0 ? $idFinanceiro : null];
+        } catch (\Throwable $e) {
+            $mysqli->rollback();
+            throw $e;
+        }
+    }
+
     private function criarCobranca(string $vinculo, array $parent, int $idSinistro, array $dados, string $chave, int $idVeiculo): int
     {
         $valor = currency_parse($dados['valor'] ?? 0);
@@ -124,6 +206,92 @@ class SinistroService
             'valor_subtotal' => $valor,
             'valor_total' => $valor,
         ]);
+    }
+
+    private function camposAuditoriaExclusao(
+        array $sinistro,
+        ?array $financeiro,
+        string $vinculo,
+        array $parent
+    ): array {
+        $tipos = [
+            'colisao' => 'Colisao/acidente',
+            'furto_roubo' => 'Furto/roubo',
+            'incendio' => 'Incendio',
+            'alagamento' => 'Alagamento',
+            'danos_terceiros' => 'Danos a terceiros',
+            'perda_total' => 'Perda total',
+            'outros' => 'Outros',
+        ];
+        $campos = [
+            AuditLogService::campo('ID', '#' . $sinistro['id'], '', 'Sinistro'),
+            AuditLogService::campo(
+                $vinculo === 'contrato' ? 'Contrato' : 'Locacao',
+                $parent['codigo'] ?? ('#' . $parent['id']),
+                '',
+                'Sinistro'
+            ),
+            AuditLogService::campo('Veiculo (ID)', '#' . $sinistro['id_veiculo'], '', 'Sinistro'),
+            AuditLogService::campo('Data da ocorrencia', $sinistro['data_ocorrencia'], '', 'Sinistro'),
+            AuditLogService::campo('Tipo', $tipos[$sinistro['tipo']] ?? $sinistro['tipo'], '', 'Sinistro'),
+            AuditLogService::campo('Descricao', $sinistro['descricao'], '', 'Sinistro'),
+            AuditLogService::campo(
+                'Status',
+                ($sinistro['status'] ?? Sinistro::STATUS_ABERTO) === Sinistro::STATUS_CONCLUIDO ? 'Concluido' : 'Aberto',
+                '',
+                'Sinistro'
+            ),
+        ];
+
+        if ($sinistro['valor_estimado'] !== null) {
+            $campos[] = AuditLogService::campo(
+                'Valor estimado',
+                currency_format((float) $sinistro['valor_estimado'], true),
+                '',
+                'Sinistro'
+            );
+        }
+        if (!empty($sinistro['observacoes'])) {
+            $campos[] = AuditLogService::campo('Observacoes', $sinistro['observacoes'], '', 'Sinistro');
+        }
+
+        if (!$financeiro) {
+            return $campos;
+        }
+
+        $mapeamentoFinanceiro = [
+            'id' => 'ID',
+            'codigo' => 'Codigo',
+            'descricao' => 'Descricao',
+            'data_criada' => 'Data de criacao',
+            'data_venci' => 'Vencimento',
+            'data_pago' => 'Pagamento',
+            'valor_subtotal' => 'Subtotal',
+            'juros' => 'Juros',
+            'multa' => 'Multa',
+            'desconto' => 'Desconto',
+            'valor_total' => 'Valor total',
+            'cliente_nome' => 'Cliente',
+            'filial_nome' => 'Filial',
+            'conta_descricao' => 'Conta bancaria',
+            'forma_pagamento_descricao' => 'Forma de pagamento',
+            'plano_conta_hierarquia' => 'Plano de contas',
+        ];
+        foreach ($mapeamentoFinanceiro as $campo => $label) {
+            $valor = $financeiro[$campo] ?? null;
+            if ($valor === null || $valor === '') {
+                continue;
+            }
+            if ($campo === 'id') {
+                $valor = '#' . $valor;
+            } elseif (in_array($campo, ['valor_subtotal', 'juros', 'multa', 'desconto', 'valor_total'], true)) {
+                $valor = currency_format((float) $valor, true);
+            }
+            $campos[] = AuditLogService::campo($label, $valor, '', 'Cobranca vinculada');
+        }
+        $campos[] = AuditLogService::campo('Situacao', 'Pendente', '', 'Cobranca vinculada');
+
+        return $campos;
     }
 
     private function validarDados(string $vinculo, array $parent, array $dados): void

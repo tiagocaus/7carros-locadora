@@ -1043,6 +1043,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 window.SINISTROS_CONFIG = {
     vinculo: 'contrato',
     canCreateFinance: <?= \App\Core\Auth::can('financeiro.criar') ? 'true' : 'false' ?>,
+    canDelete: <?= \App\Core\Auth::can('contratos.editar') ? 'true' : 'false' ?>,
+    canDeleteFinance: <?= \App\Core\Auth::can('financeiro.excluir') ? 'true' : 'false' ?>,
     i18n: <?= json_encode([
         'register' => t('modules.sinistros.register'), 'edit' => t('modules.sinistros.edit'),
         'empty' => t('modules.sinistros.empty'), 'load_error' => t('modules.sinistros.load_error'),
@@ -1051,6 +1053,10 @@ window.SINISTROS_CONFIG = {
         'charge_title' => t('modules.sinistros.charge_title'), 'charge_created' => t('modules.sinistros.charge_created'),
         'view_charge' => t('modules.sinistros.view_charge'), 'edit_action' => t('modules.sinistros.edit_action'),
         'generate_charge_action' => t('modules.sinistros.generate_charge_action'),
+        'delete_action' => t('modules.sinistros.delete_action'), 'delete_error' => t('modules.sinistros.delete_error'),
+        'deleted' => t('modules.sinistros.deleted'), 'delete_record_type' => t('modules.sinistros.delete_record_type'),
+        'delete_with_charge' => t('modules.sinistros.delete_with_charge'),
+        'delete_paid_blocked' => t('modules.sinistros.delete_paid_blocked'),
         'not_generated' => t('modules.sinistros.not_generated'), 'saved' => t('modules.sinistros.saved'),
         'fields' => [
             'date' => t('modules.sinistros.fields.date'), 'vehicle' => t('modules.sinistros.fields.vehicle'),

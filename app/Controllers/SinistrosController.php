@@ -113,6 +113,46 @@ class SinistrosController
         }
     }
 
+    public function destroy(Request $request, int $id): void
+    {
+        try {
+            $sinistro = (new Sinistro())->buscarPorId($id);
+            if (!$sinistro) {
+                Response::json(['success' => false, 'message' => 'Sinistro nao encontrado'], 404);
+                return;
+            }
+
+            [$vinculo, $idVinculo] = $this->vinculoDoSinistro($sinistro);
+            $parent = $this->autorizarVinculo($vinculo, $idVinculo, true);
+            if (!empty($sinistro['id_financeiro']) && !Auth::can('financeiro.excluir')) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Sem permissao para excluir a cobranca vinculada',
+                ], 403);
+                return;
+            }
+
+            $resultado = (new SinistroService())->excluir(
+                $id,
+                $vinculo,
+                $parent,
+                (string) ($_SESSION['user_name'] ?? 'Sistema'),
+                Auth::can('financeiro.excluir')
+            );
+            Response::json([
+                'success' => true,
+                'message' => !empty($resultado['id_financeiro'])
+                    ? 'Sinistro e cobranca vinculada excluidos com sucesso'
+                    : 'Sinistro excluido com sucesso',
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            error_log('[Sinistros] Erro ao excluir #' . $id . ': ' . $e->getMessage());
+            Response::json(['success' => false, 'message' => 'Erro ao excluir sinistro'], 500);
+        }
+    }
+
     private function autorizarVinculo(string $vinculo, int $id, bool $editar): array
     {
         if (!in_array($vinculo, ['contrato', 'locacao'], true) || $id <= 0) {

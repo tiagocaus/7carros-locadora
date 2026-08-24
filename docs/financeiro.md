@@ -287,6 +287,12 @@ POST /financeiro/{id}/excluir
 Response: { success: true, message: "..." }
 ```
 
+Uma receita pendente criada pelo modulo de Sinistros tambem pode ser removida
+por `DELETE /api/sinistros/{id}`. Nesse fluxo, a permissao
+`financeiro.excluir` e obrigatoria, a receita paga deve ser estornada antes e a
+cobranca, o sinistro e o log detalhado sao processados na mesma transacao. Os
+bloqueios de vinculos financeiros, como promissorias, continuam aplicaveis.
+
 ### Link de Pagamento e Alteracoes de Valor
 
 Links publicos de pagamento sao estaveis: o mesmo `/pagar/{codigo}` deve
