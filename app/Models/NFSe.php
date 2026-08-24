@@ -37,6 +37,14 @@ class NFSe extends Model
      */
     public function criar(array $dados): int
     {
+        // Mantem a emissao operacional durante o intervalo entre o upload do
+        // codigo e a execucao da migration no servidor.
+        foreach (['tomador_tipo', 'tomador_pais'] as $colunaNova) {
+            if (array_key_exists($colunaNova, $dados) && !$this->colunaExiste($colunaNova)) {
+                unset($dados[$colunaNova]);
+            }
+        }
+
         return $this->qb
             ->table('nfse')
             ->insert($dados);
@@ -47,10 +55,40 @@ class NFSe extends Model
      */
     public function buscarPorId(int $id): ?array
     {
-        return $this->qb
+        $nfse = $this->qb
             ->table('nfse')
             ->where('id', '=', $id)
             ->first();
+
+        if (!$nfse) {
+            return null;
+        }
+
+        $endereco = json_decode((string) ($nfse['tomador_endereco'] ?? ''), true);
+        $paisEndereco = is_array($endereco) ? strtoupper(trim((string) ($endereco['pais'] ?? ''))) : '';
+        if ($paisEndereco !== '' && $paisEndereco !== 'BR') {
+            $nfse['tomador_tipo'] = $nfse['tomador_tipo'] ?? 'ES';
+            $nfse['tomador_pais'] = $nfse['tomador_pais'] ?? $paisEndereco;
+        }
+
+        return $nfse;
+    }
+
+    private function colunaExiste(string $coluna): bool
+    {
+        static $cache = [];
+        if (!array_key_exists($coluna, $cache)) {
+            $tabela = 'nfse';
+            $stmt = $this->getMysqli()->prepare(
+                'SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1'
+            );
+            $stmt->bind_param('ss', $tabela, $coluna);
+            $stmt->execute();
+            $cache[$coluna] = $stmt->get_result()->num_rows > 0;
+            $stmt->close();
+        }
+
+        return $cache[$coluna];
     }
 
     /**

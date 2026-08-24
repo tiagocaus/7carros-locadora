@@ -826,6 +826,22 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
                     }
                 });
             });
+
+            const documento = document.getElementById('clienteCPF');
+            if (documento) {
+                documento.maxLength = tipo === 'ES' ? 40 : 18;
+            }
+
+            const pais = document.getElementById('pais');
+            if (pais) {
+                pais.required = tipo === 'ES';
+                if (tipo === 'ES' && pais.value === 'BR') {
+                    pais.value = '';
+                    if (typeof jQuery !== 'undefined') {
+                        jQuery(pais).trigger('chosen:updated');
+                    }
+                }
+            }
         }
 
         // Listener no select de tipo

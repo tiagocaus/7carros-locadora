@@ -53,16 +53,20 @@
                             <input type="text" name="tomador_nome" id="tomadorNome" class="form-input-group-field bg-slate-50" readonly>
                         </div>
                         <div class="md:col-span-5 form-input-group">
-                            <label class="form-label-group"><?= t('modules.nfse.fields.tomador_cpf_cnpj') ?></label>
+                            <label class="form-label-group" id="tomadorDocumentoLabel"><?= t('modules.nfse.fields.tomador_cpf_cnpj') ?></label>
                             <input type="text" name="tomador_cpf_cnpj" id="tomadorCpfCnpj" class="form-input-group-field bg-slate-50" readonly>
                         </div>
                         <div class="md:col-span-8 form-input-group">
                             <label class="form-label-group"><?= t('modules.nfse.fields.tomador_email') ?></label>
                             <input type="email" name="tomador_email" id="tomadorEmail" class="form-input-group-field">
                         </div>
-                        <div class="md:col-span-4 form-input-group">
+                        <div class="md:col-span-4 form-input-group" id="tomadorMunicipioGroup">
                             <label class="form-label-group"><?= t('modules.nfse.fields.tomador_codigo_municipio') ?></label>
                             <input type="text" name="tomador_codigo_municipio" id="tomadorCodigoMunicipio" class="form-input-group-field" maxlength="7" placeholder="0000000">
+                        </div>
+                        <div class="md:col-span-4 form-input-group hidden" id="tomadorPaisGroup">
+                            <label class="form-label-group"><?= t('modules.nfse.fields.tomador_pais') ?></label>
+                            <input type="text" id="tomadorPais" class="form-input-group-field bg-slate-50" readonly>
                         </div>
                     </div>
                 </div>
@@ -286,6 +290,13 @@
         document.getElementById('tomadorCpfCnpj').value = financeiroData.cliente_cpf_cnpj || '';
         document.getElementById('tomadorEmail').value = financeiroData.cliente_email || '';
         document.getElementById('tomadorCodigoMunicipio').value = financeiroData.cliente_codigo_municipio || '';
+        const estrangeiro = financeiroData.cliente_tipo === 'ES';
+        document.getElementById('tomadorDocumentoLabel').textContent = estrangeiro
+            ? '<?= t('modules.nfse.fields.tomador_passaporte') ?>'
+            : '<?= t('modules.nfse.fields.tomador_cpf_cnpj') ?>';
+        document.getElementById('tomadorMunicipioGroup').classList.toggle('hidden', estrangeiro);
+        document.getElementById('tomadorPaisGroup').classList.toggle('hidden', !estrangeiro);
+        document.getElementById('tomadorPais').value = financeiroData.cliente_pais || '';
 
         // Valor
         const valorTotal = parseFloat(financeiroData.valor_total || 0);
@@ -515,8 +526,6 @@
                 itens_nao_tributaveis: itensNaoTributaveis,
                 descricao_servico: document.getElementById('inputDescricaoServico').value,
                 iss_retido: document.getElementById('inputIssRetido').checked ? 'S' : 'N',
-                tomador_cpf_cnpj: document.getElementById('tomadorCpfCnpj').value,
-                tomador_nome: document.getElementById('tomadorNome').value,
                 tomador_email: document.getElementById('tomadorEmail').value,
                 tomador_codigo_municipio: document.getElementById('tomadorCodigoMunicipio').value.replace(/\D/g, ''),
             };

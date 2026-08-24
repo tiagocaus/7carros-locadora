@@ -9,6 +9,7 @@ use App\Models\Financeiro;
 use App\Models\FinanceiroItem;
 use App\Models\MatrizFilial;
 use App\Models\Cliente;
+use App\Models\Pais;
 use App\Models\ContatoEmail;
 use App\Models\LocacaoVeiculo;
 use App\Models\ContratoVeiculo;
@@ -812,8 +813,10 @@ class NFSeService
                 'enviar_im' => $config['enviar_im'] ?? 'N',
             ],
             'tomador' => [
-                'cpf_cnpj' => $this->valorPreferencial($dadosExtras['tomador_cpf_cnpj'] ?? '', $cliente['cpf_cnpj'] ?? ''),
-                'nome' => $this->valorPreferencial($dadosExtras['tomador_nome'] ?? '', $cliente['nome_rsocial'] ?? ''),
+                'tipo' => strtoupper(trim((string) ($cliente['tipo'] ?? ''))),
+                'pais' => strtoupper(trim((string) ($cliente['pais'] ?? 'BR'))),
+                'cpf_cnpj' => trim((string) ($cliente['cpf_cnpj'] ?? '')),
+                'nome' => trim((string) ($cliente['nome_rsocial'] ?? '')),
                 'email' => $this->valorPreferencial($dadosExtras['tomador_email'] ?? '', $cliente['email'] ?? ''),
                 'endereco' => $tomadorEndereco,
             ],
@@ -863,6 +866,8 @@ class NFSeService
             'prestador_razao_social' => $dados['prestador']['razao_social'] ?? null,
             'prestador_inscricao_municipal' => $dados['prestador']['inscricao_municipal'] ?? null,
             'tomador_cpf_cnpj' => $dados['tomador']['cpf_cnpj'] ?? null,
+            'tomador_tipo' => $dados['tomador']['tipo'] ?? null,
+            'tomador_pais' => $dados['tomador']['pais'] ?? null,
             'tomador_nome' => $dados['tomador']['nome'] ?? null,
             'tomador_email' => $dados['tomador']['email'] ?? null,
             'tomador_endereco' => is_array($dados['tomador']['endereco'] ?? null) ? json_encode($dados['tomador']['endereco']) : ($dados['tomador']['endereco'] ?? null),
@@ -1066,6 +1071,9 @@ class NFSeService
             return [];
         }
 
+        $pais = strtoupper(trim((string) ($cliente['pais'] ?? 'BR')));
+        $paisCadastro = $pais !== '' ? (new Pais())->buscarPorCodigo($pais) : null;
+
         return [
             'logradouro' => $cliente['rua'] ?? $cliente['logradouro'] ?? $cliente['endereco'] ?? '',
             'numero' => $cliente['numero'] ?? '',
@@ -1075,6 +1083,8 @@ class NFSeService
             'uf' => $cliente['estado'] ?? '',
             'cep' => $cliente['cep'] ?? '',
             'codigo_municipio' => $cliente['codigo_municipio'] ?? $cliente['municipio_codigo'] ?? $cliente['codigo_ibge'] ?? '',
+            'pais' => $pais,
+            'codigo_pais_bacen' => $paisCadastro['codigo_bacen'] ?? '',
         ];
     }
 
@@ -1216,6 +1226,18 @@ class NFSeService
             throw new \InvalidArgumentException('Nome do cliente não informado.');
         }
 
+        if (($tomador['tipo'] ?? '') === 'ES') {
+            $passaporte = trim((string) ($tomador['cpf_cnpj'] ?? ''));
+            $pais = strtoupper(trim((string) ($tomador['pais'] ?? '')));
+            if ($passaporte === '' || mb_strlen($passaporte, 'UTF-8') > 40) {
+                throw new \InvalidArgumentException('Passaporte do cliente estrangeiro deve ter entre 1 e 40 caracteres.');
+            }
+            if (!preg_match('/^[A-Z]{2}$/', $pais) || $pais === 'BR' || !(new Pais())->buscarPorCodigo($pais)) {
+                throw new \InvalidArgumentException('Informe o país estrangeiro do cliente antes de emitir a NFS-e.');
+            }
+            return;
+        }
+
         $cpfCnpj = preg_replace('/\D/', '', (string) ($tomador['cpf_cnpj'] ?? ''));
         if ($cpfCnpj === '') {
             throw new \InvalidArgumentException(NFSeErros::getInstrucao('TOMADOR_DOCUMENTO_AUSENTE'));
@@ -1234,6 +1256,19 @@ class NFSeService
     private function validarISSNet(array $dados): void
     {
         $this->validarDPS($dados);
+
+        $tomador = $dados['tomador'] ?? [];
+        if (($tomador['tipo'] ?? '') === 'ES') {
+            $endereco = is_array($tomador['endereco'] ?? null) ? $tomador['endereco'] : [];
+            if (!preg_match('/^\d{4}$/', (string) ($endereco['codigo_pais_bacen'] ?? ''))) {
+                throw new \InvalidArgumentException('O país do cliente não possui código BACEN configurado para emissão pela ISSNet.');
+            }
+            foreach (['logradouro', 'numero', 'cidade', 'uf'] as $campo) {
+                if (trim((string) ($endereco[$campo] ?? '')) === '') {
+                    throw new \InvalidArgumentException('Complete o endereço estrangeiro do cliente (logradouro, número, cidade e estado/província) antes de emitir pela ISSNet.');
+                }
+            }
+        }
 
         $prestador = $dados['prestador'] ?? [];
         $servico = $dados['servico'] ?? [];

@@ -63,11 +63,15 @@ class NFSeXMLNacional implements NFSeXMLInterface
         // Tomador
         $tomador = $dados['tomador'] ?? [];
         $xml .= '<toma>';
-        $cpfCnpj = $this->somenteDigitos((string) ($tomador['cpf_cnpj'] ?? ''));
-        if (strlen($cpfCnpj) === 14) {
-            $xml .= '<CNPJ>' . $cpfCnpj . '</CNPJ>';
-        } elseif (strlen($cpfCnpj) === 11) {
-            $xml .= '<CPF>' . $cpfCnpj . '</CPF>';
+        if (($tomador['tipo'] ?? '') === 'ES') {
+            $xml .= '<cNaoNIF>0</cNaoNIF>';
+        } else {
+            $cpfCnpj = $this->somenteDigitos((string) ($tomador['cpf_cnpj'] ?? ''));
+            if (strlen($cpfCnpj) === 14) {
+                $xml .= '<CNPJ>' . $cpfCnpj . '</CNPJ>';
+            } elseif (strlen($cpfCnpj) === 11) {
+                $xml .= '<CPF>' . $cpfCnpj . '</CPF>';
+            }
         }
         $xml .= '<xNome>' . $this->textoMaiusculo((string) ($tomador['nome'] ?? '')) . '</xNome>';
         $xml .= $this->gerarEnderecoTomador($tomador['endereco'] ?? []);
@@ -401,6 +405,28 @@ class NFSeXMLNacional implements NFSeXMLInterface
 
         if (!is_array($endereco)) {
             return '';
+        }
+
+        $pais = strtoupper(trim((string) ($endereco['pais'] ?? 'BR')));
+        if ($pais !== '' && $pais !== 'BR') {
+            $campos = [];
+            foreach (['cep', 'cidade', 'uf', 'logradouro', 'numero', 'bairro'] as $campo) {
+                $campos[$campo] = trim((string) ($endereco[$campo] ?? ''));
+            }
+            if (in_array('', $campos, true)) {
+                return '';
+            }
+
+            $xml = '<end><endExt><cPais>' . $this->escapeXml($pais) . '</cPais>';
+            $xml .= '<cEndPost>' . $this->escapeXml(mb_substr($campos['cep'], 0, 11)) . '</cEndPost>';
+            $xml .= '<xCidade>' . $this->textoMaiusculo($campos['cidade']) . '</xCidade>';
+            $xml .= '<xEstProvReg>' . $this->textoMaiusculo($campos['uf']) . '</xEstProvReg></endExt>';
+            $xml .= '<xLgr>' . $this->textoMaiusculo($campos['logradouro']) . '</xLgr>';
+            $xml .= '<nro>' . $this->textoMaiusculo($campos['numero']) . '</nro>';
+            if (!empty($endereco['complemento'])) {
+                $xml .= '<xCpl>' . $this->textoMaiusculo((string) $endereco['complemento']) . '</xCpl>';
+            }
+            return $xml . '<xBairro>' . $this->textoMaiusculo($campos['bairro']) . '</xBairro></end>';
         }
 
         $codigoMunicipio = $this->somenteDigitos((string) ($endereco['codigo_municipio'] ?? ''));

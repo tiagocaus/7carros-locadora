@@ -148,7 +148,8 @@ Regras de XML:
 - Envio: XML assinado compactado em GZip/Base64 no campo `dpsXmlGZipB64`
 - Cancelamento: evento `101101` em `pedidoRegistroEventoXmlGZipB64`
 - Textos enviados no XML devem ser normalizados em maiusculas e escapados como XML.
-- Endereco do tomador deve ser enviado apenas quando houver CEP com 8 digitos e codigo IBGE do municipio do tomador com 7 digitos; sem esses dados, omitir o bloco `<end>`.
+- Para tomador brasileiro, o endereco deve ser enviado apenas quando houver CEP com 8 digitos e codigo IBGE do municipio com 7 digitos; sem esses dados, omitir o bloco `<end>`.
+- Para cliente `tipo = ES`, o passaporte e apenas identificacao cadastral local: nunca enviar seu valor como CPF, CNPJ ou NIF. Gerar `<cNaoNIF>0</cNaoNIF>` e, quando o endereco exterior estiver completo, usar `<endExt>` com pais ISO alpha-2, codigo postal, cidade e estado/provincia.
 - Nao enviar `<IBSCBS>` enquanto `preencher_ibscbs = N`.
 - Com IBS/CBS desativado, `<totTrib>` deve usar `<pTotTrib>` zerado, nao `<vTotTrib>` calculado por aliquotas padrao.
 
@@ -211,6 +212,13 @@ Antes de ativar ISSNet em producao:
 - Preencher `item_lista_servico`; preencher CNAE e codigo de tributacao municipal quando o ente exigir.
 - Confirmar com ISSNet/ente municipal se o ambiente de homologacao esta liberado antes de testes fiscais.
 
+Tomador estrangeiro na ISSNet:
+
+- O prestador continua sendo a empresa brasileira configurada na filial.
+- Para cliente `tipo = ES`, omitir `IdentificacaoTomador/CpfCnpj` e `NifTomador`; passaporte nao e NIF.
+- Enviar `EnderecoExterior`, usando em `CodigoPais` o codigo BACEN de 4 digitos cadastrado em `paises.codigo_bacen` e um `EnderecoCompletoExterior` de ate 255 caracteres.
+- Bloquear a emissao localmente quando faltar codigo BACEN ou endereco exterior minimo (logradouro, numero, cidade e estado/provincia).
+
 ---
 
 ## Betha Cloud
@@ -241,7 +249,7 @@ Regras de XML:
 - Texto do servico em maiusculo
 - Bloco `<trib>` deve conter `<tribMun>` e `<totTrib>`; sem `<totTrib>` a Betha rejeita a DPS por schema incompleto.
 - `<dhEmi>` deve usar horario local do prestador (`America/Sao_Paulo`, offset `-03:00`), nao UTC.
-- Endereco do tomador deve seguir a mesma regra conservadora do Nacional: enviar `<end>` apenas quando houver CEP com 8 digitos e codigo IBGE do municipio do tomador com 7 digitos. Quando esses dados existirem, Betha deve gerar o endereco no namespace Betha, nunca reaproveitar XML Nacional/ABRASF.
+- Para tomador brasileiro, o endereco deve seguir a mesma regra conservadora do Nacional: enviar `<end>` apenas quando houver CEP com 8 digitos e codigo IBGE do municipio do tomador com 7 digitos. Para cliente `tipo = ES`, nunca enviar passaporte como identificacao fiscal: gerar `<cNaoNIF>0</cNaoNIF>` e usar `<endExt>` quando o endereco exterior estiver completo. Betha deve gerar o endereco no namespace Betha, nunca reaproveitar XML Nacional/ABRASF.
 - No schema Betha aceito pelo SOAP, `<valores>` deve vir logo apos `</serv>`. Nao enviar `<cLocalidadeIncid>` nesse ponto; esse elemento pertence ao XML nacional/NFS-e gerado posteriormente, nao ao DPS Betha.
 - Betha v1.01 deve manter o namespace `http://www.betha.com.br/e-nota-dps`; nao trocar o DPS para namespace SPED.
 - Betha NT004 v2.0 aceita o grupo `<IBSCBS>` depois de `<valores>`, no namespace Betha, mas o sistema nao deve envia-lo enquanto `preencher_ibscbs = N`. Enviar `CST=000` e `cClassTrib=000001` aciona tributacao IBS/CBS na calculadora nacional; se o portal Betha estiver configurado sem preenchimento de IBS/CBS, esse bloco deve ser omitido.
@@ -302,12 +310,14 @@ Regras da tela:
 - `valor_deducoes` deve ser a soma dos itens nao tributaveis.
 - `base_calculo` deve ser `valor_servicos - valor_deducoes`, nunca negativa.
 - O email editado na tela prevalece sobre o email cadastrado do cliente apenas para essa emissao.
+- Nome, tipo, pais e documento exibidos na tela sao somente leitura e sempre vem do cadastro do cliente; a requisicao manual nao pode sobrescreve-los.
 - Antes de gerar, assinar e enviar a DPS, o sistema deve validar o tomador:
   - nome obrigatorio;
-  - CPF com 11 digitos validos ou CNPJ com 14 digitos validos;
+  - para PF/PJ, CPF com 11 digitos validos ou CNPJ com 14 digitos validos;
+  - para ES, passaporte cadastral com ate 40 caracteres e pais diferente de BR;
   - ausencia de documento deve bloquear a emissao localmente com mensagem clara para corrigir o cadastro do cliente.
 - Rejeicoes SEFIN de schema `E1235` no bloco `<toma>` por `<xNome>` antes de `CNPJ`/`CPF`/`NIF` devem ser exibidas ao usuario como erro de CPF/CNPJ do cliente ausente, preservando o retorno tecnico em eventos/logs para suporte.
-- O codigo IBGE do municipio do tomador pode ser informado nessa tela para permitir envio de endereco completo em emissores DPS quando o cadastro do cliente ainda nao tiver esse dado.
+- O codigo IBGE do municipio do tomador brasileiro pode ser informado nessa tela para permitir envio de endereco completo em emissores DPS quando o cadastro do cliente ainda nao tiver esse dado. Para tomador estrangeiro, exibir o pais e ocultar o codigo IBGE.
 - Ausencia de configuracao NFS-e ou certificado nao deve redirecionar para a listagem. A tela deve permanecer aberta, mostrar aviso especifico e bloquear somente o botao de emissao.
 
 Persistencia:
@@ -318,6 +328,8 @@ Persistencia:
 | `valor_deducoes` | Soma dos itens nao tributaveis |
 | `itens_nao_tributaveis` | JSON `[{descricao, valor}]` dos itens desmarcados/manuais |
 | `base_calculo` | `valor_servicos - valor_deducoes` |
+| `tomador_cpf_cnpj` | CPF/CNPJ ou passaporte cadastral, preservado apenas no historico local |
+| `tomador_tipo` / `tomador_pais` | Tipo e pais do cliente no momento da emissao |
 
 Nao crie tabela separada para itens nao tributaveis sem necessidade fiscal nova. O campo JSON atual preserva o historico da emissao e ja atende ao fluxo manual.
 

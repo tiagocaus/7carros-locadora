@@ -29,6 +29,8 @@ return [
         'tomador' => 'Recipient',
         'tomador_nome' => 'Name / Company',
         'tomador_cpf_cnpj' => 'Tax ID',
+        'tomador_passaporte' => 'Passport',
+        'tomador_pais' => 'Country',
         'tomador_email' => 'Recipient Email',
         'tomador_codigo_municipio' => 'Municipality IBGE Code',
         'valor_servicos' => 'Service Value',

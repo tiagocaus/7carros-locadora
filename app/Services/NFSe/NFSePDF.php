@@ -283,10 +283,14 @@ class NFSePDF
         $html .= '<div class="section-title">Tomador de Serviços</div>';
         $html .= '<table><tr>';
         $html .= '<td width="60%"><span class="label">Nome / Razão Social</span><br><span class="value">' . htmlspecialchars($d['tomador_nome'] ?? '') . '</span></td>';
-        $html .= '<td width="40%"><span class="label">CPF/CNPJ</span><br><span class="value">' . ($d['tomador_cpf_cnpj'] ?? '') . '</span></td>';
+        $documentoLabel = ($d['tomador_tipo'] ?? '') === 'ES' ? 'Passaporte' : 'CPF/CNPJ';
+        $html .= '<td width="40%"><span class="label">' . $documentoLabel . '</span><br><span class="value">' . htmlspecialchars($d['tomador_cpf_cnpj'] ?? '') . '</span></td>';
         $html .= '</tr></table>';
         if (!empty($d['tomador_email'])) {
             $html .= '<table><tr><td><span class="label">Email</span><br><span class="value">' . htmlspecialchars($d['tomador_email']) . '</span></td></tr></table>';
+        }
+        if (($d['tomador_tipo'] ?? '') === 'ES' && !empty($d['tomador_pais'])) {
+            $html .= '<table><tr><td><span class="label">País</span><br><span class="value">' . htmlspecialchars($d['tomador_pais']) . '</span></td></tr></table>';
         }
         $html .= '</div>';
 

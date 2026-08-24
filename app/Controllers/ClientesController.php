@@ -14,6 +14,7 @@ use App\Helpers\FilialHelper;
 use App\Models\ClienteCartao;
 use App\Models\Financeiro;
 use App\Models\GatewayPagamento;
+use App\Models\Pais;
 use App\Services\AuditLogService;
 use App\Services\Gateways\GatewayFactory;
 use App\Services\PagamentoLinkSyncService;
@@ -242,7 +243,20 @@ class ClientesController
 
         $documento = $request->input('cpf_cnpj', '');
         if (is_array($documento) || is_object($documento) || trim((string) $documento) === '') {
-            throw new \InvalidArgumentException('CPF/CNPJ é obrigatório');
+            throw new \InvalidArgumentException($tipoCliente === 'ES' ? 'Passaporte é obrigatório' : 'CPF/CNPJ é obrigatório');
+        }
+
+        $documento = trim((string) $documento);
+        if ($tipoCliente === 'ES' && mb_strlen($documento, 'UTF-8') > 40) {
+            throw new \InvalidArgumentException('Passaporte deve ter no máximo 40 caracteres');
+        }
+
+        $pais = strtoupper(trim((string) $request->input('pais', 'BR')));
+        if ($pais === '' || !(new Pais())->buscarPorCodigo($pais)) {
+            throw new \InvalidArgumentException('País inválido');
+        }
+        if ($tipoCliente === 'ES' && ($pais === '' || $pais === 'BR')) {
+            throw new \InvalidArgumentException('Selecione o país estrangeiro do cliente');
         }
 
         $nome = $request->input('nome_rsocial', '');
@@ -253,8 +267,9 @@ class ClientesController
         return [
             'id_matriz_filial' => (int) $filial,
             'tipo' => $tipoCliente,
-            'cpf_cnpj' => trim((string) $documento),
+            'cpf_cnpj' => $documento,
             'nome_rsocial' => trim((string) $nome),
+            'pais' => $pais,
         ];
     }
 
@@ -520,7 +535,7 @@ class ClientesController
                 'rua' => $request->input('rua', ''),
                 'numero' => $request->input('numero', ''),
                 'complemento' => $request->input('complemento', ''),
-                'pais' => $request->input('pais', 'Brasil'),
+                'pais' => $obrigatorios['pais'],
                 'estado' => $request->input('estado', ''),
                 'cidade' => $request->input('cidade', ''),
                 'bairro' => $request->input('bairro', ''),
@@ -657,7 +672,7 @@ class ClientesController
                 'rua' => $request->input('rua'),
                 'numero' => $request->input('numero'),
                 'complemento' => $request->input('complemento'),
-                'pais' => $request->input('pais'),
+                'pais' => $obrigatorios['pais'],
                 'estado' => $request->input('estado'),
                 'cidade' => $request->input('cidade'),
                 'bairro' => $request->input('bairro'),

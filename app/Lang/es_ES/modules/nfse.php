@@ -29,6 +29,8 @@ return [
         'tomador' => 'Destinatario',
         'tomador_nome' => 'Nombre / Razón Social',
         'tomador_cpf_cnpj' => 'CPF/CNPJ',
+        'tomador_passaporte' => 'Pasaporte',
+        'tomador_pais' => 'País',
         'tomador_email' => 'Email del Destinatario',
         'tomador_codigo_municipio' => 'Código IBGE del Municipio',
         'valor_servicos' => 'Valor de Servicios',

@@ -175,13 +175,28 @@ class NFSeXMLISSNet implements NFSeXMLInterface
 
     private function gerarTomador(array $tomador, string $cpfCnpj): string
     {
-        $xml = '<TomadorServico><IdentificacaoTomador><CpfCnpj>';
-        $xml .= strlen($cpfCnpj) === 14 ? '<Cnpj>' . $cpfCnpj . '</Cnpj>' : '<Cpf>' . $cpfCnpj . '</Cpf>';
-        $xml .= '</CpfCnpj></IdentificacaoTomador>';
+        $estrangeiro = ($tomador['tipo'] ?? '') === 'ES';
+        $xml = '<TomadorServico>';
+        if (!$estrangeiro) {
+            $xml .= '<IdentificacaoTomador><CpfCnpj>';
+            $xml .= strlen($cpfCnpj) === 14 ? '<Cnpj>' . $cpfCnpj . '</Cnpj>' : '<Cpf>' . $cpfCnpj . '</Cpf>';
+            $xml .= '</CpfCnpj></IdentificacaoTomador>';
+        }
         $xml .= '<RazaoSocial>' . $this->texto((string) ($tomador['nome'] ?? '')) . '</RazaoSocial>';
 
         $endereco = $tomador['endereco'] ?? [];
-        if (is_array($endereco) && $this->somenteDigitos((string) ($endereco['cep'] ?? '')) !== '') {
+        if ($estrangeiro && is_array($endereco)) {
+            $partes = array_filter([
+                trim((string) ($endereco['logradouro'] ?? '')) . ', ' . trim((string) ($endereco['numero'] ?? '')),
+                trim((string) ($endereco['complemento'] ?? '')),
+                trim((string) ($endereco['bairro'] ?? '')),
+                trim((string) ($endereco['cidade'] ?? '')),
+                trim((string) ($endereco['uf'] ?? '')),
+                trim((string) ($endereco['cep'] ?? '')),
+            ], static fn(string $valor): bool => trim($valor, ' ,') !== '');
+            $xml .= '<EnderecoExterior><CodigoPais>' . $this->escape((string) ($endereco['codigo_pais_bacen'] ?? '')) . '</CodigoPais>';
+            $xml .= '<EnderecoCompletoExterior>' . $this->texto(mb_substr(implode(' - ', $partes), 0, 255)) . '</EnderecoCompletoExterior></EnderecoExterior>';
+        } elseif (is_array($endereco) && $this->somenteDigitos((string) ($endereco['cep'] ?? '')) !== '') {
             $xml .= '<Endereco>';
             if (!empty($endereco['logradouro'])) {
                 $xml .= '<Endereco>' . $this->texto((string) $endereco['logradouro']) . '</Endereco>';

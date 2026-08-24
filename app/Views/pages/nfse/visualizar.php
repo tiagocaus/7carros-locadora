@@ -95,12 +95,16 @@
                 <span id="infoTomadorNome">-</span>
             </div>
             <div class="md:col-span-3 form-input-group">
-                <label class="form-label-group"><?= t('modules.nfse.fields.tomador_cpf_cnpj') ?></label>
+                <label class="form-label-group" id="infoTomadorDocumentoLabel"><?= t('modules.nfse.fields.tomador_cpf_cnpj') ?></label>
                 <span id="infoTomadorCpfCnpj">-</span>
             </div>
             <div class="md:col-span-4 form-input-group">
                 <label class="form-label-group"><?= t('modules.nfse.fields.tomador_email') ?></label>
                 <span id="infoTomadorEmail">-</span>
+            </div>
+            <div class="md:col-span-3 form-input-group hidden" id="infoTomadorPaisGroup">
+                <label class="form-label-group"><?= t('modules.nfse.fields.tomador_pais') ?></label>
+                <span id="infoTomadorPais">-</span>
             </div>
         </div>
     </div>
@@ -316,8 +320,13 @@
         document.getElementById('infoPrestadorNome').textContent = n.prestador_razao_social || '-';
         document.getElementById('infoPrestadorCnpj').textContent = n.prestador_cnpj || '-';
         document.getElementById('infoTomadorNome').textContent = n.tomador_nome || '-';
+        document.getElementById('infoTomadorDocumentoLabel').textContent = n.tomador_tipo === 'ES'
+            ? '<?= t('modules.nfse.fields.tomador_passaporte') ?>'
+            : '<?= t('modules.nfse.fields.tomador_cpf_cnpj') ?>';
         document.getElementById('infoTomadorCpfCnpj').textContent = n.tomador_cpf_cnpj || '-';
         document.getElementById('infoTomadorEmail').textContent = n.tomador_email || '-';
+        document.getElementById('infoTomadorPaisGroup').classList.toggle('hidden', n.tomador_tipo !== 'ES');
+        document.getElementById('infoTomadorPais').textContent = n.tomador_pais || '-';
 
         // Servico
         document.getElementById('infoCodigoServico').textContent = n.codigo_servico || '-';
