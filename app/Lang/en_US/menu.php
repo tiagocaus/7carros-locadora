@@ -145,7 +145,7 @@ return [
         // Operational
         'operational' => 'Operational',
         'op_checklists' => 'Completed checklists',
-        'op_damages' => 'Damages & claims',
+        'op_damages' => 'Claims',
         'op_traffic_fines' => 'Traffic fines',
         'op_early_returns' => 'Early returns',
         'op_late_returns' => 'Late returns',

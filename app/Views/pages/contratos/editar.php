@@ -121,6 +121,9 @@
                 <button type="button" data-form-tab-target="#tabTaxas" class="form-tab-button">
                     <i class="fas fa-receipt mr-1"></i><span class="hidden sm:inline"><?= t('modules.contratos.tabs.fees') ?></span>
                 </button>
+                <button type="button" data-form-tab-target="#tabSinistros" class="form-tab-button">
+                    <i class="fas fa-car-crash mr-1"></i><span class="hidden sm:inline"><?= t('modules.sinistros.tab') ?></span>
+                </button>
                 <button type="button" data-form-tab-target="#tabFinanceiro" class="form-tab-button">
                     <i class="fas fa-dollar-sign mr-1"></i><span class="hidden sm:inline"><?= t('modules.contratos.tabs.financial') ?></span>
                 </button>
@@ -317,6 +320,11 @@
                     <!-- Taxas serao listadas aqui -->
                 </div>
             </div>
+        </div>
+
+        <!-- ================== ABA 8: SINISTROS ================== -->
+        <div id="tabSinistros" class="form-tab-content">
+            @include('pages.sinistros._tab')
         </div>
 
         <!-- ================== ABA 8: FINANCEIRO (modo edicao) ================== -->
@@ -1031,6 +1039,36 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 </script>
 <script src="<?= asset('js/contratos.min.js') ?>"></script>
+<script>
+window.SINISTROS_CONFIG = {
+    vinculo: 'contrato',
+    canCreateFinance: <?= \App\Core\Auth::can('financeiro.criar') ? 'true' : 'false' ?>,
+    i18n: <?= json_encode([
+        'register' => t('modules.sinistros.register'), 'edit' => t('modules.sinistros.edit'),
+        'empty' => t('modules.sinistros.empty'), 'load_error' => t('modules.sinistros.load_error'),
+        'save_error' => t('modules.sinistros.save_error'), 'charge_error' => t('modules.sinistros.charge_error'),
+        'required' => t('modules.sinistros.required'), 'charge_required' => t('modules.sinistros.charge_required'),
+        'charge_title' => t('modules.sinistros.charge_title'), 'charge_created' => t('modules.sinistros.charge_created'),
+        'view_charge' => t('modules.sinistros.view_charge'), 'edit_action' => t('modules.sinistros.edit_action'),
+        'generate_charge_action' => t('modules.sinistros.generate_charge_action'),
+        'not_generated' => t('modules.sinistros.not_generated'), 'saved' => t('modules.sinistros.saved'),
+        'fields' => [
+            'date' => t('modules.sinistros.fields.date'), 'vehicle' => t('modules.sinistros.fields.vehicle'),
+            'type' => t('modules.sinistros.fields.type'), 'estimated_value' => t('modules.sinistros.fields.estimated_value'),
+            'charge' => t('modules.sinistros.fields.charge'),
+        ],
+        'types' => [
+            'collision' => t('modules.sinistros.types.collision'), 'theft' => t('modules.sinistros.types.theft'),
+            'fire' => t('modules.sinistros.types.fire'), 'flood' => t('modules.sinistros.types.flood'),
+            'third_party' => t('modules.sinistros.types.third_party'), 'total_loss' => t('modules.sinistros.types.total_loss'),
+            'other' => t('modules.sinistros.types.other'),
+        ],
+        'status' => ['open' => t('modules.sinistros.status.open'), 'completed' => t('modules.sinistros.status.completed')],
+        'charge' => ['pending' => t('modules.sinistros.charge.pending'), 'paid' => t('modules.sinistros.charge.paid')],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
+};
+</script>
+<script src="<?= asset('js/sinistros.min.js') ?>"></script>
 <script>
 // ===== BLOQUEIO (Pre-autorizacao no Cartao) =====
 (function() {

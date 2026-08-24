@@ -145,7 +145,7 @@ return [
         // Operacional
         'operational' => 'Operacional',
         'op_checklists' => 'Checklists realizados',
-        'op_damages' => 'Avarias e sinistros',
+        'op_damages' => 'Sinistros',
         'op_traffic_fines' => 'Multas de trânsito',
         'op_early_returns' => 'Devoluções antecipadas',
         'op_late_returns' => 'Devoluções atrasadas',

@@ -43,6 +43,7 @@ use App\Controllers\ContratosController;
 use App\Controllers\CaucoesController;
 use App\Controllers\LocacoesController;
 use App\Controllers\OrcamentosController;
+use App\Controllers\SinistrosController;
 use App\Controllers\AgendaController;
 use App\Controllers\AssinaturaController;
 use App\Controllers\AssinaturasController;
@@ -1147,6 +1148,12 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     // Caucao (Deposito de Garantia)
     $router->post('/api/locacoes/{id}/caucao/devolver', [LocacoesController::class, 'devolverCaucao'], ['api_csrf', 'rate_limit', 'throttle']);
 
+    // Sinistros vinculados a contratos e locacoes
+    $router->get('/api/sinistros', [SinistrosController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/sinistros', [SinistrosController::class, 'store'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->put('/api/sinistros/{id}', [SinistrosController::class, 'update'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/sinistros/{id}/gerar-cobranca', [SinistrosController::class, 'gerarCobranca'], ['api_csrf', 'rate_limit', 'throttle']);
+
     // Impressao Locacoes
     $router->get('/pages/locacoes/offcanvas-impressao', [LocacoesController::class, 'offcanvasImpressao']);
     $router->get('/locacoes/{id}/imprimir', [LocacoesController::class, 'imprimir']);
@@ -1460,7 +1467,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/api/relatorios/operacional/checklists-realizados', [\App\Controllers\Relatorios\OperacionalController::class, 'checklistsRealizados'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/relatorios/operacional/checklists-realizados/pdf', [\App\Controllers\Relatorios\OperacionalController::class, 'checklistsRealizadosPdf']);
 
-    // 6.2 Avarias e Sinistros
+    // 6.2 Sinistros (URLs legadas preservadas por compatibilidade)
     $router->get('/pages/relatorios/operacional/avarias-sinistros', [\App\Controllers\Relatorios\OperacionalController::class, 'viewAvariasSinistros']);
     $router->get('/api/relatorios/operacional/avarias-sinistros', [\App\Controllers\Relatorios\OperacionalController::class, 'avariasSinistros'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/relatorios/operacional/avarias-sinistros/pdf', [\App\Controllers\Relatorios\OperacionalController::class, 'avariasSinistrosPdf']);

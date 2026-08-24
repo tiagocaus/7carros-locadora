@@ -374,6 +374,7 @@ return [
         'save_before_add_payment' => 'Guarde a reserva/aluguer para poder adicionar pagamento.',
         'total_launched' => 'Total Lançado',
         'total_damages' => 'Avarias cobradas',
+        'total_claims' => 'Sinistros cobrados',
         'total_paid' => 'Total Pago',
         'total_pending' => 'Total Pendente',
         'total_refunded' => 'Valor Reembolsado',

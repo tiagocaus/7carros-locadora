@@ -51,6 +51,11 @@ Na aba Resumo do formulario, locacoes com plano KMC e franquia maior que zero ex
 
 ## Fluxo de Status
 
+Na tela de criacao/edicao, a aba **Sinistros** aparece imediatamente depois de
+**Taxas**. O cadastro exige que a locacao ja esteja salva, aceita veiculos atuais
+ou historicos do vinculo e pode gerar uma cobranca financeira opcional. Veja
+[sinistros.md](sinistros.md).
+
 ```
 R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()──> F (Fechado)
 ```
@@ -87,7 +92,7 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
   `/pages/veiculos/ajustar-valores-fracao` entram em vigor imediatamente,
   inclusive para locacoes que ja estejam abertas.
 - Antes de fechar, exige que o saldo financeiro efetivo lancado seja igual ao total
-  esperado: `total_pagar_final + total_avarias`
+  esperado: `total_pagar_final + total_avarias + total_sinistros`
 - Quando o total esperado e o total lancado forem ambos `0,00`, permite fechar sem
   criar parcelas financeiras. Se uma taxa, como limpeza, elevar o total esperado,
   o lancamento correspondente volta a ser obrigatorio antes do fechamento.
@@ -354,13 +359,14 @@ Ao fechar uma locacao aberta (`A -> F`), o sistema recalcula o total final com b
 nos dados de devolucao informados na tela e concilia o financeiro pelas formulas:
 
 ```text
-total_esperado = total_pagar_final + total_avarias
+total_esperado = total_pagar_final + total_avarias + total_sinistros
 diferenca = total_esperado - total_lancado
 ```
 
 `locacoes.total_pagar` continua representando apenas a locacao, sem incorporar
-avarias, pois elas permanecem como receitas financeiras separadas no plano
-`4.2.2.01`. Se `total_lancado` for maior que `total_esperado` (ex: locacao criada
+avarias ou sinistros, pois permanecem como receitas financeiras separadas nos
+planos `4.2.2.01` e `4.2.2.05`. Se `total_lancado` for maior que
+`total_esperado` (ex: locacao criada
 para 2 dias e devolvida com 1 dia), a tela pergunta se deve criar uma fatura de
 devolucao somente pela diferenca efetiva.
 
@@ -388,7 +394,7 @@ $locacao->adicionarParcela($locacaoId, [
 
 ```php
 $resumo = $locacao->resumoFinanceiro($locacaoId);
-// Retorna: total_locacao, total_avarias, total_esperado, total_lancado,
+// Retorna: total_locacao, total_avarias, total_sinistros, total_esperado, total_lancado,
 // total_receitas, total_credito_devolucao, total_pago, total_pendente,
 // total_atrasado, diferenca
 ```
@@ -397,11 +403,12 @@ Na tela de locacao:
 
 - `Total a pagar`: total final da locacao/fatura, incluindo diarias, taxas, descontos e encargos de devolucao
 - `Avarias cobradas`: total de receitas de avaria (`financeiro.tipo = R`, plano `4.2.2.01`) vinculadas a locacao; entra no total cobrado do cliente
+- `Sinistros cobrados`: total de receitas de sinistro (`financeiro.tipo = R`, plano `4.2.2.05`) vinculadas a locacao; entra separadamente no total cobrado do cliente
 - `Total lancado`: saldo financeiro efetivo da locacao (receitas menos creditos de devolucao), sem lancamentos vinculados a multas
 - `Valor reembolsado`: total de creditos de devolucao (`financeiro.tipo = D`, plano `3.4.1.22`) vinculados a locacao
-- `Diferenca`: total final simulado, somado as avarias cobradas, menos total lancado; indica quanto ainda precisa ser lancado no financeiro
+- `Diferenca`: total final simulado, somado as avarias e aos sinistros cobrados, menos total lancado; indica quanto ainda precisa ser lancado no financeiro
 - `Valor pago`: soma das parcelas ja pagas
-- `Saldo a pagar`: total final simulado, somado as avarias cobradas, menos valor pago e reembolsos; indica quanto ainda falta receber
+- `Saldo a pagar`: total final simulado, somado as avarias e aos sinistros cobrados, menos valor pago e reembolsos; indica quanto ainda falta receber
 - Em nova locacao/reserva ainda nao salva, a secao Pagamentos deve aparecer
   sem botoes ou acoes, exibindo apenas a orientacao para salvar antes de
   adicionar pagamento.

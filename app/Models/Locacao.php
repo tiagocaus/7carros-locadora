@@ -29,6 +29,7 @@ class Locacao extends Model
 {
     public const PLANO_CONTA_DEVOLUCAO_LOCACAO = '3.4.1.22';
     public const PLANO_CONTA_AVARIAS = '4.2.2.01';
+    public const PLANO_CONTA_SINISTROS = '4.2.2.05';
 
     use Auditable;
     use DetectsCrossTenant;
@@ -847,12 +848,13 @@ class Locacao extends Model
             : (float) ($locacao['total_pagar'] ?? 0);
 
         // Usa a mesma base do resumo financeiro: multas possuem cobranca propria
-        // e nao podem reduzir o saldo parcelavel da locacao. Avarias e creditos
-        // de devolucao permanecem compensados pelo total esperado/lancado.
+        // e nao podem reduzir o saldo parcelavel da locacao. Avarias, sinistros
+        // e creditos de devolucao permanecem compensados pelo total esperado/lancado.
         $resumoFinanceiro = $this->resumoFinanceiro($locacaoId);
         $totalAvarias = (float) ($resumoFinanceiro['total_avarias'] ?? 0);
+        $totalSinistros = (float) ($resumoFinanceiro['total_sinistros'] ?? 0);
         $totalLancado = (float) ($resumoFinanceiro['total_lancado'] ?? 0);
-        $totalPagar = round($totalPagarFinal + $totalAvarias - $totalLancado, 2);
+        $totalPagar = round($totalPagarFinal + $totalAvarias + $totalSinistros - $totalLancado, 2);
         if ($totalPagar <= 0) {
             throw new \InvalidArgumentException('Nao ha saldo restante para gerar parcelas');
         }
@@ -1269,6 +1271,7 @@ class Locacao extends Model
                 SUM(CASE WHEN f.tipo = "R" THEN 1 ELSE 0 END) AS total_parcelas,
                 SUM(CASE WHEN f.tipo = "R" THEN f.valor_total ELSE 0 END) AS total_receitas,
                 SUM(CASE WHEN f.tipo = "R" AND pc.hierarquia = "' . self::PLANO_CONTA_AVARIAS . '" THEN f.valor_total ELSE 0 END) AS total_avarias,
+                SUM(CASE WHEN f.tipo = "R" AND pc.hierarquia = "' . self::PLANO_CONTA_SINISTROS . '" THEN f.valor_total ELSE 0 END) AS total_sinistros,
                 SUM(CASE WHEN f.tipo = "D" AND pc.hierarquia = "' . self::PLANO_CONTA_DEVOLUCAO_LOCACAO . '" THEN f.valor_total ELSE 0 END) AS total_credito_devolucao,
                 SUM(CASE WHEN f.tipo = "R" AND f.pago = "S" THEN f.valor_total ELSE 0 END) AS total_pago,
                 SUM(CASE WHEN f.tipo = "R" AND f.pago = "N" THEN f.valor_total ELSE 0 END) AS total_pendente,
@@ -1287,13 +1290,15 @@ class Locacao extends Model
         $totalPagar = (float) ($locacao['total_pagar'] ?? 0);
         $totalReceitas = (float) ($totais['total_receitas'] ?? 0);
         $totalAvarias = (float) ($totais['total_avarias'] ?? 0);
-        $totalEsperado = round($totalPagar + $totalAvarias, 2);
+        $totalSinistros = (float) ($totais['total_sinistros'] ?? 0);
+        $totalEsperado = round($totalPagar + $totalAvarias + $totalSinistros, 2);
         $totalCreditoDevolucao = (float) ($totais['total_credito_devolucao'] ?? 0);
         $totalLancado = round($totalReceitas - $totalCreditoDevolucao, 2);
 
         return [
             'total_locacao' => $totalPagar,
             'total_avarias' => $totalAvarias,
+            'total_sinistros' => $totalSinistros,
             'total_esperado' => $totalEsperado,
             'total_lancado' => $totalLancado,
             'total_receitas' => $totalReceitas,

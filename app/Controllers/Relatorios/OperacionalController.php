@@ -52,7 +52,7 @@ class OperacionalController extends BaseRelatorioController
     }
 
     // ===========================================================
-    // 6.2 — AVARIAS E SINISTROS
+    // 6.2 — SINISTROS (identificadores tecnicos legados preservados)
     // ===========================================================
     public function viewAvariasSinistros(Request $request): void
     {
@@ -81,8 +81,8 @@ class OperacionalController extends BaseRelatorioController
         [$fw, $fp] = $this->getFilialFilter('id_matriz_filial', 'v');
         $r = (new OperacionalReport())->avariasSinistros($filters['data_inicio'], $filters['data_fim'], $fw, $fp, $filters['filial']);
         $this->renderPdf('avarias-sinistros.php',
-            t('modules.relatorios.operacional.avarias_sinistros.title'),
-            t('modules.relatorios.operacional.avarias_sinistros.description'),
+            t('modules.sinistros.report.title'),
+            t('modules.sinistros.report.description'),
             $r['totals'], $r['details'], $filters['data_inicio'], $filters['data_fim'], 'L');
     }
 

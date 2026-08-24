@@ -1333,27 +1333,28 @@ a série completa de quilômetros reconhecidos na granularidade selecionada.
 
 ---
 
-### 6.2 Avarias e Sinistros
+### 6.2 Sinistros
 
-**Objetivo**: Controle detalhado de danos aos veículos.
+**Objetivo**: Controle dos sinistros registrados em contratos e locacoes.
 
-**Classificação**:
-- Avaria leve (arranhão, amassado pequeno)
-- Avaria média (dano significativo)
-- Sinistro (perda parcial ou total)
+**Fonte de verdade atual**: tabela tenant-scoped `sinistros`, alimentada pelas
+abas de contratos e locacoes. Nao inferir sinistros pela quantidade de itens com
+problema em checklists.
+
+O relatorio nao agrega avarias. O identificador tecnico
+`relatorios.operacional.avarias_sinistros` e as URLs com `avarias-sinistros`
+sao mantidos somente por compatibilidade.
 
 **Informações a exibir**:
 
-| Data | Veículo | Cliente | Locação | Tipo | Descrição | Valor Reparo | Valor Cobrado | Status |
+| Data | Veículo | Cliente | Vínculo | Tipo | Descrição | Valor Estimado | Valor Cobrado | Status |
 |------|---------|---------|---------|------|-----------|--------------|---------------|--------|
 | | | | | | | | | |
 
 **Métricas**:
-- Total de avarias no período
-- Custo total de reparos
+- Total de sinistros no período
+- Quantidade de sinistros abertos e concluidos
 - Valor total cobrado
-- Diferença (prejuízo)
-- Taxa de avarias (% das locações)
 
 ---
 

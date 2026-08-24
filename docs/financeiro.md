@@ -701,7 +701,8 @@ O campo `financeiro.id_veiculo` vincula cada registro financeiro ao veiculo que 
 - Reservas de locacao podem ser apenas por grupo/categoria. Antes da saida, elas podem nao ter `id_veiculo`; nesse caso as parcelas geradas antes da alocacao do veiculo ficam sem rastreio veicular no cabecalho.
 - `Financeiro::criarParcelas()` propaga o `id_veiculo` do registro base para as parcelas filhas
 - Em locacoes, a geracao automatica cria parcelas do saldo restante considerando
-  `total_pagar_final + total_avarias - total_lancado`. Avarias permanecem receitas
+  `total_pagar_final + total_avarias + total_sinistros - total_lancado`.
+  Avarias (`4.2.2.01`) e sinistros (`4.2.2.05`) permanecem receitas
   separadas e nao sao incorporadas em `locacoes.total_pagar`.
 
 ### Substituicao veicular
@@ -873,6 +874,8 @@ Bloqueio e Caucao sao conceitos distintos com planos de contas separados:
 | 1.1.6 | Caucao | A | Grupo (deposito de garantia real) |
 | 1.1.6.01 | Caucao entrada | A | Recebimento do deposito (tipo R) |
 | 1.1.6.02 | Caucao saida | A | Devolucao do deposito (tipo D) |
+| 4.2.2.01 | Avarias | R | Cobrancas por danos classificadas como avaria |
+| 4.2.2.05 | Sinistros | R | Cobrancas vinculadas ao cadastro de sinistros |
 | 3.4.1.22 | Devolucao/Reembolso de locacao | D | Credito ao cliente por devolucao antecipada ou reducao do total final da locacao |
 | 3.4.1.23 | Devolucao/Reembolso de contrato | D | Credito ao cliente apurado no encerramento proporcional de contrato |
 
@@ -882,9 +885,9 @@ Bloqueio e Caucao sao conceitos distintos com planos de contas separados:
 ### Devolucao/Reembolso de Locacao
 
 No fechamento, o financeiro da locacao e conciliado por
-`total_esperado = total_pagar_final + total_avarias` e
+`total_esperado = total_pagar_final + total_avarias + total_sinistros` e
 `diferenca = total_esperado - total_lancado`. `total_lancado` inclui as receitas
-de avaria e desconta creditos de devolucao ja existentes. Quando a diferenca for
+de avaria e sinistro separadamente e desconta creditos de devolucao ja existentes. Quando a diferenca for
 negativa, o modulo de locacoes pode criar uma fatura de devolucao apenas pelo
 excesso efetivo:
 

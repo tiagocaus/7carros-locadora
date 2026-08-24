@@ -127,7 +127,7 @@ Gerencia taxas e servicos adicionais.
 
 ## Formulario de Contratos
 
-O formulario possui 9 abas:
+O formulario de edicao possui 11 abas:
 
 ### Aba 1: Cliente
 - Select de cliente (Chosen com busca server-side)
@@ -161,7 +161,14 @@ O formulario possui 9 abas:
 - Lista de testemunhas
 - Armazenado em JSON no campo `array_testemunhas`
 
-### Aba 7: Financeiro
+### Aba 7: Taxas
+- Taxas e servicos adicionais vinculados ao contrato
+
+### Aba 8: Sinistros
+- Cadastro simples de sinistros vinculados aos veiculos atuais ou historicos
+- Cobranca opcional ao cliente, conforme [sinistros.md](sinistros.md)
+
+### Aba 9: Financeiro
 - Conta bancaria e forma de pagamento
 - Comando de parcelas (select independente com comandos do sistema + personalizados)
 - Desconto e primeiro pagamento
@@ -173,10 +180,10 @@ O formulario possui 9 abas:
 - Ao salvar muitas parcelas, as sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` para evitar locks repetidos em `matrizes_filiais`
 - Ao criar um contrato novo com parcelas geradas, o backend cria/reutiliza links em `pagamentos_links` e enfileira cobrancas `payment_reminder` para email, WhatsApp e SMS. Falhas por canal nao impedem a criacao do contrato nem das parcelas.
 
-### Aba 8: Observacoes
+### Aba 10: Observacoes
 - Campo de texto livre
 
-### Aba 9: Resumo
+### Aba 11: Resumo
 - Resumo de valores agrupado ou detalhado
 - Taxas e servicos adicionais
 - Total a pagar

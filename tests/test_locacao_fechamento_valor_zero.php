@@ -27,9 +27,10 @@ $check = static function (string $descricao, bool $condicao) use (&$falhas, &$su
 $exigeParcelas = static fn(float $totalEsperado, int $totalParcelas): bool =>
     (bool) $metodoExigirParcelas->invoke(null, $totalEsperado, $totalParcelas);
 
-$calcularDiferenca = static fn(float $totalPagar, float $totalAvarias, float $totalLancado): float =>
+$calcularDiferenca = static fn(float $totalPagar, float $totalAvarias, float $totalSinistros, float $totalLancado): float =>
     (float) $metodoDiferenca->invoke(null, $totalPagar, [
         'total_avarias' => $totalAvarias,
+        'total_sinistros' => $totalSinistros,
         'total_lancado' => $totalLancado,
     ]);
 
@@ -49,19 +50,19 @@ $check(
 );
 $check(
     'locacao gratuita conciliada permanece sem diferenca',
-    abs($calcularDiferenca(0.00, 0.00, 0.00)) < 0.001
+    abs($calcularDiferenca(0.00, 0.00, 0.00, 0.00)) < 0.001
 );
 $check(
     'limpeza nao lancada produz diferenca positiva',
-    abs($calcularDiferenca(0.00, 50.00, 0.00) - 50.00) < 0.001
+    abs($calcularDiferenca(0.00, 50.00, 0.00, 0.00) - 50.00) < 0.001
 );
 $check(
     'limpeza lancada deixa a diferenca zerada',
-    abs($calcularDiferenca(0.00, 50.00, 50.00)) < 0.001
+    abs($calcularDiferenca(0.00, 50.00, 0.00, 50.00)) < 0.001
 );
 $check(
     'credito sem receita em locacao gratuita permanece bloqueado por diferenca',
-    $calcularDiferenca(0.00, 0.00, -10.00) > 0.009
+    $calcularDiferenca(0.00, 0.00, 0.00, -10.00) > 0.009
 );
 
 echo "\nSucessos: {$sucessos}\n";

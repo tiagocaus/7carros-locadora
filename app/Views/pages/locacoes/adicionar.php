@@ -102,6 +102,9 @@
                 <button type="button" data-form-tab-target="#tabTaxas" class="form-tab-button">
                     <i class="fas fa-receipt mr-1"></i><span class="hidden sm:inline"><?= t('modules.locacoes.tabs.fees') ?></span>
                 </button>
+                <button type="button" data-form-tab-target="#tabSinistros" class="form-tab-button">
+                    <i class="fas fa-car-crash mr-1"></i><span class="hidden sm:inline"><?= t('modules.sinistros.tab') ?></span>
+                </button>
                 <button type="button" data-form-tab-target="#tabFinanceiro" class="form-tab-button">
                     <i class="fas fa-dollar-sign mr-1"></i><span class="hidden sm:inline"><?= t('modules.locacoes.tabs.financial') ?></span>
                 </button>
@@ -477,6 +480,11 @@
                     <p class="text-slate-500 text-center py-4"><?= t('modules.locacoes.fees.no_fees') ?></p>
                 </div>
             </div>
+        </div>
+
+        <!-- ================== ABA 5: SINISTROS ================== -->
+        <div id="tabSinistros" class="form-tab-content">
+            @include('pages.sinistros._tab')
         </div>
 
         <!-- ================== ABA 5: FINANCEIRO ================== -->
@@ -894,6 +902,10 @@
                         <span class="text-xs text-orange-600 block"><?= t('modules.locacoes.installments.total_damages') ?></span>
                         <span class="text-lg font-semibold text-orange-600" id="rfTotalAvarias">R$ 0,00</span>
                     </div>
+                    <div class="bg-red-50 rounded-md p-3 text-center">
+                        <span class="text-xs text-red-600 block"><?= t('modules.locacoes.installments.total_claims') ?></span>
+                        <span class="text-lg font-semibold text-red-600" id="rfTotalSinistros">R$ 0,00</span>
+                    </div>
                     <div class="bg-green-50 rounded-md p-3 text-center">
                         <span class="text-xs text-green-600 block"><?= t('modules.locacoes.installments.total_paid') ?></span>
                         <span class="text-lg font-semibold text-green-600" id="rfTotalPago">R$ 0,00</span>
@@ -1051,6 +1063,36 @@
 $jsText = static fn(string $value): string => json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
 $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $replace));
 ?>
+<script>
+    window.SINISTROS_CONFIG = {
+        vinculo: 'locacao',
+        canCreateFinance: <?= \App\Core\Auth::can('financeiro.criar') ? 'true' : 'false' ?>,
+        i18n: <?= json_encode([
+            'register' => t('modules.sinistros.register'), 'edit' => t('modules.sinistros.edit'),
+            'empty' => t('modules.sinistros.empty'), 'load_error' => t('modules.sinistros.load_error'),
+            'save_error' => t('modules.sinistros.save_error'), 'charge_error' => t('modules.sinistros.charge_error'),
+            'required' => t('modules.sinistros.required'), 'charge_required' => t('modules.sinistros.charge_required'),
+            'charge_title' => t('modules.sinistros.charge_title'), 'charge_created' => t('modules.sinistros.charge_created'),
+            'view_charge' => t('modules.sinistros.view_charge'), 'edit_action' => t('modules.sinistros.edit_action'),
+            'generate_charge_action' => t('modules.sinistros.generate_charge_action'),
+            'not_generated' => t('modules.sinistros.not_generated'), 'saved' => t('modules.sinistros.saved'),
+            'fields' => [
+                'date' => t('modules.sinistros.fields.date'), 'vehicle' => t('modules.sinistros.fields.vehicle'),
+                'type' => t('modules.sinistros.fields.type'), 'estimated_value' => t('modules.sinistros.fields.estimated_value'),
+                'charge' => t('modules.sinistros.fields.charge'),
+            ],
+            'types' => [
+                'collision' => t('modules.sinistros.types.collision'), 'theft' => t('modules.sinistros.types.theft'),
+                'fire' => t('modules.sinistros.types.fire'), 'flood' => t('modules.sinistros.types.flood'),
+                'third_party' => t('modules.sinistros.types.third_party'), 'total_loss' => t('modules.sinistros.types.total_loss'),
+                'other' => t('modules.sinistros.types.other'),
+            ],
+            'status' => ['open' => t('modules.sinistros.status.open'), 'completed' => t('modules.sinistros.status.completed')],
+            'charge' => ['pending' => t('modules.sinistros.charge.pending'), 'paid' => t('modules.sinistros.charge.paid')],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
+    };
+</script>
+<script src="<?= asset('js/sinistros.min.js') ?>"></script>
 <script>
     (function() {
         const i18n = <?= json_encode([
@@ -1771,6 +1813,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         let totalPagoFinanceiro = 0;
         let totalReembolsadoFinanceiro = 0;
         let totalAvariasFinanceiro = 0;
+        let totalSinistrosFinanceiro = 0;
 
         function limparTaxaSelecionada() {
             taxaSelecionadaAtual = null;
@@ -2345,8 +2388,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     <td class="px-4 py-2 text-right font-medium text-orange-600">${fmtCurrency(totalAvariasFinanceiro)}</td>
                 </tr>`;
             }
+            if (totalSinistrosFinanceiro > 0) {
+                html += `<tr class="border-b border-slate-200">
+                    <td colspan="4" class="px-4 py-2 text-right text-red-600"><?= t('modules.locacoes.installments.total_claims') ?></td>
+                    <td class="px-4 py-2 text-right font-medium text-red-600">${fmtCurrency(totalSinistrosFinanceiro)}</td>
+                </tr>`;
+            }
 
-            const totalCobrado = totalLocacao - desconto + totalAvariasFinanceiro;
+            const totalCobrado = totalLocacao - desconto + totalAvariasFinanceiro + totalSinistrosFinanceiro;
             html += `<tr class="border-b border-slate-200">
                 <td colspan="4" class="px-4 py-2 text-right"><?= t('modules.locacoes.summary_section.total_to_pay') ?></td>
                 <td class="px-4 py-2 text-right font-medium">${fmtCurrency(totalCobrado)}</td>
@@ -2429,7 +2478,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 const totalParcelas = parseInt(resumo.total_parcelas) || 0;
                 const totalLancado = parseFloat(resumo.total_lancado) || 0;
                 const totalAvarias = parseFloat(resumo.total_avarias) || 0;
-                const totalEsperado = Math.round((calcularTotalPagarFormulario() + totalAvarias) * 100) / 100;
+                const totalSinistros = parseFloat(resumo.total_sinistros) || 0;
+                const totalEsperado = Math.round((calcularTotalPagarFormulario() + totalAvarias + totalSinistros) * 100) / 100;
                 const diferenca = Math.round((totalEsperado - totalLancado) * 100) / 100;
                 const pendencias = [];
 
@@ -3587,15 +3637,18 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     const totalSimulado = calcularTotalPagarFormulario();
                     const totalLancado = parseFloat(r.total_lancado) || 0;
                     const totalAvarias = parseFloat(r.total_avarias) || 0;
+                    const totalSinistros = parseFloat(r.total_sinistros) || 0;
                     const totalPago = parseFloat(r.total_pago) || 0;
                     const totalReembolsado = parseFloat(r.total_credito_devolucao) || 0;
-                    const totalEsperado = totalSimulado + totalAvarias;
+                    const totalEsperado = totalSimulado + totalAvarias + totalSinistros;
                     const diferencaSimulada = Math.max(0, Math.round((totalEsperado - totalLancado) * 100) / 100);
                     totalAvariasFinanceiro = totalAvarias;
+                    totalSinistrosFinanceiro = totalSinistros;
                     totalPagoFinanceiro = totalPago;
                     totalReembolsadoFinanceiro = totalReembolsado;
                     document.getElementById('rfTotalLancado').textContent = fmtCurrency(parseFloat(r.total_lancado) || 0);
                     document.getElementById('rfTotalAvarias').textContent = fmtCurrency(totalAvarias);
+                    document.getElementById('rfTotalSinistros').textContent = fmtCurrency(totalSinistros);
                     document.getElementById('rfTotalPago').textContent = fmtCurrency(parseFloat(r.total_pago) || 0);
                     document.getElementById('rfTotalPendente').textContent = fmtCurrency(parseFloat(r.total_pendente) || 0);
                     document.getElementById('rfTotalReembolsado').textContent = fmtCurrency(totalReembolsado);

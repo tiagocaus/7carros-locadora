@@ -1152,7 +1152,9 @@ class LocacoesController
                 $totalParcelasFinanceiro = (int) ($resumoFinanceiro['total_parcelas'] ?? 0);
                 $totalLancadoFinanceiro = (float) ($resumoFinanceiro['total_lancado'] ?? 0);
                 $totalEsperadoFinanceiro = round(
-                    $totalPagarUpdate + (float) ($resumoFinanceiro['total_avarias'] ?? 0),
+                    $totalPagarUpdate
+                        + (float) ($resumoFinanceiro['total_avarias'] ?? 0)
+                        + (float) ($resumoFinanceiro['total_sinistros'] ?? 0),
                     2
                 );
                 $diferencaFinanceira = self::calcularDiferencaFinanceiraFechamento(
@@ -1816,8 +1818,9 @@ class LocacoesController
         array $resumoFinanceiro
     ): float {
         $totalAvarias = (float) ($resumoFinanceiro['total_avarias'] ?? 0);
+        $totalSinistros = (float) ($resumoFinanceiro['total_sinistros'] ?? 0);
         $totalLancado = (float) ($resumoFinanceiro['total_lancado'] ?? 0);
-        $totalEsperado = round($totalPagarFinal + $totalAvarias, 2);
+        $totalEsperado = round($totalPagarFinal + $totalAvarias + $totalSinistros, 2);
 
         return round($totalEsperado - $totalLancado, 2);
     }

@@ -340,7 +340,8 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
     $parcelasFinanceirasPdf = is_array($parcelasFinanceiras ?? null) ? $parcelasFinanceiras : [];
     $resumoFinanceiroPdf = is_array($resumoFinanceiro ?? null) ? $resumoFinanceiro : [];
     $totalAvariasPdf = (float) ($resumoFinanceiroPdf['total_avarias'] ?? 0);
-    $totalGeralPdf = $totalLocacaoPdf + $totalAvariasPdf + $totalMultasPdf;
+    $totalSinistrosPdf = (float) ($resumoFinanceiroPdf['total_sinistros'] ?? 0);
+    $totalGeralPdf = $totalLocacaoPdf + $totalAvariasPdf + $totalSinistrosPdf + $totalMultasPdf;
     $totalPagoPdf = (float) ($resumoFinanceiroPdf['total_pago'] ?? 0);
     $totalReembolsadoPdf = (float) ($resumoFinanceiroPdf['total_credito_devolucao'] ?? 0);
     $totalAPagarPdf = max(0, $totalGeralPdf - $totalPagoPdf - $totalReembolsadoPdf);
@@ -363,6 +364,12 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
         <tr>
             <td class="label-col"><?= t('modules.locacoes.installments.total_damages') ?></td>
             <td class="value-col"><?= currency_format($totalAvariasPdf) ?></td>
+        </tr>
+        <?php endif; ?>
+        <?php if ($totalSinistrosPdf > 0): ?>
+        <tr>
+            <td class="label-col"><?= t('modules.locacoes.installments.total_claims') ?></td>
+            <td class="value-col"><?= currency_format($totalSinistrosPdf) ?></td>
         </tr>
         <?php endif; ?>
         <?php if ($totalMultasPdf > 0): ?>

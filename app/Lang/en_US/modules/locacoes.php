@@ -373,6 +373,7 @@ return [
         'save_before_add_payment' => 'Save the reservation/rental before adding a payment.',
         'total_launched' => 'Total Launched',
         'total_damages' => 'Damage charges',
+        'total_claims' => 'Claim charges',
         'total_paid' => 'Total Paid',
         'total_pending' => 'Total Pending',
         'total_refunded' => 'Refunded Amount',

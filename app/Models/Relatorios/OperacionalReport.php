@@ -6,7 +6,7 @@ namespace App\Models\Relatorios;
  * Relatorios da categoria OPERACIONAL (grupo 6).
  *
  * 6.1 Checklists Realizados   -> checklistsRealizados()
- * 6.2 Avarias e Sinistros     -> avariasSinistros()
+ * 6.2 Sinistros               -> avariasSinistros() (nome tecnico legado)
  * 6.3 Multas de Transito      -> multasTransito()
  * 6.4 Devolucoes Antecipadas  -> devolucoesAntecipadas()
  * 6.5 Devolucoes Atrasadas    -> devolucoesAtrasadas()
@@ -166,7 +166,7 @@ class OperacionalReport extends BaseReportModel
     }
 
     // =====================================================
-    // 6.2 — AVARIAS E SINISTROS (proxy via checklists com itens problema)
+    // 6.2 — SINISTROS (nome do metodo preservado por compatibilidade)
     // =====================================================
     public function avariasSinistros(
         string $dataInicio,
@@ -175,97 +175,67 @@ class OperacionalReport extends BaseReportModel
         array $filialParams,
         string $filialId = ''
     ): array {
-        // Busca checklists no periodo (depois filtra os que tem itens com problema)
         $query = $this->qb
-            ->table('checklist', 'ch')
+            ->table('sinistros', 's')
             ->selectRaw("
-                ch.id, ch.codigo, ch.tipo, ch.data_saida, ch.data_entrada,
-                ch.questoes_saida, ch.questoes_entrada,
-                ch.observacoes_saida, ch.observacoes_entrada,
+                s.id, s.data_ocorrencia AS data, s.tipo, s.descricao,
+                s.valor_estimado, s.status, s.id_financeiro,
                 v.placa, v.modelo AS veiculo_modelo,
-                l.codigo AS locacao_codigo, l.cliente_nome, l.id_cliente
+                COALESCE(l.codigo, c.codigo) AS locacao_codigo,
+                COALESCE(cl.nome_rsocial, l.cliente_nome) AS cliente_nome,
+                COALESCE(f.valor_total, 0) AS valor_cobrado
             ")
-            ->leftJoin('veiculos', 'v', 'ch.id_veiculo', '=', 'v.id')
-            ->leftJoin('locacoes', 'l', 'ch.id_locacao', '=', 'l.id')
-            ->whereRaw('(ch.data_saida BETWEEN ? AND ? OR ch.data_entrada BETWEEN ? AND ?)', [
-                $dataInicio . ' 00:00:00',
-                $dataFim . ' 23:59:59',
-                $dataInicio . ' 00:00:00',
-                $dataFim . ' 23:59:59',
-            ])
-            ->orderByRaw('COALESCE(ch.data_entrada, ch.data_saida) DESC');
+            ->leftJoin('veiculos', 'v', 's.id_veiculo', '=', 'v.id')
+            ->leftJoin('locacoes', 'l', 's.id_locacao', '=', 'l.id')
+            ->leftJoin('contratos', 'c', 's.id_contrato', '=', 'c.id')
+            ->leftJoinRaw('clientes', 'cl', 'cl.id = COALESCE(c.id_cliente, l.id_cliente) AND cl.chave = s.chave')
+            ->leftJoin('financeiro', 'f', 's.id_financeiro', '=', 'f.id')
+            ->whereBetween('s.data_ocorrencia', $dataInicio . ' 00:00:00', $dataFim . ' 23:59:59')
+            ->orderByDesc('s.data_ocorrencia');
 
-        $this->applyFilial($query, $filialWhere, $filialParams, $filialId, 'id_matriz_filial', 'v');
+        $filialExpression = 'COALESCE(c.id_matriz_filial_retirada, l.id_matriz_filial_retirada)';
+        if (!empty($filialId)) {
+            $query->whereRaw("{$filialExpression} = ?", [(int) $filialId]);
+        } elseif (!empty($filialWhere)) {
+            $filialCondition = str_contains($filialWhere, 'v.id_matriz_filial')
+                ? str_replace('v.id_matriz_filial', $filialExpression, $filialWhere)
+                : preg_replace('/(?<![.a-zA-Z0-9_])id_matriz_filial(?![a-zA-Z0-9_])/', $filialExpression, $filialWhere);
+            $query->whereRaw($filialCondition, $filialParams);
+        }
 
         $rows = $query->get();
 
         $details = [];
-        $countLeve = 0; $countMedia = 0; $countSinistro = 0;
+        $countByType = [];
+        $abertos = 0;
+        $concluidos = 0;
+        $valorCobrado = 0.0;
 
         foreach ($rows as $r) {
-            $etapas = [];
-            if (!empty($r['data_saida']) && $r['data_saida'] >= $dataInicio . ' 00:00:00' && $r['data_saida'] <= $dataFim . ' 23:59:59') {
-                $etapas[] = [
-                    'data' => $r['data_saida'],
-                    'questoes' => $r['questoes_saida'] ?? '',
-                    'obs' => $r['observacoes_saida'] ?? '',
-                ];
-            }
-            if (($r['tipo'] ?? '') === 'V' && !empty($r['data_entrada']) && $r['data_entrada'] >= $dataInicio . ' 00:00:00' && $r['data_entrada'] <= $dataFim . ' 23:59:59') {
-                $etapas[] = [
-                    'data' => $r['data_entrada'],
-                    'questoes' => $r['questoes_entrada'] ?? '',
-                    'obs' => $r['observacoes_entrada'] ?? '',
-                ];
-            }
-
-            foreach ($etapas as $etapa) {
-            $itensProb = [];
-            $questoes = !empty($etapa['questoes']) ? json_decode($etapa['questoes'], true) : null;
-            if (is_array($questoes)) {
-                foreach ($questoes as $q) {
-                    if (isset($q['opt']) && (string) $q['opt'] !== '1') {
-                        $itensProb[] = $q['content'] ?? '-';
-                    }
-                }
-            }
-
-            // Pula checklists sem problemas
-            if (empty($itensProb) && empty($etapa['obs'])) continue;
-
-            // Classificacao por quantidade de itens reportados
-            $qtd = count($itensProb);
-            if ($qtd === 0) {
-                $tipo = 'leve'; $countLeve++;
-            } elseif ($qtd <= 2) {
-                $tipo = 'leve'; $countLeve++;
-            } elseif ($qtd <= 5) {
-                $tipo = 'media'; $countMedia++;
-            } else {
-                $tipo = 'sinistro'; $countSinistro++;
-            }
+            $tipo = (string) ($r['tipo'] ?? 'outros');
+            $countByType[$tipo] = ($countByType[$tipo] ?? 0) + 1;
+            ($r['status'] ?? 'A') === 'C' ? $concluidos++ : $abertos++;
+            $valorCobrado += (float) ($r['valor_cobrado'] ?? 0);
 
             $details[] = [
-                'data' => $etapa['data'],
+                'data' => $r['data'],
                 'placa' => $r['placa'] ?? '-',
                 'veiculo_modelo' => $r['veiculo_modelo'] ?? '',
                 'cliente_nome' => $r['cliente_nome'] ?? '-',
                 'locacao_codigo' => $r['locacao_codigo'] ?? '-',
                 'tipo' => $tipo,
-                'descricao' => !empty($itensProb)
-                    ? implode(', ', array_slice($itensProb, 0, 5)) . (count($itensProb) > 5 ? '...' : '')
-                    : substr($etapa['obs'] ?? '', 0, 200),
-                'qtd_itens' => $qtd,
-                'codigo' => $r['codigo'] ?? '-',
+                'descricao' => $r['descricao'] ?? '-',
+                'valor_estimado' => (float) ($r['valor_estimado'] ?? 0),
+                'valor_cobrado' => (float) ($r['valor_cobrado'] ?? 0),
+                'status' => $r['status'] ?? 'A',
             ];
-            }
         }
 
         $totals = [
-            'total_avarias' => count($details),
-            'qtd_leve' => $countLeve,
-            'qtd_media' => $countMedia,
-            'qtd_sinistro' => $countSinistro,
+            'total_sinistros' => count($details),
+            'qtd_abertos' => $abertos,
+            'qtd_concluidos' => $concluidos,
+            'valor_cobrado' => $valorCobrado,
         ];
 
         return [
@@ -273,11 +243,17 @@ class OperacionalReport extends BaseReportModel
             'details' => ['lista' => $details],
             'chart' => [
                 'labels' => [
-                    \t('modules.relatorios.operacional.avarias_sinistros.tipo_leve'),
-                    \t('modules.relatorios.operacional.avarias_sinistros.tipo_media'),
-                    \t('modules.relatorios.operacional.avarias_sinistros.tipo_sinistro'),
+                    \t('modules.sinistros.types.collision'),
+                    \t('modules.sinistros.types.theft'),
+                    \t('modules.sinistros.types.fire'),
+                    \t('modules.sinistros.types.flood'),
+                    \t('modules.sinistros.types.third_party'),
+                    \t('modules.sinistros.types.total_loss'),
+                    \t('modules.sinistros.types.other'),
                 ],
-                'data' => [$countLeve, $countMedia, $countSinistro],
+                'data' => array_map(static fn(string $tipo): int => (int) ($countByType[$tipo] ?? 0), [
+                    'colisao', 'furto_roubo', 'incendio', 'alagamento', 'danos_terceiros', 'perda_total', 'outros',
+                ]),
             ],
         ];
     }

@@ -22,9 +22,10 @@ $check = static function (string $descricao, float $esperado, float $atual) use 
     $ok ? $sucessos++ : $falhas++;
 };
 
-$calcular = static fn(float $totalPagar, float $totalAvarias, float $totalLancado): float =>
+$calcular = static fn(float $totalPagar, float $totalAvarias, float $totalSinistros, float $totalLancado): float =>
     (float) $metodo->invoke(null, $totalPagar, [
         'total_avarias' => $totalAvarias,
+        'total_sinistros' => $totalSinistros,
         'total_lancado' => $totalLancado,
     ]);
 
@@ -33,22 +34,32 @@ echo "=== Teste fechamento de locacao com avarias ===\n";
 $check(
     'avaria ja lancada nao gera credito de devolucao',
     0.00,
-    $calcular(9644.68, 183.00, 9827.68)
+    $calcular(9644.68, 183.00, 0.00, 9827.68)
 );
 $check(
     'excesso financeiro real permanece negativo para gerar credito',
     -72.32,
-    $calcular(9644.68, 183.00, 9900.00)
+    $calcular(9644.68, 183.00, 0.00, 9900.00)
 );
 $check(
     'valor ainda nao lancado permanece positivo para bloquear fechamento',
     27.68,
-    $calcular(9644.68, 183.00, 9800.00)
+    $calcular(9644.68, 183.00, 0.00, 9800.00)
 );
 $check(
     'locacao sem avaria preserva conciliacao anterior',
     0.00,
-    $calcular(9644.68, 0.00, 9644.68)
+    $calcular(9644.68, 0.00, 0.00, 9644.68)
+);
+$check(
+    'sinistro ja lancado nao gera credito de devolucao',
+    0.00,
+    $calcular(9644.68, 0.00, 250.00, 9894.68)
+);
+$check(
+    'avaria e sinistro compoem o esperado sem se misturar',
+    0.00,
+    $calcular(9644.68, 183.00, 250.00, 10077.68)
 );
 
 echo "\nSucessos: {$sucessos}\n";

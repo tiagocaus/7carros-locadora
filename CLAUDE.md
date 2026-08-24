@@ -23,6 +23,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 | Financeiro / Parcelamento | `docs/financeiro.md` |
 | Gateways de Pagamento | `docs/gateways.md` |
 | Checklist Digital | `docs/checklists.md` |
+| Sinistros | `docs/sinistros.md` |
 | Portal Cliente / Investidor | `docs/portal-cliente-investidor.md` |
 
 **Regras de Ouro:**
@@ -85,6 +86,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 
 ### 📦 Módulos do Sistema
 - **[Checklist Digital](docs/checklists.md)** - Vistoria digital mobile, questionário, fotos e assinatura
+- **[Sinistros](docs/sinistros.md)** - Ocorrencias vinculadas a contratos/locacoes e cobranca opcional
 - **[Contratos](docs/contratos.md)** - Gestão de contratos de locação e impressão
 - **[Locações](docs/locacoes.md)** - Gestão de locações de curta duração (diárias)
 - **[Orçamentos](docs/orcamentos.md)** - Propostas comerciais e conversão em reservas
