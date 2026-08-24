@@ -48,6 +48,10 @@ class NFSeConfiguracao extends Model
         $tipoEmissao = (string) ($dados['tipo_emissao'] ?? 'nacional');
         $codigoMunicipio = preg_replace('/\D/', '', (string) ($dados['codigo_municipio'] ?? ''));
         $codigoServico = trim((string) ($dados['codigo_servico'] ?? ''));
+        $preencherIBSCBS = ($dados['preencher_ibscbs'] ?? 'N') === 'S' ? 'S' : 'N';
+        $cIndOpIBSCBS = preg_replace('/\D/', '', (string) ($dados['c_ind_op_ibscbs'] ?? ''));
+        $cstIBSCBS = preg_replace('/\D/', '', (string) ($dados['cst_ibscbs'] ?? ''));
+        $cClassTribIBSCBS = preg_replace('/\D/', '', (string) ($dados['c_class_trib_ibscbs'] ?? ''));
 
         if (!in_array($tipoEmissao, ['nacional', 'betha', 'issnet'], true)) {
             throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado.');
@@ -61,6 +65,23 @@ class NFSeConfiguracao extends Model
         }
         if ($ativo === 'S' && $codigoServico === '') {
             throw new \InvalidArgumentException('Código do serviço é obrigatório quando a emissão está ativa.');
+        }
+        if ($ativo === 'S' && $tipoEmissao !== 'nacional' && $preencherIBSCBS === 'S') {
+            throw new \InvalidArgumentException('IBS/CBS está homologado somente para a emissão Nacional.');
+        }
+        if ($ativo === 'S' && $tipoEmissao === 'nacional' && $preencherIBSCBS === 'S') {
+            if (strlen($cIndOpIBSCBS) !== 6) {
+                throw new \InvalidArgumentException('Código indicador da operação IBS/CBS deve ter 6 dígitos.');
+            }
+            if (strlen($cstIBSCBS) !== 3) {
+                throw new \InvalidArgumentException('CST do IBS/CBS deve ter 3 dígitos.');
+            }
+            if (strlen($cClassTribIBSCBS) !== 6) {
+                throw new \InvalidArgumentException('Classificação tributária do IBS/CBS deve ter 6 dígitos.');
+            }
+            if (!str_starts_with($cClassTribIBSCBS, $cstIBSCBS)) {
+                throw new \InvalidArgumentException('Os 3 primeiros dígitos da classificação tributária devem ser iguais ao CST do IBS/CBS.');
+            }
         }
         if ($ativo === 'S' && $tipoEmissao === 'issnet') {
             if (trim((string) ($dados['item_lista_servico'] ?? '')) === '') {
@@ -86,7 +107,10 @@ class NFSeConfiguracao extends Model
             'reg_apuracao_sn' => (int) ($dados['reg_apuracao_sn'] ?? 1),
             'trib_issqn' => (int) ($dados['trib_issqn'] ?? 4),
             'aliquota_iss' => $this->normalizarDecimal($dados['aliquota_iss'] ?? 0),
-            'preencher_ibscbs' => ($dados['preencher_ibscbs'] ?? 'N') === 'S' ? 'S' : 'N',
+            'preencher_ibscbs' => $preencherIBSCBS,
+            'c_ind_op_ibscbs' => $cIndOpIBSCBS !== '' ? $cIndOpIBSCBS : null,
+            'cst_ibscbs' => $cstIBSCBS !== '' ? $cstIBSCBS : null,
+            'c_class_trib_ibscbs' => $cClassTribIBSCBS !== '' ? $cClassTribIBSCBS : null,
             'aliquota_ibs' => $this->normalizarDecimal($dados['aliquota_ibs'] ?? 0),
             'aliquota_cbs' => $this->normalizarDecimal($dados['aliquota_cbs'] ?? 0),
             'exigibilidade_iss' => (int) ($dados['exigibilidade_iss'] ?? 1),

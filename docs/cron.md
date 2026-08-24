@@ -64,6 +64,12 @@ cobrancas, faturas ou notificacoes.
   data dependente de timezone; em seguida, processar cada tenant com seu proprio
   contexto e sua data de referencia.
 
+### Reenvio de NFS-e
+
+- Erros locais de configuracao, inclusive `IBSCBS_CONFIGURACAO`, nao sao recuperaveis e nao entram no reenvio automatico.
+- `DPS_JA_GERADA` e recuperavel por consulta, nao por novo `POST /nfse`: o servico consulta `GET /dps/{id}` e depois `GET /nfse/{chave}`.
+- O limite continua sendo tres tentativas. A reconciliacao autorizada limpa codigo e motivo de rejeicao e registra evento proprio.
+
 ### Autorenovacao de Contratos
 
 O job de autorenovacao deve confirmar a geracao financeira antes de avancar

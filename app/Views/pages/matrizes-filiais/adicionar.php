@@ -671,19 +671,17 @@
                                         <label for="inputPreencherIBSCBS" class="ml-2 text-sm text-slate-700 cursor-pointer"><?= t('modules.matrizes_filiais.nfse_ui.activate') ?></label>
                                     </div>
                                 </div>
-                                <div class="md:col-span-4 form-input-group" id="fieldAliquotaIBS">
-                                    <label class="form-label-group"><?= t('modules.nfse.config.aliquota_ibs') ?></label>
-                                    <div class="relative">
-                                        <input type="text" name="aliquota_ibs" id="inputAliquotaIBS" class="form-input-group-field pr-10 input-percent" placeholder="0,00">
-                                        <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">%</span>
-                                    </div>
+                                <div class="md:col-span-4 form-input-group field-ibscbs-code">
+                                    <label class="form-label-group"><?= t('modules.nfse.config.c_ind_op_ibscbs') ?> <?= aviso(t('modules.nfse.config.c_ind_op_ibscbs_hint')) ?></label>
+                                    <input type="text" name="c_ind_op_ibscbs" id="inputCIndOpIBSCBS" class="form-input-group-field" inputmode="numeric" maxlength="6">
                                 </div>
-                                <div class="md:col-span-4 form-input-group" id="fieldAliquotaCBS">
-                                    <label class="form-label-group"><?= t('modules.nfse.config.aliquota_cbs') ?></label>
-                                    <div class="relative">
-                                        <input type="text" name="aliquota_cbs" id="inputAliquotaCBS" class="form-input-group-field pr-10 input-percent" placeholder="0,00">
-                                        <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm">%</span>
-                                    </div>
+                                <div class="md:col-span-4 form-input-group field-ibscbs-code">
+                                    <label class="form-label-group"><?= t('modules.nfse.config.cst_ibscbs') ?> <?= aviso(t('modules.nfse.config.cst_ibscbs_hint')) ?></label>
+                                    <input type="text" name="cst_ibscbs" id="inputCstIBSCBS" class="form-input-group-field" inputmode="numeric" maxlength="3">
+                                </div>
+                                <div class="md:col-span-4 form-input-group field-ibscbs-code">
+                                    <label class="form-label-group"><?= t('modules.nfse.config.c_class_trib_ibscbs') ?> <?= aviso(t('modules.nfse.config.c_class_trib_ibscbs_hint')) ?></label>
+                                    <input type="text" name="c_class_trib_ibscbs" id="inputCClassTribIBSCBS" class="form-input-group-field" inputmode="numeric" maxlength="6">
                                 </div>
                             </div>
                         </div>
@@ -2066,8 +2064,9 @@
                 document.getElementById('inputTribISSQN').value = config.trib_issqn || '4';
                 document.getElementById('inputAliquotaISS').value = config.aliquota_iss || '';
                 document.getElementById('inputPreencherIBSCBS').checked = config.preencher_ibscbs === 'S';
-                document.getElementById('inputAliquotaIBS').value = config.aliquota_ibs || '';
-                document.getElementById('inputAliquotaCBS').value = config.aliquota_cbs || '';
+                document.getElementById('inputCIndOpIBSCBS').value = config.c_ind_op_ibscbs || '';
+                document.getElementById('inputCstIBSCBS').value = config.cst_ibscbs || '';
+                document.getElementById('inputCClassTribIBSCBS').value = config.c_class_trib_ibscbs || '';
                 document.getElementById('inputExigibilidadeISS').value = config.exigibilidade_iss || '1';
                 document.getElementById('inputIncentivoFiscal').checked = config.incentivo_fiscal === 'S';
                 document.getElementById('inputEnviarIM').checked = config.enviar_im === 'S';
@@ -2114,17 +2113,19 @@
             }
 
             function nfseToggleDpsFields() {
-                const isDps = inputTipoEmissao.value === 'nacional' || inputTipoEmissao.value === 'betha';
+                const isNacional = inputTipoEmissao.value === 'nacional';
+                const isDps = isNacional || inputTipoEmissao.value === 'betha';
                 const isIssnet = inputTipoEmissao.value === 'issnet';
                 const isSimples = document.getElementById('inputRegimeTributario').value === '1';
                 const preencherIBSCBS = document.getElementById('inputPreencherIBSCBS').checked;
                 document.getElementById('fieldNumeroAtual').style.display = 'block';
                 document.getElementById('fieldEnviarIM').style.display = (isDps || isIssnet) ? 'block' : 'none';
                 document.getElementById('fieldRegApuracaoSN').style.display = isDps && isSimples ? 'block' : 'none';
-                document.getElementById('sectionIBSCBS').style.display = isDps ? 'block' : 'none';
-                document.getElementById('fieldPreencherIBSCBS').style.display = 'block';
-                document.getElementById('fieldAliquotaIBS').style.display = isDps && preencherIBSCBS ? 'block' : 'none';
-                document.getElementById('fieldAliquotaCBS').style.display = isDps && preencherIBSCBS ? 'block' : 'none';
+                document.getElementById('sectionIBSCBS').style.display = isNacional ? 'block' : 'none';
+                document.getElementById('fieldPreencherIBSCBS').style.display = isNacional ? 'block' : 'none';
+                tabNfse.querySelectorAll('.field-ibscbs-code').forEach(el => {
+                    el.style.display = isNacional && preencherIBSCBS ? 'block' : 'none';
+                });
                 tabNfse.querySelectorAll('.field-issnet').forEach(el => {
                     el.style.display = isIssnet ? 'block' : 'none';
                 });
@@ -2202,6 +2203,16 @@
                     window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.item_lista_servico_required_active') ?> }, '*');
                     return;
                 }
+                const preencherIBSCBS = document.getElementById('inputPreencherIBSCBS').checked;
+                const cIndOpIBSCBS = document.getElementById('inputCIndOpIBSCBS').value.replace(/\D/g, '');
+                const cstIBSCBS = document.getElementById('inputCstIBSCBS').value.replace(/\D/g, '');
+                const cClassTribIBSCBS = document.getElementById('inputCClassTribIBSCBS').value.replace(/\D/g, '');
+                if (document.getElementById('inputAtivo').checked && tipoEmissao === 'nacional' && preencherIBSCBS
+                    && (cIndOpIBSCBS.length !== 6 || cstIBSCBS.length !== 3 || cClassTribIBSCBS.length !== 6
+                        || !cClassTribIBSCBS.startsWith(cstIBSCBS))) {
+                    window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.ibscbs_codes_required') ?> }, '*');
+                    return;
+                }
 
                 const dados = {
                     id_matriz_filial: registroId,
@@ -2222,9 +2233,10 @@
                     reg_apuracao_sn: document.getElementById('inputRegApuracaoSN').value,
                     trib_issqn: document.getElementById('inputTribISSQN').value,
                     aliquota_iss: document.getElementById('inputAliquotaISS').value,
-                    preencher_ibscbs: document.getElementById('inputPreencherIBSCBS').checked ? 'S' : 'N',
-                    aliquota_ibs: document.getElementById('inputAliquotaIBS').value,
-                    aliquota_cbs: document.getElementById('inputAliquotaCBS').value,
+                    preencher_ibscbs: preencherIBSCBS ? 'S' : 'N',
+                    c_ind_op_ibscbs: cIndOpIBSCBS,
+                    cst_ibscbs: cstIBSCBS,
+                    c_class_trib_ibscbs: cClassTribIBSCBS,
                     exigibilidade_iss: document.getElementById('inputExigibilidadeISS').value,
                     incentivo_fiscal: document.getElementById('inputIncentivoFiscal').checked ? 'S' : 'N',
                     enviar_im: document.getElementById('inputEnviarIM').checked ? 'S' : 'N',

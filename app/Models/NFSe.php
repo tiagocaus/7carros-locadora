@@ -330,6 +330,10 @@ class NFSe extends Model
                 'chave_acesso' => $dados['chave_acesso'] ?? null,
                 'xml_retorno' => $dados['xml_retorno'] ?? null,
                 'data_emissao' => $dados['data_emissao'] ?? now(),
+                'aliquota_ibs' => $dados['aliquota_ibs'] ?? 0,
+                'valor_ibs' => $dados['valor_ibs'] ?? 0,
+                'aliquota_cbs' => $dados['aliquota_cbs'] ?? 0,
+                'valor_cbs' => $dados['valor_cbs'] ?? 0,
                 'codigo_rejeicao' => null,
                 'motivo_rejeicao' => null,
             ]);

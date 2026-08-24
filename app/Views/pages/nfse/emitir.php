@@ -433,19 +433,11 @@
 
         const tribISSQN = configData ? parseInt(configData.trib_issqn || 4) : 4;
         const valorISS = tribISSQN === 1 ? Math.max(0, baseCalculo) * (aliquotaISS / 100) : 0;
-        const preencherIBSCBS = configData?.preencher_ibscbs === 'S';
-        const aliquotaIBS = preencherIBSCBS ? parseFloat(configData?.aliquota_ibs || 0) : 0;
-        const aliquotaCBS = preencherIBSCBS ? parseFloat(configData?.aliquota_cbs || 0) : 0;
-        const valorIBS = preencherIBSCBS ? valorServicos * (aliquotaIBS / 100) : 0;
-        const valorCBS = preencherIBSCBS ? valorServicos * (aliquotaCBS / 100) : 0;
-
         document.getElementById('resumoISS').textContent = Currency.format(valorISS, true);
-        document.getElementById('resumoIBS').textContent = Currency.format(valorIBS, true);
-        document.getElementById('resumoCBS').textContent = Currency.format(valorCBS, true);
-        document.getElementById('resumoIBSLabel').textContent = `IBS (${aliquotaIBS.toFixed(2).replace('.', ',')}%)`;
-        document.getElementById('resumoCBSLabel').textContent = `CBS (${aliquotaCBS.toFixed(2).replace('.', ',')}%)`;
-        document.getElementById('resumoIBSBox').classList.toggle('hidden', !preencherIBSCBS);
-        document.getElementById('resumoCBSBox').classList.toggle('hidden', !preencherIBSCBS);
+        // IBS/CBS e calculado pela plataforma nacional. O valor definitivo so
+        // deve ser exibido depois da autorizacao, a partir do XML retornado.
+        document.getElementById('resumoIBSBox').classList.add('hidden');
+        document.getElementById('resumoCBSBox').classList.add('hidden');
     }
 
     function calcularTotalNaoTributavel() {

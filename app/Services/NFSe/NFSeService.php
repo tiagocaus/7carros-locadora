@@ -32,6 +32,8 @@ use App\Services\NFSe\ISSNet\NFSeAPIISSNet;
 class NFSeService
 {
     private const FISCAL_TIMEZONE = 'America/Sao_Paulo';
+    private const IBSCBS_OBRIGATORIO_GERAL = '2026-08-03';
+    private const IBSCBS_OBRIGATORIO_SIMPLES = '2027-01-01';
 
     private NFSeModel $nfseModel;
     private NFSeConfiguracao $configModel;
@@ -108,7 +110,7 @@ class NFSeService
         try {
             $dados = $this->montarDadosNFSe($financeiro, $config, $chave, $dadosExtras);
         } catch (\InvalidArgumentException $e) {
-            return $this->erro($e->getMessage(), 'VALOR_INVALIDO');
+            return $this->erro($e->getMessage(), $this->codigoValidacaoDPS($e->getMessage()));
         }
 
         // 6. Rotear por tipo de emissao
@@ -184,8 +186,8 @@ class NFSeService
     public function consultar(int $idNFSe, string $chave): array
     {
         $nfse = $this->nfseModel->buscarPorId($idNFSe);
-        if (!$nfse || (empty($nfse['chave_acesso']) && empty($nfse['protocolo']))) {
-            return $this->erro('NFS-e não encontrada ou sem chave de acesso.', 'NOTA_NAO_ENCONTRADA');
+        if (!$nfse) {
+            return $this->erro('NFS-e não encontrada.', 'NOTA_NAO_ENCONTRADA');
         }
 
         $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
@@ -198,6 +200,14 @@ class NFSeService
         try {
             $tipoEmissao = $nfse['tipo_emissao'] ?? 'nacional';
             $api = $this->resolverAPI($tipoEmissao, $config);
+            if ($tipoEmissao === 'nacional' && $api instanceof NFSeAPINacional) {
+                return $this->consultarNacionalComPem($nfse, $config, $pem, empty($nfse['chave_acesso']));
+            }
+
+            if (empty($nfse['chave_acesso']) && empty($nfse['protocolo'])) {
+                return $this->erro('NFS-e sem chave de acesso ou protocolo para consulta.', 'NOTA_NAO_ENCONTRADA');
+            }
+
             if ($tipoEmissao === 'issnet' && $api instanceof NFSeAPIISSNet) {
                 $xmlGenerator = new NFSeXMLISSNet();
                 $xmlConsulta = $xmlGenerator->gerarXMLConsultaPorRps($nfse, $config);
@@ -261,6 +271,11 @@ class NFSeService
         $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
         if (!$config) {
             return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
+        }
+
+        if (($nfse['codigo_rejeicao'] ?? '') === 'DPS_JA_GERADA') {
+            $this->nfseModel->incrementarTentativas($idNFSe);
+            return $this->consultar($idNFSe, $chave);
         }
 
         $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
@@ -328,7 +343,15 @@ class NFSeService
 
             $resultado = $api->enviar($xml, $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
 
-            return $this->processarRetornoEmissao($idNFSe, $resultado, $xmlParser, $nfse['chave']);
+            return $this->processarRetornoEmissao($idNFSe, $resultado, $xmlParser, $nfse['chave'], [
+                'config' => $config,
+                'pem' => $pem,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            $codigo = $this->codigoValidacaoDPS($e->getMessage());
+            $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $e->getMessage(), $codigo);
+            $this->eventoModel->registrar($idNFSe, 'erro_configuracao', $codigo, $e->getMessage());
+            return $this->erro($e->getMessage(), $codigo);
         } catch (\Throwable $e) {
             $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $e->getMessage(), 'CONN_CURL');
             $this->eventoModel->registrar($idNFSe, 'erro', 'CONN_CURL', $e->getMessage());
@@ -473,7 +496,17 @@ class NFSeService
 
             $resultado = $preparado['api']->enviar($preparado['xml'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
 
-            return $this->processarRetornoEmissao($idNFSe, $resultado, $preparado['xml_parser'], $chave);
+            return $this->processarRetornoEmissao($idNFSe, $resultado, $preparado['xml_parser'], $chave, [
+                'config' => $config,
+                'pem' => $pem,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            $codigo = $this->codigoValidacaoDPS($e->getMessage());
+            if ($idNFSe !== null) {
+                $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $e->getMessage(), $codigo);
+                $this->eventoModel->registrar($idNFSe, 'erro_configuracao', $codigo, $e->getMessage());
+            }
+            return $this->erro($e->getMessage(), $codigo);
         } catch (\Throwable $e) {
             if ($idNFSe !== null) {
                 $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $e->getMessage(), 'CONN_CURL');
@@ -666,7 +699,13 @@ class NFSeService
     /**
      * Processa retorno da API apos emissao
      */
-    private function processarRetornoEmissao(int $idNFSe, array $resultado, NFSeXMLInterface $xmlParser, string $chave): array
+    private function processarRetornoEmissao(
+        int $idNFSe,
+        array $resultado,
+        NFSeXMLInterface $xmlParser,
+        string $chave,
+        array $contexto = []
+    ): array
     {
         if (!$resultado['sucesso'] && !empty($resultado['codigoErro'])) {
             $codigo = $resultado['codigoErro'];
@@ -702,6 +741,10 @@ class NFSeService
                 'codigo_verificacao' => $retorno['codigo_verificacao'],
                 'chave_acesso' => $retorno['chave_acesso'],
                 'xml_retorno' => $retorno['xml_retorno'] ?? $resultado['resposta'],
+                'aliquota_ibs' => $retorno['aliquota_ibs'] ?? 0,
+                'valor_ibs' => $retorno['valor_ibs'] ?? 0,
+                'aliquota_cbs' => $retorno['aliquota_cbs'] ?? 0,
+                'valor_cbs' => $retorno['valor_cbs'] ?? 0,
             ]);
 
             $this->eventoModel->registrar($idNFSe, 'emissao', null, 'NFS-e autorizada com sucesso', $resultado['resposta'] ?? null);
@@ -727,7 +770,150 @@ class NFSeService
         $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $primeiroErro['mensagem'] ?: $mensagem, $codigoInterno);
         $this->eventoModel->registrar($idNFSe, 'erro', $primeiroErro['codigo'], $primeiroErro['mensagem'], $resultado['resposta'] ?? null);
 
+        if ($codigoInterno === 'DPS_JA_GERADA' && $xmlParser instanceof NFSeXMLNacional) {
+            $nfse = $this->nfseModel->buscarPorId($idNFSe);
+            if ($nfse && !empty($contexto['config']) && !empty($contexto['pem'])) {
+                return $this->consultarNacionalComPem($nfse, $contexto['config'], $contexto['pem'], true);
+            }
+        }
+
         return $this->erro($mensagem, $codigoInterno, $erros);
+    }
+
+    /**
+     * Consulta uma NFS-e Nacional e, quando necessario, recupera primeiro a
+     * chave de acesso pelo identificador imutavel da DPS.
+     */
+    private function consultarNacionalComPem(array $nfse, array $config, array $pem, bool $reconciliacao): array
+    {
+        $api = new NFSeAPINacional();
+        $xmlParser = new NFSeXMLNacional();
+        $chaveAcesso = trim((string) ($nfse['chave_acesso'] ?? ''));
+        $respostaDps = null;
+
+        if ($chaveAcesso === '') {
+            $idDPS = $this->extrairIdDPS($nfse, $config);
+            if ($idDPS === null) {
+                return $this->erro('Não foi possível identificar a DPS para consultar a NFS-e Nacional.', 'NOTA_NAO_ENCONTRADA');
+            }
+
+            $resultadoDps = $api->consultarPorDps(
+                $idDPS,
+                $pem['certPath'],
+                $pem['keyPath'],
+                (int) ($config['ambiente'] ?? 2)
+            );
+            $respostaDps = (string) ($resultadoDps['resposta'] ?? '');
+            if (!($resultadoDps['sucesso'] ?? false)) {
+                $codigo = (string) ($resultadoDps['codigoErro'] ?? 'DPS_JA_GERADA');
+                return $this->erro(
+                    $resultadoDps['erro'] ?? 'A DPS existe, mas a chave da NFS-e ainda não pôde ser recuperada.',
+                    NFSeErros::mapearErroAPI($codigo)
+                );
+            }
+
+            $chaveAcesso = $this->extrairChaveAcessoResposta($respostaDps) ?? '';
+            if ($chaveAcesso === '') {
+                return $this->erro('A consulta da DPS não retornou a chave de acesso da NFS-e.', 'DPS_JA_GERADA');
+            }
+        }
+
+        $resultado = $api->consultar(
+            $chaveAcesso,
+            $pem['certPath'],
+            $pem['keyPath'],
+            (int) ($config['ambiente'] ?? 2)
+        );
+        $retorno = $xmlParser->parseRetorno((string) ($resultado['resposta'] ?? ''));
+        if (!($resultado['sucesso'] ?? false) || !($retorno['sucesso'] ?? false)) {
+            $erro = $retorno['erros'][0] ?? [];
+            $codigoExterno = (string) ($erro['codigo'] ?? $resultado['codigoErro'] ?? 'ERRO_DESCONHECIDO');
+            $codigoInterno = NFSeErros::mapearErroRetorno($codigoExterno, (string) ($erro['mensagem'] ?? ''));
+            return $this->erro(
+                (string) ($erro['mensagem'] ?? $resultado['erro'] ?? 'Não foi possível consultar a NFS-e Nacional.'),
+                $codigoInterno,
+                $retorno['erros'] ?? []
+            );
+        }
+
+        $idNFSe = (int) $nfse['id'];
+        $this->nfseModel->atualizarAutorizada($idNFSe, [
+            'numero' => $retorno['numero'] ?: ($nfse['numero'] ?? null),
+            'codigo_verificacao' => $retorno['codigo_verificacao'] ?? null,
+            'chave_acesso' => $retorno['chave_acesso'] ?: $chaveAcesso,
+            'xml_retorno' => $retorno['xml_retorno'] ?? $resultado['resposta'],
+            'aliquota_ibs' => $retorno['aliquota_ibs'] ?? 0,
+            'valor_ibs' => $retorno['valor_ibs'] ?? 0,
+            'aliquota_cbs' => $retorno['aliquota_cbs'] ?? 0,
+            'valor_cbs' => $retorno['valor_cbs'] ?? 0,
+        ]);
+
+        $tipoEvento = $reconciliacao ? 'reconciliacao' : 'consulta';
+        $mensagem = $reconciliacao
+            ? 'NFS-e Nacional reconciliada pela consulta da DPS após retorno E0014.'
+            : 'NFS-e Nacional autorizada confirmada por consulta.';
+        $this->eventoModel->registrar($idNFSe, $tipoEvento, null, $mensagem, $resultado['resposta'] ?? $respostaDps);
+
+        return [
+            'sucesso' => true,
+            'mensagem' => $mensagem,
+            'dados' => [
+                'id' => $idNFSe,
+                'numero' => $retorno['numero'] ?: ($nfse['numero'] ?? null),
+                'chave_acesso' => $retorno['chave_acesso'] ?: $chaveAcesso,
+                'codigo_verificacao' => $retorno['codigo_verificacao'] ?? null,
+                'status' => 'autorizada',
+            ],
+        ];
+    }
+
+    private function extrairIdDPS(array $nfse, array $config): ?string
+    {
+        $xml = (string) ($nfse['xml_envio'] ?? '');
+        if ($xml !== '' && preg_match('/<infDPS\b[^>]*\b(?:Id|id)=["\'](DPS[A-Z0-9]{42})["\']/i', $xml, $matches)) {
+            return strtoupper($matches[1]);
+        }
+
+        $codigoMunicipio = preg_replace('/\D/', '', (string) ($config['codigo_municipio'] ?? '')) ?? '';
+        $documento = preg_replace('/\D/', '', (string) ($nfse['prestador_cnpj'] ?? '')) ?? '';
+        $serie = preg_replace('/[^A-Za-z0-9]/', '', (string) ($nfse['serie'] ?? '')) ?? '';
+        $numero = preg_replace('/\D/', '', (string) ($nfse['numero'] ?? '')) ?? '';
+        if (strlen($codigoMunicipio) !== 7 || !in_array(strlen($documento), [11, 14], true) || $serie === '' || $numero === '') {
+            return null;
+        }
+
+        $tipoInscricao = strlen($documento) === 14 ? '2' : '1';
+        return 'DPS'
+            . $codigoMunicipio
+            . $tipoInscricao
+            . str_pad($documento, 14, '0', STR_PAD_LEFT)
+            . str_pad(substr(strtoupper($serie), 0, 5), 5, '0', STR_PAD_LEFT)
+            . str_pad($numero, 15, '0', STR_PAD_LEFT);
+    }
+
+    private function extrairChaveAcessoResposta(string $resposta): ?string
+    {
+        $json = json_decode($resposta, true);
+        if (is_array($json)) {
+            $pilha = [$json];
+            while ($pilha !== []) {
+                $item = array_pop($pilha);
+                foreach ($item as $campo => $valor) {
+                    if (is_array($valor)) {
+                        $pilha[] = $valor;
+                        continue;
+                    }
+                    if (in_array((string) $campo, ['chaveAcesso', 'chNFSe', 'chave'], true)) {
+                        $digitos = preg_replace('/\D/', '', (string) $valor) ?? '';
+                        if (strlen($digitos) === 50) {
+                            return $digitos;
+                        }
+                    }
+                }
+            }
+        }
+
+        return preg_match('/(?<!\d)(\d{50})(?!\d)/', $resposta, $matches) ? $matches[1] : null;
     }
 
     /**
@@ -766,14 +952,42 @@ class NFSeService
         $aliquotaISS = (float) ($config['aliquota_iss'] ?? 0);
         $valorISS = $tribISSQN === 1 ? $baseCalculo * ($aliquotaISS / 100) : 0;
         $preencherIBSCBS = ($config['preencher_ibscbs'] ?? 'N') === 'S';
-        if ($preencherIBSCBS) {
-            throw new \InvalidArgumentException('Preenchimento de IBS/CBS ainda não habilitado para este tipo de emissão.');
-        }
         $aliquotaIBS = 0.0;
         $aliquotaCBS = 0.0;
         $valorIBS = 0.0;
         $valorCBS = 0.0;
         $dataFiscal = $this->agoraFiscal();
+        $tipoEmissao = (string) ($config['tipo_emissao'] ?? 'nacional');
+        $regimeTributario = (int) ($config['regime_tributario'] ?? 1);
+        $dataObrigatoriedade = in_array($regimeTributario, [1, 4], true)
+            ? self::IBSCBS_OBRIGATORIO_SIMPLES
+            : self::IBSCBS_OBRIGATORIO_GERAL;
+        $dataObrigatoriedadeFiscal = new \DateTimeImmutable(
+            $dataObrigatoriedade . ' 00:00:00',
+            new \DateTimeZone(self::FISCAL_TIMEZONE)
+        );
+        $configIBSCBSCompleta = strlen(preg_replace('/\D/', '', (string) ($config['c_ind_op_ibscbs'] ?? '')) ?? '') === 6
+            && strlen(preg_replace('/\D/', '', (string) ($config['cst_ibscbs'] ?? '')) ?? '') === 3
+            && strlen(preg_replace('/\D/', '', (string) ($config['c_class_trib_ibscbs'] ?? '')) ?? '') === 6;
+
+        // Compatibilidade com a flag legada ativada sem dados declaratorios:
+        // no Simples/MEI, antes de 2027, o grupo ainda nao e obrigatorio.
+        if ($preencherIBSCBS && in_array($regimeTributario, [1, 4], true)
+            && $dataFiscal < $dataObrigatoriedadeFiscal && !$configIBSCBSCompleta) {
+            $preencherIBSCBS = false;
+        }
+        $ibscbsObrigatorio = $tipoEmissao === 'nacional'
+            && $dataFiscal >= $dataObrigatoriedadeFiscal;
+
+        if ($preencherIBSCBS && $tipoEmissao !== 'nacional') {
+            throw new \InvalidArgumentException('IBS/CBS está homologado somente para a emissão Nacional.');
+        }
+        if ($ibscbsObrigatorio && !$preencherIBSCBS) {
+            throw new \InvalidArgumentException('O preenchimento de IBS/CBS é obrigatório para este regime tributário na DPS Nacional.');
+        }
+        if ($preencherIBSCBS) {
+            $this->validarConfiguracaoIBSCBS($config);
+        }
         $tomadorEndereco = $this->montarEnderecoTomador($cliente);
         $codigoMunicipioTomador = preg_replace('/\D/', '', (string) ($dadosExtras['tomador_codigo_municipio'] ?? ''));
         if (strlen($codigoMunicipioTomador) === 7) {
@@ -797,7 +1011,7 @@ class NFSeService
             'data_emissao' => $dataFiscal->format('Y-m-d\TH:i:sP'),
             'data_competencia' => $dataFiscal->format('Y-m-d'),
             'municipio_codigo' => $config['codigo_municipio'] ?? '',
-            'tipo_emissao' => $config['tipo_emissao'] ?? 'nacional',
+            'tipo_emissao' => $tipoEmissao,
             'id_financeiro' => (int) $financeiro['id'],
             'id_locacao' => $financeiro['id_locacao'] ?? null,
             'id_contrato' => $financeiro['id_contrato'] ?? null,
@@ -834,7 +1048,10 @@ class NFSeService
                 'aliquota_iss' => $aliquotaISS,
                 'valor_iss' => $valorISS,
                 'trib_issqn' => $tribISSQN,
-                'preencher_ibscbs' => 'N',
+                'preencher_ibscbs' => $preencherIBSCBS ? 'S' : 'N',
+                'c_ind_op_ibscbs' => $config['c_ind_op_ibscbs'] ?? null,
+                'cst_ibscbs' => $config['cst_ibscbs'] ?? null,
+                'c_class_trib_ibscbs' => $config['c_class_trib_ibscbs'] ?? null,
                 'exigibilidade_iss' => (int) ($config['exigibilidade_iss'] ?? 1),
                 'aliquota_ibs' => $aliquotaIBS,
                 'valor_ibs' => $valorIBS,
@@ -1287,6 +1504,9 @@ class NFSeService
     {
         $mensagemLower = mb_strtolower($mensagem, 'UTF-8');
 
+        if (str_contains($mensagemLower, 'ibs/cbs')) {
+            return 'IBSCBS_CONFIGURACAO';
+        }
         if (str_contains($mensagemLower, 'cpf ou cnpj')) {
             return 'TOMADOR_DOCUMENTO_AUSENTE';
         }
@@ -1301,6 +1521,26 @@ class NFSeService
         }
 
         return 'CONFIGURACAO_INCOMPLETA';
+    }
+
+    private function validarConfiguracaoIBSCBS(array $config): void
+    {
+        $campos = [
+            'c_ind_op_ibscbs' => ['tamanho' => 6, 'rotulo' => 'Código indicador da operação IBS/CBS'],
+            'cst_ibscbs' => ['tamanho' => 3, 'rotulo' => 'CST do IBS/CBS'],
+            'c_class_trib_ibscbs' => ['tamanho' => 6, 'rotulo' => 'Classificação tributária do IBS/CBS'],
+        ];
+
+        foreach ($campos as $campo => $regra) {
+            $valor = preg_replace('/\D/', '', (string) ($config[$campo] ?? '')) ?? '';
+            if (strlen($valor) !== $regra['tamanho']) {
+                throw new \InvalidArgumentException($regra['rotulo'] . ' deve ter ' . $regra['tamanho'] . ' dígitos.');
+            }
+        }
+
+        if (!str_starts_with((string) $config['c_class_trib_ibscbs'], (string) $config['cst_ibscbs'])) {
+            throw new \InvalidArgumentException('Os 3 primeiros dígitos da classificação tributária devem ser iguais ao CST do IBS/CBS.');
+        }
     }
 
     private function cpfValido(string $cpf): bool

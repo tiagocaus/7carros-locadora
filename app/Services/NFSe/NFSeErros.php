@@ -200,6 +200,12 @@ class NFSeErros
             'instrucao' => 'Tente novamente, o sistema gerará um novo número.',
             'categoria' => 'duplicidade',
         ],
+        'DPS_JA_GERADA' => [
+            'mensagem' => 'A DPS já foi convertida em NFS-e e será reconciliada com a SEFIN.',
+            'instrucao' => 'Aguarde a recuperação da nota já autorizada; não emita uma nova DPS.',
+            'categoria' => 'duplicidade',
+            'recuperavel' => true,
+        ],
 
         // ==========================================
         // CANCELAMENTO
@@ -256,6 +262,11 @@ class NFSeErros
         'CONFIGURACAO_INCOMPLETA' => [
             'mensagem' => 'Configurações de NFS-e incompletas.',
             'instrucao' => 'Complete as configurações de NFS-e da empresa.',
+            'categoria' => 'configuracao',
+        ],
+        'IBSCBS_CONFIGURACAO' => [
+            'mensagem' => 'Configuração de IBS/CBS incompleta ou incompatível com o emissor.',
+            'instrucao' => 'Revise os códigos fiscais de IBS/CBS nas configurações da NFS-e.',
             'categoria' => 'configuracao',
         ],
         'NFSE_DESATIVADA' => [
@@ -486,6 +497,10 @@ class NFSeErros
     {
         $codigoSEFIN = trim($codigoSEFIN);
         $mensagemLower = mb_strtolower($mensagem, 'UTF-8');
+
+        if ($codigoSEFIN === 'E0014') {
+            return 'DPS_JA_GERADA';
+        }
 
         if (
             $codigoSEFIN === 'E1235'

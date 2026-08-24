@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Services\NFSe\Betha\NFSeXMLBetha;
+use App\Services\NFSe\NFSeErros;
 use App\Services\NFSe\Nacional\NFSeXMLNacional;
 
 function assertContainsText(string $needle, string $haystack, string $message): void
@@ -90,6 +91,7 @@ assertNotContainsText('<infDPS Id=', $betha, 'Betha nao pode usar atributo Id ma
 
 $nacional = (new NFSeXMLNacional())->gerarXML($dados);
 assertContainsText('xmlns="http://www.sped.fazenda.gov.br/nfse"', $nacional, 'Nacional deve usar namespace SPED.');
+assertContainsText('<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01">', $nacional, 'Nacional deve gerar o layout DPS 1.01.');
 assertContainsText('<infDPS Id="DPS420455823570662300016900001000000000000212">', $nacional, 'Nacional deve usar atributo Id maiusculo.');
 assertContainsText('<end><endNac><cMun>3530706</cMun><CEP>13849252</CEP></endNac>', $nacional, 'Nacional deve enviar endereco nacional quando IBGE e CEP existem.');
 assertNotContainsText('http://www.betha.com.br/e-nota-dps', $nacional, 'Nacional nao pode usar namespace Betha.');
@@ -98,5 +100,36 @@ assertNotContainsText('<cLocalidadeIncid>', $nacional, 'Nacional nao pode gerar 
 assertNotContainsText('<vTotTrib>', $nacional, 'Nacional nao pode calcular IBS/CBS por padrao em vTotTrib.');
 assertContainsText('<totTrib><pTotTrib><pTotTribFed>0.00</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>0.00</pTotTribMun></pTotTrib></totTrib>', $nacional, 'Nacional deve enviar percentuais de tributos zerados quando IBS/CBS estiver desativado.');
 assertNotContainsText('<infDPS id=', $nacional, 'Nacional nao pode usar atributo id minusculo.');
+
+$dadosIBSCBS = $dados;
+$dadosIBSCBS['valores']['preencher_ibscbs'] = 'S';
+$dadosIBSCBS['valores']['c_ind_op_ibscbs'] = '010101';
+$dadosIBSCBS['valores']['cst_ibscbs'] = '000';
+$dadosIBSCBS['valores']['c_class_trib_ibscbs'] = '000001';
+$nacionalIBSCBS = (new NFSeXMLNacional())->gerarXML($dadosIBSCBS);
+assertContainsText(
+    '<IBSCBS><finNFSe>0</finNFSe><cIndOp>010101</cIndOp><indDest>0</indDest><valores><trib><gIBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib></gIBSCBS></trib></valores></IBSCBS>',
+    $nacionalIBSCBS,
+    'Nacional deve gerar o grupo declaratorio IBS/CBS na estrutura oficial do DPS 1.01.'
+);
+assertTextOrder('</valores>', '<IBSCBS>', $nacionalIBSCBS, 'O grupo IBSCBS deve ficar depois do grupo valores da DPS.');
+
+$xmlAutorizado = '<?xml version="1.0"?><NFSe xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe>'
+    . '<nNFSe>987</nNFSe><chNFSe>' . str_repeat('1', 50) . '</chNFSe><cVerif>ABC123</cVerif>'
+    . '<IBSCBS><valores><uf><pIBSUF>0.10</pIBSUF></uf><mun><pIBSMun>0.20</pIBSMun></mun>'
+    . '<fed><pCBS>0.90</pCBS></fed></valores><totCIBS><gIBS><vIBSTot>7.47</vIBSTot></gIBS>'
+    . '<gCBS><vCBS>22.41</vCBS></gCBS></totCIBS></IBSCBS></infNFSe></NFSe>';
+$resposta = json_encode(['nfseXmlGZipB64' => base64_encode(gzencode($xmlAutorizado))]);
+$retorno = (new NFSeXMLNacional())->parseRetorno($resposta);
+if (!$retorno['sucesso'] || abs($retorno['aliquota_ibs'] - 0.3) > 0.00001 || $retorno['valor_ibs'] !== 7.47
+    || $retorno['aliquota_cbs'] !== 0.9 || $retorno['valor_cbs'] !== 22.41) {
+    throw new RuntimeException('Parser Nacional deve persistir IBS/CBS calculado no XML autorizado.');
+}
+
+if (NFSeErros::mapearErroRetorno('E0014', 'DPS ja gerada') !== 'DPS_JA_GERADA'
+    || !NFSeErros::isRecuperavel('DPS_JA_GERADA')
+    || NFSeErros::isRecuperavel('IBSCBS_CONFIGURACAO')) {
+    throw new RuntimeException('Mapeamento de E0014/configuracao IBS/CBS esta incorreto para o reprocessamento.');
+}
 
 echo "Teste de isolamento XML NFS-e passou.\n";

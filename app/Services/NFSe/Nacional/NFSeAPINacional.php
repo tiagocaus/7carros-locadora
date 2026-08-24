@@ -47,6 +47,19 @@ class NFSeAPINacional implements NFSeAPIInterface
         ]);
     }
 
+    /**
+     * Recupera a chave de acesso da NFS-e gerada a partir de uma DPS.
+     * Endpoint oficial: GET /dps/{id}.
+     */
+    public function consultarPorDps(string $idDPS, string $certPath, string $keyPath, int $ambiente): array
+    {
+        $url = $this->getBaseUrl($ambiente) . '/dps/' . urlencode($idDPS);
+
+        return $this->request('GET', $url, $certPath, $keyPath, $ambiente, null, [
+            'Accept: application/json',
+        ]);
+    }
+
     public function cancelar(string $xml, string $chaveAcesso, string $certPath, string $keyPath, int $ambiente): array
     {
         $url = $this->getBaseUrl($ambiente) . '/nfse/' . urlencode($chaveAcesso) . '/eventos';

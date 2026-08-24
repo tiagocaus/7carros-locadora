@@ -99,7 +99,10 @@ Campos principais:
 | `reg_apuracao_sn` | Regime de apuracao do Simples, quando aplicavel |
 | `trib_issqn` | Tributacao ISSQN |
 | `preencher_ibscbs` | Habilita preenchimento de IBS/CBS; padrao `N` |
-| `aliquota_ibs` / `aliquota_cbs` | Percentuais IBS/CBS usados somente quando `preencher_ibscbs = S` |
+| `c_ind_op_ibscbs` | Codigo indicador da operacao (`cIndOp`), 6 digitos |
+| `cst_ibscbs` | CST do IBS/CBS, 3 digitos |
+| `c_class_trib_ibscbs` | Classificacao tributaria (`cClassTrib`), 6 digitos; deve iniciar pelo CST |
+| `aliquota_ibs` / `aliquota_cbs` | Campos legados; nao usar para calcular a DPS Nacional |
 | `enviar_im` | Envia IM no DPS Nacional/Betha somente quando necessario |
 | `certificado_arquivo` | Arquivo PFX/P12 |
 | `certificado_senha` | Senha criptografada |
@@ -129,6 +132,7 @@ API:
 | Operacao | Endpoint |
 |----------|----------|
 | Emitir | `POST /nfse` |
+| Recuperar chave pela DPS | `GET /dps/{id}` |
 | Consultar | `GET /nfse/{chave}` |
 | Cancelar | `POST /nfse/{chave}/eventos` |
 
@@ -140,7 +144,7 @@ Bases:
 Regras de XML:
 
 - Namespace: `http://www.sped.fazenda.gov.br/nfse`
-- Root: `<DPS versao="1.00">`
+- Root: `<DPS versao="1.01">`
 - `<infDPS>` deve conter apenas `Id`; nao repetir `versao` nesse elemento.
 - Elemento assinado: `infDPS`
 - Atributo de ID: `Id`
@@ -151,7 +155,18 @@ Regras de XML:
 - Para tomador brasileiro, o endereco deve ser enviado apenas quando houver CEP com 8 digitos e codigo IBGE do municipio com 7 digitos; sem esses dados, omitir o bloco `<end>`.
 - Para cliente `tipo = ES`, o passaporte e apenas identificacao cadastral local: nunca enviar seu valor como CPF, CNPJ ou NIF. Gerar `<cNaoNIF>0</cNaoNIF>` e, quando o endereco exterior estiver completo, usar `<endExt>` com pais ISO alpha-2, codigo postal, cidade e estado/provincia.
 - Nao enviar `<IBSCBS>` enquanto `preencher_ibscbs = N`.
+- Quando `preencher_ibscbs = S`, enviar `<IBSCBS>` depois de `<valores>`, com `finNFSe`, `cIndOp`, `indDest` e `valores/trib/gIBSCBS` (`CST` e `cClassTrib`). As aliquotas e os valores sao calculados pela plataforma nacional e devem ser lidos do XML autorizado, nunca calculados pela configuracao local.
+- Pela documentacao oficial RTC/Anexo VI, o grupo IBS/CBS passa a ser obrigatorio no ambiente nacional em `03/08/2026`; para optantes do Simples Nacional e MEI, somente em `01/01/2027`.
+- Antes de 2027, uma flag legada ativa no Simples/MEI sem os tres codigos declaratorios completos e tratada como desativada. Isso evita que configuracoes antigas bloqueiem a emissao durante a transicao; ao salvar novamente com IBS/CBS ativo, os codigos passam a ser obrigatorios.
+- O sistema homologa o preenchimento declaratorio de IBS/CBS apenas para `tipo_emissao = nacional`. Betha e ISSNet devem manter `preencher_ibscbs = N`.
 - Com IBS/CBS desativado, `<totTrib>` deve usar `<pTotTrib>` zerado, nao `<vTotTrib>` calculado por aliquotas padrao.
+
+Reconciliacao de duplicidade:
+
+- O retorno Nacional `E0014` significa que a DPS ja foi convertida em NFS-e. Nao reenviar nem renumerar essa DPS.
+- Recuperar a chave com `GET /dps/{id}` e consultar o documento por `GET /nfse/{chave}`; se autorizado, preencher os dados locais e registrar evento `reconciliacao`.
+- Falhas locais de configuracao IBS/CBS usam `IBSCBS_CONFIGURACAO` e nao sao recuperaveis pelo cron. Isso impede o ciclo de reenvio a cada 5 minutos.
+- Para saneamento de registros antigos, executar primeiro `php scripts/reconciliar-nfse-nacional.php --env=production` e revisar o dry-run; aplicar somente depois com `--apply`.
 
 Mapeamento Simples Nacional:
 
@@ -252,10 +267,10 @@ Regras de XML:
 - Para tomador brasileiro, o endereco deve seguir a mesma regra conservadora do Nacional: enviar `<end>` apenas quando houver CEP com 8 digitos e codigo IBGE do municipio do tomador com 7 digitos. Para cliente `tipo = ES`, nunca enviar passaporte como identificacao fiscal: gerar `<cNaoNIF>0</cNaoNIF>` e usar `<endExt>` quando o endereco exterior estiver completo. Betha deve gerar o endereco no namespace Betha, nunca reaproveitar XML Nacional/ABRASF.
 - No schema Betha aceito pelo SOAP, `<valores>` deve vir logo apos `</serv>`. Nao enviar `<cLocalidadeIncid>` nesse ponto; esse elemento pertence ao XML nacional/NFS-e gerado posteriormente, nao ao DPS Betha.
 - Betha v1.01 deve manter o namespace `http://www.betha.com.br/e-nota-dps`; nao trocar o DPS para namespace SPED.
-- Betha NT004 v2.0 aceita o grupo `<IBSCBS>` depois de `<valores>`, no namespace Betha, mas o sistema nao deve envia-lo enquanto `preencher_ibscbs = N`. Enviar `CST=000` e `cClassTrib=000001` aciona tributacao IBS/CBS na calculadora nacional; se o portal Betha estiver configurado sem preenchimento de IBS/CBS, esse bloco deve ser omitido.
+- Embora a NT004 Betha descreva o grupo `<IBSCBS>`, o preenchimento ainda nao esta homologado neste sistema para o emissor Betha. Manter `preencher_ibscbs = N`.
 - Com IBS/CBS sem aliquotas/valores informados, Betha v1.01 deve seguir os exemplos oficiais NT004 v2.0 e gerar `<totTrib><indTotTrib>0</indTotTrib></totTrib>`, sem `<pTotTrib>` ou `<vTotTrib>` zerados.
 - `999999999` nao e NBS valido para a calculadora nacional acionada pela Betha NT004. Para a descricao padrao de locacao de veiculo automotor sem condutor, converter esse placeholder para `111011100` (`1.1101.11`) antes de enviar.
-- Se `preencher_ibscbs = S`, a emissao deve falhar com erro claro ate existir XML homologado para o tipo de emissao/provedor. Nao chute estrutura de `<IBSCBS>`.
+- Se `preencher_ibscbs = S`, a emissao Betha deve falhar com erro de configuracao claro.
 - `ConsultarStatusDpsEnvio` deve enviar `<tpAmb>`, `<codigoIbge>`, `<cpfCnpjPrestador>`, `<protocolo>` e `<tipoIntegracao>`, nessa ordem.
 - Para consulta de emissao Betha, `<tipoIntegracao>` deve ser `EMISSAO`.
 - Resposta pode vir com prefixo `ns2:`; parsers devem usar namespace, nao string fixa.

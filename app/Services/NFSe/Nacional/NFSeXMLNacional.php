@@ -9,13 +9,13 @@ use App\Services\NFSe\NFSeXMLInterface;
  *
  * Formato SEFIN Nacional.
  * Namespace: http://www.sped.fazenda.gov.br/nfse
- * Versao: 1.00
+ * Versao: 1.01
  * Textos: MAIUSCULO obrigatorio
  */
 class NFSeXMLNacional implements NFSeXMLInterface
 {
     private const NAMESPACE = 'http://www.sped.fazenda.gov.br/nfse';
-    private const VERSAO = '1.00';
+    private const VERSAO = '1.01';
     private const FISCAL_TIMEZONE = 'America/Sao_Paulo';
 
     public function gerarXML(array $dados): string
@@ -131,6 +131,8 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $xml .= '</trib>';
         $xml .= '</valores>';
 
+        $xml .= $this->gerarIBSCBS($valores);
+
         $xml .= '</infDPS>';
         $xml .= '</DPS>';
 
@@ -167,6 +169,10 @@ class NFSeXMLNacional implements NFSeXMLInterface
             'numero' => null,
             'chave_acesso' => null,
             'codigo_verificacao' => null,
+            'aliquota_ibs' => 0.0,
+            'valor_ibs' => 0.0,
+            'aliquota_cbs' => 0.0,
+            'valor_cbs' => 0.0,
             'xml_retorno' => $resposta,
             'erros' => [],
         ];
@@ -272,7 +278,23 @@ class NFSeXMLNacional implements NFSeXMLInterface
             $resultado['codigo_verificacao'] = trim($cVerif->item(0)->nodeValue);
         }
 
+        $resultado['aliquota_ibs'] = $this->valorPrimeiraTag($doc, 'pIBSUF')
+            + $this->valorPrimeiraTag($doc, 'pIBSMun');
+        $resultado['valor_ibs'] = $this->valorPrimeiraTag($doc, 'vIBSTot');
+        $resultado['aliquota_cbs'] = $this->valorPrimeiraTag($doc, 'pCBS');
+        $resultado['valor_cbs'] = $this->valorPrimeiraTag($doc, 'vCBS');
+
         libxml_clear_errors();
+    }
+
+    private function valorPrimeiraTag(\DOMDocument $doc, string $tag): float
+    {
+        $elementos = $doc->getElementsByTagName($tag);
+        if ($elementos->length === 0) {
+            return 0.0;
+        }
+
+        return (float) trim($elementos->item(0)->nodeValue);
     }
 
     public function parseRetornoCancelamento(string $resposta): array
@@ -381,6 +403,33 @@ class NFSeXMLNacional implements NFSeXMLInterface
             4 => '2',
             default => '1',
         };
+    }
+
+    private function gerarIBSCBS(array $valores): string
+    {
+        if (($valores['preencher_ibscbs'] ?? 'N') !== 'S') {
+            return '';
+        }
+
+        $cIndOp = $this->somenteDigitos((string) ($valores['c_ind_op_ibscbs'] ?? ''));
+        $cst = $this->somenteDigitos((string) ($valores['cst_ibscbs'] ?? ''));
+        $cClassTrib = $this->somenteDigitos((string) ($valores['c_class_trib_ibscbs'] ?? ''));
+
+        if (strlen($cIndOp) !== 6 || strlen($cst) !== 3 || strlen($cClassTrib) !== 6) {
+            throw new \InvalidArgumentException('Configuração de IBS/CBS incompleta para a DPS Nacional.');
+        }
+
+        $xml = '<IBSCBS>';
+        $xml .= '<finNFSe>0</finNFSe>';
+        $xml .= '<cIndOp>' . $cIndOp . '</cIndOp>';
+        $xml .= '<indDest>0</indDest>';
+        $xml .= '<valores><trib><gIBSCBS>';
+        $xml .= '<CST>' . $cst . '</CST>';
+        $xml .= '<cClassTrib>' . $cClassTrib . '</cClassTrib>';
+        $xml .= '</gIBSCBS></trib></valores>';
+        $xml .= '</IBSCBS>';
+
+        return $xml;
     }
 
     /**
