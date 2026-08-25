@@ -1083,8 +1083,20 @@ class ContratosController
             }
 
             $dados = $request->all();
+            $contratoFinalizado = ($contrato['status'] ?? '') === 'F';
 
-            $erroCaucao = $this->validarCaucaoContrato($dados);
+            if ($contratoFinalizado) {
+                // O encerramento e imutavel. Em contratos finalizados somente
+                // observacoes e intervenientes continuam editaveis.
+                $camposPermitidos = [
+                    'obs', 'condutor_adicional', 'array_fiadores',
+                    'array_avalistas', 'array_testemunhas',
+                    '_audit_data', '_audit_changes', '_audit_initial',
+                ];
+                $dados = array_intersect_key($dados, array_flip($camposPermitidos));
+            }
+
+            $erroCaucao = $contratoFinalizado ? null : $this->validarCaucaoContrato($dados);
             if ($erroCaucao !== null) {
                 Response::json([
                     'success' => false,
@@ -1114,13 +1126,13 @@ class ContratosController
             // Atualizar contrato
             $contratoModel->atualizar($id, $dados);
             $contratoAtualizado = $contratoModel->buscarPorId($id);
-            if ($contratoAtualizado) {
+            if (!$contratoFinalizado && $contratoAtualizado) {
                 (new ContratoCaucao())->sincronizarAtiva($id, $dados, $contratoAtualizado);
             }
             $todosVeiculoChanges = [];
 
             // Adicionar novos veiculos se enviados
-            if (!empty($dados['veiculos']) && is_array($dados['veiculos'])) {
+            if (!$contratoFinalizado && !empty($dados['veiculos']) && is_array($dados['veiculos'])) {
                 $veiculoModel = new ContratoVeiculo();
                 $veiculoModelGeral = new Veiculo();
 
@@ -1225,7 +1237,7 @@ class ContratosController
             }
 
             // Sincronizar taxas se enviadas
-            if (isset($dados['taxas']) && is_array($dados['taxas'])) {
+            if (!$contratoFinalizado && isset($dados['taxas']) && is_array($dados['taxas'])) {
                 $taxaModel = new ContratoTaxaServico();
 
                 // Validar valores de taxas - manter originais se sem permissao
@@ -1293,7 +1305,9 @@ class ContratosController
             }
 
             // Recalcular totais
-            $contratoModel->recalcularTotais($id);
+            if (!$contratoFinalizado) {
+                $contratoModel->recalcularTotais($id);
+            }
 
             Response::json([
                 'success' => true,
@@ -4239,6 +4253,11 @@ class ContratosController
     public function removerParcela(Request $request, int $id, int $idParcela): void
     {
         try {
+            if (!Auth::can('financeiro.excluir')) {
+                Response::json(['success' => false, 'message' => 'Voce nao tem permissao para excluir lancamentos'], 403);
+                return;
+            }
+
             $contratoModel = new Contrato();
             $contrato = $contratoModel->buscarPorId($id);
 
@@ -4258,11 +4277,58 @@ class ContratosController
                 return;
             }
 
+            $encerramentoModel = new ContratoEncerramento();
+            $ajusteProtegido = $encerramentoModel->ehAjusteFinanceiroProtegido($id, $idParcela);
+            $dados = $request->all();
+            $confirmado = in_array(
+                $dados['confirmar_ajuste_encerramento'] ?? false,
+                [true, 1, '1', 'true'],
+                true
+            );
+            $motivo = trim((string) ($dados['motivo'] ?? ''));
+
+            if ($ajusteProtegido && !$confirmado) {
+                Response::json([
+                    'success' => false,
+                    'requires_confirmation' => true,
+                    'message' => 'Este lancamento e o ajuste do encerramento. Confirme a exclusao e informe o motivo.',
+                ], 409);
+                return;
+            }
+
+            if ($ajusteProtegido && mb_strlen($motivo) < 3) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Informe o motivo da exclusao do ajuste de encerramento.',
+                ], 422);
+                return;
+            }
+
+            $parcela = null;
+            foreach ($contratoModel->listarParcelasContrato($id) as $parcelaContrato) {
+                if ((int) ($parcelaContrato['id'] ?? 0) === $idParcela) {
+                    $parcela = $parcelaContrato;
+                    break;
+                }
+            }
+
             $contratoModel->removerParcelaContrato($id, $idParcela);
 
-            AuditLogService::registrar(
-                ($_SESSION['user_name'] ?? 'Sistema') . ", removeu parcela do contrato [{$contrato['codigo']}]"
-            );
+            if ($ajusteProtegido) {
+                AuditLogService::registrarComCampos(
+                    ($_SESSION['user_name'] ?? 'Sistema') . ", removeu o ajuste de encerramento do contrato [{$contrato['codigo']}]",
+                    [
+                        AuditLogService::campo('Lancamento financeiro', $idParcela, null),
+                        AuditLogService::campo('Descricao', $parcela['descricao'] ?? '', null),
+                        AuditLogService::campo('Valor', currency_format((float) ($parcela['valor_total'] ?? 0)), null),
+                        AuditLogService::campo('Motivo', $motivo, null),
+                    ]
+                );
+            } else {
+                AuditLogService::registrar(
+                    ($_SESSION['user_name'] ?? 'Sistema') . ", removeu parcela do contrato [{$contrato['codigo']}]"
+                );
+            }
 
             Response::json(['success' => true, 'message' => 'Parcela removida com sucesso']);
         } catch (\InvalidArgumentException $e) {

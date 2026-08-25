@@ -13,6 +13,7 @@ use App\Models\PlanoDeContas;
 use App\Models\Cliente;
 use App\Models\ContatoEmail;
 use App\Models\ContatoTelefone;
+use App\Models\ContratoEncerramento;
 use App\Models\Fornecedor;
 use App\Models\FormaPagamento;
 use App\Models\GatewayPagamento;
@@ -828,6 +829,15 @@ class FinanceiroController
                 return;
             }
 
+            if ((new ContratoEncerramento())->buscarPorAjusteFinanceiro($id)) {
+                Response::json([
+                    'success' => false,
+                    'requires_confirmation' => true,
+                    'message' => 'Este lancamento e o ajuste de um encerramento. Exclua pela tela do contrato e informe o motivo.',
+                ], 409);
+                return;
+            }
+
             // Verificar vinculos
             $verificacao = $financeiroModel->verificarVinculos($id);
             if ($verificacao['temVinculos']) {
@@ -963,6 +973,15 @@ class FinanceiroController
                         $id,
                         $lancamento,
                         'Lancamento nao pertence ao contrato ou deixou de ser uma receita pendente'
+                    );
+                    continue;
+                }
+
+                if ((new ContratoEncerramento())->buscarPorAjusteFinanceiro($id)) {
+                    $ignorados[] = $this->itemIgnoradoExclusao(
+                        $id,
+                        $lancamento,
+                        'Ajuste de encerramento protegido; exclua pela tela do contrato com motivo'
                     );
                     continue;
                 }

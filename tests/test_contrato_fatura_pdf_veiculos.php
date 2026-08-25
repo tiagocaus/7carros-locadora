@@ -182,6 +182,30 @@ foreach (['dia' => 'Dia', 'semana' => 'Semana', 'mes' => 'Mês', 'ano' => 'Ano']
     );
 }
 
+$contrato['status'] = 'F';
+$contrato['contagem'] = 'dia';
+$contrato['total_fatura'] = 44550;
+$contrato['total_pagar'] = 44550;
+$contrato['veiculos'] = [$contrato['veiculos'][0]];
+$contrato['veiculos'][0]['id'] = 19576;
+$contrato['encerramento'] = [
+    'calculo' => [
+        'veiculos_historico_calculo' => [[
+            'id_contrato_veiculo' => 19576,
+            'ciclos_completos' => 81,
+            'dias_restantes' => 0,
+            'tarifa_periodo' => 550,
+            'valor_plano' => 44550,
+            'valor_seguros' => 0,
+        ]],
+    ],
+];
+ob_start();
+include dirname(__DIR__) . '/app/Views/pages/contratos/imprimir/fatura.php';
+$htmlFinalizado = (string) ob_get_clean();
+assertContratoFatura(str_contains($htmlFinalizado, '81 Dia'), 'PDF finalizado nao mostra os 81 ciclos do snapshot.');
+assertContratoFatura(str_contains($htmlFinalizado, 'R$ 44.550,00'), 'PDF finalizado nao concilia o total historico do veiculo.');
+
 $translationKeys = [
     'withdrawal_header', 'return_details_header', 'value_header', 'fuel_short_label',
     'insurances_label', 'vehicle_insurance_short', 'third_party_insurance_short',

@@ -140,7 +140,13 @@ format_operational_datetime('2025-09-04 10:00:00'); // "04/09/2025 10:00"
 DateHelper::formatOperationalDateTime('2025-09-04 10:00:00');
 DateHelper::parseOperationalDateTime('2025-09-04 10:00:00'); // matematica civil, sem converter fuso
 DateHelper::addOperationalCalendarPeriod($data, 'mes'); // limita o dia ao ultimo dia do destino
+DateHelper::addOperationalCalendarPeriods($data, 'mes', 2); // preserva a data original como ancora
 ```
+
+Ao avancar varios meses ou anos, o calculo deve partir sempre da data original.
+Assim, `31/01 + 1 mes` resulta no ultimo dia de fevereiro, enquanto
+`31/01 + 2 meses` recupera o dia 31 em marco. Da mesma forma,
+`29/02/2024 + 4 anos` resulta em `29/02/2028`.
 
 ```javascript
 DateHelper.formatOperationalDateTime('2025-09-04 10:00:00'); // "04/09/2025 10:00"

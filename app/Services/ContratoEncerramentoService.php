@@ -272,7 +272,7 @@ class ContratoEncerramentoService
         $ciclos = 0;
         $cursor = $saida;
         while ($ciclos < 10000) {
-            $proximo = DateHelper::addOperationalCalendarPeriod($cursor, $contagem);
+            $proximo = DateHelper::addOperationalCalendarPeriods($saida, $contagem, $ciclos + 1);
             if ($proximo > $entrada) {
                 break;
             }

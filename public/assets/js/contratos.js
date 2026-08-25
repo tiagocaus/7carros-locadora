@@ -4,6 +4,8 @@
 
     // ===== ESTADO =====
     let editando = false;
+    let contratoFinalizado = false;
+    let contratoEncerramento = null;
     let registroId = null;
 
     // Dados do contrato
@@ -145,6 +147,14 @@
         if (!inicio) return null;
 
         const resultado = new Date(inicio);
+        const diaAncora = inicio.getDate();
+
+        const aplicarDestinoCalendario = (ano, mes) => {
+            resultado.setDate(1);
+            resultado.setFullYear(ano, mes, 1);
+            const ultimoDiaDestino = new Date(ano, mes + 1, 0).getDate();
+            resultado.setDate(Math.min(diaAncora, ultimoDiaDestino));
+        };
 
         switch (contagem) {
             case 'dia':
@@ -153,11 +163,15 @@
             case 'semana':
                 resultado.setDate(resultado.getDate() + (quantidade * 7));
                 break;
-            case 'mes':
-                resultado.setMonth(resultado.getMonth() + quantidade);
+            case 'mes': {
+                const indiceMesDestino = inicio.getMonth() + quantidade;
+                const anoDestino = inicio.getFullYear() + Math.floor(indiceMesDestino / 12);
+                const mesDestino = ((indiceMesDestino % 12) + 12) % 12;
+                aplicarDestinoCalendario(anoDestino, mesDestino);
                 break;
+            }
             case 'ano':
-                resultado.setFullYear(resultado.getFullYear() + quantidade);
+                aplicarDestinoCalendario(inicio.getFullYear() + quantidade, inicio.getMonth());
                 break;
         }
 
@@ -340,6 +354,17 @@
             return;
         }
 
+        if (event.data && event.data.action === 'motivoExclusaoAjusteEncerramento') {
+            const motivo = (event.data.value || '').trim();
+            if (motivo.length < 3) {
+                window.parent.postMessage({ action: 'openAlert', message: i18n.finalizedAdjustmentReasonRequired || 'Informe o motivo da exclusão do ajuste de encerramento.' }, '*');
+                parcelaContratoAcaoPendente = null;
+                return;
+            }
+            executarRemoverParcelaContrato(motivo);
+            return;
+        }
+
         if (event.data && event.data.action === 'veiculoSalvo') {
             const { modo, index, dados } = event.data;
             if (modo === 'editar' && index !== null) {
@@ -464,6 +489,8 @@
 
     function preencherFormulario(data) {
         inputId.value = data.id || '';
+        contratoFinalizado = data.status === 'F';
+        contratoEncerramento = data.encerramento || null;
         const contratoStatus = document.getElementById('contratoStatus');
         if (contratoStatus) contratoStatus.value = data.status || 'A';
 
@@ -554,8 +581,11 @@
         if (obsEl) obsEl.value = data.obs || '';
 
         // Veiculos
-        if (data.veiculos && data.veiculos.length > 0) {
-            data.veiculos.filter(v => !v.data_entrada).forEach(v => {
+        const veiculosFormulario = contratoFinalizado
+            ? (data.veiculos_historico || [])
+            : (data.veiculos || []).filter(v => !v.data_entrada);
+        if (veiculosFormulario.length > 0) {
+            veiculosFormulario.forEach(v => {
                 adicionarVeiculoNaLista({
                     id_veiculo: v.id_veiculo,
                     id_grupo: v.id_grupo,
@@ -612,7 +642,32 @@
             arr.forEach(p => adicionarPessoaNaLista('testemunha', p));
         }
 
+        aplicarModoContratoFinalizado();
         atualizarTotais();
+    }
+
+    function aplicarModoContratoFinalizado() {
+        if (!contratoFinalizado) return;
+
+        [
+            'id_matriz_filial_retirada', 'data_ini', 'data_fim', 'data_renovacao',
+            'contagem', 'dias', 'auto_renovacao', 'id_cliente', 'id_conta',
+            'id_forma_pagamento', 'id_comando_parcela', 'primeiro_vencimento',
+            'valor_desconto', 'caucao_valor', 'id_conta_caucao',
+            'id_forma_pagamento_caucao', 'caucao_prazo_devolucao',
+            'caucao_lancar_financeiro', 'caucao_observacoes'
+        ].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = true;
+        });
+
+        ['btnNovoCliente', 'btnAdicionarVeiculo', 'btnAdicionarTaxa', 'btnGerarParcelas', 'btnAdicionarParcelaAvulsa', 'btnRegenerarPendentes']
+            .forEach(id => document.getElementById(id)?.classList.add('hidden'));
+
+        document.querySelectorAll('#listaVeiculos button, #listaTaxas button').forEach(button => {
+            button.disabled = true;
+            button.classList.add('opacity-50', 'cursor-not-allowed');
+        });
     }
 
     function preencherCaucao(data) {
@@ -1303,6 +1358,7 @@
     }
 
     function validarCaucao() {
+        if (contratoFinalizado) return true;
         const valor = Currency.parse(document.getElementById('caucao_valor')?.value || '0');
         if (valor <= 0) return true;
 
@@ -1434,6 +1490,11 @@
     function atualizarResumoCompleto() {
         const tbody = document.getElementById('resumoFaturaBody');
         if (!tbody) return;
+
+        if (contratoFinalizado && contratoEncerramento) {
+            atualizarResumoEncerramento(tbody);
+            return;
+        }
 
         const dias = parseInt(document.getElementById('dias')?.value) || 1;
         const contagem = document.getElementById('contagem')?.value || 'dia';
@@ -1597,6 +1658,52 @@
             <td colspan="4" class="px-4 py-3 text-right font-semibold text-slate-700">${i18n.summaryTotalToPay || 'Total a pagar'}</td>
             <td class="px-4 py-3 text-right font-bold text-xl text-green-600">${Currency.format(totalLocacao - desconto, true)}</td>
         </tr>`;
+
+        tbody.innerHTML = html;
+    }
+
+    function atualizarResumoEncerramento(tbody) {
+        const calculo = contratoEncerramento.calculo || {};
+        const veiculosEncerrados = Array.isArray(calculo.veiculos_historico_calculo)
+            ? calculo.veiculos_historico_calculo
+            : [];
+        const contagem = contratoEncerramento.contagem || calculo.contagem || 'dia';
+        const labels = { dia: 'dias', semana: 'semanas', mes: 'meses', ano: 'anos' };
+        let html = `<tr class="bg-blue-50"><td colspan="5" class="px-4 py-3 text-sm text-blue-800"><i class="fas fa-lock mr-2"></i>${i18n.finalizedValuesLocked || 'Valores preservados pelo encerramento do contrato.'}</td></tr>`;
+        html += `<tr class="bg-slate-100"><td colspan="5" class="px-4 py-2 font-semibold text-slate-700 uppercase text-xs">${i18n.summaryVehicles || 'Veiculos'}</td></tr>`;
+        html += `<tr class="text-xs text-slate-500 uppercase border-b border-slate-200"><td class="px-4 py-1">${i18n.finalizedVehiclePlan || 'Veículo / plano'}</td><td class="px-4 py-1 text-center">${i18n.qty || 'Qtd'}</td><td class="px-4 py-1 text-center">${i18n.finalizedPeriod || 'Período'}</td><td class="px-4 py-1 text-right">${i18n.finalizedRate || 'Tarifa'}</td><td class="px-4 py-1 text-right">${i18n.headerTotal || 'Total'}</td></tr>`;
+
+        if (veiculosEncerrados.length === 0) {
+            html += `<tr><td colspan="5" class="px-4 py-3 text-slate-400 italic text-center">${i18n.finalizedSnapshotEmpty || 'Encerramento sem detalhamento de veículos'}</td></tr>`;
+        } else {
+            veiculosEncerrados.forEach(veiculo => {
+                const ciclos = parseInt(veiculo.ciclos_completos || 0, 10);
+                const restantes = parseInt(veiculo.dias_restantes || 0, 10);
+                const periodo = restantes > 0 ? `${ciclos} ${labels[contagem] || contagem} + ${restantes} dias` : `${ciclos} ${labels[contagem] || contagem}`;
+                const plano = { KL: i18n.planKmFreeLabel || 'Km Livre', KMC: i18n.planKmControlledLabel || 'Km Controlado', KP: i18n.planKmPaidLabel || 'Km Pago' }[veiculo.plano] || veiculo.plano || '-';
+                const total = parseFloat(veiculo.valor_plano || 0) + parseFloat(veiculo.valor_seguros || 0);
+                html += `<tr class="border-b border-slate-100"><td class="px-4 py-2"><strong>${escapeHtml(veiculo.placa || '-')}</strong><br><span class="text-xs text-slate-500">${escapeHtml(plano)}</span></td><td class="px-4 py-2 text-center">1</td><td class="px-4 py-2 text-center">${escapeHtml(periodo)}</td><td class="px-4 py-2 text-right">${Currency.format(parseFloat(veiculo.tarifa_periodo || 0))}</td><td class="px-4 py-2 text-right font-medium">${Currency.format(total)}</td></tr>`;
+            });
+        }
+
+        const totalTaxas = parseFloat(contratoEncerramento.total_taxas_contrato || 0) + parseFloat(contratoEncerramento.total_adicionais_devolucao || 0);
+        html += `<tr class="bg-slate-100"><td colspan="5" class="px-4 py-2 font-semibold text-slate-700 uppercase text-xs">${i18n.summaryFeesServices || 'Taxas e Servicos'}</td></tr>`;
+        html += `<tr class="border-b border-slate-100"><td colspan="4" class="px-4 py-2 text-right">${i18n.finalizedTotalFees || 'Total de taxas e adicionais'}</td><td class="px-4 py-2 text-right font-medium">${Currency.format(totalTaxas)}</td></tr>`;
+
+        const caucaoValor = Currency.parse(document.getElementById('caucao_valor')?.value || '0');
+        if (caucaoValor > 0) {
+            html += `<tr class="bg-slate-100"><td colspan="5" class="px-4 py-2 font-semibold text-slate-700 uppercase text-xs">${i18n.summaryGuarantees || 'Garantias'}</td></tr><tr class="border-b border-slate-100"><td colspan="4" class="px-4 py-2 text-right">${i18n.finalizedDepositSeparate || 'Caução (não integra o total)'}</td><td class="px-4 py-2 text-right font-medium">${Currency.format(caucaoValor)}</td></tr>`;
+        }
+
+        const desconto = parseFloat(contratoEncerramento.desconto_aplicado || 0);
+        const totalFinal = parseFloat(contratoEncerramento.total_final || 0);
+        html += `<tr class="bg-slate-200"><td colspan="5" class="px-4 py-2 font-semibold text-slate-700 uppercase text-xs">${i18n.finalizedTotals || 'Totais do encerramento'}</td></tr><tr class="border-b border-slate-200"><td colspan="4" class="px-4 py-2 text-right">${i18n.finalizedSubtotal || 'Subtotal'}</td><td class="px-4 py-2 text-right font-medium">${Currency.format(totalFinal + desconto)}</td></tr><tr class="border-b border-slate-200"><td colspan="4" class="px-4 py-2 text-right text-red-600">${i18n.summaryDiscount || 'Desconto (-)'}</td><td class="px-4 py-2 text-right text-red-600">${Currency.format(desconto)}</td></tr><tr class="bg-green-50"><td colspan="4" class="px-4 py-3 text-right font-semibold">${i18n.summaryTotalToPay || 'Total a pagar'}</td><td class="px-4 py-3 text-right font-bold text-xl text-green-600">${Currency.format(totalFinal, true)}</td></tr>`;
+
+        if (parseInt(contratoEncerramento.id_financeiro_ajuste || 0, 10) > 0 && !contratoEncerramento.ajuste_financeiro_existe) {
+            const avisoAjuste = (i18n.finalizedAdjustmentRemoved || 'O ajuste financeiro de :amount foi removido. Nenhuma cobrança foi recriada automaticamente.')
+                .replace(':amount', Currency.format(Math.abs(parseFloat(contratoEncerramento.diferenca || 0)), true));
+            html += `<tr class="bg-amber-50"><td colspan="5" class="px-4 py-3 text-amber-800"><i class="fas fa-exclamation-triangle mr-2"></i>${avisoAjuste}</td></tr>`;
+        }
 
         tbody.innerHTML = html;
     }
@@ -2201,13 +2308,13 @@
         e.preventDefault();
 
         // Validacoes
-        if (!document.getElementById('id_cliente')?.value) {
+        if (!contratoFinalizado && !document.getElementById('id_cliente')?.value) {
             window.parent.postMessage({ action: 'openAlert', message: i18n.selectClient || 'Selecione um cliente' }, '*');
             document.querySelector('[data-form-tab-target="#tabCliente"]').click();
             return;
         }
 
-        if (veiculos.length === 0) {
+        if (!contratoFinalizado && veiculos.length === 0) {
             window.parent.postMessage({ action: 'openAlert', message: i18n.addAtLeastOneVehicle || 'Adicione pelo menos um veiculo' }, '*');
             document.querySelector('[data-form-tab-target="#tabVeiculos"]').click();
             return;
@@ -2215,7 +2322,7 @@
 
         // Verificar se há taxa selecionada não adicionada
         const taxaSelect = document.getElementById('taxa_select');
-        if (taxaSelect && taxaSelect.value) {
+        if (!contratoFinalizado && taxaSelect && taxaSelect.value) {
             window.parent.postMessage({ action: 'openAlert', message: i18n.feeNotAdded || 'Você selecionou uma taxa/serviço mas não adicionou à lista.' }, '*');
             document.querySelector('[data-form-tab-target="#tabTaxas"]').click();
             return;
@@ -2224,7 +2331,7 @@
         // Validacao de datas
         const dataIni = document.getElementById('data_ini')?.value;
         const dataFim = document.getElementById('data_fim')?.value;
-        if (dataIni && dataFim && DateHelper.diffDateTime(dataIni, dataFim) <= 0) {
+        if (!contratoFinalizado && dataIni && dataFim && DateHelper.diffDateTime(dataIni, dataFim) <= 0) {
             window.parent.postMessage({ action: 'openAlert', message: 'A data fim deve ser posterior a data inicio' }, '*');
             return;
         }
@@ -2659,7 +2766,7 @@
             } else if (temId) {
                 acoes = `<button type="button" class="btn-icon text-emerald-600 hover:text-emerald-800 btn-marcar-pago-contrato" data-index="${index}" title="${i18n.markPaid || 'Marcar como paga'}"><i class="fas fa-check-circle"></i></button>
                    <button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-editar-parcela-contrato" data-index="${index}" title="${i18n.editPayment || 'Editar pagamento'}"><i class="fas fa-edit"></i></button>
-                   <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-parcela-contrato" data-id="${parcela.id}" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`;
+                   <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-parcela-contrato" data-id="${parcela.id}" data-ajuste-encerramento="${parcela.ajuste_encerramento ? '1' : '0'}" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`;
             } else {
                 acoes = `<button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-editar-parcela-contrato" data-index="${index}" title="${i18n.editPayment || 'Editar pagamento'}"><i class="fas fa-edit"></i></button>
                    <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-parcela-contrato" data-index="${index}" data-draft="1" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`;
@@ -2705,7 +2812,17 @@
             btn.addEventListener('click', function () {
                 parcelaContratoAcaoPendente = this.dataset.draft === '1'
                     ? { draft: true, index: parseInt(this.dataset.index) }
-                    : { id: this.dataset.id };
+                    : { id: this.dataset.id, ajusteEncerramento: this.dataset.ajusteEncerramento === '1' };
+                if (parcelaContratoAcaoPendente.ajusteEncerramento) {
+                    window.parent.postMessage({
+                        action: 'openInputModal',
+                        title: i18n.finalizedAdjustmentRemoveTitle || 'Excluir ajuste de encerramento',
+                        label: i18n.finalizedAdjustmentRemoveReason || 'Motivo da exclusão',
+                        value: '',
+                        callbackAction: 'motivoExclusaoAjusteEncerramento'
+                    }, '*');
+                    return;
+                }
                 confirmacaoPendente = 'removerParcelaContrato';
                 window.parent.postMessage({
                     action: 'openGenericConfirmModal',
@@ -2968,7 +3085,7 @@
         }
     }
 
-    async function executarRemoverParcelaContrato() {
+    async function executarRemoverParcelaContrato(motivoAjuste = '') {
         if (parcelaContratoAcaoPendente?.draft) {
             const index = parcelaContratoAcaoPendente.index;
             parcelaContratoAcaoPendente = null;
@@ -2988,7 +3105,11 @@
         if (!editando || !registroId || !idParcela) return;
 
         try {
-            const result = await API.post(`/api/contratos/${registroId}/parcelas/${idParcela}/excluir`);
+            const payload = motivoAjuste ? {
+                confirmar_ajuste_encerramento: true,
+                motivo: motivoAjuste
+            } : {};
+            const result = await API.post(`/api/contratos/${registroId}/parcelas/${idParcela}/excluir`, payload);
             if (result.success) {
                 await carregarParcelasContrato();
             } else {

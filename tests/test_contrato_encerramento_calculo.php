@@ -72,6 +72,28 @@ $assertValor(6500, $mensal['total_veiculos'], 'Mensal deve cobrar dois meses de 
 $fimDoMes = $service->calcularPeriodo('2025-01-31 10:00:00', '2025-02-28 10:00:00', 'mes');
 $assert($fimDoMes['ciclos_completos'] === 1 && $fimDoMes['dias_restantes'] === 0, 'Mes civil iniciado no dia 31 deve vencer no ultimo dia de fevereiro');
 
+$doisMesesAncorados = $service->calcularPeriodo('2026-01-31 10:00:00', '2026-03-31 10:00:00', 'mes');
+$assert(
+    $doisMesesAncorados['ciclos_completos'] === 2 && $doisMesesAncorados['dias_restantes'] === 0,
+    'Mes civil deve preservar o dia 31 como ancora depois de fevereiro'
+);
+$mensalAncorado = $service->calcular(
+    $contrato('mes', '2026-01-31 10:00:00', 3000),
+    [$veiculo(20, '2026-01-31 10:00:00', 1500)],
+    [],
+    [$devolucao(20, '2026-03-31 10:00:00')],
+    [],
+    3000
+);
+$assertValor(3000, $mensalAncorado['total_veiculos'], 'Dois meses ancorados nao devem gerar diarias adicionais');
+$assert($mensalAncorado['ajuste_tipo'] === 'N', 'Dois meses ancorados nao devem gerar ajuste financeiro');
+
+$mesParcialAncorado = $service->calcularPeriodo('2026-01-31 10:00:00', '2026-03-30 10:00:00', 'mes');
+$assert(
+    $mesParcialAncorado['ciclos_completos'] === 1 && $mesParcialAncorado['dias_restantes'] === 30,
+    'Mes parcial deve contar os dias restantes a partir do ultimo ciclo ancorado'
+);
+
 $anual = $service->calcular(
     $contrato('ano', '2024-01-01 10:00:00', 73000),
     [$veiculo(3, '2024-01-01 10:00:00', 36500)],
@@ -81,6 +103,28 @@ $anual = $service->calcular(
     73000
 );
 $assertValor(42600, $anual['total_veiculos'], 'Anual deve cobrar um ano de calendario e 61 diarias de base 365');
+
+$primeiroAnoBissexto = $service->calcularPeriodo('2024-02-29 10:00:00', '2025-02-28 10:00:00', 'ano');
+$assert(
+    $primeiroAnoBissexto['ciclos_completos'] === 1 && $primeiroAnoBissexto['dias_restantes'] === 0,
+    'Ano iniciado em 29 de fevereiro deve vencer no ultimo dia de fevereiro quando necessario'
+);
+
+$quatroAnosBissextos = $service->calcularPeriodo('2024-02-29 10:00:00', '2028-02-29 10:00:00', 'ano');
+$assert(
+    $quatroAnosBissextos['ciclos_completos'] === 4 && $quatroAnosBissextos['dias_restantes'] === 0,
+    'Ano civil deve recuperar 29 de fevereiro quando o ano de destino for bissexto'
+);
+$anualBissexto = $service->calcular(
+    $contrato('ano', '2024-02-29 10:00:00', 73000),
+    [$veiculo(21, '2024-02-29 10:00:00', 18250)],
+    [],
+    [$devolucao(21, '2028-02-29 10:00:00')],
+    [],
+    73000
+);
+$assertValor(73000, $anualBissexto['total_veiculos'], 'Quatro anos ancorados nao devem gerar diaria adicional');
+$assert($anualBissexto['ajuste_tipo'] === 'N', 'Quatro anos ancorados nao devem gerar ajuste financeiro');
 
 $menosDeUmDia = $service->calcular(
     $contrato('semana', '2026-08-11 10:00:00', 700),

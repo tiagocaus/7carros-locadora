@@ -402,18 +402,34 @@ class DateHelper
     /** Avanca um mes/ano civil, limitando o dia ao ultimo dia do destino. */
     public static function addOperationalCalendarPeriod(\DateTimeImmutable $data, string $periodo): \DateTimeImmutable
     {
+        return self::addOperationalCalendarPeriods($data, $periodo, 1);
+    }
+
+    /**
+     * Avanca periodos civis preservando a data original como ancora.
+     *
+     * Exemplo: 31/01 + 1 mes = 28/02; 31/01 + 2 meses = 31/03.
+     */
+    public static function addOperationalCalendarPeriods(
+        \DateTimeImmutable $data,
+        string $periodo,
+        int $quantidade
+    ): \DateTimeImmutable
+    {
+        if ($quantidade < 0) {
+            throw new \InvalidArgumentException('Quantidade de periodos operacionais invalida.');
+        }
+
         $ano = (int) $data->format('Y');
         $mes = (int) $data->format('n');
         $dia = (int) $data->format('j');
 
         if ($periodo === 'ano') {
-            $ano++;
+            $ano += $quantidade;
         } elseif ($periodo === 'mes') {
-            $mes++;
-            if ($mes > 12) {
-                $mes = 1;
-                $ano++;
-            }
+            $indiceMes = (($ano * 12) + ($mes - 1)) + $quantidade;
+            $ano = intdiv($indiceMes, 12);
+            $mes = ($indiceMes % 12) + 1;
         } else {
             throw new \InvalidArgumentException('Periodo operacional invalido.');
         }

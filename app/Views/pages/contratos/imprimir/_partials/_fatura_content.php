@@ -238,6 +238,13 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 
 <!-- VEICULOS -->
 <?php if (!empty($contrato['veiculos'])): ?>
+<?php
+    $veiculosSnapshotEncerramento = [];
+    $calculoEncerramentoPdf = $contrato['encerramento']['calculo'] ?? [];
+    foreach (($calculoEncerramentoPdf['veiculos_historico_calculo'] ?? []) as $veiculoSnapshot) {
+        $veiculosSnapshotEncerramento[(int) ($veiculoSnapshot['id_contrato_veiculo'] ?? 0)] = $veiculoSnapshot;
+    }
+?>
 <div class="section">
     <div class="section-title"><?= t('modules.contratos.pdf.vehicles_section') ?></div>
     <div class="section-body">
@@ -271,8 +278,13 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
                 $segTercContratado = !empty($v['seguro_terceiros']);
                 $segVeic = $segVeicContratado ? (float) ($v['valor_seguro_carro'] ?? 0) : 0;
                 $segTerc = $segTercContratado ? (float) ($v['valor_seguro_terceiros'] ?? 0) : 0;
-                $totalDia = $valorPlano + $segVeic + $segTerc;
-                $kmFranquia = (int) ($v['km_franquia'] ?? 0);
+                $snapshotEncerramentoVeiculo = $veiculosSnapshotEncerramento[(int) ($v['id'] ?? 0)] ?? null;
+                $totalVeiculoPdf = $snapshotEncerramentoVeiculo
+                    ? (float) ($snapshotEncerramentoVeiculo['valor_plano'] ?? 0) + (float) ($snapshotEncerramentoVeiculo['valor_seguros'] ?? 0)
+                    : $valorPlano + $segVeic + $segTerc;
+                $valorTarifaPdf = $snapshotEncerramentoVeiculo
+                    ? (float) ($snapshotEncerramentoVeiculo['tarifa_periodo'] ?? $valorPlano)
+                    : $valorPlano;
                 $contagemLabel = match($contrato['contagem'] ?? '') {
                     'dia' => t('modules.contratos.pdf.counting_labels.day'),
                     'semana' => t('modules.contratos.pdf.counting_labels.week'),
@@ -280,6 +292,16 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
                     'ano' => t('modules.contratos.pdf.counting_labels.year'),
                     default => '-',
                 };
+                $periodoEncerramentoPdf = '';
+                if ($snapshotEncerramentoVeiculo) {
+                    $ciclosPdf = (int) ($snapshotEncerramentoVeiculo['ciclos_completos'] ?? 0);
+                    $restantesPdf = (int) ($snapshotEncerramentoVeiculo['dias_restantes'] ?? 0);
+                    $periodoEncerramentoPdf = $ciclosPdf . ' ' . $contagemLabel;
+                    if ($restantesPdf > 0) {
+                        $periodoEncerramentoPdf .= ' + ' . $restantesPdf . ' dia(s)';
+                    }
+                }
+                $kmFranquia = (int) ($v['km_franquia'] ?? 0);
                 $veiculoNome = trim((string) (($v['veiculo_marca'] ?? '') . ' ' . ($v['veiculo_modelo'] ?? '')));
                 $veiculoMeta = array_values(array_filter([
                     trim((string) ($v['veiculo_placa'] ?? '')),
@@ -309,6 +331,9 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
                 </td>
                 <td>
                     <div><?= htmlspecialchars($planoNome) ?></div>
+                    <?php if ($periodoEncerramentoPdf !== ''): ?>
+                    <div class="vehicle-meta"><?= htmlspecialchars($periodoEncerramentoPdf) ?></div>
+                    <?php endif; ?>
                     <?php if (($v['plano'] ?? '') === 'KMC' && $kmFranquia > 0): ?>
                     <div class="vehicle-meta"><?= number_format($kmFranquia, 0, ',', '.') ?> km/<?= htmlspecialchars($contagemLabel) ?></div>
                     <?php endif; ?>
@@ -325,8 +350,8 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
                     <div>-</div>
                     <?php endif; ?>
                 </td>
-                <td class="text-right"><?= currency_format($valorPlano) ?></td>
-                <td class="text-right"><?= currency_format($totalDia) ?></td>
+                <td class="text-right"><?= currency_format($valorTarifaPdf) ?></td>
+                <td class="text-right"><?= currency_format($totalVeiculoPdf) ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

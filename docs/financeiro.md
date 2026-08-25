@@ -431,6 +431,13 @@ uma fatura paga ou desvinculada entre a leitura e a exclusao e ignorada. O modo
 restrito tambem exclui lancamentos de caucao. O modo normal do endpoint, sem
 esses campos, mantem o comportamento anterior.
 
+Lancamentos referenciados por `contratos_encerramentos.id_financeiro_ajuste`
+nao podem ser excluidos pelas rotas financeiras comuns nem pela exclusao em
+lote. A exclusao parte da tela do contrato, exige `financeiro.excluir`,
+confirmacao especifica e motivo obrigatorio. A auditoria registra contrato,
+lancamento, valor e motivo. A exclusao nao altera o snapshot do encerramento e
+nao recria automaticamente a cobranca.
+
 ### Selects (para formularios)
 ```
 GET /api/financeiro/clientes

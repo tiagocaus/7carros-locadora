@@ -518,6 +518,12 @@ class Contrato extends Model
         $contratoTaxa = new ContratoTaxaServico();
         $contrato['taxas'] = $contratoTaxa->listarPorContrato($id);
 
+        // Contratos finalizados usam o snapshot imutavel do encerramento como
+        // fonte de verdade para resumo, PDF e conciliacao financeira.
+        $contrato['encerramento'] = ($contrato['status'] ?? '') === 'F'
+            ? (new ContratoEncerramento())->buscarDetalhadoPorContrato($id)
+            : null;
+
         return $contrato;
     }
 
@@ -1174,7 +1180,7 @@ class Contrato extends Model
      */
     public function listarParcelasContrato(int $contratoId): array
     {
-        return $this->qb
+        $parcelas = $this->qb
             ->table('financeiro', 'f')
             ->select([
                 'f.id',
@@ -1200,6 +1206,14 @@ class Contrato extends Model
             ->where('f.id_contrato', '=', $contratoId)
             ->orderBy('f.parcela', 'ASC')
             ->get();
+
+        $encerramento = (new ContratoEncerramento())->buscarPorContrato($contratoId);
+        $idAjuste = (int) ($encerramento['id_financeiro_ajuste'] ?? 0);
+
+        return array_map(static function (array $parcela) use ($idAjuste): array {
+            $parcela['ajuste_encerramento'] = $idAjuste > 0 && (int) $parcela['id'] === $idAjuste;
+            return $parcela;
+        }, $parcelas);
     }
 
     /**

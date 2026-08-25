@@ -24,7 +24,53 @@ class ContratoEncerramento extends Model
         return $this->qb
             ->table('contratos_encerramentos')
             ->where('id_contrato', '=', $contratoId)
+            ->orderByDesc('id')
             ->first();
+    }
+
+    /**
+     * Retorna o snapshot normalizado usado por telas e documentos de contratos
+     * finalizados. O snapshot e a fonte de verdade do encerramento.
+     */
+    public function buscarDetalhadoPorContrato(int $contratoId): ?array
+    {
+        $encerramento = $this->buscarPorContrato($contratoId);
+        if (!$encerramento) {
+            return null;
+        }
+
+        $calculo = json_decode((string) ($encerramento['calculo_json'] ?? ''), true);
+        $encerramento['calculo'] = is_array($calculo) ? $calculo : [];
+
+        $idAjuste = (int) ($encerramento['id_financeiro_ajuste'] ?? 0);
+        $encerramento['ajuste_financeiro_existe'] = $idAjuste > 0
+            ? $this->qb->table('financeiro')->where('id', '=', $idAjuste)->exists()
+            : false;
+
+        unset($encerramento['calculo_json']);
+
+        return $encerramento;
+    }
+
+    public function buscarPorAjusteFinanceiro(int $idFinanceiro): ?array
+    {
+        if ($idFinanceiro < 1) {
+            return null;
+        }
+
+        return $this->qb
+            ->table('contratos_encerramentos')
+            ->where('id_financeiro_ajuste', '=', $idFinanceiro)
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    public function ehAjusteFinanceiroProtegido(int $contratoId, int $idFinanceiro): bool
+    {
+        $encerramento = $this->buscarPorAjusteFinanceiro($idFinanceiro);
+
+        return $encerramento !== null
+            && (int) ($encerramento['id_contrato'] ?? 0) === $contratoId;
     }
 
     public function bloquearContrato(int $contratoId): ?array

@@ -418,6 +418,10 @@ por ciclos completos e dias restantes completos de 24 horas: semana usa base
 7, mes usa ciclo de calendario e diaria de base 30, e ano usa ciclo de
 calendario e diaria de base 365. Fracoes inferiores a 24 horas nao geram
 diaria. Tolerancias configuradas para locacoes nao se aplicam a contratos.
+Nos ciclos de calendario, a data de saida original permanece como ancora:
+`31/01 + 2 meses` vence em `31/03`, e `29/02/2024 + 4 anos` vence em
+`29/02/2028`. O dia e limitado ao ultimo dia do destino apenas quando a data
+ancora nao existe naquele mes ou ano.
 
 Cada veiculo selecionado na devolucao pode ter seus valores comerciais
 ajustados pelo botao **Ajustar valores**, desde que o usuario possua
@@ -476,6 +480,20 @@ status e data final, e grava um snapshot imutavel em
 `contratos_encerramentos`. A devolucao dos veiculos, taxas, ajuste financeiro e
 snapshot pertencem a uma unica transacao. Nao ha backfill de encerramentos
 historicos.
+
+Depois do encerramento, a aba Resumo e a fatura PDF usam o snapshot de
+`contratos_encerramentos` como fonte de verdade. Veiculos devolvidos nao podem
+ser descartados do resumo nem recalculados pelo campo `contratos.dias`, que
+representa a duracao configurada do ciclo original. Na edicao de contrato
+finalizado, periodo, veiculos, taxas e totais sao historicos somente para
+leitura; apenas observacoes e intervenientes permanecem editaveis. Salvar esses
+campos nao executa `Contrato::recalcularTotais()` nem altera os totais finais.
+
+O lancamento indicado por `contratos_encerramentos.id_financeiro_ajuste` e
+protegido contra exclusao comum. A remocao exige `financeiro.excluir`,
+confirmacao explicita e motivo registrado na auditoria. Exclusoes em lote nao
+podem contornar essa protecao. Se o ajuste tiver sido removido, a tela informa
+a ausencia e nunca recria a cobranca automaticamente.
 
 Antes do resumo, a secao **Faturas em aberto do contrato** consulta
 `GET /api/contratos/{id}/parcelas` e exibe somente receitas pendentes
