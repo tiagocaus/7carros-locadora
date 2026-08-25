@@ -92,6 +92,7 @@ Campos principais:
 | `numero_atual` | Contador Nacional/Betha |
 | `codigo_municipio` | Codigo IBGE de 7 digitos do prestador |
 | `codigo_servico` | NBS/codigo de servico conforme emissor |
+| `codigo_tributacao_nacional` | `cTribNac` opcional de 6 digitos, exclusivo da DPS Nacional e separado do NBS |
 | `item_lista_servico` | Item da lista de servico ABRASF/ISSNet |
 | `codigo_cnae` | CNAE ABRASF/ISSNet quando exigido |
 | `codigo_tributacao_municipio` | Codigo de tributacao municipal ABRASF/ISSNet quando exigido |
@@ -152,6 +153,7 @@ Regras de XML:
 - Envio: XML assinado compactado em GZip/Base64 no campo `dpsXmlGZipB64`
 - Cancelamento: evento `101101` em `pedidoRegistroEventoXmlGZipB64`
 - Textos enviados no XML devem ser normalizados em maiusculas e escapados como XML.
+- `cTribNac` e `cNBS` sao classificacoes distintas. Quando `codigo_tributacao_nacional` estiver preenchido com 6 digitos, ele deve alimentar `cTribNac`; quando estiver nulo, manter o mapeamento legado por `trib_issqn` para preservar configuracoes existentes. `codigo_servico` continua alimentando `cNBS`.
 - Para tomador brasileiro, o endereco deve ser enviado apenas quando houver CEP com 8 digitos e codigo IBGE do municipio com 7 digitos; sem esses dados, omitir o bloco `<end>`.
 - Para cliente `tipo = ES`, o passaporte e apenas identificacao cadastral local: nunca enviar seu valor como CPF, CNPJ ou NIF. Gerar `<cNaoNIF>0</cNaoNIF>` e, quando o endereco exterior estiver completo, usar `<endExt>` com pais ISO alpha-2, codigo postal, cidade e estado/provincia.
 - Nao enviar `<IBSCBS>` enquanto `preencher_ibscbs = N`.
@@ -164,9 +166,24 @@ Regras de XML:
 Reconciliacao de duplicidade:
 
 - O retorno Nacional `E0014` significa que a DPS ja foi convertida em NFS-e. Nao reenviar nem renumerar essa DPS.
-- Recuperar a chave com `GET /dps/{id}` e consultar o documento por `GET /nfse/{chave}`; se autorizado, preencher os dados locais e registrar evento `reconciliacao`.
+- Recuperar a chave com `GET /dps/{id}` e consultar o documento por `GET /nfse/{chave}`. Antes de autorizar localmente, comparar a DPS enviada com a DPS incorporada na resposta: documento do prestador, municipio emissor, serie normalizada, numero, competencia, documento e nome normalizado do tomador e valor do servico em centavos.
+- Somente uma comparacao integralmente compativel pode preencher os dados locais e registrar `reconciliacao`. A coincidencia do ID da DPS, isoladamente, nao prova que o documento foi originado pelo sistema.
+- Em divergencia, registrar `DPS_CONFLITO`, manter a tentativa como `rejeitada`, apagar apenas chave, codigo de verificacao, XML de retorno e PDF externos e preservar XML enviado, numero tentado, financeiro e eventos. Nunca importar a nota externa.
+- `DPS_CONFLITO` nao e recuperavel e deve aparecer na interface como **Falha na emissao**, sem acao de reenvio: `Nenhuma NFS-e foi emitida. A numeração já estava sendo utilizada em outro emissor.`
+- `nfse` possui unicidade `(chave, chave_acesso)`. A mesma chave autorizada pode existir em tenants diferentes, mas nunca em duas tentativas do mesmo tenant.
 - Falhas locais de configuracao IBS/CBS usam `IBSCBS_CONFIGURACAO` e nao sao recuperaveis pelo cron. Isso impede o ciclo de reenvio a cada 5 minutos.
 - Para saneamento de registros antigos, executar primeiro `php scripts/reconciliar-nfse-nacional.php --env=production` e revisar o dry-run; aplicar somente depois com `--apply`.
+
+### Saneamento pontual TRIP10 LOCADORA
+
+O script `scripts/sanear-nfse-trip10.php` e restrito ao tenant e aos quatro IDs auditados. Ele roda em dry-run por padrao, nao importa as notas municipais 102, 103 e 104, nao altera `numero_atual` e desativa `ativo`/`emissao_auto` apenas para a TRIP10.
+
+Na implantacao que introduz a migracao `00427_secure_nfse_dps_reconciliation.php`, a ordem obrigatoria e:
+
+1. executar `php scripts/sanear-nfse-trip10.php --env=production` e revisar as quatro notas;
+2. executar `php scripts/sanear-nfse-trip10.php --env=production --apply`;
+3. executar as migracoes normalmente; a `00427` falha de forma explicita se ainda houver qualquer chave duplicada;
+4. somente depois ativar novamente a emissao da TRIP10, apos o cliente confirmar serie, numeracao e codigo de tributacao nacional.
 
 Mapeamento Simples Nacional:
 

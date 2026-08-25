@@ -86,9 +86,12 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $xml .= '</locPrest>';
         $xml .= '<cServ>';
 
-        // cTribNac baseado no tipo de tributacao
+        // cTribNac configurável; o mapeamento legado preserva os tenants existentes.
         $tribISSQN = (int) ($valores['trib_issqn'] ?? 4);
-        $cTribNac = $this->mapearCTribNac($tribISSQN);
+        $cTribNacConfigurado = $this->somenteDigitos((string) ($servico['codigo_tributacao_nacional'] ?? ''));
+        $cTribNac = strlen($cTribNacConfigurado) === 6
+            ? $cTribNacConfigurado
+            : $this->mapearCTribNac($tribISSQN);
         $xml .= '<cTribNac>' . $cTribNac . '</cTribNac>';
         $xml .= '<xDescServ>' . $this->textoMaiusculo((string) ($servico['descricao'] ?? '')) . '</xDescServ>';
 

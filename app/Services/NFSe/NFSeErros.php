@@ -206,6 +206,12 @@ class NFSeErros
             'categoria' => 'duplicidade',
             'recuperavel' => true,
         ],
+        'DPS_CONFLITO' => [
+            'mensagem' => 'Nenhuma NFS-e foi emitida. A numeração já estava sendo utilizada em outro emissor.',
+            'instrucao' => 'Confira a série e a numeração no emissor utilizado pelo município antes de tentar novamente.',
+            'categoria' => 'duplicidade',
+            'explicacao' => 'A DPS encontrada no ambiente nacional não corresponde à tentativa criada por este sistema.',
+        ],
 
         // ==========================================
         // CANCELAMENTO

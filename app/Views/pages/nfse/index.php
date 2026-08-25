@@ -133,6 +133,7 @@ $i18nNfse = [
         'processando' => t('modules.nfse.status.processando'),
         'autorizada' => t('modules.nfse.status.autorizada'),
         'rejeitada' => t('modules.nfse.status.rejeitada'),
+        'falha_emissao' => t('modules.nfse.status.falha_emissao'),
         'cancelada' => t('modules.nfse.status.cancelada'),
     ],
     'viewTitle' => t('modules.nfse.view_title'),
@@ -362,6 +363,11 @@ $i18nNfse = [
 
     function getStatusBadge(n) {
         const status = n.status || 'pendente';
+        if (status === 'rejeitada' && n.codigo_rejeicao === 'DPS_CONFLITO') {
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700" title="${escapeAttr(n.motivo_rejeicao || '')}">
+                <i class="fas fa-triangle-exclamation mr-1"></i>${escapeHtml(i18n.status.falha_emissao)}
+            </span>`;
+        }
         const map = {
             pendente: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: 'fa-clock', label: i18n.status.pendente },
             processando: { bg: 'bg-blue-100', text: 'text-blue-700', icon: 'fa-spinner fa-spin', label: i18n.status.processando },
@@ -401,7 +407,7 @@ $i18nNfse = [
         }
 
         // Reenviar (rejeitada)
-        if (n.status === 'rejeitada') {
+        if (n.status === 'rejeitada' && n.codigo_rejeicao !== 'DPS_CONFLITO') {
             html += `<button onclick="reenviarNfse(${n.id})" title="${i18n.resend}" class="text-orange-600 hover:text-orange-800 p-1"><i class="fas fa-redo"></i></button>`;
         }
 

@@ -263,6 +263,9 @@ class NFSeService
         if ($nfse['status'] !== 'rejeitada') {
             return $this->erro('Somente NFS-e rejeitadas podem ser reenviadas.', 'ERRO_DESCONHECIDO');
         }
+        if (($nfse['codigo_rejeicao'] ?? '') === 'DPS_CONFLITO') {
+            return $this->erro(NFSeErros::getMensagem('DPS_CONFLITO'), 'DPS_CONFLITO');
+        }
         $tentativaExtraManual = $permitirTentativaExtraManual && $this->permiteTentativaExtraManual($nfse);
         if ((int) ($nfse['tentativas_envio'] ?? 0) >= 3 && !$tentativaExtraManual) {
             return $this->erro('Número máximo de tentativas atingido (3).', 'ERRO_DESCONHECIDO');
@@ -736,6 +739,11 @@ class NFSeService
         }
 
         if ($retorno['sucesso']) {
+            $chaveAutorizada = trim((string) ($retorno['chave_acesso'] ?? ''));
+            if ($chaveAutorizada !== '' && $this->nfseModel->buscarPorChaveAcesso($chaveAutorizada, $idNFSe)) {
+                return $this->registrarConflitoDps($idNFSe, ['chave_acesso']);
+            }
+
             $this->nfseModel->atualizarAutorizada($idNFSe, [
                 'numero' => $retorno['numero'],
                 'codigo_verificacao' => $retorno['codigo_verificacao'],
@@ -837,11 +845,24 @@ class NFSeService
         }
 
         $idNFSe = (int) $nfse['id'];
+        $xmlRetorno = (string) ($retorno['xml_retorno'] ?? $resultado['resposta'] ?? '');
+        if ($reconciliacao) {
+            $comparacao = $this->compararDpsReconciliacao((string) ($nfse['xml_envio'] ?? ''), $xmlRetorno);
+            if (!$comparacao['compativel']) {
+                return $this->registrarConflitoDps($idNFSe, $comparacao['divergencias']);
+            }
+        }
+
+        $chaveAutorizada = trim((string) ($retorno['chave_acesso'] ?: $chaveAcesso));
+        if ($chaveAutorizada !== '' && $this->nfseModel->buscarPorChaveAcesso($chaveAutorizada, $idNFSe)) {
+            return $this->registrarConflitoDps($idNFSe, ['chave_acesso']);
+        }
+
         $this->nfseModel->atualizarAutorizada($idNFSe, [
             'numero' => $retorno['numero'] ?: ($nfse['numero'] ?? null),
             'codigo_verificacao' => $retorno['codigo_verificacao'] ?? null,
-            'chave_acesso' => $retorno['chave_acesso'] ?: $chaveAcesso,
-            'xml_retorno' => $retorno['xml_retorno'] ?? $resultado['resposta'],
+            'chave_acesso' => $chaveAutorizada,
+            'xml_retorno' => $xmlRetorno,
             'aliquota_ibs' => $retorno['aliquota_ibs'] ?? 0,
             'valor_ibs' => $retorno['valor_ibs'] ?? 0,
             'aliquota_cbs' => $retorno['aliquota_cbs'] ?? 0,
@@ -860,11 +881,133 @@ class NFSeService
             'dados' => [
                 'id' => $idNFSe,
                 'numero' => $retorno['numero'] ?: ($nfse['numero'] ?? null),
-                'chave_acesso' => $retorno['chave_acesso'] ?: $chaveAcesso,
+                'chave_acesso' => $chaveAutorizada,
                 'codigo_verificacao' => $retorno['codigo_verificacao'] ?? null,
                 'status' => 'autorizada',
             ],
         ];
+    }
+
+    /**
+     * Compara os campos fiscais imutaveis da tentativa local com a DPS
+     * incorporada na NFS-e consultada. Uma colisao de Id nao autoriza a
+     * importacao de documento emitido por outro sistema.
+     *
+     * @return array{compativel: bool, divergencias: array<int,string>}
+     */
+    private function compararDpsReconciliacao(string $xmlEnviado, string $xmlRetorno): array
+    {
+        $enviada = $this->extrairCamposDps($xmlEnviado);
+        $recuperada = $this->extrairCamposDps($xmlRetorno);
+        if ($enviada === null || $recuperada === null) {
+            return ['compativel' => false, 'divergencias' => ['xml_dps']];
+        }
+
+        $divergencias = [];
+        foreach (array_keys($enviada) as $campo) {
+            if (($enviada[$campo] ?? null) !== ($recuperada[$campo] ?? null)) {
+                $divergencias[] = $campo;
+            }
+        }
+
+        return ['compativel' => $divergencias === [], 'divergencias' => $divergencias];
+    }
+
+    /**
+     * @return array<string,string>|null
+     */
+    private function extrairCamposDps(string $xml): ?array
+    {
+        if (trim($xml) === '') {
+            return null;
+        }
+
+        $anterior = libxml_use_internal_errors(true);
+        $doc = new \DOMDocument();
+        $carregado = $doc->loadXML($xml, LIBXML_NONET | LIBXML_NOBLANKS);
+        libxml_clear_errors();
+        libxml_use_internal_errors($anterior);
+        if (!$carregado) {
+            return null;
+        }
+
+        $xpath = new \DOMXPath($doc);
+        $infDps = $xpath->query('//*[local-name()="infDPS"]')->item(0);
+        if (!$infDps instanceof \DOMElement) {
+            return null;
+        }
+
+        $valor = static function (string $expressao) use ($xpath, $infDps): string {
+            $node = $xpath->query($expressao, $infDps)->item(0);
+            return $node ? trim((string) $node->nodeValue) : '';
+        };
+        $digitos = static fn(string $item): string => preg_replace('/\D+/', '', $item) ?? '';
+        $normalizarSerie = static function (string $serie): string {
+            $serie = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $serie) ?? '');
+            return str_pad(substr($serie, 0, 5), 5, '0', STR_PAD_LEFT);
+        };
+        $normalizarTexto = static function (string $texto): string {
+            $texto = mb_strtoupper(trim($texto), 'UTF-8');
+            return preg_replace('/\s+/u', ' ', $texto) ?? $texto;
+        };
+
+        $tipoDocumentoTomador = '';
+        $documentoTomador = '';
+        foreach (['CNPJ', 'CPF', 'NIF', 'cNaoNIF'] as $tag) {
+            $conteudo = $valor('./*[local-name()="toma"]/*[local-name()="' . $tag . '"]');
+            if ($conteudo !== '') {
+                $tipoDocumentoTomador = $tag;
+                $documentoTomador = $tag === 'cNaoNIF' ? trim($conteudo) : $digitos($conteudo);
+                break;
+            }
+        }
+
+        $prestadorDocumento = $digitos($valor('./*[local-name()="prest"]/*[local-name()="CNPJ" or local-name()="CPF"]'));
+        $municipioEmissor = $digitos($valor('./*[local-name()="cLocEmi"]'));
+        $serieOriginal = $valor('./*[local-name()="serie"]');
+        $numeroOriginal = $digitos($valor('./*[local-name()="nDPS"]'));
+        $competencia = $valor('./*[local-name()="dCompet"]');
+        $tomadorNome = $valor('./*[local-name()="toma"]/*[local-name()="xNome"]');
+        $valorServicosOriginal = $valor('./*[local-name()="valores"]/*[local-name()="vServPrest"]/*[local-name()="vServ"]');
+        if (
+            $prestadorDocumento === '' || strlen($municipioEmissor) !== 7 || $serieOriginal === ''
+            || $numeroOriginal === '' || $competencia === '' || $tipoDocumentoTomador === ''
+            || $documentoTomador === '' || $tomadorNome === '' || $valorServicosOriginal === ''
+        ) {
+            return null;
+        }
+
+        $valorServicos = str_replace(',', '.', $valorServicosOriginal);
+
+        return [
+            'prestador_documento' => $prestadorDocumento,
+            'municipio_emissor' => $municipioEmissor,
+            'serie' => $normalizarSerie($serieOriginal),
+            'numero' => (string) (int) $numeroOriginal,
+            'competencia' => $competencia,
+            'tomador_documento' => $tipoDocumentoTomador . ':' . $documentoTomador,
+            'tomador_nome' => $normalizarTexto($tomadorNome),
+            'valor_servicos' => (string) (int) round(((float) $valorServicos) * 100),
+        ];
+    }
+
+    /**
+     * Registra uma tentativa local que colidiu com DPS externa incompatível.
+     * Nenhum dado fiscal do documento externo e persistido.
+     */
+    private function registrarConflitoDps(int $idNFSe, array $divergencias): array
+    {
+        $mensagem = NFSeErros::getMensagem('DPS_CONFLITO');
+        $campos = array_values(array_unique(array_filter(array_map('strval', $divergencias))));
+        $detalhe = $campos === []
+            ? $mensagem
+            : $mensagem . ' Campos divergentes: ' . implode(', ', $campos) . '.';
+
+        $this->nfseModel->marcarConflitoDps($idNFSe, $mensagem);
+        // CONFLITO cabe no schema anterior à 00427 durante implantação em duas etapas.
+        $this->eventoModel->registrar($idNFSe, 'conflito_dps', 'CONFLITO', $detalhe);
+
+        return $this->erro($mensagem, 'DPS_CONFLITO');
     }
 
     private function extrairIdDPS(array $nfse, array $config): ?string
@@ -1036,6 +1179,7 @@ class NFSeService
             ],
             'servico' => [
                 'codigo' => $config['codigo_servico'] ?? '1.1101.11',
+                'codigo_tributacao_nacional' => $config['codigo_tributacao_nacional'] ?? null,
                 'item_lista_servico' => $config['item_lista_servico'] ?? '',
                 'codigo_cnae' => $config['codigo_cnae'] ?? '',
                 'codigo_tributacao_municipio' => $config['codigo_tributacao_municipio'] ?? '',

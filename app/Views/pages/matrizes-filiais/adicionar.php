@@ -613,6 +613,10 @@
                             <label class="form-label-group"><?= t('modules.nfse.config.codigo_servico') ?> <?= aviso(t('modules.nfse.config.codigo_servico_hint')) ?></label>
                             <input type="text" name="codigo_servico" id="inputCodigoServico" class="form-input-group-field" placeholder="1.1101.11" maxlength="20">
                         </div>
+                        <div class="md:col-span-4 form-input-group field-nacional">
+                            <label class="form-label-group"><?= t('modules.nfse.config.codigo_tributacao_nacional') ?> <?= aviso(t('modules.nfse.config.codigo_tributacao_nacional_hint')) ?></label>
+                            <input type="text" name="codigo_tributacao_nacional" id="inputCodigoTributacaoNacional" class="form-input-group-field" inputmode="numeric" maxlength="6" placeholder="000000">
+                        </div>
                         <div class="md:col-span-4 form-input-group field-issnet">
                             <label class="form-label-group"><?= t('modules.nfse.config.item_lista_servico') ?></label>
                             <input type="text" name="item_lista_servico" id="inputItemListaServico" class="form-input-group-field" placeholder="17.09" maxlength="10">
@@ -2055,6 +2059,7 @@
                 // Fiscais
                 document.getElementById('inputCodigoMunicipio').value = config.codigo_municipio || '';
                 document.getElementById('inputCodigoServico').value = config.codigo_servico || '';
+                document.getElementById('inputCodigoTributacaoNacional').value = config.codigo_tributacao_nacional || '';
                 document.getElementById('inputItemListaServico').value = config.item_lista_servico || '';
                 document.getElementById('inputCodigoCnae').value = config.codigo_cnae || '';
                 document.getElementById('inputCodigoTributacaoMunicipio').value = config.codigo_tributacao_municipio || '';
@@ -2118,6 +2123,9 @@
                 const isIssnet = inputTipoEmissao.value === 'issnet';
                 const isSimples = document.getElementById('inputRegimeTributario').value === '1';
                 const preencherIBSCBS = document.getElementById('inputPreencherIBSCBS').checked;
+                document.querySelectorAll('.field-nacional').forEach((field) => {
+                    field.style.display = isNacional ? 'block' : 'none';
+                });
                 document.getElementById('fieldNumeroAtual').style.display = 'block';
                 document.getElementById('fieldEnviarIM').style.display = (isDps || isIssnet) ? 'block' : 'none';
                 document.getElementById('fieldRegApuracaoSN').style.display = isDps && isSimples ? 'block' : 'none';
@@ -2198,6 +2206,11 @@
                     return;
                 }
                 const tipoEmissao = document.getElementById('inputTipoEmissao').value;
+                const codigoTributacaoNacional = document.getElementById('inputCodigoTributacaoNacional').value.trim();
+                if (codigoTributacaoNacional && !/^\d{6}$/.test(codigoTributacaoNacional)) {
+                    window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.codigo_tributacao_nacional_invalid') ?> }, '*');
+                    return;
+                }
                 const itemListaServico = document.getElementById('inputItemListaServico').value.trim();
                 if (document.getElementById('inputAtivo').checked && tipoEmissao === 'issnet' && !itemListaServico) {
                     window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.item_lista_servico_required_active') ?> }, '*');
@@ -2225,6 +2238,7 @@
                     enviar_email: document.getElementById('inputEnviarEmail').checked ? 'S' : 'N',
                     codigo_municipio: codigoMunicipio,
                     codigo_servico: codigoServico,
+                    codigo_tributacao_nacional: codigoTributacaoNacional,
                     item_lista_servico: itemListaServico,
                     codigo_cnae: document.getElementById('inputCodigoCnae').value,
                     codigo_tributacao_municipio: document.getElementById('inputCodigoTributacaoMunicipio').value,

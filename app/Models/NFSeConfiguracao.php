@@ -48,6 +48,7 @@ class NFSeConfiguracao extends Model
         $tipoEmissao = (string) ($dados['tipo_emissao'] ?? 'nacional');
         $codigoMunicipio = preg_replace('/\D/', '', (string) ($dados['codigo_municipio'] ?? ''));
         $codigoServico = trim((string) ($dados['codigo_servico'] ?? ''));
+        $codigoTributacaoNacional = trim((string) ($dados['codigo_tributacao_nacional'] ?? ''));
         $preencherIBSCBS = ($dados['preencher_ibscbs'] ?? 'N') === 'S' ? 'S' : 'N';
         $cIndOpIBSCBS = preg_replace('/\D/', '', (string) ($dados['c_ind_op_ibscbs'] ?? ''));
         $cstIBSCBS = preg_replace('/\D/', '', (string) ($dados['cst_ibscbs'] ?? ''));
@@ -65,6 +66,9 @@ class NFSeConfiguracao extends Model
         }
         if ($ativo === 'S' && $codigoServico === '') {
             throw new \InvalidArgumentException('Código do serviço é obrigatório quando a emissão está ativa.');
+        }
+        if ($codigoTributacaoNacional !== '' && !preg_match('/^\d{6}$/', $codigoTributacaoNacional)) {
+            throw new \InvalidArgumentException('Código de tributação nacional deve ter 6 dígitos.');
         }
         if ($ativo === 'S' && $tipoEmissao !== 'nacional' && $preencherIBSCBS === 'S') {
             throw new \InvalidArgumentException('IBS/CBS está homologado somente para a emissão Nacional.');
@@ -122,6 +126,11 @@ class NFSeConfiguracao extends Model
             'codigo_tributacao_municipio' => trim((string) ($dados['codigo_tributacao_municipio'] ?? '')) ?: null,
         ];
 
+        // Mantem compatibilidade durante deploy em duas etapas (codigo antes da migracao).
+        if ($this->possuiColunaCodigoTributacaoNacional()) {
+            $campos['codigo_tributacao_nacional'] = $codigoTributacaoNacional !== '' ? $codigoTributacaoNacional : null;
+        }
+
         if ($existing) {
             $this->qb
                 ->table('nfse_configuracoes')
@@ -151,6 +160,22 @@ class NFSeConfiguracao extends Model
         }
 
         return (float) str_replace(',', '.', preg_replace('/[^\d,.-]/', '', $valor) ?? '0');
+    }
+
+    private function possuiColunaCodigoTributacaoNacional(): bool
+    {
+        static $existe = null;
+        if ($existe === null) {
+            $resultado = $this->getMysqli()->query(
+                "SHOW COLUMNS FROM `nfse_configuracoes` LIKE 'codigo_tributacao_nacional'"
+            );
+            $existe = $resultado !== false && $resultado->num_rows > 0;
+            if ($resultado instanceof \mysqli_result) {
+                $resultado->free();
+            }
+        }
+
+        return $existe;
     }
 
     /**

@@ -246,7 +246,9 @@
             rejeitada: { bg: 'bg-red-100', text: 'text-red-700', icon: 'fa-times-circle', label: '<?= t('modules.nfse.status.rejeitada') ?>' },
             cancelada: { bg: 'bg-slate-200', text: 'text-slate-600', icon: 'fa-ban', label: '<?= t('modules.nfse.status.cancelada') ?>' },
         };
-        const s = statusMap[n.status] || statusMap.pendente;
+        const s = n.status === 'rejeitada' && n.codigo_rejeicao === 'DPS_CONFLITO'
+            ? { bg: 'bg-amber-100', text: 'text-amber-700', icon: 'fa-triangle-exclamation', label: '<?= t('modules.nfse.status.falha_emissao') ?>' }
+            : statusMap[n.status] || statusMap.pendente;
         if (n.status === 'processando' && n.mensagem_processamento && n.mensagem_processamento !== '<?= t('modules.nfse.status.processando') ?>') {
             s.label = n.mensagem_processamento;
             s.icon = n.processamento_demorado ? 'fa-hourglass-half' : 'fa-clock';
@@ -287,7 +289,7 @@
         if (n.status === 'processando') {
             acoesHtml += `<button onclick="consultarStatus(${n.id})" class="btn-secondary py-1 px-3 rounded text-xs"><i class="fas fa-sync mr-1"></i><?= t('modules.nfse.buttons.consult') ?></button>`;
         }
-        if (n.status === 'rejeitada') {
+        if (n.status === 'rejeitada' && n.codigo_rejeicao !== 'DPS_CONFLITO') {
             acoesHtml += `<button onclick="reenviarNfse(${n.id})" class="btn-blue py-1 px-3 rounded text-xs"><i class="fas fa-redo mr-1"></i><?= t('modules.nfse.buttons.resend') ?></button>`;
         }
         acoes.innerHTML = acoesHtml;

@@ -104,6 +104,22 @@ class NFSe extends Model
     }
 
     /**
+     * Busca outra NFS-e do tenant que ja utilize a mesma chave de acesso.
+     */
+    public function buscarPorChaveAcesso(string $chaveAcesso, ?int $ignorarId = null): ?array
+    {
+        $query = $this->qb
+            ->table('nfse')
+            ->where('chave_acesso', '=', $chaveAcesso);
+
+        if ($ignorarId !== null) {
+            $query->where('id', '!=', $ignorarId);
+        }
+
+        return $query->first();
+    }
+
+    /**
      * Lista NFS-e com paginacao e filtros
      */
     public function listarPaginado(
@@ -313,6 +329,26 @@ class NFSe extends Model
             ->table('nfse')
             ->where('id', '=', $id)
             ->update($dados);
+    }
+
+    /**
+     * Remove somente dados de uma autorizacao conciliada incorretamente.
+     * O XML enviado e os dados da tentativa local sao preservados para auditoria.
+     */
+    public function marcarConflitoDps(int $id, string $mensagem): int
+    {
+        return $this->qb
+            ->table('nfse')
+            ->where('id', '=', $id)
+            ->update([
+                'status' => 'rejeitada',
+                'codigo_rejeicao' => 'DPS_CONFLITO',
+                'motivo_rejeicao' => $mensagem,
+                'chave_acesso' => null,
+                'codigo_verificacao' => null,
+                'xml_retorno' => null,
+                'pdf_url' => null,
+            ]);
     }
 
     /**
