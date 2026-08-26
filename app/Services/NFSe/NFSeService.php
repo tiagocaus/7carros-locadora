@@ -15,6 +15,7 @@ use App\Models\LocacaoVeiculo;
 use App\Models\ContratoVeiculo;
 use App\Services\NFSe\Nacional\NFSeXMLNacional;
 use App\Services\NFSe\Nacional\NFSeAPINacional;
+use App\Services\NFSe\Nacional\NFSeEventosNacional;
 use App\Services\NFSe\Betha\NFSeXMLBetha;
 use App\Services\NFSe\Betha\NFSeAPIBetha;
 use App\Services\NFSe\ISSNet\NFSeXMLISSNet;
@@ -34,6 +35,12 @@ class NFSeService
     private const FISCAL_TIMEZONE = 'America/Sao_Paulo';
     private const IBSCBS_OBRIGATORIO_GERAL = '2026-08-03';
     private const IBSCBS_OBRIGATORIO_SIMPLES = '2027-01-01';
+    private const MOEDAS_BACEN = [
+        'BRL' => '790',
+        'USD' => '220',
+        'EUR' => '978',
+        'GBP' => '540',
+    ];
 
     private NFSeModel $nfseModel;
     private NFSeConfiguracao $configModel;
@@ -161,6 +168,12 @@ class NFSeService
         if ($nfse['status'] !== 'autorizada') {
             return $this->erro('Somente NFS-e autorizadas podem ser canceladas.', 'CANCEL_JA_CANCELADA');
         }
+        if (($nfse['tipo_emissao'] ?? '') === 'betha' && !array_key_exists('cancelamento_status', $nfse)) {
+            return $this->erro('Atualização do cancelamento Betha pendente no servidor.', 'CONFIGURACAO_INCOMPLETA');
+        }
+        if (($nfse['tipo_emissao'] ?? '') === 'betha' && ($nfse['cancelamento_status'] ?? '') === 'processando') {
+            return $this->erro('O cancelamento desta NFS-e já está sendo processado pela Betha.', 'CANCEL_PROCESSANDO');
+        }
         if (strlen($motivo) < 15) {
             return $this->erro('Motivo do cancelamento deve ter no mínimo 15 caracteres.', 'CANCEL_MOTIVO');
         }
@@ -199,6 +212,12 @@ class NFSeService
 
         try {
             $tipoEmissao = $nfse['tipo_emissao'] ?? 'nacional';
+            if ($tipoEmissao === 'betha'
+                && ($nfse['status'] ?? '') === 'autorizada'
+                && !empty($nfse['chave_acesso'])) {
+                return $this->consultarSituacaoFiscalBethaComPem($nfse, $config, $pem, true);
+            }
+
             $api = $this->resolverAPI($tipoEmissao, $config);
             if ($tipoEmissao === 'nacional' && $api instanceof NFSeAPINacional) {
                 return $this->consultarNacionalComPem($nfse, $config, $pem, empty($nfse['chave_acesso']));
@@ -631,21 +650,70 @@ class NFSeService
         $idNFSe = (int) $nfse['id'];
 
         try {
+            $prestadorCnpj = preg_replace('/\D/', '', (string) ($nfse['prestador_cnpj'] ?? '')) ?? '';
+            $chaveAcesso = preg_replace('/\D/', '', (string) ($nfse['chave_acesso'] ?? '')) ?? '';
+            if (strlen($prestadorCnpj) !== 14) {
+                return $this->erro('CNPJ do prestador inválido para cancelamento da NFS-e.', 'NFSE_CNPJ_PRESTADOR');
+            }
+            if (strlen($chaveAcesso) !== 50) {
+                return $this->erro('Chave de acesso inválida para cancelamento da NFS-e.', 'NOTA_NAO_ENCONTRADA');
+            }
+
             $xmlGenerator = new NFSeXMLBetha();
-            $xml = $xmlGenerator->gerarXMLCancelamento($nfse['chave_acesso'], $motivo, []);
+            $xml = $xmlGenerator->gerarXMLCancelamento($chaveAcesso, $motivo, [
+                'ambiente' => $config['ambiente'] ?? 2,
+                'prestador_cnpj' => $prestadorCnpj,
+            ]);
+
+            $assinado = $this->assinatura->assinar(
+                $xml,
+                $pem['certPath'],
+                $pem['keyPath'],
+                'infEvento',
+                'sha256',
+                'id'
+            );
+            if (!$assinado['sucesso']) {
+                return $this->erro($assinado['mensagem'], 'XML_ASSINATURA');
+            }
 
             $api = new NFSeAPIBetha();
-            $resultado = $api->cancelar($xml, $nfse['chave_acesso'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
+            $resultado = $api->cancelar($assinado['xml'], $chaveAcesso, $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
             $retorno = $xmlGenerator->parseRetornoCancelamento($resultado['resposta'] ?? '');
 
-            if (empty($retorno['erros']) && ($retorno['sucesso'] || ($resultado['sucesso'] ?? false))) {
+            if ($retorno['sucesso']) {
                 $this->nfseModel->atualizarCancelada($idNFSe, $motivo);
                 $this->eventoModel->registrar($idNFSe, 'cancelamento', null, $motivo, $resultado['resposta'] ?? null);
                 return ['sucesso' => true, 'mensagem' => 'NFS-e cancelada com sucesso.'];
             }
 
-            $erroMsg = $retorno['erros'][0]['mensagem'] ?? ($resultado['erro'] ?? 'Erro desconhecido ao cancelar na Betha.');
+            if ($retorno['processando'] && !empty($retorno['protocolo'])) {
+                $this->nfseModel->marcarCancelamentoProcessando($idNFSe, $motivo, (string) $retorno['protocolo']);
+                $this->eventoModel->registrar(
+                    $idNFSe,
+                    'cancelamento_processando',
+                    null,
+                    'Pedido de cancelamento recebido pela Betha e aguardando validação.',
+                    $resultado['resposta'] ?? null
+                );
+                return [
+                    'sucesso' => true,
+                    'mensagem' => 'Pedido de cancelamento recebido pela Betha. A confirmação será atualizada automaticamente.',
+                    'processando' => true,
+                ];
+            }
+
+            $erroMsg = $retorno['erros'][0]['mensagem']
+                ?? ($retorno['mensagem'] ?: null)
+                ?? ($resultado['erro'] ?? 'Erro desconhecido ao cancelar na Betha.');
             $erroCod = $retorno['erros'][0]['codigo'] ?? ($resultado['codigoErro'] ?? 'ERRO_DESCONHECIDO');
+            if ($this->mensagemIndicaSituacaoFiscalAlterada($erroMsg)) {
+                $sincronizacao = $this->consultarSituacaoFiscalBethaComPem($nfse, $config, $pem, false);
+                if (($sincronizacao['sucesso'] ?? false) && in_array($sincronizacao['situacao'] ?? '', ['C', 'S'], true)) {
+                    return $sincronizacao;
+                }
+            }
+            $this->nfseModel->marcarErroCancelamento($idNFSe);
             $this->eventoModel->registrar($idNFSe, 'erro', $erroCod, $erroMsg, $resultado['resposta'] ?? null);
             return $this->erro($erroMsg, NFSeErros::mapearErroAPI($erroCod));
         } catch (\Throwable $e) {
@@ -1147,6 +1215,15 @@ class NFSeService
             $descricaoBase,
             $this->resolverPlacasFinanceiro($financeiro)
         );
+        $tipoTomador = strtoupper(trim((string) ($cliente['tipo'] ?? '')));
+        $paisTomador = strtoupper(trim((string) ($cliente['pais'] ?? 'BR')));
+        $comercioExterior = $this->montarComercioExteriorBetha(
+            $tipoEmissao,
+            $tipoTomador,
+            $paisTomador,
+            (string) ($empresa['currency_code'] ?? 'BRL'),
+            $valorServicos
+        );
 
         return [
             'ambiente' => (int) ($config['ambiente'] ?? 2),
@@ -1170,8 +1247,8 @@ class NFSeService
                 'enviar_im' => $config['enviar_im'] ?? 'N',
             ],
             'tomador' => [
-                'tipo' => strtoupper(trim((string) ($cliente['tipo'] ?? ''))),
-                'pais' => strtoupper(trim((string) ($cliente['pais'] ?? 'BR'))),
+                'tipo' => $tipoTomador,
+                'pais' => $paisTomador,
                 'cpf_cnpj' => trim((string) ($cliente['cpf_cnpj'] ?? '')),
                 'nome' => trim((string) ($cliente['nome_rsocial'] ?? '')),
                 'email' => $this->valorPreferencial($dadosExtras['tomador_email'] ?? '', $cliente['email'] ?? ''),
@@ -1203,8 +1280,40 @@ class NFSeService
                 'valor_cbs' => $valorCBS,
                 'iss_retido' => $dadosExtras['iss_retido'] ?? 'N',
             ],
+            'comercio_exterior' => $comercioExterior,
             'incentivo_fiscal' => $config['incentivo_fiscal'] ?? 'N',
             'itens_nao_tributaveis' => $itensNaoTributaveis,
+        ];
+    }
+
+    private function montarComercioExteriorBetha(
+        string $tipoEmissao,
+        string $tipoTomador,
+        string $paisTomador,
+        string $moeda,
+        float $valorServicos
+    ): ?array {
+        if ($tipoEmissao !== 'betha' || $tipoTomador !== 'ES' || $paisTomador === 'BR') {
+            return null;
+        }
+
+        $moeda = strtoupper(trim($moeda));
+        $codigoMoedaBacen = self::MOEDAS_BACEN[$moeda] ?? null;
+        if ($codigoMoedaBacen === null) {
+            throw new \InvalidArgumentException(
+                "A moeda {$moeda} da filial não possui código BACEN configurado para emissão Betha com tomador estrangeiro."
+            );
+        }
+
+        return [
+            'mdPrestacao' => 2,
+            'vincPrest' => 0,
+            'tpMoeda' => $codigoMoedaBacen,
+            'vServMoeda' => round($valorServicos, 2),
+            'mecAFComexP' => 1,
+            'mecAFComexT' => 1,
+            'movTempBens' => 1,
+            'mdic' => 0,
         ];
     }
 
@@ -1571,6 +1680,228 @@ class NFSeService
             return $this->erro('Erro na consulta Betha: ' . $e->getMessage(), 'CONN_CURL');
         } finally {
             $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
+        }
+    }
+
+    /**
+     * Reconcilia no ADN cancelamentos/substituicoes feitos fora do sistema.
+     */
+    public function consultarSituacaoFiscalBetha(int $idNFSe, string $chave, bool $registrarConsulta = false): array
+    {
+        $nfse = $this->nfseModel->buscarPorId($idNFSe);
+        if (!$nfse
+            || ($nfse['tipo_emissao'] ?? '') !== 'betha'
+            || ($nfse['status'] ?? '') !== 'autorizada'
+            || empty($nfse['chave_acesso'])) {
+            return $this->erro('NFS-e Betha autorizada não encontrada ou sem chave de acesso.', 'NOTA_NAO_ENCONTRADA');
+        }
+        if (!array_key_exists('situacao_fiscal', $nfse)
+            || !array_key_exists('situacao_fiscal_consultada_em', $nfse)) {
+            return $this->erro('Atualização da sincronização fiscal pendente no servidor.', 'CONFIGURACAO_INCOMPLETA');
+        }
+
+        $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
+        if (!$config) {
+            return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
+        }
+
+        $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
+        try {
+            return $this->consultarSituacaoFiscalBethaComPem($nfse, $config, $pem, $registrarConsulta);
+        } catch (\Throwable $e) {
+            return $this->erro('Erro na sincronização fiscal Betha: ' . $e->getMessage(), 'CONN_CURL');
+        } finally {
+            $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
+        }
+    }
+
+    private function consultarSituacaoFiscalBethaComPem(
+        array $nfse,
+        array $config,
+        array $pem,
+        bool $registrarConsulta
+    ): array {
+        if (!array_key_exists('situacao_fiscal', $nfse)
+            || !array_key_exists('situacao_fiscal_consultada_em', $nfse)) {
+            return $this->erro('Atualização da sincronização fiscal pendente no servidor.', 'CONFIGURACAO_INCOMPLETA');
+        }
+
+        $idNFSe = (int) $nfse['id'];
+        $api = new NFSeAPINacional();
+        $resultado = $api->consultarEventos(
+            (string) $nfse['chave_acesso'],
+            $pem['certPath'],
+            $pem['keyPath'],
+            (int) ($config['ambiente'] ?? $nfse['ambiente'] ?? 2)
+        );
+
+        if (!($resultado['sucesso'] ?? false)) {
+            $httpCode = (int) ($resultado['httpCode'] ?? 0);
+            $mensagem = $resultado['erro'] ?? "ADN retornou HTTP {$httpCode} ao consultar os eventos.";
+            return $this->erro($mensagem, $resultado['codigoErro'] ?? 'CONN_CURL');
+        }
+
+        $resposta = (string) ($resultado['resposta'] ?? '');
+        if ($resposta === '' && (int) ($resultado['httpCode'] ?? 0) === 204) {
+            $resposta = '[]';
+        }
+        $situacao = (new NFSeEventosNacional())->parseSituacao($resposta, (string) $nfse['chave_acesso']);
+        if (!($situacao['sucesso'] ?? false)) {
+            $mensagem = $situacao['mensagem'] ?? 'Não foi possível interpretar os eventos retornados pelo ADN.';
+            $this->eventoModel->registrar($idNFSe, 'erro_integracao', 'ADN_EVENTOS_INVALIDO', $mensagem, $resposta);
+            return $this->erro($mensagem, 'ERRO_DESCONHECIDO');
+        }
+
+        $codigoSituacao = (string) ($situacao['situacao'] ?? 'N');
+        if ($codigoSituacao === 'N') {
+            $this->nfseModel->registrarSituacaoFiscalNormal($idNFSe);
+            if ($registrarConsulta) {
+                $this->eventoModel->registrar(
+                    $idNFSe,
+                    'consulta_situacao',
+                    'N',
+                    'Situação fiscal consultada no ADN: NFS-e normal.',
+                    $resposta
+                );
+            }
+            return [
+                'sucesso' => true,
+                'situacao' => 'N',
+                'mensagem' => 'Situação fiscal sincronizada: NFS-e normal.',
+                'dados' => $situacao,
+            ];
+        }
+
+        $evento = is_array($situacao['evento'] ?? null) ? $situacao['evento'] : [];
+        $dataEvento = $this->normalizarDataEvento($evento['data_evento'] ?? null);
+        $motivo = trim((string) ($evento['motivo'] ?? ''));
+        if ($codigoSituacao === 'S' && !empty($evento['chave_substituta'])) {
+            $motivo = trim($motivo . ' Chave substituta: ' . $evento['chave_substituta']);
+        }
+        $this->nfseModel->atualizarSituacaoFiscalExterna($idNFSe, $codigoSituacao, $dataEvento, $motivo ?: null);
+
+        $substituida = $codigoSituacao === 'S';
+        $this->eventoModel->registrar(
+            $idNFSe,
+            'reconciliacao',
+            $substituida ? 'SUBSTITUICAO_EXTERNA' : 'CANCELAMENTO_EXTERNO',
+            $substituida
+                ? 'Substituição registrada fora do sistema e confirmada no ADN.'
+                : 'Cancelamento registrado fora do sistema e confirmado no ADN.',
+            $resposta
+        );
+
+        return [
+            'sucesso' => true,
+            'situacao' => $codigoSituacao,
+            'mensagem' => $substituida
+                ? 'NFS-e sincronizada como substituída.'
+                : 'NFS-e sincronizada como cancelada.',
+            'dados' => $situacao,
+        ];
+    }
+
+    /**
+     * Consulta um protocolo de cancelamento Betha ate a confirmacao fiscal final.
+     */
+    public function consultarBethaCancelamentoProcessando(int $idNFSe, string $chave): array
+    {
+        $nfse = $this->nfseModel->buscarPorId($idNFSe);
+        if (!$nfse
+            || ($nfse['tipo_emissao'] ?? '') !== 'betha'
+            || ($nfse['status'] ?? '') !== 'autorizada'
+            || ($nfse['cancelamento_status'] ?? '') !== 'processando'
+            || empty($nfse['cancelamento_protocolo'])) {
+            return $this->erro('Cancelamento Betha não encontrado ou sem protocolo.', 'NOTA_NAO_ENCONTRADA');
+        }
+
+        $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
+        if (!$config) {
+            return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
+        }
+
+        $pem = $this->certificado->extrairPEM($chave, $config['certificado_arquivo'], $config['certificado_senha']);
+
+        try {
+            $api = new NFSeAPIBetha();
+            $xmlParser = new NFSeXMLBetha();
+            $resultado = $api->consultarStatusDps(
+                (string) $nfse['cancelamento_protocolo'],
+                (string) ($config['codigo_municipio'] ?? ''),
+                (string) ($nfse['prestador_cnpj'] ?? ''),
+                $pem['certPath'],
+                $pem['keyPath'],
+                (int) $config['ambiente'],
+                'CANCELAMENTO'
+            );
+            $retorno = $xmlParser->parseRetornoCancelamento($resultado['resposta'] ?? '');
+
+            if ($retorno['sucesso']) {
+                $this->nfseModel->atualizarCancelada($idNFSe, (string) ($nfse['motivo_cancelamento'] ?? ''));
+                $this->eventoModel->registrar(
+                    $idNFSe,
+                    'cancelamento',
+                    null,
+                    'NFS-e Betha cancelada após consulta de protocolo.',
+                    $resultado['resposta'] ?? null
+                );
+                return ['sucesso' => true, 'mensagem' => 'NFS-e Betha cancelada.', 'dados' => $retorno];
+            }
+
+            if (!empty($retorno['erros'])) {
+                $erro = $retorno['erros'][0];
+                if ($this->mensagemIndicaSituacaoFiscalAlterada((string) ($erro['mensagem'] ?? ''))) {
+                    $sincronizacao = $this->consultarSituacaoFiscalBethaComPem($nfse, $config, $pem, false);
+                    if (($sincronizacao['sucesso'] ?? false) && in_array($sincronizacao['situacao'] ?? '', ['C', 'S'], true)) {
+                        return $sincronizacao;
+                    }
+                }
+                $this->nfseModel->marcarErroCancelamento($idNFSe);
+                $this->eventoModel->registrar(
+                    $idNFSe,
+                    'erro',
+                    $erro['codigo'] ?? null,
+                    $erro['mensagem'] ?? 'Erro no cancelamento Betha.',
+                    $resultado['resposta'] ?? null
+                );
+                return $this->erro(
+                    $erro['mensagem'] ?? 'Erro no cancelamento Betha.',
+                    NFSeErros::mapearErroAPI($erro['codigo'] ?? 'ERRO_DESCONHECIDO'),
+                    $retorno['erros']
+                );
+            }
+
+            return ['sucesso' => true, 'mensagem' => 'Cancelamento Betha ainda em processamento.', 'dados' => $retorno];
+        } catch (\Throwable $e) {
+            return $this->erro('Erro na consulta do cancelamento Betha: ' . $e->getMessage(), 'CONN_CURL');
+        } finally {
+            $this->certificado->limparPEM($pem['certPath'], $pem['keyPath']);
+        }
+    }
+
+    private function mensagemIndicaSituacaoFiscalAlterada(string $mensagem): bool
+    {
+        $normalizada = mb_strtolower($mensagem, 'UTF-8');
+
+        return str_contains($normalizada, 'situação n - normal')
+            || str_contains($normalizada, 'situacao n - normal')
+            || str_contains($normalizada, 'nota fiscal deve estar com a situação n')
+            || str_contains($normalizada, 'nota fiscal deve estar com a situacao n');
+    }
+
+    private function normalizarDataEvento(mixed $data): ?string
+    {
+        $data = trim((string) $data);
+        if ($data === '') {
+            return null;
+        }
+
+        try {
+            return (new \DateTimeImmutable($data))
+                ->setTimezone(new \DateTimeZone(self::FISCAL_TIMEZONE))
+                ->format('Y-m-d H:i:s');
+        } catch (\Throwable) {
+            return null;
         }
     }
 

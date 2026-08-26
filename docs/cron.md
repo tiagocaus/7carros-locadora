@@ -70,6 +70,10 @@ cobrancas, faturas ou notificacoes.
 - `DPS_JA_GERADA` e recuperavel por consulta, nao por novo `POST /nfse`: o servico consulta `GET /dps/{id}` e depois `GET /nfse/{chave}`.
 - O limite continua sendo tres tentativas. A reconciliacao autorizada limpa codigo e motivo de rejeicao e registra evento proprio.
 
+### Sincronizacao fiscal Betha
+
+`NFSeConsultarBethaJob` executa a cada minuto e trata tres filas independentes, com limite de 20 itens por fluxo: emissao em processamento, cancelamento em processamento e notas Betha autorizadas cuja situacao fiscal precisa ser consultada no ADN. Para a ultima fila, o job define o tenant antes de chamar `NFSeService`, usa o certificado A1 da filial e respeita intervalo tecnico minimo de 15 minutos por nota. Consultas sem mudanca apenas atualizam o instante de sincronizacao; cancelamento ou substituicao externos geram evento de reconciliacao.
+
 ### Autorenovacao de Contratos
 
 O job de autorenovacao deve confirmar a geracao financeira antes de avancar

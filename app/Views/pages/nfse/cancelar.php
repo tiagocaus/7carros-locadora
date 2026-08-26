@@ -144,6 +144,11 @@
                 voltarParaLista();
                 return;
             }
+            if (n.cancelamento_status === 'processando') {
+                window.parent.postMessage({ action: 'openAlert', message: 'O cancelamento desta NFS-e já está sendo processado pela Betha.' }, '*');
+                voltarParaVisualizacao();
+                return;
+            }
 
             document.getElementById('infoNumero').textContent = n.numero || '-';
             document.getElementById('infoTomador').textContent = n.tomador_nome || '-';
@@ -174,7 +179,7 @@
             const result = await API.post(`/nfse/${nfseId}/cancelar`, { motivo: motivo });
 
             if (result.success) {
-                window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.cancel_success') ?>' }, '*');
+                window.parent.postMessage({ action: 'openAlert', message: result.message || '<?= t('modules.nfse.messages.cancel_success') ?>' }, '*');
                 window.parent.postMessage({ action: 'navigate', page: `/pages/nfse/${nfseId}/visualizar` }, '*');
             } else {
                 const msg = result.message || <?= js_t('modules.nfse.messages.cancel_error') ?>;

@@ -166,7 +166,7 @@
     <!-- Cancelamento -->
     <div class="form-section mb-6 hidden" id="sectionCancelamento">
         <h3 class="form-section-title" style="border-left-color: #dc3545">
-            <i class="fas fa-ban mr-2 text-red-500"></i><?= t('modules.nfse.sections.cancelamento') ?>
+            <i class="fas fa-ban mr-2 text-red-500"></i><span id="tituloSituacaoFiscal"><?= t('modules.nfse.sections.cancelamento') ?></span>
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
             <div class="md:col-span-3 form-input-group">
@@ -245,6 +245,7 @@
             autorizada: { bg: 'bg-green-100', text: 'text-green-700', icon: 'fa-check-circle', label: '<?= t('modules.nfse.status.autorizada') ?>' },
             rejeitada: { bg: 'bg-red-100', text: 'text-red-700', icon: 'fa-times-circle', label: '<?= t('modules.nfse.status.rejeitada') ?>' },
             cancelada: { bg: 'bg-slate-200', text: 'text-slate-600', icon: 'fa-ban', label: '<?= t('modules.nfse.status.cancelada') ?>' },
+            substituida: { bg: 'bg-violet-100', text: 'text-violet-700', icon: 'fa-code-branch', label: '<?= t('modules.nfse.status.substituida') ?>' },
         };
         const s = n.status === 'rejeitada' && n.codigo_rejeicao === 'DPS_CONFLITO'
             ? { bg: 'bg-amber-100', text: 'text-amber-700', icon: 'fa-triangle-exclamation', label: '<?= t('modules.nfse.status.falha_emissao') ?>' }
@@ -278,13 +279,15 @@
         const acoes = document.getElementById('acoesContainer');
         let acoesHtml = '';
 
-        if (n.status === 'autorizada' || n.status === 'cancelada') {
+        if (n.status === 'autorizada' || n.status === 'cancelada' || n.status === 'substituida') {
             acoesHtml += `<button type="button" data-id="${n.id}" data-numero="${escapeAttr(n.numero || n.id)}" class="btn-download-pdf-nfse btn-purple py-1 px-3 rounded text-xs"><i class="fas fa-file-pdf mr-1"></i><?= t('modules.nfse.buttons.download_pdf') ?></button>`;
         }
         if (n.status === 'autorizada') {
             acoesHtml += `<button onclick="enviarEmail(${n.id})" class="btn-green py-1 px-3 rounded text-xs"><i class="fas fa-envelope mr-1"></i><?= t('modules.nfse.buttons.send_email') ?></button>`;
             acoesHtml += `<button onclick="consultarStatus(${n.id})" class="btn-secondary py-1 px-3 rounded text-xs"><i class="fas fa-sync mr-1"></i><?= t('modules.nfse.buttons.consult') ?></button>`;
-            acoesHtml += `<button onclick="navegarPara('/pages/nfse/${n.id}/cancelar')" class="btn-red py-1 px-3 rounded text-xs"><i class="fas fa-ban mr-1"></i><?= t('modules.nfse.buttons.cancel_nfse') ?></button>`;
+            if (n.cancelamento_status !== 'processando') {
+                acoesHtml += `<button onclick="navegarPara('/pages/nfse/${n.id}/cancelar')" class="btn-red py-1 px-3 rounded text-xs"><i class="fas fa-ban mr-1"></i><?= t('modules.nfse.buttons.cancel_nfse') ?></button>`;
+            }
         }
         if (n.status === 'processando') {
             acoesHtml += `<button onclick="consultarStatus(${n.id})" class="btn-secondary py-1 px-3 rounded text-xs"><i class="fas fa-sync mr-1"></i><?= t('modules.nfse.buttons.consult') ?></button>`;
@@ -358,9 +361,12 @@
             document.getElementById('rowISS').classList.add('hidden');
         }
 
-        // Cancelamento
-        if (n.status === 'cancelada') {
+        // Cancelamento ou substituicao
+        if (n.status === 'cancelada' || n.status === 'substituida') {
             document.getElementById('sectionCancelamento').classList.remove('hidden');
+            document.getElementById('tituloSituacaoFiscal').textContent = n.status === 'substituida'
+                ? '<?= t('modules.nfse.sections.substituicao') ?>'
+                : '<?= t('modules.nfse.sections.cancelamento') ?>';
             document.getElementById('infoCancelData').textContent = n.data_cancelamento || '-';
             document.getElementById('infoCancelMotivo').textContent = n.motivo_cancelamento || '-';
         }

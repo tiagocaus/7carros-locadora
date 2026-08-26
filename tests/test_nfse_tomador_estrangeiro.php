@@ -68,6 +68,16 @@ $dados = [
         'exigibilidade_iss' => 1,
         'iss_retido' => 'N',
     ],
+    'comercio_exterior' => [
+        'mdPrestacao' => 2,
+        'vincPrest' => 0,
+        'tpMoeda' => '790',
+        'vServMoeda' => 100,
+        'mecAFComexP' => 1,
+        'mecAFComexT' => 1,
+        'movTempBens' => 1,
+        'mdic' => 0,
+    ],
 ];
 
 foreach ([new NFSeXMLNacional(), new NFSeXMLBetha()] as $gerador) {
@@ -79,6 +89,32 @@ foreach ([new NFSeXMLNacional(), new NFSeXMLBetha()] as $gerador) {
     exigirNaoContem('P&lt;PT123456789', $xml, 'Passaporte nao pode sair no XML fiscal.');
 }
 
+$betha = (new NFSeXMLBetha())->gerarXML($dados);
+$comercioExteriorEsperado = '</cServ><comExt><mdPrestacao>2</mdPrestacao><vincPrest>0</vincPrest>'
+    . '<tpMoeda>790</tpMoeda><vServMoeda>100.00</vServMoeda><mecAFComexP>1</mecAFComexP>'
+    . '<mecAFComexT>1</mecAFComexT><movTempBens>1</movTempBens><mdic>0</mdic></comExt></serv>';
+exigirContem($comercioExteriorEsperado, $betha, 'Betha deve gerar o comercio exterior completo e na ordem do XSD.');
+
+$tomadorBrasileiro = $dados;
+$tomadorBrasileiro['tomador']['tipo'] = 'PF';
+$tomadorBrasileiro['tomador']['pais'] = 'BR';
+$tomadorBrasileiro['tomador']['cpf_cnpj'] = '52998224725';
+$tomadorBrasileiro['tomador']['endereco']['pais'] = 'BR';
+$tomadorBrasileiro['comercio_exterior'] = null;
+$bethaBrasileira = (new NFSeXMLBetha())->gerarXML($tomadorBrasileiro);
+exigirNaoContem('<comExt>', $bethaBrasileira, 'Betha nao deve gerar comercio exterior para tomador brasileiro.');
+
+$semComercioExterior = $dados;
+$semComercioExterior['comercio_exterior'] = null;
+try {
+    (new NFSeXMLBetha())->gerarXML($semComercioExterior);
+    throw new RuntimeException('Betha deveria bloquear tomador estrangeiro sem dados de comercio exterior.');
+} catch (InvalidArgumentException $e) {
+    if (!str_contains($e->getMessage(), 'comércio exterior')) {
+        throw $e;
+    }
+}
+
 $issnet = (new NFSeXMLISSNet())->gerarXML($dados);
 exigirNaoContem('<IdentificacaoTomador>', $issnet, 'ISSNet deve omitir identificacao fiscal do tomador estrangeiro.');
 exigirNaoContem('<NifTomador>', $issnet, 'ISSNet nao deve transformar passaporte em NIF.');
@@ -87,6 +123,30 @@ exigirContem('<EnderecoExterior><CodigoPais>6076</CodigoPais>', $issnet, 'ISSNet
 exigirContem('<EnderecoCompletoExterior>', $issnet, 'ISSNet deve enviar endereco exterior completo.');
 
 $service = new NFSeService();
+$montarComercioExterior = new ReflectionMethod(NFSeService::class, 'montarComercioExteriorBetha');
+$comercioExteriorBRL = $montarComercioExterior->invoke($service, 'betha', 'ES', 'JP', 'BRL', 410.14);
+if (($comercioExteriorBRL['tpMoeda'] ?? null) !== '790'
+    || ($comercioExteriorBRL['vServMoeda'] ?? null) !== 410.14
+    || ($comercioExteriorBRL['vincPrest'] ?? null) !== 0
+    || ($comercioExteriorBRL['mecAFComexP'] ?? null) !== 1
+    || ($comercioExteriorBRL['mecAFComexT'] ?? null) !== 1
+    || ($comercioExteriorBRL['movTempBens'] ?? null) !== 1) {
+    throw new RuntimeException('Comercio exterior Betha deve usar os dados fiscais padrao e os valores reais da filial.');
+}
+foreach (['USD' => '220', 'EUR' => '978', 'GBP' => '540'] as $moeda => $codigoBacen) {
+    $comercioExterior = $montarComercioExterior->invoke($service, 'betha', 'ES', 'JP', $moeda, 100);
+    if (($comercioExterior['tpMoeda'] ?? null) !== $codigoBacen) {
+        throw new RuntimeException("Moeda {$moeda} deve usar o codigo BACEN {$codigoBacen}.");
+    }
+}
+try {
+    $montarComercioExterior->invoke($service, 'betha', 'ES', 'JP', 'JPY', 410.14);
+    throw new RuntimeException('Moeda sem mapeamento BACEN deveria bloquear a emissao Betha.');
+} catch (InvalidArgumentException $e) {
+    if (!str_contains($e->getMessage(), 'código BACEN')) {
+        throw $e;
+    }
+}
 $validarDps = new ReflectionMethod(NFSeService::class, 'validarDPS');
 $validarDps->invoke($service, $dados);
 $validarIssnet = new ReflectionMethod(NFSeService::class, 'validarISSNet');

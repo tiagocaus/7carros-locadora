@@ -522,6 +522,7 @@
                         <label for="promocao_codigo" class="form-label-group"><?= t('modules.locacoes.fields.promo_code') ?></label>
                         <div class="flex gap-2">
                             <input type="text" id="promocao_codigo" name="promocao_codigo" class="form-input-group-field uppercase" maxlength="15">
+                            <input type="hidden" id="reaplicar_promocao" name="reaplicar_promocao" value="0">
                             <button type="button" id="btnAplicarPromocao" class="btn-secondary px-3 whitespace-nowrap"><?= t('modules.locacoes.fields.apply_promo') ?></button>
                         </div>
                         <div id="promocaoFeedback" class="text-xs mt-1 hidden" role="status"></div>
@@ -2053,9 +2054,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             const descontoEl = document.getElementById('valor_desconto');
             const feedback = document.getElementById('promocaoFeedback');
             const btn = document.getElementById('btnAplicarPromocao');
+            const reaplicarEl = document.getElementById('reaplicar_promocao');
             const codigo = String(codigoEl?.value || '').trim().toUpperCase();
 
             if (!codigo) {
+                if (reaplicarEl) reaplicarEl.value = '0';
                 if (descontoEl) {
                     descontoEl.readOnly = false;
                     Currency.setValue('#valor_desconto', 0);
@@ -2063,7 +2066,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 if (codigoEl) codigoEl.dataset.codigoAplicado = '';
                 feedback?.classList.add('hidden');
                 atualizarResumo();
-                return;
+                return false;
             }
 
             const filialId = parseInt(document.getElementById('id_matriz_filial_retirada')?.value || '0', 10);
@@ -2084,17 +2087,21 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
                 codigoEl.value = result.data.codigo;
                 codigoEl.dataset.codigoAplicado = result.data.codigo;
+                if (reaplicarEl) reaplicarEl.value = isEditing ? '1' : '0';
                 Currency.setValue('#valor_desconto', result.data.valor_desconto);
                 descontoEl.readOnly = true;
                 feedback.textContent = `${result.data.nome}: -${fmtCurrency(result.data.valor_desconto)}`;
                 feedback.className = 'text-xs mt-1 text-green-600';
                 atualizarResumo();
                 carregarResumoFinanceiro();
+                return true;
             } catch (error) {
+                if (reaplicarEl) reaplicarEl.value = '0';
                 codigoEl.dataset.codigoAplicado = '';
                 descontoEl.readOnly = false;
                 feedback.textContent = error.message || 'Codigo promocional invalido.';
                 feedback.className = 'text-xs mt-1 text-red-600';
+                return false;
             } finally {
                 btn.disabled = false;
             }
@@ -2518,6 +2525,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 const result = await API.post(url, dados);
 
                 if (result.success) {
+                    const reaplicarEl = document.getElementById('reaplicar_promocao');
+                    if (reaplicarEl) reaplicarEl.value = '0';
+                    if (isEditing && result.data) {
+                        locacaoData.valor_desconto = result.data.valor_desconto;
+                        locacaoData.total_fatura = result.data.total_fatura;
+                        locacaoData.total_pagar = result.data.total_pagar;
+                        locacaoData.promocao_codigo = result.data.promocao_codigo;
+                    }
                     const deveAtualizarPagamentosCaucao = isEditing
                         && locacaoData?.id
                         && document.getElementById('caucao_valor')
@@ -2565,6 +2580,19 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             e.preventDefault();
 
             sincronizarValorKmControlado();
+            const fechandoLocacao = document.getElementById('locacaoStatus')?.value === 'F'
+                && isEditing
+                && locacaoData?.status === 'A';
+            if (fechandoLocacao) {
+                calcularDias();
+                renderTaxas();
+                atualizarResumo();
+            }
+            if (document.getElementById('reaplicar_promocao')?.value === '1') {
+                const promocaoAtualizada = await aplicarCodigoPromocional();
+                if (!promocaoAtualizada) return;
+            }
+
             const form = new FormData(this);
             const dados = Object.fromEntries(form.entries());
             dados.km_controlado_franquia = String(parseInt(dados.km_controlado_franquia || '0', 10) || 0);
@@ -2926,6 +2954,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 codigoPromoEl.dataset.codigoAplicado = codigoPromoEl.dataset.codigoOriginal;
                 document.getElementById('valor_desconto').readOnly = true;
             }
+            document.getElementById('reaplicar_promocao').value = '0';
 
             // Dados de devolucao (quando status = F)
             if (locacaoData.status === 'F') {
@@ -3007,6 +3036,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         document.getElementById('valor_km_retorno')?.addEventListener('change', verificarKmRetorno);
         document.getElementById('btnAplicarPromocao')?.addEventListener('click', aplicarCodigoPromocional);
         document.getElementById('promocao_codigo')?.addEventListener('input', function() {
+            document.getElementById('reaplicar_promocao').value = '0';
             this.value = this.value.toUpperCase();
             const atual = this.value.trim();
             if (atual !== (this.dataset.codigoAplicado || '')) {

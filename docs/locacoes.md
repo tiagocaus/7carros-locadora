@@ -379,6 +379,15 @@ devolucao somente pela diferenca efetiva.
   continua bloqueado ate que uma parcela complementar seja lancada.
 - Caucao/devolucao de caucao nao entra nesse calculo; somente creditos no plano
   `3.4.1.22` compensam receitas da locacao.
+- A atualização que antecede o fechamento é atômica. Locação, veículo, taxas,
+  caução, totais, crédito de devolução e transição de status usam a mesma
+  transação; qualquer rejeição financeira desfaz todos os valores simulados,
+  inclusive `data_chegada`.
+
+Quando uma locação já possui promoção, o desconto salvo é preservado por
+padrão. O valor atual do cadastro da promoção só substitui esse snapshot quando
+o usuário clicar novamente em **Aplicar promoção**; o backend recalcula o
+desconto e não confia no valor enviado pelo navegador.
 
 ### Parcela Avulsa
 

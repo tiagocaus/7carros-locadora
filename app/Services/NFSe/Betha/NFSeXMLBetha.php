@@ -11,6 +11,7 @@ class NFSeXMLBetha implements NFSeXMLInterface
 {
     private const NAMESPACE = 'http://www.betha.com.br/e-nota-dps';
     private const VERSAO = '1.01';
+    private const VERSAO_EVENTO = '1.0';
     private const FISCAL_TIMEZONE = 'America/Sao_Paulo';
 
     public function gerarXML(array $dados): string
@@ -81,6 +82,7 @@ class NFSeXMLBetha implements NFSeXMLInterface
             (string) ($servico['descricao'] ?? '')
         ) . '</cNBS>';
         $xml .= '</cServ>';
+        $xml .= $this->gerarComercioExterior($dados, $tomador);
         $xml .= '</serv>';
 
         $xml .= '<valores>';
@@ -125,11 +127,36 @@ class NFSeXMLBetha implements NFSeXMLInterface
 
     public function gerarXMLCancelamento(string $chaveAcesso, string $motivo, array $dados): string
     {
+        $chaveAcesso = $this->somenteDigitos($chaveAcesso);
+        $cnpjAutor = $this->somenteDigitos((string) ($dados['prestador_cnpj'] ?? ''));
+        $ambiente = (int) ($dados['ambiente'] ?? 2);
+        $dhEvento = $this->formatarDataISO($dados['data_evento'] ?? \App\Helpers\DateHelper::isoNow());
+        $idPedido = 'PRE' . $chaveAcesso . '101101';
+        $idEvento = 'EVT' . $chaveAcesso . '101101001';
+
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<RecepcionarEventoCancelamentoEnvio xmlns="' . self::NAMESPACE . '">';
-        $xml .= '<evento>';
-        $xml .= '<chaveAcesso>' . htmlspecialchars($chaveAcesso) . '</chaveAcesso>';
-        $xml .= '<motivo>' . $this->textoMaiusculo($motivo) . '</motivo>';
+        $xml .= '<evento versao="' . self::VERSAO_EVENTO . '">';
+        $xml .= '<infEvento id="' . $idEvento . '">';
+        $xml .= '<verAplic>7Carros v8.3</verAplic>';
+        $xml .= '<ambGer>' . $ambiente . '</ambGer>';
+        $xml .= '<nSeqEvento>1</nSeqEvento>';
+        $xml .= '<dhProc>' . $dhEvento . '</dhProc>';
+        $xml .= '<pedRegEvento versao="' . self::VERSAO_EVENTO . '">';
+        $xml .= '<infPedReg id="' . $idPedido . '">';
+        $xml .= '<chNFSe>' . $chaveAcesso . '</chNFSe>';
+        $xml .= '<CNPJAutor>' . $cnpjAutor . '</CNPJAutor>';
+        $xml .= '<dhEvento>' . $dhEvento . '</dhEvento>';
+        $xml .= '<tpAmb>' . $ambiente . '</tpAmb>';
+        $xml .= '<verAplic>7Carros v8.3</verAplic>';
+        $xml .= '<e101101>';
+        $xml .= '<xDesc>Cancelamento de NFS-e</xDesc>';
+        $xml .= '<cMotivo>9</cMotivo>';
+        $xml .= '<xMotivo>' . $this->textoMaiusculo($motivo) . '</xMotivo>';
+        $xml .= '</e101101>';
+        $xml .= '</infPedReg>';
+        $xml .= '</pedRegEvento>';
+        $xml .= '</infEvento>';
         $xml .= '</evento>';
         $xml .= '</RecepcionarEventoCancelamentoEnvio>';
 
@@ -167,15 +194,47 @@ class NFSeXMLBetha implements NFSeXMLInterface
     {
         $doc = $this->carregarXML($resposta);
         if (!$doc) {
-            return ['sucesso' => false, 'mensagem' => '', 'erros' => []];
+            return [
+                'sucesso' => false,
+                'processando' => false,
+                'protocolo' => null,
+                'status' => '',
+                'mensagem' => '',
+                'erros' => [],
+            ];
         }
 
         $erros = $this->parseMensagens($doc);
-        $status = $this->valorTag($doc, 'statusProcessamento');
-        $mensagem = $erros[0]['mensagem'] ?? ($this->valorTag($doc, 'mensagem') ?: 'Evento de cancelamento processado.');
+        $status = $this->valorTag($doc, 'statusProcessamento') ?: $this->valorTag($doc, 'status');
+        $protocolo = $this->valorTag($doc, 'protocolo');
+        $mensagemErro = $this->valorTag($doc, 'mensagemErro');
+        if ($mensagemErro !== '' && empty($erros)) {
+            $erros[] = ['codigo' => 'ERRO_CANCELAMENTO_BETHA', 'mensagem' => $mensagemErro];
+        }
+
+        $sucesso = empty($erros) && $this->statusSucesso($status);
+        $statusNormalizado = mb_strtolower(trim($status), 'UTF-8');
+        $statusFinalComErro = str_contains($statusNormalizado, 'erro')
+            || str_contains($statusNormalizado, 'rejeitad')
+            || str_contains($statusNormalizado, 'falha');
+        if (empty($erros) && $statusFinalComErro) {
+            $erros[] = [
+                'codigo' => 'ERRO_CANCELAMENTO_BETHA',
+                'mensagem' => $status !== '' ? $status : 'Cancelamento rejeitado pela Betha.',
+            ];
+        }
+
+        // A recepcao e assincrona: protocolo sem sucesso ou erro final explicito
+        // significa que a Betha aceitou o pedido e ainda vai processa-lo.
+        $processando = !$sucesso && empty($erros) && $protocolo !== '';
+        $mensagem = $erros[0]['mensagem']
+            ?? ($status !== '' ? $status : 'Evento de cancelamento recebido pela Betha.');
 
         return [
-            'sucesso' => empty($erros) && ($this->statusSucesso($status) || stripos($resposta, 'sucesso') !== false),
+            'sucesso' => $sucesso,
+            'processando' => $processando,
+            'protocolo' => $protocolo !== '' ? $protocolo : null,
+            'status' => $status,
             'mensagem' => $mensagem,
             'erros' => $erros,
         ];
@@ -376,6 +435,45 @@ class NFSeXMLBetha implements NFSeXMLInterface
         $xml .= '</end>';
 
         return $xml;
+    }
+
+    private function gerarComercioExterior(array $dados, array $tomador): string
+    {
+        if (($tomador['tipo'] ?? '') !== 'ES') {
+            return '';
+        }
+
+        $comercioExterior = $dados['comercio_exterior'] ?? null;
+        $camposObrigatorios = [
+            'mdPrestacao',
+            'vincPrest',
+            'tpMoeda',
+            'vServMoeda',
+            'mecAFComexP',
+            'mecAFComexT',
+            'movTempBens',
+            'mdic',
+        ];
+        if (!is_array($comercioExterior)) {
+            throw new \InvalidArgumentException('Dados de comércio exterior não informados para o tomador estrangeiro.');
+        }
+        foreach ($camposObrigatorios as $campo) {
+            if (!array_key_exists($campo, $comercioExterior) || $comercioExterior[$campo] === '') {
+                throw new \InvalidArgumentException("Campo {$campo} não informado no comércio exterior da DPS Betha.");
+            }
+        }
+
+        $xml = '<comExt>';
+        $xml .= '<mdPrestacao>' . (int) $comercioExterior['mdPrestacao'] . '</mdPrestacao>';
+        $xml .= '<vincPrest>' . (int) $comercioExterior['vincPrest'] . '</vincPrest>';
+        $xml .= '<tpMoeda>' . $this->somenteDigitos((string) $comercioExterior['tpMoeda']) . '</tpMoeda>';
+        $xml .= '<vServMoeda>' . number_format((float) $comercioExterior['vServMoeda'], 2, '.', '') . '</vServMoeda>';
+        $xml .= '<mecAFComexP>' . (int) $comercioExterior['mecAFComexP'] . '</mecAFComexP>';
+        $xml .= '<mecAFComexT>' . (int) $comercioExterior['mecAFComexT'] . '</mecAFComexT>';
+        $xml .= '<movTempBens>' . (int) $comercioExterior['movTempBens'] . '</movTempBens>';
+        $xml .= '<mdic>' . (int) $comercioExterior['mdic'] . '</mdic>';
+
+        return $xml . '</comExt>';
     }
 
     private function gerarIBSCBS(array $valores): string

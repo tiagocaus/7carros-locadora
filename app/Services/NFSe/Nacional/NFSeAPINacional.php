@@ -18,6 +18,8 @@ class NFSeAPINacional implements NFSeAPIInterface
 {
     private const URL_PRODUCAO = 'https://sefin.nfse.gov.br/SefinNacional';
     private const URL_HOMOLOGACAO = 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional';
+    private const URL_ADN_PRODUCAO = 'https://adn.nfse.gov.br/contribuintes';
+    private const URL_ADN_HOMOLOGACAO = 'https://adn.producaorestrita.nfse.gov.br/contribuintes';
 
     private const TIMEOUT_CONEXAO = 30;
     private const TIMEOUT_REQUISICAO = 60;
@@ -43,6 +45,19 @@ class NFSeAPINacional implements NFSeAPIInterface
         $url = $this->getBaseUrl($ambiente) . '/nfse/' . urlencode($chaveAcesso);
 
         return $this->request('GET', $url, $certPath, $keyPath, (int) $ambiente, null, [
+            'Accept: application/json',
+        ]);
+    }
+
+    /**
+     * Consulta todos os eventos vinculados a uma NFS-e no ADN.
+     */
+    public function consultarEventos(string $chaveAcesso, string $certPath, string $keyPath, int $ambiente): array
+    {
+        $baseUrl = $ambiente === 1 ? self::URL_ADN_PRODUCAO : self::URL_ADN_HOMOLOGACAO;
+        $url = $baseUrl . '/nfse/' . urlencode($chaveAcesso) . '/eventos';
+
+        return $this->request('GET', $url, $certPath, $keyPath, $ambiente, null, [
             'Accept: application/json',
         ]);
     }

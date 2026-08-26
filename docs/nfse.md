@@ -30,6 +30,7 @@ Fluxo de status:
 pendente -> processando -> autorizada
                        \-> rejeitada
 autorizada -> cancelada
+           \-> substituida
 ```
 
 Betha usa `processando` enquanto aguarda consulta do protocolo.
@@ -50,6 +51,7 @@ app/Services/NFSe/NFSeAssinatura.php
 app/Services/NFSe/NFSeCertificado.php
 app/Services/NFSe/Nacional/NFSeXMLNacional.php
 app/Services/NFSe/Nacional/NFSeAPINacional.php
+app/Services/NFSe/Nacional/NFSeEventosNacional.php
 app/Services/NFSe/Betha/NFSeXMLBetha.php
 app/Services/NFSe/Betha/NFSeAPIBetha.php
 app/Services/NFSe/ISSNet/NFSeXMLISSNet.php
@@ -282,6 +284,7 @@ Regras de XML:
 - Bloco `<trib>` deve conter `<tribMun>` e `<totTrib>`; sem `<totTrib>` a Betha rejeita a DPS por schema incompleto.
 - `<dhEmi>` deve usar horario local do prestador (`America/Sao_Paulo`, offset `-03:00`), nao UTC.
 - Para tomador brasileiro, o endereco deve seguir a mesma regra conservadora do Nacional: enviar `<end>` apenas quando houver CEP com 8 digitos e codigo IBGE do municipio do tomador com 7 digitos. Para cliente `tipo = ES`, nunca enviar passaporte como identificacao fiscal: gerar `<cNaoNIF>0</cNaoNIF>` e usar `<endExt>` quando o endereco exterior estiver completo. Betha deve gerar o endereco no namespace Betha, nunca reaproveitar XML Nacional/ABRASF.
+- Para cliente `tipo = ES` e pais diferente de `BR`, enviar `<comExt>` imediatamente apos `<cServ>`. Para locacao comum prestada no Brasil, usar `mdPrestacao=2`, `vincPrest=0` (sem vinculo), `mecAFComexP=1` e `mecAFComexT=1` (nenhum mecanismo de apoio), `movTempBens=1` (nao vinculada a movimentacao temporaria) e `mdic=0`. Os codigos de desconhecido `vincPrest=9`, `mecAFComexP=0`, `mecAFComexT=0` e `movTempBens=0` sao exclusivos do compartilhamento municipal de nota de origem e nao devem ser usados na DPS do contribuinte. `tpMoeda` usa o codigo BACEN da moeda da filial (BRL `790`, USD `220`, EUR `978`, GBP `540`) e `vServMoeda` recebe o valor do servico. Moeda sem mapeamento deve bloquear a emissao localmente.
 - No schema Betha aceito pelo SOAP, `<valores>` deve vir logo apos `</serv>`. Nao enviar `<cLocalidadeIncid>` nesse ponto; esse elemento pertence ao XML nacional/NFS-e gerado posteriormente, nao ao DPS Betha.
 - Betha v1.01 deve manter o namespace `http://www.betha.com.br/e-nota-dps`; nao trocar o DPS para namespace SPED.
 - Embora a NT004 Betha descreva o grupo `<IBSCBS>`, o preenchimento ainda nao esta homologado neste sistema para o emissor Betha. Manter `preencher_ibscbs = N`.
@@ -292,6 +295,17 @@ Regras de XML:
 - Para consulta de emissao Betha, `<tipoIntegracao>` deve ser `EMISSAO`.
 - Resposta pode vir com prefixo `ns2:`; parsers devem usar namespace, nao string fixa.
 
+Cancelamento Betha:
+
+- `RecepcionarEventoCancelamentoEnvio` deve conter `<evento versao="1.0">`, `infEvento`, `pedRegEvento`, `infPedReg` e `e101101`; nao enviar `chaveAcesso` e `motivo` diretamente sob `evento`.
+- O `infEvento` usa atributo `id` minusculo e deve ser assinado com XMLDSIG SHA256. A assinatura fica como filha de `evento`.
+- O pedido usa `cMotivo=9` (Outros) e envia a justificativa informada pelo usuario em `xMotivo`.
+- A recepcao do pedido e assincrona. O HTTP 2xx com protocolo apenas confirma o recebimento e nunca deve marcar a NFS-e como cancelada.
+- Qualquer resposta de recepcao com protocolo, sem sucesso ou erro final explicito, deve manter `nfse.status = autorizada` e `cancelamento_status = processando`. Isso inclui `Nao processado` e `Aguardando validacao do ambiente nacional`; nao dependa de transliteracao ou de uma unica frase do provedor.
+- Consultar o protocolo com `ConsultarStatusDpsEnvio` e `tipoIntegracao=CANCELAMENTO`.
+- Somente `Processado com sucesso` altera a NFS-e para `cancelada`. Em `Processado com erro`, manter a nota autorizada, marcar o pedido com erro e registrar o retorno em `nfse_eventos`.
+- Nao aceitar outro pedido enquanto houver cancelamento Betha em processamento.
+
 Fluxo:
 
 1. Gerar DPS Betha.
@@ -300,6 +314,28 @@ Fluxo:
 4. Salvar `protocolo` e deixar NFS-e como `processando`.
 5. `NFSeConsultarBethaJob` consulta `ConsultarStatusDps`.
 6. Quando autorizado, atualizar `chave_acesso`, `numero`, `codigo_verificacao` e `xml_retorno`.
+
+O mesmo job consulta cancelamentos Betha pendentes pelo protocolo especifico de cancelamento, sem reutilizar ou sobrescrever o protocolo historico da emissao.
+
+### Sincronizacao de situacao fiscal Betha
+
+Cancelamentos e substituicoes podem ser registrados fora do 7Carros, por exemplo pela contabilidade. Notas Betha autorizadas devem ser reconciliadas pela API de contribuintes do Ambiente de Dados Nacional (ADN), usando o mesmo certificado A1 da filial e sem credenciais Betha adicionais.
+
+| Ambiente | Base ADN contribuintes |
+|----------|------------------------|
+| Producao | `https://adn.nfse.gov.br/contribuintes` |
+| Homologacao | `https://adn.producaorestrita.nfse.gov.br/contribuintes` |
+
+- Consultar `GET /nfse/{chaveAcesso}/eventos` com mTLS.
+- Validar que `chNFSe`/`chaveAcesso` do evento corresponde exatamente a chave local antes de alterar o registro.
+- Evento `101101` confirma cancelamento e altera o status local para `cancelada`.
+- Evento `105102` confirma cancelamento por substituicao e altera o status local para `substituida`.
+- Ausencia desses eventos significa situacao `N` (normal) e mantem a nota `autorizada`.
+- Persistir `situacao_fiscal` (`N`, `C` ou `S`) e `situacao_fiscal_consultada_em` somente apos consulta ADN bem-sucedida.
+- Registrar mudancas externas em `nfse_eventos` como `reconciliacao`, preservando a resposta bruta para auditoria.
+- A acao manual `Consultar Status` usa essa consulta para nota Betha autorizada; notas Betha ainda em `processando` continuam consultando o protocolo de emissao.
+- O cron consulta no maximo 20 notas por execucao, prioriza a consulta mais antiga e aplica intervalo minimo de 15 minutos por nota.
+- Se a Betha rejeitar o cancelamento porque a nota nao esta mais na situacao `N - Normal`, consultar o ADN antes de registrar erro final.
 
 Numeracao:
 
@@ -373,7 +409,7 @@ Nao crie tabela separada para itens nao tributaveis sem necessidade fiscal nova.
 |-----|------------|--------|-----------|
 | `NFSeEmitirAutoJob` | 5min | 50 | Emite NFS-e de pagamentos confirmados |
 | `NFSeReenviarJob` | 5min | 20 | Reenvia rejeitadas recuperaveis |
-| `NFSeConsultarBethaJob` | 1min | 20 | Consulta protocolos Betha em processamento |
+| `NFSeConsultarBethaJob` | 1min | 20 por fluxo | Consulta protocolos Betha e reconcilia eventos fiscais no ADN |
 | `NFSeEnviarEmailJob` | 5min | 30 | Envia PDF por email |
 
 `NFSeConsultarBethaJob` deve considerar atividade recente por `COALESCE(updated_at, created_at)`, nao apenas `created_at`, porque reenvios Betha reutilizam o registro rejeitado e atualizam protocolo/status no mesmo registro.
@@ -433,6 +469,7 @@ POST /nfse/configuracoes/testar-conexao
 - O QR Code deve abrir a consulta publica `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave={chave_acesso}`.
 - O link da consulta publica deve aparecer tambem no fim da pagina.
 - O bloco de valores deve exibir aliquota ISS, valor ISS, ISS retido, valor ISS retido e valor liquido.
+- Notas `substituida` devem exibir esse estado no cabecalho e o bloco de substituicao no PDF.
 - O download gera o PDF sob demanda em memoria para entregar sempre o layout fiscal atual, sem persistir arquivo em `storage/uploads`.
 - O envio por email gera arquivo temporario apenas para anexo; o arquivo deve ser removido apos envio bem-sucedido.
 

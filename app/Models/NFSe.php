@@ -16,6 +16,7 @@ use App\Traits\DetectsCrossTenant;
  * - autorizada -> NFS-e emitida com sucesso
  * - rejeitada -> NFS-e rejeitada pela SEFIN/prefeitura
  * - cancelada -> NFS-e cancelada
+ * - substituida -> NFS-e cancelada por substituicao
  */
 class NFSe extends Model
 {
@@ -134,23 +135,28 @@ class NFSe extends Model
         string $dataFim = '',
         string $ambiente = ''
     ): array {
+        $campos = [
+            'n.id',
+            'n.numero',
+            'n.serie',
+            'n.tomador_nome',
+            'n.valor_servicos',
+            'n.ambiente',
+            'n.status',
+            'n.tipo_emissao',
+            'n.protocolo',
+            'n.data_emissao',
+            'n.created_at',
+            'n.updated_at',
+            'mf.nome_fantasia AS filial_nome',
+        ];
+        if ($this->colunaExiste('cancelamento_status')) {
+            $campos[] = 'n.cancelamento_status';
+        }
+
         $query = $this->qb
             ->table('nfse', 'n')
-            ->select([
-                'n.id',
-                'n.numero',
-                'n.serie',
-                'n.tomador_nome',
-                'n.valor_servicos',
-                'n.ambiente',
-                'n.status',
-                'n.tipo_emissao',
-                'n.protocolo',
-                'n.data_emissao',
-                'n.created_at',
-                'n.updated_at',
-                'mf.nome_fantasia AS filial_nome',
-            ])
+            ->select($campos)
             ->leftJoin('matrizes_filiais', 'mf', 'n.id_matriz_filial', '=', 'mf.id');
 
         // Filtro de filial (permissoes do usuario)
@@ -292,6 +298,7 @@ class NFSe extends Model
         $autorizada = $buildQuery('autorizada');
         $rejeitada = $buildQuery('rejeitada');
         $cancelada = $buildQuery('cancelada');
+        $substituida = $buildQuery('substituida');
         $pendente = $buildQuery('pendente');
         $processando = $buildQuery('processando');
 
@@ -300,11 +307,13 @@ class NFSe extends Model
             'autorizada' => $autorizada,
             'rejeitada' => $rejeitada,
             'cancelada' => $cancelada,
+            'substituida' => $substituida,
             'pendente' => $pendente,
             'processando' => $processando,
             'autorizadas' => $autorizada,
             'rejeitadas' => $rejeitada,
             'canceladas' => $cancelada,
+            'substituidas' => $substituida,
             'pendentes' => $pendente + $processando,
             'valor_autorizadas' => $valorAutorizadas,
         ];
@@ -395,14 +404,99 @@ class NFSe extends Model
      */
     public function atualizarCancelada(int $id, string $motivo): int
     {
+        $dados = [
+            'status' => 'cancelada',
+            'data_cancelamento' => now(),
+            'motivo_cancelamento' => $motivo,
+        ];
+        if ($this->colunaExiste('cancelamento_status')) {
+            $dados['cancelamento_status'] = 'concluido';
+        }
+
         return $this->qb
             ->table('nfse')
             ->where('id', '=', $id)
+            ->update($dados);
+    }
+
+    /**
+     * Atualiza a situacao fiscal confirmada pela API de eventos do ADN.
+     */
+    public function atualizarSituacaoFiscalExterna(
+        int $id,
+        string $situacao,
+        ?string $dataEvento = null,
+        ?string $motivo = null
+    ): int {
+        if (!$this->colunaExiste('situacao_fiscal') || !$this->colunaExiste('situacao_fiscal_consultada_em')) {
+            return 0;
+        }
+
+        $status = $situacao === 'S' ? 'substituida' : 'cancelada';
+        $motivoPadrao = $situacao === 'S'
+            ? 'NFS-e cancelada por substituição registrada externamente.'
+            : 'Cancelamento registrado externamente.';
+
+        return $this->qb
+            ->table('nfse')
+            ->where('id', '=', $id)
+            ->where('status', '=', 'autorizada')
             ->update([
-                'status' => 'cancelada',
-                'data_cancelamento' => now(),
+                'status' => $status,
+                'situacao_fiscal' => $situacao,
+                'situacao_fiscal_consultada_em' => now(),
+                'data_cancelamento' => $dataEvento ?: now(),
+                'motivo_cancelamento' => $motivo ?: $motivoPadrao,
+                'cancelamento_status' => 'concluido',
+            ]);
+    }
+
+    /**
+     * Registra uma consulta bem-sucedida em que a nota continua normal.
+     */
+    public function registrarSituacaoFiscalNormal(int $id): int
+    {
+        if (!$this->colunaExiste('situacao_fiscal') || !$this->colunaExiste('situacao_fiscal_consultada_em')) {
+            return 0;
+        }
+
+        return $this->qb
+            ->table('nfse')
+            ->where('id', '=', $id)
+            ->where('status', '=', 'autorizada')
+            ->update([
+                'situacao_fiscal' => 'N',
+                'situacao_fiscal_consultada_em' => now(),
+            ]);
+    }
+
+    /**
+     * Registra a recepcao assincrona de um pedido de cancelamento Betha.
+     */
+    public function marcarCancelamentoProcessando(int $id, string $motivo, string $protocolo): int
+    {
+        return $this->qb
+            ->table('nfse')
+            ->where('id', '=', $id)
+            ->where('status', '=', 'autorizada')
+            ->update([
+                'cancelamento_status' => 'processando',
+                'cancelamento_protocolo' => $protocolo,
+                'cancelamento_solicitado_em' => now(),
                 'motivo_cancelamento' => $motivo,
             ]);
+    }
+
+    /**
+     * Mantem a nota autorizada quando a Betha rejeita o cancelamento.
+     */
+    public function marcarErroCancelamento(int $id): int
+    {
+        return $this->qb
+            ->table('nfse')
+            ->where('id', '=', $id)
+            ->where('status', '=', 'autorizada')
+            ->update(['cancelamento_status' => 'erro']);
     }
 
     /**
@@ -547,6 +641,52 @@ class NFSe extends Model
             ->whereNotNull('protocolo')
             ->whereRaw("{$atividadeRecente} >= DATE_SUB(NOW(), INTERVAL 48 HOUR)")
             ->orderByRaw("{$atividadeRecente} ASC")
+            ->limit($limite)
+            ->get();
+    }
+
+    /**
+     * Busca cancelamentos Betha aceitos e ainda nao confirmados pelo Ambiente Nacional.
+     */
+    public function buscarBethaCancelamentosProcessando(int $limite = 20): array
+    {
+        if (!$this->colunaExiste('cancelamento_status')
+            || !$this->colunaExiste('cancelamento_protocolo')
+            || !$this->colunaExiste('cancelamento_solicitado_em')) {
+            return [];
+        }
+
+        return $this->qb
+            ->table('nfse')
+            ->withoutChave()
+            ->where('tipo_emissao', '=', 'betha')
+            ->where('status', '=', 'autorizada')
+            ->where('cancelamento_status', '=', 'processando')
+            ->whereNotNull('cancelamento_protocolo')
+            ->whereRaw('cancelamento_solicitado_em >= DATE_SUB(NOW(), INTERVAL 48 HOUR)')
+            ->orderBy('cancelamento_solicitado_em', 'ASC')
+            ->limit($limite)
+            ->get();
+    }
+
+    /**
+     * Busca notas Betha autorizadas cuja situacao fiscal deve ser reconciliada no ADN.
+     */
+    public function buscarBethaSituacaoFiscalPendente(int $limite = 20): array
+    {
+        if (!$this->colunaExiste('situacao_fiscal') || !$this->colunaExiste('situacao_fiscal_consultada_em')) {
+            return [];
+        }
+
+        return $this->qb
+            ->table('nfse')
+            ->withoutChave()
+            ->where('tipo_emissao', '=', 'betha')
+            ->where('status', '=', 'autorizada')
+            ->whereNotNull('chave_acesso')
+            ->whereRaw("(cancelamento_status IS NULL OR cancelamento_status != 'processando')")
+            ->whereRaw('(situacao_fiscal_consultada_em IS NULL OR situacao_fiscal_consultada_em <= DATE_SUB(NOW(), INTERVAL 15 MINUTE))')
+            ->orderByRaw('COALESCE(situacao_fiscal_consultada_em, data_emissao, created_at) ASC')
             ->limit($limite)
             ->get();
     }

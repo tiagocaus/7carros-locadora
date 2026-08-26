@@ -21,6 +21,7 @@ return [
         'rejeitada' => 'Rejeitada',
         'falha_emissao' => 'Falha na emissão',
         'cancelada' => 'Cancelada',
+        'substituida' => 'Substituída',
     ],
 
     // Campos
@@ -76,6 +77,7 @@ return [
         'servico' => 'Serviço',
         'valores' => 'Valores e Tributos',
         'cancelamento' => 'Cancelamento',
+        'substituicao' => 'Substituição',
         'eventos' => 'Histórico de Eventos',
         'xml' => 'XML',
     ],

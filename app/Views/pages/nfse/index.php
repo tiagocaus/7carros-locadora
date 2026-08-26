@@ -59,6 +59,7 @@
                 <option value="autorizada"><?= t('modules.nfse.status.autorizada') ?></option>
                 <option value="rejeitada"><?= t('modules.nfse.status.rejeitada') ?></option>
                 <option value="cancelada"><?= t('modules.nfse.status.cancelada') ?></option>
+                <option value="substituida"><?= t('modules.nfse.status.substituida') ?></option>
             </select>
         </div>
         <div class="flex-1 min-w-[130px] max-w-[160px]">
@@ -135,6 +136,7 @@ $i18nNfse = [
         'rejeitada' => t('modules.nfse.status.rejeitada'),
         'falha_emissao' => t('modules.nfse.status.falha_emissao'),
         'cancelada' => t('modules.nfse.status.cancelada'),
+        'substituida' => t('modules.nfse.status.substituida'),
     ],
     'viewTitle' => t('modules.nfse.view_title'),
     'downloadPdf' => t('modules.nfse.buttons.download_pdf'),
@@ -374,6 +376,7 @@ $i18nNfse = [
             autorizada: { bg: 'bg-green-100', text: 'text-green-700', icon: 'fa-check-circle', label: i18n.status.autorizada },
             rejeitada: { bg: 'bg-red-100', text: 'text-red-700', icon: 'fa-times-circle', label: i18n.status.rejeitada },
             cancelada: { bg: 'bg-slate-100', text: 'text-slate-500', icon: 'fa-ban', label: i18n.status.cancelada },
+            substituida: { bg: 'bg-violet-100', text: 'text-violet-700', icon: 'fa-code-branch', label: i18n.status.substituida },
         };
         const s = map[status] || map.pendente;
 
@@ -396,8 +399,8 @@ $i18nNfse = [
         // Visualizar (sempre)
         html += `<button onclick="navegarPara('/pages/nfse/${n.id}/visualizar')" title="${i18n.viewTitle}" class="text-blue-600 hover:text-blue-800 p-1"><i class="fas fa-eye"></i></button>`;
 
-        // PDF (autorizada ou cancelada)
-        if (n.status === 'autorizada' || n.status === 'cancelada') {
+        // PDF (autorizada, cancelada ou substituida)
+        if (n.status === 'autorizada' || n.status === 'cancelada' || n.status === 'substituida') {
             html += `<button type="button" data-id="${n.id}" data-numero="${escapeAttr(n.numero || n.id)}" title="${i18n.downloadPdf}" class="btn-download-pdf-nfse text-purple-600 hover:text-purple-800 p-1"><i class="fas fa-file-pdf"></i></button>`;
         }
 
@@ -412,7 +415,7 @@ $i18nNfse = [
         }
 
         // Cancelar (autorizada)
-        if (n.status === 'autorizada') {
+        if (n.status === 'autorizada' && n.cancelamento_status !== 'processando') {
             html += `<button onclick="navegarPara('/pages/nfse/${n.id}/cancelar')" title="${i18n.cancelNfse}" class="text-red-600 hover:text-red-800 p-1"><i class="fas fa-ban"></i></button>`;
         }
 

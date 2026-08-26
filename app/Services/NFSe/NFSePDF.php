@@ -157,6 +157,7 @@ class NFSePDF
         $statusLabel = match ($d['status'] ?? 'pendente') {
             'autorizada' => 'AUTORIZADA',
             'cancelada' => 'CANCELADA',
+            'substituida' => 'SUBSTITUÍDA',
             'rejeitada' => 'REJEITADA',
             'processando' => 'PROCESSANDO',
             default => 'PENDENTE',
@@ -165,6 +166,7 @@ class NFSePDF
         $statusColor = match ($d['status'] ?? 'pendente') {
             'autorizada' => '#28a745',
             'cancelada' => '#dc3545',
+            'substituida' => '#7c3aed',
             'rejeitada' => '#ffc107',
             default => '#6c757d',
         };
@@ -334,10 +336,11 @@ class NFSePDF
         $html .= '</table>';
         $html .= '</div>';
 
-        // Cancelamento
-        if (($d['status'] ?? '') === 'cancelada') {
+        // Cancelamento ou substituicao
+        if (in_array(($d['status'] ?? ''), ['cancelada', 'substituida'], true)) {
+            $tituloSituacao = ($d['status'] ?? '') === 'substituida' ? 'Substituição' : 'Cancelamento';
             $html .= '<div class="section">';
-            $html .= '<div class="section-title" style="border-left-color:#dc3545">Cancelamento</div>';
+            $html .= '<div class="section-title" style="border-left-color:#dc3545">' . $tituloSituacao . '</div>';
             $html .= '<table><tr>';
             $html .= '<td width="30%"><span class="label">Data</span><br><span class="value">' . ($d['data_cancelamento'] ?? '-') . '</span></td>';
             $html .= '<td width="70%"><span class="label">Motivo</span><br><span class="value">' . htmlspecialchars($d['motivo_cancelamento'] ?? '') . '</span></td>';

@@ -51,6 +51,12 @@ desconto histórico, mesmo que a promoção tenha vencido ou sido desativada. Um
 código novo é validado pelas regras atuais. Sem código, o desconto manual
 continua permitido.
 
+Na tela interna de locações, clicar novamente em **Aplicar promoção** envia a
+intenção explícita `reaplicar_promocao=1`. Nesse caso, mesmo que o código e o
+grupo não tenham mudado, o backend valida a promoção vigente e substitui o
+snapshot pelo desconto recalculado sobre o total oficial. Apenas abrir e salvar
+a locação mantém o snapshot anterior.
+
 `locacoes.promocao_codigo` e `locacoes.valor_desconto` são snapshots da
 aplicação. Registros históricos não devem ser reescritos em migrações de
 normalização do cadastro de promoções.

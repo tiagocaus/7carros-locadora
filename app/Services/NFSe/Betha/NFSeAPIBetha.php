@@ -14,6 +14,11 @@ class NFSeAPIBetha implements NFSeAPIInterface
     private const TIMEOUT_CONEXAO = 30;
     private const TIMEOUT_REQUISICAO = 90;
     private const TIPO_INTEGRACAO_EMISSAO = 'EMISSAO';
+    private const TIPOS_INTEGRACAO = [
+        'EMISSAO',
+        'CANCELAMENTO',
+        'CANCELAMENTO_POR_SUBSTITUICAO',
+    ];
 
     public function enviar(string $xml, string $certPath, string $keyPath, int $ambiente): array
     {
@@ -26,14 +31,26 @@ class NFSeAPIBetha implements NFSeAPIInterface
         return $this->consultarStatusDps($chaveAcesso, '', '', $certPath, $keyPath, $ambiente);
     }
 
-    public function consultarStatusDps(string $protocolo, string $codigoIbge, string $cpfCnpjPrestador, string $certPath, string $keyPath, int $ambiente): array
+    public function consultarStatusDps(
+        string $protocolo,
+        string $codigoIbge,
+        string $cpfCnpjPrestador,
+        string $certPath,
+        string $keyPath,
+        int $ambiente,
+        string $tipoIntegracao = self::TIPO_INTEGRACAO_EMISSAO
+    ): array
     {
+        if (!in_array($tipoIntegracao, self::TIPOS_INTEGRACAO, true)) {
+            throw new \InvalidArgumentException('Tipo de integração Betha inválido.');
+        }
+
         $body = '<ConsultarStatusDpsEnvio xmlns="http://www.betha.com.br/e-nota-dps">'
             . '<tpAmb>' . (int) $ambiente . '</tpAmb>'
             . '<codigoIbge>' . htmlspecialchars($this->somenteDigitos($codigoIbge), ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</codigoIbge>'
             . '<cpfCnpjPrestador>' . htmlspecialchars($this->somenteDigitos($cpfCnpjPrestador), ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</cpfCnpjPrestador>'
             . '<protocolo>' . htmlspecialchars($protocolo, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</protocolo>'
-            . '<tipoIntegracao>' . self::TIPO_INTEGRACAO_EMISSAO . '</tipoIntegracao>'
+            . '<tipoIntegracao>' . $tipoIntegracao . '</tipoIntegracao>'
             . '</ConsultarStatusDpsEnvio>';
 
         return $this->soapRequest($body, 'ConsultarStatusDps', $certPath, $keyPath, $ambiente);

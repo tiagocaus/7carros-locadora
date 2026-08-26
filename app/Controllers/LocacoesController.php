@@ -36,6 +36,7 @@ use App\Core\Database;
 use App\Services\AuditLogService;
 use App\Services\AuthorizationHoldReleaseService;
 use App\Services\GrupoPrecoPeriodoService;
+use App\Services\LocacaoAtualizacaoService;
 use App\Services\PromocaoAplicacaoService;
 use App\Services\ComissaoInvestidorService;
 use App\Exceptions\AuthorizationHoldReleaseException;
@@ -89,10 +90,16 @@ class LocacoesController
     {
         $codigoNovo = PromocaoAplicacaoService::normalizarCodigo($dados['promocao_codigo'] ?? '');
         $codigoAtual = PromocaoAplicacaoService::normalizarCodigo($locacao['promocao_codigo'] ?? '');
+        $reaplicarPromocao = (string) ($dados['reaplicar_promocao'] ?? '0') === '1';
         $grupoNovo = $codigoNovo !== '' ? $this->resolverGrupoPromocao($dados) : 0;
         $grupoAtual = (int) ($locacao['id_grupo'] ?? 0);
 
-        if ($codigoNovo === $codigoAtual && $codigoAtual !== '' && $grupoNovo === $grupoAtual) {
+        if (
+            !$reaplicarPromocao
+            && $codigoNovo === $codigoAtual
+            && $codigoAtual !== ''
+            && $grupoNovo === $grupoAtual
+        ) {
             $dados['promocao_codigo'] = $locacao['promocao_codigo'];
             $dados['valor_desconto'] = $locacao['valor_desconto'] ?? 0;
             return false;
@@ -798,6 +805,11 @@ class LocacoesController
      */
     public function update(Request $request, int $id): void
     {
+        $transacaoAtualizacao = null;
+        $registrouSaida = false;
+        $registrouDevolucao = false;
+        $valorCreditoRegistrado = 0.0;
+
         try {
             $locacaoModel = new Locacao();
             $locacao = $locacaoModel->buscarPorId($id);
@@ -948,10 +960,48 @@ class LocacoesController
                 $dados['odometro_fim'] = $this->normalizarOdometro($dados['odometro_fim'], true);
             }
 
+            if ($statusAnterior === 'R' && $statusNovo === 'A' && !Auth::can('locacoes.saida')) {
+                Response::json(['success' => false, 'message' => $this->apiMessage('no_permission_checkout')], 403);
+                return;
+            }
+
+            if ($statusAnterior === 'A' && $statusNovo === 'F') {
+                if (!Auth::can('locacoes.devolucao')) {
+                    Response::json(['success' => false, 'message' => $this->apiMessage('no_permission_return')], 403);
+                    return;
+                }
+
+                if (
+                    empty($dados['data_chegada']) ||
+                    empty($dados['odometro_fim']) ||
+                    !array_key_exists('combustivel_fim', $dados) ||
+                    $dados['combustivel_fim'] === ''
+                ) {
+                    Response::json([
+                        'success' => false,
+                        'message' => $this->apiMessage('return_fields_required')
+                    ], 400);
+                    return;
+                }
+
+                $odometroSaida = (int) ($dados['odometro_ini'] ?? $locacao['odometro_ini'] ?? 0);
+                if ((int) $dados['odometro_fim'] < $odometroSaida) {
+                    Response::json([
+                        'success' => false,
+                        'message' => $this->apiMessage('return_odometer_invalid')
+                    ], 400);
+                    return;
+                }
+            }
+
             $dadosLocacao = $dados;
+            unset($dadosLocacao['reaplicar_promocao']);
             if ($transicaoOperacional) {
                 unset($dadosLocacao['status']);
             }
+
+            $transacaoAtualizacao = new LocacaoAtualizacaoService();
+            $transacaoAtualizacao->iniciar();
 
             // 1. Atualizar locacao (sem dados de veiculo/taxa)
             $locacaoModel->atualizar($id, $dadosLocacao);
@@ -1099,55 +1149,15 @@ class LocacoesController
             // 5. Transicoes de status
             if ($statusAnterior === 'R' && $statusNovo === 'A') {
                 // R -> A: Registrar saida (veiculo sai da empresa)
-                if (!Auth::can('locacoes.saida')) {
-                    Response::json(['success' => false, 'message' => $this->apiMessage('no_permission_checkout')], 403);
-                    return;
-                }
-
                 $locacaoModel->registrarSaida($id, [
                     'data_saida' => $dados['data_saida'] ?? DateHelper::nowForDatabase(),
                     'odometro_ini' => $dados['odometro_ini'] ?? 0,
                     'combustivel_ini' => $dados['combustivel_ini'] ?? 0,
                 ]);
 
-                AuditLogService::registrar(
-                    ($_SESSION['user_name'] ?? 'Sistema') . ", registrou saida da locacao [{$locacao['codigo']}]"
-                );
-
-                $locacaoSaida = $locacaoModel->buscarPorId($id);
-                if ($locacaoSaida) {
-                    $this->dispararTemplateLocacao('rental_confirmation', $locacaoSaida, 'notificacao de locacao');
-                }
+                $registrouSaida = true;
             } elseif ($statusAnterior === 'A' && $statusNovo === 'F') {
                 // A -> F: Registrar devolucao (veiculo volta a empresa)
-                if (!Auth::can('locacoes.devolucao')) {
-                    Response::json(['success' => false, 'message' => $this->apiMessage('no_permission_return')], 403);
-                    return;
-                }
-
-                if (
-                    empty($dados['data_chegada']) ||
-                    empty($dados['odometro_fim']) ||
-                    !array_key_exists('combustivel_fim', $dados) ||
-                    $dados['combustivel_fim'] === ''
-                ) {
-                    Response::json([
-                        'success' => false,
-                        'message' => $this->apiMessage('return_fields_required')
-                    ], 400);
-                    return;
-                }
-
-                $odometroSaida = (int) ($dados['odometro_ini'] ?? $locacao['odometro_ini'] ?? 0);
-                $odometroDevolucao = (int) ($dados['odometro_fim'] ?? 0);
-                if ($odometroDevolucao < $odometroSaida) {
-                    Response::json([
-                        'success' => false,
-                        'message' => $this->apiMessage('return_odometer_invalid')
-                    ], 400);
-                    return;
-                }
-
                 $resumoFinanceiro = $locacaoModel->resumoFinanceiro($id);
                 $totalParcelasFinanceiro = (int) ($resumoFinanceiro['total_parcelas'] ?? 0);
                 $totalLancadoFinanceiro = (float) ($resumoFinanceiro['total_lancado'] ?? 0);
@@ -1164,22 +1174,37 @@ class LocacoesController
                 $valorCreditoDevolucao = $diferencaFinanceira < -0.009 ? abs($diferencaFinanceira) : 0.0;
 
                 if (self::deveExigirParcelasFinanceiras($totalEsperadoFinanceiro, $totalParcelasFinanceiro)) {
+                    $transacaoAtualizacao->reverter();
                     Response::json([
                         'success' => false,
-                        'message' => $this->apiMessage('financial_installments_required')
+                        'code' => 'financial_installments_required',
+                        'message' => $this->apiMessage('financial_installments_required'),
+                        'data' => [
+                            'total_lancado' => $totalLancadoFinanceiro,
+                            'total_esperado' => $totalEsperadoFinanceiro,
+                            'diferenca' => $diferencaFinanceira,
+                        ],
                     ], 400);
                     return;
                 }
 
                 if ($diferencaFinanceira > 0.009) {
+                    $transacaoAtualizacao->reverter();
                     Response::json([
                         'success' => false,
-                        'message' => $this->apiMessage('financial_installments_total_mismatch')
+                        'code' => 'financial_installments_total_mismatch',
+                        'message' => $this->apiMessage('financial_installments_total_mismatch'),
+                        'data' => [
+                            'total_lancado' => $totalLancadoFinanceiro,
+                            'total_esperado' => $totalEsperadoFinanceiro,
+                            'diferenca' => $diferencaFinanceira,
+                        ],
                     ], 400);
                     return;
                 }
 
                 if ($valorCreditoDevolucao > 0 && empty($dados['gerar_credito_devolucao'])) {
+                    $transacaoAtualizacao->reverter();
                     Response::json([
                         'success' => false,
                         'code' => 'return_refund_required',
@@ -1205,15 +1230,35 @@ class LocacoesController
                     'obs' => $dados['obs'] ?? null,
                 ];
 
-                $locacaoModel->registrarDevolucaoComCredito($id, $dadosDevolucao, $valorCreditoDevolucao, $chave);
+                if ($valorCreditoDevolucao > 0) {
+                    $locacaoModel->criarCreditoDevolucao($id, $valorCreditoDevolucao, $chave);
+                }
+                $locacaoModel->registrarDevolucao($id, $dadosDevolucao);
+                $registrouDevolucao = true;
+                $valorCreditoRegistrado = $valorCreditoDevolucao;
+            }
 
+            $transacaoAtualizacao->confirmar();
+
+            if ($registrouSaida) {
+                AuditLogService::registrar(
+                    ($_SESSION['user_name'] ?? 'Sistema') . ", registrou saida da locacao [{$locacao['codigo']}]"
+                );
+
+                $locacaoSaida = $locacaoModel->buscarPorId($id);
+                if ($locacaoSaida) {
+                    $this->dispararTemplateLocacao('rental_confirmation', $locacaoSaida, 'notificacao de locacao');
+                }
+            }
+
+            if ($registrouDevolucao) {
                 AuditLogService::registrar(
                     ($_SESSION['user_name'] ?? 'Sistema') . ", registrou devolucao da locacao [{$locacao['codigo']}]"
                 );
 
-                if ($valorCreditoDevolucao > 0) {
+                if ($valorCreditoRegistrado > 0) {
                     AuditLogService::registrar(
-                        ($_SESSION['user_name'] ?? 'Sistema') . ", gerou credito de devolucao de R$ " . number_format($valorCreditoDevolucao, 2, ',', '.') . " para locacao [{$locacao['codigo']}]"
+                        ($_SESSION['user_name'] ?? 'Sistema') . ", gerou credito de devolucao de R$ " . number_format($valorCreditoRegistrado, 2, ',', '.') . " para locacao [{$locacao['codigo']}]"
                     );
                 }
             }
@@ -1232,16 +1277,25 @@ class LocacoesController
                 }
             }
 
+            $locacaoAtualizada = $locacaoModel->buscarPorId($id);
             Response::json([
                 'success' => true,
-                'message' => $this->apiMessage('updated')
+                'message' => $this->apiMessage('updated'),
+                'data' => [
+                    'promocao_codigo' => $locacaoAtualizada['promocao_codigo'] ?? null,
+                    'valor_desconto' => (float) ($locacaoAtualizada['valor_desconto'] ?? 0),
+                    'total_fatura' => (float) ($locacaoAtualizada['total_fatura'] ?? 0),
+                    'total_pagar' => (float) ($locacaoAtualizada['total_pagar'] ?? 0),
+                ],
             ]);
         } catch (\InvalidArgumentException $e) {
+            $transacaoAtualizacao?->reverter();
             Response::json([
                 'success' => false,
                 'message' => $e->getMessage()
             ], 400);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $transacaoAtualizacao?->reverter();
             Response::json([
                 'success' => false,
                 'message' => $this->apiMessage('update_error', ['message' => $e->getMessage()])
