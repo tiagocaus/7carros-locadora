@@ -56,17 +56,17 @@ checkSinistros(!preg_match('/(^|[^A-Za-z])(?:alert|confirm)\s*\(/', $javascript)
 $taxasContrato = strpos($contratoView, 'data-form-tab-target="#tabTaxas"');
 $sinistrosContrato = strpos($contratoView, 'data-form-tab-target="#tabSinistros"');
 $financeiroContrato = strpos($contratoView, 'data-form-tab-target="#tabFinanceiro"');
-checkSinistros($taxasContrato < $sinistrosContrato && $sinistrosContrato < $financeiroContrato, 'Aba de sinistros deve ficar entre Taxas e Financeiro no contrato.');
+checkSinistros($taxasContrato < $sinistrosContrato && $sinistrosContrato < $financeiroContrato, 'Aba de sinistros deve ficar entre Taxas e servicos e Financeiro no contrato.');
 
 $taxasNovoContrato = strpos($contratoAdicionarView, 'data-form-tab-target="#tabTaxas"');
 $sinistrosNovoContrato = strpos($contratoAdicionarView, 'data-form-tab-target="#tabSinistros"');
 $financeiroNovoContrato = strpos($contratoAdicionarView, 'data-form-tab-target="#tabFinanceiro"');
-checkSinistros($taxasNovoContrato < $sinistrosNovoContrato && $sinistrosNovoContrato < $financeiroNovoContrato, 'Aba de sinistros deve ficar entre Taxas e Financeiro no novo contrato.');
+checkSinistros($taxasNovoContrato < $sinistrosNovoContrato && $sinistrosNovoContrato < $financeiroNovoContrato, 'Aba de sinistros deve ficar entre Taxas e servicos e Financeiro no novo contrato.');
 
 $taxasLocacao = strpos($locacaoView, 'data-form-tab-target="#tabTaxas"');
 $sinistrosLocacao = strpos($locacaoView, 'data-form-tab-target="#tabSinistros"');
 $financeiroLocacao = strpos($locacaoView, 'data-form-tab-target="#tabFinanceiro"');
-checkSinistros($taxasLocacao < $sinistrosLocacao && $sinistrosLocacao < $financeiroLocacao, 'Aba de sinistros deve ficar entre Taxas e Financeiro na locacao.');
+checkSinistros($taxasLocacao < $sinistrosLocacao && $sinistrosLocacao < $financeiroLocacao, 'Aba de sinistros deve ficar entre Taxas e servicos e Financeiro na locacao.');
 
 foreach ([
     'contrato' => $contratoView,

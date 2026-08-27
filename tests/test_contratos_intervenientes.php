@@ -44,7 +44,7 @@ foreach ($views as $contexto => $path) {
 
     $inicio = strpos($view, '<div id="tabIntervenientes" class="form-tab-content">');
     $fim = strpos($view, '<div id="tabTaxas" class="form-tab-content">', $inicio);
-    checkContratosIntervenientes($inicio !== false && $fim !== false, "{$contexto} deve manter Intervenientes antes de Taxas.");
+    checkContratosIntervenientes($inicio !== false && $fim !== false, "{$contexto} deve manter Intervenientes antes de Taxas e servicos.");
 
     $conteudo = substr($view, $inicio, $fim - $inicio);
     foreach (['listaCondutores', 'listaFiadores', 'listaAvalistas', 'listaTestemunhas'] as $lista) {

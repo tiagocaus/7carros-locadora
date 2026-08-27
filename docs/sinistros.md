@@ -7,7 +7,7 @@ operacional separado da cobranca financeira opcional ao cliente.
 
 ## Interface
 
-A aba **Sinistros** aparece imediatamente depois de **Taxas** nos formularios de
+A aba **Sinistros** aparece imediatamente depois de **Taxas e servicos** nos formularios de
 contratos e locacoes. Em registros ainda nao salvos, a aba orienta o usuario a
 salvar antes de registrar um sinistro.
 

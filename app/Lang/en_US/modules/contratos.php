@@ -20,7 +20,7 @@ return [
         'guarantor' => 'Guarantor',
         'endorser' => 'Endorser',
         'witnesses' => 'Witnesses',
-        'fees' => 'Fees',
+        'fees' => 'Fees and services',
         'financial' => 'Financial',
         'notes' => 'Notes',
         'summary' => 'Summary',

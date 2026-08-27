@@ -151,7 +151,7 @@ O formulario de criacao e edicao possui 8 abas:
 - Avalistas, armazenados em JSON no campo `array_avalistas`
 - Testemunhas, armazenadas em JSON no campo `array_testemunhas`
 
-### Aba 4: Taxas
+### Aba 4: Taxas e servicos
 - Taxas e servicos adicionais vinculados ao contrato
 
 ### Aba 5: Sinistros

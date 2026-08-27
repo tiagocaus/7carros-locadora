@@ -20,7 +20,7 @@ return [
         'guarantor' => 'Fiador',
         'endorser' => 'Avalista',
         'witnesses' => 'Testemunhas',
-        'fees' => 'Taxas',
+        'fees' => 'Taxas e serviços',
         'financial' => 'Financeiro',
         'notes' => 'Obs',
         'summary' => 'Resumo',

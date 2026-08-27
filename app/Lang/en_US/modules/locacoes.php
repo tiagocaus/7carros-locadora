@@ -13,7 +13,7 @@ return [
         'client' => 'Client',
         'vehicle' => 'Vehicle',
         'stakeholders' => 'Stakeholders',
-        'fees' => 'Fees',
+        'fees' => 'Fees and services',
         'financial' => 'Financial',
         'notes' => 'Notes',
         'summary' => 'Summary',

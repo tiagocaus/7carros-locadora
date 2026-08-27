@@ -13,7 +13,7 @@ return [
         'client' => 'Cliente',
         'vehicle' => 'Vehículo',
         'stakeholders' => 'Partes Interesadas',
-        'fees' => 'Tasas',
+        'fees' => 'Tasas y servicios',
         'financial' => 'Financiero',
         'notes' => 'Notas',
         'summary' => 'Resumen',

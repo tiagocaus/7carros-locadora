@@ -52,7 +52,7 @@ Na aba Resumo do formulario, locacoes com plano KMC e franquia maior que zero ex
 ## Fluxo de Status
 
 Na tela de criacao/edicao, a aba **Sinistros** aparece imediatamente depois de
-**Taxas**. O cadastro exige que a locacao ja esteja salva, aceita veiculos atuais
+**Taxas e servicos**. O cadastro exige que a locacao ja esteja salva, aceita veiculos atuais
 ou historicos do vinculo e pode gerar uma cobranca financeira opcional. Veja
 [sinistros.md](sinistros.md).
 
