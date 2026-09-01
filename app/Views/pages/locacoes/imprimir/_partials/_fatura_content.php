@@ -234,6 +234,23 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
         }
     }
 
+    $condutoresCobrancaFatura = $locacao['condutor_adicional'] ?? [];
+    if (is_string($condutoresCobrancaFatura)) {
+        $condutoresCobrancaFatura = json_decode($condutoresCobrancaFatura, true);
+    }
+    $qtdCondutoresCobrancaFatura = is_array($condutoresCobrancaFatura)
+        ? count($condutoresCobrancaFatura)
+        : 0;
+    $valorCondutorCobrancaFatura = (float) ($locacao['valor_condutor_adicional'] ?? 0);
+    if ($qtdCondutoresCobrancaFatura > 0 && $valorCondutorCobrancaFatura > 0) {
+        $linhasFatura[] = [
+            'descricao' => t('modules.locacoes.pdf.additional_driver'),
+            'qtd' => (string) $qtdCondutoresCobrancaFatura,
+            'unitario' => $valorCondutorCobrancaFatura,
+            'total' => $qtdCondutoresCobrancaFatura * $valorCondutorCobrancaFatura,
+        ];
+    }
+
     foreach (($taxas ?? []) as $taxa) {
         $linhasFatura[] = [
             'descricao' => $taxa['nome'] ?? '-',

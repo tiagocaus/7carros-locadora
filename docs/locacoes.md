@@ -45,6 +45,8 @@ As observações cadastradas na caução ficam disponíveis no modelo customizad
 
 A fatura da locação mantém a ordem principal: Dados do Cliente, Dados da Locação, Composição da Fatura, Totais e Pagamentos. Dados complementares aparecem depois dos pagamentos quando houver informação: condutor adicional, referências/intervenientes (fiadores, avalistas e testemunhas), histórico de veículos/substituições e multas vinculadas.
 
+Quando houver condutores adicionais e o snapshot do veículo possuir `valor_condutor_adicional` positivo, a Composição da Fatura exibe uma linha monetária com quantidade de condutores, valor unitário e total. Essa cobrança nativa permanece separada de eventuais taxas e serviços com nome semelhante.
+
 Em Dados do Cliente, a fatura exibe o endereço completo do cliente quando cadastrado. Em locações com plano KMC abertas ou em reserva, a linha do plano na Composição da Fatura informa a franquia por dia e o total de km permitido no período.
 
 Na aba Resumo do formulario, locacoes com plano KMC e franquia maior que zero exibem a mesma informacao logo abaixo da diaria. O total permitido e recalculado dinamicamente pela formula `franquia diaria * dias da locacao`.
