@@ -48,6 +48,16 @@ Este documento especifica o comportamento e as informações que cada relatório
 
 **Fórmula**: `(Dias Locados / Dias Disponíveis) × 100`
 
+**Composicao historica da frota**:
+- O periodo e inclusivo nas duas pontas (por exemplo, 01/08 a 31/08 possui 31 dias).
+- A data de compra e o primeiro dia disponivel do veiculo.
+- A data de venda ja nao e um dia disponivel; o veiculo conta somente ate o dia anterior.
+- Veiculo vendido antes do periodo nao entra no total, no detalhamento nem no grafico.
+- Veiculo vendido sem `data_venda` fica sempre fora, pois nao existe base confiavel para reconstruir o historico. Se ele precisar aparecer em um periodo anterior a venda, preencha `data_venda` no cadastro.
+- Status roubado (`RO`) e excluido (`E`) ficam fora da frota. `data_venda` de veiculo que nao esteja com status vendido (`V`) nao altera o relatorio.
+- No filtro por filial, a filial cadastrada no veiculo define a frota; toda ocupacao desse veiculo e contabilizada, mesmo que a operacao tenha ocorrido em outra unidade.
+- Dias sobrepostos entre locacoes e contratos contam uma unica vez e sao limitados a janela de disponibilidade do veiculo.
+
 **Filtros específicos**:
 - Grupo de veículos
 - Veículo específico

@@ -121,6 +121,23 @@ public/assets/js/
 
 ## Padroes Obrigatorios
 
+### Frota historica nos KPIs
+
+Taxa de Ocupacao, RevPAR, Receita por Veiculo e ROI devem usar a mesma regra de
+presenca do veiculo no periodo. A consulta continua tenant-scoped pelo filtro
+automatico do QueryBuilder e aplica filial/grupo sobre o cadastro do veiculo.
+
+- Periodos e janelas de compra/venda usam dias civis inclusivos, mas o proprio
+  dia da venda fica fora da disponibilidade.
+- Vendido (`V`) com `data_venda` pode aparecer somente em periodos anteriores a
+  venda. Vendido sem data, roubado (`RO`) e excluido (`E`) ficam sempre fora.
+- Dados legados de `data_venda` em veiculo cujo status nao seja `V` sao ignorados.
+- Dias ocupados devem ser recortados a janela disponivel e unificados entre
+  locacoes e contratos, impedindo duplicidade e taxa superior a 100%.
+- Os totalizadores devem ser derivados das mesmas linhas do detalhamento. Nao
+  calcule dias disponiveis apenas como status atual x duracao integral quando
+  houver compra ou venda dentro do periodo.
+
 ### Relatórios pelo regime de caixa
 
 O relatório Financeiro > Resultado Gerencial por Caixa usa `pago = 'S'` e

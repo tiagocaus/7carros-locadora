@@ -2,7 +2,9 @@
 
 namespace App\Models\Relatorios;
 
+use App\Classes\QueryBuilder;
 use App\Core\Auth;
+use App\Helpers\DateHelper;
 
 /**
  * Model para relatórios de KPIs / Indicadores de Desempenho
@@ -35,68 +37,257 @@ class KpiReport extends BaseReportModel
         string $grupoId = '',
         string $veiculoId = ''
     ): array {
-        $chave = Auth::chave();
-        $diasPeriodo = $this->daysBetween($dataInicio, $dataFim) ?: 1;
-
-        // Total de veículos ativos no período
-        $queryVeiculos = $this->qb
-            ->table('veiculos', 'v')
-            ->selectRaw('COUNT(*) AS total_veiculos')
-            ->where('v.disponibilidade', '!=', 'VE');
-
-        if (!empty($filialWhere)) {
-            $filialWherePrefixed = str_replace('id_matriz_filial', 'v.id_matriz_filial', $filialWhere);
-            $queryVeiculos->whereRaw($filialWherePrefixed, $filialParams);
-        }
-
-        if (!empty($filialId)) {
-            $queryVeiculos->where('v.id_matriz_filial', '=', (int) $filialId);
-        }
-
-        if (!empty($grupoId)) {
-            $queryVeiculos->where('v.id_grupo', '=', (int) $grupoId);
-        }
-
-        if (!empty($veiculoId)) {
-            $queryVeiculos->where('v.id', '=', (int) $veiculoId);
-        }
-
-        $resultVeiculos = $queryVeiculos->first();
-        $totalVeiculos = (int) ($resultVeiculos['total_veiculos'] ?? 0);
-        $diasDisponiveis = $totalVeiculos * $diasPeriodo;
-
-        // Dias locados (soma dos dias de cada veículo locado no período)
-        // Considerar locações e contratos que se sobrepõem com o período
-        $diasLocados = $this->calcularDiasLocados($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId);
-
-        $diasParados = max(0, $diasDisponiveis - $diasLocados);
-        $taxaOcupacao = $this->pct($diasLocados, $diasDisponiveis);
-
-        // Detalhes por veículo
-        $detalhes = $this->detalheTaxaOcupacaoPorVeiculo($chave, $dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId);
+        $resumo = $this->resumirOcupacaoPeriodo(
+            $dataInicio,
+            $dataFim,
+            $filialWhere,
+            $filialParams,
+            $filialId,
+            $grupoId,
+            $veiculoId
+        );
 
         // Dados para gráfico (evolução mensal)
         $chartData = $this->chartTaxaOcupacaoMensal($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId, $veiculoId);
 
         return [
-            'totals' => [
-                'total_veiculos' => $totalVeiculos,
-                'dias_disponiveis' => $diasDisponiveis,
-                'dias_locados' => $diasLocados,
-                'dias_parados' => $diasParados,
-                'taxa_ocupacao' => $taxaOcupacao,
-            ],
-            'details' => $detalhes,
+            'totals' => $resumo['totals'],
+            'details' => $resumo['details'],
             'chart' => $chartData,
         ];
     }
 
     /**
-     * Calcula total de dias locados no período
+     * Monta a frota historicamente presente no período.
      *
-     * Considera locações e contratos que se sobrepõem com o período informado.
-     * Usa GREATEST/LEAST para calcular apenas dias dentro do período.
+     * O dia da compra entra na disponibilidade e o dia da venda nao entra.
+     * Vendidos sem data ficam sempre fora: sem data_venda nao existe base
+     * confiavel para reconstruir em quais relatorios historicos eles entrariam.
      */
+    private function buscarFrotaNoPeriodo(
+        string $dataInicio,
+        string $dataFim,
+        string $filialWhere,
+        array $filialParams,
+        string $filialId,
+        string $grupoId,
+        string $veiculoId
+    ): array {
+        $query = $this->qb
+            ->table('veiculos', 'v')
+            ->select([
+                'v.id',
+                'v.placa',
+                'v.marca',
+                'v.modelo',
+                'v.ano',
+                'v.id_grupo',
+                'v.data_compra',
+                'v.data_venda',
+                'v.disponibilidade',
+            ])
+            ->selectRaw('g.nome AS grupo_nome')
+            ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id');
+
+        $this->aplicarFiltroFrotaNoPeriodo($query, $dataInicio, $dataFim);
+
+        if (!empty($filialWhere)) {
+            $query->whereRaw(str_replace('id_matriz_filial', 'v.id_matriz_filial', $filialWhere), $filialParams);
+        }
+        if (!empty($filialId)) {
+            $query->where('v.id_matriz_filial', '=', (int) $filialId);
+        }
+        if (!empty($grupoId)) {
+            $query->where('v.id_grupo', '=', (int) $grupoId);
+        }
+        if (!empty($veiculoId)) {
+            $query->where('v.id', '=', (int) $veiculoId);
+        }
+
+        $veiculos = $query->orderBy('v.placa', 'ASC')->get();
+        $frota = [];
+
+        foreach ($veiculos as $veiculo) {
+            $inicioDisponibilidade = $dataInicio;
+            if (!empty($veiculo['data_compra']) && $veiculo['data_compra'] > $inicioDisponibilidade) {
+                $inicioDisponibilidade = $veiculo['data_compra'];
+            }
+
+            $fimDisponibilidade = $dataFim;
+            if (($veiculo['disponibilidade'] ?? '') === 'V' && !empty($veiculo['data_venda'])) {
+                $fimDisponibilidade = min(
+                    $fimDisponibilidade,
+                    DateHelper::addDaysForDatabase(-1, $veiculo['data_venda'])
+                );
+            }
+
+            if ($inicioDisponibilidade > $fimDisponibilidade) {
+                continue;
+            }
+
+            $veiculo['disponibilidade_inicio'] = $inicioDisponibilidade;
+            $veiculo['disponibilidade_fim'] = $fimDisponibilidade;
+            $veiculo['dias_disponiveis'] = $this->daysBetween($inicioDisponibilidade, $fimDisponibilidade) + 1;
+            $frota[] = $veiculo;
+        }
+
+        return $frota;
+    }
+
+    /** Aplica a mesma regra historica em todas as consultas de veiculos dos KPIs. */
+    private function aplicarFiltroFrotaNoPeriodo(QueryBuilder $query, string $dataInicio, string $dataFim): void
+    {
+        $query
+            ->whereRaw('(v.data_compra IS NULL OR v.data_compra <= ?)', [$dataFim])
+            ->whereRaw(
+                "(COALESCE(v.disponibilidade, '') NOT IN ('V', 'RO', 'E')
+                    OR (v.disponibilidade = 'V' AND v.data_venda IS NOT NULL AND v.data_venda > ?))",
+                [$dataInicio]
+            );
+    }
+
+    /**
+     * Conta dias civis ocupados por veiculo, unificando intervalos de locacoes
+     * e contratos para que o mesmo dia nunca seja contado duas vezes.
+     */
+    private function calcularDiasOcupadosPorVeiculo(array $frota, string $dataInicio, string $dataFim): array
+    {
+        if ($frota === []) {
+            return [];
+        }
+
+        $ids = array_map(static fn(array $veiculo): int => (int) $veiculo['id'], $frota);
+        $inicioDia = $dataInicio . ' 00:00:00';
+        $fimDia = $dataFim . ' 23:59:59';
+
+        $locacoes = $this->qb
+            ->table('locacoes_veiculos', 'lv')
+            ->select(['lv.id_veiculo', 'lv.data_saida', 'lv.data_entrada'])
+            ->innerJoin('locacoes', 'l', 'lv.id_locacao', '=', 'l.id')
+            ->whereIn('lv.id_veiculo', $ids)
+            ->where('l.status', '!=', 'C')
+            ->whereRaw('lv.data_saida <= ?', [$fimDia])
+            ->whereRaw('COALESCE(lv.data_entrada, ?) >= ?', [$fimDia, $inicioDia])
+            ->get();
+
+        $contratos = $this->qb
+            ->table('contratos_veiculos', 'cv')
+            ->select(['cv.id_veiculo', 'cv.data_saida', 'cv.data_entrada'])
+            ->innerJoin('contratos', 'c', 'cv.id_contrato', '=', 'c.id')
+            ->whereIn('cv.id_veiculo', $ids)
+            ->where('c.status', '!=', 'C')
+            ->whereRaw('cv.data_saida <= ?', [$fimDia])
+            ->whereRaw('COALESCE(cv.data_entrada, ?) >= ?', [$fimDia, $inicioDia])
+            ->get();
+
+        $janelas = [];
+        foreach ($frota as $veiculo) {
+            $janelas[(int) $veiculo['id']] = [
+                'inicio' => $veiculo['disponibilidade_inicio'],
+                'fim' => $veiculo['disponibilidade_fim'],
+            ];
+        }
+
+        $intervalos = [];
+        foreach (array_merge($locacoes, $contratos) as $vinculo) {
+            $idVeiculo = (int) ($vinculo['id_veiculo'] ?? 0);
+            if (!isset($janelas[$idVeiculo]) || empty($vinculo['data_saida'])) {
+                continue;
+            }
+
+            $inicio = max(substr($vinculo['data_saida'], 0, 10), $janelas[$idVeiculo]['inicio']);
+            $fimVinculo = !empty($vinculo['data_entrada'])
+                ? substr($vinculo['data_entrada'], 0, 10)
+                : $dataFim;
+            $fim = min($fimVinculo, $janelas[$idVeiculo]['fim']);
+
+            if ($inicio <= $fim) {
+                $intervalos[$idVeiculo][] = ['inicio' => $inicio, 'fim' => $fim];
+            }
+        }
+
+        $diasPorVeiculo = array_fill_keys($ids, 0);
+        foreach ($intervalos as $idVeiculo => $faixas) {
+            usort($faixas, static fn(array $a, array $b): int => $a['inicio'] <=> $b['inicio']);
+            $mescladas = [];
+
+            foreach ($faixas as $faixa) {
+                $ultima = array_key_last($mescladas);
+                if ($ultima === null || $faixa['inicio'] > DateHelper::addDaysForDatabase(1, $mescladas[$ultima]['fim'])) {
+                    $mescladas[] = $faixa;
+                    continue;
+                }
+
+                if ($faixa['fim'] > $mescladas[$ultima]['fim']) {
+                    $mescladas[$ultima]['fim'] = $faixa['fim'];
+                }
+            }
+
+            foreach ($mescladas as $faixa) {
+                $diasPorVeiculo[$idVeiculo] += $this->daysBetween($faixa['inicio'], $faixa['fim']) + 1;
+            }
+        }
+
+        return $diasPorVeiculo;
+    }
+
+    private function resumirOcupacaoPeriodo(
+        string $dataInicio,
+        string $dataFim,
+        string $filialWhere,
+        array $filialParams,
+        string $filialId,
+        string $grupoId,
+        string $veiculoId
+    ): array {
+        $frota = $this->buscarFrotaNoPeriodo(
+            $dataInicio,
+            $dataFim,
+            $filialWhere,
+            $filialParams,
+            $filialId,
+            $grupoId,
+            $veiculoId
+        );
+        $diasPorVeiculo = $this->calcularDiasOcupadosPorVeiculo($frota, $dataInicio, $dataFim);
+
+        $detalhes = array_map(function (array $veiculo) use ($diasPorVeiculo): array {
+            $diasDisponiveis = (int) $veiculo['dias_disponiveis'];
+            $diasLocados = min($diasDisponiveis, max(0, (int) ($diasPorVeiculo[(int) $veiculo['id']] ?? 0)));
+
+            return [
+                'id' => $veiculo['id'],
+                'placa' => $veiculo['placa'],
+                'veiculo' => trim(($veiculo['marca'] ?? '') . ' ' . ($veiculo['modelo'] ?? '')),
+                'ano' => $veiculo['ano'],
+                'grupo' => $veiculo['grupo_nome'] ?? '-',
+                'dias_locados' => $diasLocados,
+                'dias_parados' => $diasDisponiveis - $diasLocados,
+                'taxa_ocupacao' => $this->pct($diasLocados, $diasDisponiveis),
+            ];
+        }, $frota);
+
+        usort($detalhes, static function (array $a, array $b): int {
+            return ($b['dias_locados'] <=> $a['dias_locados']) ?: strcmp((string) $a['placa'], (string) $b['placa']);
+        });
+
+        $diasDisponiveis = array_sum(array_column($frota, 'dias_disponiveis'));
+        $diasLocados = array_sum(array_column($detalhes, 'dias_locados'));
+        $diasParados = $diasDisponiveis - $diasLocados;
+
+        return [
+            'totals' => [
+                'total_veiculos' => count($detalhes),
+                'dias_disponiveis' => $diasDisponiveis,
+                'dias_locados' => $diasLocados,
+                'dias_parados' => $diasParados,
+                'taxa_ocupacao' => $this->pct($diasLocados, $diasDisponiveis),
+            ],
+            'details' => $detalhes,
+        ];
+    }
+
+    /** Mantem os demais KPIs sobre a mesma contagem unica de dias ocupados. */
     private function calcularDiasLocados(
         string $dataInicio,
         string $dataFim,
@@ -106,163 +297,17 @@ class KpiReport extends BaseReportModel
         string $grupoId,
         string $veiculoId
     ): int {
-        // Dias de locações (diárias)
-        $queryLocacoes = $this->qb
-            ->table('locacoes_veiculos', 'lv')
-            ->selectRaw("COALESCE(SUM(DATEDIFF(
-                LEAST(COALESCE(lv.data_entrada, '{$dataFim}'), '{$dataFim}'),
-                GREATEST(lv.data_saida, '{$dataInicio}')
-            ) + 1), 0) AS dias_locados")
-            ->innerJoin('locacoes', 'l', 'lv.id_locacao', '=', 'l.id')
-            ->where('l.status', '!=', 'C')
-            ->whereRaw('lv.data_saida <= ?', [$dataFim])
-            ->whereRaw("COALESCE(lv.data_entrada, '{$dataFim}') >= ?", [$dataInicio]);
+        $resumo = $this->resumirOcupacaoPeriodo(
+            $dataInicio,
+            $dataFim,
+            $filialWhere,
+            $filialParams,
+            $filialId,
+            $grupoId,
+            $veiculoId
+        );
 
-        if (!empty($filialWhere)) {
-            $filialWherePrefixed = str_replace('id_matriz_filial', 'l.id_matriz_filial_retirada', $filialWhere);
-            $queryLocacoes->whereRaw($filialWherePrefixed, $filialParams);
-        }
-
-        if (!empty($filialId)) {
-            $queryLocacoes->where('l.id_matriz_filial_retirada', '=', (int) $filialId);
-        }
-
-        if (!empty($grupoId)) {
-            $queryLocacoes->where('lv.id_grupo', '=', (int) $grupoId);
-        }
-
-        if (!empty($veiculoId)) {
-            $queryLocacoes->where('lv.id_veiculo', '=', (int) $veiculoId);
-        }
-
-        $resultLocacoes = $queryLocacoes->first();
-        $diasLocacoes = max(0, (int) ($resultLocacoes['dias_locados'] ?? 0));
-
-        // Dias de contratos (mensais)
-        $queryContratos = $this->qb
-            ->table('contratos_veiculos', 'cv')
-            ->selectRaw("COALESCE(SUM(DATEDIFF(
-                LEAST(COALESCE(cv.data_entrada, '{$dataFim}'), '{$dataFim}'),
-                GREATEST(cv.data_saida, '{$dataInicio}')
-            ) + 1), 0) AS dias_locados")
-            ->innerJoin('contratos', 'c', 'cv.id_contrato', '=', 'c.id')
-            ->where('c.status', '!=', 'C')
-            ->whereRaw('cv.data_saida <= ?', [$dataFim])
-            ->whereRaw("COALESCE(cv.data_entrada, '{$dataFim}') >= ?", [$dataInicio]);
-
-        if (!empty($filialWhere)) {
-            $filialWherePrefixed = str_replace('id_matriz_filial', 'c.id_matriz_filial_retirada', $filialWhere);
-            $queryContratos->whereRaw($filialWherePrefixed, $filialParams);
-        }
-
-        if (!empty($filialId)) {
-            $queryContratos->where('c.id_matriz_filial_retirada', '=', (int) $filialId);
-        }
-
-        if (!empty($grupoId)) {
-            $queryContratos->where('cv.id_grupo', '=', (int) $grupoId);
-        }
-
-        if (!empty($veiculoId)) {
-            $queryContratos->where('cv.id_veiculo', '=', (int) $veiculoId);
-        }
-
-        $resultContratos = $queryContratos->first();
-        $diasContratos = max(0, (int) ($resultContratos['dias_locados'] ?? 0));
-
-        return $diasLocacoes + $diasContratos;
-    }
-
-    /**
-     * Taxa de ocupação detalhada por veículo
-     */
-    private function detalheTaxaOcupacaoPorVeiculo(
-        string $chave,
-        string $dataInicio,
-        string $dataFim,
-        string $filialWhere,
-        array $filialParams,
-        string $filialId,
-        string $grupoId,
-        string $veiculoId
-    ): array {
-        $diasPeriodo = $this->daysBetween($dataInicio, $dataFim) ?: 1;
-
-        $query = $this->qb
-            ->table('veiculos', 'v')
-            ->select([
-                'v.id',
-                'v.placa',
-                'v.marca',
-                'v.modelo',
-                'v.ano',
-            ])
-            ->selectRaw('g.nome AS grupo_nome')
-            ->selectRaw("
-                COALESCE((
-                    SELECT SUM(DATEDIFF(
-                        LEAST(COALESCE(lv.data_entrada, '{$dataFim}'), '{$dataFim}'),
-                        GREATEST(lv.data_saida, '{$dataInicio}')
-                    ) + 1)
-                    FROM locacoes_veiculos lv
-                    INNER JOIN locacoes l ON lv.id_locacao = l.id
-                    WHERE lv.id_veiculo = v.id
-                    AND l.chave = '{$chave}'
-                    AND l.status != 'C'
-                    AND lv.data_saida <= '{$dataFim}'
-                    AND COALESCE(lv.data_entrada, '{$dataFim}') >= '{$dataInicio}'
-                ), 0) +
-                COALESCE((
-                    SELECT SUM(DATEDIFF(
-                        LEAST(COALESCE(cv2.data_entrada, '{$dataFim}'), '{$dataFim}'),
-                        GREATEST(cv2.data_saida, '{$dataInicio}')
-                    ) + 1)
-                    FROM contratos_veiculos cv2
-                    INNER JOIN contratos ct ON cv2.id_contrato = ct.id
-                    WHERE cv2.id_veiculo = v.id
-                    AND ct.chave = '{$chave}'
-                    AND ct.status != 'C'
-                    AND cv2.data_saida <= '{$dataFim}'
-                    AND COALESCE(cv2.data_entrada, '{$dataFim}') >= '{$dataInicio}'
-                ), 0) AS dias_locados
-            ")
-            ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
-            ->where('v.disponibilidade', '!=', 'VE')
-            ->orderByRaw('dias_locados DESC');
-
-        if (!empty($filialWhere)) {
-            $filialWherePrefixed = str_replace('id_matriz_filial', 'v.id_matriz_filial', $filialWhere);
-            $query->whereRaw($filialWherePrefixed, $filialParams);
-        }
-
-        if (!empty($filialId)) {
-            $query->where('v.id_matriz_filial', '=', (int) $filialId);
-        }
-
-        if (!empty($grupoId)) {
-            $query->where('v.id_grupo', '=', (int) $grupoId);
-        }
-
-        if (!empty($veiculoId)) {
-            $query->where('v.id', '=', (int) $veiculoId);
-        }
-
-        $veiculos = $query->get();
-
-        return array_map(function ($v) use ($diasPeriodo) {
-            $diasLocados = max(0, (int) $v['dias_locados']);
-            $diasParados = max(0, $diasPeriodo - $diasLocados);
-            return [
-                'id' => $v['id'],
-                'placa' => $v['placa'],
-                'veiculo' => trim(($v['marca'] ?? '') . ' ' . ($v['modelo'] ?? '')),
-                'ano' => $v['ano'],
-                'grupo' => $v['grupo_nome'] ?? '-',
-                'dias_locados' => $diasLocados,
-                'dias_parados' => $diasParados,
-                'taxa_ocupacao' => $this->pct($diasLocados, $diasPeriodo),
-            ];
-        }, $veiculos);
+        return (int) $resumo['totals']['dias_locados'];
     }
 
     /**
@@ -297,7 +342,7 @@ class KpiReport extends BaseReportModel
                 }
 
                 $labels[] = $current->format('d/m');
-                $dias = $this->calcularDiasLocados(
+                $resumo = $this->resumirOcupacaoPeriodo(
                     $current->format('Y-m-d'),
                     $weekEnd->format('Y-m-d'),
                     $filialWhere,
@@ -306,12 +351,7 @@ class KpiReport extends BaseReportModel
                     $grupoId,
                     $veiculoId
                 );
-
-                // Total veículos para este sub-período
-                $subDias = $this->daysBetween($current->format('Y-m-d'), $weekEnd->format('Y-m-d')) ?: 1;
-                $totalVeiculos = $this->contarVeiculosAtivos($filialWhere, $filialParams, $filialId, $grupoId, $veiculoId);
-                $disponivel = $totalVeiculos * $subDias;
-                $values[] = $this->pct($dias, $disponivel);
+                $values[] = $resumo['totals']['taxa_ocupacao'];
 
                 $current->modify('+7 days');
             }
@@ -330,7 +370,7 @@ class KpiReport extends BaseReportModel
                 }
 
                 $labels[] = $monthStart->format('m/Y');
-                $dias = $this->calcularDiasLocados(
+                $resumo = $this->resumirOcupacaoPeriodo(
                     $monthStart->format('Y-m-d'),
                     $monthEnd->format('Y-m-d'),
                     $filialWhere,
@@ -339,11 +379,7 @@ class KpiReport extends BaseReportModel
                     $grupoId,
                     $veiculoId
                 );
-
-                $subDias = $this->daysBetween($monthStart->format('Y-m-d'), $monthEnd->format('Y-m-d')) ?: 1;
-                $totalVeiculos = $this->contarVeiculosAtivos($filialWhere, $filialParams, $filialId, $grupoId, $veiculoId);
-                $disponivel = $totalVeiculos * $subDias;
-                $values[] = $this->pct($dias, $disponivel);
+                $values[] = $resumo['totals']['taxa_ocupacao'];
 
                 $current->modify('first day of next month');
             }
@@ -361,42 +397,6 @@ class KpiReport extends BaseReportModel
     }
 
     /**
-     * Conta veículos ativos (não vendidos)
-     */
-    private function contarVeiculosAtivos(
-        string $filialWhere,
-        array $filialParams,
-        string $filialId,
-        string $grupoId,
-        string $veiculoId
-    ): int {
-        $query = $this->qb
-            ->table('veiculos', 'v')
-            ->selectRaw('COUNT(*) AS total')
-            ->where('v.disponibilidade', '!=', 'VE');
-
-        if (!empty($filialWhere)) {
-            $filialWherePrefixed = str_replace('id_matriz_filial', 'v.id_matriz_filial', $filialWhere);
-            $query->whereRaw($filialWherePrefixed, $filialParams);
-        }
-
-        if (!empty($filialId)) {
-            $query->where('v.id_matriz_filial', '=', (int) $filialId);
-        }
-
-        if (!empty($grupoId)) {
-            $query->where('v.id_grupo', '=', (int) $grupoId);
-        }
-
-        if (!empty($veiculoId)) {
-            $query->where('v.id', '=', (int) $veiculoId);
-        }
-
-        $result = $query->first();
-        return (int) ($result['total'] ?? 0);
-    }
-
-    /**
      * RevPAR (Receita por Veículo Disponível/Dia)
      *
      * Fórmula: Receita Total de Locação / Total de Dias Disponíveis
@@ -409,10 +409,17 @@ class KpiReport extends BaseReportModel
         string $filialId = '',
         string $grupoId = ''
     ): array {
-        $diasPeriodo = $this->daysBetween($dataInicio, $dataFim) ?: 1;
-
-        $totalVeiculos = $this->contarVeiculosAtivos($filialWhere, $filialParams, $filialId, $grupoId, '');
-        $diasDisponiveis = $totalVeiculos * $diasPeriodo;
+        $frota = $this->buscarFrotaNoPeriodo(
+            $dataInicio,
+            $dataFim,
+            $filialWhere,
+            $filialParams,
+            $filialId,
+            $grupoId,
+            ''
+        );
+        $totalVeiculos = count($frota);
+        $diasDisponiveis = array_sum(array_column($frota, 'dias_disponiveis'));
 
         // Receita total de locações no período
         $receita = $this->calcularReceitaLocacoes($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId);
@@ -420,7 +427,7 @@ class KpiReport extends BaseReportModel
         $revpar = $this->safeDivide($receita, $diasDisponiveis);
 
         // RevPAR por grupo
-        $porGrupo = $this->revparPorGrupo($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $diasPeriodo);
+        $porGrupo = $this->revparPorGrupo($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $frota);
 
         // Chart evolução mensal
         $chartData = $this->chartRevparMensal($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, $grupoId);
@@ -448,13 +455,16 @@ class KpiReport extends BaseReportModel
         string $filialId,
         string $grupoId
     ): float {
+        $inicioDia = $dataInicio . ' 00:00:00';
+        $fimDia = $dataFim . ' 23:59:59';
+
         // Receita de locações
         $queryLoc = $this->qb
             ->table('locacoes', 'l')
             ->selectRaw('COALESCE(SUM(l.total_fatura), 0) AS receita')
             ->where('l.status', '!=', 'C')
-            ->whereRaw('l.data_saida >= ?', [$dataInicio])
-            ->whereRaw('l.data_saida <= ?', [$dataFim]);
+            ->whereRaw('l.data_saida >= ?', [$inicioDia])
+            ->whereRaw('l.data_saida <= ?', [$fimDia]);
 
         if (!empty($filialWhere)) {
             $filialWherePrefixed = str_replace('id_matriz_filial', 'l.id_matriz_filial_retirada', $filialWhere);
@@ -477,8 +487,8 @@ class KpiReport extends BaseReportModel
             ->table('contratos', 'c')
             ->selectRaw('COALESCE(SUM(c.total_fatura), 0) AS receita')
             ->where('c.status', '!=', 'C')
-            ->whereRaw('c.data_ini <= ?', [$dataFim])
-            ->whereRaw('c.data_fim >= ?', [$dataInicio]);
+            ->whereRaw('c.data_ini <= ?', [$fimDia])
+            ->whereRaw('c.data_fim >= ?', [$inicioDia]);
 
         if (!empty($filialWhere)) {
             $filialWherePrefixed = str_replace('id_matriz_filial', 'c.id_matriz_filial_retirada', $filialWhere);
@@ -508,23 +518,40 @@ class KpiReport extends BaseReportModel
         string $filialWhere,
         array $filialParams,
         string $filialId,
-        int $diasPeriodo
+        array $frota
     ): array {
-        $query = $this->qb
-            ->table('grupos', 'g')
-            ->select(['g.id', 'g.nome'])
-            ->selectRaw("(SELECT COUNT(*) FROM veiculos v2 WHERE v2.id_grupo = g.id AND v2.disponibilidade != 'VE' AND v2.chave = g.chave) AS total_veiculos")
-            ->orderBy('g.nome', 'ASC');
+        $grupos = [];
+        foreach ($frota as $veiculo) {
+            $idGrupo = (int) ($veiculo['id_grupo'] ?? 0);
+            if ($idGrupo <= 0) {
+                continue;
+            }
+            if (!isset($grupos[$idGrupo])) {
+                $grupos[$idGrupo] = [
+                    'id' => $idGrupo,
+                    'nome' => $veiculo['grupo_nome'] ?? '-',
+                    'total_veiculos' => 0,
+                    'dias_disponiveis' => 0,
+                ];
+            }
+            $grupos[$idGrupo]['total_veiculos']++;
+            $grupos[$idGrupo]['dias_disponiveis'] += (int) $veiculo['dias_disponiveis'];
+        }
 
-        $grupos = $query->get();
+        uasort($grupos, static fn(array $a, array $b): int => strcmp((string) $a['nome'], (string) $b['nome']));
 
         $result = [];
         foreach ($grupos as $grupo) {
             $totalVeiculos = (int) $grupo['total_veiculos'];
-            if ($totalVeiculos === 0) continue;
-
-            $diasDisp = $totalVeiculos * $diasPeriodo;
-            $receita = $this->calcularReceitaLocacoes($dataInicio, $dataFim, $filialWhere, $filialParams, $filialId, (string) $grupo['id']);
+            $diasDisp = (int) $grupo['dias_disponiveis'];
+            $receita = $this->calcularReceitaLocacoes(
+                $dataInicio,
+                $dataFim,
+                $filialWhere,
+                $filialParams,
+                $filialId,
+                $grupo['id'] > 0 ? (string) $grupo['id'] : ''
+            );
 
             $result[] = [
                 'grupo' => $grupo['nome'],
@@ -564,10 +591,19 @@ class KpiReport extends BaseReportModel
 
             $labels[] = $monthStart->format('m/Y');
 
-            $subDias = $this->daysBetween($monthStart->format('Y-m-d'), $monthEnd->format('Y-m-d')) ?: 1;
-            $totalVeiculos = $this->contarVeiculosAtivos($filialWhere, $filialParams, $filialId, $grupoId, '');
-            $diasDisp = $totalVeiculos * $subDias;
-            $receita = $this->calcularReceitaLocacoes($monthStart->format('Y-m-d'), $monthEnd->format('Y-m-d'), $filialWhere, $filialParams, $filialId, $grupoId);
+            $inicioSubperiodo = $monthStart->format('Y-m-d');
+            $fimSubperiodo = $monthEnd->format('Y-m-d');
+            $frota = $this->buscarFrotaNoPeriodo(
+                $inicioSubperiodo,
+                $fimSubperiodo,
+                $filialWhere,
+                $filialParams,
+                $filialId,
+                $grupoId,
+                ''
+            );
+            $diasDisp = array_sum(array_column($frota, 'dias_disponiveis'));
+            $receita = $this->calcularReceitaLocacoes($inicioSubperiodo, $fimSubperiodo, $filialWhere, $filialParams, $filialId, $grupoId);
 
             $values[] = $this->safeDivide($receita, $diasDisp);
 
@@ -1045,6 +1081,8 @@ class KpiReport extends BaseReportModel
         int $perPage = 20
     ): array {
         $chave = Auth::chave();
+        $inicioDia = $dataInicio . ' 00:00:00';
+        $fimDia = $dataFim . ' 23:59:59';
 
         $query = $this->qb
             ->table('veiculos', 'v')
@@ -1062,8 +1100,8 @@ class KpiReport extends BaseReportModel
                 WHERE lv2.id_veiculo = v.id
                 AND l2.chave = '{$chave}'
                 AND l2.status != 'C'
-                AND l2.data_saida >= '{$dataInicio}'
-                AND l2.data_saida <= '{$dataFim}'
+                AND l2.data_saida >= '{$inicioDia}'
+                AND l2.data_saida <= '{$fimDia}'
             ), 0) AS receita_locacoes")
             ->selectRaw("COALESCE((
                 SELECT SUM(lt2.valor_total)
@@ -1073,26 +1111,27 @@ class KpiReport extends BaseReportModel
                 WHERE lv3.id_veiculo = v.id
                 AND l3.chave = '{$chave}'
                 AND l3.status != 'C'
-                AND l3.data_saida >= '{$dataInicio}'
-                AND l3.data_saida <= '{$dataFim}'
+                AND l3.data_saida >= '{$inicioDia}'
+                AND l3.data_saida <= '{$fimDia}'
             ), 0) AS receita_taxas")
             ->selectRaw("COALESCE((
                 SELECT SUM(DATEDIFF(
-                    LEAST(COALESCE(lv4.data_entrada, '{$dataFim}'), '{$dataFim}'),
-                    GREATEST(lv4.data_saida, '{$dataInicio}')
+                    LEAST(COALESCE(lv4.data_entrada, '{$fimDia}'), '{$fimDia}'),
+                    GREATEST(lv4.data_saida, '{$inicioDia}')
                 ) + 1)
                 FROM locacoes_veiculos lv4
                 INNER JOIN locacoes l4 ON lv4.id_locacao = l4.id
                 WHERE lv4.id_veiculo = v.id
                 AND l4.chave = '{$chave}'
                 AND l4.status != 'C'
-                AND lv4.data_saida <= '{$dataFim}'
-                AND COALESCE(lv4.data_entrada, '{$dataFim}') >= '{$dataInicio}'
+                AND lv4.data_saida <= '{$fimDia}'
+                AND COALESCE(lv4.data_entrada, '{$fimDia}') >= '{$inicioDia}'
             ), 0) AS dias_locados")
             ->leftJoin('grupos', 'g', 'v.id_grupo', '=', 'g.id')
-            ->where('v.disponibilidade', '!=', 'VE')
             ->orderByRaw('(receita_locacoes + receita_taxas) DESC')
             ->paginate($page, $perPage);
+
+        $this->aplicarFiltroFrotaNoPeriodo($query, $dataInicio, $dataFim);
 
         if (!empty($filialWhere)) {
             $filialWherePrefixed = str_replace('id_matriz_filial', 'v.id_matriz_filial', $filialWhere);
@@ -1135,8 +1174,9 @@ class KpiReport extends BaseReportModel
         // Contagem total para paginação
         $queryCount = $this->qb
             ->table('veiculos', 'v')
-            ->selectRaw('COUNT(*) AS total')
-            ->where('v.disponibilidade', '!=', 'VE');
+            ->selectRaw('COUNT(*) AS total');
+
+        $this->aplicarFiltroFrotaNoPeriodo($queryCount, $dataInicio, $dataFim);
 
         if (!empty($filialWhere)) {
             $filialWherePrefixed = str_replace('id_matriz_filial', 'v.id_matriz_filial', $filialWhere);
