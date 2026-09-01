@@ -332,9 +332,9 @@ class GatewaysPagamentoController
 
             // Gerar webhook URL e secret
             $model = new GatewayPagamento();
-            $certificateConfig = $this->getCertificateConfig((string) $dados['gateway_code']);
+            $certificateRequired = $this->requiresCertificate((string) $dados['gateway_code'], $dados);
             $requestedStatus = (string) ($dados['status'] ?? 'I');
-            if (!empty($certificateConfig['required'])) {
+            if ($certificateRequired) {
                 $dados['status'] = 'I';
             }
 
@@ -371,7 +371,7 @@ class GatewaysPagamentoController
                 'data' => [
                     'id' => $id,
                     'webhook_url' => $dados['webhook_url'],
-                    'certificate_required' => !empty($certificateConfig['required']),
+                    'certificate_required' => $certificateRequired,
                     'activate_after_certificate' => $requestedStatus === 'A',
                 ]
             ]);
@@ -443,7 +443,7 @@ class GatewaysPagamentoController
 
             if (($dados['status'] ?? null) === 'A') {
                 $credentials = $dados['credentials'] ?? ($model->buscarPorIdComCredenciais($id)['credentials'] ?? []);
-                if ($this->requiresCertificate((string) $gateway['gateway_code']) && !$this->hasUsableCertificate($credentials)) {
+                if ($this->requiresCertificate((string) $gateway['gateway_code'], array_merge($gateway, $dados)) && !$this->hasUsableCertificate($credentials)) {
                     Response::json(['success' => false, 'message' => 'Envie o certificado digital antes de ativar este gateway.'], 422);
                     return;
                 }
@@ -615,6 +615,7 @@ class GatewaysPagamentoController
             }
 
             $senha = (string) $request->input('certificado_senha', '');
+            $mode = (string) $request->input('certificado_modo', '');
             if (!isset($_FILES['certificado']) || $_FILES['certificado']['error'] !== UPLOAD_ERR_OK) {
                 Response::json(['success' => false, 'message' => 'Arquivo do certificado não enviado'], 400);
                 return;
@@ -624,7 +625,7 @@ class GatewaysPagamentoController
             $credentials = $gateway['credentials'] ?? [];
             $oldCredentials = $credentials;
             $privateKey = isset($_FILES['chave_privada']) ? $_FILES['chave_privada'] : null;
-            $result = $certService->upload($_FILES['certificado'], $id, Auth::chave(), $senha, $privateKey);
+            $result = $certService->upload($_FILES['certificado'], $id, Auth::chave(), $senha, $privateKey, $mode);
             if (!$result['success']) {
                 Response::json(['success' => false, 'message' => $result['message']], 422);
                 return;
@@ -633,6 +634,7 @@ class GatewaysPagamentoController
             $credentials['certificado_arquivo'] = $result['filename'];
             $credentials['certificado_chave_arquivo'] = $result['key_filename'];
             $credentials['certificado_formato'] = $result['format'];
+            $credentials['certificado_modo'] = $result['format'] === 'pem' ? 'pem_pair' : 'pkcs12';
             $credentials['certificado_senha'] = $result['password_encrypted'];
             $credentials['certificado_validade'] = $result['data']['valido_ate'] ?? null;
             $credentials['certificado_razao_social'] = $result['data']['razao_social'] ?? null;
@@ -696,7 +698,7 @@ class GatewaysPagamentoController
             }
 
             $update = ['credentials' => $this->normalizeCredentialsForGateway($gatewayCode, $credentials)];
-            if (!empty($certificateConfig['required'])) {
+            if ($this->requiresCertificate($gatewayCode, $gateway)) {
                 $update['status'] = 'I';
             }
             $model->atualizar($id, $update);
@@ -740,7 +742,7 @@ class GatewaysPagamentoController
             }
 
             $novoStatus = $gateway['status'] === 'A' ? 'I' : 'A';
-            if ($novoStatus === 'A' && $this->requiresCertificate((string) $gateway['gateway_code'])) {
+            if ($novoStatus === 'A' && $this->requiresCertificate((string) $gateway['gateway_code'], $gateway)) {
                 $gatewayComCredenciais = $model->buscarPorIdComCredenciais($id);
                 if (!$this->hasUsableCertificate($gatewayComCredenciais['credentials'] ?? [])) {
                     Response::json(['success' => false, 'message' => 'Envie o certificado digital antes de ativar este gateway.'], 422);
@@ -928,6 +930,8 @@ class GatewaysPagamentoController
             'arquivo' => $credentials['certificado_arquivo'] ?? null,
             'chave_privada' => $credentials['certificado_chave_arquivo'] ?? null,
             'formato' => $credentials['certificado_formato'] ?? 'pkcs12',
+            'modo' => $credentials['certificado_modo']
+                ?? (($credentials['certificado_formato'] ?? 'pkcs12') === 'pem' ? 'pem_pair' : 'pkcs12'),
             'legado' => false,
             'validade' => $credentials['certificado_validade'] ?? null,
             'razao_social' => $credentials['certificado_razao_social'] ?? null,
@@ -946,6 +950,7 @@ class GatewaysPagamentoController
             'certificado_arquivo',
             'certificado_chave_arquivo',
             'certificado_formato',
+            'certificado_modo',
             'certificado_senha',
             'certificado_validade',
             'certificado_razao_social',
@@ -974,7 +979,7 @@ class GatewaysPagamentoController
     }
 
     /**
-     * @return array{required: bool, formats: array<string>}|null
+     * @return array<string, mixed>|null
      */
     private function getCertificateConfig(string $gatewayCode): ?array
     {
@@ -983,9 +988,34 @@ class GatewaysPagamentoController
         return is_array($config) ? $config : null;
     }
 
-    private function requiresCertificate(string $gatewayCode): bool
+    /** @param array<string, mixed> $configuration */
+    private function requiresCertificate(string $gatewayCode, array $configuration = []): bool
     {
         $config = $this->getCertificateConfig($gatewayCode);
+        if ($config === null) {
+            return false;
+        }
+
+        $requiredEnvironments = is_array($config['required_environments'] ?? null)
+            ? $config['required_environments']
+            : [];
+        $environment = (string) ($configuration['ambiente'] ?? 'production');
+        if ($requiredEnvironments !== [] && !in_array($environment, $requiredEnvironments, true)) {
+            return false;
+        }
+
+        $requiredMethods = is_array($config['required_methods'] ?? null)
+            ? $config['required_methods']
+            : [];
+        if ($requiredMethods !== []) {
+            foreach ($requiredMethods as $method) {
+                if (!empty($configuration[$method . '_enabled'])) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         return !empty($config['required']);
     }
 

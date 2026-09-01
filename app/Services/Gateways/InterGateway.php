@@ -14,9 +14,12 @@ use SimpleSoftwareIO\QrCode\Generator as QrCodeGenerator;
  */
 class InterGateway extends AbstractPaymentGateway
 {
-    private string $grantedScopes = '';
-    private ?string $accessToken = null;
-    private int $accessTokenExpiresAt = 0;
+    private const AUTH_COBRANCA = 'cobranca';
+    private const AUTH_PIX_COB_READ = 'pix_cob_read';
+    private const AUTH_PIX_REFUND = 'pix_refund';
+
+    /** @var array<string, array{token: string, expires_at: int, granted_scopes: string}> */
+    private array $accessTokens = [];
 
     /**
      * {@inheritdoc}
@@ -82,7 +85,11 @@ class InterGateway extends AbstractPaymentGateway
 
     public function getCertificateConfig(): ?array
     {
-        return ['required' => true, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
+        return [
+            'required' => true,
+            'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer'],
+            'guidance' => 'Use o certificado CRT e a chave KEY baixados da mesma integração Inter. Como alternativa, gere um PFX/P12 com esse par e informe a senha escolhida na conversão.',
+        ];
     }
 
     /**
@@ -102,7 +109,8 @@ class InterGateway extends AbstractPaymentGateway
         }
 
         try {
-            $token = $this->getAccessToken();
+            $this->credentials = $credentials;
+            $token = $this->getAccessToken(self::AUTH_COBRANCA, true);
 
             if ($token) {
                 return [
@@ -394,13 +402,12 @@ class InterGateway extends AbstractPaymentGateway
     public function getChargeStatus(string $externalId): array
     {
         try {
-            $token = $this->getAccessToken();
-            if (!$token) {
-                return ['success' => false, 'message' => 'Não foi possível autenticar'];
-            }
-
             // Verificar se é PIX ou Boleto pelo formato do ID
             if (strlen($externalId) <= 35 && !str_contains($externalId, '-')) {
+                $token = $this->getAccessToken(self::AUTH_PIX_COB_READ);
+                if (!$token) {
+                    return ['success' => false, 'message' => 'Não foi possível autenticar na API Pix do Banco Inter'];
+                }
                 $response = $this->makeApiRequest('GET', "/pix/v2/cob/{$externalId}", [], $token);
             } else {
                 return $this->getCobrancaV3ChargeStatus($externalId);
@@ -444,7 +451,7 @@ class InterGateway extends AbstractPaymentGateway
             $response = $this->makeApiRequest('GET', $endpoint, [], $token);
 
             if (in_array((int) ($response['_http_code'] ?? 0), [401, 403], true)) {
-                $token = $this->getAccessToken(true);
+                $token = $this->getAccessToken(self::AUTH_COBRANCA, true);
                 if (!$token) {
                     return ['success' => false, 'message' => 'Não foi possível autenticar'];
                 }
@@ -520,7 +527,7 @@ class InterGateway extends AbstractPaymentGateway
     public function refund(string $externalId, ?float $amount = null): array
     {
         try {
-            $token = $this->getAccessToken();
+            $token = $this->getAccessToken(self::AUTH_PIX_REFUND);
             if (!$token) {
                 return ['success' => false, 'message' => 'Não foi possível autenticar'];
             }
@@ -655,7 +662,7 @@ class InterGateway extends AbstractPaymentGateway
      * @param bool $isAuthRequest Se é requisição de autenticação
      * @return array
      */
-    private function makeApiRequest(
+    protected function makeApiRequest(
         string $method,
         string $endpoint,
         array $data = [],
@@ -747,10 +754,14 @@ class InterGateway extends AbstractPaymentGateway
     /**
      * Obtém token de acesso OAuth
      */
-    private function getAccessToken(bool $forceRefresh = false): ?string
+    protected function getAccessToken(string $profile = self::AUTH_COBRANCA, bool $forceRefresh = false): ?string
     {
-        if (!$forceRefresh && $this->accessToken && time() < $this->accessTokenExpiresAt) {
-            return $this->accessToken;
+        if (
+            !$forceRefresh
+            && isset($this->accessTokens[$profile])
+            && time() < $this->accessTokens[$profile]['expires_at']
+        ) {
+            return $this->accessTokens[$profile]['token'];
         }
 
         $clientId = $this->credentials['client_id'] ?? '';
@@ -762,21 +773,32 @@ class InterGateway extends AbstractPaymentGateway
             'grant_type' => 'client_credentials',
             'client_id' => $clientId,
             'client_secret' => $clientSecret,
-            'scope' => 'boleto-cobranca.write boleto-cobranca.read',
+            'scope' => $this->getScopesForProfile($profile),
         ], null, true);
 
         $token = $response['access_token'] ?? null;
 
         if ($token) {
             $expiresIn = max(60, (int) ($response['expires_in'] ?? 3600));
-            $this->accessToken = $token;
-            $this->accessTokenExpiresAt = time() + $expiresIn - 30;
-            $this->grantedScopes = $response['scope'] ?? '';
+            $this->accessTokens[$profile] = [
+                'token' => $token,
+                'expires_at' => time() + $expiresIn - 30,
+                'granted_scopes' => (string) ($response['scope'] ?? ''),
+            ];
         } else {
-            $this->accessToken = null;
-            $this->accessTokenExpiresAt = 0;
+            unset($this->accessTokens[$profile]);
         }
 
         return $token;
+    }
+
+    private function getScopesForProfile(string $profile): string
+    {
+        return match ($profile) {
+            self::AUTH_COBRANCA => 'boleto-cobranca.write boleto-cobranca.read',
+            self::AUTH_PIX_COB_READ => 'cob.read',
+            self::AUTH_PIX_REFUND => 'pix.write',
+            default => throw new \InvalidArgumentException('Perfil de autenticação Inter inválido.'),
+        };
     }
 }

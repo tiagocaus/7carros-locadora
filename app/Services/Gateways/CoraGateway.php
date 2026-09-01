@@ -69,7 +69,11 @@ class CoraGateway extends AbstractPaymentGateway
 
     public function getCertificateConfig(): ?array
     {
-        return ['required' => true, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
+        return [
+            'required' => true,
+            'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer'],
+            'guidance' => 'Use o certificado e a private key fornecidos pela Cora para o mesmo ambiente da integração. Não use um certificado A1 fiscal genérico.',
+        ];
     }
 
     /**

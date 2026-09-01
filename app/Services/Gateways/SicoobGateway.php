@@ -19,8 +19,11 @@ class SicoobGateway extends AbstractPaymentGateway
     private const PRODUCTION_AUTH_URL = 'https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token';
     private const SANDBOX_AUTH_URL = 'https://auth-hom.homologacao.com.br/auth/realms/cooperado/protocol/openid-connect/token';
 
-    private ?string $accessToken = null;
-    private int $accessTokenExpiresAt = 0;
+    /** @var array<string, string> */
+    private array $accessTokens = [];
+
+    /** @var array<string, int> */
+    private array $accessTokenExpiresAt = [];
 
     public function getCode(): string
     {
@@ -44,7 +47,11 @@ class SicoobGateway extends AbstractPaymentGateway
 
     public function getCertificateConfig(): ?array
     {
-        return ['required' => true, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
+        return [
+            'required' => true,
+            'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer'],
+            'guidance' => 'O certificado público cadastrado no Sicoob deve pertencer exatamente ao mesmo A1/PFX ou à mesma chave privada enviada aqui. O certificado público isolado não autentica a integração.',
+        ];
     }
 
     public function getConfigSchema(): array
@@ -97,20 +104,40 @@ class SicoobGateway extends AbstractPaymentGateway
 
     public function validateCredentials(array $credentials): array
     {
-        foreach (['client_id', 'certificado_arquivo', 'certificado_senha'] as $field) {
+        foreach (['client_id', 'certificado_arquivo'] as $field) {
             if (empty($credentials[$field])) {
                 return ['valid' => false, 'message' => 'Client ID e certificado digital são obrigatórios'];
             }
         }
 
         try {
-            $token = $this->getAccessToken(true);
+            $this->credentials = $credentials;
+            $products = [];
 
-            return $token
-                ? ['valid' => true, 'message' => 'Credenciais válidas']
-                : ['valid' => false, 'message' => 'Não foi possível obter token de acesso'];
-        } catch (\Exception $e) {
-            return ['valid' => false, 'message' => 'Erro ao validar: ' . $e->getMessage()];
+            if (!empty($credentials['_pix_enabled'])) {
+                $products[] = 'pix';
+            }
+            if (!empty($credentials['_boleto_enabled'])) {
+                $products[] = 'boleto';
+            }
+
+            // Compatibilidade com chamadas antigas que não informavam os métodos ativos.
+            if ($products === []) {
+                $products[] = 'pix';
+            }
+
+            foreach ($products as $product) {
+                $this->getAccessToken($product, true);
+            }
+
+            $labels = array_map(
+                static fn(string $product): string => $product === 'pix' ? 'Pix' : 'Boleto',
+                $products
+            );
+
+            return ['valid' => true, 'message' => 'Credenciais Sicoob válidas para: ' . implode(' e ', $labels) . '.'];
+        } catch (\Throwable $e) {
+            return ['valid' => false, 'message' => 'Falha na autenticação Sicoob: ' . $e->getMessage()];
         }
     }
 
@@ -119,12 +146,13 @@ class SicoobGateway extends AbstractPaymentGateway
         try {
             $this->validateRequiredFields($data, ['value', 'billing_type']);
 
-            $token = $this->getAccessToken();
+            $product = strtolower((string) $data['billing_type']) === 'pix' ? 'pix' : 'boleto';
+            $token = $this->getAccessToken($product);
             if (!$token) {
                 return ['success' => false, 'message' => 'Não foi possível autenticar com o Sicoob'];
             }
 
-            return strtoupper((string) $data['billing_type']) === 'PIX'
+            return $product === 'pix'
                 ? $this->createPixCharge($data, $token)
                 : $this->createBoletoCharge($data, $token);
         } catch (\Exception $e) {
@@ -139,7 +167,8 @@ class SicoobGateway extends AbstractPaymentGateway
     public function getChargeStatus(string $externalId): array
     {
         try {
-            $token = $this->getAccessToken();
+            $product = str_starts_with($externalId, 'pix_') ? 'pix' : 'boleto';
+            $token = $this->getAccessToken($product);
             if (!$token) {
                 return ['success' => false, 'message' => 'Não foi possível autenticar'];
             }
@@ -169,14 +198,14 @@ class SicoobGateway extends AbstractPaymentGateway
                 return ['success' => false, 'message' => 'Informe o valor da devolução PIX'];
             }
 
-            $token = $this->getAccessToken();
+            $token = $this->getAccessToken('pix');
             if (!$token) {
                 return ['success' => false, 'message' => 'Não foi possível autenticar'];
             }
 
             $e2eid = str_starts_with($externalId, 'pix_') ? substr($externalId, 4) : $externalId;
             $refundId = $this->generateTxId('dev');
-            $response = $this->makeApiRequest(
+            $response = $this->request(
                 'PUT',
                 '/pix/api/v2/pix/' . rawurlencode($e2eid) . '/devolucao/' . rawurlencode($refundId),
                 ['valor' => $this->formatAmount($amount)],
@@ -204,14 +233,15 @@ class SicoobGateway extends AbstractPaymentGateway
     public function cancel(string $externalId): array
     {
         try {
-            $token = $this->getAccessToken();
+            $product = str_starts_with($externalId, 'pix_') ? 'pix' : 'boleto';
+            $token = $this->getAccessToken($product);
             if (!$token) {
                 return ['success' => false, 'message' => 'Não foi possível autenticar'];
             }
 
             if (str_starts_with($externalId, 'pix_')) {
                 $txid = substr($externalId, 4);
-                $response = $this->makeApiRequest(
+                $response = $this->request(
                     'PATCH',
                     '/pix/api/v2/cob/' . rawurlencode($txid),
                     ['status' => 'REMOVIDA_PELO_USUARIO_RECEBEDOR'],
@@ -219,7 +249,7 @@ class SicoobGateway extends AbstractPaymentGateway
                 );
             } else {
                 $nossoNumero = str_starts_with($externalId, 'bol_') ? substr($externalId, 4) : $externalId;
-                $response = $this->makeApiRequest(
+                $response = $this->request(
                     'POST',
                     '/cobranca-bancaria/v3/boletos/' . rawurlencode($nossoNumero) . '/baixar',
                     [
@@ -315,7 +345,7 @@ class SicoobGateway extends AbstractPaymentGateway
                 : ['cpf' => $doc, 'nome' => substr((string) ($data['customer_name'] ?? 'Cliente'), 0, 200)];
         }
 
-        $response = $this->makeApiRequest('PUT', '/pix/api/v2/cob/' . rawurlencode($txid), $payload, $token);
+        $response = $this->request('PUT', '/pix/api/v2/cob/' . rawurlencode($txid), $payload, $token);
 
         if (($response['_http_code'] ?? 0) >= 400 || empty($response['txid'])) {
             return [
@@ -398,7 +428,7 @@ class SicoobGateway extends AbstractPaymentGateway
             $payload['pagador']['email'] = (string) $data['customer_email'];
         }
 
-        $response = $this->makeApiRequest('POST', '/cobranca-bancaria/v3/boletos', $payload, $token);
+        $response = $this->request('POST', '/cobranca-bancaria/v3/boletos', $payload, $token);
 
         if (($response['_http_code'] ?? 0) >= 400) {
             return [
@@ -449,7 +479,7 @@ class SicoobGateway extends AbstractPaymentGateway
 
     private function getPixChargeStatus(string $txid, string $token): array
     {
-        $response = $this->makeApiRequest('GET', '/pix/api/v2/cob/' . rawurlencode($txid), [], $token);
+        $response = $this->request('GET', '/pix/api/v2/cob/' . rawurlencode($txid), [], $token);
 
         if (($response['_http_code'] ?? 0) >= 400) {
             return [
@@ -469,7 +499,7 @@ class SicoobGateway extends AbstractPaymentGateway
 
     private function getBoletoChargeStatus(string $nossoNumero, string $token): array
     {
-        $response = $this->makeApiRequest('GET', '/cobranca-bancaria/v3/boletos', [
+        $response = $this->request('GET', '/cobranca-bancaria/v3/boletos', [
             'numeroCliente' => (int) ($this->credentials['numero_cliente'] ?? 0),
             'codigoModalidade' => (int) ($this->credentials['codigo_modalidade'] ?? 1),
             'nossoNumero' => $nossoNumero,
@@ -506,26 +536,17 @@ class SicoobGateway extends AbstractPaymentGateway
         }
     }
 
-    private function getAccessToken(bool $forceRefresh = false): ?string
+    protected function getAccessToken(string $product, bool $forceRefresh = false): string
     {
-        if (!$forceRefresh && $this->accessToken && time() < $this->accessTokenExpiresAt) {
-            return $this->accessToken;
+        if (
+            !$forceRefresh
+            && !empty($this->accessTokens[$product])
+            && time() < ($this->accessTokenExpiresAt[$product] ?? 0)
+        ) {
+            return $this->accessTokens[$product];
         }
 
-        $scope = implode(' ', [
-            'cob.read',
-            'cob.write',
-            'pix.read',
-            'pix.write',
-            'webhook.read',
-            'webhook.write',
-            'boletos_inclusao',
-            'boletos_consulta',
-            'boletos_alteracao',
-            'webhooks_inclusao',
-            'webhooks_consulta',
-            'webhooks_alteracao',
-        ]);
+        $scope = implode(' ', $this->getScopesForProduct($product));
 
         $data = [
             'grant_type' => 'client_credentials',
@@ -537,19 +558,28 @@ class SicoobGateway extends AbstractPaymentGateway
             $data['client_secret'] = (string) $this->credentials['client_secret'];
         }
 
-        $response = $this->makeApiRequest('POST', $this->getAuthUrl(), $data, null, true);
+        $response = $this->request('POST', $this->getAuthUrl(), $data, null, true);
         $token = $response['access_token'] ?? null;
 
-        if ($token) {
+        if (is_string($token) && $token !== '') {
             $expiresIn = max(60, (int) ($response['expires_in'] ?? 300));
-            $this->accessToken = $token;
-            $this->accessTokenExpiresAt = time() + $expiresIn - 30;
+            $this->accessTokens[$product] = $token;
+            $this->accessTokenExpiresAt[$product] = time() + $expiresIn - 30;
             return $token;
         }
 
-        $this->accessToken = null;
-        $this->accessTokenExpiresAt = 0;
-        return null;
+        unset($this->accessTokens[$product], $this->accessTokenExpiresAt[$product]);
+        throw new \RuntimeException($this->describeAuthenticationError($response));
+    }
+
+    /** @return array<int, string> */
+    protected function getScopesForProduct(string $product): array
+    {
+        return match ($product) {
+            'pix' => ['cob.read', 'cob.write', 'pix.read', 'pix.write'],
+            'boleto' => ['boletos_inclusao', 'boletos_consulta', 'boletos_alteracao'],
+            default => throw new \InvalidArgumentException('Produto Sicoob não suportado para autenticação.'),
+        };
     }
 
     private function getAuthUrl(): string
@@ -557,7 +587,7 @@ class SicoobGateway extends AbstractPaymentGateway
         return $this->sandbox ? self::SANDBOX_AUTH_URL : self::PRODUCTION_AUTH_URL;
     }
 
-    private function makeApiRequest(
+    protected function request(
         string $method,
         string $endpoint,
         array $data = [],
@@ -641,6 +671,20 @@ class SicoobGateway extends AbstractPaymentGateway
         $body['_raw_body'] = $response;
 
         return $body;
+    }
+
+    private function describeAuthenticationError(array $response): string
+    {
+        $error = strtolower(trim((string) ($response['error'] ?? '')));
+
+        return match ($error) {
+            'invalid_scope' => 'o aplicativo não possui autorização para os escopos solicitados.',
+            'invalid_client', 'unauthorized_client' => 'Client ID, certificado ou situação do aplicativo não foram aceitos pelo banco.',
+            'invalid_request' => 'o Sicoob considerou a solicitação OAuth inválida.',
+            default => ($response['_http_code'] ?? 0) >= 400
+                ? 'o Sicoob recusou a autenticação (HTTP ' . (int) $response['_http_code'] . ').'
+                : 'a resposta do Sicoob não contém um token de acesso.',
+        };
     }
 
     private function extractErrorMessage(array $response, string $fallback): string

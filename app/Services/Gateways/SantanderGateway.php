@@ -30,7 +30,11 @@ class SantanderGateway extends AbstractPaymentGateway
 
     public function getCertificateConfig(): ?array
     {
-        return ['required' => true, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
+        return [
+            'required' => true,
+            'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer'],
+            'guidance' => 'Envie o certificado de cliente com a cadeia completa e sua chave privada correspondente. Ao Santander deve ser compartilhada somente a parte pública, nunca o PFX/P12 ou a chave privada.',
+        ];
     }
 
     public function getConfigSchema(): array
@@ -47,7 +51,7 @@ class SantanderGateway extends AbstractPaymentGateway
                 'help' => 'Segredo OAuth2 da aplicação. Ele é armazenado criptografado junto às demais credenciais.',
             ],
             'pix_key_type' => [
-                'type' => 'select', 'required' => true, 'label' => 'Tipo da chave Pix',
+                'type' => 'select', 'required' => false, 'label' => 'Tipo da chave Pix',
                 'options' => [
                     'CPF' => 'CPF', 'CNPJ' => 'CNPJ', 'CELULAR' => 'Celular',
                     'EMAIL' => 'E-mail', 'EVP' => 'Chave aleatória',
@@ -55,17 +59,17 @@ class SantanderGateway extends AbstractPaymentGateway
                 'help' => 'Tipo da chave DICT vinculada à conta recebedora.',
             ],
             'pix_key' => [
-                'type' => 'string', 'required' => true, 'label' => 'Chave Pix',
+                'type' => 'string', 'required' => false, 'label' => 'Chave Pix',
                 'placeholder' => 'Chave Pix recebedora',
                 'help' => 'Chave Pix usada para gerar cobranças imediatas e com vencimento.',
             ],
             'workspace_id' => [
-                'type' => 'string', 'required' => true, 'label' => 'Workspace ID',
+                'type' => 'string', 'required' => false, 'label' => 'Workspace ID',
                 'placeholder' => 'Identificador do workspace',
                 'help' => 'Workspace habilitado para a API de Cobrança do Santander.',
             ],
             'covenant_code' => [
-                'type' => 'string', 'required' => true, 'label' => 'Código do convênio',
+                'type' => 'string', 'required' => false, 'label' => 'Código do convênio',
                 'placeholder' => 'Código do convênio de cobrança',
                 'help' => 'Convênio de cobrança bancária contratado com o Santander.',
             ],
@@ -74,24 +78,44 @@ class SantanderGateway extends AbstractPaymentGateway
 
     public function validateCredentials(array $credentials): array
     {
-        foreach (['client_id', 'client_secret', 'pix_key', 'workspace_id', 'covenant_code'] as $field) {
+        foreach (['client_id', 'client_secret'] as $field) {
             if (empty($credentials[$field])) {
-                return ['valid' => false, 'message' => 'Preencha todas as credenciais obrigatórias do Santander.'];
+                return ['valid' => false, 'message' => 'Preencha Client ID e Client Secret do Santander.'];
             }
         }
-        if (empty($credentials['certificado_arquivo'])) {
+        if (empty($credentials['certificado_arquivo']) && empty($credentials['certificate_path'])) {
             return ['valid' => false, 'message' => 'Envie o certificado digital da aplicação Santander.'];
+        }
+
+        $pixEnabled = !empty($credentials['_pix_enabled']);
+        $boletoEnabled = !empty($credentials['_boleto_enabled']);
+        if (!$pixEnabled && !$boletoEnabled) {
+            $pixEnabled = true;
+            $boletoEnabled = true;
+        }
+
+        if ($pixEnabled && (empty($credentials['pix_key_type']) || empty($credentials['pix_key']))) {
+            return ['valid' => false, 'message' => 'Preencha o tipo e a chave Pix do Santander.'];
+        }
+        if ($boletoEnabled && (empty($credentials['workspace_id']) || empty($credentials['covenant_code']))) {
+            return ['valid' => false, 'message' => 'Preencha o Workspace ID e o código do convênio Santander.'];
         }
 
         try {
             $this->credentials = $credentials;
-            $pixToken = $this->getToken('pix', true);
-            $billingToken = $this->getToken('billing', true);
-            return $pixToken !== '' && $billingToken !== ''
-                ? ['valid' => true, 'message' => 'Credenciais Santander válidas.']
-                : ['valid' => false, 'message' => 'Não foi possível autenticar nas APIs do Santander.'];
+            $tested = [];
+            if ($pixEnabled) {
+                $this->getToken('pix', true);
+                $tested[] = 'Pix';
+            }
+            if ($boletoEnabled) {
+                $this->getToken('billing', true);
+                $tested[] = 'Boleto';
+            }
+
+            return ['valid' => true, 'message' => 'Credenciais Santander válidas para: ' . implode(' e ', $tested) . '.'];
         } catch (\Throwable $e) {
-            return ['valid' => false, 'message' => 'Erro ao validar: ' . $e->getMessage()];
+            return ['valid' => false, 'message' => 'Falha na autenticação Santander: ' . $e->getMessage()];
         }
     }
 

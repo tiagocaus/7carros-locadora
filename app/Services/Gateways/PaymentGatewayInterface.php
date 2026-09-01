@@ -56,7 +56,13 @@ interface PaymentGatewayInterface
     /**
      * Retorna a configuracao de certificado digital do gateway.
      *
-     * @return array{required: bool, formats: array<string>}|null
+     * @return array{
+     *     required: bool,
+     *     formats: array<string>,
+     *     required_methods?: array<string>,
+     *     required_environments?: array<string>,
+     *     guidance?: string
+     * }|null
      */
     public function getCertificateConfig(): ?array;
 

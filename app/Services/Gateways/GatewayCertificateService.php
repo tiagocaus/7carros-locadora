@@ -24,7 +24,8 @@ class GatewayCertificateService
         int $gatewayId,
         string $chave,
         string $senha = '',
-        ?array $privateKeyFile = null
+        ?array $privateKeyFile = null,
+        ?string $mode = null
     ): array {
         if ((int) ($file['size'] ?? 0) > 5 * 1024 * 1024
             || (int) ($privateKeyFile['size'] ?? 0) > 5 * 1024 * 1024) {
@@ -32,6 +33,17 @@ class GatewayCertificateService
         }
 
         $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+        $inferredMode = in_array($ext, ['pfx', 'p12'], true) ? 'pkcs12' : 'pem_pair';
+        $mode = $mode === null || $mode === '' ? $inferredMode : strtolower($mode);
+
+        if (!in_array($mode, ['pkcs12', 'pem_pair'], true)) {
+            return ['success' => false, 'message' => 'Modo de certificado inválido.'];
+        }
+        if ($mode !== $inferredMode) {
+            return ['success' => false, 'message' => $mode === 'pkcs12'
+                ? 'No modo PFX/P12 completo, envie um arquivo .pfx ou .p12.'
+                : 'No modo certificado público + chave privada, envie um certificado .pem, .crt ou .cer.'];
+        }
 
         if (in_array($ext, ['pfx', 'p12'], true)) {
             return $this->uploadPkcs12($file, $gatewayId, $chave, $senha, $ext);
@@ -140,9 +152,17 @@ class GatewayCertificateService
             throw new \RuntimeException('Erro ao ler o certificado. Verifique a senha.');
         }
 
-        $publicCert = '';
-        if (!openssl_x509_export($certs['cert'], $publicCert) || $publicCert === '') {
+        $publicCert = $this->exportCertificate($certs['cert']);
+        if ($publicCert === '') {
             throw new \RuntimeException('Erro ao exportar o certificado público.');
+        }
+
+        $certificateChain = $publicCert;
+        foreach (($certs['extracerts'] ?? []) as $extraCertificate) {
+            $exported = $this->exportCertificate($extraCertificate);
+            if ($exported !== '') {
+                $certificateChain .= "\n" . $exported;
+            }
         }
 
         $privateKey = '';
@@ -153,7 +173,7 @@ class GatewayCertificateService
         $certPath = sys_get_temp_dir() . '/gateway_cert_' . uniqid('', true) . '.pem';
         $keyPath = sys_get_temp_dir() . '/gateway_key_' . uniqid('', true) . '.pem';
 
-        if (file_put_contents($certPath, $publicCert) === false || file_put_contents($keyPath, $privateKey) === false) {
+        if (file_put_contents($certPath, $certificateChain) === false || file_put_contents($keyPath, $privateKey) === false) {
             $this->cleanupPem($certPath, $keyPath);
             throw new \RuntimeException('Erro ao criar arquivos temporários do certificado.');
         }
@@ -204,10 +224,6 @@ class GatewayCertificateService
      */
     private function uploadPkcs12(array $file, int $gatewayId, string $chave, string $senha, string $ext): array
     {
-        if ($senha === '') {
-            return ['success' => false, 'message' => 'Senha do certificado é obrigatória para arquivos PFX/P12.'];
-        }
-
         $content = $this->readUploadedFile($file);
         if ($content === null) {
             return ['success' => false, 'message' => 'Erro ao ler o arquivo enviado.'];
@@ -286,6 +302,9 @@ class GatewayCertificateService
         $certPath = $this->storedPath($filename);
         $keyPath = $this->storedPath($keyFilename);
 
+        // O SDK da Efí recebe um único PEM; manter a chave também no arquivo
+        // combinado preserva compatibilidade, enquanto o arquivo KEY separado
+        // atende os gateways que configuram certificado e chave no cURL.
         $combinedPem = rtrim($certificatePem) . "\n" . $normalizedPrivateKey;
         if (!$this->writeSecureFile($certPath, $combinedPem) || !$this->writeSecureFile($keyPath, $normalizedPrivateKey)) {
             $this->remove($filename);
@@ -372,6 +391,12 @@ class GatewayCertificateService
         return "-----BEGIN CERTIFICATE-----\n"
             . chunk_split(base64_encode($content), 64, "\n")
             . "-----END CERTIFICATE-----\n";
+    }
+
+    private function exportCertificate(mixed $certificate): string
+    {
+        $exported = '';
+        return openssl_x509_export($certificate, $exported) && $exported !== '' ? trim($exported) . "\n" : '';
     }
 
     private function ensureDirectory(): void

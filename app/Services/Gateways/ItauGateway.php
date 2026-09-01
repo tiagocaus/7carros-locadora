@@ -28,7 +28,12 @@ class ItauGateway extends AbstractPaymentGateway
 
     public function getCertificateConfig(): ?array
     {
-        return ['required' => true, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
+        return [
+            'required' => true,
+            'required_environments' => ['production'],
+            'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer'],
+            'guidance' => 'Em produção, use o certificado dinâmico CRT emitido pelo Itaú e a chave KEY criada com o CSR. O sandbox do Itaú não exige mTLS.',
+        ];
     }
 
     public function validateCredentials(array $credentials): array
@@ -36,7 +41,7 @@ class ItauGateway extends AbstractPaymentGateway
         if (empty($credentials['client_id']) || empty($credentials['client_secret'])) {
             return ['valid' => false, 'message' => 'Client ID e Client Secret são obrigatórios'];
         }
-        if (empty($credentials['certificado_arquivo']) && empty($credentials['certificate_path'])) {
+        if (!$this->sandbox && empty($credentials['certificado_arquivo']) && empty($credentials['certificate_path'])) {
             return ['valid' => false, 'message' => 'Certificado digital é obrigatório'];
         }
         try {

@@ -33,28 +33,40 @@ class EfipayGateway extends AbstractPaymentGateway
     {
         if (!empty($this->credentials['client_id']) && !empty($this->credentials['client_secret'])) {
             try {
-                $options = [
-                    'client_id' => $this->credentials['client_id'],
-                    'client_secret' => $this->credentials['client_secret'],
-                    'sandbox' => $this->sandbox,
-                    'timeout' => 30,
-                ];
-
-                // Upload gerenciado; caminho legado permanece somente para transição.
-                if (!empty($this->credentials['certificado_arquivo'])) {
-                    $options['certificate'] = (new GatewayCertificateService())->storedPath(
-                        (string) $this->credentials['certificado_arquivo']
-                    );
-                    $options['pwdCertificate'] = decrypt((string) ($this->credentials['certificado_senha'] ?? '')) ?? '';
-                } elseif (!empty($this->credentials['certificate_path']) && file_exists($this->credentials['certificate_path'])) {
-                    $options['certificate'] = $this->credentials['certificate_path'];
-                }
-
-                $this->client = new EfiPay($options);
+                $this->client = $this->createClient($this->buildClientOptions($this->credentials));
             } catch (\Exception $e) {
                 $this->client = null;
             }
         }
+    }
+
+    /** @param array<string, mixed> $credentials */
+    protected function buildClientOptions(array $credentials): array
+    {
+        $options = [
+            'client_id' => $credentials['client_id'],
+            'client_secret' => $credentials['client_secret'],
+            'sandbox' => $this->sandbox,
+            'timeout' => 30,
+        ];
+
+        // Upload gerenciado; caminho legado permanece somente para transição.
+        if (!empty($credentials['certificado_arquivo'])) {
+            $options['certificate'] = (new GatewayCertificateService())->storedPath(
+                (string) $credentials['certificado_arquivo']
+            );
+            $options['pwdCertificate'] = decrypt((string) ($credentials['certificado_senha'] ?? '')) ?? '';
+        } elseif (!empty($credentials['certificate_path']) && file_exists((string) $credentials['certificate_path'])) {
+            $options['certificate'] = $credentials['certificate_path'];
+        }
+
+        return $options;
+    }
+
+    /** @param array<string, mixed> $options */
+    protected function createClient(array $options): EfiPay
+    {
+        return new EfiPay($options);
     }
 
     /**
@@ -121,7 +133,12 @@ class EfipayGateway extends AbstractPaymentGateway
 
     public function getCertificateConfig(): ?array
     {
-        return ['required' => false, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
+        return [
+            'required' => false,
+            'required_methods' => ['pix'],
+            'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer'],
+            'guidance' => 'O certificado gerado na conta Efí é obrigatório para Pix. Para uma configuração somente de Boleto pela API Cobranças, ele não é necessário e a senha do P12 pode ser vazia.',
+        ];
     }
 
     /**
@@ -136,33 +153,58 @@ class EfipayGateway extends AbstractPaymentGateway
             ];
         }
 
+        $pixEnabled = !empty($credentials['_pix_enabled']);
+        $boletoEnabled = !empty($credentials['_boleto_enabled']);
+
+        // Compatibilidade com chamadas antigas que não informavam os métodos ativos.
+        if (!$pixEnabled && !$boletoEnabled) {
+            $boletoEnabled = true;
+        }
+
+        if ($pixEnabled) {
+            if (empty($credentials['pix_key'])) {
+                return ['valid' => false, 'message' => 'Informe a chave Pix da aplicação Efí.'];
+            }
+            if (empty($credentials['certificado_arquivo']) && empty($credentials['certificate_path'])) {
+                return ['valid' => false, 'message' => 'Envie o certificado da API Pix Efí.'];
+            }
+        }
+
+        $currentProduct = '';
+
         try {
-            $options = [
-                'client_id' => $credentials['client_id'],
-                'client_secret' => $credentials['client_secret'],
-                'sandbox' => $this->sandbox,
-                'timeout' => 30,
-            ];
+            $this->credentials = $credentials;
+            $client = $this->createClient($this->buildClientOptions($credentials));
+            $tested = [];
 
-            $client = new EfiPay($options);
+            if ($pixEnabled) {
+                $currentProduct = 'Pix';
+                $client->pixListCharges([
+                    'inicio' => gmdate('Y-m-d\T00:00:00\Z'),
+                    'fim' => gmdate('Y-m-d\T23:59:59\Z'),
+                ]);
+                $tested[] = 'Pix';
+            }
 
-            // Tenta listar cobranças como teste
-            $params = ['begin_date' => today(), 'end_date' => today()];
-            $client->listCharges($params);
+            if ($boletoEnabled) {
+                $currentProduct = 'Boleto';
+                $client->listCharges(['begin_date' => today(), 'end_date' => today()]);
+                $tested[] = 'Boleto';
+            }
 
             return [
                 'valid' => true,
-                'message' => 'Credenciais válidas',
+                'message' => 'Credenciais Efí válidas para: ' . implode(' e ', $tested) . '.',
             ];
         } catch (EfiException $e) {
             return [
                 'valid' => false,
-                'message' => 'Credenciais inválidas: ' . $e->getMessage(),
+                'message' => 'Falha na autenticação Efí' . ($currentProduct !== '' ? " ({$currentProduct})" : '') . ': ' . $e->getMessage(),
             ];
         } catch (\Exception $e) {
             return [
                 'valid' => false,
-                'message' => 'Erro ao validar: ' . $e->getMessage(),
+                'message' => 'Erro ao validar Efí' . ($currentProduct !== '' ? " ({$currentProduct})" : '') . ': ' . $e->getMessage(),
             ];
         }
     }

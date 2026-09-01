@@ -26,14 +26,38 @@ try {
 
     openssl_x509_export($certificate, $certificatePem);
     openssl_pkey_export($privateKey, $privateKeyPem);
+    openssl_pkey_export($privateKey, $encryptedPrivateKeyPem, 'senha-chave');
     openssl_pkcs12_export($certificate, $pkcs12, $privateKey, 'senha-teste');
+    openssl_pkcs12_export($certificate, $pkcs12WithoutPassword, $privateKey, '');
+
+    $caKey = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    $caCsr = openssl_csr_new(['commonName' => 'CA Teste'], $caKey, ['digest_alg' => 'sha256']);
+    $caCertificate = openssl_csr_sign($caCsr, null, $caKey, 3, ['digest_alg' => 'sha256']);
+    $leafKey = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    $leafCsr = openssl_csr_new(['commonName' => 'Certificado com Cadeia'], $leafKey, ['digest_alg' => 'sha256']);
+    $leafCertificate = openssl_csr_sign($leafCsr, $caCertificate, $caKey, 2, ['digest_alg' => 'sha256']);
+    openssl_pkcs12_export($leafCertificate, $pkcs12WithChain, $leafKey, 'senha-cadeia', ['extracerts' => [$caCertificate]]);
 
     $certFile = $temp . '/certificate.pem';
     $keyFile = $temp . '/private.key';
     $p12File = $temp . '/certificate.p12';
+    $p12WithoutPasswordFile = $temp . '/certificate-empty-password.p12';
+    $encryptedKeyFile = $temp . '/private-encrypted.key';
+    $p12WithChainFile = $temp . '/certificate-chain.p12';
+    $otherPrivateKeyFile = $temp . '/other-private.key';
+    $expiredCertificateFile = $temp . '/expired-certificate.pem';
     file_put_contents($certFile, $certificatePem);
     file_put_contents($keyFile, $privateKeyPem);
     file_put_contents($p12File, $pkcs12);
+    file_put_contents($p12WithoutPasswordFile, $pkcs12WithoutPassword);
+    file_put_contents($encryptedKeyFile, $encryptedPrivateKeyPem);
+    file_put_contents($p12WithChainFile, $pkcs12WithChain);
+    $otherPrivateKey = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($otherPrivateKey, $otherPrivateKeyPem);
+    file_put_contents($otherPrivateKeyFile, $otherPrivateKeyPem);
+    $expiredCertificate = openssl_csr_sign($csr, null, $privateKey, 0, ['digest_alg' => 'sha256']);
+    openssl_x509_export($expiredCertificate, $expiredCertificatePem);
+    file_put_contents($expiredCertificateFile, $expiredCertificatePem);
 
     $service = new GatewayCertificateService($temp . '/stored');
     $pem = $service->upload(
@@ -48,6 +72,11 @@ try {
     }
     if (($pem['data']['documento'] ?? null) !== '12345678000199') {
         $fail('CNPJ completo não foi extraído do certificado PEM.');
+    }
+    $storedCertificateMode = fileperms($service->storedPath($pem['filename'])) & 0777;
+    $storedKeyMode = fileperms($service->storedPath($pem['key_filename'])) & 0777;
+    if ($storedCertificateMode !== 0600 || $storedKeyMode !== 0600) {
+        $fail('Certificado ou chave privada não foram armazenados com permissão 0600.');
     }
 
     $prepared = $service->prepare([
@@ -81,7 +110,90 @@ try {
     }
     $service->cleanupPrepared($extracted);
 
-    echo "[OK] Upload e preparação de certificados PEM e P12 validados.\n";
+    $p12WithoutPassword = $service->upload(
+        ['name' => 'certificate-empty-password.p12', 'tmp_name' => $p12WithoutPasswordFile, 'error' => UPLOAD_ERR_OK],
+        12,
+        '1111111111111',
+        '',
+        null,
+        'pkcs12'
+    );
+    if (empty($p12WithoutPassword['success'])) {
+        $fail('Certificado P12 com senha vazia foi rejeitado.');
+    }
+
+    $encryptedPair = $service->upload(
+        ['name' => 'certificate.pem', 'tmp_name' => $certFile, 'error' => UPLOAD_ERR_OK],
+        13,
+        '1111111111111',
+        'senha-chave',
+        ['name' => 'private-encrypted.key', 'tmp_name' => $encryptedKeyFile, 'error' => UPLOAD_ERR_OK],
+        'pem_pair'
+    );
+    if (empty($encryptedPair['success'])) {
+        $fail('Chave privada protegida por passphrase foi rejeitada.');
+    }
+
+    $wrongMode = $service->upload(
+        ['name' => 'certificate.pem', 'tmp_name' => $certFile, 'error' => UPLOAD_ERR_OK],
+        14,
+        '1111111111111',
+        '',
+        ['name' => 'private.key', 'tmp_name' => $keyFile, 'error' => UPLOAD_ERR_OK],
+        'pkcs12'
+    );
+    if (!empty($wrongMode['success'])) {
+        $fail('Upload com modo incompatível com a extensão foi aceito.');
+    }
+
+    $mismatchedPair = $service->upload(
+        ['name' => 'certificate.pem', 'tmp_name' => $certFile, 'error' => UPLOAD_ERR_OK],
+        16,
+        '1111111111111',
+        '',
+        ['name' => 'other-private.key', 'tmp_name' => $otherPrivateKeyFile, 'error' => UPLOAD_ERR_OK],
+        'pem_pair'
+    );
+    if (!empty($mismatchedPair['success'])) {
+        $fail('Chave privada que não corresponde ao certificado foi aceita.');
+    }
+
+    sleep(1);
+    $expiredPair = $service->upload(
+        ['name' => 'expired-certificate.pem', 'tmp_name' => $expiredCertificateFile, 'error' => UPLOAD_ERR_OK],
+        17,
+        '1111111111111',
+        '',
+        ['name' => 'private.key', 'tmp_name' => $keyFile, 'error' => UPLOAD_ERR_OK],
+        'pem_pair'
+    );
+    if (!empty($expiredPair['success'])) {
+        $fail('Certificado vencido foi aceito.');
+    }
+
+    $chainUpload = $service->upload(
+        ['name' => 'certificate-chain.p12', 'tmp_name' => $p12WithChainFile, 'error' => UPLOAD_ERR_OK],
+        15,
+        '1111111111111',
+        'senha-cadeia',
+        null,
+        'pkcs12'
+    );
+    if (empty($chainUpload['success'])) {
+        $fail('P12 com cadeia intermediária foi rejeitado.');
+    }
+    $chainPrepared = $service->prepare([
+        'certificado_formato' => 'pkcs12',
+        'certificado_arquivo' => $chainUpload['filename'],
+        'certificado_senha' => $chainUpload['password_encrypted'],
+    ]);
+    $preparedChainContent = file_get_contents($chainPrepared['certPath']);
+    if ($preparedChainContent === false || substr_count($preparedChainContent, 'BEGIN CERTIFICATE') < 2) {
+        $fail('A cadeia intermediária do P12 não foi preservada.');
+    }
+    $service->cleanupPrepared($chainPrepared);
+
+    echo "[OK] Upload, modos, senha vazia, passphrase e cadeia de certificados validados.\n";
 } finally {
     if (is_dir($temp)) {
         $iterator = new RecursiveIteratorIterator(

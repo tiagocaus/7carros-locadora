@@ -13,7 +13,7 @@
     </div>
 
     <!-- Formulario -->
-    <form id="formPrincipal" method="POST">
+    <form id="formPrincipal" method="POST" autocomplete="off">
         @csrf
         <input type="hidden" id="registroId" name="id">
 
@@ -171,11 +171,8 @@
         <!-- Secao: Certificado digital mTLS -->
         <div class="form-section mb-6" id="sectionCertificadoGateway" style="display: none;">
             <h3 class="form-section-title"><i class="fas fa-certificate mr-2"></i>Certificado Digital <span id="certGatewayName"></span></h3>
-            <p class="text-sm text-slate-600 mb-4">Envie o certificado digital utilizado na integração. Os arquivos ficam protegidos e são usados somente nas chamadas mTLS.</p>
-
-            <div id="gatewayCertSaveFirst" class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 mb-4" style="display: none;">
-                Ao salvar, o gateway será criado e o certificado selecionado será enviado em seguida.
-            </div>
+            <p class="text-sm text-slate-600 mb-2">Envie o material usado pela aplicação na autenticação mTLS. Os arquivos ficam protegidos e nunca são compartilhados com o banco.</p>
+            <p id="gatewayCertGuidance" class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 mb-4"></p>
 
             <div id="gatewayCertInfo" class="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 mb-4" style="display: none;">
                 <div class="font-medium text-slate-800 mb-1">Certificado configurado</div>
@@ -183,8 +180,22 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div class="md:col-span-12 form-input-group">
+                    <label class="form-label-group">Como o certificado foi fornecido? <span id="gatewayCertModeRequired" class="text-red-500">*</span> <?= aviso('Escolha PFX/P12 quando possuir um arquivo completo que já contém a chave privada. Escolha arquivos separados quando possuir um certificado público PEM/CRT/CER e sua chave privada PEM/KEY.') ?></label>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="gateway_cert_mode" id="gatewayCertModePkcs12" value="pkcs12" autocomplete="off">
+                            <span>PFX/P12 completo</span>
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="gateway_cert_mode" id="gatewayCertModePemPair" value="pem_pair" autocomplete="off">
+                            <span>Certificado público + chave privada</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="md:col-span-4 form-input-group">
-                    <label class="form-label-group">Arquivo do Certificado <span class="text-red-500">*</span> <?= aviso('Envie PFX/P12 diretamente nesta tela quando possuir o certificado A1 completo ou use PEM/CRT/CER com a chave correspondente no campo seguinte. Prefira um A1 dedicado à integração bancária. Ao cadastrar as APIs, envie ao Bradesco somente o certificado público. Nunca envie PFX/P12, chave privada ou senha por e-mail, WhatsApp ou atendimento.') ?></label>
+                    <label class="form-label-group"><span id="gatewayCertFileLabel">Certificado</span> <span id="gatewayCertFileRequired" class="text-red-500">*</span> <?= aviso('No modo PFX/P12, envie o arquivo completo. No modo separado, envie somente o certificado público PEM/CRT/CER que corresponde à chave privada. Nunca envie a chave privada ou o PFX/P12 ao banco ou ao suporte.') ?></label>
                     <label for="gatewayCertFile" class="flex items-center gap-3 cursor-pointer border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50">
                         <span class="inline-flex items-center px-3 py-1 bg-slate-100 border border-slate-300 rounded text-sm text-slate-700">
                             <i class="fas fa-paperclip mr-1"></i> Escolher arquivo
@@ -194,8 +205,8 @@
                     <input type="file" id="gatewayCertFile" accept=".pfx,.p12,.pem,.crt,.cer" class="sr-only">
                 </div>
 
-                <div class="md:col-span-4 form-input-group">
-                    <label class="form-label-group">Chave Privada <span id="gatewayPrivateKeyRequired" class="text-red-500" style="display: none;">*</span> <?= aviso('Obrigatória somente quando o certificado for PEM, CRT ou CER. Para PFX/P12, deixe vazio porque a chave privada já está dentro do arquivo. A chave privada é usada pelo servidor na autenticação mTLS e nunca deve ser enviada ao banco ou ao suporte.') ?></label>
+                <div id="gatewayPrivateKeyGroup" class="md:col-span-4 form-input-group" style="display: none;">
+                    <label class="form-label-group">Chave privada <span class="text-red-500">*</span> <?= aviso('Envie a chave privada PEM/KEY que corresponde exatamente ao certificado público. Ela será normalizada e armazenada com permissão restrita, e nunca deve ser enviada ao banco ou ao suporte.') ?></label>
                     <label for="gatewayPrivateKeyFile" class="flex items-center gap-3 cursor-pointer border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50">
                         <span class="inline-flex items-center px-3 py-1 bg-slate-100 border border-slate-300 rounded text-sm text-slate-700"><i class="fas fa-key mr-1"></i>Escolher</span>
                         <span id="gatewayPrivateKeyFileName" class="text-sm text-slate-500">Nenhum arquivo selecionado</span>
@@ -204,14 +215,11 @@
                 </div>
 
                 <div class="md:col-span-4 form-input-group">
-                    <label for="gatewayCertPassword" class="form-label-group">Senha/Passphrase <span id="gatewayCertPasswordRequired" class="text-red-500" style="display: none;">*</span> <?= aviso('Para PFX/P12, informe a senha diretamente nesta tela. Para PEM/KEY, informe somente se a chave estiver protegida. A senha é armazenada criptografada e não deve ser enviada ao banco, por e-mail, WhatsApp ou atendimento.') ?></label>
-                    <input type="password" id="gatewayCertPassword" class="form-input-group-field" placeholder="Senha ou passphrase">
+                    <label for="gatewayCertPassword" class="form-label-group"><span id="gatewayCertPasswordLabel">Senha/passphrase (se houver)</span> <?= aviso('A senha é opcional. No modo PFX/P12, informe a senha do arquivo caso ele esteja protegido. No modo separado, informe somente a passphrase da chave privada, caso exista.') ?></label>
+                    <input type="password" id="gatewayCertPassword" class="form-input-group-field" placeholder="Opcional">
                 </div>
 
                 <div class="md:col-span-12 flex justify-end gap-2">
-                    <button type="button" id="btnUploadGatewayCert" class="btn-blue py-2 px-4 rounded-md text-sm">
-                        <i class="fas fa-upload mr-1"></i>Enviar
-                    </button>
                     <button type="button" id="btnRemoveGatewayCert" class="btn-secondary py-2 px-3 rounded-md text-sm" style="display: none;" title="Remover certificado">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -524,6 +532,9 @@
                 name: option.dataset.gatewayName || option.textContent,
                 docUrl: docUrl
             };
+            if (!registroId) {
+                document.querySelectorAll('input[name="gateway_cert_mode"]').forEach(input => input.checked = false);
+            }
 
             // Atualizar metodos suportados
             atualizarMetodosSuportados(methods);
@@ -756,10 +767,8 @@
 
         function atualizarSecaoCertificadoGateway() {
             const section = document.getElementById('sectionCertificadoGateway');
-            const saveFirst = document.getElementById('gatewayCertSaveFirst');
             const info = document.getElementById('gatewayCertInfo');
             const details = document.getElementById('gatewayCertDetails');
-            const btnUpload = document.getElementById('btnUploadGatewayCert');
             const btnRemove = document.getElementById('btnRemoveGatewayCert');
 
             if (!gatewayAtual || !gatewayAtual.certificateConfig) {
@@ -769,12 +778,21 @@
 
             section.style.display = 'block';
             document.getElementById('certGatewayName').textContent = gatewayAtual.name || '';
+            const certificateRequired = certificadoObrigatorioAtual();
+            const guidance = gatewayAtual.certificateConfig.guidance || 'Use o certificado e a chave pertencentes à mesma aplicação e ao mesmo ambiente do gateway.';
+            document.getElementById('gatewayCertGuidance').textContent = `${certificateRequired ? 'Obrigatório nesta configuração.' : 'Opcional nesta configuração.'} ${guidance}`;
+            document.getElementById('gatewayCertModeRequired').style.display = certificateRequired ? 'inline' : 'none';
+            document.getElementById('gatewayCertFileRequired').style.display = certificateRequired ? 'inline' : 'none';
             const hasRegistro = !!registroId;
-            saveFirst.style.display = hasRegistro ? 'none' : 'block';
-            btnUpload.disabled = !hasRegistro;
             document.getElementById('gatewayCertFile').disabled = false;
             document.getElementById('gatewayPrivateKeyFile').disabled = false;
             document.getElementById('gatewayCertPassword').disabled = false;
+            if (!document.querySelector('input[name="gateway_cert_mode"]:checked') && certificadoGatewayAtual) {
+                const currentMode = certificadoGatewayAtual.modo
+                    || (certificadoGatewayAtual.formato === 'pem' ? 'pem_pair' : 'pkcs12');
+                const currentModeInput = document.querySelector(`input[name="gateway_cert_mode"][value="${currentMode}"]`);
+                if (currentModeInput) currentModeInput.checked = true;
+            }
             atualizarModoCertificadoGateway();
 
             if (certificadoGatewayAtual) {
@@ -800,20 +818,43 @@
             }
         }
 
+        function certificadoObrigatorioAtual() {
+            const config = gatewayAtual?.certificateConfig;
+            if (!config) return false;
+
+            const environment = document.getElementById('ambiente')?.value || 'production';
+            const requiredEnvironments = Array.isArray(config.required_environments) ? config.required_environments : [];
+            if (requiredEnvironments.length > 0 && !requiredEnvironments.includes(environment)) {
+                return false;
+            }
+
+            const requiredMethods = Array.isArray(config.required_methods) ? config.required_methods : [];
+            if (requiredMethods.length > 0) {
+                return requiredMethods.some(method => document.getElementById(`${method}_enabled`)?.checked);
+            }
+
+            return !!config.required;
+        }
+
         function atualizarModoCertificadoGateway() {
             const fileInput = document.getElementById('gatewayCertFile');
             const keyInput = document.getElementById('gatewayPrivateKeyFile');
             const passwordInput = document.getElementById('gatewayCertPassword');
-            const fileName = fileInput?.files?.[0]?.name || '';
-            const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
-            const isPkcs12 = ['pfx', 'p12'].includes(extension);
-            const isPublicCertificate = ['pem', 'crt', 'cer'].includes(extension);
+            const mode = document.querySelector('input[name="gateway_cert_mode"]:checked')?.value || '';
+            const isPkcs12 = mode === 'pkcs12';
+            const isPemPair = mode === 'pem_pair';
 
-            document.getElementById('gatewayPrivateKeyRequired').style.display = isPublicCertificate ? 'inline' : 'none';
-            document.getElementById('gatewayCertPasswordRequired').style.display = isPkcs12 ? 'inline' : 'none';
+            document.getElementById('gatewayCertFileLabel').textContent = isPkcs12
+                ? 'Certificado completo (PFX/P12)'
+                : (isPemPair ? 'Certificado público (PEM/CRT/CER)' : 'Certificado');
+            document.getElementById('gatewayCertPasswordLabel').textContent = isPkcs12
+                ? 'Senha do certificado (se houver)'
+                : (isPemPair ? 'Passphrase da chave privada (se houver)' : 'Senha/passphrase (se houver)');
+            document.getElementById('gatewayPrivateKeyGroup').style.display = isPemPair ? 'block' : 'none';
 
-            keyInput.disabled = isPkcs12;
-            passwordInput.required = isPkcs12;
+            fileInput.accept = isPkcs12 ? '.pfx,.p12' : (isPemPair ? '.pem,.crt,.cer' : '.pfx,.p12,.pem,.crt,.cer');
+            keyInput.disabled = !isPemPair;
+            passwordInput.required = false;
             if (isPkcs12) {
                 keyInput.value = '';
                 document.getElementById('gatewayPrivateKeyFileName').textContent = 'Nenhum arquivo selecionado';
@@ -906,9 +947,16 @@
             }
 
             const certFile = document.getElementById('gatewayCertFile');
-            if (!registroId && gatewayAtual?.certificateConfig?.required && (!certFile.files || certFile.files.length === 0)) {
+            const certMode = document.querySelector('input[name="gateway_cert_mode"]:checked')?.value || '';
+            const hasCertificateUpload = !!(gatewayAtual?.certificateConfig && certFile.files?.length);
+            if (!registroId && certificadoObrigatorioAtual() && (!certFile.files || certFile.files.length === 0)) {
                 mostrarAlerta('Selecione o certificado digital obrigatório antes de salvar o gateway.');
                 certFile.focus();
+                return;
+            }
+            if (certFile.files?.length && !certMode) {
+                mostrarAlerta('Escolha como o certificado foi fornecido.');
+                document.getElementById('gatewayCertModePkcs12').focus();
                 return;
             }
 
@@ -931,13 +979,17 @@
                     return;
                 }
 
+                const requestedStatus = document.getElementById('status').checked ? 'A' : 'I';
+                const mustWaitForFirstCertificate = hasCertificateUpload
+                    && certificadoObrigatorioAtual()
+                    && !certificadoGatewayAtual;
                 const dados = {
                     gateway_code: gatewayCode,
                     nome: nome,
                     filiais_ids: filiaisSelecionadas,
                     currencies: moedasSelecionadas,
                     ambiente: document.getElementById('ambiente').value,
-                    status: document.getElementById('status').checked ? 'A' : 'I',
+                    status: mustWaitForFirstCertificate ? 'I' : requestedStatus,
                     ordem: parseInt(document.getElementById('ordem').value) || 0,
                     pix_enabled: document.getElementById('pix_enabled').checked ? 1 : 0,
                     boleto_enabled: document.getElementById('boleto_enabled').checked ? 1 : 0,
@@ -946,27 +998,27 @@
                     credentials: credentials
                 };
 
+                const isNewGateway = !registroId;
                 let url = '/gateways-pagamento/salvar';
-                if (registroId) {
+                if (!isNewGateway) {
                     url = `/gateways-pagamento/${registroId}/atualizar`;
                 }
 
                 const result = await API.post(url, dados);
 
                 if (result.success) {
-                    if (!registroId && gatewayAtual?.certificateConfig && result.data && result.data.id && certFile.files?.length) {
+                    if (isNewGateway && result.data && result.data.id) {
                         registroId = String(result.data.id);
                         document.getElementById('registroId').value = registroId;
                         document.getElementById('gateway_code').disabled = true;
                         document.getElementById('pageTitle').textContent = i18n.editTitle;
                         document.getElementById('btnTestar').style.display = 'inline-flex';
                         atualizarSecaoCertificadoGateway();
-                        const uploaded = await uploadCertificadoGateway(true);
-                        if (uploaded) {
-                            window.parent.postMessage({ action: 'showToast', message: result.message || i18n.saveSuccess }, '*');
-                            navegarPara('/pages/gateways-pagamento');
-                        }
-                        return;
+                    }
+
+                    if (hasCertificateUpload) {
+                        const uploaded = await uploadCertificadoGateway();
+                        if (!uploaded) return;
                     }
 
                     window.parent.postMessage({ action: 'showToast', message: result.message || i18n.saveSuccess }, '*');
@@ -983,16 +1035,21 @@
             }
         }
 
-        async function uploadCertificadoGateway(automatico = false) {
+        async function uploadCertificadoGateway() {
             if (!registroId || !gatewayAtual || !gatewayAtual.certificateConfig) {
-                if (!automatico) mostrarAlerta('Salve o gateway antes de enviar o certificado.');
                 return false;
             }
 
             const fileInput = document.getElementById('gatewayCertFile');
             const keyInput = document.getElementById('gatewayPrivateKeyFile');
             const passwordInput = document.getElementById('gatewayCertPassword');
-            const btn = document.getElementById('btnUploadGatewayCert');
+            const mode = document.querySelector('input[name="gateway_cert_mode"]:checked')?.value || '';
+
+            if (!mode) {
+                mostrarAlerta('Escolha como o certificado foi fornecido.');
+                document.getElementById('gatewayCertModePkcs12').focus();
+                return false;
+            }
 
             if (!fileInput.files || fileInput.files.length === 0) {
                 mostrarAlerta('Selecione o arquivo do certificado.');
@@ -1000,12 +1057,17 @@
             }
 
             const extension = fileInput.files[0].name.split('.').pop().toLowerCase();
-            if (['pfx', 'p12'].includes(extension) && !passwordInput.value) {
-                mostrarAlerta('Informe a senha do certificado PFX/P12.');
-                passwordInput.focus();
+            if (mode === 'pkcs12' && !['pfx', 'p12'].includes(extension)) {
+                mostrarAlerta('No modo PFX/P12 completo, selecione um arquivo .pfx ou .p12.');
+                fileInput.focus();
                 return false;
             }
-            if (['pem', 'crt', 'cer'].includes(extension) && (!keyInput.files || keyInput.files.length === 0)) {
+            if (mode === 'pem_pair' && !['pem', 'crt', 'cer'].includes(extension)) {
+                mostrarAlerta('No modo de arquivos separados, selecione um certificado público .pem, .crt ou .cer.');
+                fileInput.focus();
+                return false;
+            }
+            if (mode === 'pem_pair' && (!keyInput.files || keyInput.files.length === 0)) {
                 mostrarAlerta('Selecione a chave privada correspondente ao certificado.');
                 keyInput.focus();
                 return false;
@@ -1018,13 +1080,11 @@
             }
             formData.append('certificado', fileInput.files[0]);
             formData.append('certificado_senha', passwordInput.value);
+            formData.append('certificado_modo', mode);
             if (keyInput.files && keyInput.files.length > 0) {
                 formData.append('chave_privada', keyInput.files[0]);
             }
             formData.append('ativar_apos_upload', document.getElementById('status').checked ? '1' : '0');
-
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Enviando...';
 
             try {
                 const result = await API.postForm(`/gateways-pagamento/${registroId}/certificado`, formData);
@@ -1036,7 +1096,6 @@
                     document.getElementById('gatewayCertFileName').textContent = 'Nenhum arquivo selecionado';
                     document.getElementById('gatewayPrivateKeyFileName').textContent = 'Nenhum arquivo selecionado';
                     atualizarSecaoCertificadoGateway();
-                    window.parent.postMessage({ action: 'showToast', message: result.message || 'Certificado enviado com sucesso.' }, '*');
                     return true;
                 } else {
                     mostrarAlerta(result.message || 'Erro ao enviar certificado.');
@@ -1046,9 +1105,6 @@
                 console.error('Erro ao enviar certificado:', error);
                 mostrarAlerta('Erro ao enviar certificado.');
                 return false;
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-upload mr-1"></i>Enviar';
             }
         }
 
@@ -1144,6 +1200,13 @@
         document.getElementById('formPrincipal')?.addEventListener('submit', salvar);
 
         document.getElementById('gateway_code')?.addEventListener('change', atualizarFormularioPorGateway);
+        document.querySelectorAll('input[name="gateway_cert_mode"]').forEach(input => {
+            input.addEventListener('change', atualizarModoCertificadoGateway);
+        });
+        document.getElementById('ambiente')?.addEventListener('change', atualizarSecaoCertificadoGateway);
+        ['pix_enabled', 'boleto_enabled'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', atualizarSecaoCertificadoGateway);
+        });
 
         document.getElementById('btnVoltar')?.addEventListener('click', function() {
             navegarPara('/pages/gateways-pagamento');
@@ -1154,7 +1217,6 @@
         });
 
         document.getElementById('btnTestar')?.addEventListener('click', testarConexao);
-        document.getElementById('btnUploadGatewayCert')?.addEventListener('click', () => uploadCertificadoGateway(false));
         document.getElementById('btnRemoveGatewayCert')?.addEventListener('click', removerCertificadoGateway);
         document.getElementById('gatewayCertFile')?.addEventListener('change', function() {
             document.getElementById('gatewayCertFileName').textContent = this.files && this.files.length > 0

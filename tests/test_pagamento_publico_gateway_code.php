@@ -18,21 +18,32 @@ if (!str_contains($model, 'gp.gateway_code,') || !str_contains($model, "'gateway
     $fail('A forma de pagamento pública não expõe gateway_code para validar as capacidades do gateway.');
 }
 
-foreach (['Arquivo do Certificado', 'Chave Privada', 'Senha/Passphrase'] as $label) {
+foreach (['PFX/P12 completo', 'Certificado público + chave privada', 'Certificado público (PEM/CRT/CER)', 'Chave privada'] as $label) {
     if (!str_contains($view, $label)) {
         $fail("Label original ausente: {$label}.");
     }
 }
 
-foreach (['gatewayCertFileLabel', 'gatewayPrivateKeyLabel', 'gatewayCertPasswordLabel'] as $dynamicLabel) {
-    if (str_contains($view, $dynamicLabel)) {
-        $fail("O label {$dynamicLabel} não deve ser alterado dinamicamente.");
+foreach (['gatewayCertFileLabel', 'gatewayCertPasswordLabel', 'gatewayPrivateKeyGroup'] as $dynamicLabel) {
+    if (!str_contains($view, $dynamicLabel)) {
+        $fail("O elemento dinâmico {$dynamicLabel} está ausente.");
     }
 }
 
-if (!str_contains($view, "aviso('Envie PFX/P12")
-    || !str_contains($view, "aviso('Obrigatória somente")
-    || !str_contains($view, "aviso('Para PFX/P12")) {
+foreach (['btnUploadGatewayCert', 'gatewayCertSaveFirst', 'Selecione os arquivos nesta etapa.'] as $removedElement) {
+    if (str_contains($view, $removedElement)) {
+        $fail("A ação manual ou mensagem redundante ainda está presente: {$removedElement}.");
+    }
+}
+
+if (!str_contains($view, 'if (hasCertificateUpload)')
+    || !str_contains($view, 'await uploadCertificadoGateway()')) {
+    $fail('O botão Salvar não está orquestrando o envio automático do certificado.');
+}
+
+if (!str_contains($view, "aviso('Escolha PFX/P12")
+    || !str_contains($view, "aviso('No modo PFX/P12")
+    || !str_contains($view, "aviso('A senha é opcional")) {
     $fail('As orientações de certificado devem permanecer nos helpers aviso().');
 }
 

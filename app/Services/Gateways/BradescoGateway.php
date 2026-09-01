@@ -91,7 +91,11 @@ class BradescoGateway extends AbstractPaymentGateway
 
     public function getCertificateConfig(): ?array
     {
-        return ['required' => true, 'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer']];
+        return [
+            'required' => true,
+            'formats' => ['pfx', 'p12', 'pem', 'crt', 'cer'],
+            'guidance' => 'Cadastre no Bradesco somente a parte pública. No 7Carros, envie o PFX/P12 completo ou o mesmo certificado público acompanhado da chave privada correspondente.',
+        ];
     }
 
     public function validateCredentials(array $credentials): array

@@ -150,9 +150,71 @@ $existe = GatewayFactory::exists('stripe'); // true
 
 ### Certificados Bancarios
 
-Os gateways Cora, EfiPay, Inter, Sicoob, Bradesco, Itau e Santander usam a secao generica de certificado. Ela aceita um certificado A1 completo em `.pfx`/`.p12`, que ja contem o certificado publico e a chave privada, ou certificado publico `.pem`/`.crt`/`.cer` acompanhado da respectiva chave privada `.pem`/`.key`. Um arquivo publico enviado isoladamente pelo banco nao e suficiente para autenticacao mTLS. O sistema valida validade e correspondencia da chave, armazena os arquivos com permissao `0600` em `storage/certificates/gateways` e guarda a senha de PFX/P12 ou passphrase da chave privada criptografada em `credentials`.
+Os gateways Cora, EfiPay, Inter, Sicoob, Bradesco, Itau e Santander usam a secao generica de certificado. O upload possui dois modos explicitos:
+
+- **PFX/P12 completo**: um unico arquivo que contem o certificado publico e a chave privada. A senha e opcional, pois PKCS#12 tambem pode ser emitido com senha vazia;
+- **Certificado publico + chave privada**: certificado `.pem`/`.crt`/`.cer` acompanhado da chave correspondente `.pem`/`.key`. A passphrase e informada somente quando a chave estiver protegida.
+
+O formulario possui uma unica acao de persistencia: **Salvar**. Quando novos arquivos sao selecionados, o sistema salva os dados do gateway e envia o certificado na mesma operacao iniciada pelo usuario. O modo escolhido fica registrado em `credentials` como `certificado_modo` (`pkcs12` ou `pem_pair`); configuracoes anteriores sem esse metadado continuam compativeis pela inferencia de `certificado_formato`.
+
+Nao existe "certificado privado" nesse fluxo: o segundo arquivo e a **chave privada**. Um certificado publico isolado nao e suficiente para autenticacao mTLS. O sistema valida validade e correspondencia da chave, preserva a cadeia de certificados intermediarios, armazena os artefatos com permissao `0600` em `storage/certificates/gateways` e guarda a senha de PFX/P12 criptografada em `credentials`.
+
+| Gateway | Regra do certificado |
+|---------|-----------------------|
+| Cora | Use o certificado e a private key fornecidos pela Cora para o mesmo ambiente; nao use A1 fiscal generico |
+| EfiPay | Obrigatorio para Pix; uma configuracao somente da API Cobrancas/Boleto nao exige certificado |
+| Inter | Use o CRT e a KEY da mesma integracao ou um PFX gerado a partir desse par |
+| Sicoob | O certificado publico cadastrado no banco deve pertencer ao mesmo A1/PFX ou a mesma chave privada usada pelo sistema |
+| Bradesco | O banco recebe somente a parte publica; o sistema conserva o par completo para mTLS |
+| Itau | Producao usa o certificado dinamico e a chave criada com o CSR; sandbox nao exige mTLS |
+| Santander | Use o certificado de cliente com a cadeia completa e a chave correspondente; compartilhe com o banco somente a parte publica |
 
 Nao cadastre caminhos de arquivos pelo formulario. Durante chamadas mTLS, `GatewayCertificateService` prepara o certificado e a chave para cURL e remove artefatos temporarios ao final. Credenciais antigas que ainda contenham `certificate_path` ou `private_key_path` permanecem como fallback de execucao; ao enviar um certificado pela tela, os campos legados sao removidos. Remover um certificado obrigatorio tambem inativa o gateway.
+
+#### Autenticacao Sicoob
+
+O Sicoob usa OAuth2 `client_credentials` com mTLS. Os escopos devem ser
+solicitados por produto, sem misturar permissoes de APIs que nao estejam
+habilitadas no aplicativo do cooperado:
+
+- Pix: `cob.read cob.write pix.read pix.write`;
+- Boleto: `boletos_inclusao boletos_consulta boletos_alteracao`.
+
+Os escopos de webhook nao fazem parte do token enquanto o sistema nao executar
+cadastro ou manutencao de webhook pela API. Quando Pix e Boleto estiverem
+habilitados, cada conjunto deve ser autenticado e armazenado em cache
+separadamente. Uma rejeicao OAuth deve ser classificada por `invalid_scope`,
+`invalid_client`/`unauthorized_client`, erro mTLS ou codigo HTTP, sem registrar
+ou exibir token, Client ID completo, certificado, secret ou corpo bruto.
+
+#### Autenticacao por produto
+
+A selecao de Pix e Boleto na interface nao implica, por si so, que o gateway
+deva solicitar dois tokens. A autenticacao deve acompanhar a API oficial
+efetivamente chamada:
+
+| Gateway | Estrategia |
+|---------|------------|
+| Asaas | Uma API key no header `access_token` para todos os meios de pagamento |
+| Cora | Um token OAuth para a API de invoices; o boleto pode incluir QR Code Pix |
+| EfiPay | O SDK seleciona e armazena separadamente os tokens das APIs Pix e Cobrancas |
+| Inter | Cobrança V3/BolePix usa `boleto-cobranca.read/write`; rotas `/pix/v2/cob` e de devolucao usam somente seus escopos Pix necessarios |
+| Sicoob | Tokens separados para Pix e Boleto, com escopos distintos |
+| Bradesco | Credenciais e tokens separados para Pix e Cobranca |
+| Itau | Um token para o produto BoleCode, que combina boleto e Pix |
+| Santander | Tokens separados para Pix Recebimentos e API de Cobranca |
+
+O teste de conexao recebe `_pix_enabled` e `_boleto_enabled` internamente e
+deve validar somente os produtos ativos. Na EfiPay, Pix exige certificado e
+uma consulta somente leitura na API Pix, enquanto Boleto e validado na API
+Cobrancas. No Santander, chave Pix e tipo da chave sao obrigatorios apenas para
+Pix; Workspace ID e codigo do convenio sao obrigatorios apenas para Boleto.
+
+No Inter, o cache de token e indexado pelo perfil de autorizacao. Nao se deve
+enviar o token de `boleto-cobranca` a endpoints `/pix/v2`, nem solicitar todos
+os escopos em conjunto: consultas de cobranca Pix usam `cob.read` e devolucoes
+usam `pix.write`. A emissao atualmente chamada de Pix continua sendo uma
+cobranca BolePix pela API Cobranca V3, portanto usa o perfil de Cobranca.
 
 Rotas autenticadas para certificados de gateways:
 
