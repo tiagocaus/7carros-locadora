@@ -2,6 +2,7 @@
 
 namespace App\Services\NFSe;
 
+use App\Config\NFSe as NFSeConfig;
 use App\Models\NFSe as NFSeModel;
 use App\Models\NFSeConfiguracao;
 use App\Models\NFSeEvento;
@@ -285,9 +286,16 @@ class NFSeService
         if (($nfse['codigo_rejeicao'] ?? '') === 'DPS_CONFLITO') {
             return $this->erro(NFSeErros::getMensagem('DPS_CONFLITO'), 'DPS_CONFLITO');
         }
-        $tentativaExtraManual = $permitirTentativaExtraManual && $this->permiteTentativaExtraManual($nfse);
-        if ((int) ($nfse['tentativas_envio'] ?? 0) >= 3 && !$tentativaExtraManual) {
-            return $this->erro('Número máximo de tentativas atingido (3).', 'ERRO_DESCONHECIDO');
+        $limiteRegularAtingido = (int) ($nfse['tentativas_envio'] ?? 0) >= NFSeConfig::MAX_ENVIOS;
+        $tentativaExtraManual = $limiteRegularAtingido
+            && $permitirTentativaExtraManual
+            && $this->permiteTentativaExtraManual($nfse);
+        if ($limiteRegularAtingido && !$tentativaExtraManual) {
+            return $this->erro(
+                'Limite regular de envios atingido (' . NFSeConfig::MAX_ENVIOS
+                . '). Uma tentativa manual adicional só é permitida para erro técnico elegível e ainda não utilizado.',
+                'ERRO_DESCONHECIDO'
+            );
         }
 
         $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
@@ -323,15 +331,10 @@ class NFSeService
                 $xml = $preparado['xml'];
                 $api = $preparado['api'];
                 $numeroAnterior = (int) ($nfse['numero'] ?? 0);
-                $this->nfseModel->incrementarTentativas($idNFSe);
-                if ($tentativaExtraManual) {
-                    $this->eventoModel->registrar(
-                        $idNFSe,
-                        'reenvio_manual',
-                        'LIMITE_TECNICO',
-                        'Tentativa manual extra liberada após correção técnica do XML/data fiscal.'
-                    );
+                if ($tentativaExtraManual && !$this->reservarTentativaExtraManual($nfse)) {
+                    return $this->erro('A tentativa manual extra desta NFS-e já foi utilizada.', 'ERRO_DESCONHECIDO');
                 }
+                $this->nfseModel->incrementarTentativas($idNFSe);
                 $this->nfseModel->atualizarParaReenvio($idNFSe, [
                     'numero' => $preparado['numero'],
                     'serie' => $dados['serie'] ?? null,
@@ -351,15 +354,10 @@ class NFSeService
                     return $this->erro('XML de envio não encontrado.', 'XML_INVALIDO');
                 }
                 $api = $this->resolverAPI($tipoEmissao, $config);
-                $this->nfseModel->incrementarTentativas($idNFSe);
-                if ($tentativaExtraManual) {
-                    $this->eventoModel->registrar(
-                        $idNFSe,
-                        'reenvio_manual',
-                        'LIMITE_TECNICO',
-                        'Tentativa manual extra liberada após correção técnica do XML/data fiscal.'
-                    );
+                if ($tentativaExtraManual && !$this->reservarTentativaExtraManual($nfse)) {
+                    return $this->erro('A tentativa manual extra desta NFS-e já foi utilizada.', 'ERRO_DESCONHECIDO');
                 }
+                $this->nfseModel->incrementarTentativas($idNFSe);
                 $this->nfseModel->atualizarStatus($idNFSe, 'processando');
             }
 
@@ -390,18 +388,32 @@ class NFSeService
         }
 
         $motivoAtual = trim((string) ($nfse['codigo_rejeicao'] ?? '') . ' ' . (string) ($nfse['motivo_rejeicao'] ?? ''));
-        if ($this->mensagemPermiteReenvioTecnico($motivoAtual)) {
-            return true;
-        }
+        $erroTecnicoEncontrado = $this->mensagemPermiteReenvioTecnico($motivoAtual);
+        $extrasManuaisUtilizados = 0;
 
         foreach ($this->eventoModel->listarPorNfse((int) ($nfse['id'] ?? 0)) as $evento) {
+            if (($evento['tipo_evento'] ?? '') === 'reenvio_manual'
+                && ($evento['codigo_retorno'] ?? '') === 'LIMITE_TECNICO') {
+                $extrasManuaisUtilizados++;
+            }
+
             $mensagemEvento = trim((string) ($evento['codigo_retorno'] ?? '') . ' ' . (string) ($evento['mensagem'] ?? ''));
             if ($this->mensagemPermiteReenvioTecnico($mensagemEvento)) {
-                return true;
+                $erroTecnicoEncontrado = true;
             }
         }
 
-        return false;
+        return $erroTecnicoEncontrado
+            && $extrasManuaisUtilizados < NFSeConfig::MAX_ENVIOS_EXTRAS_MANUAIS;
+    }
+
+    private function reservarTentativaExtraManual(array $nfse): bool
+    {
+        return $this->eventoModel->reservarTentativaExtraManual(
+            (int) ($nfse['id'] ?? 0),
+            (string) ($nfse['chave'] ?? ''),
+            'Tentativa manual extra liberada após correção técnica do XML/data fiscal.'
+        );
     }
 
     private function mensagemPermiteReenvioTecnico(string $mensagem): bool

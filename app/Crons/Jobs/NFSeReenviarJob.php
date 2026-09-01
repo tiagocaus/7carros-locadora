@@ -10,7 +10,7 @@ use App\Services\NFSe\NFSeErros;
  * Job de reenvio automatico de NFS-e rejeitadas
  *
  * Busca NFS-e com status 'rejeitada' cujo erro seja recuperavel
- * e reenvia automaticamente (max 3 tentativas).
+ * e reenvia automaticamente ate o limite definido em App\Config\NFSe.
  *
  * Limite: 20 reenvios por execucao
  * Frequencia: a cada 5 minutos

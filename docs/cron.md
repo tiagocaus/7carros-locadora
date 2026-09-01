@@ -68,7 +68,7 @@ cobrancas, faturas ou notificacoes.
 
 - Erros locais de configuracao, inclusive `IBSCBS_CONFIGURACAO`, nao sao recuperaveis e nao entram no reenvio automatico.
 - `DPS_JA_GERADA` e recuperavel por consulta, nao por novo `POST /nfse`: o servico consulta `GET /dps/{id}` e depois `GET /nfse/{chave}`.
-- O limite continua sendo tres tentativas. A reconciliacao autorizada limpa codigo e motivo de rejeicao e registra evento proprio.
+- O limite regular e de cinco envios totais (envio inicial e ate quatro reenvios), definido em `App\Config\NFSe::MAX_ENVIOS`. A tentativa extra para erro tecnico e exclusivamente manual e auditada; o CRON nunca a utiliza. A reconciliacao autorizada limpa codigo e motivo de rejeicao e registra evento proprio.
 
 ### Sincronizacao fiscal Betha
 

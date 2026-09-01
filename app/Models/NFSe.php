@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Config\NFSe as NFSeConfig;
 use App\Traits\Auditable;
 use App\Traits\DetectsCrossTenant;
 
@@ -619,7 +620,7 @@ class NFSe extends Model
             ->table('nfse')
             ->withoutChave()
             ->where('status', '=', 'rejeitada')
-            ->whereRaw('tentativas_envio < 3')
+            ->where('tentativas_envio', '<', NFSeConfig::MAX_ENVIOS)
             ->whereIn('codigo_rejeicao', $codigos)
             ->orderBy('created_at', 'ASC')
             ->limit($limite)

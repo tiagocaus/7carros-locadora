@@ -350,9 +350,11 @@ Numeracao:
 
 Para NFS-e rejeitada:
 
-- Maximo de 3 tentativas.
-- Reenvio manual pode liberar tentativa extra somente para `XML_INVALIDO` com financeiro vinculado e causa tecnica conhecida ja corrigida no gerador XML/data fiscal, incluindo erros Betha de schema por `cLocalidadeIncid`.
-- Reenvio automatico por CRON continua limitado a `tentativas_envio < 3`.
+- Maximo regular de 5 envios totais: o envio inicial e ate 4 reenvios.
+- O limite deve vir de `App\Config\NFSe::MAX_ENVIOS`; Service e busca do CRON nao podem declarar valores independentes.
+- Reenvio manual pode liberar exatamente uma tentativa extra somente para `XML_INVALIDO` com financeiro vinculado e causa tecnica conhecida ja corrigida no gerador XML/data fiscal, incluindo erros Betha de schema por `cLocalidadeIncid`.
+- A tentativa extra deve registrar `reenvio_manual` com codigo `LIMITE_TECNICO` antes do envio externo. A existencia desse evento bloqueia novas excecoes, inclusive quando o provedor rejeitar a tentativa adicional.
+- Reenvio automatico por CRON continua limitado a `tentativas_envio < 5` e nunca utiliza a tentativa extra manual.
 - Se houver `id_financeiro`, regenerar XML com os dados atuais antes de reenviar.
 - Se nao houver `id_financeiro`, reaproveitar o XML salvo como fallback.
 - Em Betha, regenerar evita erro de DPS ja recepcionada com mesmo ID.
