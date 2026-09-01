@@ -233,6 +233,7 @@ $map = [
     'Taxa' => 'Tassa',
     'Participação' => 'Quota',
     'Visualização' => 'Visualizzazione',
+    'Filtros aplicados' => 'Filtri applicati',
     'Agrupado por veículo' => 'Raggruppato per veicolo',
     'Individualizado' => 'Dettagliato',
     'Todos os veículos' => 'Tutti i veicoli',

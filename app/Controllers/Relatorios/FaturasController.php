@@ -5,6 +5,7 @@ namespace App\Controllers\Relatorios;
 use App\Core\Auth;
 use App\Core\Request;
 use App\Core\Response;
+use App\Models\Veiculo;
 use App\Models\Relatorios\FaturasReport;
 use App\Views\Template;
 
@@ -271,7 +272,8 @@ class FaturasController extends BaseRelatorioController
             $result['details'],
             $filters['data_inicio'],
             $filters['data_fim'],
-            'L'
+            'L',
+            ['veiculo_filtro' => $this->resolverVeiculoFiltro($veiculoId)]
         );
     }
 
@@ -322,6 +324,25 @@ class FaturasController extends BaseRelatorioController
         return $veiculoId;
     }
 
+    private function resolverVeiculoFiltro(string $veiculoId): string
+    {
+        if ($veiculoId === '') {
+            return '';
+        }
+
+        $veiculo = (new Veiculo())->buscarIdentificacaoPorId((int) $veiculoId);
+        if (!$veiculo) {
+            return '';
+        }
+
+        $identificacao = array_filter([
+            trim((string) ($veiculo['placa'] ?? '')),
+            trim(trim((string) ($veiculo['marca'] ?? '')) . ' ' . trim((string) ($veiculo['modelo'] ?? ''))),
+        ], static fn(string $parte): bool => $parte !== '');
+
+        return implode(' - ', $identificacao);
+    }
+
     private function normalizarFornecedorId(mixed $fornecedorId): string
     {
         $fornecedorId = trim((string) $fornecedorId);
@@ -356,7 +377,8 @@ class FaturasController extends BaseRelatorioController
         array $details,
         string $dataInicio,
         string $dataFim,
-        string $orientation = 'P'
+        string $orientation = 'P',
+        array $contextoPdf = []
     ): void {
         $user = Auth::user();
         $empresa = $this->resolveReportPdfCompany($user);

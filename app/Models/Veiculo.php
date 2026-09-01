@@ -422,6 +422,20 @@ class Veiculo extends Model
     }
 
     /**
+     * Busca os dados necessarios para identificar um veiculo em filtros.
+     *
+     * @return array{id:int,placa:?string,marca:?string,modelo:?string}|null
+     */
+    public function buscarIdentificacaoPorId(int $id): ?array
+    {
+        return $this->qb
+            ->table('veiculos', 'v')
+            ->select(['v.id', 'v.placa', 'v.marca', 'v.modelo'])
+            ->where('v.id', '=', $id)
+            ->first();
+    }
+
+    /**
      * Busca um veiculo por placa
      *
      * @param string $placa Placa do veiculo

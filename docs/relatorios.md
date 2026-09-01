@@ -1574,6 +1574,10 @@ sao mantidos somente por compatibilidade.
 - Veículo: restringe contas a pagar e receber pelo veículo associado no cabeçalho (`financeiro.id_veiculo`) ou nos itens (`financeiro_itens.id_veiculo`).
 - Status: todos, pago, pendente ou vencido. Aplica nos dois lados.
 
+No PDF, quando um veículo específico estiver selecionado, a identificação com
+placa, marca e modelo deve aparecer em **Filtros aplicados**, entre o cabeçalho e
+os totalizadores. Sem filtro de veículo, esse bloco não deve ser exibido.
+
 **Contas a Receber**:
 
 | Vencimento | Cliente | Descrição | Valor | Status |

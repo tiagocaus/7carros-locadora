@@ -4,6 +4,14 @@
 <body>
     <?php include __DIR__ . '/../kpis/_header.php'; ?>
 
+    <?php $veiculoFiltro = trim((string) ($contextoPdf['veiculo_filtro'] ?? '')); ?>
+    <?php if ($veiculoFiltro !== ''): ?>
+        <div style="margin: -5px 0 12px; padding: 6px 8px; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 8pt; color: #475569;">
+            <strong><?= t('modules.relatorios.common.applied_filters') ?>:</strong>
+            <?= t('modules.relatorios.common.vehicle') ?>: <?= htmlspecialchars($veiculoFiltro, ENT_QUOTES, 'UTF-8') ?>
+        </div>
+    <?php endif; ?>
+
     <!-- Totalizadores -->
     <table class="totals-table">
         <tr>

@@ -27,6 +27,7 @@ return [
         'all_status' => 'Todos os status',
         'apply' => 'Aplicar',
         'clear' => 'Limpar filtros',
+        'applied_filters' => 'Filtros aplicados',
         'export_pdf' => 'Exportar PDF',
         'generated_at' => 'Gerado em',
         'generated_by' => 'Gerado por',
