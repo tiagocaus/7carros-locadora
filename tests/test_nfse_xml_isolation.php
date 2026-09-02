@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use App\Config\NFSe as NFSeConfig;
 use App\Services\NFSe\Betha\NFSeXMLBetha;
 use App\Services\NFSe\NFSeErros;
 use App\Services\NFSe\Nacional\NFSeXMLNacional;
@@ -27,6 +28,10 @@ function assertTextOrder(string $first, string $second, string $haystack, string
     if ($firstPos === false || $secondPos === false || $firstPos >= $secondPos) {
         throw new RuntimeException($message);
     }
+}
+
+if (!NFSeConfig::cIndOpNT004Valido('100301') || NFSeConfig::cIndOpNT004Valido('010101')) {
+    throw new RuntimeException('Dominio cIndOp NT004 deve aceitar 100301 e bloquear o codigo futuro 010101.');
 }
 
 $dados = [
@@ -89,6 +94,30 @@ assertNotContainsText('<pTotTrib>', $betha, 'Betha nao deve enviar percentuais e
 assertContainsText('<totTrib><indTotTrib>0</indTotTrib></totTrib>', $betha, 'Betha deve enviar indTotTrib=0 no perfil minimo oficial NT004.');
 assertNotContainsText('<infDPS Id=', $betha, 'Betha nao pode usar atributo Id maiusculo.');
 
+$dadosBethaIBSCBS = $dados;
+$dadosBethaIBSCBS['servico']['codigo_tributacao_nacional'] = '990101';
+$dadosBethaIBSCBS['valores']['preencher_ibscbs'] = 'S';
+$dadosBethaIBSCBS['valores']['c_ind_op_ibscbs'] = '100301';
+$dadosBethaIBSCBS['valores']['cst_ibscbs'] = '000';
+$dadosBethaIBSCBS['valores']['c_class_trib_ibscbs'] = '000001';
+$bethaIBSCBS = (new NFSeXMLBetha())->gerarXML($dadosBethaIBSCBS);
+assertContainsText('<cTribNac>990101</cTribNac>', $bethaIBSCBS, 'Betha deve priorizar o cTribNac vigente para servico sem incidencia.');
+assertContainsText(
+    '<IBSCBS><finNFSe>0</finNFSe><cIndOp>100301</cIndOp><indDest>0</indDest><valores><trib><gIBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib></gIBSCBS></trib></valores></IBSCBS>',
+    $bethaIBSCBS,
+    'Betha deve gerar o grupo declaratorio IBS/CBS completo.'
+);
+assertTextOrder('</valores>', '<IBSCBS>', $bethaIBSCBS, 'Betha deve posicionar IBSCBS depois do grupo valores.');
+
+$dadosBethaIBSCBSIncompletos = $dados;
+$dadosBethaIBSCBSIncompletos['valores']['preencher_ibscbs'] = 'S';
+try {
+    (new NFSeXMLBetha())->gerarXML($dadosBethaIBSCBSIncompletos);
+    throw new RuntimeException('Betha deveria rejeitar IBS/CBS sem codigos declaratorios.');
+} catch (InvalidArgumentException $e) {
+    assertContainsText('incompleta', $e->getMessage(), 'Betha deve explicar que a configuracao IBS/CBS esta incompleta.');
+}
+
 $nacional = (new NFSeXMLNacional())->gerarXML($dados);
 assertContainsText('xmlns="http://www.sped.fazenda.gov.br/nfse"', $nacional, 'Nacional deve usar namespace SPED.');
 assertContainsText('<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01">', $nacional, 'Nacional deve gerar o layout DPS 1.01.');
@@ -103,12 +132,12 @@ assertNotContainsText('<infDPS id=', $nacional, 'Nacional nao pode usar atributo
 
 $dadosIBSCBS = $dados;
 $dadosIBSCBS['valores']['preencher_ibscbs'] = 'S';
-$dadosIBSCBS['valores']['c_ind_op_ibscbs'] = '010101';
+$dadosIBSCBS['valores']['c_ind_op_ibscbs'] = '100301';
 $dadosIBSCBS['valores']['cst_ibscbs'] = '000';
 $dadosIBSCBS['valores']['c_class_trib_ibscbs'] = '000001';
 $nacionalIBSCBS = (new NFSeXMLNacional())->gerarXML($dadosIBSCBS);
 assertContainsText(
-    '<IBSCBS><finNFSe>0</finNFSe><cIndOp>010101</cIndOp><indDest>0</indDest><valores><trib><gIBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib></gIBSCBS></trib></valores></IBSCBS>',
+    '<IBSCBS><finNFSe>0</finNFSe><cIndOp>100301</cIndOp><indDest>0</indDest><valores><trib><gIBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib></gIBSCBS></trib></valores></IBSCBS>',
     $nacionalIBSCBS,
     'Nacional deve gerar o grupo declaratorio IBS/CBS na estrutura oficial do DPS 1.01.'
 );
@@ -130,6 +159,14 @@ if (NFSeErros::mapearErroRetorno('E0014', 'DPS ja gerada') !== 'DPS_JA_GERADA'
     || !NFSeErros::isRecuperavel('DPS_JA_GERADA')
     || NFSeErros::isRecuperavel('IBSCBS_CONFIGURACAO')) {
     throw new RuntimeException('Mapeamento de E0014/configuracao IBS/CBS esta incorreto para o reprocessamento.');
+}
+
+if (NFSeErros::mapearErroRetorno('E001', 'O grupo IBSCBS é obrigatório para o prestador') !== 'IBSCBS_CONFIGURACAO') {
+    throw new RuntimeException('Rejeicao Betha por ausencia de IBSCBS deve apontar para a configuracao fiscal.');
+}
+
+if (NFSeErros::mapearErroRetorno('E082', 'Código indicador de operação inválido') !== 'IBSCBS_CONFIGURACAO') {
+    throw new RuntimeException('E082 deve apontar para a configuracao fiscal de IBS/CBS.');
 }
 
 echo "Teste de isolamento XML NFS-e passou.\n";

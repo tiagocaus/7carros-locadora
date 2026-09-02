@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Config\NFSe as NFSeConfig;
 use App\Traits\Auditable;
 
 /**
@@ -70,12 +71,18 @@ class NFSeConfiguracao extends Model
         if ($codigoTributacaoNacional !== '' && !preg_match('/^\d{6}$/', $codigoTributacaoNacional)) {
             throw new \InvalidArgumentException('Código de tributação nacional deve ter 6 dígitos.');
         }
-        if ($ativo === 'S' && $tipoEmissao !== 'nacional' && $preencherIBSCBS === 'S') {
-            throw new \InvalidArgumentException('IBS/CBS está homologado somente para a emissão Nacional.');
+        if ($ativo === 'S' && $tipoEmissao === 'issnet' && $preencherIBSCBS === 'S') {
+            throw new \InvalidArgumentException('IBS/CBS não está homologado para a emissão ISSNet.');
         }
-        if ($ativo === 'S' && $tipoEmissao === 'nacional' && $preencherIBSCBS === 'S') {
+        if ($ativo === 'S' && in_array($tipoEmissao, ['nacional', 'betha'], true) && $preencherIBSCBS === 'S') {
+            if ($tipoEmissao === 'betha' && !preg_match('/^\d{6}$/', $codigoTributacaoNacional)) {
+                throw new \InvalidArgumentException('Código de tributação nacional deve ter 6 dígitos para enviar IBS/CBS pela Betha.');
+            }
             if (strlen($cIndOpIBSCBS) !== 6) {
                 throw new \InvalidArgumentException('Código indicador da operação IBS/CBS deve ter 6 dígitos.');
+            }
+            if (!NFSeConfig::cIndOpNT004Valido($cIndOpIBSCBS)) {
+                throw new \InvalidArgumentException('Código indicador da operação não é aceito pelo layout NT004 ativo na NFS-e.');
             }
             if (strlen($cstIBSCBS) !== 3) {
                 throw new \InvalidArgumentException('CST do IBS/CBS deve ter 3 dígitos.');

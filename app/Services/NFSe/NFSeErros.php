@@ -508,6 +508,14 @@ class NFSeErros
             return 'DPS_JA_GERADA';
         }
 
+        if ($codigoSEFIN === 'E082'
+            || str_contains($mensagemLower, 'ibscbs')
+            || str_contains($mensagemLower, 'ibs/cbs')
+            || str_contains($mensagemLower, 'indicador de operação inválido')
+            || str_contains($mensagemLower, 'indicador de operacao invalido')) {
+            return 'IBSCBS_CONFIGURACAO';
+        }
+
         if (
             $codigoSEFIN === 'E1235'
             && str_contains($mensagemLower, "element 'toma'")

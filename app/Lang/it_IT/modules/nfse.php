@@ -137,6 +137,7 @@ return [
         'serie_required_active' => 'Inserisci la serie della NFS-e prima di attivare l emissione.',
         'codigo_municipio_required_active' => 'Inserisci il codice IBGE del comune con 7 cifre prima di attivare l emissione.',
         'ibscbs_codes_required' => 'Inserisci cIndOp (6 cifre), CST (3 cifre) e cClassTrib (6 cifre) per abilitare IBS/CBS.',
+        'c_ind_op_ibscbs_invalid' => 'Il codice cIndOp non è accettato dal tracciato NT004 attualmente attivo per la NFS-e.',
         'codigo_servico_required_active' => 'Inserisci il codice del servizio prima di attivare l emissione.',
         'codigo_tributacao_nacional_invalid' => 'Il codice tributario nazionale deve contenere esattamente 6 cifre.',
         'error_correction' => 'Come correggere',

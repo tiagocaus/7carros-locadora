@@ -78,4 +78,10 @@ $eventoProperty->setValue($service, new FakeNFSeEventoTentativaExtra([
 $erroTecnicoHistorico = $erroNaoTecnico;
 assertBoolSame(true, $method->invoke($service, $erroTecnicoHistorico), 'Erro tecnico historico deve liberar a tentativa extra quando ela ainda nao foi usada.');
 
+$eventoProperty->setValue($service, new FakeNFSeEventoTentativaExtra());
+$erroCIndOp = $base;
+$erroCIndOp['codigo_rejeicao'] = 'IBSCBS_CONFIGURACAO';
+$erroCIndOp['motivo_rejeicao'] = 'E082 Código indicador de operação inválido';
+assertBoolSame(true, $method->invoke($service, $erroCIndOp), 'E082 corrigido deve liberar a tentativa manual extra.');
+
 echo "Teste de tentativa extra manual NFS-e passou.\n";

@@ -137,6 +137,7 @@ return [
         'serie_required_active' => 'Informe la serie de la NFS-e antes de activar la emisión.',
         'codigo_municipio_required_active' => 'Informe el código IBGE del municipio con 7 dígitos antes de activar la emisión.',
         'ibscbs_codes_required' => 'Informe cIndOp (6 dígitos), CST (3 dígitos) y cClassTrib (6 dígitos) para habilitar IBS/CBS.',
+        'c_ind_op_ibscbs_invalid' => 'El código cIndOp no es aceptado por el diseño NT004 actualmente activo para NFS-e.',
         'codigo_servico_required_active' => 'Informe el código del servicio antes de activar la emisión.',
         'codigo_tributacao_nacional_invalid' => 'El código de tributación nacional debe tener exactamente 6 dígitos.',
         'error_correction' => 'Cómo corregir',

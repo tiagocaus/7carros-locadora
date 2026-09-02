@@ -613,7 +613,7 @@
                             <label class="form-label-group"><?= t('modules.nfse.config.codigo_servico') ?> <?= aviso(t('modules.nfse.config.codigo_servico_hint')) ?></label>
                             <input type="text" name="codigo_servico" id="inputCodigoServico" class="form-input-group-field" placeholder="1.1101.11" maxlength="20">
                         </div>
-                        <div class="md:col-span-4 form-input-group field-nacional">
+                        <div class="md:col-span-4 form-input-group field-dps-rtc">
                             <label class="form-label-group"><?= t('modules.nfse.config.codigo_tributacao_nacional') ?> <?= aviso(t('modules.nfse.config.codigo_tributacao_nacional_hint')) ?></label>
                             <input type="text" name="codigo_tributacao_nacional" id="inputCodigoTributacaoNacional" class="form-input-group-field" inputmode="numeric" maxlength="6" placeholder="000000">
                         </div>
@@ -2126,13 +2126,16 @@
                 document.querySelectorAll('.field-nacional').forEach((field) => {
                     field.style.display = isNacional ? 'block' : 'none';
                 });
+                tabNfse.querySelectorAll('.field-dps-rtc').forEach((field) => {
+                    field.style.display = isDps ? 'block' : 'none';
+                });
                 document.getElementById('fieldNumeroAtual').style.display = 'block';
                 document.getElementById('fieldEnviarIM').style.display = (isDps || isIssnet) ? 'block' : 'none';
                 document.getElementById('fieldRegApuracaoSN').style.display = isDps && isSimples ? 'block' : 'none';
-                document.getElementById('sectionIBSCBS').style.display = isNacional ? 'block' : 'none';
-                document.getElementById('fieldPreencherIBSCBS').style.display = isNacional ? 'block' : 'none';
+                document.getElementById('sectionIBSCBS').style.display = isDps ? 'block' : 'none';
+                document.getElementById('fieldPreencherIBSCBS').style.display = isDps ? 'block' : 'none';
                 tabNfse.querySelectorAll('.field-ibscbs-code').forEach(el => {
-                    el.style.display = isNacional && preencherIBSCBS ? 'block' : 'none';
+                    el.style.display = isDps && preencherIBSCBS ? 'block' : 'none';
                 });
                 tabNfse.querySelectorAll('.field-issnet').forEach(el => {
                     el.style.display = isIssnet ? 'block' : 'none';
@@ -2220,10 +2223,21 @@
                 const cIndOpIBSCBS = document.getElementById('inputCIndOpIBSCBS').value.replace(/\D/g, '');
                 const cstIBSCBS = document.getElementById('inputCstIBSCBS').value.replace(/\D/g, '');
                 const cClassTribIBSCBS = document.getElementById('inputCClassTribIBSCBS').value.replace(/\D/g, '');
-                if (document.getElementById('inputAtivo').checked && tipoEmissao === 'nacional' && preencherIBSCBS
+                if (document.getElementById('inputAtivo').checked && ['nacional', 'betha'].includes(tipoEmissao) && preencherIBSCBS
                     && (cIndOpIBSCBS.length !== 6 || cstIBSCBS.length !== 3 || cClassTribIBSCBS.length !== 6
                         || !cClassTribIBSCBS.startsWith(cstIBSCBS))) {
                     window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.ibscbs_codes_required') ?> }, '*');
+                    return;
+                }
+                const cIndOpNT004 = <?= json_encode(\App\Config\NFSe::CINDOP_NT004, JSON_UNESCAPED_SLASHES) ?>;
+                if (document.getElementById('inputAtivo').checked && ['nacional', 'betha'].includes(tipoEmissao) && preencherIBSCBS
+                    && !cIndOpNT004.includes(cIndOpIBSCBS)) {
+                    window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.c_ind_op_ibscbs_invalid') ?> }, '*');
+                    return;
+                }
+                if (document.getElementById('inputAtivo').checked && tipoEmissao === 'betha' && preencherIBSCBS
+                    && !/^\d{6}$/.test(codigoTributacaoNacional)) {
+                    window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.codigo_tributacao_nacional_invalid') ?> }, '*');
                     return;
                 }
 

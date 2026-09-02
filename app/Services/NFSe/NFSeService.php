@@ -423,6 +423,7 @@ class NFSeService
         return str_contains($mensagem, 'xml_invalido')
             || str_contains($mensagem, 'e1235')
             || str_contains($mensagem, 'e001')
+            || str_contains($mensagem, 'e082')
             || str_contains($mensagem, 'falha no esquema xml')
             || str_contains($mensagem, 'conteúdo inválido')
             || str_contains($mensagem, 'conteudo invalido')
@@ -431,6 +432,8 @@ class NFSeService
             || str_contains($mensagem, "conteúdo do elemento 'trib' não está completo")
             || str_contains($mensagem, "conteudo do elemento 'trib' nao esta completo")
             || str_contains($mensagem, 'clocalidadeincid')
+            || str_contains($mensagem, 'indicador de operação inválido')
+            || str_contains($mensagem, 'indicador de operacao invalido')
             || str_contains($mensagem, 'list of possible elements expected');
     }
 
@@ -1202,8 +1205,12 @@ class NFSeService
         $ibscbsObrigatorio = $tipoEmissao === 'nacional'
             && $dataFiscal >= $dataObrigatoriedadeFiscal;
 
-        if ($preencherIBSCBS && $tipoEmissao !== 'nacional') {
-            throw new \InvalidArgumentException('IBS/CBS está homologado somente para a emissão Nacional.');
+        if ($preencherIBSCBS && !in_array($tipoEmissao, ['nacional', 'betha'], true)) {
+            throw new \InvalidArgumentException('IBS/CBS não está homologado para este tipo de emissão.');
+        }
+        if ($preencherIBSCBS && $tipoEmissao === 'betha'
+            && !preg_match('/^\d{6}$/', (string) ($config['codigo_tributacao_nacional'] ?? ''))) {
+            throw new \InvalidArgumentException('Código de tributação nacional deve ter 6 dígitos para enviar IBS/CBS pela Betha.');
         }
         if ($ibscbsObrigatorio && !$preencherIBSCBS) {
             throw new \InvalidArgumentException('O preenchimento de IBS/CBS é obrigatório para este regime tributário na DPS Nacional.');
@@ -1681,7 +1688,10 @@ class NFSeService
 
             if (!empty($retorno['erros'])) {
                 $erro = $retorno['erros'][0];
-                $codigoInterno = NFSeErros::mapearErroAPI($erro['codigo'] ?? 'ERRO_DESCONHECIDO');
+                $codigoInterno = NFSeErros::mapearErroRetorno(
+                    $erro['codigo'] ?? 'ERRO_DESCONHECIDO',
+                    $erro['mensagem'] ?? ''
+                );
                 $this->nfseModel->atualizarStatus($idNFSe, 'rejeitada', $erro['mensagem'] ?? 'Erro Betha', $codigoInterno);
                 $this->eventoModel->registrar($idNFSe, 'erro', $erro['codigo'] ?? null, $erro['mensagem'] ?? '', $resultado['resposta'] ?? null);
                 return $this->erro($erro['mensagem'] ?? 'Erro Betha', $codigoInterno, $retorno['erros']);
@@ -2023,6 +2033,11 @@ class NFSeService
             if (strlen($valor) !== $regra['tamanho']) {
                 throw new \InvalidArgumentException($regra['rotulo'] . ' deve ter ' . $regra['tamanho'] . ' dígitos.');
             }
+        }
+
+        $cIndOp = preg_replace('/\D/', '', (string) ($config['c_ind_op_ibscbs'] ?? '')) ?? '';
+        if (!NFSeConfig::cIndOpNT004Valido($cIndOp)) {
+            throw new \InvalidArgumentException('Código indicador da operação não é aceito pelo layout NT004 ativo na NFS-e.');
         }
 
         if (!str_starts_with((string) $config['c_class_trib_ibscbs'], (string) $config['cst_ibscbs'])) {

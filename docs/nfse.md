@@ -94,7 +94,7 @@ Campos principais:
 | `numero_atual` | Contador Nacional/Betha |
 | `codigo_municipio` | Codigo IBGE de 7 digitos do prestador |
 | `codigo_servico` | NBS/codigo de servico conforme emissor |
-| `codigo_tributacao_nacional` | `cTribNac` opcional de 6 digitos, exclusivo da DPS Nacional e separado do NBS |
+| `codigo_tributacao_nacional` | `cTribNac` opcional de 6 digitos, usado pela DPS Nacional e pela Betha quando configurado, sempre separado do NBS |
 | `item_lista_servico` | Item da lista de servico ABRASF/ISSNet |
 | `codigo_cnae` | CNAE ABRASF/ISSNet quando exigido |
 | `codigo_tributacao_municipio` | Codigo de tributacao municipal ABRASF/ISSNet quando exigido |
@@ -162,7 +162,7 @@ Regras de XML:
 - Quando `preencher_ibscbs = S`, enviar `<IBSCBS>` depois de `<valores>`, com `finNFSe`, `cIndOp`, `indDest` e `valores/trib/gIBSCBS` (`CST` e `cClassTrib`). As aliquotas e os valores sao calculados pela plataforma nacional e devem ser lidos do XML autorizado, nunca calculados pela configuracao local.
 - Pela documentacao oficial RTC/Anexo VI, o grupo IBS/CBS passa a ser obrigatorio no ambiente nacional em `03/08/2026`; para optantes do Simples Nacional e MEI, somente em `01/01/2027`.
 - Antes de 2027, uma flag legada ativa no Simples/MEI sem os tres codigos declaratorios completos e tratada como desativada. Isso evita que configuracoes antigas bloqueiem a emissao durante a transicao; ao salvar novamente com IBS/CBS ativo, os codigos passam a ser obrigatorios.
-- O sistema homologa o preenchimento declaratorio de IBS/CBS apenas para `tipo_emissao = nacional`. Betha e ISSNet devem manter `preencher_ibscbs = N`.
+- O preenchimento declaratorio de IBS/CBS e suportado por `tipo_emissao = nacional` e `tipo_emissao = betha`, sempre mediante configuracao explicita e completa. ISSNet deve manter `preencher_ibscbs = N`.
 - Com IBS/CBS desativado, `<totTrib>` deve usar `<pTotTrib>` zerado, nao `<vTotTrib>` calculado por aliquotas padrao.
 
 Reconciliacao de duplicidade:
@@ -287,10 +287,13 @@ Regras de XML:
 - Para cliente `tipo = ES` e pais diferente de `BR`, enviar `<comExt>` imediatamente apos `<cServ>`. Para locacao comum prestada no Brasil, usar `mdPrestacao=2`, `vincPrest=0` (sem vinculo), `mecAFComexP=1` e `mecAFComexT=1` (nenhum mecanismo de apoio), `movTempBens=1` (nao vinculada a movimentacao temporaria) e `mdic=0`. Os codigos de desconhecido `vincPrest=9`, `mecAFComexP=0`, `mecAFComexT=0` e `movTempBens=0` sao exclusivos do compartilhamento municipal de nota de origem e nao devem ser usados na DPS do contribuinte. `tpMoeda` usa o codigo BACEN da moeda da filial (BRL `790`, USD `220`, EUR `978`, GBP `540`) e `vServMoeda` recebe o valor do servico. Moeda sem mapeamento deve bloquear a emissao localmente.
 - No schema Betha aceito pelo SOAP, `<valores>` deve vir logo apos `</serv>`. Nao enviar `<cLocalidadeIncid>` nesse ponto; esse elemento pertence ao XML nacional/NFS-e gerado posteriormente, nao ao DPS Betha.
 - Betha v1.01 deve manter o namespace `http://www.betha.com.br/e-nota-dps`; nao trocar o DPS para namespace SPED.
-- Embora a NT004 Betha descreva o grupo `<IBSCBS>`, o preenchimento ainda nao esta homologado neste sistema para o emissor Betha. Manter `preencher_ibscbs = N`.
+- A Betha aceita o grupo `<IBSCBS>` da NT004 depois de `<valores>`. Enviar o grupo somente quando `preencher_ibscbs = S`, com `finNFSe`, `cIndOp`, `indDest` e `valores/trib/gIBSCBS` (`CST` e `cClassTrib`) configurados explicitamente.
+- Quando IBS/CBS estiver ativo na Betha, `codigo_tributacao_nacional` (`cTribNac`) deve ter 6 digitos. O NBS continua independente em `codigo_servico`.
+- Nacional e Betha devem validar `cIndOp` contra o Anexo C/Anexo VII da NT004 atualmente ativo. Nao aceitar antecipadamente codigos da NT009 enquanto essa versao nao estiver implantada no ambiente correspondente.
+- Para locacao onerosa de veiculo sem condutor no layout de producao atual, usar NBS `1.1101.11`, `cTribNac=990101`, `cIndOp=100301`, `CST=000` e `cClassTrib=000001`. O fato gerador futuro `99.04.01`/`010101` nao deve ser enviado antes da ativacao da NT009.
 - Com IBS/CBS sem aliquotas/valores informados, Betha v1.01 deve seguir os exemplos oficiais NT004 v2.0 e gerar `<totTrib><indTotTrib>0</indTotTrib></totTrib>`, sem `<pTotTrib>` ou `<vTotTrib>` zerados.
 - `999999999` nao e NBS valido para a calculadora nacional acionada pela Betha NT004. Para a descricao padrao de locacao de veiculo automotor sem condutor, converter esse placeholder para `111011100` (`1.1101.11`) antes de enviar.
-- Se `preencher_ibscbs = S`, a emissao Betha deve falhar com erro de configuracao claro.
+- Nunca preencher codigos IBS/CBS padrao no gerador Betha. Configuracao ausente ou inconsistente deve falhar antes da reserva da numeracao e do envio externo.
 - `ConsultarStatusDpsEnvio` deve enviar `<tpAmb>`, `<codigoIbge>`, `<cpfCnpjPrestador>`, `<protocolo>` e `<tipoIntegracao>`, nessa ordem.
 - Para consulta de emissao Betha, `<tipoIntegracao>` deve ser `EMISSAO`.
 - Resposta pode vir com prefixo `ns2:`; parsers devem usar namespace, nao string fixa.

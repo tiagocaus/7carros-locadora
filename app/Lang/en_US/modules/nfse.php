@@ -137,6 +137,7 @@ return [
         'serie_required_active' => 'Enter the NFS-e series before enabling issuance.',
         'codigo_municipio_required_active' => 'Enter the municipality IBGE code with 7 digits before enabling issuance.',
         'ibscbs_codes_required' => 'Enter cIndOp (6 digits), CST (3 digits), and cClassTrib (6 digits) to enable IBS/CBS.',
+        'c_ind_op_ibscbs_invalid' => 'The cIndOp code is not accepted by the NT004 layout currently active for NFS-e.',
         'codigo_servico_required_active' => 'Enter the service code before enabling issuance.',
         'codigo_tributacao_nacional_invalid' => 'The national taxation code must contain exactly 6 digits.',
         'error_correction' => 'How to fix',

@@ -75,7 +75,10 @@ class NFSeXMLBetha implements NFSeXMLInterface
         $xml .= '<serv>';
         $xml .= '<locPrest><cLocPrestacao>' . $this->somenteDigitos((string) ($dados['municipio_codigo'] ?? '')) . '</cLocPrestacao></locPrest>';
         $xml .= '<cServ>';
-        $xml .= '<cTribNac>' . $this->mapearCTribNac($tribISSQN) . '</cTribNac>';
+        $codigoTributacaoNacional = $this->somenteDigitos((string) ($servico['codigo_tributacao_nacional'] ?? ''));
+        $xml .= '<cTribNac>' . (strlen($codigoTributacaoNacional) === 6
+            ? $codigoTributacaoNacional
+            : $this->mapearCTribNac($tribISSQN)) . '</cTribNac>';
         $xml .= '<xDescServ>' . $this->textoMaiusculo((string) ($servico['descricao'] ?? '')) . '</xDescServ>';
         $xml .= '<cNBS>' . $this->converterNBS(
             (string) ($servico['codigo'] ?? '1.1101.11'),
@@ -482,19 +485,26 @@ class NFSeXMLBetha implements NFSeXMLInterface
             return '';
         }
 
-        $cIndOp = preg_replace('/\D/', '', (string) ($valores['c_ind_op_ibscbs'] ?? '050102'));
-        $cst = preg_replace('/\D/', '', (string) ($valores['cst_ibscbs'] ?? '000'));
-        $classTrib = preg_replace('/\D/', '', (string) ($valores['c_class_trib_ibscbs'] ?? '000001'));
+        $cIndOp = preg_replace('/\D/', '', (string) ($valores['c_ind_op_ibscbs'] ?? '')) ?? '';
+        $cst = preg_replace('/\D/', '', (string) ($valores['cst_ibscbs'] ?? '')) ?? '';
+        $classTrib = preg_replace('/\D/', '', (string) ($valores['c_class_trib_ibscbs'] ?? '')) ?? '';
+
+        if (strlen($cIndOp) !== 6 || strlen($cst) !== 3 || strlen($classTrib) !== 6) {
+            throw new \InvalidArgumentException('Configuração de IBS/CBS incompleta para a DPS Betha.');
+        }
+        if (!str_starts_with($classTrib, $cst)) {
+            throw new \InvalidArgumentException('Os 3 primeiros dígitos da classificação tributária devem ser iguais ao CST do IBS/CBS.');
+        }
 
         $xml = '<IBSCBS>';
         $xml .= '<finNFSe>0</finNFSe>';
-        $xml .= '<cIndOp>' . str_pad(substr($cIndOp, 0, 6), 6, '0', STR_PAD_LEFT) . '</cIndOp>';
+        $xml .= '<cIndOp>' . $cIndOp . '</cIndOp>';
         $xml .= '<indDest>0</indDest>';
         $xml .= '<valores>';
         $xml .= '<trib>';
         $xml .= '<gIBSCBS>';
-        $xml .= '<CST>' . str_pad(substr($cst, 0, 3), 3, '0', STR_PAD_LEFT) . '</CST>';
-        $xml .= '<cClassTrib>' . str_pad(substr($classTrib, 0, 6), 6, '0', STR_PAD_LEFT) . '</cClassTrib>';
+        $xml .= '<CST>' . $cst . '</CST>';
+        $xml .= '<cClassTrib>' . $classTrib . '</cClassTrib>';
         $xml .= '</gIBSCBS>';
         $xml .= '</trib>';
         $xml .= '</valores>';
