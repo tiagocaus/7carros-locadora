@@ -426,7 +426,7 @@ class LocacaoVeiculo extends Model
             ->leftJoin('locacoes', 'l', 'lv.id_locacao', '=', 'l.id')
             ->where('lv.id_veiculo', '=', $veiculoId)
             ->whereNull('lv.data_entrada')
-            ->whereIn('l.status', ['R', 'A']);
+            ->where('l.status', '=', 'A');
 
         if ($excluirLocacaoId !== null) {
             $query->where('lv.id_locacao', '!=', $excluirLocacaoId);
