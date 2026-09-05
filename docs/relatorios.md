@@ -463,6 +463,14 @@ competência nem o Livro de Caixa cronológico.
 - Despesas operacionais pagas.
 - Resultado bruto, operacional e líquido de caixa.
 
+**Classificacao gerencial das despesas**:
+- As hierarquias `3.1` (Oficina), `3.2` (Custos das mercadorias vendidas) e
+  `3.3` (Custos dos servicos prestados), incluindo seus descendentes, compoem
+  Custos Operacionais.
+- As demais contas do tipo despesa compoem Despesas Operacionais.
+- A hierarquia `2` representa Passivo e nunca deve ser inferida como custo.
+- DRE e Resultado Gerencial por Caixa usam a mesma regra centralizada.
+
 ---
 
 ### 2.4 Livro de Caixa

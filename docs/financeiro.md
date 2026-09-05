@@ -563,20 +563,61 @@ parcelas. A ordem dos campos da configuracao e:
 
 1. Conta bancaria
 2. Forma de pagamento
-3. Parcelas
-4. 1o Vencimento
-5. Intervalo (dias)
-6. Pago?
+3. Plano de contas
+4. Parcelas
+5. 1o Vencimento
+6. Intervalo (dias)
+7. Pago?
 
 Quando todos os campos estao preenchidos, o front gera a tabela **Parcelas
 geradas**. Cada linha da tabela e editavel e define os dados finais que serao
-salvos em `financeiro`: conta bancaria, forma de pagamento, vencimento, valor e
-status pago/nao pago.
+salvos em `financeiro`: conta bancaria, forma de pagamento, plano de contas,
+vencimento, valor e status pago/nao pago. O plano da configuracao funciona como
+modelo inicial; cada parcela permite selecionar outro plano individualmente.
+Todas as parcelas exigem plano de contas. A primeira parcela tambem propaga sua
+classificacao para os respectivos registros de `financeiro_itens`.
+
+O plano principal usa `chosen-select` e inicia com um padrao compativel com o
+sentido do lancamento: `3.1.1 - Manutencoes preventivas` para despesas da
+locadora e `4.1.1.04 - Servicos prestados` para receitas cobradas do cliente.
+Uma escolha manual valida e preservada, e as parcelas continuam permitindo
+classificacao individual.
 
 O backend deve tratar `parcelas_geradas` como fonte de verdade quando esse campo
 for enviado. A soma dos valores das parcelas precisa bater com o total dos itens
 selecionados da manutencao. Se uma parcela for marcada como paga, o lancamento e
 criado com `pago = 'S'` e `data_pago` preenchida com a data operacional atual.
+
+Para regularizar historicos sem classificacao, use
+`scripts/classificar-financeiros-manutencoes.php`. O script opera em dry-run
+por padrao e nao cria nem altera registros em `planos_de_contas`. A previa
+global lista apenas tenants com pendencias. A aplicacao global exige planos
+globais validos para despesas e receitas e executa todos os tenants dentro de
+uma unica transacao.
+
+```bash
+# Previa global de todos os tenants, sem gravacao
+php scripts/classificar-financeiros-manutencoes.php --env=production --all-tenants
+
+# Previa individual, sem gravacao
+php scripts/classificar-financeiros-manutencoes.php --env=production --tenant=CHAVE --plano-despesa=HIERARQUIA_DESPESA --plano-receita=HIERARQUIA_RECEITA
+
+# Aplicacao confirmada
+php scripts/classificar-financeiros-manutencoes.php --env=production --tenant=CHAVE --plano-despesa=HIERARQUIA_DESPESA --plano-receita=HIERARQUIA_RECEITA --apply --confirm=CLASSIFICAR_FINANCEIROS_MANUTENCOES
+
+# Aplicacao global confirmada
+php scripts/classificar-financeiros-manutencoes.php --env=production --all-tenants --plano-despesa=3.1.1 --plano-receita=4.1.1.04 --apply --confirm=CLASSIFICAR_FINANCEIROS_MANUTENCOES_TODOS
+```
+
+As opcoes `--tenant` e `--all-tenants` sao mutuamente exclusivas. Na aplicacao
+global, os planos informados devem existir com `chave = '0'` e tipos compativeis.
+Se essa pre-validacao falhar, nenhuma gravacao e iniciada. Durante a aplicacao,
+qualquer erro provoca rollback de todos os tenants.
+
+O plano de receita so e obrigatorio quando o tenant possui manutencoes cobradas
+de clientes ainda sem classificacao; o mesmo criterio vale para despesas. O
+script preserva planos ja preenchidos, inclui parcelas filhas e preenche itens
+financeiros nulos com o plano do respectivo lancamento.
 
 ### Consultar lancamentos pendentes
 

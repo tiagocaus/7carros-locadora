@@ -1533,6 +1533,7 @@ class Financeiro extends Model
             ->table('planos_de_contas')
             ->select([
                 'id',
+                'hierarquia',
                 'tipo',
                 "CONCAT(hierarquia, ' - ', {$descricaoSelect}) AS text"
             ])

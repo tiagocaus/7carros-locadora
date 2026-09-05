@@ -298,32 +298,42 @@
                 <!-- Configuracao do lancamento -->
                 <div id="configFinanceiro" class="mt-4 p-4 bg-slate-50 rounded-lg" style="display: none;">
                     <h4 class="font-medium mb-3"><?= t('modules.manutencao.sections.entry_config') ?></h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        <div class="form-input-group">
+                    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-12 gap-4">
+                        <div class="form-input-group xl:col-span-2">
                             <label for="fin_conta" class="form-label-group"><?= t('modules.manutencao.fields.bank_account') ?></label>
                             <select id="fin_conta" class="form-input-group-field">
                                 <option value=""><?= t('modules.manutencao.placeholders.select') ?></option>
                             </select>
                         </div>
-                        <div class="form-input-group">
+                        <div class="form-input-group xl:col-span-2">
                             <label for="fin_forma_pagamento" class="form-label-group"><?= t('modules.manutencao.fields.payment_method') ?></label>
                             <select id="fin_forma_pagamento" class="form-input-group-field">
                                 <option value=""><?= t('modules.manutencao.placeholders.select') ?></option>
                             </select>
                         </div>
-                        <div class="form-input-group">
+                        <div class="form-input-group xl:col-span-3">
+                            <label for="fin_plano_de_conta" class="form-label-group"><?= t('modules.manutencao.fields.chart_account') ?></label>
+                            <select id="fin_plano_de_conta"
+                                    class="form-input-group-field chosen-select"
+                                    data-chosen-type="normal"
+                                    data-chosen-placement="bottom"
+                                    data-chosen-placeholder="<?= t('modules.manutencao.placeholders.select') ?>">
+                                <option value=""><?= t('modules.manutencao.placeholders.select') ?></option>
+                            </select>
+                        </div>
+                        <div class="form-input-group xl:col-span-1">
                             <label for="fin_parcelas" class="form-label-group"><?= t('modules.manutencao.fields.installments') ?></label>
                             <input type="number" id="fin_parcelas" class="form-input-group-field" value="1" min="1" max="24">
                         </div>
-                        <div class="form-input-group">
+                        <div class="form-input-group xl:col-span-2">
                             <label for="fin_data_vencimento" class="form-label-group"><?= t('modules.manutencao.fields.first_due_date') ?></label>
                             <input type="date" id="fin_data_vencimento" class="form-input-group-field">
                         </div>
-                        <div class="form-input-group">
+                        <div class="form-input-group xl:col-span-1">
                             <label for="fin_intervalo" class="form-label-group"><?= t('modules.manutencao.fields.interval_days') ?></label>
                             <input type="number" id="fin_intervalo" class="form-input-group-field" value="30" min="1">
                         </div>
-                        <div class="form-input-group">
+                        <div class="form-input-group xl:col-span-1">
                             <label for="fin_pago" class="form-label-group"><?= t('modules.manutencao.fields.paid') ?></label>
                             <select id="fin_pago" class="form-input-group-field">
                                 <option value="N"><?= t('common.labels.no') ?></option>
@@ -335,12 +345,13 @@
                     <div id="parcelasGeradasContainer" class="mt-4" style="display: none;">
                         <h5 class="font-medium mb-2"><?= t('modules.manutencao.sections.generated_installments') ?></h5>
                         <div class="overflow-x-auto">
-                            <table class="w-full min-w-[920px] divide-y divide-slate-200">
+                            <table class="w-full min-w-[1120px] divide-y divide-slate-200">
                                 <thead class="bg-slate-100">
                                     <tr>
                                         <th class="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase w-12">#</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase"><?= t('modules.manutencao.fields.bank_account') ?></th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase"><?= t('modules.manutencao.fields.payment_method') ?></th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase"><?= t('modules.manutencao.fields.chart_account') ?></th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase w-40"><?= t('modules.manutencao.fields.due_date') ?></th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase w-40"><?= t('modules.manutencao.fields.value') ?></th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase w-32"><?= t('modules.manutencao.fields.paid') ?></th>
@@ -477,6 +488,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         'auditPartial' => t('modules.manutencao.audit_financial.partial'),
         'auditPaymentMethod' => t('modules.manutencao.audit_financial.payment_method'),
         'auditBankAccount' => t('modules.manutencao.audit_financial.bank_account'),
+        'auditChartAccount' => t('modules.manutencao.audit_financial.chart_account'),
         'auditPaid' => t('modules.manutencao.audit_financial.paid'),
         'auditGeneratedInstallments' => t('modules.manutencao.audit_financial.generated_installments'),
         'auditInstallments' => t('modules.manutencao.audit_financial.installments'),
@@ -514,6 +526,7 @@ window.manutencoesAuditI18n = <?= json_encode([
     let salvandoManutencao = false;
     let formasPagamentoFinanceiro = [];
     let contasBancariasFinanceiro = [];
+    let planosDeContasFinanceiro = [];
     let parcelasGeradas = [];
 
     // Expor itensData globalmente para o audit handler
@@ -606,6 +619,7 @@ window.manutencoesAuditI18n = <?= json_encode([
             setChosenValue('id_cliente', m.id_cliente, m.cliente_nome);
         }
         clientePagadorOriginalId = normalizarClientePagadorId(m.id_cliente);
+        atualizarPlanosFinanceiro();
         temFinanceiroVinculado = !!m.id_financeiro_principal
             || (Array.isArray(m.itens) && m.itens.some(item => !!item.id_financeiro));
 
@@ -1506,11 +1520,63 @@ window.manutencoesAuditI18n = <?= json_encode([
         }
     }
 
+    async function carregarPlanosDeContasFinanceiro() {
+        try {
+            const result = await API.get('/api/financeiro/planos-de-contas');
+            if (result.success && result.data) {
+                planosDeContasFinanceiro = result.data.map(plano => ({
+                    id: String(plano.id),
+                    nome: plano.text || plano.nome || '',
+                    hierarquia: plano.hierarquia || '',
+                    tipo: plano.tipo || ''
+                }));
+                atualizarPlanosFinanceiro();
+                renderParcelasGeradas();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar planos de contas:', error);
+        }
+    }
+
+    function tipoPlanoFinanceiroAtual() {
+        return clientePagadorOriginalId ? 'R' : 'D';
+    }
+
+    function planosFinanceirosDoTipoAtual() {
+        const tipo = tipoPlanoFinanceiroAtual();
+        return planosDeContasFinanceiro.filter(plano => plano.tipo === tipo);
+    }
+
+    function hierarquiaPlanoFinanceiroPadrao() {
+        return tipoPlanoFinanceiroAtual() === 'R' ? '4.1.1.04' : '3.1.1';
+    }
+
+    function atualizarPlanosFinanceiro() {
+        const select = document.getElementById('fin_plano_de_conta');
+        if (!select) return;
+
+        const valorAtual = select.value;
+        const planos = planosFinanceirosDoTipoAtual();
+        const valorAtualValido = planos.some(plano => String(plano.id) === String(valorAtual));
+        const planoPadrao = planos.find(plano => plano.hierarquia === hierarquiaPlanoFinanceiroPadrao());
+        const valorSelecionado = valorAtualValido ? valorAtual : (planoPadrao?.id || '');
+
+        select.innerHTML = `<option value="">${i18n.placeholderSelect}</option>${montarOptions(planos, valorSelecionado)}`;
+        select.value = valorSelecionado;
+
+        if (select.chosenSelect) {
+            select.chosenSelect.refresh();
+        }
+    }
+
     function setCamposFinanceiroHabilitados(habilitado) {
-        ['fin_conta', 'fin_forma_pagamento', 'fin_parcelas', 'fin_data_vencimento', 'fin_intervalo', 'fin_pago'].forEach(id => {
+        ['fin_conta', 'fin_forma_pagamento', 'fin_plano_de_conta', 'fin_parcelas', 'fin_data_vencimento', 'fin_intervalo', 'fin_pago'].forEach(id => {
             const campo = document.getElementById(id);
             if (campo) {
                 campo.disabled = !habilitado;
+                if (campo.chosenSelect) {
+                    campo.chosenSelect.setDisabled(!habilitado);
+                }
             }
         });
     }
@@ -1570,6 +1636,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         const valido = parcelasGeradas.every(parcela =>
             parcela.id_conta &&
             parcela.id_forma_pagamento &&
+            parcela.id_plano_de_conta &&
             parcela.data_vencimento &&
             (parseFloat(parcela.valor) || 0) > 0 &&
             ['S', 'N'].includes(parcela.pago)
@@ -1608,6 +1675,12 @@ window.manutencoesAuditI18n = <?= json_encode([
                     </select>
                 </td>
                 <td class="px-3 py-2">
+                    <select class="form-input-group-field parcela-plano" data-index="${index}">
+                        <option value="">${i18n.placeholderSelect}</option>
+                        ${montarOptions(planosFinanceirosDoTipoAtual(), parcela.id_plano_de_conta)}
+                    </select>
+                </td>
+                <td class="px-3 py-2">
                     <input type="date" class="form-input-group-field parcela-vencimento" data-index="${index}" value="${escapeHtml(parcela.data_vencimento)}">
                 </td>
                 <td class="px-3 py-2">
@@ -1628,6 +1701,9 @@ window.manutencoesAuditI18n = <?= json_encode([
         tbody.querySelectorAll('.parcela-forma').forEach(input => input.addEventListener('change', function() {
             atualizarParcelaGerada(parseInt(this.dataset.index, 10), 'id_forma_pagamento', this.value);
         }));
+        tbody.querySelectorAll('.parcela-plano').forEach(input => input.addEventListener('change', function() {
+            atualizarParcelaGerada(parseInt(this.dataset.index, 10), 'id_plano_de_conta', this.value);
+        }));
         tbody.querySelectorAll('.parcela-vencimento').forEach(input => input.addEventListener('change', function() {
             atualizarParcelaGerada(parseInt(this.dataset.index, 10), 'data_vencimento', this.value);
         }));
@@ -1644,13 +1720,14 @@ window.manutencoesAuditI18n = <?= json_encode([
     function gerarParcelasFinanceiro() {
         const idConta = document.getElementById('fin_conta')?.value || '';
         const idFormaPagamento = document.getElementById('fin_forma_pagamento')?.value || '';
+        const idPlanoDeConta = document.getElementById('fin_plano_de_conta')?.value || '';
         const quantidade = parseInt(document.getElementById('fin_parcelas')?.value || '0', 10);
         const dataVencimento = document.getElementById('fin_data_vencimento')?.value || '';
         const intervaloDias = parseInt(document.getElementById('fin_intervalo')?.value || '0', 10);
         const pago = document.getElementById('fin_pago')?.value || 'N';
         const total = obterTotalSelecionadoNumero();
 
-        if (!idConta || !idFormaPagamento || !quantidade || !dataVencimento || !intervaloDias || total <= 0) {
+        if (!idConta || !idFormaPagamento || !idPlanoDeConta || !quantidade || !dataVencimento || !intervaloDias || total <= 0) {
             parcelasGeradas = [];
             renderParcelasGeradas();
             return;
@@ -1671,6 +1748,7 @@ window.manutencoesAuditI18n = <?= json_encode([
                 numero: i,
                 id_conta: idConta,
                 id_forma_pagamento: idFormaPagamento,
+                id_plano_de_conta: idPlanoDeConta,
                 data_vencimento: adicionarDias(dataVencimento, intervaloDias * (i - 1)),
                 valor: formatarValorInput(valor),
                 pago: pago
@@ -1689,6 +1767,7 @@ window.manutencoesAuditI18n = <?= json_encode([
             checkAll.dispatchEvent(new Event('change'));
         }
         setCamposFinanceiroHabilitados(true);
+        atualizarPlanosFinanceiro();
         document.getElementById('configFinanceiro').style.display = 'block';
         gerarParcelasFinanceiro();
     });
@@ -1701,6 +1780,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         }
         tipoLancamento = 'parcial';
         setCamposFinanceiroHabilitados(true);
+        atualizarPlanosFinanceiro();
         document.getElementById('configFinanceiro').style.display = 'block';
         gerarParcelasFinanceiro();
     });
@@ -1713,7 +1793,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         renderParcelasGeradas();
     });
 
-    ['fin_conta', 'fin_forma_pagamento', 'fin_parcelas', 'fin_data_vencimento', 'fin_intervalo', 'fin_pago'].forEach(id => {
+    ['fin_conta', 'fin_forma_pagamento', 'fin_plano_de_conta', 'fin_parcelas', 'fin_data_vencimento', 'fin_intervalo', 'fin_pago'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', gerarParcelasFinanceiro);
         document.getElementById(id)?.addEventListener('input', gerarParcelasFinanceiro);
     });
@@ -1729,8 +1809,10 @@ window.manutencoesAuditI18n = <?= json_encode([
         // Capturar dados do formulario
         const contaSelect = document.getElementById('fin_conta');
         const formaPgtoSelect = document.getElementById('fin_forma_pagamento');
+        const planoContaSelect = document.getElementById('fin_plano_de_conta');
         const formaPgtoTexto = formaPgtoSelect.options[formaPgtoSelect.selectedIndex]?.text || '';
         const contaTexto = contaSelect.options[contaSelect.selectedIndex]?.text || '';
+        const planoContaTexto = planoContaSelect.options[planoContaSelect.selectedIndex]?.text || '';
         const parcelas = document.getElementById('fin_parcelas').value;
         const dataVencimento = document.getElementById('fin_data_vencimento').value;
         const intervaloDias = document.getElementById('fin_intervalo').value;
@@ -1739,6 +1821,7 @@ window.manutencoesAuditI18n = <?= json_encode([
         const dados = {
             id_conta: contaSelect.value,
             id_forma_pagamento: formaPgtoSelect.value,
+            id_plano_de_conta: planoContaSelect.value,
             pago: pago,
             parcelas: parcelas,
             data_vencimento: dataVencimento,
@@ -1747,6 +1830,7 @@ window.manutencoesAuditI18n = <?= json_encode([
                 numero: parcela.numero,
                 id_conta: parcela.id_conta,
                 id_forma_pagamento: parcela.id_forma_pagamento,
+                id_plano_de_conta: parcela.id_plano_de_conta,
                 data_vencimento: parcela.data_vencimento,
                 valor: parcela.valor,
                 pago: parcela.pago
@@ -1780,6 +1864,14 @@ window.manutencoesAuditI18n = <?= json_encode([
                 label: i18n.auditBankAccount,
                 de: null,
                 para: contaTexto
+            });
+        }
+
+        if (planoContaTexto) {
+            auditChanges[i18n.auditSection].push({
+                label: i18n.auditChartAccount,
+                de: null,
+                para: planoContaTexto
             });
         }
 
@@ -1827,6 +1919,7 @@ window.manutencoesAuditI18n = <?= json_encode([
                 parcela: parcela.numero,
                 conta: contasBancariasFinanceiro.find(conta => String(conta.id) === String(parcela.id_conta))?.nome || parcela.id_conta,
                 forma_pagamento: formasPagamentoFinanceiro.find(forma => String(forma.id) === String(parcela.id_forma_pagamento))?.nome || parcela.id_forma_pagamento,
+                plano_de_contas: planosDeContasFinanceiro.find(plano => String(plano.id) === String(parcela.id_plano_de_conta))?.nome || parcela.id_plano_de_conta,
                 vencimento: DateHelper.format(parcela.data_vencimento),
                 valor: Currency.format(parseFloat(parcela.valor) || 0, true),
                 pago: parcela.pago === 'S' ? i18n.yes : i18n.no
@@ -1936,6 +2029,8 @@ window.manutencoesAuditI18n = <?= json_encode([
 
             if (result.success) {
                 toast.success(result.message || i18n.saveSuccess);
+                clientePagadorOriginalId = normalizarClientePagadorId(dados.id_cliente);
+                atualizarPlanosFinanceiro();
 
                 // Armazenar resultado para uso apos confirmacao
                 saveResult = result;
@@ -2014,6 +2109,7 @@ window.manutencoesAuditI18n = <?= json_encode([
 
     carregarFormasPagamento();
     carregarContasBancariasFinanceiro();
+    carregarPlanosDeContasFinanceiro();
 
     // Data padrao para vencimento
     document.getElementById('fin_data_vencimento').value = DateHelper.todayInput();

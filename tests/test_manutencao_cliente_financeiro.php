@@ -19,6 +19,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 use App\Core\Database;
+use App\Models\Financeiro;
 use App\Models\Manutencao;
 use App\Models\ManutencaoItem;
 
@@ -32,6 +33,22 @@ $sucessos = 0;
 $idMatrizFilial = (int) Database::fetchColumn(
     'SELECT id FROM matrizes_filiais WHERE chave = ? ORDER BY id LIMIT 1',
     [$chave]
+);
+$idConta = (int) Database::fetchColumn(
+    'SELECT id FROM contas_bancarias WHERE chave = ? AND status = ? ORDER BY id LIMIT 1',
+    [$chave, 'A']
+);
+$idFormaPagamento = (int) Database::fetchColumn(
+    'SELECT id FROM formas_pagamento WHERE chave = ? AND status = ? ORDER BY id LIMIT 1',
+    [$chave, 'A']
+);
+$planosReceita = array_column(
+    Database::fetchAll('SELECT id FROM planos_de_contas WHERE chave = ? AND tipo = ? ORDER BY id LIMIT 2', ['0', 'R']),
+    'id'
+);
+$idPlanoDespesa = (int) Database::fetchColumn(
+    'SELECT id FROM planos_de_contas WHERE chave = ? AND tipo = ? ORDER BY id LIMIT 1',
+    ['0', 'D']
 );
 $clientesCriados = [];
 $veiculosCriados = [];
@@ -119,9 +136,46 @@ function criarManutencaoComItem(string $chave, int $veiculoId, ?int $clienteId):
     return $manutencaoId;
 }
 
+function parcelasTesteManutencao(array $planos): array
+{
+    global $idConta, $idFormaPagamento;
+
+    $quantidade = count($planos);
+    $valorBase = round(120.50 / $quantidade, 2);
+    $parcelas = [];
+    $acumulado = 0.0;
+
+    foreach ($planos as $index => $idPlano) {
+        $valor = $index === $quantidade - 1 ? round(120.50 - $acumulado, 2) : $valorBase;
+        $acumulado = round($acumulado + $valor, 2);
+        $parcelas[] = [
+            'numero' => $index + 1,
+            'id_conta' => $idConta,
+            'id_forma_pagamento' => $idFormaPagamento,
+            'id_plano_de_conta' => (int) $idPlano,
+            'data_vencimento' => \App\Helpers\DateHelper::addDaysForDatabase(30 * $index),
+            'valor' => $valor,
+            'pago' => 'N',
+        ];
+    }
+
+    return $parcelas;
+}
+
 echo "=== Teste manutencao cliente pagador no financeiro ===\n";
 
 try {
+    if ($idConta <= 0 || $idFormaPagamento <= 0 || count($planosReceita) < 2 || $idPlanoDespesa <= 0) {
+        throw new RuntimeException('Fixtures financeiras obrigatorias nao encontradas');
+    }
+
+    $planosSelect = (new Financeiro())->listarPlanosDeContasSelect($chave);
+    $hierarquiasSelect = array_column($planosSelect, 'hierarquia');
+    checkManutencaoClienteFinanceiro(
+        'select financeiro retorna hierarquia dos planos padrao',
+        in_array('3.1.1', $hierarquiasSelect, true) && in_array('4.1.1.04', $hierarquiasSelect, true)
+    );
+
     $model = new Manutencao();
 
     $clienteId = criarClienteTesteManutencao($chave);
@@ -132,9 +186,29 @@ try {
     $manutencaoComCliente = criarManutencaoComItem($chave, $veiculoComCliente, $clienteId);
     $manutencoesCriadas[] = $manutencaoComCliente;
 
+    $parcelaSemPlano = parcelasTesteManutencao([(int) $planosReceita[0]]);
+    unset($parcelaSemPlano[0]['id_plano_de_conta']);
+    $rejeitouSemPlano = false;
+    try {
+        $model->criarLancamentoFinanceiro($manutencaoComCliente, ['parcelas_geradas' => $parcelaSemPlano]);
+    } catch (InvalidArgumentException) {
+        $rejeitouSemPlano = true;
+    }
+    checkManutencaoClienteFinanceiro('plano e obrigatorio em cada parcela', $rejeitouSemPlano);
+
+    $rejeitouTipoIncompativel = false;
+    try {
+        $model->criarLancamentoFinanceiro(
+            $manutencaoComCliente,
+            ['parcelas_geradas' => parcelasTesteManutencao([$idPlanoDespesa])]
+        );
+    } catch (InvalidArgumentException) {
+        $rejeitouTipoIncompativel = true;
+    }
+    checkManutencaoClienteFinanceiro('plano deve ser compativel com receita ou despesa', $rejeitouTipoIncompativel);
+
     $financeiroComCliente = $model->criarLancamentoFinanceiro($manutencaoComCliente, [
-        'parcelas' => 2,
-        'data_vencimento' => date('Y-m-d'),
+        'parcelas_geradas' => parcelasTesteManutencao($planosReceita),
     ]);
     $financeirosCriados[] = $financeiroComCliente;
 
@@ -151,6 +225,21 @@ try {
     );
     checkManutencaoClienteFinanceiro('parcelas mantem cliente pagador', $parcelasSemCliente === 0, $parcelasSemCliente);
 
+    $planosGravados = array_map(
+        'intval',
+        array_column(Database::fetchAll(
+            'SELECT id_plano_de_conta FROM financeiro WHERE (id = ? OR id_financeiro_origem = ?) AND chave = ? ORDER BY parcela',
+            [$financeiroComCliente, $financeiroComCliente, $chave]
+        ), 'id_plano_de_conta')
+    );
+    checkManutencaoClienteFinanceiro('cada parcela mantem seu plano de contas', $planosGravados === array_map('intval', $planosReceita), implode(',', $planosGravados));
+
+    $planoItemPrincipal = (int) Database::fetchColumn(
+        'SELECT id_plano_de_conta FROM financeiro_itens WHERE id_financeiro = ? AND chave = ? LIMIT 1',
+        [$financeiroComCliente, $chave]
+    );
+    checkManutencaoClienteFinanceiro('item financeiro usa plano da primeira parcela', $planoItemPrincipal === (int) $planosReceita[0], $planoItemPrincipal);
+
     $idsParcelas = Database::fetchAll(
         'SELECT id FROM financeiro WHERE id_financeiro_origem = ? AND chave = ?',
         [$financeiroComCliente, $chave]
@@ -165,7 +254,7 @@ try {
     $manutencoesCriadas[] = $manutencaoSemCliente;
 
     $financeiroSemCliente = $model->criarLancamentoFinanceiro($manutencaoSemCliente, [
-        'data_vencimento' => date('Y-m-d'),
+        'parcelas_geradas' => parcelasTesteManutencao([$idPlanoDespesa]),
     ]);
     $financeirosCriados[] = $financeiroSemCliente;
 
@@ -175,6 +264,11 @@ try {
     );
     checkManutencaoClienteFinanceiro('financeiro sem cliente continua despesa', ($cabecalhoSemCliente['tipo'] ?? null) === 'D', $cabecalhoSemCliente['tipo'] ?? null);
     checkManutencaoClienteFinanceiro('financeiro sem cliente nao grava id_cliente', empty($cabecalhoSemCliente['id_cliente']), $cabecalhoSemCliente['id_cliente'] ?? 'NULL');
+    $planoDespesaGravado = (int) Database::fetchColumn(
+        'SELECT id_plano_de_conta FROM financeiro WHERE id = ? AND chave = ?',
+        [$financeiroSemCliente, $chave]
+    );
+    checkManutencaoClienteFinanceiro('despesa grava plano selecionado', $planoDespesaGravado === $idPlanoDespesa, $planoDespesaGravado);
 
     $veiculoParcial = criarVeiculoTesteManutencao($chave);
     $veiculosCriados[] = $veiculoParcial;
@@ -186,7 +280,7 @@ try {
     );
 
     $financeiroParcial = $model->criarLancamentoParcial($manutencaoParcial, [$itemParcial], [
-        'data_vencimento' => date('Y-m-d'),
+        'parcelas_geradas' => parcelasTesteManutencao([(int) $planosReceita[0]]),
     ]);
     $financeirosCriados[] = $financeiroParcial;
 

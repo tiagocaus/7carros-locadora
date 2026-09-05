@@ -41,6 +41,20 @@ function assertDreStatus(string $label, mixed $atual, mixed $esperado): void
 }
 
 try {
+    $planoCusto = Database::insertGetId('planos_de_contas', [
+        'chave' => $chave,
+        'hierarquia' => '3.3.' . random_int(100000, 999999),
+        'descricao_i18n' => json_encode(['pt_BR' => 'Custo operacional de teste'], JSON_UNESCAPED_UNICODE),
+        'tipo' => 'D',
+    ]);
+
+    $planoPassivo = Database::insertGetId('planos_de_contas', [
+        'chave' => $chave,
+        'hierarquia' => '2.99.' . random_int(100000, 999999),
+        'descricao_i18n' => json_encode(['pt_BR' => 'Passivo de teste'], JSON_UNESCAPED_UNICODE),
+        'tipo' => 'D',
+    ]);
+
     $base = [
         'chave' => $chave,
         'parcela' => 1,
@@ -67,12 +81,21 @@ try {
         'pago' => 'S',
         'desconto' => 0,
         'valor_total' => 30,
+        'id_plano_de_conta' => $planoCusto,
     ]));
     Database::insertGetId('financeiro', array_merge($base, [
         'tipo' => 'D',
         'pago' => 'N',
         'desconto' => 0,
         'valor_total' => 70,
+        'id_plano_de_conta' => $planoCusto,
+    ]));
+    Database::insertGetId('financeiro', array_merge($base, [
+        'tipo' => 'D',
+        'pago' => 'S',
+        'desconto' => 0,
+        'valor_total' => 5,
+        'id_plano_de_conta' => $planoPassivo,
     ]));
 
     $model = new FinanceiroReport();
@@ -84,17 +107,21 @@ try {
     assertDreStatus('padrao retorna somente pagas', $padrao['totals']['receita_bruta'], 100.0);
     assertDreStatus('pagas: receita bruta', $pagas['totals']['receita_bruta'], 100.0);
     assertDreStatus('pagas: deducoes', $pagas['totals']['deducoes'], 10.0);
-    assertDreStatus('pagas: despesas', $pagas['totals']['despesas_operacionais'], 30.0);
-    assertDreStatus('pagas: lucro liquido', $pagas['totals']['lucro_liquido'], 60.0);
+    assertDreStatus('pagas: custos', $pagas['totals']['custos_operacionais'], 30.0);
+    assertDreStatus('passivo nao e tratado como custo', $pagas['totals']['despesas_operacionais'], 5.0);
+    assertDreStatus('pagas: lucro liquido', $pagas['totals']['lucro_liquido'], 55.0);
     assertDreStatus('nao pagas: receita bruta', $naoPagas['totals']['receita_bruta'], 200.0);
-    assertDreStatus('nao pagas: despesas', $naoPagas['totals']['despesas_operacionais'], 70.0);
+    assertDreStatus('nao pagas: custos', $naoPagas['totals']['custos_operacionais'], 70.0);
+    assertDreStatus('nao pagas: despesas', $naoPagas['totals']['despesas_operacionais'], 0);
     assertDreStatus('nao pagas: lucro liquido', $naoPagas['totals']['lucro_liquido'], 110.0);
     assertDreStatus('todas: receita bruta', $todas['totals']['receita_bruta'], 300.0);
     assertDreStatus('todas: deducoes', $todas['totals']['deducoes'], 30.0);
-    assertDreStatus('todas: despesas', $todas['totals']['despesas_operacionais'], 100.0);
-    assertDreStatus('todas: lucro liquido', $todas['totals']['lucro_liquido'], 170.0);
+    assertDreStatus('todas: custos', $todas['totals']['custos_operacionais'], 100.0);
+    assertDreStatus('todas: despesas', $todas['totals']['despesas_operacionais'], 5.0);
+    assertDreStatus('todas: lucro liquido', $todas['totals']['lucro_liquido'], 165.0);
 } finally {
     Database::execute('DELETE FROM financeiro WHERE chave = ?', [$chave]);
+    Database::execute('DELETE FROM planos_de_contas WHERE chave = ?', [$chave]);
 }
 
 exit($falhas > 0 ? 1 : 0);

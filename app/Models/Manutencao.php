@@ -791,9 +791,15 @@ class Manutencao extends Model
         $financeiroItemModel = new FinanceiroItem();
         $manutencaoItemModel = new ManutencaoItem();
 
+        $clientePaga = !empty($manutencao['id_cliente']);
+
         // Calcular total
         $total = array_sum(array_column($manutencao['itens'], 'valor_total'));
-        $parcelasGeradas = $this->normalizarParcelasFinanceiras($dadosFinanceiro, $total);
+        $parcelasGeradas = $this->normalizarParcelasFinanceiras(
+            $dadosFinanceiro,
+            $total,
+            $clientePaga ? 'R' : 'D'
+        );
         $primeiraParcela = $parcelasGeradas[0] ?? null;
 
         // Gerar sequencia
@@ -802,8 +808,6 @@ class Manutencao extends Model
             $manutencao['id_matriz_filial'],
             'financeiro'
         );
-
-        $clientePaga = !empty($manutencao['id_cliente']);
 
         // Cliente informado transforma a manutencao em conta a receber; sem cliente, segue como despesa da empresa.
         $idFinanceiro = $financeiroModel->criar([
@@ -817,6 +821,7 @@ class Manutencao extends Model
             'id_veiculo' => $manutencao['id_veiculo'] ?? null,
             'id_forma_pagamento' => $primeiraParcela['id_forma_pagamento'] ?? ($dadosFinanceiro['id_forma_pagamento'] ?? null),
             'id_conta' => $primeiraParcela['id_conta'] ?? ($dadosFinanceiro['id_conta'] ?? null),
+            'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
             'descricao' => "Manutencao OS #{$manutencao['os']}",
             'valor_subtotal' => $primeiraParcela['valor'] ?? $total,
             'data_criada' => today(),
@@ -832,6 +837,7 @@ class Manutencao extends Model
                 'chave' => $manutencao['chave'],
                 'id_financeiro' => $idFinanceiro,
                 'id_veiculo' => $manutencao['id_veiculo'] ?? null,
+                'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
                 'descricao' => $item['descricao'],
                 'valor' => $item['valor_total']
             ]);
@@ -889,9 +895,15 @@ class Manutencao extends Model
             }
         }
 
+        $clientePaga = !empty($manutencao['id_cliente']);
+
         // Calcular total
         $total = array_sum(array_column($itens, 'valor_total'));
-        $parcelasGeradas = $this->normalizarParcelasFinanceiras($dadosFinanceiro, $total);
+        $parcelasGeradas = $this->normalizarParcelasFinanceiras(
+            $dadosFinanceiro,
+            $total,
+            $clientePaga ? 'R' : 'D'
+        );
         $primeiraParcela = $parcelasGeradas[0] ?? null;
 
         // Gerar sequencia
@@ -900,8 +912,6 @@ class Manutencao extends Model
             $manutencao['id_matriz_filial'],
             'financeiro'
         );
-
-        $clientePaga = !empty($manutencao['id_cliente']);
 
         // Cliente informado transforma a manutencao em conta a receber; sem cliente, segue como despesa da empresa.
         $idFinanceiro = $financeiroModel->criar([
@@ -915,6 +925,7 @@ class Manutencao extends Model
             'id_veiculo' => $manutencao['id_veiculo'] ?? null,
             'id_forma_pagamento' => $primeiraParcela['id_forma_pagamento'] ?? ($dadosFinanceiro['id_forma_pagamento'] ?? null),
             'id_conta' => $primeiraParcela['id_conta'] ?? ($dadosFinanceiro['id_conta'] ?? null),
+            'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
             'descricao' => "Manutencao OS #{$manutencao['os']} - Fechamento Parcial",
             'valor_subtotal' => $primeiraParcela['valor'] ?? $total,
             'data_criada' => today(),
@@ -930,6 +941,7 @@ class Manutencao extends Model
                 'chave' => $manutencao['chave'],
                 'id_financeiro' => $idFinanceiro,
                 'id_veiculo' => $manutencao['id_veiculo'] ?? null,
+                'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
                 'descricao' => $item['descricao'],
                 'valor' => $item['valor_total']
             ]);
@@ -950,31 +962,43 @@ class Manutencao extends Model
     /**
      * Normaliza e valida as parcelas editadas na aba Financeiro da manutencao.
      */
-    private function normalizarParcelasFinanceiras(array $dadosFinanceiro, float $total): array
+    private function normalizarParcelasFinanceiras(array $dadosFinanceiro, float $total, string $tipoFinanceiro): array
     {
         if (empty($dadosFinanceiro['parcelas_geradas']) || !is_array($dadosFinanceiro['parcelas_geradas'])) {
-            return [];
+            throw new \InvalidArgumentException('Gere e confira as parcelas antes de criar o lancamento financeiro');
         }
 
         $parcelas = [];
         $soma = 0.0;
+        $planosValidados = [];
+        $planoModel = new PlanoDeContas();
 
         foreach ($dadosFinanceiro['parcelas_geradas'] as $index => $parcela) {
             $numero = (int) ($parcela['numero'] ?? ($index + 1));
             $idConta = (int) ($parcela['id_conta'] ?? 0);
             $idFormaPagamento = (int) ($parcela['id_forma_pagamento'] ?? 0);
+            $idPlanoDeConta = (int) ($parcela['id_plano_de_conta'] ?? 0);
             $dataVencimento = trim((string) ($parcela['data_vencimento'] ?? ''));
             $valor = currency_parse($parcela['valor'] ?? 0);
             $pago = ($parcela['pago'] ?? 'N') === 'S' ? 'S' : 'N';
 
-            if ($numero < 1 || $idConta <= 0 || $idFormaPagamento <= 0 || $valor <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dataVencimento)) {
+            if ($numero < 1 || $idConta <= 0 || $idFormaPagamento <= 0 || $idPlanoDeConta <= 0 || $valor <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dataVencimento)) {
                 throw new \InvalidArgumentException('Preencha corretamente todas as parcelas geradas');
+            }
+
+            if (!array_key_exists($idPlanoDeConta, $planosValidados)) {
+                $plano = $planoModel->buscarPorId($idPlanoDeConta);
+                if (!$plano || ($plano['tipo'] ?? '') !== $tipoFinanceiro) {
+                    throw new \InvalidArgumentException('Plano de contas invalido para o tipo do lancamento');
+                }
+                $planosValidados[$idPlanoDeConta] = true;
             }
 
             $parcelas[] = [
                 'numero' => $numero,
                 'id_conta' => $idConta,
                 'id_forma_pagamento' => $idFormaPagamento,
+                'id_plano_de_conta' => $idPlanoDeConta,
                 'data_vencimento' => $dataVencimento,
                 'valor' => round($valor, 2),
                 'pago' => $pago,
@@ -1014,6 +1038,7 @@ class Manutencao extends Model
         $financeiroModel->atualizar($idFinanceiro, [
             'id_conta' => $primeiraParcela['id_conta'],
             'id_forma_pagamento' => $primeiraParcela['id_forma_pagamento'],
+            'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
             'data_venci' => $primeiraParcela['data_vencimento'],
             'pago' => $primeiraParcela['pago'],
             'data_pago' => $primeiraParcela['pago'] === 'S' ? today() : null,
@@ -1040,6 +1065,7 @@ class Manutencao extends Model
                 'id_oficina' => $financeiroPai['id_oficina'] ?? null,
                 'id_veiculo' => $financeiroPai['id_veiculo'] ?? null,
                 'id_forma_pagamento' => $parcela['id_forma_pagamento'],
+                'id_plano_de_conta' => $parcela['id_plano_de_conta'],
                 'id_conta' => $parcela['id_conta'],
                 'descricao' => $financeiroPai['descricao'],
                 'valor_subtotal' => $parcela['valor'],

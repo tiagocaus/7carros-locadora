@@ -52,6 +52,18 @@ class FinanceiroReport extends BaseReportModel
     }
 
     /**
+     * Classifica despesas na estrutura gerencial sem confundir o grupo 2
+     * (PASSIVO) com custos. Os grupos 3.1, 3.2 e 3.3 e seus descendentes
+     * representam custos; as demais despesas ficam no grupo operacional.
+     */
+    private function grupoResultadoDespesa(string $hierarquia): string
+    {
+        return preg_match('/^3\.[123](?:\.|$)/', trim($hierarquia)) === 1
+            ? 'custo_operacional'
+            : 'despesa_operacional';
+    }
+
+    /**
      * Aplica filtros de filial na query
      */
     private function applyFilialFilter($query, string $filialWhere, array $filialParams, string $filialId, string $prefix = 'f'): void
@@ -511,7 +523,8 @@ class FinanceiroReport extends BaseReportModel
 
         $despesasRows = $queryDespesas->get();
 
-        // Separar custos operacionais (hierarquia comeca com '2') e despesas operacionais (hierarquia comeca com '3')
+        // A hierarquia 2 representa PASSIVO. Custos operacionais pertencem aos
+        // grupos 3.1 (oficina), 3.2 (mercadorias) e 3.3 (servicos prestados).
         $custosOperacionais = 0;
         $despesasOperacionais = 0;
         $despesaItems = [];
@@ -521,7 +534,9 @@ class FinanceiroReport extends BaseReportModel
             $hierarquia = $row['hierarquia'] ?? '';
             $descricao = $this->extractDescricaoI18n($row['descricao_i18n'] ?? null);
 
-            if (str_starts_with($hierarquia, '2')) {
+            $grupoResultado = $this->grupoResultadoDespesa($hierarquia);
+
+            if ($grupoResultado === 'custo_operacional') {
                 $custosOperacionais += $valor;
             } else {
                 $despesasOperacionais += $valor;
@@ -532,6 +547,7 @@ class FinanceiroReport extends BaseReportModel
                 'descricao' => $descricao,
                 'valor' => $valor,
                 'tipo_plano' => $row['tipo_plano'] ?? '',
+                'grupo_resultado' => $grupoResultado,
             ];
         }
 
@@ -579,7 +595,7 @@ class FinanceiroReport extends BaseReportModel
         ];
 
         foreach ($despesaItems as $item) {
-            if (str_starts_with($item['hierarquia'], '2')) {
+            if ($item['grupo_resultado'] === 'custo_operacional') {
                 $details[] = [
                     'label' => $item['descricao'] ?: $item['hierarquia'],
                     'valor' => -$item['valor'],
@@ -609,7 +625,7 @@ class FinanceiroReport extends BaseReportModel
         ];
 
         foreach ($despesaItems as $item) {
-            if (!str_starts_with($item['hierarquia'], '2')) {
+            if ($item['grupo_resultado'] === 'despesa_operacional') {
                 $details[] = [
                     'label' => $item['descricao'] ?: $item['hierarquia'],
                     'valor' => -$item['valor'],
@@ -717,7 +733,9 @@ class FinanceiroReport extends BaseReportModel
             $hierarquia = (string) ($row['hierarquia'] ?? '');
             $descricao = $this->extractDescricaoI18n($row['descricao_i18n'] ?? null);
 
-            if (str_starts_with($hierarquia, '2')) {
+            $grupoResultado = $this->grupoResultadoDespesa($hierarquia);
+
+            if ($grupoResultado === 'custo_operacional') {
                 $custosOperacionais += $valor;
             } else {
                 $despesasOperacionais += $valor;
@@ -730,6 +748,7 @@ class FinanceiroReport extends BaseReportModel
                     : t('modules.relatorios.financeiro.resultado_caixa.sem_classificacao'),
                 'valor' => $valor,
                 'tipo_plano' => $row['tipo_plano'] ?? '',
+                'grupo_resultado' => $grupoResultado,
             ];
         }
 
@@ -769,7 +788,7 @@ class FinanceiroReport extends BaseReportModel
         ];
 
         foreach ($despesaItems as $item) {
-            if (str_starts_with($item['hierarquia'], '2')) {
+            if ($item['grupo_resultado'] === 'custo_operacional') {
                 $details[] = [
                     'label' => $item['descricao'],
                     'valor' => -$item['valor'],
@@ -796,7 +815,7 @@ class FinanceiroReport extends BaseReportModel
         ];
 
         foreach ($despesaItems as $item) {
-            if (!str_starts_with($item['hierarquia'], '2')) {
+            if ($item['grupo_resultado'] === 'despesa_operacional') {
                 $details[] = [
                     'label' => $item['descricao'],
                     'valor' => -$item['valor'],

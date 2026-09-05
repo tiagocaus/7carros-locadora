@@ -159,6 +159,15 @@ OS geradas (preventivas ou manuais) podem ter **itens vinculados a produtos do e
 
 Ver documentação completa: [Estoque](estoque.md)
 
+## Integracao Financeira
+
+Ao criar um lancamento financeiro completo ou parcial pela aba **Financeiro**
+da manutencao, o usuario define um plano de contas modelo. As parcelas geradas
+herdam esse plano, mas cada linha permite altera-lo individualmente antes da
+confirmacao. O plano e obrigatorio e fica gravado no lancamento financeiro, nao
+na ordem de manutencao. Nenhuma alteracao no cadastro de `planos_de_contas` e
+necessaria para esse vinculo.
+
 ## Triggers de Totais
 
 Os totais de `manutencoes` sao mantidos automaticamente pelos triggers

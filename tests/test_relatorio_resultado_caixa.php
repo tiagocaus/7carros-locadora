@@ -23,7 +23,7 @@ use App\Models\Relatorios\FinanceiroReport;
 
 $chave = 'TEST_CAIXA_' . strtoupper(bin2hex(random_bytes(8)));
 $outraChave = $chave . '_OUTRO';
-$hierarquiaCusto = '2.99.' . random_int(100000, 999999);
+$hierarquiaCusto = '3.1.' . random_int(100000, 999999);
 $_SESSION['chave'] = $chave;
 $falhas = 0;
 
