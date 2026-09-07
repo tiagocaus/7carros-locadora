@@ -86,7 +86,7 @@
 
         try {
             const result = await API.post('/smtp/test', {
-                smtp_id: conexaoId,
+                id: conexaoId,
                 email: email
             });
 
