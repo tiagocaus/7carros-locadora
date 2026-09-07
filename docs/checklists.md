@@ -160,6 +160,10 @@ Todas são HTML standalone (não usam template de iframe do dashboard).
 ### Busca para impressão
 - Busca por FK (`id_locacao`/`id_contrato`) primeiro, fallback por `codigo` para registros legados
 - Checklist impresso (`checklist_modelos.tipo = 1`) usa o diagrama do cadastro do veículo (`veiculos.diagrama`) em `public/assets/img/diagramas`.
+- O cadastro/edição do veículo oferece **Diagrama**, após Disponibilidade, com Chosen client-side e prévia por mouse/teclado. No touch, a prévia permanece no painel até fechá-lo.
+- `VeiculoDiagramaHelper` centraliza os 27 arquivos e as chaves de tradução. Novos cadastros pela tela iniciam em Sedan; duplicações copiam a escolha reconhecida (valor desconhecido na origem usa Sedan na cópia).
+- A API valida `diagrama` pelo catálogo e normaliza diferenças de caixa para o nome real do asset. Campo omitido mantém o padrão do banco na criação e preserva o valor na edição. Um valor legado desconhecido já existente pode ser mantido sem regravação, mas não pode ser atribuído a outro veículo.
+- Não renomear os assets legados; nomes amigáveis são traduções. Não há alteração de schema nem atualização em massa dos registros antigos.
 - Diagramas são assets estáticos do projeto e devem ser passados ao mPDF como caminho local absoluto. Use `PdfHelper::resolvePublicAssetImagePath($diagrama, 'assets/img/diagramas')`, que também trata diferenças de maiúsculas/minúsculas entre dados legados do banco (`Sedan.jpg`) e arquivos reais (`sedan.jpg`).
 - No PDF impresso, o diagrama deve preservar proporção e respeitar altura máxima de `420px` em cada coluna de saída/chegada.
 - A tabela de tanque/combustível deve ficar centralizada horizontalmente abaixo do diagrama.

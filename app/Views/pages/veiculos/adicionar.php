@@ -102,13 +102,13 @@
 
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
                 <!-- Renavam -->
-                <div class="md:col-span-3 form-input-group">
+                <div class="md:col-span-2 form-input-group">
                     <label for="renavam" class="form-label-group">{{ t('modules.veiculos.fields.renavam') }}</label>
                     <input type="text" id="renavam" name="renavam" class="form-input-group-field" maxlength="25">
                 </div>
 
                 <!-- Chassi -->
-                <div class="md:col-span-4 form-input-group">
+                <div class="md:col-span-3 form-input-group">
                     <label for="chassi" class="form-label-group">{{ t('modules.veiculos.fields.chassis') }}</label>
                     <input type="text" id="chassi" name="chassi" class="form-input-group-field" maxlength="45">
                 </div>
@@ -132,6 +132,21 @@
                         <option value="UI">{{ t('modules.veiculos.availability.internal_use') }}</option>
                         <option value="RO">{{ t('modules.veiculos.availability.stolen') }}</option>
                         <option value="E">{{ t('modules.veiculos.availability.excluded') }}</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2 form-input-group">
+                    <label for="diagrama" class="form-label-group">
+                        {{ t('modules.veiculos.diagram.label') }}
+                        {!! aviso(t('modules.veiculos.diagram.hint')) !!}
+                    </label>
+                    <select id="diagrama" name="diagrama" class="form-input-group-field chosen-select"
+                            aria-label="{{ t('modules.veiculos.diagram.label') }}" data-chosen-image-preview="true" data-chosen-allow-clear="false"
+                            data-chosen-preview-unavailable="{{ t('modules.veiculos.diagram.preview_unavailable') }}"
+                            data-chosen-preview-close="{{ t('modules.veiculos.diagram.close') }}">
+                        <?php foreach (\App\Helpers\VeiculoDiagramaHelper::ARQUIVOS as $arquivo => $rotulo): ?>
+                            <option value="<?= e($arquivo) ?>" data-preview-src="<?= image('assets/img/diagramas/' . $arquivo) ?>"
+                                <?= $arquivo === \App\Helpers\VeiculoDiagramaHelper::PADRAO ? 'selected' : '' ?>><?= e(t('modules.veiculos.diagram.options.' . $rotulo)) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
             </div>
@@ -704,6 +719,7 @@
 
     // Traducoes JS
     const i18n = {
+        diagramUnavailable: <?= json_encode(t('modules.veiculos.diagram.unavailable'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         editTitle: '<?= t('modules.veiculos.edit_title') ?>',
         duplicateTitle: '<?= t('modules.veiculos.duplicate_title') ?>',
         selectPlanFirst: '<?= t('modules.veiculos.messages.select_plan_first') ?>',
@@ -1554,6 +1570,22 @@
         document.getElementById('chassi').value = modoDuplicacao ? '' : (data.chassi || '');
         document.getElementById('odometro').value = modoDuplicacao ? '' : (data.odometro ? Km.format(data.odometro) : '');
         document.getElementById('disponibilidade').value = modoDuplicacao ? 'D' : (data.disponibilidade || 'D');
+
+        const diagramaSelect = document.getElementById('diagrama');
+        diagramaSelect.querySelectorAll('[data-legacy]').forEach(option => option.remove());
+        const diagramaAtual = typeof data.diagrama === 'string' ? data.diagrama : '';
+        const diagramaOption = Array.from(diagramaSelect.options).find(option => option.value.toLowerCase() === diagramaAtual.toLowerCase());
+        if (diagramaOption) {
+            diagramaSelect.value = diagramaOption.value;
+        } else if (diagramaAtual && !modoDuplicacao) {
+            const legado = new Option(i18n.diagramUnavailable, diagramaAtual, true, true);
+            legado.dataset.legacy = 'true';
+            diagramaSelect.add(legado);
+        } else {
+            diagramaSelect.value = 'sedan.jpg';
+        }
+        diagramaSelect.chosenSelect?.refresh();
+        diagramaSelect.dispatchEvent(new Event('change'));
 
         // Caracteristicas
         document.getElementById('marca').value = data.marca || '';

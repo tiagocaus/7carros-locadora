@@ -2514,8 +2514,32 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         // ===== SUBMIT =====
 
         let devolucaoCreditoPendente = null;
+        let conflitoStatus = false;
+        let recarregarPorConflito = false;
+
+        function tratarConflitoStatus(result) {
+            conflitoStatus = true;
+            recarregarPorConflito = true;
+            devolucaoCreditoPendente = null;
+            document.getElementById('btnSalvar').disabled = true;
+            window.parent.postMessage({
+                action: 'openGenericConfirmModal',
+                title: <?= $jsT('modules.locacoes.api.status_conflict_title') ?>,
+                message: result.message + ' ' + <?= $jsT('modules.locacoes.api.status_conflict_reload') ?>,
+                confirmText: <?= $jsT('modules.locacoes.api.reload_page') ?>
+            }, '*');
+        }
+
+        function atualizarEstadoSalvo(data) {
+            Object.assign(locacaoData, data);
+            atualizarStatusOpcoes();
+            atualizarVisibilidadePorStatus();
+            window.FormAudit?.recapture(document.getElementById('formLocacao'));
+        }
 
         async function enviarLocacao(dados) {
+            if (conflitoStatus) return;
+            if (isEditing) dados.status_original = locacaoData.status;
             const btnSalvar = document.getElementById('btnSalvar');
             btnSalvar.disabled = true;
             btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + i18n.saving;
@@ -2528,10 +2552,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     const reaplicarEl = document.getElementById('reaplicar_promocao');
                     if (reaplicarEl) reaplicarEl.value = '0';
                     if (isEditing && result.data) {
-                        locacaoData.valor_desconto = result.data.valor_desconto;
-                        locacaoData.total_fatura = result.data.total_fatura;
-                        locacaoData.total_pagar = result.data.total_pagar;
-                        locacaoData.promocao_codigo = result.data.promocao_codigo;
+                        atualizarEstadoSalvo(result.data);
                     }
                     const deveAtualizarPagamentosCaucao = isEditing
                         && locacaoData?.id
@@ -2555,6 +2576,8 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     if (!isEditing && result.data?.id) {
                         navegarPara('/pages/locacoes/editar/' + result.data.id);
                     }
+                } else if (result.code === 'status_conflict') {
+                    tratarConflitoStatus(result);
                 } else if (result.code === 'return_refund_required' && result.data?.valor_credito_devolucao) {
                     devolucaoCreditoPendente = { ...dados, gerar_credito_devolucao: '1' };
                     window.parent.postMessage({
@@ -2571,13 +2594,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 console.error('Erro:', error);
                 window.parent.postMessage({ action: 'openAlert', message: i18n.saveError }, '*');
             } finally {
-                btnSalvar.disabled = false;
+                btnSalvar.disabled = conflitoStatus;
                 btnSalvar.innerHTML = '<i class="fas fa-save mr-2"></i>' + <?= $jsT('common.buttons.save') ?>;
             }
         }
 
         document.getElementById('formLocacao')?.addEventListener('submit', async function(e) {
             e.preventDefault();
+            if (conflitoStatus) return;
 
             sincronizarValorKmControlado();
             const fechandoLocacao = document.getElementById('locacaoStatus')?.value === 'F'
@@ -2798,13 +2822,14 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 const id = window._pendingApproveLocacaoId;
                 window._pendingApproveLocacaoId = null;
                 try {
-                    const resp = await API.post('/api/locacoes/' + id + '/confirmar-reserva', {});
+                    const resp = await API.post('/api/locacoes/' + id + '/confirmar-reserva', { status_original: locacaoData.status });
                     if (resp && resp.success) {
                         if (window.toast) toast.success(<?= $jsT('modules.locacoes.messages.approve_ok') ?>);
-                        locacaoData.status = 'R';
-                        document.getElementById('locacaoStatus').value = 'R';
+                        atualizarEstadoSalvo({ status: 'R' });
                         const banner = document.getElementById('pendingApprovalBanner');
                         if (banner) banner.classList.add('hidden');
+                    } else if (resp?.code === 'status_conflict') {
+                        tratarConflitoStatus(resp);
                     } else {
                         window.parent.postMessage({ action: 'openAlert', message: (resp && resp.message) || <?= $jsT('modules.locacoes.messages.approve_error') ?> }, '*');
                     }
@@ -3453,6 +3478,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                 select.add(new Option(<?= $jsT('modules.locacoes.status.reservation') ?>, 'R'));
                 select.add(new Option(<?= $jsT('modules.locacoes.status.open') ?>, 'A'));
                 select.value = 'A';
+            } else if (statusAtual === 'P') {
+                select.add(new Option(<?= $jsT('modules.locacoes.status.pending') ?>, 'P'));
+                select.value = 'P';
             } else if (statusAtual === 'R') {
                 select.add(new Option(<?= $jsT('modules.locacoes.status.reservation') ?>, 'R'));
                 select.add(new Option(<?= $jsT('modules.locacoes.status.open') ?>, 'A'));
@@ -3810,6 +3838,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         // Listener para resposta do modal de confirmacao generico
         window.addEventListener('message', async function(event) {
             if (!event.data || event.data.action !== 'genericConfirmed') return;
+            if (recarregarPorConflito) {
+                recarregarPorConflito = false;
+                window.location.reload();
+                return;
+            }
             if (devolucaoCreditoPendente) {
                 const dados = devolucaoCreditoPendente;
                 devolucaoCreditoPendente = null;
@@ -3841,6 +3874,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         window.addEventListener('message', function(event) {
             if (!event.data || event.data.action !== 'genericModalClosed') return;
             devolucaoCreditoPendente = null;
+            recarregarPorConflito = false;
         });
 
         // Toggle formularios de parcelas

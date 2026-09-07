@@ -411,6 +411,11 @@ return [
         'balance_due' => 'Saldo da pagare',
     ],
     'api' => [
+        'status_conflict' => 'Lo stato del noleggio è cambiato oppure la pagina non è aggiornata. Nessun dato è stato salvato.',
+        'invalid_status_transition' => 'Questo cambio di stato non è consentito. Chiudere un noleggio aperto registrando la restituzione.',
+        'status_conflict_title' => 'Noleggio aggiornato in un’altra schermata',
+        'status_conflict_reload' => 'Ricaricare la pagina per continuare. I campi non salvati saranno scartati.',
+        'reload_page' => 'Ricarica pagina',
         'fetch_rentals_error' => 'Errore nel recupero dei noleggi: :message',
         'rental_not_found' => 'Noleggio non trovato',
         'access_denied' => 'Accesso negato',

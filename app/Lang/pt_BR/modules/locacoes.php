@@ -458,6 +458,11 @@ return [
     ],
 
     'api' => [
+        'status_conflict' => 'O status desta locação mudou ou a página está desatualizada. Nenhum dado foi salvo.',
+        'invalid_status_transition' => 'Esta mudança de status não é permitida. Uma locação aberta deve ser encerrada pela devolução.',
+        'status_conflict_title' => 'Locação atualizada em outra tela',
+        'status_conflict_reload' => 'Atualize a página para continuar. Ao atualizar, os campos ainda não salvos serão descartados.',
+        'reload_page' => 'Atualizar página',
         'fetch_rentals_error' => 'Erro ao buscar locações: :message',
         'rental_not_found' => 'Locação não encontrada',
         'access_denied' => 'Acesso negado',

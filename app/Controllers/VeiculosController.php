@@ -16,6 +16,7 @@ use App\Models\ManutencaoPlano;
 use App\Models\VeiculoEncargo;
 use App\Models\Financeiro;
 use App\Helpers\FilialHelper;
+use App\Helpers\VeiculoDiagramaHelper;
 use App\Helpers\PlanoLimiteHelper;
 use App\Services\AuditLogService;
 use App\Services\VeiculoImportacaoService;
@@ -699,6 +700,15 @@ class VeiculosController
             $chave = Auth::chave();
             $dados['chave'] = $chave;
 
+            if (array_key_exists('diagrama', $dados)) {
+                $diagrama = VeiculoDiagramaHelper::normalizar($dados['diagrama']);
+                if ($diagrama === null) {
+                    Response::json(['success' => false, 'message' => t('modules.veiculos.diagram.invalid')], 400);
+                    return;
+                }
+                $dados['diagrama'] = $diagrama;
+            }
+
             // Validacao de campos obrigatorios
             $camposObrigatorios = [
                 'id_matriz_filial' => 'Filial',
@@ -882,6 +892,20 @@ class VeiculosController
             }
 
             $dados = $request->all();
+
+            if (array_key_exists('diagrama', $dados)) {
+                $diagrama = VeiculoDiagramaHelper::normalizar($dados['diagrama']);
+                if ($diagrama === null && is_string($dados['diagrama']) && $dados['diagrama'] === ($veiculo['diagrama'] ?? null)) {
+                    // Preservar valor legado desconhecido, sem regravar o campo.
+                    unset($dados['diagrama']);
+                } elseif ($diagrama === null) {
+                    Response::json(['success' => false, 'message' => t('modules.veiculos.diagram.invalid')], 400);
+                    return;
+                }
+                if ($diagrama !== null) {
+                    $dados['diagrama'] = $diagrama;
+                }
+            }
 
             // Validacao de campos obrigatorios
             $camposObrigatorios = [

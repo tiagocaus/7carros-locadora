@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Views\Template;
 use App\Models\Locacao;
+use App\Models\LocacaoEstadoOperacional;
 use App\Models\LocacaoCaucao;
 use App\Models\LocacaoVeiculo;
 use App\Models\LocacaoTaxaServico;
@@ -807,14 +808,18 @@ class LocacoesController
     {
         $transacaoAtualizacao = null;
         $registrouSaida = false;
-        $registrouDevolucao = false;
         $valorCreditoRegistrado = 0.0;
 
         try {
+            $transacaoAtualizacao = new LocacaoAtualizacaoService();
+            $transacaoAtualizacao->iniciar();
+            $estadoOperacional = new LocacaoEstadoOperacional();
+            $estadoOperacional->bloquear($id);
             $locacaoModel = new Locacao();
             $locacao = $locacaoModel->buscarPorId($id);
 
             if (!$locacao) {
+                $transacaoAtualizacao?->reverter();
                 Response::json([
                     'success' => false,
                     'message' => $this->apiMessage('rental_not_found')
@@ -824,6 +829,7 @@ class LocacoesController
 
             $chave = Auth::chave();
             if ($locacao['chave'] !== $chave) {
+                $transacaoAtualizacao?->reverter();
                 Response::json([
                     'success' => false,
                     'message' => $this->apiMessage('cannot_edit')
@@ -832,6 +838,7 @@ class LocacoesController
             }
 
             if (!FilialHelper::temAcessoFilial($locacao['id_matriz_filial_retirada'] ?? null)) {
+                $transacaoAtualizacao?->reverter();
                 Response::json([
                     'success' => false,
                     'message' => $this->apiMessage('access_denied')
@@ -840,9 +847,17 @@ class LocacoesController
             }
 
             $dados = $request->all();
+            LocacaoEstadoOperacional::validar(
+                $locacao['status'], $dados['status_original'] ?? null,
+                (string) ($dados['status'] ?? $locacao['status'])
+            );
+            unset($dados['status_original']);
+            $veiculosAuditados = array_filter([(int) ($locacao['id_veiculo'] ?? 0), (int) ($dados['id_veiculo'] ?? 0)]);
+            $estadoAntes = $estadoOperacional->capturar($id, $veiculosAuditados);
 
             // Validacao basica
             if (empty($dados['id_cliente'])) {
+                $transacaoAtualizacao?->reverter();
                 Response::json(['success' => false, 'message' => $this->apiMessage('client_required')], 400);
                 return;
             }
@@ -859,6 +874,7 @@ class LocacoesController
             $dataPrincipalEhChegada = $statusNovoValidacao === 'F';
 
             if (empty($dados['data_saida']) || (!$dataPrincipalEhChegada && empty($dados['data_prevista'])) || ($dataPrincipalEhChegada && empty($dados['data_chegada']))) {
+                $transacaoAtualizacao?->reverter();
                 Response::json(['success' => false, 'message' => $dataPrincipalEhChegada ? $this->apiMessage('dates_arrival_required') : $this->apiMessage('dates_required')], 400);
                 return;
             }
@@ -867,27 +883,32 @@ class LocacoesController
             $promocaoRecalcular = $this->aplicarPromocaoEdicao($dados, $locacao);
 
             if (empty($dados['id_matriz_filial_retirada'])) {
+                $transacaoAtualizacao?->reverter();
                 Response::json(['success' => false, 'message' => $this->apiMessage('pickup_location_required')], 400);
                 return;
             }
 
             if (empty($dados['id_matriz_filial_devolucao'])) {
+                $transacaoAtualizacao?->reverter();
                 Response::json(['success' => false, 'message' => $this->apiMessage('return_location_required')], 400);
                 return;
             }
 
             if (empty($dados['id_conta'])) {
+                $transacaoAtualizacao?->reverter();
                 Response::json(['success' => false, 'message' => $this->apiMessage('bank_account_required')], 400);
                 return;
             }
 
             if (empty($dados['id_forma_pagamento'])) {
+                $transacaoAtualizacao?->reverter();
                 Response::json(['success' => false, 'message' => $this->apiMessage('payment_method_required')], 400);
                 return;
             }
 
             $erroCaucao = $this->validarCaucaoLocacao($dados);
             if ($erroCaucao !== null) {
+                $transacaoAtualizacao?->reverter();
                 Response::json(['success' => false, 'message' => $erroCaucao], 400);
                 return;
             }
@@ -924,6 +945,7 @@ class LocacoesController
                 !empty($locacao['id_veiculo']) &&
                 (int) $dados['id_veiculo'] !== (int) $locacao['id_veiculo']
             ) {
+                $transacaoAtualizacao?->reverter();
                 Response::json([
                     'success' => false,
                     'message' => $this->apiMessage(
@@ -936,6 +958,7 @@ class LocacoesController
             }
 
             if (!in_array($statusNovo, ['R', 'P'], true) && empty($dados['id_veiculo']) && empty($locacao['id_veiculo'])) {
+                $transacaoAtualizacao?->reverter();
                 Response::json(['success' => false, 'message' => $this->apiMessage('vehicle_required_open_closed')], 400);
                 return;
             }
@@ -946,6 +969,7 @@ class LocacoesController
                     : (int) ($locacao['id_veiculo'] ?? 0);
 
                 if ($idVeiculoSaida <= 0) {
+                    $transacaoAtualizacao?->reverter();
                     Response::json(['success' => false, 'message' => $this->apiMessage('vehicle_required_open_closed')], 400);
                     return;
                 }
@@ -961,12 +985,14 @@ class LocacoesController
             }
 
             if ($statusAnterior === 'R' && $statusNovo === 'A' && !Auth::can('locacoes.saida')) {
+                $transacaoAtualizacao?->reverter();
                 Response::json(['success' => false, 'message' => $this->apiMessage('no_permission_checkout')], 403);
                 return;
             }
 
             if ($statusAnterior === 'A' && $statusNovo === 'F') {
                 if (!Auth::can('locacoes.devolucao')) {
+                    $transacaoAtualizacao?->reverter();
                     Response::json(['success' => false, 'message' => $this->apiMessage('no_permission_return')], 403);
                     return;
                 }
@@ -977,6 +1003,7 @@ class LocacoesController
                     !array_key_exists('combustivel_fim', $dados) ||
                     $dados['combustivel_fim'] === ''
                 ) {
+                    $transacaoAtualizacao?->reverter();
                     Response::json([
                         'success' => false,
                         'message' => $this->apiMessage('return_fields_required')
@@ -986,6 +1013,7 @@ class LocacoesController
 
                 $odometroSaida = (int) ($dados['odometro_ini'] ?? $locacao['odometro_ini'] ?? 0);
                 if ((int) $dados['odometro_fim'] < $odometroSaida) {
+                    $transacaoAtualizacao?->reverter();
                     Response::json([
                         'success' => false,
                         'message' => $this->apiMessage('return_odometer_invalid')
@@ -999,9 +1027,6 @@ class LocacoesController
             if ($transicaoOperacional) {
                 unset($dadosLocacao['status']);
             }
-
-            $transacaoAtualizacao = new LocacaoAtualizacaoService();
-            $transacaoAtualizacao->iniciar();
 
             // 1. Atualizar locacao (sem dados de veiculo/taxa)
             $locacaoModel->atualizar($id, $dadosLocacao);
@@ -1234,46 +1259,29 @@ class LocacoesController
                     $locacaoModel->criarCreditoDevolucao($id, $valorCreditoDevolucao, $chave);
                 }
                 $locacaoModel->registrarDevolucao($id, $dadosDevolucao);
-                $registrouDevolucao = true;
                 $valorCreditoRegistrado = $valorCreditoDevolucao;
             }
 
+            $camposAuditados = array_merge(
+                LocacaoEstadoOperacional::camposComplementares($auditChanges),
+                LocacaoEstadoOperacional::diferencas($estadoAntes, $estadoOperacional->capturar($id, $veiculosAuditados))
+            );
+            if ($valorCreditoRegistrado > 0) {
+                $camposAuditados[] = AuditLogService::campo('Crédito de devolução', null, $valorCreditoRegistrado, 'Financeiro');
+            }
+            if ($camposAuditados) {
+                AuditLogService::registrarComCamposNaTransacao(
+                    \App\Models\Model::sharedMysqli(),
+                    ($_SESSION['user_name'] ?? 'Sistema') . ", atualizou a locacao [{$locacao['codigo']}]",
+                    $camposAuditados
+                );
+            }
             $transacaoAtualizacao->confirmar();
 
             if ($registrouSaida) {
-                AuditLogService::registrar(
-                    ($_SESSION['user_name'] ?? 'Sistema') . ", registrou saida da locacao [{$locacao['codigo']}]"
-                );
-
                 $locacaoSaida = $locacaoModel->buscarPorId($id);
                 if ($locacaoSaida) {
                     $this->dispararTemplateLocacao('rental_confirmation', $locacaoSaida, 'notificacao de locacao');
-                }
-            }
-
-            if ($registrouDevolucao) {
-                AuditLogService::registrar(
-                    ($_SESSION['user_name'] ?? 'Sistema') . ", registrou devolucao da locacao [{$locacao['codigo']}]"
-                );
-
-                if ($valorCreditoRegistrado > 0) {
-                    AuditLogService::registrar(
-                        ($_SESSION['user_name'] ?? 'Sistema') . ", gerou credito de devolucao de R$ " . number_format($valorCreditoRegistrado, 2, ',', '.') . " para locacao [{$locacao['codigo']}]"
-                    );
-                }
-            }
-
-            // Log de auditoria com campos alterados
-            if ($auditChanges) {
-                $decoded = json_decode($auditChanges, true);
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    $decoded = json_decode(stripslashes($auditChanges), true);
-                }
-                if (is_array($decoded) && !empty($decoded)) {
-                    AuditLogService::registrarComCampos(
-                        ($_SESSION['user_name'] ?? 'Sistema') . ", atualizou a locacao [{$locacao['codigo']}]",
-                        $decoded
-                    );
                 }
             }
 
@@ -1282,12 +1290,20 @@ class LocacoesController
                 'success' => true,
                 'message' => $this->apiMessage('updated'),
                 'data' => [
+                    'status' => $locacaoAtualizada['status'],
+                    'id_veiculo' => $locacaoAtualizada['id_veiculo'] ?? null,
+                    'data_saida' => $locacaoAtualizada['data_saida'],
+                    'data_prevista' => $locacaoAtualizada['data_prevista'],
+                    'data_chegada' => $locacaoAtualizada['data_chegada'],
                     'promocao_codigo' => $locacaoAtualizada['promocao_codigo'] ?? null,
                     'valor_desconto' => (float) ($locacaoAtualizada['valor_desconto'] ?? 0),
                     'total_fatura' => (float) ($locacaoAtualizada['total_fatura'] ?? 0),
                     'total_pagar' => (float) ($locacaoAtualizada['total_pagar'] ?? 0),
                 ],
             ]);
+        } catch (\DomainException $e) {
+            $transacaoAtualizacao?->reverter();
+            Response::json(['success' => false, 'code' => $e->getMessage(), 'message' => $this->apiMessage($e->getMessage())], $e->getCode());
         } catch (\InvalidArgumentException $e) {
             $transacaoAtualizacao?->reverter();
             Response::json([
@@ -1565,29 +1581,41 @@ class LocacoesController
      */
     public function confirmarReserva(Request $request, int $id): void
     {
+        $transacao = new LocacaoAtualizacaoService();
         try {
             if (!Auth::can('locacoes.confirmar')) {
+                $transacao->reverter();
                 Response::json(['success' => false, 'message' => t('common.errors.forbidden')], 403);
                 return;
             }
 
+            $transacao->iniciar();
+            $estado = new LocacaoEstadoOperacional();
+            $estado->bloquear($id);
             $locacaoModel = new Locacao();
             $locacao = $locacaoModel->buscarPorId($id);
 
             if (!$locacao || $locacao['chave'] !== Auth::chave()) {
+                $transacao->reverter();
                 Response::json(['success' => false, 'message' => $this->apiMessage('rental_not_found')], 404);
                 return;
             }
-            if (($locacao['status'] ?? '') !== 'P') {
-                Response::json(['success' => false, 'message' => $this->apiMessage('only_pending_reservations_confirmed')], 422);
-                return;
-            }
             if (!FilialHelper::temAcessoFilial($locacao['id_matriz_filial_retirada'] ?? null)) {
+                $transacao->reverter();
                 Response::json(['success' => false, 'message' => $this->apiMessage('access_denied')], 403);
                 return;
             }
 
+            $dados = $request->all();
+            LocacaoEstadoOperacional::validar($locacao['status'], $dados['status_original'] ?? null, 'R', true);
+            $antes = $estado->capturar($id);
             $locacaoModel->atualizarStatus($id, 'R');
+            AuditLogService::registrarComCamposNaTransacao(
+                \App\Models\Model::sharedMysqli(),
+                ($_SESSION['user_name'] ?? 'Sistema') . ", confirmou a reserva [{$locacao['codigo']}]",
+                LocacaoEstadoOperacional::diferencas($antes, $estado->capturar($id))
+            );
+            $transacao->confirmar();
 
             // Monta contexto a partir de obs JSON + dados da locacao
             $obs = json_decode((string) ($locacao['obs'] ?? ''), true) ?: [];
@@ -1644,7 +1672,11 @@ class LocacoesController
             }
 
             Response::json(['success' => true, 'message' => $this->apiMessage('reservation_confirmed')]);
-        } catch (\Exception $e) {
+        } catch (\DomainException $e) {
+            $transacao->reverter();
+            Response::json(['success' => false, 'code' => $e->getMessage(), 'message' => $this->apiMessage($e->getMessage())], $e->getCode());
+        } catch (\Throwable $e) {
+            $transacao->reverter();
             Response::json(['success' => false, 'message' => $this->apiMessage('reservation_confirm_error', ['message' => $e->getMessage()])], 500);
         }
     }

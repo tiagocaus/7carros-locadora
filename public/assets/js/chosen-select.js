@@ -140,6 +140,7 @@
             this.dropdown.appendChild(this.noResults);
             this.dropdown.appendChild(this.minCharsMsg);
             this.dropdown.appendChild(this.loading);
+            if (this.options.imagePreview) this.createImagePreview();
 
             this.wrapper.appendChild(this.display);
             if (this.options.allowClear && this.clearButton) {
@@ -150,6 +151,83 @@
 
             // Inserir após o select original
             this.select.parentNode.insertBefore(this.container, this.select.nextSibling);
+        }
+
+        createImagePreview() {
+            this.dropdown.classList.add('chosen-select-with-preview');
+            this.display.tabIndex = 0;
+            this.display.setAttribute('aria-label', this.select.getAttribute('aria-label') || this.select.labels?.[0]?.textContent.trim() || this.options.placeholder);
+            this.preview = document.createElement('div');
+            this.preview.className = 'chosen-select-image-preview';
+            this.previewTitle = document.createElement('div');
+            this.previewTitle.className = 'chosen-select-preview-title';
+            this.previewTitle.setAttribute('aria-live', 'polite');
+            this.previewImage = document.createElement('img');
+            this.previewImage.alt = '';
+            this.previewError = document.createElement('div');
+            this.previewError.textContent = this.options.previewUnavailable || 'Prévia indisponível';
+            this.previewClose = document.createElement('button');
+            this.previewClose.type = 'button';
+            this.previewClose.className = 'chosen-select-preview-close';
+            this.previewClose.textContent = '×';
+            this.previewClose.setAttribute('aria-label', this.options.previewClose || 'Fechar prévia');
+            this.previewClose.addEventListener('click', () => { this.close(); this.display.focus(); });
+            this.preview.append(this.previewClose, this.previewTitle, this.previewImage, this.previewError);
+            this.dropdown.appendChild(this.preview);
+            this.optionsContainer.addEventListener('pointerover', event => {
+                if (event.pointerType === 'touch') return;
+                const option = event.target.closest('.chosen-select-option');
+                if (option) this.showImagePreview(option.dataset.value);
+            });
+            this.display.addEventListener('keydown', event => {
+                if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) {
+                    event.preventDefault();
+                    this.open();
+                }
+            });
+        }
+
+        showImagePreview(value) {
+            if (!this.preview) return;
+            const option = this.findOptionElement(value);
+            this.previewTitle.textContent = option?.textContent || '';
+            this.previewImage.alt = option?.textContent || '';
+            const src = option?.dataset.previewSrc;
+            this.previewImage.hidden = true;
+            this.previewError.hidden = !!src;
+            // Troca o elemento para que respostas antigas não alterem a prévia atual.
+            const img = document.createElement('img');
+            img.alt = option?.textContent || '';
+            img.hidden = true;
+            img.onload = () => { if (this.previewImage === img) { img.hidden = false; this.previewError.hidden = true; } };
+            img.onerror = () => { if (this.previewImage === img) { img.hidden = true; this.previewError.hidden = false; } };
+            this.previewImage.replaceWith(img);
+            this.previewImage = img;
+            if (src) img.src = src;
+        }
+
+        positionImagePreview(rect) {
+            const margin = 8;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const compact = width < 768 || (rect.left < 256 && width - rect.right < 256);
+            this.dropdown.classList.toggle('chosen-select-preview-compact', compact);
+            const dropdownWidth = Math.min(Math.max(rect.width, 240), width - margin * 2);
+            const left = Math.max(margin, Math.min(rect.left, width - dropdownWidth - margin));
+            this.dropdown.style.width = `${dropdownWidth}px`;
+            this.dropdown.style.left = `${left}px`;
+            this.dropdown.style.maxHeight = `${height - margin * 2}px`;
+            const dropdownHeight = Math.min(this.dropdown.offsetHeight, height - margin * 2);
+            const top = Math.max(margin, Math.min(rect.bottom, height - dropdownHeight - margin));
+            this.dropdown.style.top = `${top}px`;
+            if (compact) {
+                this.preview.style.left = '';
+                this.preview.style.top = '';
+            } else {
+                const previewLeft = left >= 256 ? left - 248 : left + dropdownWidth + 8;
+                this.preview.style.left = `${Math.max(margin, Math.min(previewLeft, width - 248))}px`;
+                this.preview.style.top = `${Math.max(margin, Math.min(top, height - 288))}px`;
+            }
         }
 
         mountDropdownToBody() {
@@ -264,6 +342,8 @@
                 this.dropdown.style.top = `${top}px`;
                 this.dropdown.style.bottom = 'auto';
             }
+
+            if (this.preview) this.positionImagePreview(rect);
 
             if (dropdownH === 0) {
                 this.scheduleDropdownPositionUpdate();
@@ -395,6 +475,7 @@
 
         renderOptions() {
             this.optionsContainer.innerHTML = '';
+            if (this.preview) this.showImagePreview(this.selectedValue);
 
             // Server-side: mostrar mensagem de minChars apenas quando digitando (1-2 caracteres)
             // Quando searchTerm está vazio, mostra os registros do preload
@@ -443,7 +524,8 @@
                             optionElement.classList.add('chosen-select-selected');
                         }
 
-                        optionElement.addEventListener('click', () => {
+                        optionElement.addEventListener('click', (event) => {
+                            if (this.preview) event.stopPropagation();
                             this.selectOption(option.value, option.text, option.displayText);
                         });
 
@@ -462,7 +544,8 @@
                             optionElement.classList.add('chosen-select-selected');
                         }
 
-                    optionElement.addEventListener('click', () => {
+                    optionElement.addEventListener('click', (event) => {
+                            if (this.preview) event.stopPropagation();
                         this.selectOption(option.value, option.text, option.displayText);
                     });
 
@@ -588,8 +671,13 @@
 
             if (this.isMultiple) {
                 this.renderOptions();
+            } else if (this.preview && window.matchMedia('(pointer: coarse)').matches) {
+                this.showImagePreview(value);
+                this.renderOptions();
+                this.scheduleDropdownPositionUpdate();
             } else {
                 this.close();
+                if (this.preview) this.display.focus();
             }
         }
 
@@ -788,9 +876,13 @@
                     this.highlightPrevious();
                 } else if (e.key === 'Enter') {
                     e.preventDefault();
-                    // Enter desativado - usuário deve clicar para selecionar
+                    // Confirmação por teclado habilitada apenas no modo com prévia.
+                    if (this.preview) this.selectHighlighted();
                 } else if (e.key === 'Escape') {
                     e.preventDefault();
+                    this.close();
+                    if (this.preview) this.display.focus();
+                } else if (e.key === 'Tab' && this.preview) {
                     this.close();
                 }
             });
@@ -837,6 +929,7 @@
                 opt.classList.remove('chosen-select-highlighted');
                 if (index === this.highlightedIndex) {
                     opt.classList.add('chosen-select-highlighted');
+                    if (this.preview) this.showImagePreview(opt.dataset.value);
                     opt.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 }
             });
@@ -876,6 +969,9 @@
                 placeholder: select.dataset.chosenPlaceholder || 'Selecione uma opção...',
                 noResultsText: select.dataset.chosenNoResults || 'Nenhum resultado encontrado',
                 minCharsText: select.dataset.chosenMinCharsText || 'Digite pelo menos {min} letras para buscar...',
+                imagePreview: select.dataset.chosenImagePreview === 'true',
+                previewUnavailable: select.dataset.chosenPreviewUnavailable,
+                previewClose: select.dataset.chosenPreviewClose,
                 allowClear: select.dataset.chosenAllowClear !== 'false'
             };
 

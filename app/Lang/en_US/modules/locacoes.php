@@ -411,6 +411,11 @@ return [
         'balance_due' => 'Balance due',
     ],
     'api' => [
+        'status_conflict' => 'The rental status changed or this page is outdated. No data was saved.',
+        'invalid_status_transition' => 'This status change is not allowed. Close an open rental by recording its return.',
+        'status_conflict_title' => 'Rental updated in another screen',
+        'status_conflict_reload' => 'Reload the page to continue. Unsaved fields will be discarded.',
+        'reload_page' => 'Reload page',
         'fetch_rentals_error' => 'Error fetching rentals: :message',
         'rental_not_found' => 'Rental not found',
         'access_denied' => 'Access denied',

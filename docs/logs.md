@@ -961,3 +961,18 @@ Retorna logs paginados do tenant atual.
 | `public/assets/js/audit-handlers/financeiro-adicionar.js` | Handler especializado para Financeiro |
 | `public/assets/js/audit-handlers/manutencoes-adicionar.js` | Handler especializado para Manutenções |
 | `app/Views/layouts/iframe.php` | Layout com carregamento condicional dos handlers |
+
+## Auditoria operacional das locacoes
+
+Na edicao e confirmacao de reservas, `LocacaoEstadoOperacional` compara os dados
+persistidos antes/depois dentro da transacao bloqueada da locacao. Status,
+datas operacionais, veiculo/grupo, odometros, combustivel e disponibilidade
+nao dependem de `_audit_changes`. Labels operacionais recebidos do formulario
+sao descartados; os demais campos continuam usando FormAudit.
+
+O log de atualizacao contem as diferencas operacionais reais, sem duplicar logs
+de saida/devolucao. O credito de devolucao gerado permanece identificado no log.
+A confirmacao P->R possui log proprio. A gravacao usa
+`registrarComCamposNaTransacao()` e falhas impedem o commit. Operacoes rejeitadas
+ou revertidas nao deixam logs de sucesso. Os snapshots usam IDs dos vinculos e
+veiculos para distinguir alteracoes no historico.

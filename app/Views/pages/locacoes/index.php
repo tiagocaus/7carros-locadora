@@ -556,7 +556,7 @@
                 window._pendingApproveId = null;
                 (async function() {
                     try {
-                        const resp = await API.post('/api/locacoes/' + id + '/confirmar-reserva', {});
+                        const resp = await API.post('/api/locacoes/' + id + '/confirmar-reserva', { status_original: 'P' });
                         if (resp && resp.success) {
                             if (window.toast) toast.success(i18n.approveOk);
                             carregarLocacoes(currentPage);

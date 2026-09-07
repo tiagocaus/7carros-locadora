@@ -299,3 +299,12 @@ document.getElementById('meuSelect').addEventListener('change', function(e) {
    - **Client-side**: O JS usa `String.normalize('NFD')` para remover acentos antes de comparar (função `normalizeText()` em `chosen-select.js`).
    - **Server-side (SQL)**: Colunas com collation `utf8mb4_unicode_ci` já são accent-insensitive nativamente. Para campos JSON (`JSON_EXTRACT`), é necessário adicionar `COLLATE utf8mb4_unicode_ci` na query pois `JSON_EXTRACT` retorna collation `utf8mb4_bin`.
    - **Server-side (PHP)**: Se o filtro for feito no PHP (ex: `stripos`), usar `Normalizer::normalize()` com `FORM_D` + regex para remover acentos antes da comparação.
+
+
+## Prévia opcional de imagens
+
+Para listas client-side de imagens, use `data-chosen-image-preview="true"` no select e `data-preview-src` em cada option. Informe o nome acessível do campo com `aria-label`; use `data-chosen-preview-unavailable` e `data-chosen-preview-close` para textos traduzidos. O cadastro de veículos usa esse modo para os diagramas, com `data-chosen-allow-clear="false"`.
+
+A prévia acompanha o mouse e as setas sem alterar o valor. Enter confirma **somente neste modo**. Escape, clique fora ou o botão fechar encerram o painel. Em dispositivos com ponteiro touch, selecionar mantém o painel aberto para visualizar a escolha. Em largura reduzida, a imagem fica dentro do painel; no desktop, fica ao lado, preferencialmente à esquerda. O posicionamento respeita o viewport do iframe e acompanha rolagem/redimensionamento. Imagens ausentes mostram a mensagem configurada no painel.
+
+As opções JavaScript equivalentes são `imagePreview`, `previewUnavailable` e `previewClose`. Selects sem essa opção mantêm o comportamento existente.

@@ -53,6 +53,35 @@ Na aba Resumo do formulario, locacoes com plano KMC e franquia maior que zero ex
 
 ## Fluxo de Status
 
+### Edicao concorrente e transicoes permitidas
+
+A edicao exige `status_original`, com o status carregado pela tela, separado do
+`status` solicitado. O servidor inicia a transacao, bloqueia a locacao do tenant
+com `lockForUpdate()` e valida a referencia antes de qualquer gravacao.
+Referencia ausente ou divergente retorna HTTP 409 (`status_conflict`); a tela
+preserva os campos, impede novo salvamento e oferece recarregar a pagina.
+Esta protecao cobre concorrencia de status, nao conflitos gerais entre campos.
+
+Transicoes na edicao: P->P, R->R/A, A->A/F e F->F. Outras transicoes retornam
+HTTP 422 (`invalid_status_transition`). P->R e exclusivo de `confirmar-reserva`,
+que tambem exige `status_original` e valida permissao/filial. Nao existe estorno
+de saida pela edicao: A->R/P e reabertura de F sao proibidos. Criacao continua
+permitindo Reserva ou Aberto conforme o fluxo existente.
+
+A resposta da edicao inclui o status e dados operacionais persistidos. A tela
+atualiza `locacaoData`, opcoes e visibilidade antes de recapturar o FormAudit.
+Reservas pendentes preservam a opcao P ate a confirmacao dedicada.
+
+`LocacaoEstadoOperacional` captura status, datas, historico veicular, odometros,
+combustivel e disponibilidade antes/depois. As diferencas reais sao gravadas
+pela mesma conexao/transacao usando `registrarComCamposNaTransacao()`; falha de
+auditoria reverte a operacao. Notificacoes so ocorrem depois do commit.
+Reservas nao liberam automaticamente veiculos inconsistentes: dados anteriores
+exigem diagnostico e decisao operacional separados.
+
+Teste local: `php tests/test_locacao_estado_operacional.php`.
+
+
 Na tela de criacao/edicao, a aba **Sinistros** aparece imediatamente depois de
 **Taxas e servicos**. O cadastro exige que a locacao ja esteja salva, aceita veiculos atuais
 ou historicos do vinculo e pode gerar uma cobranca financeira opcional. Veja

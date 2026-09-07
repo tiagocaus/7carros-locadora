@@ -412,6 +412,11 @@ return [
         'balance_due' => 'Saldo a pagar',
     ],
     'api' => [
+        'status_conflict' => 'O estado deste aluguer mudou ou a página está desatualizada. Nenhum dado foi guardado.',
+        'invalid_status_transition' => 'Esta mudança de estado não é permitida. Um aluguer aberto deve ser encerrado pela devolução.',
+        'status_conflict_title' => 'Aluguer atualizado noutro ecrã',
+        'status_conflict_reload' => 'Atualize a página para continuar. Os campos ainda não guardados serão descartados.',
+        'reload_page' => 'Atualizar página',
         'fetch_rentals_error' => 'Erro ao buscar alugueres: :message',
         'rental_not_found' => 'Aluguer não encontrado',
         'access_denied' => 'Acesso negado',
