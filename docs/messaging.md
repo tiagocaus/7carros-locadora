@@ -114,6 +114,53 @@ enviadas com credenciais da 7Carros continuam respeitando a empresa/filial.
 
 ## Configuracao
 
+### Protecao contra entrega duplicada
+
+`ProcessMessageQueueJob` usa `MessageDeliveryService` e o Model
+`MessageQueueDelivery` tanto no RabbitMQ quanto no fallback pelo banco.
+O envelope do broker identifica somente a mensagem e a empresa; tipo,
+conteudo e destinatario efetivamente enviados sao relidos de `messages_queue`.
+
+- A reserva atomica `PENDING -> PROCESSING`, por `id` e `chave`, permite somente
+  um consumidor por mensagem. `SENT`, `SKIPPED`, `FAILED` e mensagens em
+  processamento nao sao enviadas novamente ao receber outra copia.
+- Cada reserva incrementa `attempts`; a republicacao nao zera esse contador.
+  Registros antigos preservam a contagem legada de falhas, sem backfill.
+- Confirmar o ACK no RabbitMQ nunca altera o resultado da entrega no banco.
+  Falha de ACK ou copia recebida depois do fallback nao reativa mensagem enviada.
+- Pendentes antigos so sao republicados apos timeout de consumo, cancelamento
+  do consumidor e confirmacao de fila vazia e sem outros consumidores. Atingir
+  o limite de mensagens da execucao nao autoriza essa recuperacao.
+- A preparacao da republicacao acontece antes de publicar, com verificacao
+  condicional do estado; nao pode sobrescrever um envio concorrente.
+
+Os services retornam `retryable` para falha confirmada antes da entrega e
+`uncertain` quando nao e possivel confirmar o resultado. Uma falha sem
+classificacao explicita e tratada como incerta. Falhas recuperaveis respeitam
+`QUEUE_MAX_ATTEMPTS` (padrao: 3 reservas de processamento).
+
+Envios incertos recebem `FAILED` com erro
+`ENVIO_INCERTO: conferir antes de reenviar`. Isso inclui interrupcao com
+`PROCESSING` ha mais de dez minutos. Esses registros nao entram em nenhuma
+recuperacao automatica; consulte o historico de mensagens em Logs e confira
+a entrega no provedor/destinatario antes de decidir um novo envio manual.
+`FAILED` com esse prefixo **nao significa que a mensagem nao foi entregue**.
+
+WhatsApp: timeout, erro HTTP 5xx e respostas nao reconhecidas nao autorizam
+repetir a requisicao nem tentar outro formato de numero. A variante sem nono
+digito so e tentada com HTTP 400/422 e rejeicao explicita de numero invalido
+ou nao registrado. Falhas DNS/conexao antes do envio podem ser tentadas novamente.
+Conexao HTTP tem limite de 10 segundos e a requisicao, 60 segundos.
+
+Os logs do consumidor registram ID, origem (`rabbitmq`/`database`), tentativa
+e resultado (`sent`, `skipped`, `pending`, `failed`, `uncertain`, `ignored`),
+sem conteudo da mensagem, telefone completo ou credenciais. `processed_at`
+de uma mensagem concluida nao e sobrescrito ao ignorar uma copia.
+
+Teste local sem envios reais: `php tests/test_message_delivery.php`.
+O teste usa apenas a empresa `1111111111111`, remove seus fixtures e disputa
+uma reserva em duas conexoes MySQL independentes.
+
 ### Variaveis de Ambiente
 
 ```env

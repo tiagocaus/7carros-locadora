@@ -47,6 +47,7 @@ class EmailService
      */
     public function send(array $payload): array
     {
+        $sendStarted = false;
         try {
             if (empty($payload['to'])) {
                 throw new \InvalidArgumentException("Campo 'to' e obrigatorio");
@@ -126,6 +127,11 @@ class EmailService
                 $this->mailer->AltBody = $payload['body_text'];
             }
 
+            // Falha de conexao/autenticacao acontece antes de transmitir o email.
+            if (!$this->mailer->smtpConnect()) {
+                throw new Exception('Conexao SMTP nao estabelecida');
+            }
+            $sendStarted = true;
             $this->mailer->send();
 
             foreach ($deleteAfterSend as $path) {
@@ -139,16 +145,18 @@ class EmailService
                 'message' => 'Email enviado com sucesso',
             ];
         } catch (Exception $e) {
-            error_log("Erro ao enviar email: " . $this->mailer->ErrorInfo);
             return [
                 'success' => false,
-                'message' => 'Erro ao enviar email: ' . $this->mailer->ErrorInfo,
+                'message' => $sendStarted ? 'Resultado do envio de email nao confirmado' : 'Falha antes do envio de email',
+                'retryable' => !$sendStarted,
+                'uncertain' => $sendStarted,
             ];
         } catch (\Exception $e) {
-            error_log("Erro ao processar email: " . $e->getMessage());
             return [
                 'success' => false,
-                'message' => 'Erro ao processar email: ' . $e->getMessage(),
+                'message' => $sendStarted ? 'Resultado do envio de email nao confirmado' : 'Falha antes do envio de email',
+                'retryable' => !$sendStarted,
+                'uncertain' => $sendStarted,
             ];
         }
     }

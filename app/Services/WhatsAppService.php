@@ -56,6 +56,7 @@ class WhatsAppService
             return [
                 'success' => false,
                 'message' => 'WHATSAPP_API_URL nao configurada',
+                'retryable' => true,
             ];
         }
 
@@ -64,6 +65,7 @@ class WhatsAppService
             return [
                 'success' => false,
                 'message' => 'Nenhuma instancia WhatsApp conectada para esta filial',
+                'retryable' => true,
             ];
         }
 
@@ -74,10 +76,10 @@ class WhatsAppService
 
             return $this->sendText($payload, $instanceToken);
         } catch (\Exception $e) {
-            error_log("Erro ao enviar WhatsApp: " . $e->getMessage());
             return [
                 'success' => false,
-                'message' => 'Erro ao enviar WhatsApp: ' . $e->getMessage(),
+                'message' => 'Resultado do envio WhatsApp nao confirmado',
+                'uncertain' => true,
             ];
         }
     }
@@ -133,6 +135,7 @@ class WhatsAppService
             return [
                 'success' => false,
                 'message' => 'Erro ao baixar midia: ' . $download['message'],
+                'retryable' => true,
             ];
         }
 
@@ -168,9 +171,8 @@ class WhatsAppService
     }
 
     /**
-     * Envia para o telefone original e, se o provedor falhar, tenta a variante
-     * brasileira sem o nono digito. Nao duplica envio quando a primeira tentativa
-     * tem sucesso.
+     * A variante sem nono digito so e tentada apos rejeicao explicita do numero.
+     * Timeout/HTTP 5xx nao provam que o envio falhou e nunca autorizam outra copia.
      */
     private function sendWithPhoneFallback(
         string $url,
@@ -196,13 +198,27 @@ class WhatsAppService
                     'data' => $response['body'],
                 ];
             }
+
+            if (!empty($response['retryable'])) {
+                return ['success' => false, 'retryable' => true,
+                    'message' => 'Conexao WhatsApp nao estabelecida'];
+            }
+            $body = is_array($response['body']) ? json_encode($response['body']) : (string) $response['body'];
+            $invalidPhone = in_array($response['http_code'], [400, 422], true)
+                && preg_match('/not (?:on whatsapp|registered)|invalid (?:phone|number|jid)/i', $body);
+            if (!$invalidPhone) {
+                return ['success' => false, 'uncertain' => true,
+                    'message' => 'Resultado do envio WhatsApp nao confirmado'];
+            }
         }
 
         $httpCode = $lastResponse['http_code'] ?? 0;
 
         return [
             'success' => false,
-            'message' => "Erro na API WhatsApp: HTTP {$httpCode}. Telefones tentados: " . implode(', ', $telefones),
+            'message' => "Numero rejeitado pela API WhatsApp: HTTP {$httpCode}",
+            'retryable' => false,
+            'uncertain' => false,
             'data' => $lastResponse['body'] ?? null,
         ];
     }
@@ -257,12 +273,14 @@ class WhatsAppService
     /**
      * Faz requisicao HTTP autenticada com o token da instancia.
      */
-    private function makeRequest(string $url, string $instanceToken, array $data): array
+    protected function makeRequest(string $url, string $instanceToken, array $data): array
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'token: ' . $instanceToken,
@@ -271,10 +289,12 @@ class WhatsAppService
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
+        $errno = curl_errno($ch);
         curl_close($ch);
 
         if ($error) {
-            throw new \RuntimeException("Erro cURL: {$error}");
+            return ['http_code' => 0, 'body' => null,
+                'retryable' => in_array($errno, [CURLE_COULDNT_RESOLVE_PROXY, CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT], true)];
         }
 
         return [

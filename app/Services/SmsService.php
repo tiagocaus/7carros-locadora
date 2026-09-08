@@ -39,6 +39,7 @@ class SmsService
             throw new \InvalidArgumentException("Campo 'id_matriz_filial' e obrigatorio");
         }
 
+        $sendStarted = false;
         try {
             // Buscar conexao SMS validada para a filial
             $smsModel = new Sms();
@@ -48,6 +49,7 @@ class SmsService
                 return [
                     'success' => false,
                     'message' => 'Nenhuma conexao SMS configurada ou validada para esta filial',
+                    'retryable' => true,
                 ];
             }
 
@@ -65,6 +67,7 @@ class SmsService
             $telefone = $this->formatarTelefone($payload['to']);
 
             // Enviar
+            $sendStarted = true;
             $result = $provider->send(
                 $telefone,
                 $payload['message'],
@@ -84,16 +87,21 @@ class SmsService
                 ];
             }
 
+            $rejection = $result['data']['data']['messages'][0]['status'] ?? '';
+            $confirmedRejection = in_array($rejection, ['INVALID_RECIPIENT', 'INSUFFICIENT_CREDIT'], true);
             return [
                 'success' => false,
-                'message' => 'Erro ao enviar SMS: ' . ($result['message'] ?? 'Erro desconhecido'),
+                'message' => $confirmedRejection ? 'SMS rejeitado pelo provedor' : 'Resultado do envio de SMS nao confirmado',
+                'retryable' => $rejection === 'INSUFFICIENT_CREDIT',
+                'uncertain' => !$confirmedRejection,
                 'data' => $result['data'] ?? null,
             ];
         } catch (\Exception $e) {
-            error_log("Erro ao enviar SMS: " . $e->getMessage());
             return [
                 'success' => false,
-                'message' => 'Erro ao enviar SMS: ' . $e->getMessage(),
+                'message' => $sendStarted ? 'Resultado do envio de SMS nao confirmado' : 'Falha antes do envio de SMS',
+                'retryable' => !$sendStarted,
+                'uncertain' => $sendStarted,
             ];
         }
     }

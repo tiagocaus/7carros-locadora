@@ -64,6 +64,25 @@ cobrancas, faturas ou notificacoes.
   data dependente de timezone; em seguida, processar cada tenant com seu proprio
   contexto e sua data de referencia.
 
+### Entrega de mensagens sem duplicidade
+
+O `ProcessMessageQueueJob` reserva cada mensagem no banco antes de enviar,
+usando a mesma rotina para RabbitMQ e fallback. Copias de mensagens ja
+concluidas sao apenas confirmadas no broker, sem novo envio ou alteracao de
+`processed_at`. A reserva e condicional por ID, empresa e estado pendente.
+
+A recuperacao de pendentes antigos exige termino do consumo por fila vazia,
+confirmada apos cancelar o consumidor, e ausencia de outros consumidores.
+Nao republicar ao atingir o limite de mensagens por execucao. Preparar a
+publicacao antes de enviar ao broker e preservar `attempts`.
+
+Falhas anteriores ao envio podem repetir ate o limite configurado. Resultado
+incerto ou processamento interrompido ha mais de dez minutos recebe `FAILED`
+com prefixo `ENVIO_INCERTO`, sem retry automatico. Conferir a entrega antes
+de qualquer reenvio manual. Os contadores `ignored` e `uncertain` e os logs
+por ID permitem monitorar copias descartadas e casos que exigem revisao.
+Detalhes e teste local em [messaging.md](messaging.md#protecao-contra-entrega-duplicada).
+
 ### Reenvio de NFS-e
 
 - Erros locais de configuracao, inclusive `IBSCBS_CONFIGURACAO`, nao sao recuperaveis e nao entram no reenvio automatico.

@@ -204,6 +204,8 @@ class MessageQueueService
             }
             $query
                 ->where('id', '=', $messageId)
+                ->where('status', '=', 'pending')
+                ->whereNull('processed_at')
                 ->update([
                     'status' => 'failed',
                     'error_message' => 'Erro ao publicar na fila: ' . $e->getMessage(),
