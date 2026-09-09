@@ -211,6 +211,19 @@ Cada tenant que conecta um WhatsApp gera uma "instância" no provedor. A `whatsa
 
 `WhatsAppService::send($payload)` é o ponto de entrada. Ele resolve a instância (por `id_matriz_filial` para tenants, ou `WHATSAPP_API_INSTANCE_TOKEN` para `_system_message`), formata o telefone (só dígitos, com código do país), e dispara `POST /chat/send/text`, `POST /chat/send/image` ou `POST /chat/send/document` conforme o conteúdo. Mídias precisam ser baixadas e convertidas para base64 (data URI) — o serviço cuida disso automaticamente quando `media_url` é fornecido.
 
+Antes de qualquer POST de envio, `sendWithPhoneFallback()` resolve o numero
+por `/user/check` usando a mesma instancia. `gerarTelefonesCandidatos()` continua
+responsavel pelas variantes brasileiras; o envio usa o numero retornado no JID,
+validado contra esses candidatos. A segunda variante so pode ser consultada
+apos confirmacao de inexistencia da primeira, nunca enviada apos falha incerta.
+O envio exige HTTP 200 e JSON com `success: true`; erros preservam diagnosticos
+sanitizados na fila.
+
+A compatibilidade com numeros brasileiros com e sem nono digito deve ser
+preservada junto com a protecao contra duplicidade em futuras alteracoes.
+A referencia principal, com justificativa, historico e testes obrigatorios, e
+[WhatsApp: compatibilidade com o nono digito](messaging.md#whatsapp-compatibilidade-com-o-nono-digito).
+
 #### Proxy de saída
 
 Quando `WHATSAPP_API_PROXY_HOST` está definido, o `WhatsappController` configura o proxy via `POST /session/proxy` logo após criar a instância (faz parte do fluxo de "Adicionar conexão"). Mesmas credenciais para todas as instâncias (vindas do `.env`).

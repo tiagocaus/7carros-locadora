@@ -135,29 +135,22 @@ try {
     }
     checkDelivery($winners === 1 && (int) $model->findMessage($id, $tenant)['attempts'] === 1, 'Somente uma reserva atomica vence');
 
-    $whatsapp = new class extends WhatsAppService {
-        public array $responses = [];
-        public int $calls = 0;
-        protected function makeRequest(string $url, string $instanceToken, array $data): array
-        {
-            $this->calls++;
-            return array_shift($this->responses);
-        }
-    };
-    $method = new ReflectionMethod($whatsapp, 'sendWithPhoneFallback');
-    foreach ([
-        [['http_code' => 500, 'body' => 'erro'], 'uncertain'],
-        [['http_code' => 0, 'body' => null], 'uncertain'],
-        [['http_code' => 0, 'body' => null, 'retryable' => true], 'retryable'],
-    ] as [$response, $flag]) {
-        $whatsapp->calls = 0; $whatsapp->responses = [$response];
-        $result = $method->invoke($whatsapp, 'https://invalid', 'fake', '5511999999999', ['Body' => 'teste'], 'ok');
-        checkDelivery(!empty($result[$flag]) && $whatsapp->calls === 1, 'Erro nao deve tentar outro numero');
-    }
-    $whatsapp->calls = 0;
-    $whatsapp->responses = [['http_code' => 400, 'body' => 'invalid phone'], ['http_code' => 200, 'body' => []]];
-    $result = $method->invoke($whatsapp, 'https://invalid', 'fake', '5511999999999', ['Body' => 'teste'], 'ok');
-    checkDelivery($result['success'] && $whatsapp->calls === 2, 'Rejeicao explicita permite variante');
+    $id = fixtureDelivery();
+    $diagnostic = ['stage' => 'send', 'reason' => 'unconfirmed_response', 'http_code' => 500, 'curl_errno' => 0,
+        'body' => 'token=SEGREDO telefone=5511999999999'];
+    $result = $service->deliver($id, $tenant, fn() => ['success' => false, 'uncertain' => true, 'diagnostic' => $diagnostic]);
+    $error = $model->findMessage($id, $tenant)['error_message'];
+    checkDelivery($result['outcome'] === 'uncertain', 'Detalhes preservam outcome incerto');
+    checkDelivery(str_starts_with($error, MessageQueueDelivery::UNCERTAIN) && str_contains($error, 'HTTP=500'), 'Detalhes persistidos com prefixo');
+    checkDelivery(!str_contains($error, 'SEGREDO') && !str_contains($error, '5511999999999'), 'Resposta bruta nunca persiste');
+    checkDelivery($service->deliver($id, $tenant, $sender)['outcome'] === 'ignored', 'Incerto detalhado nao reenvia');
+
+    $id = fixtureDelivery();
+    $lookupFailure = fn() => ['success' => false, 'retryable' => true, 'uncertain' => false,
+        'diagnostic' => ['stage' => 'lookup', 'reason' => 'invalid_response', 'http_code' => 0, 'curl_errno' => 28]];
+    checkDelivery($service->deliver($id, $tenant, $lookupFailure)['outcome'] === 'pending', 'Consulta falha pode repetir');
+    checkDelivery(str_contains($model->findMessage($id, $tenant)['error_message'], 'etapa=lookup'), 'Etapa anterior ao envio registrada');
+    checkDelivery($service->deliver($id, $tenant, $sender)['outcome'] === 'sent', 'Nova consulta pode permitir entrega');
 
     $_ENV['MAIL_FROM_ADDRESS'] = 'test@example.invalid';
     $email = new EmailService();

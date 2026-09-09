@@ -171,8 +171,8 @@ class WhatsAppService
     }
 
     /**
-     * A variante sem nono digito so e tentada apos rejeicao explicita do numero.
-     * Timeout/HTTP 5xx nao provam que o envio falhou e nunca autorizam outra copia.
+     * O fallback consulta candidatos antes da entrega; nunca envia duas variantes.
+     * Texto, imagem e documento usam a mesma resolucao e a mesma instancia.
      */
     private function sendWithPhoneFallback(
         string $url,
@@ -181,45 +181,87 @@ class WhatsAppService
         array $data,
         string $successMessage
     ): array {
-        $telefones = self::gerarTelefonesCandidatos($telefone);
-        $lastResponse = null;
-
-        foreach ($telefones as $phone) {
-            $payload = $data;
-            $payload['Phone'] = $phone;
-
-            $response = $this->makeRequest($url, $instanceToken, $payload);
-            $lastResponse = $response;
-
-            if ($response['http_code'] === 200) {
-                return [
-                    'success' => true,
-                    'message' => $successMessage,
-                    'data' => $response['body'],
-                ];
-            }
-
-            if (!empty($response['retryable'])) {
-                return ['success' => false, 'retryable' => true,
-                    'message' => 'Conexao WhatsApp nao estabelecida'];
-            }
-            $body = is_array($response['body']) ? json_encode($response['body']) : (string) $response['body'];
-            $invalidPhone = in_array($response['http_code'], [400, 422], true)
-                && preg_match('/not (?:on whatsapp|registered)|invalid (?:phone|number|jid)/i', $body);
-            if (!$invalidPhone) {
-                return ['success' => false, 'uncertain' => true,
-                    'message' => 'Resultado do envio WhatsApp nao confirmado'];
-            }
+        try {
+            $resolved = $this->resolvePhone($instanceToken, self::gerarTelefonesCandidatos($telefone));
+        } catch (\Throwable $e) {
+            return $this->failure('lookup', 'exception', [], true);
+        }
+        if (!$resolved['success']) {
+            return $resolved;
         }
 
-        $httpCode = $lastResponse['http_code'] ?? 0;
+        $data['Phone'] = $resolved['phone'];
+        try {
+            $response = $this->makeRequest($url, $instanceToken, $data);
+        } catch (\Throwable $e) {
+            return $this->failure('send', 'exception', [], false, true);
+        }
+        if ($response['http_code'] === 200 && empty($response['curl_errno'])
+            && is_array($response['body']) && ($response['body']['success'] ?? null) === true) {
+            return ['success' => true, 'message' => $successMessage, 'data' => $response['body']];
+        }
+        if (!empty($response['retryable'])) {
+            return $this->failure('send', 'connection_not_established', $response, true);
+        }
+        // Uma rejeicao explicita encerra; nunca tenta outro numero apos o POST de envio.
+        $body = is_array($response['body']) ? json_encode($response['body']) : (string) $response['body'];
+        $invalidPhone = empty($response['curl_errno']) && in_array($response['http_code'], [400, 422], true)
+            && preg_match('/not (?:on whatsapp|registered)|invalid (?:phone|number|jid)/i', $body);
+        return $this->failure('send', $invalidPhone ? 'number_rejected' : 'unconfirmed_response',
+            $response, false, !$invalidPhone);
+    }
 
+    /** Consulta sem enviar. So aceita o JID correspondente aos candidatos locais. */
+    private function resolvePhone(string $instanceToken, array $candidates): array
+    {
+        $url = rtrim($this->baseUrl, '/') . '/user/check';
+        foreach ($candidates as $candidate) {
+            $response = $this->makeRequest($url, $instanceToken, ['Phone' => [$candidate]]);
+            $body = $response['body'];
+            if ($response['http_code'] !== 200 || !empty($response['curl_errno']) || !is_array($body)
+                || (array_key_exists('success', $body) && $body['success'] !== true)) {
+                return $this->failure('lookup', 'invalid_response', $response, true);
+            }
+            $users = $body['data']['Users'] ?? $body['Users']
+                ?? $body['data']['users'] ?? $body['users'] ?? null;
+            // Uma consulta por vez: vazio, duplicado ou ambiguo nunca vira envio.
+            if (!is_array($users) || count($users) !== 1 || !is_array(reset($users))) {
+                return $this->failure('lookup', 'invalid_response', $response, true);
+            }
+            $user = reset($users);
+            $query = $user['Query'] ?? $user['query'] ?? null;
+            $exists = $user['IsInWhatsapp'] ?? $user['isInWhatsapp'] ?? $user['is_in_whatsapp'] ?? null;
+            $jid = $user['JID'] ?? $user['jid'] ?? '';
+            if (!is_string($query) || ltrim($query, '+') !== $candidate) {
+                return $this->failure('lookup', 'recipient_mismatch', $response, true);
+            }
+            if (in_array($exists, [false, 0, 'false', '0'], true)) {
+                if ($jid !== '' && $jid !== null) {
+                    return $this->failure('lookup', 'invalid_response', $response, true);
+                }
+                continue;
+            }
+            if (!in_array($exists, [true, 1, 'true', '1'], true) || !is_string($jid)
+                || !preg_match('/^([0-9]{7,15})@(?:s\.whatsapp\.net|c\.us)$/D', $jid, $matches)
+                || !in_array($matches[1], $candidates, true)) {
+                return $this->failure('lookup', 'recipient_mismatch', $response, true);
+            }
+            return ['success' => true, 'phone' => $matches[1]];
+        }
+        return $this->failure('lookup', 'number_not_registered', $response ?? [], false);
+    }
+
+    /** Somente codigos controlados; nunca retorna resposta bruta em falhas. */
+    private function failure(string $stage, string $reason, array $response, bool $retryable, bool $uncertain = false): array
+    {
         return [
-            'success' => false,
-            'message' => "Numero rejeitado pela API WhatsApp: HTTP {$httpCode}",
-            'retryable' => false,
-            'uncertain' => false,
-            'data' => $lastResponse['body'] ?? null,
+            'success' => false, 'retryable' => $retryable, 'uncertain' => $uncertain,
+            'message' => ($stage === 'lookup' ? 'Falha na consulta WhatsApp: ' : 'Falha no envio WhatsApp: ') . $reason,
+            'diagnostic' => [
+                'stage' => $stage, 'reason' => $reason,
+                'http_code' => (int) ($response['http_code'] ?? 0),
+                'curl_errno' => (int) ($response['curl_errno'] ?? 0),
+            ],
         ];
     }
 
@@ -228,7 +270,7 @@ class WhatsAppService
      *
      * @return array ['success'=>bool, 'body'=>string, 'mime'=>string, 'filename'=>string, 'message'=>string]
      */
-    private function downloadMedia(string $url): array
+    protected function downloadMedia(string $url): array
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -293,12 +335,13 @@ class WhatsAppService
         curl_close($ch);
 
         if ($error) {
-            return ['http_code' => 0, 'body' => null,
+            return ['http_code' => $httpCode, 'body' => null, 'curl_errno' => $errno,
                 'retryable' => in_array($errno, [CURLE_COULDNT_RESOLVE_PROXY, CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT], true)];
         }
 
         return [
             'http_code' => $httpCode,
+            'curl_errno' => 0,
             'body' => json_decode($body, true) ?? $body,
         ];
     }
@@ -314,9 +357,10 @@ class WhatsAppService
      */
     public static function gerarTelefonesCandidatos(string $telefone): array
     {
+        $international = str_starts_with(trim($telefone), '+');
         $telefone = preg_replace('/[^0-9]/', '', $telefone);
 
-        if (strlen($telefone) === 10 || strlen($telefone) === 11) {
+        if (!$international && (strlen($telefone) === 10 || strlen($telefone) === 11)) {
             $telefone = '55' . $telefone;
         }
 

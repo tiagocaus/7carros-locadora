@@ -49,10 +49,32 @@ class MessageDeliveryService
             $error = $retry ? 'Falha confirmada antes da entrega; nova tentativa pendente'
                 : 'Falha confirmada; envio encerrado ou limite de tentativas atingido';
         }
+        $outcome = $error === MessageQueueDelivery::UNCERTAIN ? 'uncertain' : strtolower($status);
+        if ($error !== null && $message['type'] === 'whatsapp') {
+            $error .= $this->diagnosticSuffix($result['diagnostic'] ?? null);
+        }
         $saved = $this->messages->finish($id, $chave, $status, $error);
         return [
-            'outcome' => !$saved ? 'uncertain' : ($error === MessageQueueDelivery::UNCERTAIN ? 'uncertain' : strtolower($status)),
+            'outcome' => !$saved ? 'uncertain' : $outcome,
             'attempt' => (int) $message['attempts'],
         ];
     }
+
+    /** Allowlist evita persistir payload, telefone, URL ou credenciais do provedor. */
+    private function diagnosticSuffix(mixed $diagnostic): string
+    {
+        if (!is_array($diagnostic)
+            || !in_array($diagnostic['stage'] ?? null, ['lookup', 'send'], true)
+            || !in_array($diagnostic['reason'] ?? null, [
+                'exception', 'connection_not_established', 'number_rejected',
+                'unconfirmed_response', 'invalid_response', 'recipient_mismatch', 'number_not_registered',
+            ], true)) {
+            return '';
+        }
+        return sprintf(' | etapa=%s; motivo=%s; HTTP=%d; cURL=%d',
+            $diagnostic['stage'], $diagnostic['reason'],
+            max(0, min(599, (int) ($diagnostic['http_code'] ?? 0))),
+            max(0, min(999, (int) ($diagnostic['curl_errno'] ?? 0))));
+    }
+
 }

@@ -146,20 +146,104 @@ recuperacao automatica; consulte o historico de mensagens em Logs e confira
 a entrega no provedor/destinatario antes de decidir um novo envio manual.
 `FAILED` com esse prefixo **nao significa que a mensagem nao foi entregue**.
 
-WhatsApp: timeout, erro HTTP 5xx e respostas nao reconhecidas nao autorizam
-repetir a requisicao nem tentar outro formato de numero. A variante sem nono
-digito so e tentada com HTTP 400/422 e rejeicao explicita de numero invalido
-ou nao registrado. Falhas DNS/conexao antes do envio podem ser tentadas novamente.
-Conexao HTTP tem limite de 10 segundos e a requisicao, 60 segundos.
-
 Os logs do consumidor registram ID, origem (`rabbitmq`/`database`), tentativa
 e resultado (`sent`, `skipped`, `pending`, `failed`, `uncertain`, `ignored`),
 sem conteudo da mensagem, telefone completo ou credenciais. `processed_at`
 de uma mensagem concluida nao e sobrescrito ao ignorar uma copia.
 
-Teste local sem envios reais: `php tests/test_message_delivery.php`.
-O teste usa apenas a empresa `1111111111111`, remove seus fixtures e disputa
-uma reserva em duas conexoes MySQL independentes.
+### WhatsApp: compatibilidade com o nono digito
+
+Alguns telefones brasileiros sao cadastrados com nono digito, mas a conta
+WhatsApp e identificada pelo provedor sem esse digito. Isso nao significa que
+o cadastro esteja errado ou que o telefone nao tenha WhatsApp. Exemplo ficticio:
+`5511999999999` no cadastro pode ser identificado como
+`551199999999@s.whatsapp.net` no JID (identificador da conta retornado pelo provedor).
+Outras contas sao identificadas com o nono digito; nao remova o nove de todos
+os numeros.
+
+**Regra de manutencao: qualquer alteracao no envio deve preservar tanto a
+compatibilidade com e sem nono digito quanto a protecao contra duplicidade.**
+Nao remova ou neutralize essa compatibilidade ao ajustar retries, erros HTTP
+ou processamento da fila. Refatoracoes devem manter o comportamento e passar
+pelos testes de regressao abaixo.
+
+#### Responsabilidade das funcoes
+
+- `gerarTelefonesCandidatos()` preserva o numero cadastrado e gera a variante
+  brasileira sem nono digito. Ela gera possibilidades, nao escolhe o destino.
+  Telefones internacionais com `+` nao recebem prefixo brasileiro automaticamente.
+- `sendWithPhoneFallback()` e o ponto comum para texto, imagem e documento.
+  Antes do envio, chama `resolvePhone()` com os candidatos e o token da mesma
+  instancia que enviara a mensagem.
+- `resolvePhone()` consulta `/user/check` e retorna o numero identificado no JID.
+  Esse numero deve corresponder a um dos candidatos, e a resposta precisa
+  identificar o numero consultado, sem resultados ambiguos.
+
+O fallback e somente na consulta: o segundo candidato so e consultado quando
+o primeiro e explicitamente inexistente. Se a primeira consulta ja reconhecer
+o JID sem nono digito, o envio usa esse destino diretamente. Consulta
+indisponivel ou resposta invalida permite retry limitado, sem enviar; todos os
+candidatos inexistentes encerram como falha confirmada.
+
+Depois de resolver o destino, ha uma unica chamada de envio naquela tentativa.
+Nao se altera o telefone cadastrado nem as preferencias de contato. As mesmas
+regras valem para envios manuais e automaticos e preservam o isolamento da filial.
+
+Depois do POST de envio, timeout, HTTP 5xx, resposta sem confirmacao explicita
+(`HTTP 200` com JSON `success: true`) ou excecao sao incertos e nao autorizam
+outra variante. Falhas DNS/conexao antes de estabelecer o envio podem repetir,
+dentro do limite de tentativas da fila. Conexao HTTP tem limite de 10 segundos
+e a requisicao, 60 segundos.
+
+`error_message` preserva o prefixo `ENVIO_INCERTO: conferir antes de reenviar`
+e pode acrescentar `etapa=lookup|send`, motivo controlado, HTTP e codigo cURL.
+Esses detalhes nao incluem resposta bruta, telefone, URL, conteudo ou tokens.
+A classificacao do resultado nao depende de igualdade com o texto completo.
+Mensagens antigas incertas nao sao reenfileiradas pela correcao.
+
+#### Historico e motivo da protecao
+
+- `1769fe3` (17/06/2026, data do commit em UTC+1): introduziu
+  `gerarTelefonesCandidatos()` e `sendWithPhoneFallback()`. A segunda variante
+  era enviada quando a primeira resposta HTTP nao confirmava sucesso.
+- `d51cc80` (08/09/2026): ao proteger contra duplicidade, restringiu a segunda
+  tentativa a HTTP 400/422 com rejeicao explicita do numero. A geracao dos
+  candidatos permaneceu, mas parte do comportamento anterior ficou bloqueada.
+- Na investigacao de 09/09/2026, os 20 destinatarios com envio incerto no lote
+  automatico analisado foram identificados pelo provedor sem nono digito; os
+  dois com envio marcado como concluido foram identificados com ele. A mudanca
+  no codigo e comprovada pelo historico; sua relacao com as falhas e uma forte
+  evidencia, mas o HTTP original de cada falha nao foi preservado e nao permite
+  confirmar retrospectivamente a causa de todas elas.
+- A correcao de 09/09/2026 passou a resolver o destino antes do envio. Ela
+  preserva a compatibilidade sem restaurar tentativas de envio para outro
+  formato depois de um resultado incerto.
+
+#### Testes obrigatorios para futuras alteracoes
+
+Antes de publicar alteracoes na resolucao dos numeros, no envio WhatsApp ou
+nas protecoes da fila, executar:
+
+```bash
+php tests/test_whatsapp_phone_resolution.php
+php tests/test_message_delivery.php
+php tests/test_message_queue_worker.php
+```
+
+- `test_whatsapp_phone_resolution.php`: provedor e arquivos simulados, sem banco
+  ou envio real. Verifica JID com/sem nono digito, internacionais, fallback de
+  consulta, respostas invalidas e uma unica chamada de envio para texto, imagem
+  e documento. Consulta falha nao envia; envio incerto nao tenta outro numero.
+- `test_message_delivery.php`: usa MySQL local (`DB_HOST=localhost`) e provedores
+  simulados. Verifica persistencia, diagnosticos e concorrencia, usando apenas
+  o tenant `1111111111111`; remove seus fixtures e disputa uma reserva em duas
+  conexoes MySQL independentes.
+- `test_message_queue_worker.php`: banco, broker e provedores inteiramente
+  simulados. Verifica ACK, copias da fila e protecoes do consumidor.
+
+Esses testes nao enviam mensagens reais. Uma simulacao aprovada comprova o
+comportamento coberto, nao a entrega historica de mensagens nem a disponibilidade
+atual do provedor.
 
 ### Variaveis de Ambiente
 
