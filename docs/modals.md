@@ -505,3 +505,15 @@ window.addEventListener('message', function(event) {
 
 - **[Sistema de Iframes](./iframe-system.md)** - Comunicacao iframe <-> parent
 - **[Lista de Componentes](/_backup/v2/componentes.html)** - Exemplos visuais
+
+## Confirmacao de exclusao com financeiro
+
+As listagens de contratos e locacoes enviam `openFinanceiroDeleteModal` com
+`modulo` (`contratos` ou `locacoes`), `recordId`, `recordName` e `recordType`.
+O parent carrega a previa pela API e executa a exclusao; somente o iframe de origem
+recebe `financeiroVinculoExcluido` no sucesso e atualiza a listagem.
+
+O modal existente permanece aberto em erros e impede envio duplicado. Uma previa
+obsoleta limpa a confirmacao e exige atualizar os valores. Ajuste de encerramento
+exibe motivo obrigatorio. Valores e mensagens sao renderizados com `textContent`.
+O `openDeleteModal` generico tambem aceita e exibe `warningMessage`.

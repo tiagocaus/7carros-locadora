@@ -99,7 +99,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             'btnEdit' => t('common.buttons.edit'),
             'btnDelete' => t('common.buttons.delete'),
             'recordType' => t('modules.contratos.record_type'),
-            'deleteWarning' => t('modules.contratos.messages.delete_warning'),
             'thisContract' => t('modules.contratos.messages.this_contract'),
             'deleteError' => t('modules.contratos.messages.delete_error'),
             'signatureRemoved' => t('modules.contratos.messages.signature_removed'),
@@ -350,12 +349,11 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
                     const name = this.getAttribute('data-name') || i18n.thisContract;
 
                     window.parent.postMessage({
-                        action: 'openDeleteModal',
+                        action: 'openFinanceiroDeleteModal',
+                        modulo: 'contratos',
                         recordId: id,
                         recordName: name,
-                        recordType: i18n.recordType,
-                        confirmType: 'text',
-                        warningMessage: i18n.deleteWarning
+                        recordType: i18n.recordType
                     }, '*');
                 });
             });
@@ -536,21 +534,6 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         // ===== ACOES =====
 
-        async function excluirContrato(id) {
-            try {
-                const result = await API.post(`/contratos/${id}/excluir`);
-
-                if (result.success) {
-                    carregarContratos(currentPage, perPage, searchTerm, statusFilter);
-                } else {
-                    window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.deleteError }, '*');
-                }
-            } catch (error) {
-                console.error('Erro:', error);
-                window.parent.postMessage({ action: 'openAlert', message: i18n.deleteError }, '*');
-            }
-        }
-
         async function limparAssinatura(id) {
             try {
                 const result = await API.post(`/contratos/${id}/limpar-assinatura`);
@@ -627,8 +610,9 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         window.addEventListener('message', function(event) {
             if (!event.data || !event.data.action) return;
 
-            if (event.data.action === 'confirmDelete') {
-                excluirContrato(event.data.recordId);
+            if (event.origin === window.location.origin && event.data.action === 'financeiroVinculoExcluido' && event.data.modulo === 'contratos') {
+                carregarContratos(currentPage, perPage, searchTerm, statusFilter);
+
             } else if (event.data.action === 'contratoRenovacaoRegularizada') {
                 carregarContratos(currentPage, perPage, searchTerm, statusFilter);
             } else if (event.data.action === 'contratoOdometroRegistrado') {

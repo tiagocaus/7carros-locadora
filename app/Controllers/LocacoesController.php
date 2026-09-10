@@ -1514,62 +1514,32 @@ class LocacoesController
      *
      * POST /locacoes/{id}/excluir
      */
+    public function previewExclusao(Request $request, int $id): void
+    {
+        $this->responderExclusaoFinanceiro($request, $id, 'locacao', true);
+    }
+
     public function destroy(Request $request, int $id): void
     {
+        $this->responderExclusaoFinanceiro($request, $id, 'locacao', false);
+    }
+
+    private function responderExclusaoFinanceiro(Request $request, int $id, string $tipo, bool $preview): void
+    {
         try {
-            $locacaoModel = new Locacao();
-            $locacao = $locacaoModel->buscarPorId($id);
-
-            if (!$locacao) {
-                Response::json([
-                    'success' => false,
-                    'message' => $this->apiMessage('rental_not_found')
-                ], 404);
+            $service = new \App\Services\ExclusaoVinculoFinanceiroService();
+            if ($preview) {
+                Response::json(['success' => true, 'data' => $service->preview($tipo, $id)]);
                 return;
             }
-
-            $chave = Auth::chave();
-            if ($locacao['chave'] !== $chave) {
-                Response::json([
-                    'success' => false,
-                    'message' => $this->apiMessage('cannot_delete')
-                ], 403);
-                return;
-            }
-
-            if (!FilialHelper::temAcessoFilial($locacao['id_matriz_filial_retirada'] ?? null)) {
-                Response::json([
-                    'success' => false,
-                    'message' => $this->apiMessage('access_denied')
-                ], 403);
-                return;
-            }
-
-            (new AuthorizationHoldReleaseService())->liberarDaLocacao(
-                $id,
-                $locacao['chave']
-            );
-            $locacaoModel->deletarComAuditoria($id);
-
-            Response::json([
-                'success' => true,
-                'message' => $this->apiMessage('deleted')
-            ]);
-        } catch (AuthorizationHoldReleaseException) {
-            Response::json([
-                'success' => false,
-                'message' => $this->apiMessage('delete_hold_release_failed')
-            ], 409);
-        } catch (\InvalidArgumentException $e) {
-            Response::json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
-        } catch (\Exception $e) {
-            Response::json([
-                'success' => false,
-                'message' => $this->apiMessage('delete_error', ['message' => $e->getMessage()])
-            ], 500);
+            $dados = $request->all();
+            $service->excluir($tipo, $id, (string) ($dados['referencia'] ?? ''), (string) ($dados['motivo'] ?? ''));
+            Response::json(['success' => true, 'message' => t('modules.exclusao_financeiro.deleted')]);
+        } catch (\DomainException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage(), 'refresh_preview' => $e->getCode() === 409], $e->getCode() ?: 422);
+        } catch (\Throwable $e) {
+            error_log('[ExclusaoFinanceiro] ' . $e->getMessage());
+            Response::json(['success' => false, 'message' => t('modules.exclusao_financeiro.failed')], 409);
         }
     }
 

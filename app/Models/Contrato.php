@@ -732,15 +732,16 @@ class Contrato extends Model
             ->whereNull('data_entrada')
             ->get();
 
+        // O servico transacional deve remover e auditar o financeiro antes do principal.
+        if ($this->qb->table('financeiro')->where('id_contrato', '=', $id)->exists()) {
+            throw new \DomainException('Use a exclusao com previa financeira para remover este registro');
+        }
+
         // Excluir checklists vinculados e seus arquivos
         $checklistModel = new \App\Models\Checklist();
         $checklistModel->excluirPorContrato($id, $contrato['chave']);
 
-        // Desvincular lancamentos financeiros
-        $this->qb
-            ->table('financeiro')
-            ->where('id_contrato', '=', $id)
-            ->update(['id_contrato' => null]);
+
 
         // Deletar veiculos (CASCADE nao eh automatico)
         $this->qb

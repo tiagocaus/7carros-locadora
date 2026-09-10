@@ -91,7 +91,6 @@
             'btnEdit' => t('common.buttons.edit'),
             'btnDelete' => t('common.buttons.delete'),
             'recordType' => t('modules.locacoes.record_type'),
-            'deleteWarning' => t('modules.locacoes.messages.delete_warning'),
             'thisRental' => t('modules.locacoes.messages.this_rental'),
             'deleteError' => t('modules.locacoes.messages.delete_error'),
             'signatureRemoved' => t('modules.locacoes.messages.signature_removed'),
@@ -309,12 +308,11 @@
                     const name = this.getAttribute('data-name') || i18n.thisRental;
 
                     window.parent.postMessage({
-                        action: 'openDeleteModal',
+                        action: 'openFinanceiroDeleteModal',
+                        modulo: 'locacoes',
                         recordId: id,
                         recordName: name,
-                        recordType: i18n.recordType,
-                        confirmType: 'text',
-                        warningMessage: i18n.deleteWarning
+                        recordType: i18n.recordType
                     }, '*');
                 });
             });
@@ -465,21 +463,6 @@
 
         // ===== ACOES =====
 
-        async function excluirLocacao(id) {
-            try {
-                const result = await API.post(`/locacoes/${id}/excluir`);
-
-                if (result.success) {
-                    carregarLocacoes(currentPage, perPage, searchTerm, statusFilter);
-                } else {
-                    window.parent.postMessage({ action: 'openAlert', message: result.message || i18n.deleteError }, '*');
-                }
-            } catch (error) {
-                console.error('Erro:', error);
-                window.parent.postMessage({ action: 'openAlert', message: i18n.deleteError }, '*');
-            }
-        }
-
         async function limparAssinatura(id) {
             try {
                 const result = await API.post(`/locacoes/${id}/limpar-assinatura`);
@@ -546,8 +529,8 @@
         window.addEventListener('message', function(event) {
             if (!event.data || !event.data.action) return;
 
-            if (event.data.action === 'confirmDelete') {
-                excluirLocacao(event.data.recordId);
+            if (event.origin === window.location.origin && event.data.action === 'financeiroVinculoExcluido' && event.data.modulo === 'locacoes') {
+                carregarLocacoes(currentPage, perPage, searchTerm, statusFilter);
             }
 
             // Aprovacao de reserva confirmada via genericConfirmModal

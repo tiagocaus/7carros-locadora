@@ -661,15 +661,16 @@ class Locacao extends Model
             ? (int) $locacao['id_veiculo']
             : 0;
 
+        // O servico transacional deve remover e auditar o financeiro antes do principal.
+        if ($this->qb->table('financeiro')->where('id_locacao', '=', $id)->exists()) {
+            throw new \DomainException('Use a exclusao com previa financeira para remover este registro');
+        }
+
         // Excluir checklists vinculados e seus arquivos
         $checklistModel = new \App\Models\Checklist();
         $checklistModel->excluirPorLocacao($id, $locacao['chave']);
 
-        // Desvincular lancamentos financeiros
-        $this->qb
-            ->table('financeiro')
-            ->where('id_locacao', '=', $id)
-            ->update(['id_locacao' => null]);
+
 
         // Deletar locacao (CASCADE remove locacoes_veiculos e locacoes_taxaseservicos)
         $apagados = $this->qb

@@ -108,6 +108,16 @@ class PagamentoLinkSyncService
         ];
     }
 
+    /** Cancela cobrancas ainda abertas antes da exclusao, inclusive de fatura baixada manualmente. */
+    public function prepararExclusao(int $idFinanceiro, string $chave): void
+    {
+        $financeiro = $this->financeiroModel->buscarPorId($idFinanceiro);
+        if (!$financeiro || $financeiro['chave'] !== $chave) {
+            throw new \InvalidArgumentException('Lancamento nao encontrado');
+        }
+        $this->invalidarCobrancasExternasAbertas($idFinanceiro, $chave);
+    }
+
     private function invalidarCobrancasExternasAbertas(int $idFinanceiro, string $chave): int
     {
         $transacoes = $this->transacaoModel->listarCobrancasAbertasPorFinanceiro($idFinanceiro);

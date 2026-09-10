@@ -1049,6 +1049,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     // CRUD Contratos
     $router->post('/contratos/salvar', [ContratosController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/contratos/{id}/atualizar', [ContratosController::class, 'update'], ['csrf', 'rate_limit']);
+    $router->get('/api/contratos/{id}/exclusao-preview', [ContratosController::class, 'previewExclusao'], ['permission:contratos.excluir', 'api_csrf', 'rate_limit']);
     $router->post('/contratos/{id}/excluir', [ContratosController::class, 'destroy'], ['csrf', 'rate_limit']);
 
     // Acoes de Contratos
@@ -1124,6 +1125,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->post('/locacoes/salvar', [LocacoesController::class, 'store'], ['csrf', 'rate_limit']);
     $router->post('/api/locacoes/{id}/confirmar-reserva', [LocacoesController::class, 'confirmarReserva'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->post('/locacoes/{id}/atualizar', [LocacoesController::class, 'update'], ['csrf', 'rate_limit']);
+    $router->get('/api/locacoes/{id}/exclusao-preview', [LocacoesController::class, 'previewExclusao'], ['permission:locacoes.excluir', 'api_csrf', 'rate_limit']);
     $router->post('/locacoes/{id}/excluir', [LocacoesController::class, 'destroy'], ['csrf', 'rate_limit']);
 
     // Acoes de Locacoes

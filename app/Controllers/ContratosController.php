@@ -1331,64 +1331,32 @@ class ContratosController
      *
      * POST /contratos/{id}/excluir
      */
+    public function previewExclusao(Request $request, int $id): void
+    {
+        $this->responderExclusaoFinanceiro($request, $id, 'contrato', true);
+    }
+
     public function destroy(Request $request, int $id): void
     {
+        $this->responderExclusaoFinanceiro($request, $id, 'contrato', false);
+    }
+
+    private function responderExclusaoFinanceiro(Request $request, int $id, string $tipo, bool $preview): void
+    {
         try {
-            $contratoModel = new Contrato();
-            $contrato = $contratoModel->buscarPorId($id);
-
-            if (!$contrato) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Contrato nao encontrado'
-                ], 404);
+            $service = new \App\Services\ExclusaoVinculoFinanceiroService();
+            if ($preview) {
+                Response::json(['success' => true, 'data' => $service->preview($tipo, $id)]);
                 return;
             }
-
-            // Verificar tenant
-            $chave = Auth::chave();
-            if ($contrato['chave'] !== $chave) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Voce nao pode excluir este contrato'
-                ], 403);
-                return;
-            }
-
-            // Verificar acesso a filial
-            if (!FilialHelper::temAcessoFilial($contrato['id_matriz_filial_retirada'] ?? null)) {
-                Response::json([
-                    'success' => false,
-                    'message' => 'Acesso negado'
-                ], 403);
-                return;
-            }
-
-            (new AuthorizationHoldReleaseService())->liberarDoContrato(
-                $id,
-                $contrato['chave']
-            );
-            $contratoModel->deletarComAuditoria($id);
-
-            Response::json([
-                'success' => true,
-                'message' => 'Contrato excluido com sucesso'
-            ]);
-        } catch (AuthorizationHoldReleaseException) {
-            Response::json([
-                'success' => false,
-                'message' => t('modules.contratos.messages.delete_hold_release_failed')
-            ], 409);
-        } catch (\InvalidArgumentException $e) {
-            Response::json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
-        } catch (\Exception $e) {
-            Response::json([
-                'success' => false,
-                'message' => 'Erro ao excluir contrato: ' . $e->getMessage()
-            ], 500);
+            $dados = $request->all();
+            $service->excluir($tipo, $id, (string) ($dados['referencia'] ?? ''), (string) ($dados['motivo'] ?? ''));
+            Response::json(['success' => true, 'message' => t('modules.exclusao_financeiro.deleted')]);
+        } catch (\DomainException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage(), 'refresh_preview' => $e->getCode() === 409], $e->getCode() ?: 422);
+        } catch (\Throwable $e) {
+            error_log('[ExclusaoFinanceiro] ' . $e->getMessage());
+            Response::json(['success' => false, 'message' => t('modules.exclusao_financeiro.failed')], 409);
         }
     }
 

@@ -585,3 +585,16 @@ cancelamento/exclusao.
 ## Padrao de Datas
 
 Datas de reserva, retirada e devolucao (`data_saida`, `data_prevista`, `data_chegada`) sao horarios operacionais locais e devem ser exibidas com `format_operational_datetime()` / `DateHelper.formatOperationalDateTime()`, sem conversao de timezone. Vencimentos, mensagens, PDFs e filtros devem usar `DateHelper`/helpers globais conforme o tipo de dado (`format_date()`, `format_datetime()` para instantes tecnicos, `DateHelper::addDaysForDatabase()`, `DateHelper::addMonthsForDatabase()`). Nao use `date()`, `time()`, `new DateTime()`, `new Date()` ou `NOW()/CURDATE()` diretamente em regra de negocio ou exibicao.
+
+## Exclusao e auditoria financeira
+
+A exclusao de locacao pela listagem exige previa e confirmacao digitando EXCLUIR.
+O modal global informa valores em aberto, pagos e total, removendo tambem todo
+financeiro vinculado apos confirmar. Valores pagos alteram os relatorios e nao
+sao reembolsados automaticamente. Ajustes de encerramento exigem motivo.
+
+A operacao usa `ExclusaoVinculoFinanceiroService` e audita cada lancamento e o
+registro principal na mesma transacao. `deletar()` do Model rejeita registros que
+ainda possuam financeiro direto; nao chamar esse metodo como substituto do fluxo
+com previa. Consulte [Financeiro](financeiro.md#exclusao-com-financeiro-contratos-e-locacoes)
+para endpoints, permissoes, bloqueios e tratamento de concorrencia.

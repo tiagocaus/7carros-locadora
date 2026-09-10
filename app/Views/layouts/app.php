@@ -96,9 +96,21 @@
 
     <!-- Modal de Confirmação de Exclusão -->
     <div id="deleteConfirmationModal" class="modal-overlay">
-        <div class="modal-box" style="max-width: 500px;">
+        <div class="modal-box" style="max-width: 500px; max-height: calc(100dvh - 32px); overflow-y: auto;">
             <h3 class="modal-title" id="deleteModalTitle"><?= t('modules.layout.delete.title') ?></h3>
             <p class="modal-message" id="deleteModalMessage"><?= t('modules.layout.delete.default_message') ?></p>
+
+            <div id="deleteWarningMessage" class="modal-message" style="white-space: pre-line; display: none;"></div>
+            <div id="deleteFinanceiroSection" style="display: none;">
+                <div id="deleteFinanceiroSummary" class="modal-message" aria-live="polite"></div>
+                <p id="deleteFinanceiroImpact" class="modal-message"></p>
+                <div id="deleteFinanceiroReasonSection" style="display: none;">
+                    <label class="form-label" for="deleteFinanceiroReason"><?= t('modules.exclusao_financeiro.reason') ?></label>
+                    <textarea id="deleteFinanceiroReason" class="form-input-focus" maxlength="1000" rows="2"></textarea>
+                </div>
+                <p id="deleteFinanceiroError" class="modal-message text-red-600" role="alert"></p>
+                <button type="button" id="deleteFinanceiroRetry" class="btn-secondary" onclick="loadDeleteFinanceiroPreview()" style="display: none;"><?= t('modules.exclusao_financeiro.retry') ?></button>
+            </div>
 
             <div class="mt-4 mb-2 space-y-2" id="deleteOptionsSection" style="display: none;"></div>
 
@@ -1355,11 +1367,24 @@
         let globalConfirmType = 'text';
         let globalExpectedText = '';
         let globalDeleteOptions = [];
+        let globalFinanceiroDelete = null;
+        const exclusaoFinanceiroT = <?= json_encode(array_combine(
+            ['warning', 'impact', 'related', 'aberto', 'pago', 'total', 'R', 'D', 'loading', 'processing', 'empty', 'count', 'preview_error'],
+            array_map(fn($key) => t('modules.exclusao_financeiro.' . $key), ['warning', 'impact', 'related', 'aberto', 'pago', 'total', 'R', 'D', 'loading', 'processing', 'empty', 'count', 'preview_error'])
+        ), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 
         /**
          * Abre o modal de exclusão global
          */
-        window.openGlobalDeleteModal = function(recordId, recordName, recordType = 'registro', confirmType = 'text', customAction = null, options = []) {
+        window.openGlobalDeleteModal = function(recordId, recordName, recordType = 'registro', confirmType = 'text', customAction = null, options = [], warningMessage = '') {
+            if (globalFinanceiroDelete?.busy) return;
+            globalFinanceiroDelete = null;
+            document.getElementById('deleteFinanceiroSection').style.display = 'none';
+            document.getElementById('cancelDeleteButton').disabled = false;
+            document.getElementById('confirmDeleteInput').disabled = false;
+            const warning = document.getElementById('deleteWarningMessage');
+            warning.textContent = warningMessage;
+            warning.style.display = warningMessage ? 'block' : 'none';
             globalRecordId = recordId;
             globalRecordName = recordName;
             globalRecordType = recordType;
@@ -1429,6 +1454,8 @@
          * Fecha o modal de exclusão global
          */
         window.closeGlobalDeleteModal = function() {
+            if (globalFinanceiroDelete?.busy) return;
+            globalFinanceiroDelete = null;
             const modal = document.getElementById('deleteConfirmationModal');
             const confirmSection = document.getElementById('confirmDeleteSection');
             const confirmInput = document.getElementById('confirmDeleteInput');
@@ -1500,7 +1527,9 @@
             const inputValue = confirmInput.value.trim();
 
             // Comparação case-insensitive
-            const matches = inputValue.toLowerCase() === globalExpectedText.toLowerCase();
+            const financeiroOk = !globalFinanceiroDelete || (!globalFinanceiroDelete.busy && !!globalFinanceiroDelete.preview &&
+                (!globalFinanceiroDelete.preview.exige_motivo || document.getElementById('deleteFinanceiroReason').value.trim().length > 0));
+            const matches = financeiroOk && inputValue.toLowerCase() === globalExpectedText.toLowerCase();
 
             if (matches) {
                 confirmButton.disabled = false;
@@ -1517,7 +1546,11 @@
          * Confirma a exclusão e envia mensagem para o iframe
          */
         window.confirmGlobalDelete = function() {
-            if (!globalRecordId) return;
+            if (!globalRecordId || document.getElementById('confirmDeleteButton').disabled) return;
+            if (globalFinanceiroDelete) {
+                submitDeleteFinanceiro();
+                return;
+            }
 
             // Enviar para o iframe de origem (offcanvas) ou aba ativa
             const targetWindow = globalSourceWindow ||
@@ -1542,6 +1575,93 @@
             closeGlobalDeleteModal();
             globalSourceWindow = null; // Limpar referência
         };
+
+        document.getElementById('deleteFinanceiroReason').addEventListener('input', validateGlobalDeleteConfirmation);
+
+        window.loadDeleteFinanceiroPreview = async function() {
+            const state = globalFinanceiroDelete;
+            if (!state || state.busy) return;
+            state.preview = null;
+            state.busy = true;
+            document.getElementById('cancelDeleteButton').disabled = true;
+            validateGlobalDeleteConfirmation();
+            document.getElementById('deleteFinanceiroReasonSection').style.display = 'none';
+            document.getElementById('deleteFinanceiroRetry').style.display = 'none';
+            document.getElementById('deleteFinanceiroError').textContent = '';
+            const summary = document.getElementById('deleteFinanceiroSummary');
+            summary.textContent = exclusaoFinanceiroT.loading;
+            try {
+                const result = await API.get(`/api/${state.modulo}/${encodeURIComponent(state.id)}/exclusao-preview`);
+                if (state !== globalFinanceiroDelete) return;
+                if (!result.success) throw new Error(result.message || exclusaoFinanceiroT.preview_error);
+                state.preview = result.data;
+                const resumo = result.data.resumo;
+                summary.replaceChildren();
+                const row = (label, value, bold = false) => {
+                    const el = document.createElement('div');
+                    el.className = 'flex justify-between gap-2' + (bold ? ' font-semibold' : '');
+                    const name = document.createElement('span'); name.textContent = label;
+                    const amount = document.createElement('span'); amount.textContent = value;
+                    el.append(name, amount); summary.appendChild(el);
+                };
+                row(exclusaoFinanceiroT.count, String(resumo.quantidade));
+                if (!resumo.quantidade) row(exclusaoFinanceiroT.empty, '');
+                ['aberto', 'pago', 'total'].forEach(key => row(exclusaoFinanceiroT[key], formatLayoutCurrency(resumo[key] / 100), key === 'total'));
+                if (resumo.tipos.R && resumo.tipos.D) {
+                    ['R', 'D'].forEach(tipo => {
+                        row(exclusaoFinanceiroT[tipo], '', true);
+                        ['aberto', 'pago', 'total'].forEach(key => row(exclusaoFinanceiroT[key], formatLayoutCurrency(resumo.tipos[tipo][key] / 100)));
+                    });
+                }
+                document.getElementById('deleteFinanceiroReasonSection').style.display = result.data.exige_motivo ? 'block' : 'none';
+            } catch (error) {
+                summary.textContent = '';
+                document.getElementById('deleteFinanceiroError').textContent = error.message || exclusaoFinanceiroT.preview_error;
+                document.getElementById('deleteFinanceiroRetry').style.display = 'inline-block';
+            } finally {
+                if (state === globalFinanceiroDelete) {
+                    state.busy = false;
+                    document.getElementById('cancelDeleteButton').disabled = false;
+                    validateGlobalDeleteConfirmation();
+                }
+            }
+        };
+
+        async function submitDeleteFinanceiro() {
+            const state = globalFinanceiroDelete;
+            if (!state || state.busy || !state.preview) return;
+            state.busy = true;
+            validateGlobalDeleteConfirmation();
+            document.getElementById('cancelDeleteButton').disabled = true;
+            document.getElementById('confirmDeleteInput').disabled = true;
+            document.getElementById('deleteFinanceiroError').textContent = exclusaoFinanceiroT.processing;
+            try {
+                const result = await API.post(`/${state.modulo}/${encodeURIComponent(state.id)}/excluir`, {
+                    referencia: state.preview.referencia,
+                    motivo: document.getElementById('deleteFinanceiroReason').value.trim()
+                });
+                if (result.success) {
+                    state.busy = false;
+                    state.source?.postMessage({ action: 'financeiroVinculoExcluido', modulo: state.modulo, recordId: state.id }, window.location.origin);
+                    closeGlobalDeleteModal();
+                    globalSourceWindow = null;
+                    return;
+                }
+                if (result.refresh_preview) {
+                    state.preview = null;
+                    document.getElementById('confirmDeleteInput').value = '';
+                    document.getElementById('deleteFinanceiroRetry').style.display = 'inline-block';
+                }
+                document.getElementById('deleteFinanceiroError').textContent = result.message || exclusaoFinanceiroT.preview_error;
+            } catch (error) {
+                document.getElementById('deleteFinanceiroError').textContent = error.message || exclusaoFinanceiroT.preview_error;
+            } finally {
+                state.busy = false;
+                document.getElementById('cancelDeleteButton').disabled = false;
+                document.getElementById('confirmDeleteInput').disabled = false;
+                validateGlobalDeleteConfirmation();
+            }
+        }
 
         // ===== MODAL DE CONFIRMAÇÃO GENÉRICO =====
         let genericConfirmSourceIframe = null;
@@ -2255,7 +2375,19 @@
 
         // Escutar mensagens do iframe para abrir o modal
         window.addEventListener('message', function(event) {
-            if (event.data && event.data.action === 'openDeleteModal') {
+            if (event.data && event.data.action === 'openFinanceiroDeleteModal') {
+                if (event.origin !== window.location.origin || globalFinanceiroDelete?.busy) return;
+                const modulo = event.data.modulo;
+                if (!['contratos', 'locacoes'].includes(modulo)) return;
+                globalSourceWindow = event.source;
+                openGlobalDeleteModal(event.data.recordId, event.data.recordName, event.data.recordType, 'text', null, [], exclusaoFinanceiroT.warning + '\n' + exclusaoFinanceiroT.related);
+                globalFinanceiroDelete = { modulo, id: event.data.recordId, source: event.source, preview: null, busy: false };
+                document.getElementById('deleteFinanceiroSection').style.display = 'block';
+                document.getElementById('deleteFinanceiroImpact').textContent = exclusaoFinanceiroT.impact;
+                document.getElementById('deleteFinanceiroReason').value = '';
+                loadDeleteFinanceiroPreview();
+            } else if (event.data && event.data.action === 'openDeleteModal') {
+                if (globalFinanceiroDelete?.busy) return;
                 globalSourceWindow = event.source; // Guardar referência do iframe de origem
                 openGlobalDeleteModal(
                     event.data.recordId,
@@ -2263,7 +2395,8 @@
                     event.data.recordType || 'registro',
                     event.data.confirmType || 'text',
                     event.data.customAction || null,
-                    event.data.options || []
+                    event.data.options || [],
+                    event.data.warningMessage || ''
                 );
             } else if (event.data && event.data.action === 'openGenericConfirmModal') {
                 // Abrir modal de confirmação genérico

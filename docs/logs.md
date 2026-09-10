@@ -976,3 +976,12 @@ A confirmacao P->R possui log proprio. A gravacao usa
 `registrarComCamposNaTransacao()` e falhas impedem o commit. Operacoes rejeitadas
 ou revertidas nao deixam logs de sucesso. Os snapshots usam IDs dos vinculos e
 veiculos para distinguir alteracoes no historico.
+
+## Exclusao de contrato/locacao com financeiro
+
+`ExclusaoVinculoFinanceiroService` registra uma entrada por lancamento efetivamente
+removido, incluindo os dependentes apagados junto com o principal. Cada entrada
+contem ID, origem contrato/locacao, dados financeiros anteriores, itens e referencias
+de transacoes sem payloads sensiveis. O log do principal registra quantidades e
+valores em aberto, pagos e total. Ajustes de encerramento registram tambem motivo.
+Todos usam `registrarComCamposNaTransacao()`; falha de auditoria reverte a exclusao.

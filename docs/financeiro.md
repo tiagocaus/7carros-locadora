@@ -1058,3 +1058,38 @@ Na listagem agrupada de promissorias, a coluna **Vencimento** exibe `proximo_ven
 Na inclusao e edicao de parcelas, o payload canonico usa `valor_parcela` e `data_vencimento`. O Controller normaliza o valor com `currency_parse()` e aceita `valor` apenas como compatibilidade temporaria. O formulario deve ser aberto pelo modal global `openPromissoriaParcelaModal`, conforme [modals.md](./modals.md).
 
 Na coluna **Parcelas** da listagem de promissorias, o formato e `pagas/total`. Para registros atuais, ambos os valores sao calculados pelas linhas agrupadas no mesmo `codigo_base`. Registros legados isolados usam `total_parcelas` como denominador e calculam as parcelas pagas conhecidas pelo mesmo tenant, cliente, filial, instante de criacao e total declarado, sem alterar ou consolidar os dados historicos.
+
+## Exclusao com financeiro (contratos e locacoes)
+
+Excluir um contrato ou locacao pela listagem remove todos os lancamentos financeiros
+vinculados, inclusive pagos, caucoes, parcelas filhas e despesas automaticas de taxas.
+O fluxo substitui a antiga desvinculacao. As FKs continuam com suas regras atuais;
+a exclusao e controlada pelo `ExclusaoVinculoFinanceiroService`, nao por uma nova
+cascata no banco. Nao ha limpeza retroativa de lancamentos ja desvinculados.
+
+- `GET /api/contratos/{id}/exclusao-preview` e
+  `GET /api/locacoes/{id}/exclusao-preview`: devolvem codigo, resumo em centavos
+  (`aberto`, `pago`, `total`, `quantidade`, `tipos`), `referencia` e `exige_motivo`.
+- Os POSTs de exclusao existentes exigem `referencia` e aceitam `motivo`.
+  A referencia aleatoria fica associada ao snapshot na sessao por 15 minutos.
+  Alteracao dos lancamentos/itens ou expiracao retorna 409 e exige nova confirmacao.
+- O resumo soma `valor_total`; receitas e despesas sao detalhadas quando coexistem.
+  O total representa valores de registros removidos, nao saldo liquido.
+- Exige permissao de exclusao do modulo e `financeiro.excluir` quando houver
+  lancamentos. Todos os registros devem pertencer ao tenant e a filiais acessiveis.
+  Promissorias e dependentes ligados a outra operacao bloqueiam a exclusao inteira.
+- Ajustes de encerramento exigem motivo. O snapshot historico e preservado e
+  `id_financeiro_ajuste` fica nulo, com motivo e dados excluidos na auditoria.
+- Holds devem ser liberados e cobrancas externas abertas canceladas antes da
+  transacao local. Uma falha impede excluir. Nao ha estorno automatico de valores
+  pagos. Cancelamentos externos ja confirmados permanecem validos numa retentativa.
+- O servico revalida e bloqueia os dados antes de apagar. Exclusao, disponibilidade
+  dos veiculos e logs usam a mesma conexao Singleton e transacao. Uma falha reverte
+  todas as alteracoes locais. Arquivos de checklist sao removidos apos commit;
+  falhas de limpeza ficam no error log com tenant/arquivo para nova tentativa.
+- Cada lancamento excluido tem log proprio com dados anteriores, itens e referencias
+  de pagamento sem credenciais/payloads. O log do principal contem quantidades e totais.
+
+Teste local sem gateways reais: `php tests/test_exclusao_vinculo_financeiro.php`.
+
+O cache dos contadores de notificacoes e invalidado apos o commit.

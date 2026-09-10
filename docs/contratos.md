@@ -618,3 +618,16 @@ A secao GARANTIAS aparece automaticamente na fatura do contrato quando existe bl
 ## Padrao de Datas
 
 Datas de inicio/fim, renovacao e devolucao de contrato sao horarios operacionais locais e devem ser exibidas com `format_operational_datetime()` / `DateHelper.formatOperationalDateTime()`, sem conversao de timezone. Caucao, bloqueio, documentos, mensagens e PDFs devem usar `DateHelper`/helpers globais conforme o tipo de dado (`format_datetime()` para instantes tecnicos, `format_operational_datetime()` para horarios operacionais). Evite `date()`, `time()`, `new DateTime()`, `new Date()` e `NOW()/CURDATE()` em regras de negocio, exibicao e filtros. Para queries, calcule a data no helper e passe como parametro sempre que a regra for tenant-scoped.
+
+## Exclusao e auditoria financeira
+
+A exclusao de contrato pela listagem exige previa e confirmacao digitando EXCLUIR.
+O modal global informa valores em aberto, pagos e total, removendo tambem todo
+financeiro vinculado apos confirmar. Valores pagos alteram os relatorios e nao
+sao reembolsados automaticamente. Ajustes de encerramento exigem motivo.
+
+A operacao usa `ExclusaoVinculoFinanceiroService` e audita cada lancamento e o
+registro principal na mesma transacao. `deletar()` do Model rejeita registros que
+ainda possuam financeiro direto; nao chamar esse metodo como substituto do fluxo
+com previa. Consulte [Financeiro](financeiro.md#exclusao-com-financeiro-contratos-e-locacoes)
+para endpoints, permissoes, bloqueios e tratamento de concorrencia.
