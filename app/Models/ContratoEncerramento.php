@@ -105,6 +105,11 @@ class ContratoEncerramento extends Model
             ->leftJoin('planos_de_contas', 'pc', 'f.id_plano_de_conta', '=', 'pc.id')
             ->where('f.id_contrato', '=', $contratoId)
             ->whereNull('f.id_multa')
+            // Caucoes legadas podem existir sem vinculo em contratos_caucoes.
+            ->whereRaw(
+                '(pc.hierarquia IS NULL OR pc.hierarquia NOT IN (?, ?, ?, ?))',
+                ['1.1.5.01', '1.1.5.02', '1.1.6.01', '1.1.6.02']
+            )
             ->whereRaw('NOT EXISTS (SELECT 1 FROM contratos_caucoes cc WHERE cc.chave = f.chave AND (cc.id_financeiro_entrada = f.id OR cc.id_financeiro_devolucao = f.id))')
             ->first();
 

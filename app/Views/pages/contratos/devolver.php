@@ -325,6 +325,15 @@
                     <i class="fas fa-dollar-sign mr-2"></i>Gerar pagamento
                 </button>
             </div>
+            <?php if (in_array($contrato['contagem'] ?? '', ['semana', 'mes', 'ano'], true)): ?>
+            <div id="campoModoCobranca" class="form-input-group mb-4 hidden">
+                <label for="modoCobranca" class="form-label-group">Cobrança na devolução <?= aviso('Período completo cobra mais um período quando houver pelo menos um dia completo restante. Horas incompletas são ignoradas. A escolha vale para todos os veículos do fechamento.') ?></label>
+                <select id="modoCobranca" class="form-input-group-field">
+                    <option value="integral" selected><?= ['semana' => 'Semana completa', 'mes' => 'Mês completo', 'ano' => 'Ano completo'][$contrato['contagem']] ?></option>
+                    <option value="proporcional">Proporcional ao uso</option>
+                </select>
+            </div>
+            <?php endif; ?>
             <div id="resumoContent"></div>
         </div>
 
@@ -1371,6 +1380,12 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
     // ==================== RESUMO GERAL ====================
 
+    function modoCobrancaSelecionado() {
+        return document.getElementById('modoCobranca')?.value || 'proporcional';
+    }
+
+    document.getElementById('modoCobranca')?.addEventListener('change', atualizarResumoGeral);
+
     function atualizarResumoGeral() {
         const resumoEl = document.getElementById('resumoGeral');
         const selecionados = Object.values(veiculoState).filter(state => state.selecionado || singleMode).length;
@@ -1381,6 +1396,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
 
         resumoEl.classList.remove('hidden');
+        document.getElementById('campoModoCobranca')?.classList.toggle('hidden', selecionados !== Object.keys(veiculoState).length);
         agendarPreviewEncerramento();
     }
 
@@ -1494,6 +1510,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         try {
             const result = await API.post(`/api/contratos/${contratoId}/devolucao/preview`, {
                 veiculos,
+                modo_cobranca: modoCobrancaSelecionado(),
                 taxas_extras: taxasExtrasState.map(taxa => ({
                     id_taxa: taxa.id_taxa,
                     quantidade: taxa.quantidade,
@@ -1521,19 +1538,20 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
     function renderizarPreviewEncerramento(calculo) {
         const resumo = document.getElementById('resumoContent');
         if (!resumo) return;
+        const integral = calculo.modo_cobranca === 'integral';
         const rotuloPeriodo = { semana: 'semana(s)', mes: 'mes(es)', ano: 'ano(s)', dia: 'dia(s)' }[calculo.contagem] || 'periodo(s)';
         const veiculosHtml = (calculo.veiculos || []).map(v => `
             <div class="bg-white border border-green-200 rounded-md p-3 mb-3">
                 <div class="flex justify-between gap-3 font-semibold text-slate-800 mb-2">
                     <span>${escapeHtml(v.placa || 'Veiculo')}</span>
-                    ${calculo.encerramento_final ? `<span>${v.ciclos_completos} ${rotuloPeriodo} + ${v.dias_restantes} diaria(s)</span>` : ''}
+                    ${calculo.encerramento_final ? `<span>${integral ? `${v.ciclos_cobrados} ${rotuloPeriodo} — período completo` : `${v.ciclos_completos} ${rotuloPeriodo} + ${v.dias_restantes} diaria(s)`}</span>` : ''}
                 </div>
                 <div class="text-xs text-slate-500 mb-2">
                     ${escapeHtml(formatarDataHoraResumo(v.data_saida))} ate ${escapeHtml(formatarDataHoraResumo(v.data_entrada))}
-                    ${calculo.encerramento_final ? ` · diaria proporcional ${Currency.format(v.valor_diaria, true)}` : ''}
+                    ${calculo.encerramento_final && !integral ? ` · diaria proporcional ${Currency.format(v.valor_diaria, true)}` : ''}
                 </div>
-                ${calculo.encerramento_final ? linhaResumo('Locacao proporcional', v.valor_plano) : ''}
-                ${calculo.encerramento_final ? linhaResumo('Seguros proporcionais', v.valor_seguros) : ''}
+                ${calculo.encerramento_final ? linhaResumo(integral ? 'Locação por período completo' : 'Locacao proporcional', v.valor_plano) : ''}
+                ${calculo.encerramento_final ? linhaResumo(integral ? 'Seguros por período completo' : 'Seguros proporcionais', v.valor_seguros) : ''}
                 ${linhaResumo('Quilometragem', v.km?.valor)}
                 ${linhaResumo('Combustivel/carga', v.combustivel?.valor)}
             </div>
@@ -1546,10 +1564,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
 
         const resumoTotais = calculo.encerramento_final ? `
             ${linhaResumo('Valor original do contrato', calculo.total_original)}
-            ${linhaResumo('Locacao proporcional', calculo.total_locacao)}
+            ${linhaResumo(integral ? 'Locação por período completo' : 'Locacao proporcional', calculo.total_locacao)}
             ${linhaResumo('Taxas contratuais recalculadas', calculo.total_taxas_contrato)}
             ${linhaResumo('Adicionais da devolucao', calculo.total_adicionais_devolucao)}
-            ${linhaResumo('Desconto proporcional', -Number(calculo.desconto_aplicado || 0))}
+            ${linhaResumo(integral ? 'Desconto aplicado' : 'Desconto proporcional', -Number(calculo.desconto_aplicado || 0))}
             ${linhaResumo('Total final recalculado', calculo.total_final, 'border-t border-slate-200 mt-2 pt-2 text-base')}
             ${linhaResumo('Principal ja lancado', calculo.principal_lancado)}
             ${linhaResumo(ajusteLabel, calculo.ajuste_valor, `border-t border-green-200 mt-2 pt-2 text-base ${ajusteClasse}`)}
@@ -1563,7 +1581,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         resumo.innerHTML = `
             <div class="bg-green-100 border border-green-300 rounded-md p-3 mb-3 text-sm text-green-900">
                 ${calculo.encerramento_final
-                    ? 'Esta devolucao encerra o contrato e aplica o calculo proporcional. O total final considera todo o periodo contratual.'
+                    ? (integral ? 'Esta devolução encerra o contrato com cobrança por período completo. O total considera todo o período contratual.' : 'Esta devolucao encerra o contrato e aplica o calculo proporcional. O total final considera todo o periodo contratual.')
                     : `Devolucao parcial: ${calculo.ativos_restantes} veiculo(s) permanecerao ativos. Aluguel, seguros e conciliacao financeira serao apurados na ultima devolucao.`}
             </div>
             ${veiculosHtml}
@@ -1696,6 +1714,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         try {
             const result = await API.post(`/contratos/${contratoId}/devolver`, {
                 veiculos: veiculosPayload,
+                modo_cobranca: modoCobrancaSelecionado(),
                 taxas_extras: taxasExtrasState.map(taxa => ({
                     id_taxa: taxa.id_taxa,
                     quantidade: taxa.quantidade,

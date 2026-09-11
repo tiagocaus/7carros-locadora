@@ -206,6 +206,20 @@ $htmlFinalizado = (string) ob_get_clean();
 assertContratoFatura(str_contains($htmlFinalizado, '81 Dia'), 'PDF finalizado nao mostra os 81 ciclos do snapshot.');
 assertContratoFatura(str_contains($htmlFinalizado, 'R$ 44.550,00'), 'PDF finalizado nao concilia o total historico do veiculo.');
 
+$contrato['contagem'] = 'semana';
+$contrato['encerramento']['calculo']['modo_cobranca'] = 'integral';
+$contrato['encerramento']['calculo']['veiculos_historico_calculo'][0]['ciclos_completos'] = 25;
+$contrato['encerramento']['calculo']['veiculos_historico_calculo'][0]['dias_restantes'] = 4;
+$contrato['encerramento']['calculo']['veiculos_historico_calculo'][0]['ciclos_cobrados'] = 26;
+$contrato['encerramento']['calculo']['veiculos_historico_calculo'][0]['dias_restantes_cobrados'] = 0;
+ob_start();
+include dirname(__DIR__) . '/app/Views/pages/contratos/imprimir/fatura.php';
+$htmlIntegral = (string) ob_get_clean();
+assertContratoFatura(str_contains($htmlIntegral, '26 Semana — Período completo'), 'Fatura deve exibir os ciclos cobrados e modalidade integral.');
+assertContratoFatura(!str_contains($htmlIntegral, '25 Semana + 4'), 'Fatura integral nao deve exibir periodo proporcional como cobrado.');
+$pdfIntegral = PdfHelper::generateAsString($htmlIntegral, ['watermark' => false]);
+assertContratoFatura(str_starts_with($pdfIntegral, '%PDF-'), 'Fatura integral nao gerou PDF valido.');
+
 $translationKeys = [
     'withdrawal_header', 'return_details_header', 'value_header', 'fuel_short_label',
     'insurances_label', 'vehicle_insurance_short', 'third_party_insurance_short',

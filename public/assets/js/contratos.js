@@ -1668,8 +1668,10 @@
             ? calculo.veiculos_historico_calculo
             : [];
         const contagem = contratoEncerramento.contagem || calculo.contagem || 'dia';
+        const integral = calculo.modo_cobranca === 'integral';
         const labels = { dia: 'dias', semana: 'semanas', mes: 'meses', ano: 'anos' };
         let html = `<tr class="bg-blue-50"><td colspan="5" class="px-4 py-3 text-sm text-blue-800"><i class="fas fa-lock mr-2"></i>${i18n.finalizedValuesLocked || 'Valores preservados pelo encerramento do contrato.'}</td></tr>`;
+        html += `<tr><td colspan="5" class="px-4 py-2 text-sm">Cobrança na devolução: ${integral ? 'Período completo' : 'Proporcional ao uso'}</td></tr>`;
         html += `<tr class="bg-slate-100"><td colspan="5" class="px-4 py-2 font-semibold text-slate-700 uppercase text-xs">${i18n.summaryVehicles || 'Veiculos'}</td></tr>`;
         html += `<tr class="text-xs text-slate-500 uppercase border-b border-slate-200"><td class="px-4 py-1">${i18n.finalizedVehiclePlan || 'Veículo / plano'}</td><td class="px-4 py-1 text-center">${i18n.qty || 'Qtd'}</td><td class="px-4 py-1 text-center">${i18n.finalizedPeriod || 'Período'}</td><td class="px-4 py-1 text-right">${i18n.finalizedRate || 'Tarifa'}</td><td class="px-4 py-1 text-right">${i18n.headerTotal || 'Total'}</td></tr>`;
 
@@ -1677,8 +1679,8 @@
             html += `<tr><td colspan="5" class="px-4 py-3 text-slate-400 italic text-center">${i18n.finalizedSnapshotEmpty || 'Encerramento sem detalhamento de veículos'}</td></tr>`;
         } else {
             veiculosEncerrados.forEach(veiculo => {
-                const ciclos = parseInt(veiculo.ciclos_completos || 0, 10);
-                const restantes = parseInt(veiculo.dias_restantes || 0, 10);
+                const ciclos = parseInt((integral ? veiculo.ciclos_cobrados : veiculo.ciclos_completos) || 0, 10);
+                const restantes = parseInt((integral ? veiculo.dias_restantes_cobrados : veiculo.dias_restantes) || 0, 10);
                 const periodo = restantes > 0 ? `${ciclos} ${labels[contagem] || contagem} + ${restantes} dias` : `${ciclos} ${labels[contagem] || contagem}`;
                 const plano = { KL: i18n.planKmFreeLabel || 'Km Livre', KMC: i18n.planKmControlledLabel || 'Km Controlado', KP: i18n.planKmPaidLabel || 'Km Pago' }[veiculo.plano] || veiculo.plano || '-';
                 const total = parseFloat(veiculo.valor_plano || 0) + parseFloat(veiculo.valor_seguros || 0);

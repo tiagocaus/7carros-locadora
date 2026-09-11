@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Helpers\DateHelper;
 
 /**
- * Calcula o encerramento proporcional de contratos sem acessar o banco.
+ * Calcula o encerramento proporcional ou por periodo completo sem acessar o banco.
  *
  * A persistencia e a conciliacao financeira permanecem nos Models. Isso permite
  * usar exatamente a mesma regra no preview e na confirmacao da devolucao.
@@ -27,8 +27,15 @@ class ContratoEncerramentoService
         array $taxas,
         array $devolucoes,
         array $taxasExtras,
-        float $principalLancado
+        float $principalLancado,
+        string $modoCobranca = 'proporcional'
     ): array {
+        if (!in_array($modoCobranca, ['integral', 'proporcional'], true)) {
+            throw new \InvalidArgumentException('Modalidade de cobranca da devolucao invalida');
+        }
+        if (($contrato['contagem'] ?? 'dia') === 'dia') {
+            $modoCobranca = 'proporcional';
+        }
         $devolucoesPorId = [];
         foreach ($devolucoes as $devolucao) {
             $id = (int) ($devolucao['id_contrato_veiculo'] ?? 0);
@@ -88,9 +95,10 @@ class ContratoEncerramentoService
                 $contagem
             );
             $tarifa = $this->valorPlano($veiculo);
+            $periodoCobranca = $this->periodoCobranca($periodo, $baseDias, $modoCobranca);
             $seguroPeriodo = $this->valorSeguros($veiculo);
-            $valorPlano = $this->valorPorPeriodo($tarifa, $periodo, $baseDias);
-            $valorSeguro = $this->valorPorPeriodo($seguroPeriodo, $periodo, $baseDias);
+            $valorPlano = $this->valorPorPeriodo($tarifa, $periodoCobranca, $baseDias);
+            $valorSeguro = $this->valorPorPeriodo($seguroPeriodo, $periodoCobranca, $baseDias);
             $km = $this->calcularKm($veiculo, $periodo['dias_equivalentes'], $baseDias);
             $combustivel = $this->calcularCombustivel($veiculo);
             $cobrancaNestaDevolucao = isset($devolucoesPorId[(int) ($veiculo['id'] ?? 0)]);
@@ -116,6 +124,9 @@ class ContratoEncerramentoService
                 'ciclos_completos' => $periodo['ciclos_completos'],
                 'dias_restantes' => $periodo['dias_restantes'],
                 'dias_equivalentes' => $periodo['dias_equivalentes'],
+                'ciclos_cobrados' => $periodoCobranca['ciclos_completos'],
+                'dias_restantes_cobrados' => $periodoCobranca['dias_restantes'],
+                'dias_equivalentes_cobrados' => $periodoCobranca['dias_equivalentes'],
                 'tarifa_periodo' => $tarifa,
                 'valor_diaria' => round($tarifa / $baseDias, 2),
                 'valor_plano' => $valorPlano,
@@ -149,12 +160,13 @@ class ContratoEncerramentoService
             : ['ciclos_completos' => 0, 'dias_restantes' => 0, 'dias_equivalentes' => 0];
 
         $totalTaxasContrato = 0.0;
+        $periodoContratoCobranca = $this->periodoCobranca($periodoContrato, $baseDias, $modoCobranca);
         $detalhesTaxas = [];
         if ($encerramentoFinal) {
             foreach ($taxasContrato as $taxa) {
                 $valor = round($this->calcularTaxa(
                     $taxa,
-                    (int) $periodoContrato['dias_equivalentes'],
+                    (int) $periodoContratoCobranca['dias_equivalentes'],
                     $totalLocacao
                 ), 2);
                 $totalTaxasContrato += $valor;
@@ -205,8 +217,10 @@ class ContratoEncerramentoService
             'ativos_restantes' => $ativosRestantes,
             'data_encerramento' => $dataEncerramento,
             'contagem' => $contagem,
+            'modo_cobranca' => $modoCobranca,
             'base_dias' => $baseDias,
             'periodo_contrato' => $periodoContrato,
+            'periodo_contrato_cobranca' => $periodoContratoCobranca,
             'veiculos' => $detalhesVeiculosDevolucao,
             'veiculos_historico_calculo' => $detalhesVeiculos,
             'taxas' => $detalhesTaxas,
@@ -286,6 +300,15 @@ class ContratoEncerramentoService
             'dias_restantes' => $diasRestantes,
             'dias_equivalentes' => ($ciclos * $baseDias) + $diasRestantes,
         ];
+    }
+
+    private function periodoCobranca(array $periodo, int $baseDias, string $modo): array
+    {
+        if ($modo !== 'integral') {
+            return $periodo;
+        }
+        $ciclos = $periodo['ciclos_completos'] + ($periodo['dias_restantes'] > 0 ? 1 : 0);
+        return ['ciclos_completos' => $ciclos, 'dias_restantes' => 0, 'dias_equivalentes' => $ciclos * $baseDias];
     }
 
     private function valorPorPeriodo(float $valor, array $periodo, int $baseDias): float

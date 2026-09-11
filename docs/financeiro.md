@@ -962,6 +962,18 @@ principal ja lancado. O principal usa `valor_subtotal` das receitas vinculadas
 ao contrato e desconta creditos anteriores classificados em `3.4.1.23`; nao
 inclui taxa do meio de pagamento, juros, multa, caucao ou multas veiculares.
 
+A exclusao de caucao considera tanto os vinculos em `contratos_caucoes`
+(entrada e devolucao) quanto os planos `1.1.5.01`, `1.1.5.02`, `1.1.6.01`
+e `1.1.6.02`. Assim, lancamentos antigos de bloqueio/caucao sem vinculo na
+tabela atual tambem ficam fora do principal. A classificacao usa a hierarquia,
+nao IDs fixos nem a descricao. Receitas sem plano continuam participando.
+Alugueis cadastrados indevidamente nesses planos precisam ser reclassificados
+como locacao. Essa regra e compartilhada pela previa e confirmacao e nao
+exclui lancamentos nem recalcula snapshots de encerramentos anteriores.
+
+Regressao local com tabelas temporarias, sem alterar dados existentes:
+`php tests/test_contrato_encerramento_principal.php`.
+
 Quando a diferenca e positiva, cria automaticamente uma receita:
 
 - `financeiro.tipo = R`

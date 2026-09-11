@@ -413,7 +413,7 @@ devolucao (`contratos.devolver`) e, apos o sucesso, a interface retorna para a
 listagem de contratos.
 
 Antes da confirmacao, `POST /api/contratos/{id}/devolucao/preview` calcula o
-mesmo resultado que sera persistido. Na devolucao final, o contrato e apurado
+mesmo resultado que sera persistido. Na modalidade proporcional, o contrato e apurado
 por ciclos completos e dias restantes completos de 24 horas: semana usa base
 7, mes usa ciclo de calendario e diaria de base 30, e ano usa ciclo de
 calendario e diaria de base 365. Fracoes inferiores a 24 horas nao geram
@@ -422,6 +422,39 @@ Nos ciclos de calendario, a data de saida original permanece como ancora:
 `31/01 + 2 meses` vence em `31/03`, e `29/02/2024 + 4 anos` vence em
 `29/02/2028`. O dia e limitado ao ultimo dia do destino apenas quando a data
 ancora nao existe naquele mes ou ano.
+
+### Modalidade de cobranca no encerramento
+
+O Resumo da Devolucao oferece `Cobrança na devolução` no encerramento final
+para contagens semana, mes e ano. A tela inicia em periodo completo e permite
+alternar para proporcional ao uso. O campo e global ao fechamento, fora do
+offcanvas de valores por veiculo. Devolucao parcial e contagem diaria mantem
+as regras existentes.
+
+Preview e confirmacao recebem `modo_cobranca` (`integral` ou `proporcional`).
+Ausencia do campo preserva proporcional para compatibilidade; valores invalidos
+sao rejeitados. Cada troca invalida a previa e exige novo calculo do backend.
+
+O periodo real continua apurado por ciclos e dias completos. Em modo integral,
+um ou mais dias restantes acrescentam um ciclo cobrado; horas inferiores a 24
+nao acrescentam ciclo. Uma semana mais uma hora cobra uma semana; uma semana
+mais um dia cobra duas. Antes de completar o primeiro dia, cobra zero.
+Meses/anos preservam as ancoras de calendario existentes.
+
+Aluguel e seguros usam os ciclos cobrados de cada vinculo de veiculo. Taxas PER
+usam os dias equivalentes cobrados do contrato (7/30/365 por ciclo); percentuais
+mantem suas bases e formulas com os novos totais. Desconto mantem sua formula.
+Franquia de km usa o periodo real, sem arredondamento comercial. Combustivel,
+caucao e conciliacao do principal mantem as regras existentes.
+
+O snapshot em `calculo_json` grava `modo_cobranca`, `periodo_contrato_cobranca`
+e, por veiculo, `ciclos_cobrados`, `dias_restantes_cobrados` e
+`dias_equivalentes_cobrados`, preservando os campos do periodo real. Resumo
+historico e fatura exibem a modalidade e o periodo cobrado. Snapshots antigos
+sem modalidade continuam proporcionais, sem recalculo retroativo.
+
+Testes: `php tests/test_contrato_encerramento_modalidade.php` e
+`node tests/test_contrato_encerramento_modalidade_ui.js`.
 
 Cada veiculo selecionado na devolucao pode ter seus valores comerciais
 ajustados pelo botao **Ajustar valores**, desde que o usuario possua

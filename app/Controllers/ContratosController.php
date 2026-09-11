@@ -1451,6 +1451,10 @@ class ContratosController
     /** @return array{calculo:array,veiculos:array,taxas_extras:array} */
     private function prepararCalculoDevolucao(array $contrato, array $dados): array
     {
+        $modoCobranca = $dados['modo_cobranca'] ?? 'proporcional';
+        if (!is_string($modoCobranca) || !in_array($modoCobranca, ['integral', 'proporcional'], true)) {
+            throw new \InvalidArgumentException('Modalidade de cobranca da devolucao invalida');
+        }
         $entradas = !empty($dados['veiculos']) && is_array($dados['veiculos'])
             ? $dados['veiculos']
             : (!empty($dados['id_contrato_veiculo']) ? [[
@@ -1537,7 +1541,8 @@ class ContratosController
             (new ContratoTaxaServico())->listarPorContrato((int) $contrato['id']),
             $devolucoes,
             $taxasExtras,
-            $encerramentoModel->calcularPrincipalLancado((int) $contrato['id'])
+            $encerramentoModel->calcularPrincipalLancado((int) $contrato['id']),
+            $modoCobranca
         );
 
         return ['calculo' => $calculo, 'veiculos' => $devolucoes, 'taxas_extras' => $taxasExtras];

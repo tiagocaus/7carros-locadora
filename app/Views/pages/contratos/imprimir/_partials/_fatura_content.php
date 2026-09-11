@@ -241,6 +241,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 <?php
     $veiculosSnapshotEncerramento = [];
     $calculoEncerramentoPdf = $contrato['encerramento']['calculo'] ?? [];
+    $integralEncerramentoPdf = ($calculoEncerramentoPdf['modo_cobranca'] ?? 'proporcional') === 'integral';
     foreach (($calculoEncerramentoPdf['veiculos_historico_calculo'] ?? []) as $veiculoSnapshot) {
         $veiculosSnapshotEncerramento[(int) ($veiculoSnapshot['id_contrato_veiculo'] ?? 0)] = $veiculoSnapshot;
     }
@@ -294,12 +295,13 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
                 };
                 $periodoEncerramentoPdf = '';
                 if ($snapshotEncerramentoVeiculo) {
-                    $ciclosPdf = (int) ($snapshotEncerramentoVeiculo['ciclos_completos'] ?? 0);
-                    $restantesPdf = (int) ($snapshotEncerramentoVeiculo['dias_restantes'] ?? 0);
+                    $ciclosPdf = (int) ($snapshotEncerramentoVeiculo[$integralEncerramentoPdf ? 'ciclos_cobrados' : 'ciclos_completos'] ?? 0);
+                    $restantesPdf = (int) ($snapshotEncerramentoVeiculo[$integralEncerramentoPdf ? 'dias_restantes_cobrados' : 'dias_restantes'] ?? 0);
                     $periodoEncerramentoPdf = $ciclosPdf . ' ' . $contagemLabel;
                     if ($restantesPdf > 0) {
                         $periodoEncerramentoPdf .= ' + ' . $restantesPdf . ' dia(s)';
                     }
+                    $periodoEncerramentoPdf .= $integralEncerramentoPdf ? ' — Período completo' : ' — Proporcional ao uso';
                 }
                 $kmFranquia = (int) ($v['km_franquia'] ?? 0);
                 $veiculoNome = trim((string) (($v['veiculo_marca'] ?? '') . ' ' . ($v['veiculo_modelo'] ?? '')));
