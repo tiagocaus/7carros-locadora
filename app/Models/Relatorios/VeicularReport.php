@@ -1115,13 +1115,14 @@ class VeicularReport extends BaseReportModel
     /**
      * Disponibilidade — snapshot atual da frota por status (D/L/R/O/E/V/AV/UI/RO).
      *
-     * Não usa filtro de período (estado atual). Filtros: filial, grupo.
+     * Não usa filtro de período (estado atual). Filtros: filial, grupo e disponibilidades.
      */
     public function disponibilidade(
         string $filialWhere,
         array $filialParams,
         string $filialId = '',
-        string $grupoId = ''
+        string $grupoId = '',
+        array $disponibilidades = []
     ): array {
         $query = $this->qb
             ->table('veiculos', 'v')
@@ -1134,6 +1135,8 @@ class VeicularReport extends BaseReportModel
         }
         if (!empty($filialId)) $query->where('v.id_matriz_filial', '=', (int) $filialId);
         if (!empty($grupoId)) $query->where('v.id_grupo', '=', (int) $grupoId);
+
+        if ($disponibilidades !== []) $query->whereIn('v.disponibilidade', $disponibilidades);
 
         $rows = $query->orderBy('v.placa', 'ASC')->get();
 
@@ -1157,13 +1160,13 @@ class VeicularReport extends BaseReportModel
         $disponiveis = $contagem['D'] ?? 0;
         $locados = $contagem['L'] ?? 0;
         $reservados = $contagem['R'] ?? 0;
-        $oficina = ($contagem['O'] ?? 0) + ($contagem['E'] ?? 0);
+        $oficina = $contagem['O'] ?? 0;
         $outros = $totalFrota - $disponiveis - $locados - $reservados - $oficina;
 
         // Chart: doughnut por status
         $chartLabels = [];
         $chartData = [];
-        foreach (['D', 'L', 'R', 'O', 'E', 'V', 'AV', 'UI', 'RO'] as $s) {
+        foreach (array_keys(self::opcoesDisponibilidade()) as $s) {
             if (!empty($contagem[$s])) {
                 $chartLabels[] = $this->labelDisponibilidade($s);
                 $chartData[] = $contagem[$s];
@@ -1188,20 +1191,20 @@ class VeicularReport extends BaseReportModel
         ];
     }
 
+    /** Opções do relatório com os mesmos códigos e traduções do cadastro. */
+    public static function opcoesDisponibilidade(): array
+    {
+        $keys = [
+            'D' => 'available', 'L' => 'rented', 'R' => 'reserved',
+            'O' => 'in_shop', 'V' => 'sold', 'AV' => 'for_sale',
+            'UI' => 'internal_use', 'RO' => 'stolen', 'E' => 'excluded',
+        ];
+        return array_map(static fn(string $key): string => t('modules.veiculos.availability.' . $key), $keys);
+    }
+
     private function labelDisponibilidade(string $status): string
     {
-        return match ($status) {
-            'D' => 'Disponível',
-            'L' => 'Locado',
-            'R' => 'Reservado',
-            'O' => 'Em manutenção',
-            'E' => 'Em manutenção',
-            'V' => 'Vendido',
-            'AV' => 'Aguardando venda',
-            'UI' => 'Inativo',
-            'RO' => 'Reservado oficina',
-            default => $status,
-        };
+        return self::opcoesDisponibilidade()[$status] ?? $status;
     }
 
     // =====================================================

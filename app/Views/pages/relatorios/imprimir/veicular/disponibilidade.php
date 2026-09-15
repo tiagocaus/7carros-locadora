@@ -7,6 +7,13 @@
 <body>
     <?php include __DIR__ . '/_header.php'; ?>
 
+    <p style="font-size: 9pt;">
+        <strong><?= t('modules.relatorios.veicular.disponibilidade.filter_disponibilidade') ?>:</strong>
+        <?= htmlspecialchars(empty($disponibilidadesSelecionadas)
+            ? t('modules.relatorios.veicular.disponibilidade.all_disponibilidades')
+            : implode(', ', array_map(static fn($codigo) => $disponibilidadeOptions[$codigo], $disponibilidadesSelecionadas)), ENT_QUOTES, 'UTF-8') ?>
+    </p>
+
     <table class="totals-table">
         <tr>
             <td>
@@ -54,7 +61,7 @@
                     'D' => 'badge-green',
                     'L' => 'badge-blue',
                     'R' => 'badge-yellow',
-                    'O', 'E' => 'badge-red',
+                    'O', 'RO' => 'badge-red',
                     default => '',
                 };
             ?>

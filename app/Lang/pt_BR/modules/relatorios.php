@@ -298,12 +298,15 @@ return [
         // 3.6 Disponibilidade
         'disponibilidade' => [
             'title' => 'Disponibilidade da Frota',
-            'description' => 'Snapshot atual da frota: quantos veículos estão Disponíveis, Locados, Reservados, Em manutenção, etc.',
+            'description' => 'Disponibilidade atual dos veículos da frota, conforme os filtros selecionados.',
+            'filter_disponibilidade' => 'Disponibilidade',
+            'all_disponibilidades' => 'Todas as disponibilidades',
+            'invalid_filter' => 'Selecione disponibilidades válidas para filtrar o relatório.',
             'total_frota' => 'Total Frota',
             'disponiveis' => 'Disponíveis',
             'locados' => 'Locados',
             'reservados' => 'Reservados',
-            'oficina' => 'Em Manutenção',
+            'oficina' => 'Na oficina',
             'taxa_ocupacao_atual' => 'Taxa Ocupação',
             'col_placa' => 'Placa',
             'col_veiculo' => 'Veículo',

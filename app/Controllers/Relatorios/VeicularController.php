@@ -397,7 +397,9 @@ class VeicularController extends BaseRelatorioController
     /** GET /pages/relatorios/veicular/disponibilidade */
     public function viewDisponibilidade(Request $request): void
     {
-        $html = Template::render('pages.relatorios.veicular.disponibilidade');
+        $html = Template::render('pages.relatorios.veicular.disponibilidade', [
+            'disponibilidadeOptions' => VeicularReport::opcoesDisponibilidade(),
+        ]);
         Response::html($html);
     }
 
@@ -412,12 +414,15 @@ class VeicularController extends BaseRelatorioController
 
             [$filialWhere, $filialParams] = $this->getFilialFilter();
 
+            $disponibilidades = $this->parseDisponibilidades($request->query('disponibilidades', ''));
             $model = new VeicularReport();
             $result = $model->disponibilidade(
-                $filialWhere, $filialParams, $filialId, $request->query('grupo', '')
+                $filialWhere, $filialParams, $filialId, $request->query('grupo', ''), $disponibilidades
             );
 
             $this->reportResponse($result['details'], $result['totals'], $result['chart']);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => t('modules.relatorios.messages.load_error')], 500);
         }
@@ -427,11 +432,19 @@ class VeicularController extends BaseRelatorioController
     public function disponibilidadePdf(Request $request): void
     {
         if (!$this->checkPermission('relatorios.veicular.disponibilidade')) return;
+        $filialId = $request->query('filial', '');
+        if (!$this->validateFilialAccess($filialId)) return;
+        try {
+            $disponibilidades = $this->parseDisponibilidades($request->query('disponibilidades', ''));
+        } catch (\InvalidArgumentException $e) {
+            Response::html('<h3>' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . '</h3>', 422);
+            return;
+        }
         [$filialWhere, $filialParams] = $this->getFilialFilter();
 
         $model = new VeicularReport();
         $result = $model->disponibilidade(
-            $filialWhere, $filialParams, $request->query('filial', ''), $request->query('grupo', '')
+            $filialWhere, $filialParams, $filialId, $request->query('grupo', ''), $disponibilidades
         );
 
         // Disponibilidade não usa período — passa data atual nos dois lados pro header
@@ -441,8 +454,26 @@ class VeicularController extends BaseRelatorioController
             t('modules.relatorios.veicular.disponibilidade.title'),
             t('modules.relatorios.veicular.disponibilidade.description'),
             $result['totals'], $result['details'],
-            $hoje, $hoje, 'P'
+            $hoje, $hoje, 'P', [
+                'disponibilidadesSelecionadas' => $disponibilidades,
+                'disponibilidadeOptions' => VeicularReport::opcoesDisponibilidade(),
+            ]
         );
+    }
+
+    private function parseDisponibilidades(mixed $value): array
+    {
+        $message = t('modules.relatorios.veicular.disponibilidade.invalid_filter');
+        if (!is_string($value)) {
+            throw new \InvalidArgumentException($message);
+        }
+        if (trim($value) === '') return [];
+
+        $values = array_values(array_unique(array_map('trim', explode(',', $value))));
+        if (array_diff($values, array_keys(VeicularReport::opcoesDisponibilidade())) !== []) {
+            throw new \InvalidArgumentException($message);
+        }
+        return $values;
     }
 
     // =====================================================

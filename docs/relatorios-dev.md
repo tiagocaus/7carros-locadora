@@ -295,3 +295,13 @@ $roles = $this->db()->table('funcionarios_roles')
     ->where('name', '=', $roleName)->get();
 // INSERT IGNORE INTO funcionarios_role_permissions ...
 ```
+
+## Filtro múltiplo de disponibilidade da frota
+
+As rotas JSON e PDF de `veicular/disponibilidade` aceitam `disponibilidades`
+como CSV de códigos (ex.: `D,L`). Ausente/vazio significa todos; duplicatas são
+removidas e códigos desconhecidos ou formatos diferentes de string retornam 422.
+`VeicularReport::disponibilidade()` recebe uma lista opcional no último argumento
+e aplica `whereIn` antes de montar detalhes, totais e gráfico, preservando tenant,
+filial e grupo. `opcoesDisponibilidade()` compartilha códigos e traduções do
+cadastro entre filtro, validação, gráfico, tabela e PDF.

@@ -31,6 +31,16 @@
                 <option value=""><?= t('modules.relatorios.common.all_groups') ?></option>
             </select>
         </div>
+        <div class="flex-1 min-w-[240px] max-w-[520px]">
+            <label for="filterDisponibilidade" class="block text-xs text-slate-500 mb-1"><?= t('modules.relatorios.veicular.disponibilidade.filter_disponibilidade') ?></label>
+            <select id="filterDisponibilidade" multiple
+                    class="form-input-focus w-full text-sm chosen-select"
+                    data-chosen-placeholder="<?= htmlspecialchars(t('modules.relatorios.veicular.disponibilidade.all_disponibilidades'), ENT_QUOTES, 'UTF-8') ?>">
+                <?php foreach ($disponibilidadeOptions as $codigo => $label): ?>
+                <option value="<?= htmlspecialchars($codigo, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
         <div class="flex items-end gap-2">
             <button id="btnAplicar" class="btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center shadow hover:shadow-md transition-shadow whitespace-nowrap">
                 <i class="fas fa-search mr-2"></i><?= t('modules.relatorios.common.apply') ?>
@@ -45,7 +55,9 @@
     @include('pages.relatorios._partials.totalizadores')
 
     <div id="reportChartContainer" class="bg-white shadow-md rounded-lg p-4 mb-4" style="display: none;">
-        <canvas id="reportChart" height="280"></canvas>
+        <div style="width: 100%; max-width: 520px; margin: 0 auto;">
+            <canvas id="reportChart" height="280"></canvas>
+        </div>
     </div>
 
     @include('pages.relatorios._partials.empty-state')
@@ -106,6 +118,8 @@
         return {
             filial: document.getElementById('filterFilial').value,
             grupo: document.getElementById('filterGrupo')?.value || '',
+            disponibilidades: Array.from(document.getElementById('filterDisponibilidade').selectedOptions)
+                .map(option => option.value).join(','),
         };
     }
 
@@ -118,6 +132,11 @@
             renderChart(result.chart);
             renderTable(result.data);
             ReportUtils.showContent();
+            if (!result.data || result.data.length === 0) {
+                const empty = document.getElementById('reportEmptyState');
+                empty.textContent = <?= json_encode(t('modules.relatorios.common.no_data'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+                empty.style.display = 'block';
+            }
         } catch (e) {
             console.error(e);
             ReportUtils.showError(i18n.connectionError);
@@ -128,17 +147,17 @@
 
     function renderChart(c) {
         const cont = document.getElementById('reportChartContainer');
+        if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
         if (!c || !c.labels || c.labels.length === 0) { cont.style.display = 'none'; return; }
         cont.style.display = 'block';
         const ctx = document.getElementById('reportChart').getContext('2d');
-        if (chartInstance) chartInstance.destroy();
         chartInstance = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: c.labels,
                 datasets: [{ data: c.datasets[0].data, backgroundColor: ReportUtils.COLORS.slice(0, c.labels.length) }],
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } } },
         });
     }
 
@@ -151,7 +170,7 @@
             const cls = row.status === 'D' ? 'bg-green-100 text-green-800' :
                         row.status === 'L' ? 'bg-blue-100 text-blue-800' :
                         row.status === 'R' ? 'bg-yellow-100 text-yellow-800' :
-                        (row.status === 'O' || row.status === 'E') ? 'bg-red-100 text-red-800' :
+                        (row.status === 'O' || row.status === 'RO') ? 'bg-red-100 text-red-800' :
                         'bg-slate-100 text-slate-800';
             return `<tr class="hover:bg-slate-50">
                 <td class="table-cell font-medium">${row.placa || '-'}</td>
@@ -164,8 +183,15 @@
     }
 
     function limpar() {
-        document.getElementById('filterFilial').value = '';
-        const g = document.getElementById('filterGrupo'); if (g) g.value = '';
+        ['filterFilial', 'filterGrupo', 'filterDisponibilidade'].forEach(id => {
+            const select = document.getElementById(id);
+            if (select.chosenSelect) {
+                select.chosenSelect.clear();
+            } else {
+                Array.from(select.options).forEach(option => option.selected = false);
+                select.value = '';
+            }
+        });
         carregar();
     }
 

@@ -817,6 +817,17 @@ competência nem o Livro de Caixa cronológico.
 
 **Objetivo**: Mostrar a disponibilidade da frota em tempo real e histórico.
 
+**Filtros da visão atual**: filial, grupo e disponibilidade (seleção múltipla).
+Sem disponibilidade selecionada, mostra todos os veículos, inclusive vendidos,
+roubados e excluídos. Aplicar combina os filtros; Limpar restaura todos.
+Tabela, gráfico, totalizadores e PDF usam o mesmo conjunto filtrado. A taxa de
+ocupação é `(locados + reservados) / total filtrado`, com zero para conjunto vazio.
+O PDF identifica as disponibilidades selecionadas.
+
+As opções usam os códigos e nomes do cadastro: D=Disponível, L=Locado,
+R=Reservado, O=Na oficina, V=Vendido, AV=À venda, UI=Uso interno, RO=Roubado,
+E=Excluído. Apenas O integra o total de oficina; E não é manutenção.
+
 **Visão atual (tempo real)**:
 
 | Status | Quantidade | % |
@@ -824,7 +835,7 @@ competência nem o Livro de Caixa cronológico.
 | Disponível | | |
 | Locado | | |
 | Reservado | | |
-| Em manutenção | | |
+| Na oficina | | |
 | Indisponível | | |
 
 **Visão histórica**:
