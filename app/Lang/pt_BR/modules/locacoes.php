@@ -392,6 +392,9 @@ return [
     ],
 
     'installments' => [
+        'installment_header' => 'Parcela',
+        'payment_header' => 'Pagamento',
+        'paid_on' => 'Pago em :date',
         'title' => 'Pagamentos',
         'payments' => 'Pagamentos',
         'generate' => 'Gerar Pagamentos',

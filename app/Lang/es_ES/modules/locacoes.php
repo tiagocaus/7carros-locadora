@@ -348,6 +348,9 @@ return [
         'check' => 'Cheque',
     ],
     'installments' => [
+        'installment_header' => 'Cuota',
+        'payment_header' => 'Pago',
+        'paid_on' => 'Pagado el :date',
         'title' => 'Cuotas',
         'payments' => 'Pagos',
         'generate' => 'Generar Cuotas',

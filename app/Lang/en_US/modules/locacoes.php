@@ -347,6 +347,9 @@ return [
         'check' => 'Check',
     ],
     'installments' => [
+        'installment_header' => 'Installment',
+        'payment_header' => 'Payment',
+        'paid_on' => 'Paid on :date',
         'title' => 'Payments',
         'payments' => 'Payments',
         'generate' => 'Generate Payments',

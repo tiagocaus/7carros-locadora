@@ -43,6 +43,8 @@ As observações cadastradas na caução ficam disponíveis no modelo customizad
 
 ### PDF tipo `fatura`
 
+A tabela **Pagamentos** usa as colunas Parcela, Vencimento, Descrição, Pagamento e Valor. A descrição financeira é exibida integralmente, com quebra de linha; quando vazia, mostra `—`. Pagamento reúne a forma na primeira linha e o status na segunda: `Pago em DD/MM/AAAA`, `Pago` quando não há data, ou `Pendente`. O layout é compartilhado pela fatura isolada e pelas impressões combinadas, sem alterar cálculos ou valores.
+
 A fatura da locação mantém a ordem principal: Dados do Cliente, Dados da Locação, Composição da Fatura, Totais e Pagamentos. Dados complementares aparecem depois dos pagamentos quando houver informação: condutor adicional, referências/intervenientes (fiadores, avalistas e testemunhas), histórico de veículos/substituições e multas vinculadas.
 
 Quando houver condutores adicionais e o snapshot do veículo possuir `valor_condutor_adicional` positivo, a Composição da Fatura exibe uma linha monetária com quantidade de condutores, valor unitário e total. Essa cobrança nativa permanece separada de eventuais taxas e serviços com nome semelhante.

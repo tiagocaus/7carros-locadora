@@ -422,12 +422,11 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
     <table class="data-table">
         <thead>
             <tr>
-                <th style="width: 12%;"><?= t('modules.locacoes.installments.title') ?></th>
+                <th style="width: 10%;"><?= t('modules.locacoes.installments.installment_header') ?></th>
                 <th style="width: 16%;"><?= t('modules.locacoes.installments.due_date') ?></th>
-                <th style="width: 16%;"><?= t('modules.locacoes.installments.payment_date') ?></th>
-                <th style="width: 22%;"><?= t('modules.locacoes.installments.payment_method_short') ?></th>
-                <th style="width: 14%;"><?= t('modules.locacoes.pdf.status_label') ?></th>
-                <th style="width: 20%;" class="text-right"><?= t('modules.locacoes.installments.value') ?></th>
+                <th style="width: 34%;"><?= t('modules.locacoes.installments.description') ?></th>
+                <th style="width: 23%;"><?= t('modules.locacoes.installments.payment_header') ?></th>
+                <th style="width: 17%;" class="text-right"><?= t('modules.locacoes.installments.value') ?></th>
             </tr>
         </thead>
         <tbody>
@@ -439,13 +438,23 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
                         ? $parcelaNumero . ($totalParcelas > 0 ? '/' . $totalParcelas : '')
                         : '-';
                     $parcelaPaga = ($parcela['pago'] ?? 'N') === 'S';
+                    $descricaoParcela = trim((string) ($parcela['descricao'] ?? ''));
+                    $statusPagamento = t('modules.locacoes.installments.pending');
+                    if ($parcelaPaga) {
+                        $dataPagamento = $_formatarDataFatura($parcela['data_pago'] ?? null);
+                        $statusPagamento = $dataPagamento !== '-'
+                            ? t('modules.locacoes.installments.paid_on', ['date' => $dataPagamento])
+                            : t('modules.locacoes.installments.paid');
+                    }
                 ?>
                 <tr>
                     <td><?= htmlspecialchars($parcelaLabel) ?></td>
                     <td><?= $_formatarDataFatura($parcela['data_venci'] ?? null) ?></td>
-                    <td><?= $_formatarDataFatura($parcela['data_pago'] ?? null) ?></td>
-                    <td><?= htmlspecialchars($parcela['forma_pagamento_descricao'] ?? '-') ?></td>
-                    <td><?= $parcelaPaga ? t('modules.locacoes.installments.paid') : t('modules.locacoes.installments.pending') ?></td>
+                    <td><?= nl2br(htmlspecialchars($descricaoParcela !== '' ? $descricaoParcela : '—')) ?></td>
+                    <td>
+                        <?= htmlspecialchars($parcela['forma_pagamento_descricao'] ?? '-') ?>
+                        <div class="row-meta"><?= htmlspecialchars($statusPagamento) ?></div>
+                    </td>
                     <td class="text-right"><?= currency_format((float) ($parcela['valor_total'] ?? 0)) ?></td>
                 </tr>
             <?php endforeach; ?>

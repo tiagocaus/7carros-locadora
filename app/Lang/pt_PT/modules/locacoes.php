@@ -348,6 +348,9 @@ return [
         'check' => 'Cheque',
     ],
     'installments' => [
+        'installment_header' => 'Prestação',
+        'payment_header' => 'Pagamento',
+        'paid_on' => 'Pago em :date',
         'title' => 'Pagamentos',
         'payments' => 'Pagamentos',
         'generate' => 'Gerar Pagamentos',

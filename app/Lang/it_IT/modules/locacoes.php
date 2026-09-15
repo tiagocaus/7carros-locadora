@@ -347,6 +347,9 @@ return [
         'check' => 'Assegno',
     ],
     'installments' => [
+        'installment_header' => 'Rata',
+        'payment_header' => 'Pagamento',
+        'paid_on' => 'Pagato il :date',
         'title' => 'Rate',
         'payments' => 'Pagamenti',
         'generate' => 'Genera Rate',
