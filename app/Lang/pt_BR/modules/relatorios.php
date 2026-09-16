@@ -166,6 +166,18 @@ return [
 
     // Veicular
     'veicular' => [
+        'historico_odometros' => [
+            'title' => 'Histórico de odômetros',
+            'description' => 'Leituras individuais registradas nos contratos. Todos os filtros são opcionais.',
+            'data' => 'Data da leitura', 'veiculo' => 'Veículo', 'contrato' => 'Número do contrato',
+            'cliente' => 'Cliente', 'filial' => 'Filial', 'grupo' => 'Grupo',
+            'odometro' => 'Odômetro (km)', 'obs' => 'Observação', 'created_at' => 'Registrado em',
+            'registros' => 'Registros', 'veiculos' => 'Veículos', 'contratos' => 'Contratos',
+            'all_history' => 'Todo o histórico', 'from' => 'A partir de', 'until' => 'Até',
+            'empty' => 'Nenhuma leitura encontrada.',
+            'invalid_filters' => 'Confira os filtros: use datas válidas, data inicial anterior ou igual à final e números inteiros positivos.',
+        ],
+
         // 3.1 Manutencoes
         'manutencoes' => [
             'title' => 'Manutenções Veicular',

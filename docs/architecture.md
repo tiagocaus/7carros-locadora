@@ -288,7 +288,17 @@ Constantes e configurações da aplicação:
 
 ### 10. Database/migrations (`app/Database/migrations/`)
 
-Scripts de migração de schema usando a API fluente:
+Alterações versionadas de schema, permissões e dados necessários à implantação,
+usando a API fluente. Executar exclusivamente pelo `migrate.php` da raiz. Não
+criar scripts auxiliares para carregar migrations ou controlar seu histórico.
+
+O diretório `scripts/` é reservado a operações independentes da implantação:
+diagnóstico, manutenção pontual, reconciliação, importação/exportação,
+sincronização de arquivos e publicação de websites. A finalidade determina a
+escolha; alterar dados por SQL não torna uma operação automaticamente migration.
+Veja a regra central em [migrations.md](migrations.md).
+
+Exemplo de migration:
 
 ```php
 // app/Database/migrations/00001_create_clientes_table.php

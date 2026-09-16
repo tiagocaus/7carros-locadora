@@ -270,6 +270,8 @@ edicao especial de valores.
 
 ## Registro Rapido de Odometro
 
+- O histórico completo está em **Relatórios > Veicular > Histórico de odômetros**, com filtros opcionais e exportação PDF. O offcanvas continua exibindo as cinco leituras recentes.
+
 - A listagem de contratos possui um icone de odometro antes da coluna Seq para contratos ativos com veiculos ativos.
 - O offcanvas lista todos os veiculos ativos do contrato; com um unico veiculo, o formulario abre direto.
 - Cada acionamento de `Registrar leitura` cria uma nova linha em `contratos_odometros`, inclusive quando ja existe outra leitura do mesmo veiculo no mesmo dia.
@@ -301,14 +303,18 @@ A migration `00430_create_contratos_km_cobrancas.php` acrescenta ciclos e apura�
 - Faturas de km não são taxas recorrentes nem parcelas de aluguel. Não podem substituir uma parcela equivalente na autorrenovação nem ser removidas pela regeneração de pendentes. Recalcular indiscriminadamente parcelas de contratos com km faturado é bloqueado; a opção de manter parcelas permanece disponível.
 - Principal e itens são protegidos. Exclusão de cobrança pendente ocorre pela tela do contrato com permissão financeira, confirmação, motivo e auditoria. Valores pagos seguem o estorno existente antes de uma exclusão. Contratos com km faturado protegem âncora, contagem e parâmetros do veículo contra edição comum; os ajustes já permitidos na devolução continuam disponíveis.
 
-Implantação pelo terminal do servidor:
+Implantação pelo terminal do servidor, na raiz do projeto:
 
 ```bash
-php scripts/implantar-cobranca-km.php --env=production
-php scripts/implantar-cobranca-km.php --env=production --aplicar
+php migrate.php --env=production
 ```
 
-O script exige `DB_HOST=localhost`, salva o schema anterior em `storage/backups` e executa somente a migration desta funcionalidade. O comando com `--aplicar` já executa a migration `00430`; não execute o arquivo da migration diretamente. Não há rollback destrutivo: o histórico financeiro deve ser preservado para conciliação.
+O executor oficial usa o `.env.production` do servidor com `DB_HOST=localhost`
+e aplica todas as migrations pendentes, incluindo `00430` se ainda não registrada.
+Não execute a migration diretamente nem crie um executor específico para ela.
+`scripts/implantar-cobranca-km.php` é legado: não usar nem copiar como padrão.
+Não há rollback destrutivo desta funcionalidade: o histórico financeiro deve ser
+preservado para conciliação. Consulte [migrations.md](migrations.md).
 
 Testes: `php tests/test_contrato_km_calculo.php` e `php tests/test_contrato_km_integracao.php`. A integração aceita somente o banco local e usa fixtures temporárias do tenant `1111111111111`, sem gateways ou mensagens.
 

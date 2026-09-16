@@ -1011,6 +1011,31 @@ a série completa de quilômetros reconhecidos na granularidade selecionada.
 
 ---
 
+### 3.13 Histórico de odômetros
+
+Lista cada lançamento de `contratos_odometros`, incluindo contratos finalizados,
+veículos substituídos e múltiplas leituras na mesma data. Não agrega nem estima km.
+Exibe data/hora operacional (somente data para legados), veículo, sequência do
+contrato, cliente, filial de retirada, grupo do vínculo, odômetro, observação e
+momento original do registro. Usa os valores atuais; versões anteriores permanecem
+na auditoria. Ordenação: data, referência operacional e ID decrescentes.
+
+Filtros opcionais: data inicial/final da leitura, filial, grupo, veículo, cliente
+e sequência exata do contrato. Inicia sem filtros e carrega todo o histórico, com
+50 linhas por página no servidor (opções 10/20/30/50). Datas aceitam intervalo aberto
+e não possuem limite de dois anos. Limpar recarrega todos os registros acessíveis.
+Tenant e permissões de filial sempre se aplicam, inclusive nas buscas sem filtros.
+
+Totalizadores: registros, veículos e contratos distintos de todo o resultado.
+PDF exporta todos os registros dos filtros aplicados, na mesma ordem da tela.
+Menu: Relatórios > Veicular > Histórico de odômetros.
+Permissão: `relatorios.veicular.historico_odometros` (Proprietário e Gerente).
+Rotas: `/pages/relatorios/veicular/historico-odometros`,
+`/api/relatorios/veicular/historico-odometros` e
+`/relatorios/veicular/historico-odometros/pdf`.
+
+---
+
 ## 4. Clientes
 
 ### 4.1 Contrato/Locações (por cliente)

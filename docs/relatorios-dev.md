@@ -105,7 +105,7 @@ public/assets/js/
    <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/{cat}/{slug}', 'Titulo', 'fas fa-icon'); return false;">
    ```
 
-7. **Permissoes** — Criar migration:
+7. **Permissoes** — Criar migration em `app/Database/migrations/`, executada exclusivamente por `migrate.php` (nunca por script auxiliar; veja [migrations.md](migrations.md)):
    - Inserir em `permissions` com key `relatorios.{cat}.{slug}`
    - Atribuir a Proprietario e Gerente via `funcionarios_role_permissions`
 
@@ -305,3 +305,28 @@ removidas e códigos desconhecidos ou formatos diferentes de string retornam 422
 e aplica `whereIn` antes de montar detalhes, totais e gráfico, preservando tenant,
 filial e grupo. `opcoesDisponibilidade()` compartilha códigos e traduções do
 cadastro entre filtro, validação, gráfico, tabela e PDF.
+
+## Histórico de odômetros
+
+`VeicularReport::historicoOdometros()` compartilha filtros entre totalizadores,
+paginação SQL e PDF completo. O Controller valida datas opcionais especificamente
+neste relatório: não chamar `validatePeriodo()` nem `setDefaultPeriod()`.
+Os parâmetros são `data_inicio`, `data_fim`, `filial`, `grupo`, `veiculo`,
+`cliente`, `contrato` (sequência exata), `page` e `per_page` (10/20/30/50).
+A resposta usa `reportPaginatedResponse()`. A filial vem de `whereContratos('c')`
+e o grupo de `contratos_veiculos.id_grupo`. O cabeçalho PDF aceita `periodoLabel`
+opcional para representar datas abertas ou todo o histórico.
+
+A permissão é criada pela migration `00432`, pelo mesmo fluxo das demais
+migrations. Após publicar, execute no terminal do servidor, na raiz do projeto:
+
+```bash
+php migrate.php --env=production
+```
+
+O executor usa o `.env.production` do servidor com `DB_HOST=localhost` e aplica
+todas as migrations pendentes. Se `00432` já estiver registrada, não é repetida
+e nenhum comando adicional de ativação é necessário.
+`scripts/implantar-historico-odometros.php` é legado: não usar nem copiar como
+padrão. Permissões de relatórios são migrations de dados, não scripts operacionais.
+Consulte [migrations.md](migrations.md).

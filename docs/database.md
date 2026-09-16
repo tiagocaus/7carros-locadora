@@ -121,6 +121,13 @@ triggers de `financeiro_itens` e `manutencoes_itens`, use as definicoes mais
 recentes nas migrations correspondentes ou o script operacional
 `scripts/fix-production-financeiro-definers.sql`.
 
+Este é um reparo operacional pontual para restaurar o `DEFINER` e a definição
+já esperada dos objetos existentes; não é um executor de migrations nem um
+procedimento para implantar funcionalidades. Novos objetos ou alterações de
+estrutura/lógica devem ser versionados em `app/Database/migrations/` e aplicados
+exclusivamente por `migrate.php`. Não chamar `up()`/`down()` ou registrar migrations
+por scripts. Veja a distinção em [migrations.md](migrations.md).
+
 Execucao do script operacional em producao:
 
 ```bash

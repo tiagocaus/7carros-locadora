@@ -698,6 +698,74 @@ class VeicularController extends BaseRelatorioController
     // EVOLUCAO DA QUILOMETRAGEM
     // =====================================================
 
+    public function viewHistoricoOdometros(Request $request): void
+    {
+        if (!$this->checkPermission('relatorios.veicular.historico_odometros')) return;
+        Response::html(Template::render('pages.relatorios.veicular.historico-odometros'));
+    }
+
+    /** Datas são opcionais neste relatório, inclusive intervalos abertos. */
+    protected function filtrosHistoricoOdometros(Request $request): array
+    {
+        $filters = [];
+        foreach (['data_inicio', 'data_fim', 'filial', 'grupo', 'veiculo', 'cliente', 'contrato'] as $key) {
+            $value = $request->query($key, '');
+            if (!is_string($value) && !is_int($value)) throw new \InvalidArgumentException();
+            $value = trim((string) $value);
+            if ($value !== '') {
+                if (str_starts_with($key, 'data_')) {
+                    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts)
+                        || !checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1])) throw new \InvalidArgumentException();
+                } elseif (!ctype_digit($value) || (int) $value < 1 || strlen($value) > 10 || (int) $value > 4294967295) {
+                    throw new \InvalidArgumentException();
+                }
+            }
+            $filters[$key] = $value;
+        }
+        if ($filters['data_inicio'] !== '' && $filters['data_fim'] !== '' && $filters['data_inicio'] > $filters['data_fim']) throw new \InvalidArgumentException();
+        return $filters;
+    }
+
+    public function historicoOdometros(Request $request): void
+    {
+        $this->responderHistoricoOdometros($request, false);
+    }
+
+    public function historicoOdometrosPdf(Request $request): void
+    {
+        $this->responderHistoricoOdometros($request, true);
+    }
+
+    private function responderHistoricoOdometros(Request $request, bool $pdf): void
+    {
+        if (!$this->checkPermission('relatorios.veicular.historico_odometros')) return;
+        try {
+            $filters = $this->filtrosHistoricoOdometros($request);
+            if (!$this->validateFilialAccess($filters['filial'])) return;
+            $page = filter_var($request->query('page', 1), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $perPage = filter_var($request->query('per_page', 50), FILTER_VALIDATE_INT);
+            if ($page === false || !in_array($perPage, [10, 20, 30, 50], true)) throw new \InvalidArgumentException();
+            [$where, $params] = FilialHelper::whereContratos('c');
+            $result = (new VeicularReport())->historicoOdometros($filters, $where, $params, $page, $perPage, $pdf);
+            if (!$pdf) {
+                $this->reportPaginatedResponse($result['details'], $result['totals'], $result['page'], $result['perPage'], $result['totals']['registros']);
+                return;
+            }
+            $this->renderPdf('historico-odometros.php', t('modules.relatorios.veicular.historico_odometros.title'),
+                t('modules.relatorios.veicular.historico_odometros.description'), $result['totals'], $result['details'],
+                $filters['data_inicio'], $filters['data_fim'], 'L');
+        } catch (\InvalidArgumentException $e) {
+            $message = t('modules.relatorios.veicular.historico_odometros.invalid_filters');
+            if ($pdf) Response::html('<p>' . htmlspecialchars($message) . '</p>', 422);
+            else Response::json(['success' => false, 'message' => $message], 422);
+        } catch (\Throwable $e) {
+            error_log('historico-odometros: ' . $e->getMessage());
+            $message = t('modules.relatorios.messages.load_error');
+            if ($pdf) Response::html('<p>' . htmlspecialchars($message) . '</p>', 500);
+            else Response::json(['success' => false, 'message' => $message], 500);
+        }
+    }
+
     /** GET /pages/relatorios/veicular/evolucao-quilometragem */
     public function viewEvolucaoQuilometragem(Request $request): void
     {

@@ -1053,13 +1053,19 @@ WHERE ABS(valor_total - (valor_subtotal + COALESCE(juros,0) + COALESCE(multa,0) 
 
 ### Rollback
 
+O executor não aceita seleção por número nem reversão de um lote. O comando
+abaixo reverte somente a última migration registrada, executando seu `down()`:
+
 ```bash
-php migrate.php rollback 00112
-php migrate.php rollback 00111
-php migrate.php rollback 00110
-php migrate.php rollback 00109
-php migrate.php rollback 00108  # Restaura do backup
+php migrate.php --rollback --env=development
 ```
+
+Em produção, executar no servidor com `--env=production`, somente após conferir
+a última migration, sua reversibilidade e os impactos nos dados financeiros.
+Não usar `rollback` sem `--`: essa forma não ativa a reversão. Não executar uma
+sequência de comandos supondo que selecionará as migrations `00108`–`00112`.
+A execução de `--rollback` não garante restauração de backup; isso depende do
+`down()` da migration. Veja [migrations.md](migrations.md).
 
 ## Padrao de Datas
 

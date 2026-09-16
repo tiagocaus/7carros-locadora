@@ -123,22 +123,38 @@ exit;
 
 ### Database Migrations
 
-Run pending migrations:
-```bash
-php migrate.php
-```
+Mudanças versionadas de schema, permissões e dados exigidos pela implantação
+ficam em `app/Database/migrations/`. O único executor é `migrate.php`, na raiz
+(não `migration.php`). Não criar scripts auxiliares para rodar migrations.
 
-Run migrations for specific environment:
+Aplicar todas as migrations pendentes no ambiente local:
+
 ```bash
 php migrate.php --env=development
 ```
 
-Rollback last migration batch:
+No terminal do servidor de produção, usando seu `.env.production` com `DB_HOST=localhost`:
+
 ```bash
-php migrate.php rollback
+php migrate.php --env=production
 ```
 
-See `docs/migrations.md` for migration file format and standards.
+Reverter somente a última migration registrada, após conferir os efeitos de `down()`:
+
+```bash
+php migrate.php --rollback --env=development
+```
+
+Para produção, use `--env=production` no servidor. Não há rollback por número,
+por lote ou seleção de uma migration específica. `rollback` sem `--` não ativa
+a reversão; a sintaxe correta é `--rollback`.
+
+`scripts/` destina-se a operações independentes da implantação, como diagnóstico,
+reconciliação, manutenção pontual, importação/exportação, sincronização de arquivos
+e publicação de websites. Esses scripts não devem carregar migrations, chamar
+`up()`/`down()` ou controlar a tabela `migrations`.
+
+Veja [migrations.md](migrations.md) para os critérios, exemplos e regras completas.
 
 ### Database Backup
 

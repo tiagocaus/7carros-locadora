@@ -24,6 +24,38 @@ use App\Helpers\DateHelper;
  */
 class VeicularReport extends BaseReportModel
 {
+    /** Histórico individual; totais e PDF usam exatamente os mesmos filtros. */
+    public function historicoOdometros(array $filters, string $filialWhere, array $filialParams, int $page = 1, int $perPage = 50, bool $export = false): array
+    {
+        $build = function () use ($filters, $filialWhere, $filialParams) {
+            $query = $this->qb->table('contratos_odometros', 'co')
+                ->joinRaw('contratos', 'c', 'c.id = co.id_contrato AND c.chave = co.chave')
+                ->joinRaw('contratos_veiculos', 'cv', 'cv.id = co.id_contrato_veiculo AND cv.id_contrato = c.id AND cv.chave = co.chave')
+                ->leftJoinRaw('veiculos', 'v', 'v.id = cv.id_veiculo AND v.chave = co.chave')
+                ->leftJoinRaw('clientes', 'cl', 'cl.id = c.id_cliente AND cl.chave = co.chave')
+                ->leftJoinRaw('matrizes_filiais', 'mf', 'mf.id = c.id_matriz_filial_retirada AND mf.chave = co.chave')
+                ->leftJoinRaw('grupos', 'g', 'g.id = cv.id_grupo AND g.chave = co.chave');
+            if ($filialWhere !== '' && $filialWhere !== '1=1') $query->whereRaw($filialWhere, $filialParams);
+            foreach (['filial' => 'c.id_matriz_filial_retirada', 'grupo' => 'cv.id_grupo', 'veiculo' => 'cv.id_veiculo', 'cliente' => 'c.id_cliente', 'contrato' => 'c.sequencia'] as $key => $column) {
+                if (($filters[$key] ?? '') !== '') $query->where($column, '=', (int) $filters[$key]);
+            }
+            if (($filters['data_inicio'] ?? '') !== '') $query->where('co.data', '>=', $filters['data_inicio']);
+            if (($filters['data_fim'] ?? '') !== '') $query->where('co.data', '<=', $filters['data_fim']);
+            return $query;
+        };
+        $totals = $build()->selectRaw('COUNT(*) AS registros, COUNT(DISTINCT cv.id_veiculo) AS veiculos, COUNT(DISTINCT c.id) AS contratos')->first();
+        $totals = array_map('intval', $totals);
+        $perPage = max(1, min(50, $perPage));
+        $page = max(1, min($page, max(1, (int) ceil($totals['registros'] / $perPage))));
+        $query = $build()->select([
+            'co.id', 'co.data', 'co.data_referencia', 'co.odometro', 'co.obs', 'co.created_at',
+            'c.sequencia AS contrato', 'c.codigo AS contrato_codigo',
+            'v.placa', 'v.modelo', 'cl.nome_rsocial AS cliente', 'mf.nome_fantasia AS filial', 'g.nome AS grupo',
+        ])->orderByDesc('co.data')->orderByRaw("COALESCE(co.data_referencia, CONCAT(co.data, ' 00:00:00')) DESC")->orderByDesc('co.id');
+        if (!$export) $query->limit($perPage)->offset(($page - 1) * $perPage);
+        return ['details' => $query->get(), 'totals' => $totals, 'page' => $page, 'perPage' => $perPage];
+    }
+
     /**
      * Manutenções Veicular
      *

@@ -24,7 +24,7 @@
         </td>
         <td style="text-align: right; vertical-align: middle; padding-bottom: 8px;">
             <div style="font-size: 8pt; color: #888;"><?= t('modules.relatorios.common.period') ?></div>
-            <div style="font-size: 9pt; font-weight: bold;"><?= format_date($dataInicio) ?> - <?= format_date($dataFim) ?></div>
+            <div style="font-size: 9pt; font-weight: bold;"><?= isset($periodoLabel) ? htmlspecialchars($periodoLabel) : format_date($dataInicio) . ' - ' . format_date($dataFim) ?></div>
         </td>
     </tr>
 </table>

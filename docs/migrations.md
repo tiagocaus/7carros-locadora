@@ -1,5 +1,76 @@
 # Migrations
 
+## Regra obrigatória: migrations ou scripts?
+
+Esta seção é a referência central para decidir onde implementar uma alteração.
+
+| Finalidade | Onde implementar | Como executar |
+|------------|------------------|---------------|
+| Mudança versionada necessária à implantação: tabelas, colunas, índices, constraints, triggers, views, permissões ou transformação de dados exigida pela funcionalidade | `app/Database/migrations/XXXXX_descricao.php` | Exclusivamente pelo `migrate.php` da raiz |
+| Diagnóstico, manutenção pontual de registros, reconciliação, importação/exportação, sincronização de arquivos ou publicação de websites | `scripts/`, quando houver necessidade de uma ferramenta operacional | Pelo comando próprio documentado para a operação |
+
+A distinção é a finalidade, não o uso de SQL nem o número de execuções. Criar uma
+permissão para um novo relatório é uma migration de dados. Reconciliar uma cobrança
+ou sincronizar uploads é uma operação. Uma transformação obrigatória de registros
+para a aplicação funcionar após a atualização também é uma migration, mesmo que
+altere apenas dados.
+
+Scripts operacionais podem manipular dados no escopo da operação, mas não devem
+implantar estruturas, permissões ou transformações exigidas por funcionalidades.
+A reparação pontual de um `DEFINER` inválido restaura a definição já prevista no
+schema; a evolução da estrutura ou da lógica do objeto deve ser versionada em
+migration. Veja [database.md](database.md).
+
+### Um único executor
+
+Na raiz do projeto, execute:
+
+```bash
+# Ambiente local
+php migrate.php --env=development
+
+# No terminal do servidor de produção
+php migrate.php --env=production
+```
+
+O nome correto é `migrate.php`, não `migration.php`. Sem `--env`, o ambiente padrão
+é `development`. O executor aplica **todas as migrations pendentes**, em ordem,
+e registra sua execução. Migrations já registradas não são repetidas. Em produção,
+use o `.env.production` do servidor com `DB_HOST=localhost`.
+
+**É proibido criar executores paralelos:** scripts que carreguem migrations,
+chamem `up()`/`down()` ou insiram/removam registros da tabela `migrations` para
+simular sua execução. Não execute arquivos individuais de migration diretamente.
+O gerenciamento da execução e de seu histórico pertence ao `migrate.php`.
+
+O executor atual não oferece seleção por número nem dry-run. A necessidade de
+executar somente parte das migrations não autoriza criar um wrapper ou outro
+executor; confira as pendências e resolva o escopo da implantação antes de rodar.
+Não invente opções de linha de comando que ele não implementa.
+
+### Rollback
+
+```bash
+php migrate.php --rollback --env=development
+# No servidor, somente quando a reversão for apropriada:
+php migrate.php --rollback --env=production
+```
+
+`--rollback` reverte **somente a última migration registrada**, por meio de `down()`.
+Não reverte um lote e não aceita um número de migration. A forma `rollback` sem
+`--` não ativa a reversão: o executor segue o fluxo de aplicar pendências. Antes
+de reverter, confira qual é a última migration e os efeitos do seu `down()`;
+o comando não implica restauração automática de backup.
+
+### Scripts legados que não devem servir de exemplo
+
+`scripts/implantar-cobranca-km.php` e
+`scripts/implantar-historico-odometros.php` executam migrations por fora do fluxo
+oficial. **Não usar, recomendar ou copiar esses scripts como padrão.** A existência
+desses arquivos não é uma exceção. Para as funcionalidades correspondentes,
+execute apenas `migrate.php` no ambiente apropriado.
+
+
 ## Database Schema
 
 The system uses numbered migrations in `app/Database/migrations/`:
@@ -32,7 +103,7 @@ schema precisar ser idempotente.
 **File Numbering:**
 ```bash
 # Check the highest migration number before creating a new one
-ls database/migrations/ | tail -1
+ls app/Database/migrations/[0-9]*.php | sort | tail -1
 
 # If last is 00035_*, your new migration should be 00036_*
 ```

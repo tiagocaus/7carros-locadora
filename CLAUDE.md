@@ -36,6 +36,15 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 7. **SEMPRE VALIDE O SCHEMA LOCAL via terminal antes de alterar código que acesse dados** - Conecte ao banco configurado em `.env.development` com `DB_HOST=localhost`, execute `DESCRIBE`/`SHOW COLUMNS` nas tabelas afetadas e confirme nomes, tipos e nulabilidade das colunas. Teste a consulta no localhost antes de editar Models, queries, migrations ou integrações. Nunca deduza o nome de uma coluna apenas pelo formulário ou pelo código existente. `temp-bd.txt` serve somente para diagnóstico read-only de produção quando necessário e não substitui a validação local (veja `docs/database.md`).
 8. **DEFINER MySQL em producao deve ser `7carros_locador@localhost`** - triggers, views, routines e events nao podem usar usuario pessoal, IP externo, wildcard `%` ou usuario inexistente. Recrie o objeto conectado como `7carros_locador@localhost` (veja `docs/database.md`).
 
+## Migrations e Scripts Operacionais
+
+- **Mudanças versionadas do banco exigidas pela implantação são migrations:** tabelas, colunas, índices, permissões e transformação de dados necessária à funcionalidade. Criar em `app/Database/migrations/` e executar exclusivamente pelo `migrate.php` da raiz.
+- **NUNCA criar scripts para executar migrations:** não criar wrappers em `scripts/`, carregar arquivos de migration, chamar `up()`/`down()` ou registrar sua execução manualmente na tabela `migrations`. A necessidade de executar apenas parte das migrations não autoriza outro executor.
+- **`scripts/` é para operações independentes da implantação:** diagnóstico, manutenção pontual, reconciliação, importação/exportação, sincronização de arquivos e publicação de websites. Um script pode manipular dados para sua finalidade operacional, mas não substituir uma migration de schema, permissões ou dados exigidos por uma funcionalidade.
+- **Executor correto:** `php migrate.php --env=development` no ambiente local; `php migrate.php --env=production` no terminal do servidor, na raiz do projeto. Não existe `migration.php`. O executor aplica todas as migrations pendentes e não repete as já registradas.
+- Os scripts `scripts/implantar-cobranca-km.php` e `scripts/implantar-historico-odometros.php` são legados incompatíveis com esta regra: **não usar nem copiar como padrão**.
+- Consulte `docs/migrations.md` para a regra completa e `docs/development.md` para os comandos. Scripts existentes não constituem exceção à regra.
+
 ## Diretrizes de Comunicação
 - Priorizar respostas técnicas honestas sobre validação de opiniões
 - Questionar premissas quando a justificativa for fraca (ex: "fica mais bonito")
