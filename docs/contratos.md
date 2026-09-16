@@ -280,7 +280,37 @@ edicao especial de valores.
 - Toda correcao efetiva registra auditoria apenas dos campos alterados, com os valores anteriores e novos. Reenvios sem mudanca nao atualizam o registro nem geram outra auditoria.
 - Ao salvar, o sistema atualiza tambem `veiculos.odometro`, permitindo que a manutencao preventiva considere a km atual do veiculo.
 - `contratos_veiculos.odometro_saida` permanece como km inicial e `contratos_veiculos.odometro_entrada` permanece reservado para devolucao/substituicao.
-- Para plano `KMC`, o offcanvas exibe km rodado, franquia efetiva proporcional ao tempo de uso do veiculo, excedente e valor estimado. Nao gera cobranca automatica; a cobranca oficial continua na devolucao/substituicao.
+- Com a emissão de km habilitada, o plano `KMC` usa a franquia inteira do ciclo no registro e gera uma receita em aberto somente pelo saldo excedente ainda não faturado. O acerto da devolução/substituição preserva sua regra proporcional atual.
+- Sem a emissão habilitada, permanece o registro informativo anterior, com estimativa proporcional.
+
+### Faturamento de km durante o contrato
+
+A migration `00430_create_contratos_km_cobrancas.php` acrescenta ciclos e apurações e os campos `data_referencia`, `fronteira_km`, `operacao_km` e `resultado_km` às leituras. Não converte histórico nem emite faturas durante a implantação.
+
+- Ativação automática para todas as locadoras após a migration, sem configuração no `.env` ou lista de tenants. A emissão depende de km excedente apurado em contratos com Km Controlado; sem a estrutura do banco, permanece desabilitada.
+- Ciclos ancorados em `contratos_veiculos.data_saida`, com contagem do contrato: dia/semana operacionais, mês/ano civis usando os helpers de calendário. Substituições criam um novo vínculo com nova âncora.
+- `data_referencia` representa o horário operacional do tenant, sem conversão na exibição; `created_at` continua sendo o horário técnico do registro.
+- Toda a franquia fica disponível desde o início do ciclo. Exemplo: 3.000 km/mês e 2.000 km aos 15 dias não geram fatura. 3.200 km geram cobrança de 200 km; uma leitura posterior de 3.600 km cobra somente mais 400 km.
+- Para ordenar o histórico, leituras antigas sem horário ficam antes das leituras com horário do mesmo dia; isso não preenche `data_referencia` nem comprova uma virada.
+- Leituras sem horário histórico não são consideradas fronteiras por inferência. Sem leitura real de uma fronteira, os ciclos afetados ficam pendentes, sem estimativa ou rateio por dias. O botão de complementação recebe a referência exata da virada; o odômetro deve respeitar as leituras anteriores e posteriores.
+- `POST /api/contratos/{id}/odometros/preview` calcula sem gravar. Registro e complementação recebem `versao`, `operacao_km`, `data_referencia`, `apuracao_em` e `financeiro` (`id_conta`, `id_forma_pagamento`, `data_venci`). `POST /api/contratos/{id}/odometros/fronteira` complementa uma virada. As rotas exigem `contratos.editar`, tenant, filial, contrato e veículo ativos e CSRF.
+- Uma operação gera no máximo uma fatura por veículo, com itens por ciclo. Conta e forma vêm do contrato, vencimento inicia no dia atual e a fatura fica em aberto. Os campos financeiros aparecem apenas se houver saldo positivo.
+- Leitura, odômetro do veículo, ciclos, apurações e fatura compartilham uma transação do Singleton. O contrato e o vínculo são bloqueados antes do cálculo. Reenvio da mesma operação retorna o resultado já gravado. Prévia divergente exige revisão.
+- Uma correção preserva faturas e snapshots financeiros. A data de uma fronteira não pode ser deslocada pela edição comum. Reduções ficam para o acerto no encerramento, sem crédito automático imediato.
+- O encerramento final já inclui as antecipações no principal lançado: nunca subtrair novamente. Devolução parcial e substituição conciliam o valor antecipado do vínculo encerrado; seu acerto é registrado nos ciclos.
+- Faturas de km não são taxas recorrentes nem parcelas de aluguel. Não podem substituir uma parcela equivalente na autorrenovação nem ser removidas pela regeneração de pendentes. Recalcular indiscriminadamente parcelas de contratos com km faturado é bloqueado; a opção de manter parcelas permanece disponível.
+- Principal e itens são protegidos. Exclusão de cobrança pendente ocorre pela tela do contrato com permissão financeira, confirmação, motivo e auditoria. Valores pagos seguem o estorno existente antes de uma exclusão. Contratos com km faturado protegem âncora, contagem e parâmetros do veículo contra edição comum; os ajustes já permitidos na devolução continuam disponíveis.
+
+Implantação pelo terminal do servidor:
+
+```bash
+php scripts/implantar-cobranca-km.php --env=production
+php scripts/implantar-cobranca-km.php --env=production --aplicar
+```
+
+O script exige `DB_HOST=localhost`, salva o schema anterior em `storage/backups` e executa somente a migration desta funcionalidade. O comando com `--aplicar` já executa a migration `00430`; não execute o arquivo da migration diretamente. Não há rollback destrutivo: o histórico financeiro deve ser preservado para conciliação.
+
+Testes: `php tests/test_contrato_km_calculo.php` e `php tests/test_contrato_km_integracao.php`. A integração aceita somente o banco local e usa fixtures temporárias do tenant `1111111111111`, sem gateways ou mensagens.
 
 ## Planos de Veiculo
 
@@ -300,7 +330,7 @@ edicao especial de valores.
 
 ### Franquia efetiva no plano KMC
 
-Em contratos, `contratos_veiculos.km_franquia` representa a franquia da unidade de contagem do contrato, nao uma franquia fixa vitalicia do vinculo do veiculo. A franquia efetiva usada para estimativa e cobranca e proporcional ao tempo de uso do veiculo.
+Em contratos, `contratos_veiculos.km_franquia` representa a franquia da unidade de contagem do contrato, nao uma franquia fixa vitalicia do vinculo do veiculo. A franquia efetiva usada no encerramento e na estimativa informativa anterior e proporcional ao tempo de uso do veiculo. A emissão intermediária habilitada usa a franquia inteira de cada ciclo, conforme a seção de faturamento durante o contrato.
 
 Bases de contagem:
 - `dia` = 1 dia

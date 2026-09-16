@@ -106,6 +106,7 @@ class FinanceiroItem extends Model
             throw new \InvalidArgumentException('Item nao encontrado');
         }
 
+        if ((new ContratoKm())->financeiroProtegido((int)$item['id_financeiro'])) throw new \DomainException('Itens de quilometragem são controlados pelo contrato.');
         $dadosUpdate = [];
 
         if (isset($dados['id_veiculo'])) {
@@ -148,6 +149,8 @@ class FinanceiroItem extends Model
      */
     public function deletar(int $id): int
     {
+        $item=$this->buscarPorId($id);
+        if ($item && (new ContratoKm())->financeiroProtegido((int)$item['id_financeiro'])) throw new \DomainException('Itens de quilometragem são controlados pelo contrato.');
         return $this->qb
             ->table('financeiro_itens')
             ->where('id', '=', $id)
@@ -162,6 +165,7 @@ class FinanceiroItem extends Model
      */
     public function deletarPorFinanceiro(int $idFinanceiro): int
     {
+        if ((new ContratoKm())->financeiroProtegido($idFinanceiro)) throw new \DomainException('Itens de quilometragem são controlados pelo contrato.');
         return $this->qb
             ->table('financeiro_itens')
             ->where('id_financeiro', '=', $idFinanceiro)
@@ -200,6 +204,16 @@ class FinanceiroItem extends Model
                 'valor' => $valor,
                 'ordem' => $ordem++,
             ];
+        }
+
+        if ((new ContratoKm())->financeiroProtegido($idFinanceiro)) {
+            $atuais=$this->listarPorFinanceiro($idFinanceiro);
+            $normalizar=static fn($item)=>[
+                'id_veiculo'=>(int)($item['id_veiculo']??0), 'id_plano_de_conta'=>(int)($item['id_plano_de_conta']??0),
+                'descricao'=>(string)($item['descricao']??''), 'valor'=>round((float)$item['valor'],2),
+            ];
+            if (array_map($normalizar,$atuais)!==array_map($normalizar,$itensValidos)) throw new \DomainException('Itens de quilometragem são controlados pelo contrato.');
+            return count($atuais);
         }
 
         // Remover itens existentes

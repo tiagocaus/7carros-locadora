@@ -2768,7 +2768,7 @@
             } else if (temId) {
                 acoes = `<button type="button" class="btn-icon text-emerald-600 hover:text-emerald-800 btn-marcar-pago-contrato" data-index="${index}" title="${i18n.markPaid || 'Marcar como paga'}"><i class="fas fa-check-circle"></i></button>
                    <button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-editar-parcela-contrato" data-index="${index}" title="${i18n.editPayment || 'Editar pagamento'}"><i class="fas fa-edit"></i></button>
-                   <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-parcela-contrato" data-id="${parcela.id}" data-ajuste-encerramento="${parcela.ajuste_encerramento ? '1' : '0'}" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`;
+                   <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-parcela-contrato" data-id="${parcela.id}" data-ajuste-encerramento="${(parcela.ajuste_encerramento || parcela.cobranca_km) ? '1' : '0'}" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`;
             } else {
                 acoes = `<button type="button" class="btn-icon text-blue-600 hover:text-blue-800 btn-editar-parcela-contrato" data-index="${index}" title="${i18n.editPayment || 'Editar pagamento'}"><i class="fas fa-edit"></i></button>
                    <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-remover-parcela-contrato" data-index="${index}" data-draft="1" title="${i18n.remove || 'Remover'}"><i class="fas fa-trash"></i></button>`;
@@ -2818,7 +2818,7 @@
                 if (parcelaContratoAcaoPendente.ajusteEncerramento) {
                     window.parent.postMessage({
                         action: 'openInputModal',
-                        title: i18n.finalizedAdjustmentRemoveTitle || 'Excluir ajuste de encerramento',
+                        title: 'Excluir lançamento protegido do contrato',
                         label: i18n.finalizedAdjustmentRemoveReason || 'Motivo da exclusão',
                         value: '',
                         callbackAction: 'motivoExclusaoAjusteEncerramento'

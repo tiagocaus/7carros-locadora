@@ -17,10 +17,13 @@ class ContratoOdometro extends Model
 
     public function ultimaPorContratoVeiculo(int $contratoVeiculoId): ?array
     {
-        return $this->qb
+        $query = $this->qb
             ->table('contratos_odometros')
-            ->where('id_contrato_veiculo', '=', $contratoVeiculoId)
-            ->orderByDesc('data')
+            ->where('id_contrato_veiculo', '=', $contratoVeiculoId);
+        if (ContratoKm::disponivel()) {
+            $query->orderByRaw("COALESCE(data_referencia, CONCAT(data, ' 00:00:00')) DESC");
+        }
+        return $query->orderByDesc('data')
             ->orderByDesc('id')
             ->first();
     }
@@ -55,15 +58,25 @@ class ContratoOdometro extends Model
             $query->lockForUpdate();
         }
 
-        return $query->get();
+        if (ContratoKm::disponivel()) {
+            $query->orderByRaw("COALESCE(data_referencia, CONCAT(data, ' 00:00:00')) ASC");
+        }
+        $rows = $query->get();
+        if (ContratoKm::disponivel()) {
+            usort($rows, static fn($a,$b) => strcmp($a['data_referencia'] ?? ($a['data'].' 00:00:00'), $b['data_referencia'] ?? ($b['data'].' 00:00:00')) ?: ((int)$a['id'] <=> (int)$b['id']));
+        }
+        return $rows;
     }
 
     public function listarUltimosPorContratoVeiculo(int $contratoVeiculoId, int $limite = 5): array
     {
-        return $this->qb
+        $query = $this->qb
             ->table('contratos_odometros')
-            ->where('id_contrato_veiculo', '=', $contratoVeiculoId)
-            ->orderByDesc('data')
+            ->where('id_contrato_veiculo', '=', $contratoVeiculoId);
+        if (ContratoKm::disponivel()) {
+            $query->orderByRaw("COALESCE(data_referencia, CONCAT(data, ' 00:00:00')) DESC");
+        }
+        return $query->orderByDesc('data')
             ->orderByDesc('id')
             ->limit(max(1, min(20, $limite)))
             ->get();
@@ -128,6 +141,8 @@ class ContratoOdometro extends Model
         $this->qb->beginTransaction();
 
         try {
+            $this->qb->table('contratos')->where('id', '=', (int)$dados['id_contrato'])->lockForUpdate()->first();
+            $this->qb->table('contratos_veiculos')->where('id', '=', (int)$dados['id_contrato_veiculo'])->lockForUpdate()->first();
             $historicoOriginal = $this->listarPorContratoVeiculo(
                 (int) $dados['id_contrato_veiculo'],
                 true
@@ -144,6 +159,9 @@ class ContratoOdometro extends Model
             }
 
             $data = (string) $dados['data'];
+            if (!empty($leitura['fronteira_km']) && $data !== $leitura['data']) {
+                throw new \InvalidArgumentException('A data da leitura de fronteira não pode ser alterada.');
+            }
             $odometro = (int) $dados['odometro'];
             $obs = $dados['obs'] ?? null;
             $obsAntiga = trim((string) ($leitura['obs'] ?? ''));
@@ -172,6 +190,7 @@ class ContratoOdometro extends Model
             $historicoNovo = array_map(static function (array $item) use ($id, $data, $odometro, $obs, $dados): array {
                 if ((int) $item['id'] === $id) {
                     $item['data'] = $data;
+                    if (!empty($item['data_referencia'])) $item['data_referencia'] = $data . substr($item['data_referencia'], 10);
                     $item['odometro'] = $odometro;
                     $item['obs'] = $obs;
                     $item['id_funcionario'] = $dados['id_funcionario'] ?? null;
@@ -180,7 +199,7 @@ class ContratoOdometro extends Model
             }, $historicoOriginal);
 
             usort($historicoNovo, static function (array $a, array $b): int {
-                $porData = strcmp((string) $a['data'], (string) $b['data']);
+                $porData = strcmp($a['data_referencia'] ?? ($a['data'].' 00:00:00'), $b['data_referencia'] ?? ($b['data'].' 00:00:00'));
                 return $porData !== 0 ? $porData : ((int) $a['id'] <=> (int) $b['id']);
             });
 
@@ -210,6 +229,10 @@ class ContratoOdometro extends Model
                     'obs' => $obs,
                     'id_funcionario' => $dados['id_funcionario'] ?? null,
                 ]);
+
+            if (!empty($leitura['data_referencia'])) {
+                $this->qb->table('contratos_odometros')->where('id','=',$id)->update(['data_referencia'=>$data.substr($leitura['data_referencia'],10)]);
+            }
 
             $base = (int) $dados['odometro_saida'];
             foreach ($historicoNovo as &$item) {

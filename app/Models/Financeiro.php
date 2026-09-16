@@ -673,6 +673,15 @@ class Financeiro extends Model
      */
     public function atualizar(int $id, array $dados): int
     {
+        if ((new ContratoKm())->financeiroProtegido($id)) {
+            $original=$this->buscarPorId($id);
+            foreach (['valor_subtotal','id_contrato','id_veiculo','id_cliente','id_plano_de_conta','tipo','id_financeiro_origem','parcela','total_parcelas'] as $campo) {
+                if (array_key_exists($campo,$dados) && $dados[$campo] != ($original[$campo]??null)) {
+                    throw new \InvalidArgumentException('O principal e os vínculos desta fatura são controlados pela apuração de km.');
+                }
+            }
+        }
+
         $lancamento = $this->buscarPorId($id);
         if (!$lancamento) {
             throw new \InvalidArgumentException('Lancamento nao encontrado');
@@ -847,6 +856,7 @@ class Financeiro extends Model
      */
     public function deletar(int $id): int
     {
+        if ((new ContratoKm())->financeiroProtegido($id)) throw new \DomainException('Exclua a cobrança de km pela tela do contrato, informando o motivo.');
         $lancamento = $this->buscarPorId($id);
         if ($lancamento && !empty($lancamento['id_financeiro_taxa_origem'])) {
             throw new \InvalidArgumentException('A despesa de taxa e gerenciada automaticamente pela receita de origem');
@@ -1388,6 +1398,7 @@ class Financeiro extends Model
     public function verificarVinculos(int $id): array
     {
         $vinculos = [];
+        if ((new ContratoKm())->financeiroProtegido($id)) $vinculos[] = 'Apuração de quilometragem do contrato';
 
         // Promissorias vinculadas
         $promissorias = $this->qb

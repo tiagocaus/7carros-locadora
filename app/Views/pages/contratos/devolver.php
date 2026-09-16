@@ -1573,6 +1573,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
             ${linhaResumo(ajusteLabel, calculo.ajuste_valor, `border-t border-green-200 mt-2 pt-2 text-base ${ajusteClasse}`)}
         ` : `
             ${linhaResumo('Quilometragem', calculo.total_km)}
+            ${Number(calculo.km_antecipado || 0) > 0 ? linhaResumo('Km já faturado (incluído no acerto)', calculo.km_antecipado) : ''}
             ${linhaResumo('Combustivel/carga', calculo.total_combustivel)}
             ${linhaResumo('Taxas e servicos', calculo.total_taxas_devolucao)}
             ${linhaResumo(ajusteLabel, calculo.ajuste_valor, `border-t border-green-200 mt-2 pt-2 text-base ${ajusteClasse}`)}

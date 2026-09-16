@@ -583,6 +583,12 @@ class Contrato extends Model
      */
     public function atualizar(int $id, array $dados): int
     {
+        if ((new ContratoKm())->temCobranca($id)) {
+            $original=$this->buscarPorId($id);
+            foreach (['contagem','data_ini'] as $campo) {
+                if (isset($dados[$campo]) && $dados[$campo] != $original[$campo]) throw new \DomainException('Contrato com km faturado: contagem e início estão protegidos.');
+            }
+        }
         $contrato = $this->buscarPorId($id);
         if (!$contrato) {
             throw new \InvalidArgumentException('Contrato nao encontrado');
@@ -724,6 +730,10 @@ class Contrato extends Model
             return 0;
         }
 
+        // Ciclos/apurações são removidos somente depois da exclusão financeira autorizada.
+        if (ContratoKm::disponivel() && !$this->qb->table('financeiro')->where('id_contrato','=',$id)->exists()) {
+            $this->qb->table('contratos_km_ciclos')->where('id_contrato','=',$id)->delete();
+        }
         // Guardar veiculos ativos (sem data_entrada) para liberar apos remover os vinculos.
         $veiculosAtivos = $this->qb
             ->table('contratos_veiculos')
@@ -1213,6 +1223,7 @@ class Contrato extends Model
 
         return array_map(static function (array $parcela) use ($idAjuste): array {
             $parcela['ajuste_encerramento'] = $idAjuste > 0 && (int) $parcela['id'] === $idAjuste;
+            $parcela['cobranca_km'] = (new ContratoKm())->financeiroProtegido((int)$parcela['id']);
             return $parcela;
         }, $parcelas);
     }
@@ -1285,6 +1296,9 @@ class Contrato extends Model
 
         $dadosUpdate = ['updated_at' => DateHelper::systemNow()];
 
+        if (isset($dados['valor']) && (new ContratoKm())->financeiroProtegido($idParcela) && currency_parse($dados['valor']) != (float)$parcela['valor_subtotal']) {
+            throw new \DomainException('O principal desta fatura é controlado pela apuração de km.');
+        }
         if (isset($dados['valor'])) {
             $valor = currency_parse($dados['valor']);
             $dadosUpdate['valor_subtotal'] = $valor;
@@ -1316,6 +1330,9 @@ class Contrato extends Model
      */
     public function removerParcelaContrato(int $contratoId, int $idParcela): int
     {
+        $this->qb->beginTransaction();
+        try {
+        $this->qb->table('contratos')->where('id','=',$contratoId)->lockForUpdate()->first();
         $parcela = $this->qb
             ->table('financeiro')
             ->where('id', '=', $idParcela)
@@ -1327,12 +1344,15 @@ class Contrato extends Model
             throw new \InvalidArgumentException('Parcela não encontrada ou já paga');
         }
 
-        return $this->qb
+        $removidas = $this->qb
             ->table('financeiro')
             ->where('id', '=', $idParcela)
             ->where('id_contrato', '=', $contratoId)
             ->where('pago', '=', 'N')
             ->delete();
+        $this->qb->commit();
+        return $removidas;
+        } catch (\Throwable $e) { $this->qb->rollback(); throw $e; }
     }
 
     /**
@@ -1763,6 +1783,8 @@ class Contrato extends Model
             ->where('id_contrato', '=', $contratoId)
             ->where('data_venci', '=', $dataVenci);
 
+        ContratoKm::preservarNoReparcelamento($query);
+
         if (!$compararValor && isset($parcela['parcela'], $parcela['total_parcelas'])) {
             $query->where('parcela', '=', (int) $parcela['parcela'])
                 ->where('total_parcelas', '=', (int) $parcela['total_parcelas']);
@@ -1786,11 +1808,12 @@ class Contrato extends Model
      */
     public function limparParcelasPendentes(int $contratoId): int
     {
-        return $this->qb
+        $query = $this->qb
             ->table('financeiro')
             ->where('id_contrato', '=', $contratoId)
-            ->where('pago', '=', 'N')
-            ->delete();
+            ->where('pago', '=', 'N');
+        ContratoKm::preservarNoReparcelamento($query);
+        return $query->delete();
     }
 
     /**
@@ -1805,6 +1828,10 @@ class Contrato extends Model
         $contrato = $this->buscarPorId($contratoId);
         if (!$contrato) {
             return ['success' => false, 'message' => 'Contrato não encontrado'];
+        }
+
+        if ($acao !== 'manter' && (new ContratoKm())->temCobranca($contratoId)) {
+            return ['success'=>false,'message'=>'Há cobranças de km vinculadas. Preserve as parcelas existentes; o acerto será realizado no encerramento.'];
         }
 
         $resumo = $this->resumoFinanceiroContrato($contratoId);

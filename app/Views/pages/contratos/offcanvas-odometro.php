@@ -67,6 +67,8 @@ $singleMode = count($veiculos) === 1;
                 <div
                     class="odometer-card <?= $singleMode ? 'single is-open' : '' ?> rounded-lg border border-slate-200 bg-white p-3"
                     data-id="<?= (int) $veiculo['id'] ?>"
+                    data-contagem="<?= e(['dia'=>'Dia','semana'=>'Semana','mes'=>'Mês','ano'=>'Ano'][$contrato['contagem']??'dia']??'Dia') ?>"
+                    data-km-cobranca="<?= !empty($kmCobrancaHabilitada) && $plano === 'KMC' ? '1' : '0' ?>"
                     data-odometro-saida="<?= (int) ($veiculo['odometro_saida'] ?? 0) ?>"
                     data-odometro-minimo="<?= (int) ($veiculo['odometro_minimo'] ?? 0) ?>"
                     data-data-saida="<?= e($dataSaida) ?>"
@@ -137,6 +139,26 @@ $singleMode = count($veiculos) === 1;
                                 <p class="mt-2 text-xs text-slate-500"><?= e(t('modules.contratos.quick_odometer.informative')) ?></p>
                             <?php endif; ?>
                         </div>
+
+                        <?php if (!empty($kmCobrancaHabilitada) && $plano === 'KMC'): ?>
+                        <section class="km-apuracao mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600" aria-live="polite"></section>
+                        <section class="km-financeiro mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3" hidden>
+                            <div class="mb-3 flex justify-between font-semibold"><span>Nova fatura</span><span class="km-total"></span></div>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div class="form-input-group"><label class="form-label-group">Vencimento</label>
+                                    <input type="date" class="km-vencimento form-input-group-field" value="<?= e($hoje) ?>"></div>
+                                <div class="form-input-group"><label class="form-label-group">Forma de pagamento</label>
+                                    <select class="km-forma form-input-group-field"><option value="">Selecione</option>
+                                    <?php foreach ($formasKm as $forma): ?><option value="<?= (int)$forma['id'] ?>" <?= (int)$forma['id']===(int)($contrato['id_forma_pagamento']??0)?'selected':'' ?>><?= e($forma['nome']) ?></option><?php endforeach; ?>
+                                    </select></div>
+                                <div class="form-input-group sm:col-span-2"><label class="form-label-group">Conta bancária</label>
+                                    <select class="km-conta form-input-group-field"><option value="">Selecione</option>
+                                    <?php foreach ($contasKm as $conta): ?><option value="<?= (int)$conta['id'] ?>" <?= (int)$conta['id']===(int)($contrato['id_conta']??0)?'selected':'' ?>><?= e($conta['nome']) ?></option><?php endforeach; ?>
+                                    </select></div>
+                            </div>
+                            <p class="mt-3 text-xs text-slate-600">Situação: Em aberto</p>
+                        </section>
+                        <?php endif; ?>
 
                         <button type="button" class="btn-salvar-odometro mt-4 w-full btn-blue py-2 px-4 rounded-md text-sm font-medium flex items-center justify-center">
                             <i class="fas fa-save mr-2"></i><?= e(t('modules.contratos.quick_odometer.save_reading')) ?>
@@ -223,6 +245,7 @@ $singleMode = count($veiculos) === 1;
                     <button type="button" class="odometer-history-action btn-edit-reading flex h-8 w-8 items-center justify-center rounded text-blue-600 hover:bg-blue-50" title="${escapeText(i18n.edit)}" aria-label="${escapeText(i18n.edit)}">
                         <i class="fas fa-pen"></i>
                     </button>
+                    ${(item.faturas || []).map(f => `<span class="odometer-history-edit text-blue-700">Fatura #${escapeText(f.sequencia || f.id)} · ${escapeText(Currency.format(f.valor_total, true))} · ${f.pago === 'S' ? 'Paga' : 'Em aberto'}</span>`).join('')}
                     ${item.created_at ? `<span class="odometer-history-registered-at text-[10px] text-slate-400">${escapeText(i18n.registeredAt)}: ${escapeText(DateHelper.formatDateTime(item.created_at))}</span>` : ''}
                 </div>
             `).join('');
@@ -258,6 +281,7 @@ $singleMode = count($veiculos) === 1;
                         <button type="button" class="btn-update-reading btn-blue rounded-md px-3 py-2 text-xs font-medium" data-reading-id="${readingId}">${escapeText(i18n.update)}</button>
                     </div>
                 </div>`;
+            if (item.fronteira_km) row.querySelector('.edit-reading-date').readOnly = true;
             Km.applyMask(row.querySelector('.edit-reading-km'));
             row.querySelector('.edit-reading-km')?.focus();
         }
@@ -375,6 +399,7 @@ $singleMode = count($veiculos) === 1;
                     alertMessage(result.message || i18n.updateFailed);
                     return;
                 }
+                if (card.dataset.kmCobranca === '1') { window.location.reload(); return; }
                 card._history = normalizeHistory(result.data?.historico || []);
                 activeEditCard = null;
                 renderHistory(card);
@@ -391,6 +416,7 @@ $singleMode = count($veiculos) === 1;
         });
 
         document.querySelectorAll('.btn-salvar-odometro').forEach(button => {
+            if (button.closest('.odometer-card').dataset.kmCobranca === '1') return;
             button.addEventListener('click', async function() {
                 const card = this.closest('.odometer-card');
                 const form = this.closest('.odometer-form');
@@ -451,4 +477,7 @@ $singleMode = count($veiculos) === 1;
         });
     })();
 </script>
+<?php if (!empty($kmCobrancaHabilitada)): ?>
+<script src="<?= asset('js/contratos-odometro.min.js') ?>"></script>
+<?php endif; ?>
 @endsection

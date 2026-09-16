@@ -359,6 +359,12 @@ class ContratoVeiculo extends Model
             return 0;
         }
 
+        $original=$this->buscarPorId($id);
+        if ($original && (new ContratoKm())->temCobranca((int)$original['id_contrato'],$id)) {
+            foreach (['data_saida','odometro_saida','plano','id_veiculo','km_franquia','valor_km_excedente'] as $campo) {
+                if (isset($dadosUpdate[$campo]) && $dadosUpdate[$campo] != ($original[$campo]??null)) throw new \DomainException('Veículo com km faturado: ajuste os valores no encerramento.');
+            }
+        }
         $dadosUpdate['updated_at'] = now();
 
         return $this->qb

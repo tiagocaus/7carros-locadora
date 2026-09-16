@@ -1105,3 +1105,14 @@ cascata no banco. Nao ha limpeza retroativa de lancamentos ja desvinculados.
 Teste local sem gateways reais: `php tests/test_exclusao_vinculo_financeiro.php`.
 
 O cache dos contadores de notificacoes e invalidado apos o commit.
+
+
+## Faturas de km excedente de contratos
+
+A cobrança intermediária usa `financeiro` + `financeiro_itens`, tipo `R`, situação inicial `N`, plano de contas `4.1.1.08` e vínculo explícito ao contrato, veículo, cliente e filial. `contratos_km_apuracoes` identifica a leitura, o ciclo e o item financeiro e preserva o cálculo original. Faturas pagas e abertas contam como já faturadas; juros, multas e taxas não contam como km.
+
+A transação é controlada por `ContratoKm`, usando a conexão Singleton dos Models; não chamar `criarCompleto()` dentro dela, pois esse método abre/confirma sua própria transação. Os triggers de itens continuam responsáveis pelo subtotal.
+
+O principal e os itens dessas faturas não são editáveis no CRUD comum. Conta, forma e vencimento podem ser ajustados sem recriar itens. A exclusão de receita pendente exige o fluxo do contrato com motivo e auditoria; a apuração permanece preservada com vínculo financeiro nulo. Uma nova cobrança só ocorre em nova operação explícita de odômetro.
+
+Na devolução final, a soma existente de principal já considera essas receitas: não descontá-las duas vezes. Na devolução parcial e substituição, o acerto usa somente as antecipações do vínculo encerrado. Os snapshots de encerramentos antigos permanecem intactos. Consulte `contratos.md` para ativação após a migration, leitura de fronteiras e testes.

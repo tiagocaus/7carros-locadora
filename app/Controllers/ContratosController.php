@@ -410,6 +410,13 @@ class ContratosController
 
             $veiculo['ultima_leitura'] = $ultima;
             $veiculo['historico_odometros'] = $odometroModel->listarUltimosPorContratoVeiculo((int) $veiculo['id'], 5);
+            if (\App\Models\ContratoKm::disponivel()) {
+                foreach ($veiculo['historico_odometros'] as &$leituraKm) {
+                    unset($leituraKm['resultado_km'], $leituraKm['operacao_km']);
+                    $leituraKm['faturas'] = (new \App\Models\ContratoKm())->faturasLeitura((int)$leituraKm['id']);
+                }
+                unset($leituraKm);
+            }
             $veiculo['odometro_minimo'] = max($odometroSaida, $odometroCadastro, $ultimaOdometro);
             $veiculo['km_rodado_atual'] = max(0, $veiculo['odometro_minimo'] - $odometroSaida);
             $veiculo['dias_uso'] = $diasUso;
@@ -424,6 +431,9 @@ class ContratosController
             'contrato' => $contrato,
             'veiculos' => $veiculos,
             'hoje' => DateHelper::todayForDatabase(),
+            'kmCobrancaHabilitada' => \App\Models\ContratoKm::habilitado(),
+            'contasKm' => (new \App\Models\ContaBancaria())->listarParaSelect(),
+            'formasKm' => (new \App\Models\FormaPagamento())->listarParaSelect(),
         ]);
         Response::html($html);
     }
@@ -554,8 +564,65 @@ class ContratosController
      *
      * POST /api/contratos/{id}/odometros
      */
+    public function previewOdometro(Request $request, int $id): void
+    {
+        $this->processarKmOdometro($request, $id, true);
+    }
+
+    public function fronteiraOdometro(Request $request, int $id): void
+    {
+        $this->processarKmOdometro($request, $id, false, true);
+    }
+
+    private function processarKmOdometro(Request $request, int $id, bool $preview, bool $fronteira = false): void
+    {
+        try {
+            if (!Auth::can('contratos.editar') || !\App\Models\ContratoKm::habilitado()) {
+                Response::json(['success'=>false, 'message'=>'Cobrança de km não habilitada.'], 403);
+                return;
+            }
+            $contrato=(new Contrato())->buscarPorId($id);
+            $dados=$request->all();
+            $veiculo=(new ContratoVeiculo())->buscarPorId((int)($dados['id_contrato_veiculo']??0));
+            if (!$contrato || $contrato['chave']!==Auth::chave() || $contrato['status']!=='A'
+                || !FilialHelper::temAcessoFilial($contrato['id_matriz_filial_retirada']??null)
+                || !$veiculo || (int)$veiculo['id_contrato']!==$id || !empty($veiculo['data_entrada'])) {
+                Response::json(['success'=>false,'message'=>'Contrato ou veículo indisponível.'],403);
+                return;
+            }
+            $dados['id_funcionario']=Auth::id();
+            $dados['odometro']=$this->normalizarOdometroContrato($dados['odometro']??0);
+            if (!$preview) $dados['fronteira_km']=$fronteira;
+            $model=new \App\Models\ContratoKm();
+            $res=$preview ? $model->previa($contrato,$veiculo,$dados) : $model->registrar($contrato,$veiculo,$dados);
+            if (!$preview) {
+                $res['historico']=$model->leituras((int)$veiculo['id']);
+                foreach ($res['historico'] as &$item) {
+                    unset($item['resultado_km'],$item['operacao_km']);
+                    $item['faturas']=$model->faturasLeitura((int)$item['id']);
+                }
+                unset($item);
+                $res['historico']=array_slice(array_reverse($res['historico']),0,5);
+                if (empty($res['reenvio'])) AuditLogService::registrar('Registrou odômetro do contrato ['.$contrato['codigo'].']'.(!empty($res['fatura']) ? ' e fatura de km ['.$res['fatura']['id'].']' : ''));
+            }
+            Response::json(['success'=>true,'message'=>$preview?'Prévia calculada.':'Odômetro registrado.','data'=>$res]);
+        } catch (\InvalidArgumentException|\DomainException $e) {
+            Response::json(['success'=>false,'message'=>$e->getMessage()],422);
+        } catch (\Throwable $e) {
+            error_log('Cobrança de km: '.$e->getMessage());
+            Response::json(['success'=>false,'message'=>'Não foi possível concluir o registro e a cobrança.'],500);
+        }
+    }
+
     public function registrarOdometro(Request $request, int $id): void
     {
+        if (\App\Models\ContratoKm::habilitado()) {
+            $vKm=(new ContratoVeiculo())->buscarPorId((int)($request->all()['id_contrato_veiculo']??0));
+            if (($vKm['plano']??'') === 'KMC') {
+                $this->processarKmOdometro($request, $id, false);
+                return;
+            }
+        }
         try {
             if (!Auth::can('contratos.editar')) {
                 Response::json([
@@ -1545,6 +1612,13 @@ class ContratosController
             $modoCobranca
         );
 
+        $antecipadosKm=[];
+        foreach ($calculo['veiculos'] as $detalheKm) {
+            $vinculoKm=(int)$detalheKm['id_contrato_veiculo'];
+            $antecipadosKm[$vinculoKm]=(new \App\Models\ContratoKm())->totalFaturado($vinculoKm);
+        }
+        $calculo=(new \App\Services\ContratoKmCalculo())->conciliarDevolucao($calculo,$antecipadosKm);
+
         return ['calculo' => $calculo, 'veiculos' => $devolucoes, 'taxas_extras' => $taxasExtras];
     }
 
@@ -1989,6 +2063,10 @@ class ContratosController
                 ], $chave);
             }
 
+            foreach ($calculoEncerramento['veiculos'] as $detalheKm) {
+                (new \App\Models\ContratoKm())->registrarAcerto((int)$detalheKm['id_contrato_veiculo'], $idFinanceiroDevolucao, $detalheKm);
+            }
+
             // 6. Verificar se ainda ha veiculos ativos
             $veiculosAtivosCount = $veiculoModel->contarAtivos($id);
             if ($veiculosAtivosCount === 0) {
@@ -2063,6 +2141,8 @@ class ContratosController
      */
     public function substituir(Request $request, int $id): void
     {
+        $transacaoKm=false;
+        $transacaoModel=new ContratoEncerramento();
         try {
             if (!Auth::can('contratos.substituir')) {
                 Response::json([
@@ -2239,6 +2319,11 @@ class ContratosController
             }
 
             // Realizar substituicao
+            $transacaoModel->iniciarTransacao();
+            $transacaoKm=true;
+            $contratoBloqueado=$transacaoModel->bloquearContrato($id);
+            $veiculoAntigo=(new \App\Models\ContratoKm())->bloquearVinculoAtivo((int)$veiculoAntigo['id']);
+            if (!$contratoBloqueado || $contratoBloqueado['status']!=='A' || !$veiculoAntigo) throw new \DomainException('Contrato ou veículo alterado. Atualize a tela.');
             $novoId = $veiculoModel->substituir(
                 (int) $dados['id_contrato_veiculo_antigo'],
                 $dadosSaida,
@@ -2337,6 +2422,23 @@ class ContratosController
                 }
             }
 
+            $antecipadoKm=(new \App\Models\ContratoKm())->totalFaturado((int)$veiculoAntigo['id']);
+            if ($antecipadoKm > 0) {
+                $saldoKm=round($totalKmCobranca-$antecipadoKm,2);
+                $idAcertoKm=null;
+                if (abs($saldoKm)>0.009) {
+                    $idAcertoKm=$contratoModel->criarFinanceiroDevolucao($id,[
+                        'valor_total'=>abs($saldoKm),'tipo'=>$saldoKm>0?'R':'D','pago'=>'N',
+                        'id_conta'=>$contrato['id_conta']??null,'id_forma_pagamento'=>$contrato['id_forma_pagamento']??null,
+                        'id_veiculo'=>$veiculoAntigo['id_veiculo'],
+                        'descricao'=>'Acerto de km na substituição - Contrato '.$contrato['codigo'],
+                    ],$chave);
+                }
+                (new \App\Models\ContratoKm())->registrarAcerto((int)$veiculoAntigo['id'],$idAcertoKm,[
+                    'valor_km'=>$totalKmCobranca,'antecipado'=>$antecipadoKm,'saldo'=>$saldoKm,
+                ]);
+            }
+
             // Recalcular totais (agora inclui as novas taxas)
             $contratoModel->recalcularTotais($id);
 
@@ -2373,6 +2475,8 @@ class ContratosController
                 ]
             );
 
+            $transacaoModel->confirmarTransacao();
+            $transacaoKm=false;
             Response::json([
                 'success' => true,
                 'message' => 'Veiculo substituido com sucesso',
@@ -2382,7 +2486,8 @@ class ContratosController
                     'os' => $manutencaoOs,
                 ]
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            if ($transacaoKm) $transacaoModel->reverterTransacao();
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao substituir veiculo: ' . $e->getMessage()
@@ -4251,7 +4356,8 @@ class ContratosController
             }
 
             $encerramentoModel = new ContratoEncerramento();
-            $ajusteProtegido = $encerramentoModel->ehAjusteFinanceiroProtegido($id, $idParcela);
+            $ajusteProtegido = $encerramentoModel->ehAjusteFinanceiroProtegido($id, $idParcela)
+                || (new \App\Models\ContratoKm())->financeiroProtegido($idParcela);
             $dados = $request->all();
             $confirmado = in_array(
                 $dados['confirmar_ajuste_encerramento'] ?? false,
@@ -4264,7 +4370,7 @@ class ContratosController
                 Response::json([
                     'success' => false,
                     'requires_confirmation' => true,
-                    'message' => 'Este lancamento e o ajuste do encerramento. Confirme a exclusao e informe o motivo.',
+                    'message' => 'Este lançamento é protegido pelo contrato. Confirme a exclusão e informe o motivo.',
                 ], 409);
                 return;
             }
@@ -4272,7 +4378,7 @@ class ContratosController
             if ($ajusteProtegido && mb_strlen($motivo) < 3) {
                 Response::json([
                     'success' => false,
-                    'message' => 'Informe o motivo da exclusao do ajuste de encerramento.',
+                    'message' => 'Informe o motivo da exclusão do lançamento protegido.',
                 ], 422);
                 return;
             }
