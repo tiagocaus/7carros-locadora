@@ -1,11 +1,20 @@
 <?php
 return [
+    'notification_question' => '¿Notificar al cliente que no se ha podido confirmar la reserva?',
+    'notification_yes' => 'Sí, notificar y eliminar',
+    'notification_no' => 'No, solo eliminar',
+    'notification_queued' => 'Reserva eliminada. La notificación se ha puesto en cola en los tres canales; la entrega se procesará en segundo plano.',
+    'notification_partial' => 'Reserva eliminada. La notificación se ha puesto en cola en algunos canales. Otros no estaban disponibles o presentaron un error.',
+    'notification_unavailable' => 'Reserva eliminada. No se ha podido confirmar que la notificación esté en cola. Revise el historial de mensajes, los contactos autorizados y la configuración de envío; si es necesario, contacte directamente con el cliente.',
+    'notification_ineligible' => 'Esta notificación solo está disponible para reservas pendientes.',
+    'notification_invalid' => 'La opción de notificar al cliente debe ser Sí o No.',
+
     'not_found' => 'Contrato o alquiler no encontrado.',
     'forbidden' => 'No tiene permiso o acceso a la sucursal para eliminar este registro.',
     'permission' => 'Se requiere permiso para eliminar movimientos financieros.',
     'shared' => 'Un movimiento está vinculado a otra operación. Regularice el vínculo antes de eliminar.',
     'promissory' => 'Hay pagarés vinculados. Elimine esos vínculos antes de continuar.',
-    'changed' => 'Los datos financieros cambiaron o la confirmación caducó. Revise los importes y confirme de nuevo.',
+    'changed' => 'Los datos o el estado del registro han cambiado, o la confirmación ha caducado. Revise de nuevo antes de eliminar.',
     'reason_required' => 'Indique el motivo para eliminar el ajuste de cierre (hasta 1.000 caracteres).',
     'deleted' => 'Registro y movimientos financieros eliminados.',
     'failed' => 'No se pudo completar la eliminación. Revise los cobros y las preautorizaciones en la pasarela e inténtelo de nuevo.',

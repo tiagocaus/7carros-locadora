@@ -1,11 +1,20 @@
 <?php
 return [
+    'notification_question' => 'Notify the customer that the reservation could not be confirmed?',
+    'notification_yes' => 'Yes, notify and delete',
+    'notification_no' => 'No, only delete',
+    'notification_queued' => 'Reservation deleted. The notification was queued on all three channels; delivery will be processed in the background.',
+    'notification_partial' => 'Reservation deleted. The notification was queued on some channels. Other channels were unavailable or encountered an error.',
+    'notification_unavailable' => 'Reservation deleted. Notification queuing could not be confirmed. Check message history, authorized contacts and messaging settings; contact the customer directly if needed.',
+    'notification_ineligible' => 'This notification is available only for pending reservations.',
+    'notification_invalid' => 'The notification option must be Yes or No.',
+
     'not_found' => 'Contract or rental not found.',
     'forbidden' => 'You do not have permission or branch access to delete this record.',
     'permission' => 'Permission to delete financial entries is required.',
     'shared' => 'An entry is linked to another operation. Resolve the link before deleting.',
     'promissory' => 'Promissory notes are linked to these entries. Remove those links before deleting.',
-    'changed' => 'Financial data changed or confirmation expired. Review the updated amounts and confirm again.',
+    'changed' => 'The record data or status changed, or confirmation expired. Review again before deleting.',
     'reason_required' => 'Enter a reason for deleting the closing adjustment (up to 1,000 characters).',
     'deleted' => 'Record and financial entries deleted successfully.',
     'failed' => 'Deletion could not be completed. Check gateway charges and authorization holds, then try again.',

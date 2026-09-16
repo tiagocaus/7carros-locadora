@@ -600,3 +600,21 @@ registro principal na mesma transacao. `deletar()` do Model rejeita registros qu
 ainda possuam financeiro direto; nao chamar esse metodo como substituto do fluxo
 com previa. Consulte [Financeiro](financeiro.md#exclusao-com-financeiro-contratos-e-locacoes)
 para endpoints, permissoes, bloqueios e tratamento de concorrencia.
+
+### Notificar ao excluir reserva pendente
+
+Apos a previa financeira e a confirmacao digitada, somente reservas `P`
+apresentam a pergunta “Notificar o cliente sobre a nao confirmacao da reserva?”.
+“Sim, notificar e excluir” exclui e enfileira `reserva_nao_confirmada` depois do
+commit; “Nao, apenas excluir” nao envia mensagens; “Cancelar” ou fechar o modal
+abandona a operacao antes de qualquer exclusao/cancelamento de cobranca externa.
+O comportamento vale para qualquer origem da reserva pendente.
+
+O status integra a referencia da previa. Alteracoes concorrentes exigem nova
+conferencia. Falha de enfileiramento nao desfaz exclusao ja confirmada; a tela
+informa o resultado completo, parcial ou indisponivel, sem afirmar entrega.
+Nao ha reembolso automatico nem novo status “Recusado”.
+
+**Divergencia de permissoes existente:** a tabela acima descreve
+`locacoes.cancelar`, mas o servico de exclusao exige `locacoes.excluir`.
+Esta implementacao preserva a verificacao atual; nao amplia permissoes.

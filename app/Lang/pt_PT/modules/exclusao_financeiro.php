@@ -1,11 +1,20 @@
 <?php
 return [
+    'notification_question' => 'Notificar o cliente sobre a não confirmação da reserva?',
+    'notification_yes' => 'Sim, notificar e eliminar',
+    'notification_no' => 'Não, apenas eliminar',
+    'notification_queued' => 'Reserva eliminada. A notificação foi colocada em fila nos três canais; a entrega será processada em segundo plano.',
+    'notification_partial' => 'Reserva eliminada. A notificação foi colocada em fila em parte dos canais. Os restantes estavam indisponíveis ou apresentaram uma falha.',
+    'notification_unavailable' => 'Reserva eliminada. Não foi possível confirmar a colocação da notificação em fila. Verifique o histórico de mensagens, os contactos autorizados e as configurações de envio; se necessário, contacte o cliente diretamente.',
+    'notification_ineligible' => 'A notificação de não confirmação está disponível apenas para reservas pendentes.',
+    'notification_invalid' => 'A opção de notificar o cliente deve ser Sim ou Não.',
+
     'not_found' => 'Contrato ou aluguer não encontrado.',
     'forbidden' => 'Sem permissão ou acesso à filial para excluir este registro.',
     'permission' => 'É necessária a permissão de excluir lançamentos financeiros.',
     'shared' => 'Há lançamento vinculado a outra operação. Regularize o vínculo antes de excluir.',
     'promissory' => 'Há promissórias vinculadas ao financeiro. Remova esses vínculos antes de excluir.',
-    'changed' => 'Os dados financeiros mudaram ou a confirmação expirou. Confira os valores atualizados e confirme novamente.',
+    'changed' => 'Os dados ou o estado do registo mudaram, ou a confirmação expirou. Verifique novamente antes de eliminar.',
     'reason_required' => 'Informe o motivo da exclusão do ajuste de encerramento (até 1.000 caracteres).',
     'deleted' => 'Registro e lançamentos financeiros excluídos com sucesso.',
     'failed' => 'Não foi possível concluir a exclusão. Verifique as cobranças e pré-autorizações no gateway e tente novamente.',

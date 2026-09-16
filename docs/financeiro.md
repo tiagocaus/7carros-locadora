@@ -1116,3 +1116,19 @@ A transação é controlada por `ContratoKm`, usando a conexão Singleton dos Mo
 O principal e os itens dessas faturas não são editáveis no CRUD comum. Conta, forma e vencimento podem ser ajustados sem recriar itens. A exclusão de receita pendente exige o fluxo do contrato com motivo e auditoria; a apuração permanece preservada com vínculo financeiro nulo. Uma nova cobrança só ocorre em nova operação explícita de odômetro.
 
 Na devolução final, a soma existente de principal já considera essas receitas: não descontá-las duas vezes. Na devolução parcial e substituição, o acerto usa somente as antecipações do vínculo encerrado. Os snapshots de encerramentos antigos permanecem intactos. Consulte `contratos.md` para ativação após a migration, leitura de fronteiras e testes.
+
+### Exclusao de reserva pendente com notificacao opcional
+
+A previa retorna `pode_notificar_cliente`, verdadeiro somente para locacao
+com status `P`. O POST de exclusao de locacoes aceita `notificar_cliente`
+booleano (padrao `false`); valor invalido ou pedido de notificacao em outro
+status retorna 422. A referencia inclui o status, validado novamente sob lock;
+mudanca desde a previa retorna 409 antes de excluir/enfileirar.
+
+A escolha e auditada junto da exclusao. O contexto e capturado antes de apagar,
+mas o enfileiramento ocorre somente depois do commit. A resposta de sucesso
+inclui `notificacao.status` (`not_requested`, `queued`, `partial`, `unavailable`)
+e `notificacao.canais`. Falhas esperadas de canal/contato sao ignoradas sem
+error log; falhas inesperadas sao registradas. Falha de notificacao nao deve
+ser exibida como falha da exclusao nem provocar nova tentativa de exclusao.
+As regras financeiras, de gateways, tenant e filial permanecem as mesmas.

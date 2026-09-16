@@ -52,6 +52,7 @@ Sistema para gerenciar templates de mensagens enviadas por email, WhatsApp e SMS
 
 | Slug | Categoria | Canais | Descrição |
 |------|-----------|--------|-----------|
+| `reserva_nao_confirmada` | rental | email, whatsapp, sms | Notificação opcional ao excluir reserva pendente |
 | `welcome` | onboarding | email, whatsapp | Boas-vindas ao cliente |
 | `rental_confirmation` | rental | email, whatsapp, sms | Confirmação de locação |
 | `contract_confirmation` | rental | email, whatsapp, sms | Confirmação de contrato |
@@ -726,3 +727,21 @@ php migrate.php
 # Migrou dados de message_template_defaults para message_templates com chave='0'
 # Removeu a tabela message_template_defaults
 ```
+
+## Reserva nao confirmada
+
+O tipo `reserva_nao_confirmada` possui templates globais nos cinco idiomas
+(`pt_BR`, `pt_PT`, `en_US`, `es_ES`, `it_IT`), cadastrados pela migration
+`00431_add_reserva_nao_confirmada_templates.php`. Pode ser personalizado,
+visualizado e restaurado pelo editor normal. O assunto e o corpo evitam
+atribuir uma causa a recusa ou prometer disponibilidade/reembolso.
+
+`ReservaNaoConfirmadaNotificationService` captura o contexto antes da exclusao
+Pendente (`P`) e chama `queue_template_message()` somente depois do commit.
+Usa o idioma preferido do cliente, com fallback ao idioma da matriz e pt_BR,
+e os canais/contatos autorizados da filial de retirada. Nao consulta novamente
+a reserva excluida para renderizar. Os resultados por canal indicam
+`queued`, `unavailable` ou `failed`; enfileirar nao confirma entrega.
+
+Testes sem envios reais: `php tests/test_reserva_nao_confirmada.php` e
+`node tests/test_reserva_nao_confirmada_ui.js`.

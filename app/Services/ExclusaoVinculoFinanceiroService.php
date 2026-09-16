@@ -58,7 +58,7 @@ class ExclusaoVinculoFinanceiroService
     private function referencia(string $tipo, array $estado): string
     {
         // Apenas os dados que o usuario esta autorizando; mudancas de holds nao alteram o resumo.
-        return hash('sha256', json_encode([$tipo, $estado['entidade']['id'], $estado['entidade']['chave'], $estado['financeiro'], $estado['itens'], $estado['encerramentos']], JSON_THROW_ON_ERROR));
+        return hash('sha256', json_encode([$tipo, $estado['entidade']['id'], $estado['entidade']['chave'], $estado['entidade']['status'], $estado['financeiro'], $estado['itens'], $estado['encerramentos']], JSON_THROW_ON_ERROR));
     }
 
     public function preview(string $tipo, int $id): array
@@ -69,6 +69,7 @@ class ExclusaoVinculoFinanceiroService
         $token = bin2hex(random_bytes(24));
         $_SESSION['exclusao_financeiro'][$tipo . ':' . $id] = ['token' => $token, 'referencia' => $referencia, 'expira' => time() + 900];
         return ['codigo' => $estado['entidade']['codigo'], 'resumo' => self::resumo($estado['financeiro']),
+            'pode_notificar_cliente' => $tipo === 'locacao' && $estado['entidade']['status'] === 'P',
             'referencia' => $token, 'exige_motivo' => (bool) array_filter($estado['encerramentos'], fn($e) => !empty($e['id_financeiro_ajuste']))];
     }
 
@@ -98,11 +99,20 @@ class ExclusaoVinculoFinanceiroService
         AuditLogService::registrarComCamposNaTransacao(Model::sharedMysqli(), $mensagem, $campos);
     }
 
-    public function excluir(string $tipo, int $id, string $token, string $motivo = ''): void
+    protected function notificacaoReserva(): ReservaNaoConfirmadaNotificationService
+    {
+        return new ReservaNaoConfirmadaNotificationService();
+    }
+
+    public function excluir(string $tipo, int $id, string $token, string $motivo = '', bool $notificarCliente = false): array
     {
         $estado = $this->model->capturar($tipo, $id);
         $this->validar($tipo, $estado);
         $this->conferir($tipo, $id, $token, $estado);
+        if ($notificarCliente && ($tipo !== 'locacao' || $estado['entidade']['status'] !== 'P')) {
+            throw new \DomainException(t('modules.exclusao_financeiro.notification_ineligible'), 422);
+        }
+        $contextoNotificacao = null;
         $temAjuste = (bool) array_filter($estado['encerramentos'], fn($e) => !empty($e['id_financeiro_ajuste']));
         $motivo = trim($motivo);
         if ($temAjuste && ($motivo === '' || mb_strlen($motivo) > 1000)) {
@@ -121,6 +131,9 @@ class ExclusaoVinculoFinanceiroService
                 if ($transacao['type'] === 'charge' && !in_array($transacao['status'], ['paid', 'cancelled', 'refunded', 'failed', 'expired'], true)) {
                     throw new \DomainException(t('modules.exclusao_financeiro.changed'), 409);
                 }
+            }
+            if ($notificarCliente) {
+                $contextoNotificacao = $this->notificacaoReserva()->contexto($estado['entidade']);
             }
             $codigo = $estado['entidade']['codigo'];
             $usuario = $_SESSION['user_name'] ?? 'Sistema';
@@ -153,6 +166,9 @@ class ExclusaoVinculoFinanceiroService
             if ($entidadeModel->deletar($id) !== 1) throw new \RuntimeException('Registro nao removido');
             $resumo = self::resumo($estado['financeiro']);
             $campos = [AuditLogService::campo('ID', $id, null)];
+            if ($tipo === 'locacao' && $estado['entidade']['status'] === 'P') {
+                $campos[] = AuditLogService::campo('Notificar cliente', null, $notificarCliente ? 'Sim' : 'Nao');
+            }
             foreach (['aberto', 'pago', 'total'] as $campo) $campos[] = AuditLogService::campo($campo, currency_format($resumo[$campo] / 100, true), null, 'Financeiro excluido');
             $campos[] = AuditLogService::campo('Quantidade', $resumo['quantidade'], null);
             if ($motivo !== '') $campos[] = AuditLogService::campo('Motivo', $motivo, null);
@@ -175,5 +191,8 @@ class ExclusaoVinculoFinanceiroService
                 error_log('[ExclusaoVinculoFinanceiro] Limpeza pendente: ' . json_encode(['chave' => $estado['entidade']['chave'], 'arquivo' => $arquivo]));
             }
         }
+        return $contextoNotificacao !== null
+            ? $this->notificacaoReserva()->notificar($contextoNotificacao, $estado['entidade']['chave'])
+            : ['status' => 'not_requested', 'canais' => []];
     }
 }

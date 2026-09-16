@@ -128,7 +128,10 @@
                 >
             </div>
 
-            <div class="modal-actions">
+            <p id="deleteNotifyQuestion" class="modal-message" style="display: none;" role="status"><?= t('modules.exclusao_financeiro.notification_question') ?></p>
+            <div class="modal-actions flex-wrap">
+                <button type="button" id="deleteNotifyYes" class="btn-red py-2 px-4 rounded-md text-sm font-medium" style="display: none;" onclick="answerDeleteNotification(true)"><?= t('modules.exclusao_financeiro.notification_yes') ?></button>
+                <button type="button" id="deleteNotifyNo" class="btn-secondary" style="display: none;" onclick="answerDeleteNotification(false)"><?= t('modules.exclusao_financeiro.notification_no') ?></button>
                 <button id="cancelDeleteButton" onclick="closeGlobalDeleteModal()" class="btn-secondary">
                     <?= t('modules.layout.buttons.cancel') ?>
                 </button>
@@ -1379,6 +1382,7 @@
         window.openGlobalDeleteModal = function(recordId, recordName, recordType = 'registro', confirmType = 'text', customAction = null, options = [], warningMessage = '') {
             if (globalFinanceiroDelete?.busy) return;
             globalFinanceiroDelete = null;
+            setDeleteNotificationStep(false);
             document.getElementById('deleteFinanceiroSection').style.display = 'none';
             document.getElementById('cancelDeleteButton').disabled = false;
             document.getElementById('confirmDeleteInput').disabled = false;
@@ -1456,6 +1460,7 @@
         window.closeGlobalDeleteModal = function() {
             if (globalFinanceiroDelete?.busy) return;
             globalFinanceiroDelete = null;
+            setDeleteNotificationStep(false);
             const modal = document.getElementById('deleteConfirmationModal');
             const confirmSection = document.getElementById('confirmDeleteSection');
             const confirmInput = document.getElementById('confirmDeleteInput');
@@ -1548,7 +1553,13 @@
         window.confirmGlobalDelete = function() {
             if (!globalRecordId || document.getElementById('confirmDeleteButton').disabled) return;
             if (globalFinanceiroDelete) {
-                submitDeleteFinanceiro();
+                if (globalFinanceiroDelete.preview?.pode_notificar_cliente) {
+                    globalFinanceiroDelete.choosingNotification = true;
+                    setDeleteNotificationStep(true);
+                    document.getElementById('cancelDeleteButton').focus();
+                } else {
+                    submitDeleteFinanceiro(false);
+                }
                 return;
             }
 
@@ -1582,6 +1593,9 @@
             const state = globalFinanceiroDelete;
             if (!state || state.busy) return;
             state.preview = null;
+            state.choosingNotification = false;
+            setDeleteNotificationStep(false);
+            document.getElementById('confirmDeleteSection').style.display = 'block';
             state.busy = true;
             document.getElementById('cancelDeleteButton').disabled = true;
             validateGlobalDeleteConfirmation();
@@ -1627,28 +1641,53 @@
             }
         };
 
-        async function submitDeleteFinanceiro() {
+        function setDeleteNotificationStep(show) {
+            ['deleteNotifyQuestion', 'deleteNotifyYes', 'deleteNotifyNo'].forEach(id => {
+                document.getElementById(id).style.display = show ? '' : 'none';
+            });
+            document.getElementById('confirmDeleteButton').style.display = show ? 'none' : '';
+            if (show) document.getElementById('confirmDeleteSection').style.display = 'none';
+        }
+
+        window.answerDeleteNotification = function(notificar) {
+            const state = globalFinanceiroDelete;
+            if (!state?.choosingNotification || state.busy || !state.preview?.pode_notificar_cliente) return;
+            validateGlobalDeleteConfirmation();
+            if (document.getElementById('confirmDeleteButton').disabled) return;
+            submitDeleteFinanceiro(notificar);
+        };
+
+        async function submitDeleteFinanceiro(notificarCliente = false) {
             const state = globalFinanceiroDelete;
             if (!state || state.busy || !state.preview) return;
             state.busy = true;
             validateGlobalDeleteConfirmation();
             document.getElementById('cancelDeleteButton').disabled = true;
             document.getElementById('confirmDeleteInput').disabled = true;
+            document.getElementById('deleteNotifyYes').disabled = true;
+            document.getElementById('deleteNotifyNo').disabled = true;
             document.getElementById('deleteFinanceiroError').textContent = exclusaoFinanceiroT.processing;
             try {
                 const result = await API.post(`/${state.modulo}/${encodeURIComponent(state.id)}/excluir`, {
                     referencia: state.preview.referencia,
-                    motivo: document.getElementById('deleteFinanceiroReason').value.trim()
+                    motivo: document.getElementById('deleteFinanceiroReason').value.trim(),
+                    ...(state.modulo === 'locacoes' ? { notificar_cliente: notificarCliente } : {})
                 });
                 if (result.success) {
                     state.busy = false;
                     state.source?.postMessage({ action: 'financeiroVinculoExcluido', modulo: state.modulo, recordId: state.id }, window.location.origin);
                     closeGlobalDeleteModal();
                     globalSourceWindow = null;
+                    if (result.notificacao && result.notificacao.status !== 'not_requested') {
+                        openAlertModal(result.message);
+                    }
                     return;
                 }
                 if (result.refresh_preview) {
                     state.preview = null;
+                    state.choosingNotification = false;
+                    setDeleteNotificationStep(false);
+                    document.getElementById('confirmDeleteSection').style.display = 'block';
                     document.getElementById('confirmDeleteInput').value = '';
                     document.getElementById('deleteFinanceiroRetry').style.display = 'inline-block';
                 }
@@ -1659,6 +1698,8 @@
                 state.busy = false;
                 document.getElementById('cancelDeleteButton').disabled = false;
                 document.getElementById('confirmDeleteInput').disabled = false;
+                document.getElementById('deleteNotifyYes').disabled = false;
+                document.getElementById('deleteNotifyNo').disabled = false;
                 validateGlobalDeleteConfirmation();
             }
         }

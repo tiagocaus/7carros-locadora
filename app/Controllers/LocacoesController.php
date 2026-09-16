@@ -1533,8 +1533,15 @@ class LocacoesController
                 return;
             }
             $dados = $request->all();
-            $service->excluir($tipo, $id, (string) ($dados['referencia'] ?? ''), (string) ($dados['motivo'] ?? ''));
-            Response::json(['success' => true, 'message' => t('modules.exclusao_financeiro.deleted')]);
+            $notificar = $dados['notificar_cliente'] ?? false;
+            if (!is_bool($notificar)) {
+                throw new \DomainException(t('modules.exclusao_financeiro.notification_invalid'), 422);
+            }
+            $notificacao = $service->excluir($tipo, $id, (string) ($dados['referencia'] ?? ''), (string) ($dados['motivo'] ?? ''), $notificar);
+            $mensagem = $notificacao['status'] === 'not_requested'
+                ? t('modules.exclusao_financeiro.deleted')
+                : t('modules.exclusao_financeiro.notification_' . $notificacao['status']);
+            Response::json(['success' => true, 'message' => $mensagem, 'notificacao' => $notificacao]);
         } catch (\DomainException $e) {
             Response::json(['success' => false, 'message' => $e->getMessage(), 'refresh_preview' => $e->getCode() === 409], $e->getCode() ?: 422);
         } catch (\Throwable $e) {

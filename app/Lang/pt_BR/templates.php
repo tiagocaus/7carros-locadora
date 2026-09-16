@@ -13,6 +13,9 @@ return [
     ],
     // Tipos de Templates
     'types' => [
+        'reserva_nao_confirmada' => 'Reserva não confirmada',
+        'reserva_nao_confirmada_desc' => 'Notificação opcional ao excluir um pedido de reserva pendente',
+        'reserva_nao_confirmada_description' => 'Notificação opcional ao excluir um pedido de reserva pendente',
         // Onboarding
         'welcome' => 'Boas-vindas',
         'welcome_description' => 'Mensagem enviada ao cadastrar um novo cliente',
@@ -24,13 +27,16 @@ return [
 
         'funcionario_nova_senha' => 'Redefinição de senha do funcionário',
         'funcionario_nova_senha_desc' => 'Enviada ao funcionário com uma nova senha segura de acesso ao painel',
+        'funcionario_nova_senha_link_desc' => 'Enviada ao funcionário com link seguro para redefinir a senha',
 
         // Locação
         'rental_confirmation' => 'Confirmação de Locação',
         'rental_confirmation_description' => 'Enviada quando uma locação é confirmada',
+        'rental_confirmation_desc' => 'Enviada quando uma locação é confirmada',
 
         'contract_confirmation' => 'Confirmação de Contrato',
         'contract_confirmation_description' => 'Enviada quando um contrato é assinado',
+        'contract_confirmation_desc' => 'Enviada quando um contrato é assinado',
 
         'signature_request' => 'Pedido de Assinatura',
         'signature_request_description' => 'Enviada ao cliente com o link para assinatura digital',
@@ -39,19 +45,24 @@ return [
         // Lembretes
         'return_reminder' => 'Lembrete de Devolução',
         'return_reminder_description' => 'Aviso antes da data de devolução prevista',
+        'return_reminder_desc' => 'Aviso antes da data de devolução prevista',
 
         'cnh_expiring' => 'CNH Vencendo',
         'cnh_expiring_description' => 'Aviso quando a CNH do cliente está próxima do vencimento',
+        'cnh_expiring_desc' => 'Aviso quando a CNH do cliente está próxima do vencimento',
 
         // Financeiro
         'payment_reminder' => 'Lembrete de Pagamento',
         'payment_reminder_description' => 'Aviso de fatura próxima do vencimento',
+        'payment_reminder_desc' => 'Aviso de fatura próxima do vencimento',
 
         'invoice_generated' => 'Fatura Gerada',
         'invoice_generated_description' => 'Enviada quando uma nova fatura é gerada',
+        'invoice_generated_desc' => 'Enviada quando uma nova fatura é gerada',
 
         'overdue_notice' => 'Aviso de Atraso',
         'overdue_notice_description' => 'Notificação de fatura em atraso',
+        'overdue_notice_desc' => 'Notificação de fatura em atraso',
 
         'payment_received' => 'Pagamento Recebido',
         'payment_received_description' => 'Confirmação de recebimento de pagamento',

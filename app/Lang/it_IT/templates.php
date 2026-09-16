@@ -13,6 +13,9 @@ return [
     ],
     // Tipi di Modelli
     'types' => [
+        'reserva_nao_confirmada' => 'Prenotazione non confermata',
+        'reserva_nao_confirmada_desc' => 'Notifica facoltativa quando si elimina una richiesta di prenotazione in attesa',
+        'reserva_nao_confirmada_description' => 'Notifica facoltativa quando si elimina una richiesta di prenotazione in attesa',
         // Onboarding
         'welcome' => 'Benvenuto',
         'welcome_description' => 'Messaggio inviato alla registrazione di un nuovo cliente',
@@ -24,30 +27,38 @@ return [
 
         'funcionario_nova_senha' => 'Reimpostazione password dipendente',
         'funcionario_nova_senha_desc' => 'Inviato al dipendente con una nuova password sicura per accedere al pannello',
+        'funcionario_nova_senha_link_desc' => 'Inviato al dipendente con un link sicuro per reimpostare la password',
 
         // Noleggio
         'rental_confirmation' => 'Conferma Noleggio',
         'rental_confirmation_description' => 'Inviato quando un noleggio viene confermato',
+        'rental_confirmation_desc' => 'Inviato quando un noleggio viene confermato',
 
         'contract_confirmation' => 'Conferma Contratto',
         'contract_confirmation_description' => 'Inviato quando un contratto viene firmato',
+        'contract_confirmation_desc' => 'Inviato quando un contratto viene firmato',
 
         // Promemoria
         'return_reminder' => 'Promemoria Restituzione',
         'return_reminder_description' => 'Avviso prima della data di restituzione prevista',
+        'return_reminder_desc' => 'Avviso prima della data di restituzione prevista',
 
         'cnh_expiring' => 'Patente in Scadenza',
         'cnh_expiring_description' => 'Avviso quando la patente del cliente sta per scadere',
+        'cnh_expiring_desc' => 'Avviso quando la patente del cliente sta per scadere',
 
         // Fatturazione
         'payment_reminder' => 'Promemoria Pagamento',
         'payment_reminder_description' => 'Avviso di fattura in scadenza',
+        'payment_reminder_desc' => 'Avviso di fattura in scadenza',
 
         'invoice_generated' => 'Fattura Generata',
         'invoice_generated_description' => 'Inviato quando viene generata una nuova fattura',
+        'invoice_generated_desc' => 'Inviato quando viene generata una nuova fattura',
 
         'overdue_notice' => 'Avviso di Ritardo',
         'overdue_notice_description' => 'Notifica di fattura scaduta',
+        'overdue_notice_desc' => 'Notifica di fattura scaduta',
 
         'payment_received' => 'Pagamento Ricevuto',
         'payment_received_description' => 'Conferma di ricezione del pagamento',

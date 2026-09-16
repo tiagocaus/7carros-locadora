@@ -1,11 +1,20 @@
 <?php
 return [
+    'notification_question' => 'Notificare al cliente che la prenotazione non è stata confermata?',
+    'notification_yes' => 'Sì, notifica ed elimina',
+    'notification_no' => 'No, elimina soltanto',
+    'notification_queued' => 'Prenotazione eliminata. La notifica è stata accodata su tutti e tre i canali; la consegna verrà elaborata in background.',
+    'notification_partial' => 'Prenotazione eliminata. La notifica è stata accodata su alcuni canali. Gli altri non erano disponibili o hanno riscontrato un errore.',
+    'notification_unavailable' => 'Prenotazione eliminata. Non è stato possibile confermare l’accodamento della notifica. Verifichi la cronologia dei messaggi, i contatti autorizzati e le impostazioni di invio; se necessario, contatti direttamente il cliente.',
+    'notification_ineligible' => 'Questa notifica è disponibile solo per le prenotazioni in attesa.',
+    'notification_invalid' => 'L’opzione di notifica deve essere Sì o No.',
+
     'not_found' => 'Contratto o noleggio non trovato.',
     'forbidden' => 'Non hai il permesso o accesso alla filiale per eliminare questo record.',
     'permission' => 'È necessario il permesso di eliminare i movimenti finanziari.',
     'shared' => 'Un movimento è collegato a un’altra operazione. Correggi il collegamento prima di eliminare.',
     'promissory' => 'Sono presenti cambiali collegate. Rimuovi i collegamenti prima di eliminare.',
-    'changed' => 'I dati finanziari sono cambiati o la conferma è scaduta. Controlla gli importi e conferma nuovamente.',
+    'changed' => 'I dati o lo stato del record sono cambiati, oppure la conferma è scaduta. Verifichi nuovamente prima di eliminare.',
     'reason_required' => 'Inserisci il motivo per eliminare la rettifica di chiusura (massimo 1.000 caratteri).',
     'deleted' => 'Record e movimenti finanziari eliminati.',
     'failed' => 'Impossibile completare l’eliminazione. Controlla addebiti e preautorizzazioni nel gateway e riprova.',
