@@ -213,8 +213,12 @@ Cada tenant que conecta um WhatsApp gera uma "instância" no provedor. A `whatsa
 
 Antes de qualquer POST de envio, `sendWithPhoneFallback()` resolve o numero
 por `/user/check` usando a mesma instancia. `gerarTelefonesCandidatos()` continua
-responsavel pelas variantes brasileiras; o envio usa o numero retornado no JID,
-validado contra esses candidatos. A segunda variante so pode ser consultada
+responsavel pelas variantes brasileiras; para JID baseado em telefone, o envio
+usa o numero retornado, validado contra esses candidatos. Se a resposta unica
+confirmar o telefone consultado em `Query`, `IsInWhatsapp` e um LID decimal
+positivo com sufixo `@lid`, o envio usa esse identificador completo no campo
+`Phone`, sem interpreta-lo como telefone nem alterar o cadastro. A segunda
+variante so pode ser consultada
 apos confirmacao de inexistencia da primeira, nunca enviada apos falha incerta.
 O envio exige HTTP 200 e JSON com `success: true`; erros preservam diagnosticos
 sanitizados na fila.

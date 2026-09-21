@@ -211,7 +211,7 @@ class WhatsAppService
             $response, false, !$invalidPhone);
     }
 
-    /** Consulta sem enviar. So aceita o JID correspondente aos candidatos locais. */
+    /** Consulta sem enviar. Valida o telefone consultado antes de aceitar seu JID ou LID. */
     private function resolvePhone(string $instanceToken, array $candidates): array
     {
         $url = rtrim($this->baseUrl, '/') . '/user/check';
@@ -241,8 +241,16 @@ class WhatsAppService
                 }
                 continue;
             }
-            if (!in_array($exists, [true, 1, 'true', '1'], true) || !is_string($jid)
-                || !preg_match('/^([0-9]{7,15})@(?:s\.whatsapp\.net|c\.us)$/D', $jid, $matches)
+            if (!in_array($exists, [true, 1, 'true', '1'], true) || !is_string($jid)) {
+                return $this->failure('lookup', 'recipient_mismatch', $response, true);
+            }
+            // LID e um identificador opaco, nao um telefone. A associacao vem da
+            // resposta unica com Query validada acima, na mesma instancia do envio.
+            // Preservar @lid: remover o sufixo faria a API interpreta-lo como telefone.
+            if (preg_match('/^[1-9][0-9]*@lid$/D', $jid)) {
+                return ['success' => true, 'phone' => $jid];
+            }
+            if (!preg_match('/^([0-9]{7,15})@(?:s\.whatsapp\.net|c\.us)$/D', $jid, $matches)
                 || !in_array($matches[1], $candidates, true)) {
                 return $this->failure('lookup', 'recipient_mismatch', $response, true);
             }

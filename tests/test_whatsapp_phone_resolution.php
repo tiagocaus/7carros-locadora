@@ -58,7 +58,15 @@ function runPhone(array $responses, string $to = '+5511999999999', string $kind 
 $original = '5511999999999';
 $canonical = '551199999999';
 $success = ['http_code' => 200, 'body' => ['success' => true]];
+$lid = '1234567890123456@lid';
+$lidResponse = lookup($original, $original);
+$lidResponse['body']['data']['Users'][0]['JID'] = $lid;
 foreach (['text', 'image', 'document'] as $kind) {
+    [$result, $requests] = runPhone([$lidResponse, $success], '+' . $original, $kind);
+    verifyPhone($result['success'] && count($requests) === 2, "$kind: LID consulta e um envio");
+    verifyPhone($requests[0]['path'] === '/user/check' && $requests[0]['data'] === ['Phone' => [$original]], 'LID consulta telefone original');
+    verifyPhone($requests[1]['path'] === '/chat/send/' . $kind && $requests[1]['data']['Phone'] === $lid, 'LID completo, sem converter em telefone');
+    verifyPhone($requests[0]['token'] === $requests[1]['token'], 'LID usa mesma instancia');
     foreach ([$original, $canonical] as $target) {
         [$result, $requests] = runPhone([lookup($original, $target), $success], '+' . $original, $kind);
         verifyPhone($result['success'] && count($requests) === 2, "$kind: consulta e um envio");
@@ -67,6 +75,28 @@ foreach (['text', 'image', 'document'] as $kind) {
         verifyPhone($requests[0]['token'] === $requests[1]['token'], 'Mesma instancia na consulta e envio');
     }
 }
+foreach (['Query' => '5521999999999', 'IsInWhatsapp' => false, 'JID' => '123@g.us'] as $field => $value) {
+    $invalidLid = $lidResponse;
+    $invalidLid['body']['data']['Users'][0][$field] = $value;
+    [$result, $requests] = runPhone([$invalidLid]);
+    verifyPhone(!$result['success'] && count($requests) === 1, "LID rejeita $field invalido sem envio");
+}
+foreach (['', '@lid', 'abc@lid', '123@lid.example', '123:1@lid', "123@lid\n", '0@lid', null, 123] as $invalidJid) {
+    $invalidLid = $lidResponse;
+    $invalidLid['body']['data']['Users'][0]['JID'] = $invalidJid;
+    [$result, $requests] = runPhone([$invalidLid]);
+    verifyPhone(!$result['success'] && count($requests) === 1, 'LID malformado nao envia');
+}
+$ambiguousLid = $lidResponse;
+$ambiguousLid['body']['data']['Users'][] = $ambiguousLid['body']['data']['Users'][0];
+[$result, $requests] = runPhone([$ambiguousLid]);
+verifyPhone(!$result['success'] && count($requests) === 1, 'LID ambiguo nao envia');
+$fallbackLid = $lidResponse;
+$fallbackLid['body']['data']['Users'][0]['Query'] = $canonical;
+[$result, $requests] = runPhone([lookup($original, null), $fallbackLid, $success]);
+verifyPhone($result['success'] && count($requests) === 3 && $requests[2]['data']['Phone'] === $lid, 'Fallback de consulta reconhece LID');
+[$result, $requests] = runPhone([$lidResponse, ['http_code' => 0, 'body' => null, 'curl_errno' => 28]]);
+verifyPhone($result['uncertain'] && !$result['retryable'] && count($requests) === 2, 'Timeout enviando LID nao tenta outro destino');
 [$result, $requests] = runPhone([lookup($original, null), lookup($canonical, $canonical), $success]);
 verifyPhone($result['success'] && count($requests) === 3 && $requests[1]['data']['Phone'] === [$canonical], 'Fallback somente na consulta');
 [$result, $requests] = runPhone([lookup($original, null), lookup($canonical, null)]);

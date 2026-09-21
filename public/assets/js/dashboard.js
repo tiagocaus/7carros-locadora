@@ -53,11 +53,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const offcanvasOverlay = document.getElementById('offcanvasOverlay');
     const offcanvasPanel = document.getElementById('offcanvasPanel');
     const closeOffcanvasButton = document.getElementById('closeOffcanvasButton');
-    const deleteModal = document.getElementById('deleteConfirmationModal');
-    const cancelDeleteButton = document.getElementById('cancelDeleteButton');
-    const confirmDeleteButton = document.getElementById('confirmDeleteButton');
-    let itemToDeleteId = null;
-    let itemToDeleteRow = null;
     function closeAllPopups(exceptThisOne = null) {
         const popups = [
             { button: languageButton, dropdown: languageDropdown },
@@ -451,43 +446,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (closeOffcanvasButton) closeOffcanvasButton.addEventListener('click', closeOffcanvas);
     // Removido: fechar ao clicar no overlay - agora fecha apenas pelo botao X
     // if (offcanvasOverlay) offcanvasOverlay.addEventListener('click', closeOffcanvas);
-    function openDeleteModal(clientId, clientName, rowElement) {
-        itemToDeleteId = clientId;
-        itemToDeleteRow = rowElement;
-        const modalTitle = deleteModal.querySelector('#deleteModalTitle');
-        const modalMessage = deleteModal.querySelector('#deleteModalMessage');
-        modalTitle.textContent = 'Confirmar Exclusão';
-        modalMessage.textContent = 'Deseja realmente excluir o cliente "' + clientName + '" (ID: ' + clientId + ')?';
-        if (deleteModal) deleteModal.classList.add('open');
-    }
-    function closeDeleteModal() {
-        if (deleteModal) deleteModal.classList.remove('open');
-        itemToDeleteId = null;
-        itemToDeleteRow = null;
-    }
-    if (cancelDeleteButton) cancelDeleteButton.addEventListener('click', closeDeleteModal);
-    if (confirmDeleteButton) {
-        confirmDeleteButton.addEventListener('click', () => {
-            if (itemToDeleteId && itemToDeleteRow) {
-                console.log('Excluindo cliente com ID:', itemToDeleteId);
-
-                // Verificar se é uma referência de iframe (objeto com iframe e rowIndex)
-                if (itemToDeleteRow.iframe && typeof itemToDeleteRow.rowIndex === 'number') {
-                    // Enviar mensagem para o iframe para remover a linha
-                    itemToDeleteRow.iframe.postMessage({
-                        action: 'confirmDelete',
-                        rowIndex: itemToDeleteRow.rowIndex
-                    }, '*');
-                } else {
-                    // Método antigo (compatibilidade quando não está em iframe)
-                    if (itemToDeleteRow.remove) {
-                        itemToDeleteRow.remove();
-                    }
-                }
-            }
-            closeDeleteModal();
-        });
-    }
+    // O modal de exclusao e controlado exclusivamente pelo layout app.php.
     document.addEventListener('click', function (event) {
         let clickedInsideADropdownOrButton = false;
         [languageButton, languageDropdown, notificationsButton, notificationsDropdown, hamburgerButton, mainNavLinks].forEach(el => {

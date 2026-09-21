@@ -175,9 +175,28 @@ pelos testes de regressao abaixo.
 - `sendWithPhoneFallback()` e o ponto comum para texto, imagem e documento.
   Antes do envio, chama `resolvePhone()` com os candidatos e o token da mesma
   instancia que enviara a mensagem.
-- `resolvePhone()` consulta `/user/check` e retorna o numero identificado no JID.
-  Esse numero deve corresponder a um dos candidatos, e a resposta precisa
-  identificar o numero consultado, sem resultados ambiguos.
+- `resolvePhone()` consulta `/user/check` e retorna o destino de envio. Para JIDs
+  `@s.whatsapp.net` ou `@c.us`, retorna o numero, que deve corresponder a um dos
+  candidatos. Para LID, retorna o identificador completo terminado em `@lid`.
+  Em ambos os casos, a resposta precisa identificar exatamente o numero
+  consultado em `Query`, confirmar `IsInWhatsapp` e conter um unico resultado.
+
+#### Identificadores LID
+
+O provedor tambem pode retornar um identificador opaco, como
+`1234567890123456@lid`, para um telefone que tem WhatsApp. Seus digitos nao sao
+um telefone e nao devem ser comparados aos candidatos nem receber regra de
+nono digito. Aceitar somente identificador decimal positivo com sufixo exato
+`@lid`, associado ao telefone pela resposta unica e validada de `/user/check`.
+O campo `Phone` do POST de envio recebe o LID completo, na mesma instancia da
+consulta. Nunca remover o sufixo nem salvar esse identificador como telefone
+do contato. Essa regra vale para texto, imagem e documento; grupos, dominios
+desconhecidos e respostas ambiguas continuam bloqueados.
+
+A investigacao de 21/09/2026 reproduziu `recipient_mismatch` com HTTP 200 e
+`IsInWhatsapp: true` porque a resposta trazia `@lid`. A validacao anterior
+presumia que todo JID era baseado em telefone. A compatibilidade com LID nao
+reenfileira mensagens antigas e nao altera as protecoes contra duplicidade.
 
 O fallback e somente na consulta: o segundo candidato so e consultado quando
 o primeiro e explicitamente inexistente. Se a primeira consulta ja reconhecer
@@ -233,7 +252,9 @@ php tests/test_message_queue_worker.php
 - `test_whatsapp_phone_resolution.php`: provedor e arquivos simulados, sem banco
   ou envio real. Verifica JID com/sem nono digito, internacionais, fallback de
   consulta, respostas invalidas e uma unica chamada de envio para texto, imagem
-  e documento. Consulta falha nao envia; envio incerto nao tenta outro numero.
+  e documento, incluindo LID completo, LID invalido, resposta divergente ou
+  ambigua e timeout apos envio para LID. Consulta falha nao envia; envio incerto
+  nao tenta outro numero.
 - `test_message_delivery.php`: usa MySQL local (`DB_HOST=localhost`) e provedores
   simulados. Verifica persistencia, diagnosticos e concorrencia, usando apenas
   o tenant `1111111111111`; remove seus fixtures e disputa uma reserva em duas
