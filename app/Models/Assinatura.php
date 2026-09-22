@@ -75,7 +75,7 @@ class Assinatura extends Model
                 'c.id',
                 'c.codigo',
                 'c.id_cliente AS cliente_id',
-                'COALESCE(cl.nome_rsocial, c.cliente_nome) AS cliente_nome',
+                'cl.nome_rsocial AS cliente_nome',
                 'cl.cpf_cnpj AS cliente_documento',
                 'c.data_ini AS data_inicio',
                 'c.data_fim AS data_fim',
@@ -123,7 +123,6 @@ class Assinatura extends Model
         $this->aplicarBuscaDocumentoPendente($query, $search, [
             'c.codigo',
             'cl.nome_rsocial',
-            'c.cliente_nome',
             'cl.cpf_cnpj',
         ], "EXISTS (
             SELECT 1
