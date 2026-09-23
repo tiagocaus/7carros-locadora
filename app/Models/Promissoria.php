@@ -8,6 +8,7 @@ use App\Core\Auth;
 use App\Core\Database;
 use App\Helpers\CurrencyHelper;
 use App\Helpers\DateHelper;
+use App\Helpers\FilialHelper;
 
 /**
  * Model Promissoria
@@ -31,6 +32,43 @@ class Promissoria extends Model
 {
     use Auditable;
     use DetectsCrossTenant;
+
+    /**
+     * Opcoes de vinculo, incluindo reservas e operacoes encerradas.
+     * Cada origem tem seu proprio limite para nao ocultar as locacoes.
+     */
+    public function buscarVinculosParaSelect(string $termo = ''): array
+    {
+        $opcoes = [];
+        foreach (['contratos', 'locacoes'] as $tabela) {
+            [$where, $params] = $tabela === 'contratos'
+                ? FilialHelper::whereContratos('o')
+                : FilialHelper::whereLocacoes('o');
+
+            $query = $this->qb
+                ->table($tabela, 'o')
+                ->select(['o.codigo', 'cl.nome_rsocial AS cliente_nome'])
+                ->leftJoinRaw('clientes', 'cl', 'cl.id = o.id_cliente AND cl.chave = o.chave')
+                ->whereRaw($where, $params);
+
+            if ($termo !== '') {
+                $busca = '%' . $termo . '%';
+                $query->whereNested(function ($q) use ($busca) {
+                    $q->where('o.codigo', 'LIKE', $busca)
+                        ->orWhere('cl.nome_rsocial', 'LIKE', $busca);
+                });
+            }
+
+            foreach ($query->orderByDesc('o.id')->limit(25)->get() as $registro) {
+                $opcoes[] = [
+                    'id' => $registro['codigo'],
+                    'text' => $registro['codigo'] . ' - ' . ($registro['cliente_nome'] ?? 'Sem cliente'),
+                ];
+            }
+        }
+
+        return $opcoes;
+    }
 
     /**
      * Retorna o nome da entidade para auditoria

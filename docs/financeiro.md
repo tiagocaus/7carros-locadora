@@ -1138,3 +1138,19 @@ e `notificacao.canais`. Falhas esperadas de canal/contato sao ignoradas sem
 error log; falhas inesperadas sao registradas. Falha de notificacao nao deve
 ser exibida como falha da exclusao nem provocar nova tentativa de exclusao.
 As regras financeiras, de gateways, tenant e filial permanecem as mesmas.
+
+## Busca de vinculos da promissoria
+
+Na criacao e edicao, o campo **Contrato/Locacao (opcional)** usa
+`GET /api/promissorias/vinculos?q=...`, permitido a usuarios com
+`promissorias.criar` ou `promissorias.editar`. Pesquisa codigo parcial ou nome
+do cliente, entre todos os clientes, incluindo contratos ativos/finalizados e
+locacoes em qualquer status (inclusive reservas). O tenant e automatico pelo
+QueryBuilder; contratos respeitam `whereContratos()` e locacoes
+`whereLocacoes()` (retirada ou devolucao permitida).
+
+Ao abrir, carrega ate 25 contratos e 25 locacoes, nessa ordem, cada grupo por
+ID decrescente. A busca com tres ou mais caracteres filtra antes dos limites.
+A resposta usa `{success, data: [{id: codigo, text: "codigo - cliente"}]}`.
+O valor salvo continua sendo `codigo_contrato_locacao`; **Nao vincular** e
+a selecao existente na edicao permanecem disponiveis.

@@ -828,6 +828,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
 
     // API Promissorias (com protecao anti-scraping e CSRF)
     $router->get('/api/promissorias', [PromissoriasController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/promissorias/vinculos', [PromissoriasController::class, 'buscarVinculos'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/promissorias/codigo/{codigo}', [PromissoriasController::class, 'showByCodigo'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/promissorias/{codigo}/assinatura', [PromissoriasController::class, 'buscarAssinatura'], ['api_csrf', 'rate_limit', 'throttle']);
 

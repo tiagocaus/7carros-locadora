@@ -29,6 +29,28 @@ use App\Services\PromissoriaTemplateService;
  */
 class PromissoriasController
 {
+    /** GET /api/promissorias/vinculos?q=... */
+    public function buscarVinculos(Request $request): void
+    {
+        if (!Auth::can('promissorias.criar') && !Auth::can('promissorias.editar')) {
+            Response::json(['success' => false, 'message' => 'Sem permissao para buscar vinculos de promissorias'], 403);
+            return;
+        }
+
+        try {
+            $termo = $request->query('q', '');
+            if (!is_string($termo)) {
+                Response::json(['success' => false, 'message' => 'Termo de busca invalido'], 422);
+                return;
+            }
+
+            $model = new Promissoria();
+            Response::json(['success' => true, 'data' => $model->buscarVinculosParaSelect(trim($termo))]);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao buscar vinculos de promissorias'], 500);
+        }
+    }
+
     /**
      * Renderiza a pagina de listagem
      *

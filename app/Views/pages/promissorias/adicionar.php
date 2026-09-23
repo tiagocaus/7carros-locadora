@@ -42,7 +42,7 @@
                 <!-- Codigo Contrato -->
                 <div class="form-input-group">
                     <label for="codigoContratoLocacao" class="form-label-group"><?= t('modules.promissorias.fields.contract_optional') ?></label>
-                    <select id="codigoContratoLocacao" name="codigo_contrato_locacao" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/contratos/buscar-select" data-chosen-placeholder="<?= t('modules.promissorias.fields.no_link') ?>">
+                    <select id="codigoContratoLocacao" name="codigo_contrato_locacao" class="form-input-group-field chosen-select" data-chosen-type="server-side" data-chosen-search-url="/api/promissorias/vinculos" data-chosen-placeholder="<?= t('modules.promissorias.fields.no_link') ?>">
                         <option value=""><?= t('modules.promissorias.fields.no_link') ?></option>
                     </select>
                 </div>
