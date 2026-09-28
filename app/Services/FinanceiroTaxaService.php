@@ -17,7 +17,8 @@ class FinanceiroTaxaService
 {
     private const PLANO_PADRAO = '3.4.1.21';
 
-    public function sincronizar(int $idReceita, ?int $idTransacao = null): ?int
+    /** $transacaoExterna indica que o chamador controla begin/commit/rollback no Singleton. */
+    public function sincronizar(int $idReceita, ?int $idTransacao = null, bool $transacaoExterna = false): ?int
     {
         if (!FinanceiroTaxa::schemaDisponivel()) {
             return null;
@@ -42,8 +43,8 @@ class FinanceiroTaxaService
         }
 
         $conexao = Model::sharedMysqli();
-        $possuiTransacao = defined('MYSQLI_SERVER_STATUS_IN_TRANS')
-            && (($conexao->server_status & MYSQLI_SERVER_STATUS_IN_TRANS) !== 0);
+        $possuiTransacao = $transacaoExterna || (defined('MYSQLI_SERVER_STATUS_IN_TRANS')
+            && (($conexao->server_status & MYSQLI_SERVER_STATUS_IN_TRANS) !== 0));
 
         if (!$possuiTransacao) {
             $conexao->begin_transaction();

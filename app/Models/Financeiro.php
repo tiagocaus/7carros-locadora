@@ -671,7 +671,7 @@ class Financeiro extends Model
      * @param array $dados Dados a atualizar
      * @return int Linhas afetadas
      */
-    public function atualizar(int $id, array $dados): int
+    public function atualizar(int $id, array $dados, bool $transacaoExterna = false): int
     {
         if ((new ContratoKm())->financeiroProtegido($id)) {
             $original=$this->buscarPorId($id);
@@ -836,13 +836,13 @@ class Financeiro extends Model
             }
 
             if ($dadosUpdate['pago'] === 'S') {
-                (new \App\Services\FinanceiroTaxaService())->sincronizar($id);
+                (new \App\Services\FinanceiroTaxaService())->sincronizar($id, null, $transacaoExterna);
             } elseif ($dadosUpdate['pago'] === 'N' && ($lancamento['pago'] ?? 'N') === 'S') {
                 (new \App\Services\FinanceiroTaxaService())->estornar($id);
             }
         } elseif ($afetadas > 0 && ($lancamento['pago'] ?? 'N') === 'S'
             && (isset($dadosUpdate['valor_taxa']) || isset($dadosUpdate['id_forma_pagamento']) || isset($dadosUpdate['data_pago']))) {
-            (new \App\Services\FinanceiroTaxaService())->sincronizar($id);
+            (new \App\Services\FinanceiroTaxaService())->sincronizar($id, null, $transacaoExterna);
         }
 
         return $afetadas;

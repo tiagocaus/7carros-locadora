@@ -12,6 +12,12 @@ use App\Core\Auth;
  */
 class PagamentoLink extends Model
 {
+    /** Recupera o link já baixado para repetir somente os hooks idempotentes da Cora. */
+    public function buscarPorTransacaoPagaCora(int $transactionId): ?array
+    {
+        return $this->qb->table('pagamentos_links')->where('id_transacao_paga', '=', $transactionId)->first();
+    }
+
     /**
      * Gera código único para o link (32 hex chars)
      *

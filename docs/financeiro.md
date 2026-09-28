@@ -98,6 +98,16 @@ regra central. Baixa parcial gera apenas a taxa proporcional e estorno remove a
 despesa. Em gateway, a taxa efetiva (`fee`, ou `amount - net_amount`) substitui
 a estimativa configurada quando estiver disponivel.
 
+### Transação externa na baixa Cora
+
+`Financeiro::atualizar($id, $dados, true)` e
+`FinanceiroTaxaService::sincronizar($id, $idTransacao, true)` recebem o indicador
+opcional de transação externa. O padrão continua `false` para compatibilidade.
+O receptor/polling Cora abre a transação pelo Model e passa `true`: a taxa não
+pode iniciar outra transação nem confirmar a baixa antes do registro do evento.
+Não depender exclusivamente de `MYSQLI_SERVER_STATUS_IN_TRANS`, pois essa
+constante não está disponível em todas as instalações PHP/mysqli.
+
 ### Retroativo de taxas
 
 O script `scripts/backfill-taxas-meios-pagamento.php` contabiliza receitas
@@ -340,6 +350,13 @@ status/webhook antes de nova emissao. Se o gateway estiver indisponivel ou recus
 o cancelamento de uma cobranca ainda pagavel, a alteracao financeira ou o novo
 pagamento online e bloqueado para evitar dois boletos/cobrancas validos para a
 mesma fatura.
+
+No checkout Cora, trocar Pix por boleto ou boleto por Pix exige cancelamento
+confirmado da cobrança anterior antes da nova emissão, inclusive quando o boleto
+já contém Pix. O ciclo completo é serializado pelo bloqueio Cora por tenant e
+financeiro, com validação do valor e situação do lançamento dentro do bloqueio.
+Recusa ou incerteza preserva a cobrança anterior. Pagamento detectado durante a
+troca segue a conciliação existente, sem emitir outra cobrança. Veja `gateways.md`.
 
 No CRON de juros/multa (`CalculateOverdueFeesJob`), esse caso conhecido de
 cobranca ja paga no gateway e tratado como bloqueio parcial: os demais

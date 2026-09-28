@@ -528,6 +528,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->post('/gateways-pagamento/{id}/certificado', [GatewaysPagamentoController::class, 'uploadCertificado'], ['csrf', 'rate_limit']);
     $router->post('/gateways-pagamento/{id}/certificado/remover', [GatewaysPagamentoController::class, 'removerCertificado'], ['csrf', 'rate_limit']);
     $router->post('/api/gateways-pagamento/{id}/testar', [GatewaysPagamentoController::class, 'testar'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->post('/api/gateways-pagamento/{id}/webhook/ativar', [GatewaysPagamentoController::class, 'ativarWebhook'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // API Links de Pagamento
     $router->get('/api/pagamentos-links', [GatewaysPagamentoController::class, 'linksIndex'], ['api_csrf', 'rate_limit', 'throttle']);

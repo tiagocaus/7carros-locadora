@@ -5,6 +5,11 @@
  */
 
 return [
+    'cora_webhook' => [
+        'activate' => 'Ativar webhook',
+        'description' => 'Guarde o Client ID e o certificado. Depois clique no ícone junto ao URL para ativar as notificações na Cora.',
+        'error' => 'Não foi possível ativar o webhook. Verifique as credenciais guardadas e tente novamente.',
+    ],
     'title' => 'Gateways de Pagamento',
     'title_singular' => 'Gateway de Pagamento',
     'new_title' => 'Novo Gateway de Pagamento',

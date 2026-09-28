@@ -304,7 +304,9 @@ class PagamentoPublicoController
                 $link = $linkModel->buscarPorCodigo($codigo) ?? $link;
             }
 
-            if (!empty($link['id_financeiro'])) {
+            // A Cora serializa consulta/cancelamento/emissão dentro do próprio gateway.
+            // Outros gateways mantêm o fluxo existente.
+            if (!empty($link['id_financeiro']) && $gatewayConfig['gateway_code'] !== 'cora') {
                 (new PagamentoLinkSyncService())->invalidarLinksPendentes((int) $link['id_financeiro'], (string) $link['chave']);
                 $link = $linkModel->buscarPorCodigo($codigo) ?? $link;
             }
@@ -328,6 +330,7 @@ class PagamentoPublicoController
                 'description' => $link['descricao'] ?? $link['financeiro_descricao'] ?? 'Pagamento',
                 'external_reference' => "link_{$link['id']}",
                 'due_date' => $dueDate,
+                'source_due_date' => $link['financeiro_vencimento'] ?? null,
             ];
 
             // Dados do cliente
@@ -365,6 +368,13 @@ class PagamentoPublicoController
 
             // Criar cobrança
             $result = $gateway->createCharge($chargeData);
+
+            if ($gateway instanceof \App\Services\Gateways\CoraGateway && !empty($result['reconcile_transaction'])) {
+                $transaction = $result['reconcile_transaction'];
+                $this->confirmarPagamentoCora($transaction, $gateway, [
+                    'event' => 'invoice.switch', 'event_id' => null, 'resource_id' => $transaction['external_id'],
+                ]);
+            }
 
             if (!$result['success']) {
                 Response::json([
@@ -513,6 +523,16 @@ class PagamentoPublicoController
                         $transacao['id_gateway']
                     );
 
+                    if ($gateway instanceof \App\Services\Gateways\CoraGateway) {
+                        $confirmed = $this->confirmarPagamentoCora($transacao, $gateway, [
+                            'event' => 'invoice.poll', 'event_id' => '', 'resource_id' => $transacao['external_id'],
+                        ]);
+                        Response::json(['success' => true, 'data' => [
+                            'status' => $confirmed['status'], 'message' => $this->getStatusMessage($confirmed['status']),
+                        ]]);
+                        return;
+                    }
+
                     $statusResult = $gateway->getChargeStatus($transacao['external_id']);
 
                     if ($statusResult['success']) {
@@ -556,6 +576,10 @@ class PagamentoPublicoController
                         return;
                     }
                 } catch (\Exception $e) {
+                    if ($gatewayConfig['gateway_code'] === 'cora') {
+                        Response::json(['success' => false, 'message' => 'Aguarde a confirmação de pagamento na Cora.'], 503);
+                        return;
+                    }
                     // Log error, continue with stored status
                 }
             }
@@ -578,6 +602,10 @@ class PagamentoPublicoController
     public function webhook(Request $request, string $gatewayCode): void
     {
         $gatewayCode = strtolower($gatewayCode);
+        if ($gatewayCode === 'cora') {
+            $this->processarWebhookCora();
+            return;
+        }
         $payload = $this->getWebhookPayload($request);
         $headers = $this->getHeaders();
 
@@ -770,6 +798,88 @@ class PagamentoPublicoController
         } catch (\Throwable $e) {
             error_log("[Webhook] Erro gateway={$gatewayCode}: " . $e->getMessage());
             Response::json(['success' => false, 'message' => 'Erro ao processar webhook'], 500);
+        }
+    }
+
+    /** Cabeçalhos são apenas um aviso; o status sempre vem da API autenticada. */
+    private function processarWebhookCora(): void
+    {
+        $previousChave = $_SESSION['chave'] ?? null;
+        $response = ['success' => true];
+        $http = 200;
+        try {
+            $event = \App\Services\Gateways\CoraGateway::webhookPayload($this->getHeaders());
+            if (!preg_match('/^invoice\.(drafted|created|paid|canceled|overdue)$/D', $event['event'])
+                || !preg_match('/^inv_[a-zA-Z0-9_-]+$/D', $event['resource_id'])) {
+                $response = ['success' => true, 'ignored' => true];
+            } else {
+                $model = new FinanceiroTransacao();
+                $transaction = $model->buscarCobrancaCoraPorExternalId($event['resource_id']);
+                if (!$transaction) {
+                    $response = ['success' => true, 'ignored' => true];
+                } else {
+                    $_SESSION['chave'] = $transaction['chave'];
+                    $configuration = (new GatewayPagamento())->buscarPorIdComCredenciaisParaTenant(
+                        (int) $transaction['id_gateway'], (string) $transaction['chave']
+                    );
+                    if (!$configuration || $configuration['gateway_code'] !== 'cora') throw new \RuntimeException('Configuração Cora indisponível.');
+                    $gateway = GatewayFactory::create('cora', $configuration['credentials'], $configuration['ambiente'] === 'sandbox', $configuration['id']);
+                    $this->confirmarPagamentoCora($transaction, $gateway, $event);
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('[Cora] Webhook não concluído: ' . get_class($e));
+            $http = 503;
+            $response = ['success' => false, 'message' => 'Não foi possível confirmar o pagamento na Cora.'];
+        } finally {
+            if ($previousChave === null) unset($_SESSION['chave']);
+            else $_SESSION['chave'] = $previousChave;
+        }
+        Response::json($response, $http);
+    }
+
+    /** Mesmo caminho para polling e webhook: consulta, baixa atômica e hooks. */
+    private function confirmarPagamentoCora(array $transaction, \App\Services\Gateways\CoraGateway $gateway, array $event): array
+    {
+        $previousChave = $_SESSION['chave'] ?? null;
+        $_SESSION['chave'] = $transaction['chave'];
+        try {
+            $model = new FinanceiroTransacao();
+            return $model->comBloqueioCora($transaction['chave'], 'charge:' . $transaction['id_financeiro'], function () use ($model, $transaction, $event, $gateway) {
+                $confirmed = $gateway->getChargeStatus($event['resource_id']);
+                if (empty($confirmed['success'])) throw new \RuntimeException('Consulta autenticada da Cora indisponível.');
+                if (!isset($confirmed['raw']['total_amount']) || (int) $confirmed['raw']['total_amount'] !== (int) round((float) $transaction['amount'] * 100)) {
+                    throw new \RuntimeException('Valor da cobrança Cora divergente.');
+                }
+                $link = null;
+                $model->aplicarWebhookCora($transaction, $confirmed, $event, function (array $row) use (&$link, $confirmed) {
+                    if (empty($row['id_financeiro'])) throw new \RuntimeException('Cobrança Cora sem financeiro.');
+                    $financeiro = new Financeiro();
+                    if (!$financeiro->buscarPorId((int) $row['id_financeiro'])) throw new \RuntimeException('Financeiro não encontrado.');
+                    $financeiro->atualizar((int) $row['id_financeiro'], [
+                        'pago' => 'S', 'data_pago' => substr($confirmed['paid_at'] ?? now(), 0, 10),
+                    ], true);
+                    (new \App\Services\FinanceiroTaxaService())->sincronizar((int) $row['id_financeiro'], (int) $row['id'], true);
+                    $links = new PagamentoLink();
+                    $link = $links->buscarReutilizavelPorFinanceiro((int) $row['id_financeiro']);
+                    if ($link) $links->marcarComoPago($link['id'], $row['id'], null, null);
+                });
+                // Hooks existentes após commit, mantendo o contexto do tenant.
+                if ($confirmed['status'] === 'paid') {
+                    try {
+                        (new \App\Services\ComissaoInvestidorService())->processarComissaoPorFinanceiro((int) $transaction['id_financeiro']);
+                    } catch (\Throwable $e) { error_log('[Cora] Falha no hook de comissão.'); }
+                    if (!$link) $link = (new PagamentoLink())->buscarPorTransacaoPagaCora((int) $transaction['id']);
+                    if (!empty($link['id_locacao'])) {
+                        $locacao = (new \App\Models\Locacao())->buscarPorId((int) $link['id_locacao']);
+                        if ($locacao && $locacao['status'] === 'P') $this->efetivarReservaAposPagamento((int) $link['id_locacao']);
+                    }
+                }
+                return $confirmed;
+            });
+        } finally {
+            if ($previousChave === null) unset($_SESSION['chave']);
+            else $_SESSION['chave'] = $previousChave;
         }
     }
 

@@ -11,6 +11,125 @@ use App\Core\Auth;
  */
 class FinanceiroTransacao extends Model
 {
+    /** Serializa operações Cora usando a conexão Singleton, sem segurar uma transação durante HTTP. */
+    public function comBloqueioCora(string $chave, string $operation, callable $callback): mixed
+    {
+        if ($chave === '') throw new \InvalidArgumentException('Tenant obrigatório.');
+        $db = $this->getMysqli();
+        $name = 'cora:' . substr(hash('sha256', $chave . ':' . $operation), 0, 59);
+        $stmt = $db->prepare('SELECT GET_LOCK(?, 5) AS acquired');
+        $stmt->bind_param('s', $name);
+        $stmt->execute();
+        $acquired = (int) ($stmt->get_result()->fetch_assoc()['acquired'] ?? 0);
+        $stmt->close();
+        if ($acquired !== 1) throw new \RuntimeException('Operação Cora em andamento. Tente novamente.');
+        try { return $callback(); }
+        finally {
+            $stmt = $db->prepare('SELECT RELEASE_LOCK(?)');
+            $stmt->bind_param('s', $name);
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+
+    public function financeiroDisponivelParaCora(string $chave, int $financeiroId, float $valor): bool
+    {
+        $row = $this->qb->table('financeiro')->withChave($chave)
+            ->where('id', '=', $financeiroId)->first();
+        return $row && $row['pago'] === 'N' && abs((float) $row['valor_total'] - $valor) < 0.009;
+    }
+
+    /** Inclui pagas para impedir reemissão antes da conciliação financeira. */
+    public function listarTentativasParaTrocaCora(string $chave, int $financeiroId): array
+    {
+        return $this->qb->table('financeiro_transacoes')->withChave($chave)
+            ->where('id_financeiro', '=', $financeiroId)->where('type', '=', 'charge')
+            ->whereRaw('(status IS NULL OR status NOT IN (?, ?, ?))', ['cancelled', 'failed', 'refunded'])
+            ->orderBy('id', 'DESC')->get();
+    }
+
+    public function buscarTentativaCora(string $chave, int $gatewayId, int $financeiroId, string $fingerprint): ?array
+    {
+        $rows = $this->qb->table('financeiro_transacoes')->withChave($chave)
+            ->where('gateway', '=', 'cora')->where('id_gateway', '=', $gatewayId)
+            ->where('id_financeiro', '=', $financeiroId)->where('type', '=', 'charge')
+            ->whereRaw('(status IS NULL OR status NOT IN (?, ?, ?))', ['cancelled', 'failed', 'refunded'])
+            ->orderBy('id', 'DESC')->get();
+        foreach ($rows as $row) {
+            $meta = json_decode($row['payload'] ?? '{}', true);
+            if (($meta['_cora_fingerprint'] ?? '') === $fingerprint) return $row;
+        }
+        return null;
+    }
+
+    public function temTentativaCoraAberta(string $chave, int $gatewayId, int $financeiroId): bool
+    {
+        return $this->qb->table('financeiro_transacoes')->withChave($chave)
+            ->where('gateway', '=', 'cora')->where('id_gateway', '=', $gatewayId)
+            ->where('id_financeiro', '=', $financeiroId)->where('type', '=', 'charge')
+            ->whereRaw('(status IS NULL OR status NOT IN (?, ?, ?))', ['cancelled', 'failed', 'refunded'])->exists();
+    }
+
+    public function salvarRetornoCora(string $chave, int $id, array $result, array $payload): void
+    {
+        $this->qb->table('financeiro_transacoes')->withChave($chave)->where('id', '=', $id)
+            ->where('gateway', '=', 'cora')->where('type', '=', 'charge')->update([
+                'external_id' => $result['external_id'], 'status' => $result['status'],
+                'payment_url' => $result['payment_url'], 'pix_code' => $result['pix_code'],
+                'barcode' => $result['barcode'], 'expires_at' => $result['expires_at'],
+                'payload' => json_encode($payload, JSON_THROW_ON_ERROR), 'updated_at' => now(),
+            ]);
+    }
+
+    /** Bootstrap público: só cobranças Cora; nenhum tenant é aceito do remetente. */
+    public function buscarCobrancaCoraPorExternalId(string $externalId): ?array
+    {
+        $rows = $this->qb->table('financeiro_transacoes')->withoutChave()
+            ->where('gateway', '=', 'cora')->where('type', '=', 'charge')
+            ->where('external_id', '=', $externalId)->limit(2)->get();
+        if (count($rows) > 1) throw new \RuntimeException('Identificador Cora ambíguo.');
+        return $rows[0] ?? null;
+    }
+
+    /** Atualiza cobrança e financeiro atomicamente; callback usa os Models existentes. */
+    public function aplicarWebhookCora(array $transaction, array $confirmed, array $event, callable $onPaid): bool
+    {
+        $db = $this->getMysqli();
+        $chave = (string) $transaction['chave'];
+        $db->begin_transaction();
+        try {
+            $row = $this->qb->table('financeiro_transacoes')->withChave($chave)
+                ->where('id', '=', $transaction['id'])->where('gateway', '=', 'cora')
+                ->where('type', '=', 'charge')->lockForUpdate()->first();
+            if (!$row) throw new \RuntimeException('Cobrança Cora não encontrada.');
+            $status = $confirmed['status'];
+            if (!empty($row['webhook_received_at']) && ($row['status'] === 'paid' || $row['status'] === $status)) {
+                $db->commit();
+                return false;
+            }
+            // Polling/webhook atrasado não reabre uma cobrança já cancelada na troca.
+            if ($row['status'] === 'cancelled' && $status !== 'paid') {
+                $db->commit();
+                return false;
+            }
+            if ($row['status'] === 'paid' && $status !== 'paid') {
+                $db->commit();
+                return false;
+            }
+            $this->qb->table('financeiro_transacoes')->withChave($chave)->where('id', '=', $row['id'])
+                ->update(['status' => $status, 'paid_at' => $status === 'paid' ? ($confirmed['paid_at'] ?? now()) : null,
+                    'webhook_received_at' => now(), 'updated_at' => now()]);
+            if ($status === 'paid') $onPaid($row);
+            $this->qb->table('financeiro_transacoes')->withChave($chave)->insert([
+                'chave' => $chave, 'id_gateway' => $row['id_gateway'], 'id_financeiro' => $row['id_financeiro'],
+                'gateway' => 'cora', 'external_id' => $row['external_id'], 'type' => 'webhook',
+                'status' => 'invoice:' . $status, 'payload' => json_encode($event, JSON_THROW_ON_ERROR),
+            ]);
+            $db->commit();
+            return true;
+        } catch (\Throwable $e) { $db->rollback(); throw $e; }
+    }
+
     /**
      * Cria nova transação
      *

@@ -230,13 +230,20 @@
         <!-- Secao: Webhook -->
         <div class="form-section mb-6" id="sectionWebhook" style="display: none;">
             <h3 class="form-section-title"><i class="fas fa-satellite-dish mr-2"></i><?= t('modules.gateways_pagamento.sections.webhook') ?></h3>
-            <p class="text-sm text-slate-600 mb-4"><?= t('modules.gateways_pagamento.sections.webhook_desc') ?></p>
+            <p id="webhookDescription" class="text-sm text-slate-600 mb-4"><?= t('modules.gateways_pagamento.sections.webhook_desc') ?></p>
 
             <div class="grid grid-cols-1 gap-4">
                 <div class="form-input-group">
                     <label class="form-label-group"><?= t('modules.gateways_pagamento.fields.webhook_url') ?></label>
                     <div class="flex items-center space-x-2">
                         <input type="text" id="webhook_url" class="form-input-group-field bg-slate-50" readonly>
+                        <button type="button" id="btnActivateCoraWebhook" style="display: none" class="btn-secondary py-2 px-3 rounded-md text-sm disabled:opacity-50" hidden disabled
+                            title="<?= t('modules.gateways_pagamento.cora_webhook.activate') ?>"
+                            aria-label="<?= t('modules.gateways_pagamento.cora_webhook.activate') ?>"
+                            data-description="<?= t('modules.gateways_pagamento.cora_webhook.description') ?>"
+                            data-error="<?= t('modules.gateways_pagamento.cora_webhook.error') ?>">
+                            <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                        </button>
                         <button type="button" id="btnCopyWebhook" class="btn-secondary py-2 px-3 rounded-md text-sm" title="<?= t('modules.gateways_pagamento.actions.copy_url') ?>">
                             <i class="fas fa-copy"></i>
                         </button>
@@ -262,6 +269,7 @@
 @endsection
 
 @section('scripts')
+<script src="<?= asset('js/cora-webhook.min.js') ?>"></script>
 <script>
     (function() {
         const i18n = {
@@ -304,6 +312,12 @@
         let dropdownFiliaisAberto = false;
         let dropdownMoedasAberto = false;
         let certificadoGatewayAtual = null;
+        const coraWebhook = window.CoraWebhookButton(() => ({
+            id: registroId,
+            code: document.getElementById('gateway_code').value,
+            certificate: certificadoGatewayAtual,
+            clientId: credenciaisOriginais.client_id
+        }));
 
         function navegarPara(page) {
             if (window.parent !== window) {
@@ -561,6 +575,7 @@
             // Atualizar webhook URL
             const baseUrl = window.location.origin;
             document.getElementById('webhook_url').value = `${baseUrl}/webhook/${option.value}`;
+            coraWebhook.sync();
 
             // Sugerir nome se vazio
             if (!document.getElementById('nome').value) {
@@ -924,6 +939,7 @@
             document.getElementById('pageTitle').textContent = i18n.editTitle;
             document.getElementById('btnTestar').style.display = 'inline-flex';
             atualizarSecaoCertificadoGateway();
+            coraWebhook.saved();
         }
 
         // Salvar
@@ -1131,6 +1147,7 @@
                     const result = await API.post(`/gateways-pagamento/${registroId}/certificado/remover`);
                     if (result.success) {
                         certificadoGatewayAtual = null;
+                        coraWebhook.sync();
                         atualizarSecaoCertificadoGateway();
                         window.parent.postMessage({ action: 'showToast', message: result.message || 'Certificado removido.' }, '*');
                     } else {

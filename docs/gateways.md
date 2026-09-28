@@ -171,6 +171,83 @@ Nao existe "certificado privado" nesse fluxo: o segundo arquivo e a **chave priv
 
 Nao cadastre caminhos de arquivos pelo formulario. Durante chamadas mTLS, `GatewayCertificateService` prepara o certificado e a chave para cURL e remove artefatos temporarios ao final. Credenciais antigas que ainda contenham `certificate_path` ou `private_key_path` permanecem como fallback de execucao; ao enviar um certificado pela tela, os campos legados sao removidos. Remover um certificado obrigatorio tambem inativa o gateway.
 
+#### Cora — Integração Direta
+
+A Cora usa Client ID, certificado e chave privada do mesmo ambiente. Não usa
+Client Secret. O campo legado é ignorado e removido ao salvar a configuração.
+O serviço existente de certificados aceita o par PEM/KEY ou PFX/P12 correspondente.
+
+- Stage: `https://matls-clients.api.stage.cora.com.br`;
+- Produção: `https://matls-clients.api.cora.com.br`;
+- Token: `POST /token`, form-urlencoded com `grant_type=client_credentials` e
+  `client_id`. Todas as chamadas usam mTLS, e as chamadas de negócio usam Bearer;
+- Cobrança: `POST /v2/invoices`, com `customer`, `services`, `payment_terms` e
+  `code`. Pix usa `payment_forms=["PIX"]`; boleto usa `["BANK_SLIP","PIX"]`;
+- Consulta/cancelamento: `GET`/`DELETE /v2/invoices/{id}`. Cancelamento exige HTTP
+  204. Estorno automático não é implementado e nunca retorna sucesso presumido.
+
+O Pix exige chave Pix cadastrada na Cora. A interface só apresenta a cobrança
+como pronta quando recebe o código Pix ou os dados do boleto. Estados DRAFT,
+OPEN, LATE, IN_PAYMENT, INITIATED e RECURRENCE_DRAFT permanecem pendentes;
+PAID confirma pagamento; CANCELLED/CANCELED indica cancelamento. Estados
+inesperados e erros HTTP não são convertidos em sucesso.
+
+O QR Code é gerado localmente a partir de `pix.emv`, com a biblioteca já usada
+por Inter e Sicoob, e retornado em `pix_qrcode` como SVG em Data URI. A URL PNG
+fornecida pela Cora não deve ser enviada como Base64 ao componente de pagamento.
+Emissão e consulta usam a mesma normalização, inclusive para cobranças existentes
+e boletos com Pix. Se a geração da imagem falhar, o Copia e Cola é preservado e
+`pix_qrcode` fica nulo, sem imagem inválida. URLs e dados do boleto são preservados.
+
+Cada tentativa é registrada em `financeiro_transacoes` antes do envio, com UUID
+de idempotência e fingerprint no JSON `payload` (`_cora_key`, `_cora_fingerprint`).
+Um timeout conserva a mesma tentativa e UUID; uma cobrança identificada passa a
+ser consultada. A data original do financeiro fica em `_cora_source_due_date`
+para não cancelar uma cobrança apenas porque o acesso ocorreu em outro dia.
+Não há migration para este fluxo.
+
+**Troca Pix/boleto:** consulta, decisão, cancelamento e emissão ficam sob o mesmo
+GET_LOCK por tenant e financeiro. Mudar o método sempre substitui a cobrança:
+mesmo o boleto com Pix é cancelado antes de emitir um novo Pix isolado. A nova
+emissão só ocorre após DELETE 204 ou GET autenticado com estado CANCELLED.
+Recusa/timeout provoca nova consulta; OPEN, processamento ou consulta inconclusiva
+preservam a cobrança anterior e bloqueiam a emissão. PAID encaminha à conciliação
+compartilhada com polling/webhook, sem marcar a transação paga antes da baixa.
+Um evento atrasado pendente nunca reabre a cobrança cancelada.
+
+O mesmo método e dados compatíveis reutilizam a cobrança. Se a emissão nova
+falhar depois do cancelamento, a próxima tentativa reutiliza seu UUID. Uma
+emissão sem ID remoto e com dados diferentes precisa ser resolvida no método
+anterior antes da troca. Cobranças de outro gateway ou múltiplas cobranças abertas
+bloqueiam a troca Cora para conferência. O link público e o histórico permanecem.
+
+O cancelamento registra via AuditLogService o gateway, ID externo, HTTP, código,
+mensagem sanitizada e estado consultado após falha. Credenciais, URLs, documentos
+e e-mails são removidos; a página recebe mensagem amigável e código de referência,
+nunca o corpo bruto da API. A recusa 422 não implica cancelamento ou pagamento.
+
+O botão com ícone **Ativar webhook**, ao lado da URL e exclusivo da Cora, exige
+credenciais e certificado salvos. Alterações pendentes impedem sua execução.
+`POST /api/gateways-pagamento/{id}/webhook/ativar` exige sessão, CSRF e
+`configuracoes.editar`. O servidor constrói a URL HTTPS a partir de APP_URL,
+consulta `GET /endpoints/` e cadastra `POST /endpoints/` somente quando necessário,
+com `resource=invoice` e `trigger=*`. Ativar novamente não duplica um cadastro ativo.
+Não há cadastro automático ao salvar nem exclusão de endpoints de terceiros.
+
+O receptor continua em `POST /webhook/cora`. O corpo pode ser vazio: os dados
+vêm nos headers `webhook-event-id`, `webhook-event-type` e `webhook-resource-id`.
+Não existe presunção de assinatura válida ou de mTLS no recebimento. A cobrança
+local identifica tenant e configuração; consulta autenticada confirma ID,
+valor e estado antes de qualquer baixa. Polling e webhook usam o mesmo caminho.
+A baixa, taxa e registro de processamento são transacionais; falhas retornam
+503 para permitir repetição. Eventos sem vínculo local são ignorados com 200.
+Comissões e confirmação de reserva usam os hooks existentes após o commit.
+
+Referências: [autenticação](https://developers.cora.com.br/docs/client-credentials-int-direta),
+[Pix v2](https://developers.cora.com.br/reference/qr-code-pix-v2),
+[boletos v2](https://developers.cora.com.br/reference/emiss%C3%A3o-de-boleto-registrado),
+[webhooks](https://developers.cora.com.br/reference/cria%C3%A7%C3%A3o-de-endpoints).
+
 #### Autenticacao Sicoob
 
 O Sicoob usa OAuth2 `client_credentials` com mTLS. Os escopos devem ser

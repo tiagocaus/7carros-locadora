@@ -526,11 +526,35 @@ class GatewaysPagamentoController
         }
     }
 
-    /**
-     * Testa conexão com o gateway
-     *
-     * POST /api/gateways-pagamento/{id}/testar
-     */
+    /** Registra explicitamente a URL do tenant nas notificações da Cora. */
+    public function ativarWebhook(Request $request, int $id): void
+    {
+        if (!Auth::can('configuracoes.editar')) {
+            Response::json(['success' => false, 'message' => 'Sem permissão para editar configurações.'], 403);
+            return;
+        }
+        try {
+            $gateway = (new GatewayPagamento())->buscarPorIdComCredenciais($id);
+            if (!$gateway || $gateway['chave'] !== Auth::chave() || $gateway['gateway_code'] !== 'cora') {
+                Response::json(['success' => false, 'message' => 'Gateway Cora não encontrado.'], 404);
+                return;
+            }
+            if (!$this->hasUsableCertificate($gateway['credentials'] ?? [])) {
+                Response::json(['success' => false, 'message' => 'Salve o certificado e a chave privada antes de ativar o webhook.'], 422);
+                return;
+            }
+            $instance = GatewayFactory::create('cora', $gateway['credentials'], $gateway['ambiente'] === 'sandbox', $id);
+            $url = rtrim((string) \App\Core\Database::env('APP_URL', ''), '/') . '/webhook/cora';
+            $result = (new \App\Models\FinanceiroTransacao())->comBloqueioCora(
+                (string) $gateway['chave'], 'webhook:' . $id,
+                fn() => $instance->activateWebhook($url)
+            );
+            Response::json($result);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
     public function testar(Request $request, int $id): void
     {
         try {
@@ -830,6 +854,10 @@ class GatewaysPagamentoController
             foreach ($legacyKeys as $key) {
                 unset($normalized[$key]);
             }
+        }
+
+        if ($gatewayCode === 'cora') {
+            unset($normalized['client_secret']);
         }
 
         if ($gatewayCode === 'sicoob') {
