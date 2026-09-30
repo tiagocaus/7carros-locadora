@@ -348,7 +348,6 @@ class NFSeController
                 'descricao_servico' => $dados['descricao_servico'] ?? '',
                 'iss_retido' => $dados['iss_retido'] ?? 'N',
                 'tomador_email' => $dados['tomador_email'] ?? '',
-                'tomador_codigo_municipio' => $dados['tomador_codigo_municipio'] ?? '',
                 'itens_nao_tributaveis' => $dados['itens_nao_tributaveis'] ?? [],
             ];
 

@@ -431,6 +431,7 @@ class Financeiro extends Model
                 'c.cpf_cnpj AS cliente_cpf_cnpj',
                 'c.tipo AS cliente_tipo',
                 'c.pais AS cliente_pais',
+                'c.codigo_municipio AS cliente_codigo_municipio',
                 "(SELECT ce.email FROM contatos_emails ce WHERE ce.entidade_tipo = 'cliente' AND ce.entidade_id = c.id ORDER BY ce.principal = 'S' DESC, ce.id ASC LIMIT 1) AS cliente_email",
                 'fo.nome_rsocial AS fornecedor_nome',
                 'pc.descricao_i18n AS plano_conta_descricao_i18n',

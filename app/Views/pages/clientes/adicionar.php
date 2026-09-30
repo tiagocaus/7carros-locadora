@@ -191,13 +191,20 @@
                         </div>
                     </div>
 
-                    <!-- Linha 3: Estado, País -->
+                    <!-- Linha 3: Estado, IBGE, País -->
                     <div class="grid grid-cols-12 gap-4 mt-4">
-                        <div class="col-span-12 sm:col-span-6 form-input-group">
+                        <div class="col-span-12 sm:col-span-4 form-input-group">
                             <label for="clienteEstado" class="form-label-group">{{ t('modules.clientes.fields.state') }}</label>
                             <input type="text" id="uf" name="estado" class="form-input-group-field">
                         </div>
-                        <div class="col-span-12 sm:col-span-6 form-input-group">
+                        <div class="col-span-12 sm:col-span-4 form-input-group" id="clienteMunicipioGroup">
+                            <label for="codigo_municipio" class="form-label-group">
+                                {{ t('modules.clientes.fields.municipality_code') }}
+                                <?= aviso(t('modules.clientes.fields.municipality_code_hint')) ?>
+                            </label>
+                            <input type="text" id="codigo_municipio" name="codigo_municipio" class="form-input-group-field" inputmode="numeric" maxlength="7" pattern="[0-9]{7}">
+                        </div>
+                        <div class="col-span-12 sm:col-span-4 form-input-group">
                             <label for="clientePais" class="form-label-group">{{ t('modules.clientes.fields.country') }}</label>
                             <select id="pais" name="pais" class="form-input-group-field chosen-select"
                                     data-chosen-placeholder="{{ t('common.labels.select') }}...">
@@ -1597,6 +1604,7 @@ $jsText = static fn(string $value): string => json_encode($value, $jsonFlags);
             }
 
             // CNH
+            document.getElementById('codigo_municipio').value = data.pais === 'BR' ? (data.codigo_municipio || '') : '';
             if (data.cnh_numero) document.getElementById('clienteCNH').value = data.cnh_numero;
             if (data.cnh_codigo_seguranca) document.getElementById('clienteCNHCodSeg').value = data.cnh_codigo_seguranca;
             if (data.cnh_categoria) document.getElementById('clienteCNHCategoria').value = data.cnh_categoria;

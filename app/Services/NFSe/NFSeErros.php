@@ -133,6 +133,12 @@ class NFSeErros
             'instrucao' => 'Verifique CEP, cidade e estado no cadastro do cliente.',
             'categoria' => 'tomador',
         ],
+        'TOMADOR_MUNICIPIO' => [
+            'mensagem' => 'Código IBGE do município do cliente não informado ou inválido.',
+            'instrucao' => 'Informe o código IBGE no cadastro do cliente antes de emitir ou reenviar a NFS-e.',
+            'categoria' => 'tomador',
+            'recuperavel' => false,
+        ],
         'TOMADOR_EMAIL' => [
             'mensagem' => 'Email do cliente inválido.',
             'instrucao' => 'Corrija o email no cadastro do cliente.',
@@ -503,6 +509,11 @@ class NFSeErros
     {
         $codigoSEFIN = trim($codigoSEFIN);
         $mensagemLower = mb_strtolower($mensagem, 'UTF-8');
+
+        if (str_contains($mensagemLower, 'município do tomador deve ser informado')
+            || str_contains($mensagemLower, 'municipio do tomador deve ser informado')) {
+            return 'TOMADOR_MUNICIPIO';
+        }
 
         if ($codigoSEFIN === 'E0014') {
             return 'DPS_JA_GERADA';

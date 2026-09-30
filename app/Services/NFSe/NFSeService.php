@@ -339,6 +339,7 @@ class NFSeService
                     'numero' => $preparado['numero'],
                     'serie' => $dados['serie'] ?? null,
                     'xml_envio' => $xml,
+                    'tomador_endereco' => json_encode($dados['tomador']['endereco'], JSON_UNESCAPED_UNICODE),
                 ]);
                 if ($numeroAnterior > 0 && $numeroAnterior !== (int) $preparado['numero']) {
                     $this->eventoModel->registrar(
@@ -353,6 +354,7 @@ class NFSeService
                 if (empty($xml)) {
                     return $this->erro('XML de envio não encontrado.', 'XML_INVALIDO');
                 }
+                $this->validarEnderecoBethaXML($xml, $tipoEmissao);
                 $api = $this->resolverAPI($tipoEmissao, $config);
                 if ($tentativaExtraManual && !$this->reservarTentativaExtraManual($nfse)) {
                     return $this->erro('A tentativa manual extra desta NFS-e já foi utilizada.', 'ERRO_DESCONHECIDO');
@@ -1219,10 +1221,6 @@ class NFSeService
             $this->validarConfiguracaoIBSCBS($config);
         }
         $tomadorEndereco = $this->montarEnderecoTomador($cliente);
-        $codigoMunicipioTomador = preg_replace('/\D/', '', (string) ($dadosExtras['tomador_codigo_municipio'] ?? ''));
-        if (strlen($codigoMunicipioTomador) === 7) {
-            $tomadorEndereco['codigo_municipio'] = $codigoMunicipioTomador;
-        }
         $descricaoBase = $this->valorPreferencial(
             $dadosExtras['descricao_servico'] ?? '',
             $config['descricao_servico'] ?? ''
@@ -1571,7 +1569,7 @@ class NFSeService
             'cidade' => $cliente['cidade'] ?? '',
             'uf' => $cliente['estado'] ?? '',
             'cep' => $cliente['cep'] ?? '',
-            'codigo_municipio' => $cliente['codigo_municipio'] ?? $cliente['municipio_codigo'] ?? $cliente['codigo_ibge'] ?? '',
+            'codigo_municipio' => $cliente['codigo_municipio'] ?? '',
             'pais' => $pais,
             'codigo_pais_bacen' => $paisCadastro['codigo_bacen'] ?? '',
         ];
@@ -1604,6 +1602,7 @@ class NFSeService
         }
 
         $idMatrizFilial = (int) $config['id_matriz_filial'];
+        $dados['tipo_emissao'] = $tipoEmissao;
 
         try {
             if ($tipoEmissao === 'issnet') {
@@ -1935,6 +1934,7 @@ class NFSeService
         }
 
         $tomador = $dados['tomador'] ?? [];
+        $this->validarEnderecoBetha($dados);
         $nomeTomador = trim((string) ($tomador['nome'] ?? ''));
         if ($nomeTomador === '') {
             throw new \InvalidArgumentException('Nome do cliente não informado.');
@@ -1964,6 +1964,68 @@ class NFSeService
         }
         if (!in_array(strlen($cpfCnpj), [11, 14], true)) {
             throw new \InvalidArgumentException(NFSeErros::getInstrucao('TOMADOR_DOCUMENTO_AUSENTE'));
+        }
+    }
+
+    /** Validacao local da operacao de locacao Betha, antes de reservar numeracao. */
+    private function validarEnderecoBetha(array $dados): void
+    {
+        $valores = $dados['valores'] ?? [];
+        $tomador = $dados['tomador'] ?? [];
+        if (($dados['tipo_emissao'] ?? '') !== 'betha'
+            || ($valores['preencher_ibscbs'] ?? 'N') !== 'S'
+            || ($valores['c_ind_op_ibscbs'] ?? '') !== '100301'
+            || ($tomador['tipo'] ?? '') === 'ES'
+            || strtoupper(trim((string) ($tomador['pais'] ?? 'BR'))) !== 'BR') {
+            return;
+        }
+
+        $endereco = $tomador['endereco'] ?? [];
+        $codigo = (string) ($endereco['codigo_municipio'] ?? '');
+        if (!preg_match('/^[0-9]{7}$/D', $codigo) || $codigo === '0000000') {
+            throw new \InvalidArgumentException(NFSeErros::getInstrucao('TOMADOR_MUNICIPIO'));
+        }
+        $cep = preg_replace('/\D/', '', (string) ($endereco['cep'] ?? ''));
+        if (strlen($cep) !== 8 || preg_match('/^(\d)\1{7}$/D', $cep)) {
+            throw new \InvalidArgumentException('Informe um CEP brasileiro válido no cadastro do cliente antes de emitir ou reenviar a NFS-e.');
+        }
+    }
+
+    /** XML assinado sem financeiro nao pode ser regenerado nem enviado incompleto. */
+    private function validarEnderecoBethaXML(string $xml, string $tipoEmissao): void
+    {
+        if ($tipoEmissao !== 'betha') {
+            return;
+        }
+        $doc = new \DOMDocument();
+        if (!@$doc->loadXML($xml, LIBXML_NONET)) {
+            throw new \InvalidArgumentException('XML salvo inválido: não é possível validar o endereço do cliente para reenvio.');
+        }
+        $xpath = new \DOMXPath($doc);
+        $xpath->registerNamespace('b', 'http://www.betha.com.br/e-nota-dps');
+        $inf = $xpath->query('/b:DPS/b:infDPS')->item(0);
+        if (!$inf) {
+            throw new \InvalidArgumentException('XML salvo inválido: não é possível validar o endereço do cliente para reenvio.');
+        }
+        $valor = static fn(string $path): string => $xpath->evaluate('string(' . $path . ')', $inf);
+        $dados = [
+            'tipo_emissao' => 'betha',
+            'valores' => [
+                'preencher_ibscbs' => $xpath->evaluate('count(b:IBSCBS)', $inf) > 0 ? 'S' : 'N',
+                'c_ind_op_ibscbs' => $valor('b:IBSCBS/b:cIndOp'),
+            ],
+            'tomador' => [
+                'pais' => $xpath->evaluate('count(b:toma/b:cNaoNIF | b:toma/b:NIF | b:toma/b:end/b:endExt)', $inf) > 0 ? 'EX' : 'BR',
+                'endereco' => [
+                    'codigo_municipio' => $valor('b:toma/b:end/b:endNac/b:cMun'),
+                    'cep' => $valor('b:toma/b:end/b:endNac/b:CEP'),
+                ],
+            ],
+        ];
+        try {
+            $this->validarEnderecoBetha($dados);
+        } catch (\InvalidArgumentException $e) {
+            throw new \InvalidArgumentException($e->getMessage() . ' Esta tentativa não possui financeiro vinculado para regenerar o XML; solicite a revisão pelo suporte.');
         }
     }
 
@@ -2000,6 +2062,13 @@ class NFSeService
     private function codigoValidacaoDPS(string $mensagem): string
     {
         $mensagemLower = mb_strtolower($mensagem, 'UTF-8');
+
+        if (str_contains($mensagemLower, 'código ibge no cadastro do cliente')) {
+            return 'TOMADOR_MUNICIPIO';
+        }
+        if (str_contains($mensagemLower, 'cep brasileiro') || str_contains($mensagemLower, 'endereço do cliente')) {
+            return 'TOMADOR_ENDERECO';
+        }
 
         if (str_contains($mensagemLower, 'ibs/cbs')) {
             return 'IBSCBS_CONFIGURACAO';

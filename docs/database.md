@@ -210,6 +210,10 @@ As colunas `matrizes_filiais.email`, `matrizes_filiais.fixo` e
 `MatrizFilial` entrega os aliases canonicos `email`, `telefone` e `whatsapp`
 a partir das tabelas de contatos; nao recrie campos diretos para esses dados.
 
+### Municipio brasileiro de clientes
+
+`clientes.codigo_municipio` e `VARCHAR(7) NULL`, criado pela migration `00433_add_cliente_codigo_municipio.php`. Guarda o codigo IBGE brasileiro, preenchido pelo retorno `ibge` do ViaCEP ou informado manualmente. Clientes estrangeiros mantem `NULL`; cadastros antigos nao recebem preenchimento retroativo automatico. O endereco enviado na NFS-e preserva esse codigo em `nfse.tomador_endereco`.
+
 ### Coluna `chave` (Obrigatória)
 
 **TODAS as tabelas de dados de tenant DEVEM ter a coluna `chave`:**

@@ -1,0 +1,1196 @@
+{
+  "info": {
+    "_postman_id": "706c4d0d-b8c5-48db-83f0-0f7a3e612481",
+    "name": "GCC Quem Me Viu → SENATRAN | Homologação",
+    "description": "# GCC Quem Me Viu → SENATRAN | Homologação\n\n## Comece aqui\n\n1. Importe a coleção e abra **Variables**. Pode manter **No Environment**.\n2. Para a primeira geração, preencha **api_key_temporario** com o token recebido por e-mail e execute somente **Gerar primeira chave**. Os scripts salvam **api_key** e **expira_em** e limpam o token temporário no sucesso. Se você já tem uma chave contínua válida, preencha diretamente **api_key** e siga para as consultas. Ao reimportar, copie antes sua chave contínua válida da antiga variável `Api-Key` para `api_key` na nova coleção; o Postman não recupera valores de outra coleção. O arquivo distribuído não contém credenciais.\n3. O provedor SENATRAN já está preenchido: **37115342004154**. Mantenha a massa Inf-01 para o teste de infrações e configure o certificado abaixo.\n4. Escolha **uma** pasta: **Consentimento** ou **Ciência**, conforme o cadastro do seu `template_id`. Execute essa pasta em ordem no Runner, ou cada requisição com Send. Não execute a coleção inteira: a geração de chave é uma operação manual separada.\n\n## Escolha do caminho\n\n| Caminho | Quando usar | Sequência |\n|---|---|---|\n| Consentimento | Template de consentimento e autorização do titular já obtida | Registrar consentimento ativo → gerar hash → consultar infrações |\n| Ciência | Template cadastrado para o fluxo de ciência | Gerar hash com id_consentimento vazio → consultar infrações |\n\nO template identifica a base legal e a finalidade. Escolher uma pasta não altera esse cadastro. `5112026-00001` foi informado para Consentimento; não foi confirmado como compatível com Ciência. Para testar Ciência, informe um template compatível fornecido pelo GCC/SENATRAN. Não há troca automática de caminho quando o servidor recusa uma requisição.\n\n**Consentimento:** preencha `data_pedido`, `data_inicio`, `data_fim` em YYYY-MM-DD e `prova_coleta` (até 150 caracteres), conforme a autorização já obtida. Exemplo de conteúdo: referência ao termo e à forma de coleta, somente se corresponder ao ocorrido. Não são inventadas datas ou evidências. Para homologação, utilize dados de consentimento de teste aceitos pelo provedor. Esta coleção não solicita consentimento ao titular e não envia SMS/e-mail.\n\n**Ciência:** `id_consentimento` é enviado como string vazia, mesmo se houver um valor antigo. Se o titular for desconhecido, deixe `cpf_cnpj` e `tipo_titular` vazios; a requisição enviará `tipo_titular: null`. Os filtros da consulta SENATRAN, como `ni` e `placa`, são configurados separadamente. Com titular informado, mantenha `ni` igual a `cpf_cnpj` neste protótipo.\n\n## Nomes oficiais e retornos\n\n- GCC: o cabeçalho HTTP se chama **Api-Key**. Primeira geração: `Api-Key: {{api_key_temporario}}`; renovação e chamadas GCC de Consentimento/Ciência: `Api-Key: {{api_key}}`. E-mail/senha servem para o Swagger e não são enviados pela coleção.\n- Geração/renovação: o retorno `chave_api` é salvo em `api_key`; `expira_em` é salvo na variável de mesmo nome, no formato original. Não é o hash de consulta.\n- Consentimento ativo: retorno `id_consentimento`, salvo automaticamente na variável de mesmo nome.\n- Geração de hash: retorno `numero_hash_consulta`, salvo automaticamente na variável de mesmo nome.\n- SENATRAN: cabeçalho `x-jwt: {{numero_hash_consulta}}`, sem Bearer. A API Key do GCC não é enviada à SENATRAN.\n\n## Primeira geração e renovação\n\n| Requisição manual | Credencial enviada no header Api-Key | Resultado após sucesso |\n|---|---|---|\n| Gerar primeira chave | api_key_temporario | Salva api_key e expira_em; limpa api_key_temporario |\n| Renovar chave | api_key | Substitui api_key e expira_em pelos novos retornos |\n\nAmbas usam POST `/chaves-api/gerar`, mas são operações independentes. Execute somente a requisição desejada. O Runner encerra após cada uma e não executa a próxima. As pastas de consulta nunca geram ou renovam chaves e não usam o token temporário como alternativa.\n\nO token temporário recebido por e-mail é invalidado ao gerar a primeira chave contínua. Cada renovação invalida a chave anterior. A chave contínua tem validade de 90 dias; a data e hora exatas são retornadas em `expira_em`, sem cálculo local ou conversão de fuso. Renove manualmente antes do vencimento, usando a chave contínua atual.\n\nSomente HTTP 200 com JSON válido, `chave_api` preenchida e `expira_em` em formato de data/hora atualiza as variáveis. Falhas preservam os valores anteriores. Em timeout ou resposta incompleta, não há repetição automática: o servidor pode ter rotacionado a chave; confira a resposta ou recupere o acesso antes de tentar novamente. Se a chave expirar, utilize o portal de homologação → Integrações → API → rotacionar token, ou solicite um novo token à GCC.\n\n## Por que há scripts\n\nNa autenticação, os scripts validam o retorno e salvam automaticamente api_key e expira_em. Nas consultas, validam os campos, verificam status/críticas e passam `id_consentimento` e `numero_hash_consulta` entre etapas. Os controles internos `__consentimento` e `__hash` impedem usar resultados antigos após falha ou alteração de titular, template, provedor ou caminho. Não editar esses controles. Ciência não exige o controle de consentimento.\n\nTodas as entradas e saídas pertencem à coleção. Mesmo com um Environment selecionado, os valores da coleção prevalecem e o Environment não é alterado. No Runner, habilite a persistência dos valores se quiser reutilizar os retornos depois. Scripts não dependem de IDs ou nomes das requisições. Ao terminar a pasta ou encontrar erro, o Runner para, sem iniciar outro caminho.\n\n## Compatibilidade do manual e Swagger\n\nO PDF descreve HTTP 200 nos registros; o Swagger consultado descreve 201. A coleção aceita ambos nesses endpoints, exigindo também o resultado de negócio correto e ausência de críticas. Para registro ativo, exige datas e `prova_coleta` conforme o PDF, embora o schema Swagger não as liste como obrigatórias. Os campos são enviados em JSON conforme o contrato Swagger, apesar do rótulo “Parâmetros de query” no PDF.\n\n## Massa e filtros\n\nMassa oficial Inf-01: CPF 66457694152, placa PGC0A01, auto BUILD56982, órgão 267890, código 7455, RENAINF 02442068389. `ni` identifica o titular na consulta PGCC. Filtros adicionais ficam desmarcados em Params. Headers opcionais `x-cnpj-usuario` e `x-cpf-operador` somente são enviados quando preenchidos; o CNPJ do usuário não é o CNPJ do provedor SENATRAN.\n\n## Certificado: Base64, PFX e PEM\n\nBase64 é uma codificação do arquivo. Um PEM contém dados Base64 entre marcadores BEGIN/END; um PFX também pode ter sido transportado em Base64. Identifique o formato antes de decodificar. O certificado público sozinho não substitui a chave privada.\n\nNo Postman: **Settings → Certificates → Add Certificate**:\n\n- Host: `hom-pgcc.np.bsa.estaleiro.serpro.gov.br` (sem https e sem caminho).\n- Port: `443`.\n- Opção PEM: CRT file = certificado PEM; KEY file = chave privada correspondente.\n- Opção PFX/P12: PFX file = arquivo original; Passphrase = senha, se houver.\n- Mantenha SSL certificate verification habilitada. Se houver uma CA específica de homologação, configure sua cadeia confiável; não desabilite a validação.\n\nNo projeto foram localizados `storage/certificates/7carros/certificate.pem` e `storage/certificates/7carros/private-key.pem`, configurados em `.env.production`. O par foi carregado com sucesso e pertence à HOSTCIA, com validade até 21/11/2026. Isso não comprova sua autorização na PGCC. Use-os apenas se corresponderem ao certificado habilitado informado para esta homologação. O certificado não é incorporado à coleção e precisa ser configurado separadamente no Postman.\n\n## Escopo e fontes\n\nSomente protótipo de homologação de consulta de infrações. A indicação de real condutor pertence a outra API e não está incluída. Sem integração com banco, alteração do sistema, callback ou publicação no FTP.\n\n- Manual fornecido: PL.SEI - Manual Swagger Company_V7 13072026.pdf, páginas 4–5, 11–15 e 25–28.\n- GCC Swagger: https://company.hml.quemmeviu.com.br/api (documentação; as chamadas não usam o prefixo /api).\n- PGCC: https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/manual/\n- Massa: https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/manual/configuracao/massa-de-testes/infracoes/\n\n## Validação\n\nTestes automatizados locais verificam scripts e contratos com respostas simuladas. Eles não comprovam autorização do template ou do certificado. O usuário confirmou a geração real de uma API Key; isso não comprova geração de hash ou consulta SENATRAN. O fluxo completo real depende dos dados de consentimento e do template compatível; nenhuma prova de coleta é presumida.\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "gcc_base_url",
+      "value": "https://company.hml.quemmeviu.com.br",
+      "type": "string",
+      "description": "Base GCC de homologação. /api é somente a documentação."
+    },
+    {
+      "key": "pgcc_base_url",
+      "value": "https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/pgcc",
+      "type": "string",
+      "description": "Base PGCC de homologação."
+    },
+    {
+      "key": "api_key_temporario",
+      "value": "",
+      "type": "string",
+      "description": "PREENCHER: token temporário recebido por e-mail. Usado somente em Gerar primeira chave; limpo após sucesso."
+    },
+    {
+      "key": "api_key",
+      "value": "",
+      "type": "string",
+      "description": "AUTOMÁTICO: chave_api retornada pela geração ou renovação. Também permite preencher uma chave contínua válida já existente. Usada nas chamadas GCC."
+    },
+    {
+      "key": "expira_em",
+      "value": "",
+      "type": "string",
+      "description": "AUTOMÁTICO: validade da api_key, exatamente como retornada pelo GCC. Não é calculada localmente."
+    },
+    {
+      "key": "template_id",
+      "value": "5112026-00001",
+      "type": "string",
+      "description": "Template informado para Consentimento. Para Ciência, informe um template compatível."
+    },
+    {
+      "key": "cnpj_provedor",
+      "value": "37115342004154",
+      "type": "string",
+      "description": "CNPJ do provedor SENATRAN, conforme o manual e a confirmação recebida."
+    },
+    {
+      "key": "tipo_titular",
+      "value": "1",
+      "type": "string",
+      "description": "1 = pessoa física; 2 = pessoa jurídica. Em Ciência, vazio se o titular for desconhecido."
+    },
+    {
+      "key": "cpf_cnpj",
+      "value": "66457694152",
+      "type": "string",
+      "description": "Titular no GCC; massa Inf-01. Em Ciência, pode ficar vazio se desconhecido."
+    },
+    {
+      "key": "data_pedido",
+      "value": "",
+      "type": "string",
+      "description": "PREENCHER em Consentimento: data do pedido, YYYY-MM-DD, conforme a autorização obtida."
+    },
+    {
+      "key": "data_inicio",
+      "value": "",
+      "type": "string",
+      "description": "PREENCHER em Consentimento: início da autorização, YYYY-MM-DD."
+    },
+    {
+      "key": "data_fim",
+      "value": "",
+      "type": "string",
+      "description": "PREENCHER em Consentimento: fim da autorização, YYYY-MM-DD."
+    },
+    {
+      "key": "prova_coleta",
+      "value": "",
+      "type": "string",
+      "description": "PREENCHER em Consentimento: como a autorização foi obtida, até 150 caracteres."
+    },
+    {
+      "key": "ni",
+      "value": "66457694152",
+      "type": "string",
+      "description": "Filtro PGCC de identificação do titular; mantenha igual a cpf_cnpj quando conhecido."
+    },
+    {
+      "key": "placa",
+      "value": "PGC0A01",
+      "type": "string",
+      "description": "Massa oficial Inf-01."
+    },
+    {
+      "key": "pagina",
+      "value": "1",
+      "type": "string",
+      "description": "Página PGCC, inteiro positivo."
+    },
+    {
+      "key": "codigoOrgaoAutuador",
+      "value": "267890",
+      "type": "string",
+      "description": "Filtro opcional desmarcado; Inf-01."
+    },
+    {
+      "key": "numeroAutoInfracao",
+      "value": "BUILD56982",
+      "type": "string",
+      "description": "Filtro opcional desmarcado; Inf-01."
+    },
+    {
+      "key": "codigoInfracao",
+      "value": "7455",
+      "type": "string",
+      "description": "Filtro opcional desmarcado; Inf-01."
+    },
+    {
+      "key": "renainf",
+      "value": "02442068389",
+      "type": "string",
+      "description": "Filtro opcional desmarcado; preservar zeros iniciais."
+    },
+    {
+      "key": "cnhInfrator",
+      "value": "",
+      "type": "string",
+      "description": "Filtro opcional desmarcado."
+    },
+    {
+      "key": "dataInicial",
+      "value": "",
+      "type": "string",
+      "description": "Filtro opcional desmarcado, formato conforme PGCC."
+    },
+    {
+      "key": "dataFinal",
+      "value": "",
+      "type": "string",
+      "description": "Filtro opcional desmarcado, formato conforme PGCC."
+    },
+    {
+      "key": "x-cnpj-usuario",
+      "value": "",
+      "type": "string",
+      "description": "Header PGCC opcional: CNPJ da empresa usuária, somente dígitos."
+    },
+    {
+      "key": "x-cpf-operador",
+      "value": "",
+      "type": "string",
+      "description": "Header PGCC opcional: CPF do operador, somente dígitos."
+    },
+    {
+      "key": "id_consentimento",
+      "value": "",
+      "type": "string",
+      "description": "AUTOMÁTICO: retorno do registro de consentimento ativo."
+    },
+    {
+      "key": "numero_hash_consulta",
+      "value": "",
+      "type": "string",
+      "description": "AUTOMÁTICO: retorno da geração de hash; enviado no header x-jwt."
+    },
+    {
+      "key": "__consentimento",
+      "value": "",
+      "type": "string",
+      "description": "INTERNO: vínculo do consentimento aos dados de entrada. Não editar."
+    },
+    {
+      "key": "__hash",
+      "value": "",
+      "type": "string",
+      "description": "INTERNO: vínculo do hash ao caminho e aos dados de entrada. Não editar."
+    }
+  ],
+  "item": [
+    {
+      "name": "Autenticação — execução manual",
+      "description": "Execute uma requisição por vez: Gerar primeira chave usa api_key_temporario; Renovar chave usa api_key. Ambas salvam chave_api em api_key e expira_em após sucesso. A primeira limpa o token temporário. Cada execução encerra o Runner, sem iniciar renovação ou consultas. Não há repetição automática.",
+      "item": [
+        {
+          "id": "839e9343-9cf0-4012-a28a-fd4d399c59b3",
+          "name": "01 — Gerar primeira chave",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const exigir = (ok, mensagem) => { if (!ok) throw new Error(mensagem); };",
+                  "  Object.keys(pm.collectionVariables.toObject()).forEach(nome => pm.variables.set(nome, ler(nome)));",
+                  "  // Esta operação é independente, inclusive quando houver falha de conexão.",
+                  "  pm.execution.setNextRequest(null);",
+                  "  try {",
+                  "    exigir(pm.variables.replaceIn(pm.request.url.toString()).split('?')[0] === 'https://company.hml.quemmeviu.com.br/chaves-api/gerar', 'Esta requisição aceita somente o endpoint oficial de homologação.');",
+                  "    exigir(ler('api_key_temporario') && !ler('api_key_temporario').includes('{{'), 'Preencha api_key_temporario em Variables da coleção. Esta requisição não utiliza a outra credencial como alternativa.');",
+                  "  } catch (erro) {",
+                  "    pm.test('Pré-requisitos atendidos', () => { throw erro; });",
+                  "    console.error(erro.message);",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  pm.execution.setNextRequest(null);",
+                  "  let ok = true;",
+                  "  const verificar = (nome, condicao) => {",
+                  "    pm.test(nome, () => pm.expect(Boolean(condicao)).to.equal(true));",
+                  "    if (!condicao) ok = false;",
+                  "  };",
+                  "  verificar('HTTP 200', pm.response.code === 200);",
+                  "  let dados;",
+                  "  try { dados = pm.response.json(); }",
+                  "  catch (_) { verificar('Resposta JSON válida; credenciais preservadas', false); return; }",
+                  "  if (!ok) return;",
+                  "  verificar('Resposta é um objeto', dados && typeof dados === 'object' && !Array.isArray(dados));",
+                  "  if (!ok) return;",
+                  "  verificar('chave_api retornada', typeof dados.chave_api === 'string' && dados.chave_api.trim() && !dados.chave_api.includes('{{'));",
+                  "  verificar('expira_em retornado em formato de data/hora', typeof dados.expira_em === 'string' && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})?$/.test(dados.expira_em) && Number.isFinite(Date.parse(dados.expira_em)));",
+                  "  if (!ok) {",
+                  "    console.error('Resposta de geração incompleta ou inválida; variáveis preservadas. Confira a resposta antes de repetir, pois o servidor pode ter rotacionado a chave.');",
+                  "    return;",
+                  "  }",
+                  "  // Somente atualizar depois que todos os campos obrigatórios forem validados.",
+                  "  salvar('api_key', dados.chave_api.trim());",
+                  "  salvar('expira_em', dados.expira_em);",
+                  "  salvar('api_key_temporario', '');",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Api-Key",
+                "value": "{{api_key_temporario}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gcc_base_url}}/chaves-api/gerar",
+              "host": [
+                "{{gcc_base_url}}"
+              ],
+              "path": [
+                "chaves-api",
+                "gerar"
+              ]
+            },
+            "description": "POST /chaves-api/gerar com Api-Key: {{api_key_temporario}}. Usa somente o token temporário recebido por e-mail. No sucesso, salva api_key e expira_em e limpa api_key_temporario. Em erro, preserva os valores anteriores. Não repita automaticamente após timeout ou resposta incompleta: o servidor pode ter gerado uma nova chave. O Runner para após esta operação. Validade de 90 dias conforme o GCC; expira_em é a data efetivamente retornada.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "response": []
+        },
+        {
+          "id": "652e03ee-89aa-43a6-a2ba-afa086529dd6",
+          "name": "02 — Renovar chave",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const exigir = (ok, mensagem) => { if (!ok) throw new Error(mensagem); };",
+                  "  Object.keys(pm.collectionVariables.toObject()).forEach(nome => pm.variables.set(nome, ler(nome)));",
+                  "  // Esta operação é independente, inclusive quando houver falha de conexão.",
+                  "  pm.execution.setNextRequest(null);",
+                  "  try {",
+                  "    exigir(pm.variables.replaceIn(pm.request.url.toString()).split('?')[0] === 'https://company.hml.quemmeviu.com.br/chaves-api/gerar', 'Esta requisição aceita somente o endpoint oficial de homologação.');",
+                  "    exigir(ler('api_key') && !ler('api_key').includes('{{'), 'Preencha api_key em Variables da coleção. Esta requisição não utiliza a outra credencial como alternativa.');",
+                  "  } catch (erro) {",
+                  "    pm.test('Pré-requisitos atendidos', () => { throw erro; });",
+                  "    console.error(erro.message);",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  pm.execution.setNextRequest(null);",
+                  "  let ok = true;",
+                  "  const verificar = (nome, condicao) => {",
+                  "    pm.test(nome, () => pm.expect(Boolean(condicao)).to.equal(true));",
+                  "    if (!condicao) ok = false;",
+                  "  };",
+                  "  verificar('HTTP 200', pm.response.code === 200);",
+                  "  let dados;",
+                  "  try { dados = pm.response.json(); }",
+                  "  catch (_) { verificar('Resposta JSON válida; credenciais preservadas', false); return; }",
+                  "  if (!ok) return;",
+                  "  verificar('Resposta é um objeto', dados && typeof dados === 'object' && !Array.isArray(dados));",
+                  "  if (!ok) return;",
+                  "  verificar('chave_api retornada', typeof dados.chave_api === 'string' && dados.chave_api.trim() && !dados.chave_api.includes('{{'));",
+                  "  verificar('expira_em retornado em formato de data/hora', typeof dados.expira_em === 'string' && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})?$/.test(dados.expira_em) && Number.isFinite(Date.parse(dados.expira_em)));",
+                  "  if (!ok) {",
+                  "    console.error('Resposta de geração incompleta ou inválida; variáveis preservadas. Confira a resposta antes de repetir, pois o servidor pode ter rotacionado a chave.');",
+                  "    return;",
+                  "  }",
+                  "  // Somente atualizar depois que todos os campos obrigatórios forem validados.",
+                  "  salvar('api_key', dados.chave_api.trim());",
+                  "  salvar('expira_em', dados.expira_em);",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Api-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gcc_base_url}}/chaves-api/gerar",
+              "host": [
+                "{{gcc_base_url}}"
+              ],
+              "path": [
+                "chaves-api",
+                "gerar"
+              ]
+            },
+            "description": "POST /chaves-api/gerar com Api-Key: {{api_key}}. Usa somente a chave contínua atual. No sucesso, substitui api_key e expira_em pelos novos retornos. A chave anterior é invalidada pelo GCC. Em erro, preserva os valores anteriores. Não repita automaticamente após timeout ou resposta incompleta: o servidor pode ter gerado uma nova chave. O Runner para após esta operação. Validade de 90 dias conforme o GCC; expira_em é a data efetivamente retornada.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Consentimento",
+      "description": "Para template de consentimento e autorização já obtida. Preencha datas e prova_coleta. Execute esta pasta em ordem. Não há captura de autorização por SMS/e-mail.",
+      "item": [
+        {
+          "id": "27060d19-edc0-4782-8cf2-18d3245a0c84",
+          "name": "01 — Registrar consentimento ativo",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Consentimento\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Consentimento\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Consentimento\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  const exigir = (ok, mensagem) => { if (!ok) throw new Error(mensagem); };",
+                  "  Object.keys(pm.collectionVariables.toObject()).forEach(nome => pm.variables.set(nome, ler(nome)));",
+                  "    [\"id_consentimento\", \"__consentimento\", \"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "  try {",
+                  "    exigir(pm.variables.replaceIn(pm.request.url.toString()).split(\"?\")[0] === \"https://company.hml.quemmeviu.com.br/consentimentos-ciencias/registro-consentimento-ativo\", 'Esta requisição aceita somente o endpoint oficial de homologação.');",
+                  "    exigir(ler('api_key') && !ler('api_key').includes('{{'), 'Preencha api_key em Variables da coleção.');",
+                  "    exigir(ler('template_id') && !ler('template_id').includes('{{'), 'Preencha template_id com um template compatível com esta pasta.');",
+                  "    exigir(/^[A-Z0-9]{12}\\d{2}$/.test(ler('cnpj_provedor')), 'cnpj_provedor deve conter o CNPJ do provedor, sem pontuação.');",
+                  "    const tipo = ler('tipo_titular');",
+                  "    const titular = ler('cpf_cnpj');",
+                  "    exigir(tipo === '1' || tipo === '2' || (false && !tipo && !titular), 'tipo_titular: 1 para CPF, 2 para CNPJ; vazio somente em Ciência com titular desconhecido.');",
+                  "    exigir((false && !titular) || (tipo === '1' ? /^\\d{11}$/.test(titular) : /^[A-Z0-9]{12}\\d{2}$/.test(titular)), 'Preencha cpf_cnpj sem pontuação e de acordo com tipo_titular.');",
+                  "    ['data_pedido', 'data_inicio', 'data_fim'].forEach(nome => {",
+                  "      const valor = ler(nome);",
+                  "      const data = new Date(valor + 'T00:00:00Z');",
+                  "      exigir(/^\\d{4}-\\d{2}-\\d{2}$/.test(valor) && !isNaN(data.getTime()) && data.toISOString().slice(0, 10) === valor, 'Preencha ' + nome + ' com uma data válida YYYY-MM-DD da autorização obtida.');",
+                  "    });",
+                  "    exigir(ler('data_inicio') <= ler('data_fim'), 'data_fim deve ser igual ou posterior a data_inicio.');",
+                  "    exigir(ler('prova_coleta') && Array.from(ler('prova_coleta')).length <= 150 && !ler('prova_coleta').includes('{{'), 'Preencha prova_coleta com a forma de obtenção do consentimento, até 150 caracteres.');",
+                  "    const corpo = {tipo_titular: tipo ? Number(tipo) : null, cpf_cnpj: titular, tipo_de_usuario: 1, cnpj_anuente: '', cnpj_provedor: ler('cnpj_provedor'), template_id: ler('template_id')};",
+                  "    ['data_pedido', 'data_inicio', 'data_fim', 'prova_coleta'].forEach(nome => corpo[nome] = ler(nome));",
+                  "    pm.request.body.update(JSON.stringify(corpo, null, 2));",
+                  "  } catch (erro) {",
+                  "    [\"id_consentimento\", \"__consentimento\", \"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.test('Pré-requisitos atendidos', () => { throw erro; });",
+                  "    console.error(erro.message);",
+                  "    pm.execution.setNextRequest(null);",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Consentimento\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Consentimento\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Consentimento\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  let ok = true;",
+                  "  const verificar = (nome, condicao) => {",
+                  "    pm.test(nome, () => pm.expect(Boolean(condicao)).to.equal(true));",
+                  "    if (!condicao) ok = false;",
+                  "  };",
+                  "  const falhar = () => {",
+                  "    [\"id_consentimento\", \"__consentimento\", \"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.execution.setNextRequest(null);",
+                  "  };",
+                  "  const semCritica = v => v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length);",
+                  "  verificar('HTTP 200 ou 201', [200, 201].includes(pm.response.code));",
+                  "  let dados;",
+                  "  try { dados = pm.response.json(); }",
+                  "  catch (_) { verificar('Resposta JSON válida', false); falhar(); return; }",
+                  "  if (!ok) { falhar(); return; }",
+                  "  verificar('Resposta é um objeto', dados && typeof dados === 'object' && !Array.isArray(dados));",
+                  "  if (!ok) { falhar(); return; }",
+                  "  verificar('Consentimento com status ID Obtido', dados.status === 'ID Obtido');",
+                  "  verificar('Registro sem críticas', semCritica(dados.criticas) && semCritica(dados.critica));",
+                  "  verificar('id_consentimento recebido', (typeof dados.id_consentimento === 'string' && dados.id_consentimento.trim()) || (typeof dados.id_consentimento === 'number' && dados.id_consentimento > 0));",
+                  "  if (ok) {",
+                  "    salvar('id_consentimento', dados.id_consentimento);",
+                  "    salvar('__consentimento', contexto());",
+                  "  }",
+                  "  if (!ok) falhar();",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Api-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{gcc_base_url}}/consentimentos-ciencias/registro-consentimento-ativo",
+              "host": [
+                "{{gcc_base_url}}"
+              ],
+              "path": [
+                "consentimentos-ciencias",
+                "registro-consentimento-ativo"
+              ]
+            },
+            "description": "Registra uma autorização já obtida e salva id_consentimento. Exige data_pedido, data_inicio, data_fim e prova_coleta (até 150 caracteres). Usa YYYY-MM-DD. Datas e evidência não são criadas pelos scripts.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo_titular\": {{tipo_titular}},\n  \"cpf_cnpj\": \"{{cpf_cnpj}}\",\n  \"tipo_de_usuario\": 1,\n  \"cnpj_anuente\": \"\",\n  \"cnpj_provedor\": \"{{cnpj_provedor}}\",\n  \"template_id\": \"{{template_id}}\",\n  \"data_pedido\": \"{{data_pedido}}\",\n  \"data_inicio\": \"{{data_inicio}}\",\n  \"data_fim\": \"{{data_fim}}\",\n  \"prova_coleta\": \"{{prova_coleta}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "response": []
+        },
+        {
+          "id": "a9355fbd-54e0-4e0a-84d0-8dde64544e34",
+          "name": "02 — Gerar hash com consentimento",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Consentimento\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Consentimento\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Consentimento\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  const exigir = (ok, mensagem) => { if (!ok) throw new Error(mensagem); };",
+                  "  Object.keys(pm.collectionVariables.toObject()).forEach(nome => pm.variables.set(nome, ler(nome)));",
+                  "    [\"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "  try {",
+                  "    exigir(pm.variables.replaceIn(pm.request.url.toString()).split(\"?\")[0] === \"https://company.hml.quemmeviu.com.br/consentimentos-ciencias\", 'Esta requisição aceita somente o endpoint oficial de homologação.');",
+                  "    exigir(ler('api_key') && !ler('api_key').includes('{{'), 'Preencha api_key em Variables da coleção.');",
+                  "    exigir(ler('template_id') && !ler('template_id').includes('{{'), 'Preencha template_id com um template compatível com esta pasta.');",
+                  "    exigir(/^[A-Z0-9]{12}\\d{2}$/.test(ler('cnpj_provedor')), 'cnpj_provedor deve conter o CNPJ do provedor, sem pontuação.');",
+                  "    const tipo = ler('tipo_titular');",
+                  "    const titular = ler('cpf_cnpj');",
+                  "    exigir(tipo === '1' || tipo === '2' || (false && !tipo && !titular), 'tipo_titular: 1 para CPF, 2 para CNPJ; vazio somente em Ciência com titular desconhecido.');",
+                  "    exigir((false && !titular) || (tipo === '1' ? /^\\d{11}$/.test(titular) : /^[A-Z0-9]{12}\\d{2}$/.test(titular)), 'Preencha cpf_cnpj sem pontuação e de acordo com tipo_titular.');",
+                  "    exigir(ler('id_consentimento') && ler('__consentimento') === contexto(), 'Registre o consentimento ativo com os dados atuais antes de gerar ou usar o hash.');",
+                  "    const corpo = {tipo_titular: tipo ? Number(tipo) : null, cpf_cnpj: titular, tipo_de_usuario: 1, cnpj_anuente: '', cnpj_provedor: ler('cnpj_provedor'), template_id: ler('template_id')};",
+                  "    corpo.id_consentimento = ler('id_consentimento');",
+                  "    pm.request.body.update(JSON.stringify(corpo, null, 2));",
+                  "  } catch (erro) {",
+                  "    [\"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.test('Pré-requisitos atendidos', () => { throw erro; });",
+                  "    console.error(erro.message);",
+                  "    pm.execution.setNextRequest(null);",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Consentimento\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Consentimento\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Consentimento\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  let ok = true;",
+                  "  const verificar = (nome, condicao) => {",
+                  "    pm.test(nome, () => pm.expect(Boolean(condicao)).to.equal(true));",
+                  "    if (!condicao) ok = false;",
+                  "  };",
+                  "  const falhar = () => {",
+                  "    [\"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.execution.setNextRequest(null);",
+                  "  };",
+                  "  const semCritica = v => v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length);",
+                  "  verificar('HTTP 200 ou 201', [200, 201].includes(pm.response.code));",
+                  "  let dados;",
+                  "  try { dados = pm.response.json(); }",
+                  "  catch (_) { verificar('Resposta JSON válida', false); falhar(); return; }",
+                  "  if (!ok) { falhar(); return; }",
+                  "  verificar('Resposta é um objeto', dados && typeof dados === 'object' && !Array.isArray(dados));",
+                  "  if (!ok) { falhar(); return; }",
+                  "  verificar('Hash com status 01', dados.status === '01');",
+                  "  verificar('Geração sem críticas', semCritica(dados.critica) && semCritica(dados.criticas));",
+                  "  verificar('numero_hash_consulta contém JWT', typeof dados.numero_hash_consulta === 'string' && /^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(dados.numero_hash_consulta.trim()));",
+                  "  if (ok) {",
+                  "    salvar('numero_hash_consulta', dados.numero_hash_consulta.trim());",
+                  "    salvar('__hash', contextoHash());",
+                  "  }",
+                  "  if (!ok) falhar();",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Api-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{gcc_base_url}}/consentimentos-ciencias",
+              "host": [
+                "{{gcc_base_url}}"
+              ],
+              "path": [
+                "consentimentos-ciencias"
+              ]
+            },
+            "description": "Envia id_consentimento da etapa anterior e salva numero_hash_consulta somente com status 01 e sem críticas. O template deve aceitar Consentimento.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo_titular\": {{tipo_titular}},\n  \"cpf_cnpj\": \"{{cpf_cnpj}}\",\n  \"tipo_de_usuario\": 1,\n  \"cnpj_anuente\": \"\",\n  \"cnpj_provedor\": \"{{cnpj_provedor}}\",\n  \"template_id\": \"{{template_id}}\",\n  \"id_consentimento\": \"{{id_consentimento}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "response": []
+        },
+        {
+          "id": "7bb9253a-322e-469f-8516-5463f800e551",
+          "name": "03 — Consultar infrações",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Consentimento\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Consentimento\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Consentimento\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  const exigir = (ok, mensagem) => { if (!ok) throw new Error(mensagem); };",
+                  "  Object.keys(pm.collectionVariables.toObject()).forEach(nome => pm.variables.set(nome, ler(nome)));",
+                  "  try {",
+                  "    exigir(pm.variables.replaceIn(pm.request.url.toString()).split(\"?\")[0] === \"https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/pgcc/api/v1/consultar/infracao\", 'Esta requisição aceita somente o endpoint oficial de homologação.');",
+                  "    exigir(ler('template_id') && !ler('template_id').includes('{{'), 'Preencha template_id com um template compatível com esta pasta.');",
+                  "    exigir(/^[A-Z0-9]{12}\\d{2}$/.test(ler('cnpj_provedor')), 'cnpj_provedor deve conter o CNPJ do provedor, sem pontuação.');",
+                  "    const tipo = ler('tipo_titular');",
+                  "    const titular = ler('cpf_cnpj');",
+                  "    exigir(tipo === '1' || tipo === '2' || (false && !tipo && !titular), 'tipo_titular: 1 para CPF, 2 para CNPJ; vazio somente em Ciência com titular desconhecido.');",
+                  "    exigir((false && !titular) || (tipo === '1' ? /^\\d{11}$/.test(titular) : /^[A-Z0-9]{12}\\d{2}$/.test(titular)), 'Preencha cpf_cnpj sem pontuação e de acordo com tipo_titular.');",
+                  "    exigir(ler('id_consentimento') && ler('__consentimento') === contexto(), 'Registre o consentimento ativo com os dados atuais antes de gerar ou usar o hash.');",
+                  "    exigir(ler('__hash') === contextoHash(), 'Gere o hash nesta pasta com os dados atuais antes de consultar.');",
+                  "    exigir(/^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(ler('numero_hash_consulta')), 'numero_hash_consulta ausente ou inválido. Gere o hash novamente.');",
+                  "    exigir(ler('placa') && !ler('placa').includes('{{'), 'Preencha placa.');",
+                  "    exigir(/^[1-9]\\d*$/.test(ler('pagina')), 'pagina deve ser um inteiro positivo.');",
+                  "    exigir(!ler('cpf_cnpj') || ler('ni') === ler('cpf_cnpj'), 'Mantenha ni igual a cpf_cnpj do hash neste protótipo.');",
+                  "    [['x-cnpj-usuario', /^\\d{14}$/], ['x-cpf-operador', /^\\d{11}$/]].forEach(([nome, formato]) => {",
+                  "      pm.request.headers.remove(nome);",
+                  "      if (ler(nome)) {",
+                  "        exigir(formato.test(ler(nome)), nome + ' deve conter somente dígitos, sem pontuação.');",
+                  "        pm.request.headers.upsert({key: nome, value: ler(nome)});",
+                  "      }",
+                  "    });",
+                  "  } catch (erro) {",
+                  "    [\"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.test('Pré-requisitos atendidos', () => { throw erro; });",
+                  "    console.error(erro.message);",
+                  "    pm.execution.setNextRequest(null);",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Consentimento\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Consentimento\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Consentimento\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  let ok = true;",
+                  "  const verificar = (nome, condicao) => {",
+                  "    pm.test(nome, () => pm.expect(Boolean(condicao)).to.equal(true));",
+                  "    if (!condicao) ok = false;",
+                  "  };",
+                  "  const falhar = () => {",
+                  "    [\"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.execution.setNextRequest(null);",
+                  "  };",
+                  "  const semCritica = v => v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length);",
+                  "  verificar('HTTP 200', pm.response.code === 200);",
+                  "  let dados;",
+                  "  try { dados = pm.response.json(); }",
+                  "  catch (_) { verificar('Resposta JSON válida', false); falhar(); return; }",
+                  "  if (!ok) { falhar(); return; }",
+                  "  verificar('Resposta é uma lista de infrações', Array.isArray(dados));",
+                  "  if (ok && ler('ni') === '66457694152' && ler('placa') === 'PGC0A01' && ler('pagina') === '1') {",
+                  "    const infracao = dados.find(i => i && i.numeroAutoInfracao === 'BUILD56982' && i.placa === 'PGC0A01');",
+                  "    verificar('Massa Inf-01: auto BUILD56982 / placa PGC0A01', Boolean(infracao));",
+                  "    if (infracao) {",
+                  "      verificar('Massa Inf-01: RENAINF 02442068389', String(infracao.renainf).padStart(11, '0') === '02442068389');",
+                  "      verificar('Massa Inf-01: não exigível', infracao.indicadorExigibilidade === false || infracao.indicadorExigibilidade === 0);",
+                  "    }",
+                  "  }",
+                  "  pm.execution.setNextRequest(null);",
+                  "  if (!ok) falhar();",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "x-jwt",
+                "value": "{{numero_hash_consulta}}"
+              }
+            ],
+            "url": {
+              "raw": "{{pgcc_base_url}}/api/v1/consultar/infracao?ni={{ni}}&placa={{placa}}&pagina={{pagina}}",
+              "host": [
+                "{{pgcc_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "consultar",
+                "infracao"
+              ],
+              "query": [
+                {
+                  "key": "ni",
+                  "value": "{{ni}}"
+                },
+                {
+                  "key": "placa",
+                  "value": "{{placa}}"
+                },
+                {
+                  "key": "pagina",
+                  "value": "{{pagina}}"
+                },
+                {
+                  "key": "codigoOrgaoAutuador",
+                  "value": "{{codigoOrgaoAutuador}}",
+                  "disabled": true
+                },
+                {
+                  "key": "numeroAutoInfracao",
+                  "value": "{{numeroAutoInfracao}}",
+                  "disabled": true
+                },
+                {
+                  "key": "codigoInfracao",
+                  "value": "{{codigoInfracao}}",
+                  "disabled": true
+                },
+                {
+                  "key": "renainf",
+                  "value": "{{renainf}}",
+                  "disabled": true
+                },
+                {
+                  "key": "cnhInfrator",
+                  "value": "{{cnhInfrator}}",
+                  "disabled": true
+                },
+                {
+                  "key": "dataInicial",
+                  "value": "{{dataInicial}}",
+                  "disabled": true
+                },
+                {
+                  "key": "dataFinal",
+                  "value": "{{dataFinal}}",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Usa x-jwt: {{numero_hash_consulta}} e certificado do cliente configurado no Postman. Exige hash gerado nesta pasta com os dados atuais. Não envia Api-Key. Ao terminar, o Runner para e não inicia outro caminho.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ciência",
+      "description": "Alternativa para template compatível com Ciência. Não execute após a pasta Consentimento. Informe template_id apropriado; a compatibilidade de 5112026-00001 com Ciência não foi confirmada.",
+      "item": [
+        {
+          "id": "bf45d92e-fb3c-49eb-a618-bf6a15f4944e",
+          "name": "01 — Gerar hash de ciência",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Ci\\u00eancia\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Ci\\u00eancia\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Ci\\u00eancia\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  const exigir = (ok, mensagem) => { if (!ok) throw new Error(mensagem); };",
+                  "  Object.keys(pm.collectionVariables.toObject()).forEach(nome => pm.variables.set(nome, ler(nome)));",
+                  "    [\"id_consentimento\", \"__consentimento\", \"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "  try {",
+                  "    exigir(pm.variables.replaceIn(pm.request.url.toString()).split(\"?\")[0] === \"https://company.hml.quemmeviu.com.br/consentimentos-ciencias\", 'Esta requisição aceita somente o endpoint oficial de homologação.');",
+                  "    exigir(ler('api_key') && !ler('api_key').includes('{{'), 'Preencha api_key em Variables da coleção.');",
+                  "    exigir(ler('template_id') && !ler('template_id').includes('{{'), 'Preencha template_id com um template compatível com esta pasta.');",
+                  "    exigir(/^[A-Z0-9]{12}\\d{2}$/.test(ler('cnpj_provedor')), 'cnpj_provedor deve conter o CNPJ do provedor, sem pontuação.');",
+                  "    const tipo = ler('tipo_titular');",
+                  "    const titular = ler('cpf_cnpj');",
+                  "    exigir(tipo === '1' || tipo === '2' || (true && !tipo && !titular), 'tipo_titular: 1 para CPF, 2 para CNPJ; vazio somente em Ciência com titular desconhecido.');",
+                  "    exigir((true && !titular) || (tipo === '1' ? /^\\d{11}$/.test(titular) : /^[A-Z0-9]{12}\\d{2}$/.test(titular)), 'Preencha cpf_cnpj sem pontuação e de acordo com tipo_titular.');",
+                  "    const corpo = {tipo_titular: tipo ? Number(tipo) : null, cpf_cnpj: titular, tipo_de_usuario: 1, cnpj_anuente: '', cnpj_provedor: ler('cnpj_provedor'), template_id: ler('template_id')};",
+                  "    corpo.id_consentimento = '';",
+                  "    pm.request.body.update(JSON.stringify(corpo, null, 2));",
+                  "  } catch (erro) {",
+                  "    [\"id_consentimento\", \"__consentimento\", \"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.test('Pré-requisitos atendidos', () => { throw erro; });",
+                  "    console.error(erro.message);",
+                  "    pm.execution.setNextRequest(null);",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Ci\\u00eancia\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Ci\\u00eancia\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Ci\\u00eancia\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  let ok = true;",
+                  "  const verificar = (nome, condicao) => {",
+                  "    pm.test(nome, () => pm.expect(Boolean(condicao)).to.equal(true));",
+                  "    if (!condicao) ok = false;",
+                  "  };",
+                  "  const falhar = () => {",
+                  "    [\"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.execution.setNextRequest(null);",
+                  "  };",
+                  "  const semCritica = v => v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length);",
+                  "  verificar('HTTP 200 ou 201', [200, 201].includes(pm.response.code));",
+                  "  let dados;",
+                  "  try { dados = pm.response.json(); }",
+                  "  catch (_) { verificar('Resposta JSON válida', false); falhar(); return; }",
+                  "  if (!ok) { falhar(); return; }",
+                  "  verificar('Resposta é um objeto', dados && typeof dados === 'object' && !Array.isArray(dados));",
+                  "  if (!ok) { falhar(); return; }",
+                  "  verificar('Hash com status 01', dados.status === '01');",
+                  "  verificar('Geração sem críticas', semCritica(dados.critica) && semCritica(dados.criticas));",
+                  "  verificar('numero_hash_consulta contém JWT', typeof dados.numero_hash_consulta === 'string' && /^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(dados.numero_hash_consulta.trim()));",
+                  "  if (ok) {",
+                  "    salvar('numero_hash_consulta', dados.numero_hash_consulta.trim());",
+                  "    salvar('__hash', contextoHash());",
+                  "  }",
+                  "  if (!ok) falhar();",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Api-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{gcc_base_url}}/consentimentos-ciencias",
+              "host": [
+                "{{gcc_base_url}}"
+              ],
+              "path": [
+                "consentimentos-ciencias"
+              ]
+            },
+            "description": "POST /consentimentos-ciencias com id_consentimento vazio. Não exige registro de consentimento ativo. Para titular desconhecido, cpf_cnpj vazio e tipo_titular vazio são enviados como string vazia e null. Salva numero_hash_consulta somente com status 01 e sem críticas.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo_titular\": {{tipo_titular}},\n  \"cpf_cnpj\": \"{{cpf_cnpj}}\",\n  \"tipo_de_usuario\": 1,\n  \"cnpj_anuente\": \"\",\n  \"cnpj_provedor\": \"{{cnpj_provedor}}\",\n  \"template_id\": \"{{template_id}}\",\n  \"id_consentimento\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "response": []
+        },
+        {
+          "id": "fc511c1c-6af8-4112-a31b-2fe28ea30b09",
+          "name": "02 — Consultar infrações",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Ci\\u00eancia\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Ci\\u00eancia\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Ci\\u00eancia\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  const exigir = (ok, mensagem) => { if (!ok) throw new Error(mensagem); };",
+                  "  Object.keys(pm.collectionVariables.toObject()).forEach(nome => pm.variables.set(nome, ler(nome)));",
+                  "  try {",
+                  "    exigir(pm.variables.replaceIn(pm.request.url.toString()).split(\"?\")[0] === \"https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/pgcc/api/v1/consultar/infracao\", 'Esta requisição aceita somente o endpoint oficial de homologação.');",
+                  "    exigir(ler('template_id') && !ler('template_id').includes('{{'), 'Preencha template_id com um template compatível com esta pasta.');",
+                  "    exigir(/^[A-Z0-9]{12}\\d{2}$/.test(ler('cnpj_provedor')), 'cnpj_provedor deve conter o CNPJ do provedor, sem pontuação.');",
+                  "    const tipo = ler('tipo_titular');",
+                  "    const titular = ler('cpf_cnpj');",
+                  "    exigir(tipo === '1' || tipo === '2' || (true && !tipo && !titular), 'tipo_titular: 1 para CPF, 2 para CNPJ; vazio somente em Ciência com titular desconhecido.');",
+                  "    exigir((true && !titular) || (tipo === '1' ? /^\\d{11}$/.test(titular) : /^[A-Z0-9]{12}\\d{2}$/.test(titular)), 'Preencha cpf_cnpj sem pontuação e de acordo com tipo_titular.');",
+                  "    exigir(ler('__hash') === contextoHash(), 'Gere o hash nesta pasta com os dados atuais antes de consultar.');",
+                  "    exigir(/^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(ler('numero_hash_consulta')), 'numero_hash_consulta ausente ou inválido. Gere o hash novamente.');",
+                  "    exigir(ler('placa') && !ler('placa').includes('{{'), 'Preencha placa.');",
+                  "    exigir(/^[1-9]\\d*$/.test(ler('pagina')), 'pagina deve ser um inteiro positivo.');",
+                  "    exigir(!ler('cpf_cnpj') || ler('ni') === ler('cpf_cnpj'), 'Mantenha ni igual a cpf_cnpj do hash neste protótipo.');",
+                  "    [['x-cnpj-usuario', /^\\d{14}$/], ['x-cpf-operador', /^\\d{11}$/]].forEach(([nome, formato]) => {",
+                  "      pm.request.headers.remove(nome);",
+                  "      if (ler(nome)) {",
+                  "        exigir(formato.test(ler(nome)), nome + ' deve conter somente dígitos, sem pontuação.');",
+                  "        pm.request.headers.upsert({key: nome, value: ler(nome)});",
+                  "      }",
+                  "    });",
+                  "  } catch (erro) {",
+                  "    [\"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.test('Pré-requisitos atendidos', () => { throw erro; });",
+                  "    console.error(erro.message);",
+                  "    pm.execution.setNextRequest(null);",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(() => {",
+                  "  const ler = nome => String(pm.collectionVariables.get(nome) ?? '').trim();",
+                  "  const salvar = (nome, valor) => {",
+                  "    pm.collectionVariables.set(nome, String(valor));",
+                  "    pm.variables.set(nome, String(valor));",
+                  "  };",
+                  "  const contexto = () => JSON.stringify({",
+                  "    caminho: \"Ci\\u00eancia\", template_id: ler('template_id'), cnpj_provedor: ler('cnpj_provedor'),",
+                  "    tipo_titular: ler('tipo_titular'), cpf_cnpj: ler('cpf_cnpj'), tipo_de_usuario: 1,",
+                  "    ...(\"Ci\\u00eancia\" === 'Consentimento' ? {data_pedido: ler('data_pedido'), data_inicio: ler('data_inicio'), data_fim: ler('data_fim'), prova_coleta: ler('prova_coleta')} : {})",
+                  "  });",
+                  "  const contextoHash = () => JSON.stringify({dados: contexto(), id_consentimento: \"Ci\\u00eancia\" === 'Consentimento' ? ler('id_consentimento') : ''});",
+                  "  let ok = true;",
+                  "  const verificar = (nome, condicao) => {",
+                  "    pm.test(nome, () => pm.expect(Boolean(condicao)).to.equal(true));",
+                  "    if (!condicao) ok = false;",
+                  "  };",
+                  "  const falhar = () => {",
+                  "    [\"numero_hash_consulta\", \"__hash\"].forEach(nome => salvar(nome, ''));",
+                  "    pm.execution.setNextRequest(null);",
+                  "  };",
+                  "  const semCritica = v => v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length);",
+                  "  verificar('HTTP 200', pm.response.code === 200);",
+                  "  let dados;",
+                  "  try { dados = pm.response.json(); }",
+                  "  catch (_) { verificar('Resposta JSON válida', false); falhar(); return; }",
+                  "  if (!ok) { falhar(); return; }",
+                  "  verificar('Resposta é uma lista de infrações', Array.isArray(dados));",
+                  "  if (ok && ler('ni') === '66457694152' && ler('placa') === 'PGC0A01' && ler('pagina') === '1') {",
+                  "    const infracao = dados.find(i => i && i.numeroAutoInfracao === 'BUILD56982' && i.placa === 'PGC0A01');",
+                  "    verificar('Massa Inf-01: auto BUILD56982 / placa PGC0A01', Boolean(infracao));",
+                  "    if (infracao) {",
+                  "      verificar('Massa Inf-01: RENAINF 02442068389', String(infracao.renainf).padStart(11, '0') === '02442068389');",
+                  "      verificar('Massa Inf-01: não exigível', infracao.indicadorExigibilidade === false || infracao.indicadorExigibilidade === 0);",
+                  "    }",
+                  "  }",
+                  "  pm.execution.setNextRequest(null);",
+                  "  if (!ok) falhar();",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "x-jwt",
+                "value": "{{numero_hash_consulta}}"
+              }
+            ],
+            "url": {
+              "raw": "{{pgcc_base_url}}/api/v1/consultar/infracao?ni={{ni}}&placa={{placa}}&pagina={{pagina}}",
+              "host": [
+                "{{pgcc_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "consultar",
+                "infracao"
+              ],
+              "query": [
+                {
+                  "key": "ni",
+                  "value": "{{ni}}"
+                },
+                {
+                  "key": "placa",
+                  "value": "{{placa}}"
+                },
+                {
+                  "key": "pagina",
+                  "value": "{{pagina}}"
+                },
+                {
+                  "key": "codigoOrgaoAutuador",
+                  "value": "{{codigoOrgaoAutuador}}",
+                  "disabled": true
+                },
+                {
+                  "key": "numeroAutoInfracao",
+                  "value": "{{numeroAutoInfracao}}",
+                  "disabled": true
+                },
+                {
+                  "key": "codigoInfracao",
+                  "value": "{{codigoInfracao}}",
+                  "disabled": true
+                },
+                {
+                  "key": "renainf",
+                  "value": "{{renainf}}",
+                  "disabled": true
+                },
+                {
+                  "key": "cnhInfrator",
+                  "value": "{{cnhInfrator}}",
+                  "disabled": true
+                },
+                {
+                  "key": "dataInicial",
+                  "value": "{{dataInicial}}",
+                  "disabled": true
+                },
+                {
+                  "key": "dataFinal",
+                  "value": "{{dataFinal}}",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Usa x-jwt: {{numero_hash_consulta}} e certificado do cliente configurado no Postman. Exige hash gerado nesta pasta com os dados atuais. Não envia Api-Key. Ao terminar, o Runner para e não inicia outro caminho.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

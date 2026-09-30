@@ -118,6 +118,7 @@ class Cliente extends Model
      */
     public function criar(array $dados): int
     {
+        $dados = $this->normalizarMunicipio($dados);
         // Adicionar data_cadastro automaticamente
         $dados['data_cadastro'] = today();
 
@@ -226,10 +227,43 @@ class Cliente extends Model
      */
     public function atualizar(int $id, array $dados): int
     {
+        $existente = $this->buscarPorId($id);
+        if (!$existente) {
+            return 0;
+        }
+        $dados = $this->normalizarMunicipio($dados, $existente);
         return $this->qb
             ->table('clientes')
             ->where('id', '=', $id)
             ->update($dados);
+    }
+
+    /** Mantem o IBGE associado ao endereco atual, inclusive em atualizacoes parciais. */
+    private function normalizarMunicipio(array $dados, array $existente = []): array
+    {
+        $pais = strtoupper(trim((string) ($dados['pais'] ?? $existente['pais'] ?? 'BR')));
+        if ($pais !== 'BR') {
+            $dados['codigo_municipio'] = null;
+            return $dados;
+        }
+
+        if (!array_key_exists('codigo_municipio', $dados)) {
+            foreach (['cep', 'cidade', 'estado', 'pais'] as $campo) {
+                if (array_key_exists($campo, $dados)
+                    && trim((string) $dados[$campo]) !== trim((string) ($existente[$campo] ?? ''))) {
+                    $dados['codigo_municipio'] = null;
+                    break;
+                }
+            }
+            return $dados;
+        }
+
+        $codigo = trim((string) $dados['codigo_municipio']);
+        if ($codigo !== '' && (!preg_match('/^[0-9]{7}$/D', $codigo) || $codigo === '0000000')) {
+            throw new \InvalidArgumentException('Código IBGE do município do cliente deve conter 7 dígitos válidos.');
+        }
+        $dados['codigo_municipio'] = $codigo !== '' ? $codigo : null;
+        return $dados;
     }
 
     /**

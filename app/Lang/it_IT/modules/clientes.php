@@ -18,6 +18,8 @@ return [
         'invoices' => 'Fatture',
     ],
     'fields' => [
+        'municipality_code' => 'Codice IBGE del Comune',
+        'municipality_code_hint' => 'Compilato automaticamente cercando il codice postale brasiliano. È possibile inserire manualmente il codice di 7 cifre.',
         'type' => 'Tipo di Persona',
         'type_pf' => 'Persona Fisica',
         'type_pj' => 'Persona Giuridica',

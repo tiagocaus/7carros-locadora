@@ -18,6 +18,8 @@ return [
         'invoices' => 'Faturas',
     ],
     'fields' => [
+        'municipality_code' => 'Código IBGE do Município',
+        'municipality_code_hint' => 'Preenchido automaticamente ao consultar o código postal brasileiro. Também pode ser indicado manualmente com 7 dígitos.',
         'type' => 'Tipo de Pessoa',
         'type_pf' => 'Pessoa Singular',
         'type_pj' => 'Pessoa Coletiva',

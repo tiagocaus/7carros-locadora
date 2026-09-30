@@ -351,6 +351,15 @@ Numeracao:
 
 ## Reenvio
 
+### Municipio do tomador brasileiro
+
+- O cadastro de clientes possui `codigo_municipio` nullable, com 7 digitos e sem o placeholder `0000000`. O ViaCEP preenche esse campo com `ibge`; tambem e permitida a correcao manual no cadastro.
+- Ao alterar CEP, cidade, UF ou pais, invalidar o codigo anterior ate novo preenchimento. Pais diferente de BR deve manter o codigo nulo.
+- Betha com IBS/CBS ativo e `cIndOp=100301` exige municipio brasileiro e CEP validos antes de reservar numeracao ou enviar a DPS. Falta de municipio usa `TOMADOR_MUNICIPIO`; CEP invalido usa `TOMADOR_ENDERECO`. Nenhum dos dois e recuperavel automaticamente pelo cron.
+- Reenvio com financeiro carrega o cadastro atual, regenera o XML e atualiza `tomador_endereco` para refletir o XML enviado. Reenvio sem financeiro valida o endereco do XML salvo e bloqueia essa operacao se estiver incompleto, pois nao pode regenerar o XML assinado.
+- Nao consultar servicos de CEP durante emissao/reenvio nem preencher cadastros antigos em lote. O usuario deve corrigir e salvar o cliente antes de reenviar.
+
+
 Para NFS-e rejeitada:
 
 - Maximo regular de 5 envios totais: o envio inicial e ate 4 reenvios.
@@ -390,7 +399,7 @@ Regras da tela:
   - para ES, passaporte cadastral com ate 40 caracteres e pais diferente de BR;
   - ausencia de documento deve bloquear a emissao localmente com mensagem clara para corrigir o cadastro do cliente.
 - Rejeicoes SEFIN de schema `E1235` no bloco `<toma>` por `<xNome>` antes de `CNPJ`/`CPF`/`NIF` devem ser exibidas ao usuario como erro de CPF/CNPJ do cliente ausente, preservando o retorno tecnico em eventos/logs para suporte.
-- O codigo IBGE do municipio do tomador brasileiro pode ser informado nessa tela para permitir envio de endereco completo em emissores DPS quando o cadastro do cliente ainda nao tiver esse dado. Para tomador estrangeiro, exibir o pais e ocultar o codigo IBGE.
+- O codigo IBGE do municipio do tomador brasileiro vem exclusivamente de `clientes.codigo_municipio`. A tela de emissao exibe esse campo somente para leitura; valores enviados pelo navegador nao podem sobrescreve-lo. Corrigir primeiro o cadastro do cliente quando o dado estiver ausente. Para tomador estrangeiro, exibir o pais e ocultar o codigo IBGE.
 - Ausencia de configuracao NFS-e ou certificado nao deve redirecionar para a listagem. A tela deve permanecer aberta, mostrar aviso especifico e bloquear somente o botao de emissao.
 
 Persistencia:

@@ -49,9 +49,33 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const campoPais = document.getElementById('pais');
     const campoCEP = document.getElementById('cep');
+    const campoMunicipio = document.getElementById('codigo_municipio');
+    let versaoEndereco = 0;
+    let consultaViaCep = 0;
 
     if (!campoCEP) {
         return; // Não continua se não existir campo CEP na página
+    }
+
+    function invalidarMunicipio() {
+        versaoEndereco++;
+        if (campoMunicipio) campoMunicipio.value = '';
+    }
+
+    function ajustarMunicipio() {
+        if (!campoMunicipio) return;
+        campoMunicipio.disabled = !isBrasil();
+        campoMunicipio.closest('.form-input-group').classList.toggle('hidden', !isBrasil());
+        if (!isBrasil()) campoMunicipio.value = '';
+    }
+
+    if (campoMunicipio) {
+        campoMunicipio.addEventListener('input', function () {
+            campoMunicipio.value = campoMunicipio.value.replace(/\D/g, '').slice(0, 7);
+            versaoEndereco++;
+        });
+        [campoCEP, document.getElementById('cidade'), document.getElementById('uf') || document.getElementById('estado')]
+            .filter(Boolean).forEach(campo => campo.addEventListener('input', invalidarMunicipio));
     }
 
     /**
@@ -100,12 +124,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // Ajustar máscara quando mudar o país
     if (campoPais) {
         campoPais.addEventListener('change', function () {
+            invalidarMunicipio();
             ajustarMascaraCEP();
+            ajustarMunicipio();
         });
     }
 
     // Inicializar máscara
     ajustarMascaraCEP();
+    ajustarMunicipio();
 
 
     // ========================================
@@ -151,6 +178,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         mostrarLoading();
+        const versao = versaoEndereco;
+        const consulta = ++consultaViaCep;
+        const consultaAtual = () => consulta === consultaViaCep && versao === versaoEndereco
+            && isBrasil() && campoCEP.value.replace(/\D/g, '') === cep;
 
         fetch(`https://viacep.com.br/ws/${cep}/json/`, {
             method: 'GET',
@@ -164,6 +195,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 return response.json();
             })
             .then(dados => {
+                if (!consultaAtual()) {
+                    if (consulta === consultaViaCep) esconderLoading();
+                    return;
+                }
                 esconderLoading();
 
                 if (dados.erro) {
@@ -185,6 +220,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Selecionar Brasil no campo país
                 selecionarPais('BR');
+                if (campoMunicipio) {
+                    campoMunicipio.value = /^[0-9]{7}$/.test(dados.ibge || '') && dados.ibge !== '0000000' ? dados.ibge : '';
+                }
 
                 if (dados.logradouro || dados.bairro) {
                     mostrarSucesso();
@@ -197,6 +235,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             })
             .catch(error => {
+                if (!consultaAtual()) {
+                    if (consulta === consultaViaCep) esconderLoading();
+                    return;
+                }
                 esconderLoading();
                 mostrarErro('Erro ao buscar CEP. Tente novamente.');
                 console.error('Erro na busca do CEP:', error);

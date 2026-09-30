@@ -532,6 +532,7 @@ class ClientesController
                 'estado_civil' => $request->input('estado_civil', ''),
                 'profissao' => $request->input('profissao', ''),
                 'cep' => $request->input('cep', ''),
+                'codigo_municipio' => $request->input('codigo_municipio', null),
                 'rua' => $request->input('rua', ''),
                 'numero' => $request->input('numero', ''),
                 'complemento' => $request->input('complemento', ''),
@@ -669,6 +670,7 @@ class ClientesController
                 'estado_civil' => $request->input('estado_civil'),
                 'profissao' => $request->input('profissao'),
                 'cep' => $request->input('cep'),
+                'codigo_municipio' => $request->input('codigo_municipio', null),
                 'rua' => $request->input('rua'),
                 'numero' => $request->input('numero'),
                 'complemento' => $request->input('complemento'),
@@ -683,6 +685,10 @@ class ClientesController
                 'situacao' => $request->input('situacao'),
                 'obs' => $request->input('obs'),
             ];
+
+            if (!array_key_exists('codigo_municipio', $request->all())) {
+                unset($dados['codigo_municipio']);
+            }
 
             // Atualizar senha apenas se fornecida
             if ($request->input('senha')) {

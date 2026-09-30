@@ -23,6 +23,8 @@ return [
 
     // Form fields
     'fields' => [
+        'municipality_code' => 'Municipality IBGE Code',
+        'municipality_code_hint' => 'Filled automatically when looking up a Brazilian postal code. You can also enter the 7-digit code manually.',
         'type' => 'Person Type',
         'type_pf' => 'Individual',
         'type_pj' => 'Company',

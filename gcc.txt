@@ -1,0 +1,21 @@
+Estou em processo de homologação de um GCC "Quem me viu". Eles mandaram a documentação. Ou te enviar essa documentação para que crie um arquivo para importar no "Postmam", e assim testar a API. Monte ela na ordem. Uma detalhe que entendi é que o hash é primieiramente criado no GCC, e depois com esse token fazemos a consulta no SENATRAN. Pesquise as documentações oficiais e faça o teste.
+
+API GCC Quem me viu: https://company.hml.quemmeviu.com.br/api
+E-mail de acesso: "sac@hostcia.net"
+Senha: "3MJyLLz6t5RY:.w"
+Token (API Key) Temporário: "add89835823686c24be1cf031ffb908436065dcf2e3d4fcd171e76619fae4358"
+template_id: "5112026-00001"
+
+
+Já para consultar as infrações com o hash criado previamente:
+Testes: https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/manual/configuracao/massa-de-testes/infracoes/, https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/manual/configuracao/massa-de-testes/condutores/ e https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/manual/configuracao/massa-de-testes/veiculos/.
+
+API da Serpro para consulta das multas: https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/manual/, https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/pgcc/swagger-ui/index.html
+
+
+Não atualize nenhuma documentação do sistema atual, pois isso será um prototipo para testes. Depois de testado faremos a implantação.
+
+o arquivo pode ser salvo na raiz.
+
+
+Entendeu meu pedido?

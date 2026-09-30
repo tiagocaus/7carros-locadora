@@ -573,17 +573,21 @@ class NFSe extends Model
      */
     public function atualizarParaReenvio(int $id, array $dados): int
     {
+        $atualizacao = [
+            'numero' => $dados['numero'] ?? null,
+            'serie' => $dados['serie'] ?? null,
+            'xml_envio' => $dados['xml_envio'] ?? null,
+            'status' => 'processando',
+            'motivo_rejeicao' => null,
+            'codigo_rejeicao' => null,
+        ];
+        if (array_key_exists('tomador_endereco', $dados)) {
+            $atualizacao['tomador_endereco'] = $dados['tomador_endereco'];
+        }
         return $this->qb
             ->table('nfse')
             ->where('id', '=', $id)
-            ->update([
-                'numero' => $dados['numero'] ?? null,
-                'serie' => $dados['serie'] ?? null,
-                'xml_envio' => $dados['xml_envio'] ?? null,
-                'status' => 'processando',
-                'motivo_rejeicao' => null,
-                'codigo_rejeicao' => null,
-            ]);
+            ->update($atualizacao);
     }
 
     // ==========================================

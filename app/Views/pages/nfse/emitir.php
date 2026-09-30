@@ -62,7 +62,7 @@
                         </div>
                         <div class="md:col-span-4 form-input-group" id="tomadorMunicipioGroup">
                             <label class="form-label-group"><?= t('modules.nfse.fields.tomador_codigo_municipio') ?></label>
-                            <input type="text" name="tomador_codigo_municipio" id="tomadorCodigoMunicipio" class="form-input-group-field" maxlength="7" placeholder="0000000">
+                            <input type="text" id="tomadorCodigoMunicipio" class="form-input-group-field bg-slate-50" maxlength="7" readonly>
                         </div>
                         <div class="md:col-span-4 form-input-group hidden" id="tomadorPaisGroup">
                             <label class="form-label-group"><?= t('modules.nfse.fields.tomador_pais') ?></label>
@@ -519,7 +519,6 @@
                 descricao_servico: document.getElementById('inputDescricaoServico').value,
                 iss_retido: document.getElementById('inputIssRetido').checked ? 'S' : 'N',
                 tomador_email: document.getElementById('tomadorEmail').value,
-                tomador_codigo_municipio: document.getElementById('tomadorCodigoMunicipio').value.replace(/\D/g, ''),
             };
 
             const result = await API.post('/nfse/emitir', dados);
