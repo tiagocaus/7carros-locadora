@@ -19,7 +19,8 @@ return [
     ],
     'fields' => [
         'municipality_code' => 'Código IBGE del Municipio',
-        'municipality_code_hint' => 'Se completa automáticamente al consultar el código postal brasileño. También puede introducir los 7 dígitos manualmente.',
+        'municipality_code_hint' => 'Se completa automáticamente al consultar el código postal brasileño. Si es necesario, use el botón para consultar el código en el sitio de IBGE e introduzca los 7 dígitos manualmente.',
+        'municipality_code_lookup' => 'Consultar el código del municipio en IBGE',
         'type' => 'Tipo de Persona',
         'type_pf' => 'Persona Física',
         'type_pj' => 'Persona Jurídica',

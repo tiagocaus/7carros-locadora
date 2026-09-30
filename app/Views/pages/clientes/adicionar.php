@@ -202,7 +202,15 @@
                                 {{ t('modules.clientes.fields.municipality_code') }}
                                 <?= aviso(t('modules.clientes.fields.municipality_code_hint')) ?>
                             </label>
-                            <input type="text" id="codigo_municipio" name="codigo_municipio" class="form-input-group-field" inputmode="numeric" maxlength="7" pattern="[0-9]{7}">
+                            <div class="flex">
+                                <input type="text" id="codigo_municipio" name="codigo_municipio" class="form-input-group-field rounded-r-none border-r-0 min-w-0" inputmode="numeric" maxlength="7" pattern="[0-9]{7}">
+                                <a href="https://www.ibge.gov.br/cidades-e-estados" target="_blank" rel="noopener noreferrer"
+                                   class="flex items-center justify-center w-[31px] shrink-0 p-0 bg-[#87909d] hover:!bg-[#6b7480] active:!bg-[#5a626d] text-white border-0 rounded-none cursor-pointer transition-colors duration-200"
+                                   title="{{ t('modules.clientes.fields.municipality_code_lookup') }}"
+                                   aria-label="{{ t('modules.clientes.fields.municipality_code_lookup') }}">
+                                    <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                                </a>
+                            </div>
                         </div>
                         <div class="col-span-12 sm:col-span-4 form-input-group">
                             <label for="clientePais" class="form-label-group">{{ t('modules.clientes.fields.country') }}</label>

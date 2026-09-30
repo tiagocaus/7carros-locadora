@@ -24,7 +24,8 @@ return [
     // Campos do formulário
     'fields' => [
         'municipality_code' => 'Código IBGE do Município',
-        'municipality_code_hint' => 'Preenchido automaticamente ao consultar o CEP brasileiro. Também pode ser informado manualmente com 7 dígitos.',
+        'municipality_code_hint' => 'Preenchido automaticamente ao consultar o CEP brasileiro. Se necessário, use o botão para consultar o código no site do IBGE e informe os 7 dígitos manualmente.',
+        'municipality_code_lookup' => 'Consultar código do município no IBGE',
         'type' => 'Tipo de Pessoa',
         'type_pf' => 'Pessoa Física',
         'type_pj' => 'Pessoa Jurídica',

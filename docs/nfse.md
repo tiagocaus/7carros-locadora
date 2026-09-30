@@ -353,7 +353,7 @@ Numeracao:
 
 ### Municipio do tomador brasileiro
 
-- O cadastro de clientes possui `codigo_municipio` nullable, com 7 digitos e sem o placeholder `0000000`. O ViaCEP preenche esse campo com `ibge`; tambem e permitida a correcao manual no cadastro.
+- O cadastro de clientes possui `codigo_municipio` nullable, com 7 digitos e sem o placeholder `0000000`. O ViaCEP preenche esse campo com `ibge`; tambem e permitida a correcao manual no cadastro. O botao de consulta integrado ao campo abre `https://www.ibge.gov.br/cidades-e-estados` em nova aba, preservando o formulario; o usuario consulta o codigo e preenche os 7 digitos manualmente. O botao acompanha a ocultacao do campo para paises diferentes de BR.
 - Ao alterar CEP, cidade, UF ou pais, invalidar o codigo anterior ate novo preenchimento. Pais diferente de BR deve manter o codigo nulo.
 - Betha com IBS/CBS ativo e `cIndOp=100301` exige municipio brasileiro e CEP validos antes de reservar numeracao ou enviar a DPS. Falta de municipio usa `TOMADOR_MUNICIPIO`; CEP invalido usa `TOMADOR_ENDERECO`. Nenhum dos dois e recuperavel automaticamente pelo cron.
 - Reenvio com financeiro carrega o cadastro atual, regenera o XML e atualiza `tomador_endereco` para refletir o XML enviado. Reenvio sem financeiro valida o endereco do XML salvo e bloqueia essa operacao se estiver incompleto, pois nao pode regenerar o XML assinado.
