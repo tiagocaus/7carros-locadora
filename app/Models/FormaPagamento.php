@@ -82,7 +82,6 @@ class FormaPagamento extends Model
                     'taxa_fixa' => (float) $row['taxa_fixa'],
                     'taxa_fixa_parcela' => (float) $row['taxa_fixa_parcela'],
                     'taxa_percentual_parcela' => (float) $row['taxa_percentual_parcela'],
-                    'metodos' => $this->inferirMetodosDaForma((string) $row['forma_nome']),
                     'gateways' => [],
                 ];
             }
@@ -117,11 +116,6 @@ class FormaPagamento extends Model
 
     public function formaPermiteGatewayMetodo(array $forma, int $gatewayId, string $metodo): bool
     {
-        $metodosPermitidos = $forma['metodos'] ?? [];
-        if (!in_array($metodo, $metodosPermitidos, true)) {
-            return false;
-        }
-
         $flagMetodo = match ($metodo) {
             'pix' => 'pix_enabled',
             'boleto' => 'boleto_enabled',
@@ -141,26 +135,6 @@ class FormaPagamento extends Model
         }
 
         return false;
-    }
-
-    private function inferirMetodosDaForma(string $nome): array
-    {
-        $normalizado = strtolower(iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $nome) ?: $nome);
-
-        if (str_contains($normalizado, 'pix')) {
-            return ['pix'];
-        }
-        if (str_contains($normalizado, 'boleto')) {
-            return ['boleto'];
-        }
-        if (str_contains($normalizado, 'debito')) {
-            return ['debit_card'];
-        }
-        if (str_contains($normalizado, 'cartao') || str_contains($normalizado, 'credito')) {
-            return ['credit_card'];
-        }
-
-        return ['pix', 'boleto', 'credit_card', 'debit_card'];
     }
 
     /**
@@ -487,14 +461,19 @@ class FormaPagamento extends Model
      * @param int $id ID da forma de pagamento
      * @return array Lista de filiais com id e nome
      */
-    public function buscarFiliais(int $id): array
+    public function buscarFiliais(int $id, ?string $chave = null): array
     {
-        return $this->qb
-            ->table('formas_pagamento_filiais AS fpf')
+        $query = $this->qb
+            ->table('formas_pagamento_filiais', 'fpf')
             ->select(['fpf.id_matriz_filial AS id', 'mf.razao_social AS nome'])
             ->join('matrizes_filiais', 'mf', 'mf.id', '=', 'fpf.id_matriz_filial')
-            ->where('fpf.id_forma_pagamento', '=', $id)
-            ->withoutChave()
+            ->where('fpf.id_forma_pagamento', '=', $id);
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        return $query
             ->orderBy('mf.razao_social', 'ASC')
             ->get();
     }
@@ -512,6 +491,7 @@ class FormaPagamento extends Model
         // Remover vinculos antigos
         $this->qb
             ->table('formas_pagamento_filiais')
+            ->withChave($chave)
             ->where('id_forma_pagamento', '=', $id)
             ->delete();
 
@@ -533,14 +513,19 @@ class FormaPagamento extends Model
      * @param int $id ID da forma de pagamento
      * @return array Lista de gateways com id e nome
      */
-    public function buscarGateways(int $id): array
+    public function buscarGateways(int $id, ?string $chave = null): array
     {
-        return $this->qb
-            ->table('formas_pagamento_gateways AS fpg')
+        $query = $this->qb
+            ->table('formas_pagamento_gateways', 'fpg')
             ->select(['fpg.id_gateway AS id', 'gp.nome'])
             ->join('gateways_pagamento', 'gp', 'gp.id', '=', 'fpg.id_gateway')
-            ->where('fpg.id_forma_pagamento', '=', $id)
-            ->withoutChave()
+            ->where('fpg.id_forma_pagamento', '=', $id);
+
+        if ($chave !== null) {
+            $query->withChave($chave);
+        }
+
+        return $query
             ->orderBy('gp.nome', 'ASC')
             ->get();
     }
@@ -558,8 +543,8 @@ class FormaPagamento extends Model
         // Remover vinculos antigos
         $this->qb
             ->table('formas_pagamento_gateways')
+            ->withChave($chave)
             ->where('id_forma_pagamento', '=', $id)
-            ->withoutChave()
             ->delete();
 
         // Inserir novos vinculos

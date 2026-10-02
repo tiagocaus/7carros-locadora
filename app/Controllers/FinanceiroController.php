@@ -1770,7 +1770,7 @@ class FinanceiroController
             return false;
         }
 
-        $gatewaysVinculados = (new FormaPagamento())->buscarGateways($formaPagamentoId);
+        $gatewaysVinculados = (new FormaPagamento())->buscarGateways($formaPagamentoId, $chave);
         $idsVinculados = array_column($gatewaysVinculados, 'id');
         if (empty($idsVinculados)) {
             return false;

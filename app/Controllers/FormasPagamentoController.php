@@ -163,10 +163,10 @@ class FormasPagamentoController
             }
 
             // Buscar filiais vinculadas
-            $forma['filiais'] = $model->buscarFiliais($id);
+            $forma['filiais'] = $model->buscarFiliais($id, $chave);
 
             // Buscar gateways vinculados
-            $forma['gateways'] = $model->buscarGateways($id);
+            $forma['gateways'] = $model->buscarGateways($id, $chave);
 
             if (!empty($forma['id_plano_de_conta_taxa'])) {
                 $planoTaxa = (new PlanoDeContas())->buscarPorId((int) $forma['id_plano_de_conta_taxa']);

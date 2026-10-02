@@ -152,7 +152,10 @@ class FinanceiroTaxaService
         }
 
         if ($idGateway === null && !empty($receita['id_forma_pagamento'])) {
-            $gateways = (new FormaPagamento())->buscarGateways((int) $receita['id_forma_pagamento']);
+            $gateways = (new FormaPagamento())->buscarGateways(
+                (int) $receita['id_forma_pagamento'],
+                (string) $receita['chave']
+            );
             if (count($gateways) === 1) {
                 $idGateway = (int) $gateways[0]['id'];
             }

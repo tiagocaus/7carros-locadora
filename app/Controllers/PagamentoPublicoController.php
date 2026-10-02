@@ -81,7 +81,10 @@ class PagamentoPublicoController
             if ($formaSite) {
                 $gateways = $this->gatewaysDasFormasPagamentoSite([$formaSite]);
             } else {
-                $gatewaysVinculados = $formaPagamentoModel->buscarGateways((int) $link['id_forma_pagamento']);
+                $gatewaysVinculados = $formaPagamentoModel->buscarGateways(
+                    (int) $link['id_forma_pagamento'],
+                    (string) $link['chave']
+                );
                 $idsVinculados = array_column($gatewaysVinculados, 'id');
 
                 if (!empty($idsVinculados)) {
@@ -236,7 +239,10 @@ class PagamentoPublicoController
                 return;
             }
         } elseif (!empty($link['id_forma_pagamento'])) {
-            $idsVinculados = array_column($formaPagamentoModel->buscarGateways((int) $link['id_forma_pagamento']), 'id');
+            $idsVinculados = array_column($formaPagamentoModel->buscarGateways(
+                (int) $link['id_forma_pagamento'],
+                (string) $link['chave']
+            ), 'id');
             if (!in_array($gatewayId, array_map('intval', $idsVinculados), true)) {
                 Response::json([
                     'success' => false,
@@ -1563,11 +1569,9 @@ class PagamentoPublicoController
     {
         $gateways = [];
         foreach ($formas as $forma) {
-            $metodos = $forma['metodos'] ?? [];
             foreach ($forma['gateways'] ?? [] as $gateway) {
                 $gateway['id_forma_pagamento'] = (int) $forma['id'];
                 $gateway['forma_pagamento_nome'] = (string) $forma['nome'];
-                $gateway['metodos_forma_pagamento'] = $metodos;
                 $gateways[] = $gateway;
             }
         }
@@ -1577,11 +1581,6 @@ class PagamentoPublicoController
 
     private function gatewayPermiteMetodoPorForma(array $gateway, string $metodo): bool
     {
-        $metodosForma = $gateway['metodos_forma_pagamento'] ?? [];
-        if (!empty($metodosForma) && !in_array($metodo, $metodosForma, true)) {
-            return false;
-        }
-
         $gatewayInfo = GatewayFactory::getGatewayInfo((string) ($gateway['gateway_code'] ?? ''));
         if (!$gatewayInfo || !in_array($metodo, $gatewayInfo['methods'] ?? [], true)) {
             return false;

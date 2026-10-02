@@ -88,6 +88,7 @@ Uma forma de pagamento pode ser vinculada a um ou mais gateways de pagamento atr
 
 - **Com gateway(s) vinculado(s):** A forma de pagamento aparece em todas as telas e permite processamento de pagamento online automatico
 - **Sem gateway vinculado:** A forma de pagamento aparece em contratos, lancamentos, etc., mas nao processa pagamento online automatico (uso para dinheiro, transferencias manuais, etc.)
+- No link publico, os metodos disponiveis sao definidos pelos metodos suportados e habilitados no gateway vinculado. O campo `formas_pagamento.nome` e apenas um rotulo e nunca deve ser usado para inferir ou restringir Pix, boleto ou cartao.
 
 ### Uso no Model
 
