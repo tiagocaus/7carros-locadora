@@ -11,6 +11,19 @@ namespace App\Models;
 class Whatsapp extends Model
 {
     /**
+     * Lista todas as conexoes para o CRON cross-tenant de sincronizacao.
+     */
+    public function listarParaSincronizacaoStatus(): array
+    {
+        return $this->qb
+            ->table('whatsapp')
+            ->withoutChave()
+            ->select(['id', 'instanceName', 'status', 'chave'])
+            ->orderBy('id', 'ASC')
+            ->get();
+    }
+
+    /**
      * Lista todas as conexoes do tenant
      *
      * @return array Lista de conexoes

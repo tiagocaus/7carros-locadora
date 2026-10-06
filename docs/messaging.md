@@ -220,6 +220,27 @@ Esses detalhes nao incluem resposta bruta, telefone, URL, conteudo ou tokens.
 A classificacao do resultado nao depende de igualdade com o texto completo.
 Mensagens antigas incertas nao sao reenfileiradas pela correcao.
 
+### WhatsApp: sincronizacao resiliente de status
+
+`SyncWhatsappStatusJob` consulta todas as conexoes a cada cinco minutos,
+inclusive as que estao localmente `DISCONNECTED`, para permitir recuperacao
+automatica. A WuzAPI diferencia WebSocket iniciado (`Connected`) de sessao
+autenticada e pronta para mensagens (`LoggedIn`). O mapeamento local e:
+
+- `LoggedIn=true`: `CONNECTED`;
+- `LoggedIn=false` e `Connected=true`: `CONNECTING`;
+- ambos falsos em duas consultas validas consecutivas: `DISCONNECTED`.
+
+Falha cURL, HTTP nao-2xx, resposta vazia, JSON invalido, `success=false` ou
+campos de status ausentes/nao booleanos sao resultados inconclusivos. Nesses
+casos, o status local deve ser preservado. A consulta HTTP da tela segue a
+mesma regra e responde `503` sem gravar alteracoes quando nao consegue confirmar
+o estado do provedor.
+
+`DISCONNECTED` significa apenas que a sessao nao estava operacional nas duas
+consultas; nao comprova logout nem revogacao do dispositivo. Tokens de instancia,
+telefones e respostas brutas nao podem aparecer nos logs desse fluxo.
+
 #### Historico e motivo da protecao
 
 - `1769fe3` (17/06/2026, data do commit em UTC+1): introduziu

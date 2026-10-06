@@ -2,190 +2,153 @@
 
 namespace App\Crons\Jobs;
 
-use App\Classes\QueryBuilder;
-use App\Core\Database;
-use mysqli;
+use App\Models\Whatsapp;
+use App\Services\WhatsAppSessionStatusService;
 
 /**
- * Job para sincronizar status das conexoes WhatsApp
- *
- * Verifica periodicamente o estado real das instancias no provedor de WhatsApp
- * e atualiza o banco de dados se houver divergencia.
- *
- * Cenarios tratados:
- * - Instancia expirada / removida no provedor
- * - Usuario desconectou diretamente pelo app WhatsApp
+ * Sincroniza o estado local das conexoes com o estado operacional na WuzAPI.
  */
 class SyncWhatsappStatusJob extends BaseJob
 {
     protected string $name = 'Sync WhatsApp Status';
     protected string $description = 'Sincroniza status das conexoes WhatsApp com o provedor';
 
-    private QueryBuilder $qb;
-    private string $baseUrl;
+    private WhatsAppSessionStatusService $statusService;
+    private ?Whatsapp $whatsappModel;
 
-    public function __construct()
-    {
-        $this->baseUrl = Database::env('WHATSAPP_API_URL', '');
+    public function __construct(
+        ?WhatsAppSessionStatusService $statusService = null,
+        ?Whatsapp $whatsappModel = null
+    ) {
+        $this->statusService = $statusService ?? new WhatsAppSessionStatusService();
+        $this->whatsappModel = $whatsappModel;
     }
 
-    /**
-     * Implementa a logica do job
-     */
     protected function handle(): array
     {
-        $this->log("Iniciando sincronizacao de status WhatsApp...");
+        $this->log('Iniciando sincronizacao de status WhatsApp...');
 
-        if (empty($this->baseUrl)) {
-            $this->log("WHATSAPP_API_URL nao configurada", 'WARNING');
+        if (!$this->statusService->isConfigured()) {
+            $this->log('WHATSAPP_API_URL nao configurada', 'WARNING');
             return [
                 'success' => true,
                 'message' => 'WHATSAPP_API_URL nao configurada',
-                'data' => ['checked' => 0, 'updated' => 0],
+                'data' => $this->emptyCounters(),
             ];
         }
 
-        // Cria QueryBuilder
-        $mysqli = new mysqli(
-            Database::env('DB_HOST'),
-            Database::env('DB_USERNAME'),
-            Database::env('DB_PASSWORD'),
-            Database::env('DB_DATABASE'),
-            (int) Database::env('DB_PORT', '3306')
-        );
-        $mysqli->set_charset('utf8mb4');
-        $this->qb = new QueryBuilder($mysqli);
-        $this->qb->withoutChave(); // Verificar todas as conexoes de todos os tenants
-
-        $checked = 0;
-        $updated = 0;
+        $model = $this->whatsappModel ?? new Whatsapp();
+        $counters = $this->emptyCounters();
+        $sessionWasArray = isset($_SESSION) && is_array($_SESSION);
+        $previousSession = $sessionWasArray ? $_SESSION : [];
 
         try {
-            // Buscar conexoes com status 'connected' ou 'connecting'
-            $conexoes = $this->qb->table('whatsapp')
-                ->select(['id', 'instanceName', 'status', 'chave'])
-                ->whereIn('status', ['connected', 'connecting'])
-                ->get();
-
-            $this->log("Encontradas " . count($conexoes) . " conexoes para verificar");
+            $conexoes = $model->listarParaSincronizacaoStatus();
+            $this->log('Encontradas ' . count($conexoes) . ' conexoes para verificar');
 
             foreach ($conexoes as $conexao) {
-                $checked++;
-                $instanceToken = $conexao['instanceName']; // instanceName e usado como token
-                $currentStatus = $conexao['status'];
-                $chave = $conexao['chave'];
+                $counters['checked']++;
+                $id = (int) $conexao['id'];
+                $currentStatus = strtolower((string) $conexao['status']);
 
-                // Verificar estado na API
-                $apiResponse = $this->getSessionStatus($instanceToken);
-                $newStatus = $this->mapApiStateToStatus($apiResponse);
+                try {
+                    $result = $currentStatus === WhatsAppSessionStatusService::STATUS_DISCONNECTED
+                        ? $this->statusService->consultar((string) $conexao['instanceName'])
+                        : $this->statusService->consultarComConfirmacao((string) $conexao['instanceName']);
 
-                // Se status mudou para desconectado, atualizar
-                if ($newStatus === 'disconnected' && $currentStatus !== 'disconnected') {
-                    $this->qb->table('whatsapp')
-                        ->where('id', '=', $conexao['id'])
-                        ->update([
-                            'status' => 'disconnected',
-                            'updated_at' => now(),
-                        ]);
+                    if (!$result['conclusive']) {
+                        $counters['inconclusive']++;
+                        $this->log(
+                            "Conexao #{$id}: consulta inconclusiva (" . WhatsAppSessionStatusService::diagnostic($result) . ')',
+                            'WARNING'
+                        );
+                        continue;
+                    }
 
-                    $updated++;
-                    $this->log("Conexao [{$instanceToken}] (tenant: {$chave}) atualizada: {$currentStatus} -> disconnected");
+                    $counters['conclusive']++;
+                    $newStatus = (string) $result['status'];
+                    if ($newStatus === $currentStatus) {
+                        continue;
+                    }
+
+                    if (!isset($_SESSION) || !is_array($_SESSION)) {
+                        $_SESSION = [];
+                    }
+                    $_SESSION['chave'] = (string) $conexao['chave'];
+                    $model->atualizarStatus($id, $newStatus, $result['owner'] ?? null);
+                    $counters['updated']++;
+
+                    if ($newStatus === WhatsAppSessionStatusService::STATUS_DISCONNECTED) {
+                        $counters['disconnected_confirmed']++;
+                    } elseif ($currentStatus === WhatsAppSessionStatusService::STATUS_DISCONNECTED) {
+                        $counters['recovered']++;
+                    }
+
+                    $this->log("Conexao #{$id} atualizada: {$currentStatus} -> {$newStatus}");
+                } catch (\Throwable $e) {
+                    $counters['inconclusive']++;
+                    $this->log("Conexao #{$id}: erro inesperado durante sincronizacao", 'WARNING');
+                } finally {
+                    if (isset($_SESSION) && is_array($_SESSION)) {
+                        unset($_SESSION['chave']);
+                    }
                 }
             }
-
-            $mysqli->close();
-
-        } catch (\Exception $e) {
-            $this->log("Erro ao sincronizar: " . $e->getMessage(), 'ERROR');
+        } catch (\Throwable $e) {
+            $this->restoreSession($sessionWasArray, $previousSession);
+            $this->log('Erro ao sincronizar: ' . $e->getMessage(), 'ERROR');
 
             return [
                 'success' => false,
+                'status' => self::STATUS_FAILED,
                 'message' => 'Erro ao sincronizar: ' . $e->getMessage(),
-                'data' => [
-                    'checked' => $checked,
-                    'updated' => $updated,
-                ],
+                'data' => $counters,
             ];
         }
 
-        $this->log("Sincronizacao concluida: {$checked} verificadas, {$updated} atualizadas");
+        $this->restoreSession($sessionWasArray, $previousSession);
+
+        $status = self::STATUS_SUCCESS;
+        if ($counters['inconclusive'] > 0) {
+            $status = $counters['conclusive'] > 0 ? self::STATUS_PARTIAL : self::STATUS_FAILED;
+        }
+
+        $message = sprintf(
+            '%d verificadas, %d atualizadas, %d recuperadas, %d inconclusivas',
+            $counters['checked'],
+            $counters['updated'],
+            $counters['recovered'],
+            $counters['inconclusive']
+        );
+        $this->log('Sincronizacao concluida: ' . $message);
 
         return [
-            'success' => true,
-            'message' => "Verificadas {$checked} conexoes, {$updated} atualizadas",
-            'data' => [
-                'checked' => $checked,
-                'updated' => $updated,
-            ],
+            'success' => $status === self::STATUS_SUCCESS,
+            'status' => $status,
+            'message' => $message,
+            'data' => $counters,
         ];
     }
 
-    /**
-     * Mapeia resposta de status para nosso status interno.
-     *
-     * Provedor responde { Connected: bool, LoggedIn: bool }.
-     */
-    private function mapApiStateToStatus(array $apiResponse): string
+    private function emptyCounters(): array
     {
-        if (!$apiResponse['success']) {
-            return 'disconnected';
-        }
-
-        $data = $apiResponse['data']['data'] ?? $apiResponse['data'] ?? [];
-        // Provedor pode retornar campos em camelCase ou PascalCase, aceitamos ambos
-        $loggedIn = !empty($data['LoggedIn']) || !empty($data['loggedIn']);
-        $connected = !empty($data['Connected']) || !empty($data['connected']);
-
-        if ($loggedIn) {
-            return 'connected';
-        }
-        if ($connected) {
-            return 'connecting';
-        }
-        return 'disconnected';
+        return [
+            'checked' => 0,
+            'conclusive' => 0,
+            'inconclusive' => 0,
+            'disconnected_confirmed' => 0,
+            'recovered' => 0,
+            'updated' => 0,
+        ];
     }
 
-    /**
-     * GET /session/status com header token = instanceToken.
-     */
-    private function getSessionStatus(string $instanceToken): array
+    private function restoreSession(bool $sessionWasArray, array $previousSession): void
     {
-        $url = rtrim($this->baseUrl, '/') . '/session/status';
-
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'token: ' . $instanceToken,
-        ]);
-
-        $body = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-
-        if ($error) {
-            return [
-                'success' => false,
-                'message' => "Erro cURL: {$error}",
-                'data' => null,
-            ];
+        if ($sessionWasArray) {
+            $_SESSION = $previousSession;
+            return;
         }
 
-        $response = json_decode($body, true) ?? [];
-
-        if ($httpCode >= 200 && $httpCode < 300) {
-            return [
-                'success' => true,
-                'data' => $response,
-            ];
-        }
-
-        return [
-            'success' => false,
-            'message' => $response['message'] ?? $response['error'] ?? "HTTP {$httpCode}",
-            'data' => $response,
-        ];
+        unset($_SESSION);
     }
 }

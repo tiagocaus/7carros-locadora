@@ -103,7 +103,7 @@ try {
               ->everyMinute();
 
     // Sincronizacao de Status WhatsApp
-    // Executa a cada 5 minutos para verificar estado real das conexoes na Evolution API
+    // Executa a cada 5 minutos para verificar o estado operacional das conexoes na WuzAPI
     $scheduler->job(new \App\Crons\Jobs\SyncWhatsappStatusJob())
               ->everyFiveMinutes();
 

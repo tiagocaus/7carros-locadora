@@ -228,6 +228,16 @@ preservada junto com a protecao contra duplicidade em futuras alteracoes.
 A referencia principal, com justificativa, historico e testes obrigatorios, e
 [WhatsApp: compatibilidade com o nono digito](messaging.md#whatsapp-compatibilidade-com-o-nono-digito).
 
+#### Sincronizacao de status
+
+O estado de `/session/status` e interpretado por
+`WhatsAppSessionStatusService`, compartilhado pelo CRON e pela consulta da tela.
+Somente respostas validas com booleanos `Connected`/`LoggedIn` ou
+`connected`/`loggedIn` podem alterar o banco. Resultados de transporte ou
+payload inconclusivos preservam o ultimo estado conhecido; uma desconexao nova
+exige duas respostas negativas validas separadas por um segundo. Veja
+[WhatsApp: sincronizacao resiliente de status](messaging.md#whatsapp-sincronizacao-resiliente-de-status).
+
 #### Proxy de saída
 
 Quando `WHATSAPP_API_PROXY_HOST` está definido, o `WhatsappController` configura o proxy via `POST /session/proxy` logo após criar a instância (faz parte do fluxo de "Adicionar conexão"). Mesmas credenciais para todas as instâncias (vindas do `.env`).

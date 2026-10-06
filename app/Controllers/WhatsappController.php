@@ -9,6 +9,7 @@ use App\Core\Response;
 use App\Views\Template;
 use App\Models\Whatsapp;
 use App\Services\WhatsAppService;
+use App\Services\WhatsAppSessionStatusService;
 use App\Helpers\PlanoLimiteHelper;
 use App\Services\AuditLogService;
 
@@ -25,11 +26,13 @@ class WhatsappController
     private string $baseUrl;
     private string $adminToken;
     private array $proxyConfig;
+    private WhatsAppSessionStatusService $sessionStatusService;
 
-    public function __construct()
+    public function __construct(?WhatsAppSessionStatusService $sessionStatusService = null)
     {
         $this->baseUrl = Database::env('WHATSAPP_API_URL', '');
         $this->adminToken = Database::env('WHATSAPP_API_ADMIN_TOKEN', '');
+        $this->sessionStatusService = $sessionStatusService ?? new WhatsAppSessionStatusService($this->baseUrl);
 
         // Configuracao do proxy
         $this->proxyConfig = [
@@ -645,21 +648,22 @@ class WhatsappController
                 return;
             }
 
-            // Verificar status via API do provedor de WhatsApp
-            $apiResponse = $this->getConnectionState($conexao['instanceName']);
+            $statusResult = $this->sessionStatusService->consultarComConfirmacao($conexao['instanceName']);
+            if (!$statusResult['conclusive']) {
+                Response::json([
+                    'success' => false,
+                    'message' => 'Nao foi possivel confirmar o status da conexao no momento. Tente novamente.'
+                ], 503);
+                return;
+            }
 
-            $state = $apiResponse['data']['state'] ?? 'close';
-            $remoteJid = null;
-
-            // Mapear status da API para nosso status
-            $statusMap = [
-                'open' => 'connected',
-                'connecting' => 'connecting',
-                'close' => 'disconnected',
-                'closed' => 'disconnected',
-            ];
-
-            $newStatus = $statusMap[$state] ?? 'disconnected';
+            $newStatus = (string) $statusResult['status'];
+            $remoteJid = $statusResult['owner'] ?? null;
+            $state = match ($newStatus) {
+                WhatsAppSessionStatusService::STATUS_CONNECTED => 'open',
+                WhatsAppSessionStatusService::STATUS_CONNECTING => 'connecting',
+                default => 'close',
+            };
 
             // O /session/status nem sempre traz o JID; quando vazio, buscar no endpoint admin.
             if ($newStatus === 'connected') {
@@ -670,7 +674,7 @@ class WhatsappController
             }
 
             // Atualizar status no banco se mudou
-            if ($conexao['status'] !== $newStatus || ($remoteJid && $conexao['remoteJid'] !== $remoteJid)) {
+            if (strtolower((string) $conexao['status']) !== $newStatus || ($remoteJid && $conexao['remoteJid'] !== $remoteJid)) {
                 $model->atualizarStatus($id, $newStatus, $remoteJid);
             }
 
@@ -1231,29 +1235,6 @@ class WhatsappController
             'message' => 'Nao foi possivel obter o QR code',
             'data' => null,
         ];
-    }
-
-    /**
-     * Verifica estado da conexao.
-     *
-     * O provedor pode retornar campos em camelCase ou PascalCase, aceitamos ambos.
-     * Tambem expomos o `jid` (owner) quando logado, para evitar uma chamada extra.
-     */
-    private function getConnectionState(string $instanceName): array
-    {
-        $url = rtrim($this->baseUrl, '/') . '/session/status';
-        $response = $this->makeRequest($url, 'GET', [], 'user', $instanceName);
-
-        if ($response['success']) {
-            $data = $response['data']['data'] ?? $response['data'] ?? [];
-            $loggedIn = !empty($data['LoggedIn']) || !empty($data['loggedIn']);
-            $connected = !empty($data['Connected']) || !empty($data['connected']);
-            $state = $loggedIn ? 'open' : ($connected ? 'connecting' : 'close');
-            $owner = $this->extrairRemoteJid($data);
-            $response['data'] = ['state' => $state, 'owner' => $owner];
-        }
-
-        return $response;
     }
 
     /**

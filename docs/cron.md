@@ -336,6 +336,27 @@ recente para evitar regressao de agenda.
 
 ---
 
+### SyncWhatsappStatusJob
+
+**Descrição**: sincroniza a cada cinco minutos o status local de todas as
+conexoes WhatsApp com `/session/status` da WuzAPI.
+
+O resultado do provedor so e conclusivo quando a resposta HTTP e o envelope
+JSON sao validos e `Connected`/`LoggedIn` (ou `connected`/`loggedIn`) sao
+booleanos. Timeout, erro de rede, HTTP nao-2xx, JSON invalido e payload
+incompleto sao inconclusivos e nunca alteram o banco.
+
+Uma mudanca de `CONNECTED` ou `CONNECTING` para `DISCONNECTED` exige duas
+respostas negativas validas, separadas por um segundo. Registros ja
+`DISCONNECTED` continuam sendo consultados para permitir recuperacao automatica
+quando o provedor voltar a informar uma sessao conectada.
+
+Os logs identificam a conexao apenas pelo ID local e incluem motivo controlado,
+HTTP e codigo cURL quando aplicavel. Nunca registrar `instanceName`, token,
+telefone ou corpo bruto do provedor.
+
+---
+
 ### Jobs Diários e Resumo
 
 Os jobs executados uma vez por dia ficam distribuídos na madrugada:
