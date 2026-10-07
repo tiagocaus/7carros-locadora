@@ -544,6 +544,37 @@ $registro = $this->qb
 $this->qb->commit();
 ```
 
+### Sequencias dentro de transacoes externas
+
+Quando uma operacao ja iniciou uma transacao com a conexao Singleton dos
+Models, a reserva de sequencia deve usar a mesma conexao. Abrir outra conexao
+nesse ponto pode causar autobloqueio se a transacao atual ja referenciou a
+mesma matriz/filial por chave estrangeira:
+
+```php
+$mysqli = Model::sharedMysqli();
+$mysqli->begin_transaction();
+
+try {
+    $sequencia = SequenciaHelper::proximaSequenciaNaTransacao(
+        $mysqli,
+        $chave,
+        $idMatrizFilial,
+        'financeiro'
+    );
+
+    // Demais gravacoes da operacao...
+    $mysqli->commit();
+} catch (\Throwable $e) {
+    $mysqli->rollback();
+    throw $e;
+}
+```
+
+`proximaSequenciaNaTransacao()` nao inicia nem finaliza a transacao. O chamador
+e responsavel por `commit()`/`rollback()`. Fora de uma transacao externa,
+continue usando `proximaSequencia()` ou `proximasSequencias()`.
+
 ---
 
 ## Multi-tenancy

@@ -1729,7 +1729,12 @@ class Contrato extends Model
         $idFinanceiro = $financeiro->criar([
             'chave' => $chave,
             'sequencia' => $idMatrizFilial > 0
-                ? \App\Helpers\SequenciaHelper::proximaSequencia($chave, $idMatrizFilial, 'financeiro')
+                ? \App\Helpers\SequenciaHelper::proximaSequenciaNaTransacao(
+                    $this->getMysqli(),
+                    $chave,
+                    $idMatrizFilial,
+                    'financeiro'
+                )
                 : null,
             'codigo' => $contrato['codigo'] ?? null,
             'id_contrato' => $contratoId,

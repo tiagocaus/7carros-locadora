@@ -17,6 +17,7 @@ use App\Models\Veiculo;
 use App\Models\VeiculoDisponibilidadeSync;
 use App\Models\MatrizFilial;
 use App\Models\Manutencao;
+use App\Models\Model;
 use App\Models\FormaPagamento;
 use App\Models\TaxaServico;
 use App\Models\ContatoEmail;
@@ -1813,6 +1814,7 @@ class ContratosController
             $idsVeiculosDevolvidos = [];
             $manutencaoModel = new Manutencao();
             $encerramentoModel = new ContratoEncerramento();
+            $conexaoTransacao = Model::sharedMysqli();
             $encerramentoModel->iniciarTransacao();
             $transacaoAtiva = true;
             $contratoBloqueado = $encerramentoModel->bloquearContrato($id);
@@ -1860,7 +1862,8 @@ class ContratosController
                     $veiculoModel->atualizarValoresDevolucao($idCv, $ajustesValores);
                     $veiculoContrato = array_merge($veiculoContrato, $ajustesValores);
 
-                    AuditLogService::registrarComCampos(
+                    AuditLogService::registrarComCamposNaTransacao(
+                        $conexaoTransacao,
                         ($_SESSION['user_name'] ?? 'Sistema')
                         . ", ajustou valores do veiculo [{$veiculoContrato['veiculo_placa']}] na devolucao do contrato [{$contrato['codigo']}]",
                         $camposAlterados
@@ -1936,9 +1939,11 @@ class ContratosController
                     $manutencaoCriada = $manutencaoModel->buscarPorId($manutencaoId);
                     $manutencaoOs = $manutencaoCriada['os'] ?? null;
 
-                    AuditLogService::registrar(
+                    AuditLogService::registrarComCamposNaTransacao(
+                        $conexaoTransacao,
                         ($_SESSION['user_name'] ?? 'Sistema')
-                        . ", criou a OS de manutencao [{$manutencaoOs}] na devolucao do veiculo [{$veiculoContrato['veiculo_placa']}]"
+                        . ", criou a OS de manutencao [{$manutencaoOs}] na devolucao do veiculo [{$veiculoContrato['veiculo_placa']}]",
+                        []
                     );
                 }
 
@@ -2006,8 +2011,10 @@ class ContratosController
 
                 // 4. Log de auditoria por veiculo
                 $marcaModelo = trim(($veiculoContrato['veiculo_marca'] ?? '') . ' ' . ($veiculoContrato['veiculo_modelo'] ?? ''));
-                AuditLogService::registrar(
-                    ($_SESSION['user_name'] ?? 'Sistema') . ", registrou devolucao de veiculo [{$placa} - {$marcaModelo}] no contrato [{$contrato['codigo']}]"
+                AuditLogService::registrarComCamposNaTransacao(
+                    $conexaoTransacao,
+                    ($_SESSION['user_name'] ?? 'Sistema') . ", registrou devolucao de veiculo [{$placa} - {$marcaModelo}] no contrato [{$contrato['codigo']}]",
+                    []
                 );
 
                 $resultados[] = [

@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use App\Classes\QueryBuilder;
 use App\Core\Database;
+use mysqli;
 
 /**
  * Helper centralizado para gerenciamento de sequencias numericas
@@ -59,6 +60,28 @@ class SequenciaHelper
     }
 
     /**
+     * Gera o proximo numero usando uma transacao externa ja iniciada.
+     *
+     * O chamador e responsavel por commit/rollback. Usar esta variante evita
+     * autobloqueio quando a transacao atual ja referenciou matrizes_filiais
+     * por uma chave estrangeira.
+     */
+    public static function proximaSequenciaNaTransacao(
+        mysqli $connection,
+        string $chave,
+        int $idMatrizFilial,
+        string $tipo
+    ): int {
+        return self::reservarSequencias(
+            new QueryBuilder($connection),
+            $chave,
+            $idMatrizFilial,
+            $tipo,
+            1
+        )[0];
+    }
+
+    /**
      * Reserva multiplos numeros sequenciais de forma atomica (thread-safe).
      *
      * Usa um unico lock em matrizes_filiais para reduzir contencao quando
@@ -74,7 +97,28 @@ class SequenciaHelper
      */
     public static function proximasSequencias(string $chave, int $idMatrizFilial, string $tipo, int $quantidade): array
     {
-        // Validar tipo
+        $qb = new QueryBuilder(self::getMysqliConnection());
+
+        $qb->beginTransaction();
+        try {
+            $sequencias = self::reservarSequencias($qb, $chave, $idMatrizFilial, $tipo, $quantidade);
+            $qb->commit();
+
+            return $sequencias;
+        } catch (\Throwable $e) {
+            $qb->rollback();
+            throw $e;
+        }
+    }
+
+    /** @return array<int,int> */
+    private static function reservarSequencias(
+        QueryBuilder $qb,
+        string $chave,
+        int $idMatrizFilial,
+        string $tipo,
+        int $quantidade
+    ): array {
         if (!in_array($tipo, self::TIPOS_VALIDOS, true)) {
             throw new \InvalidArgumentException("Tipo de sequencia invalido: {$tipo}. Tipos validos: " . implode(', ', self::TIPOS_VALIDOS));
         }
@@ -84,41 +128,29 @@ class SequenciaHelper
         }
 
         $coluna = "sequencia_{$tipo}";
-        $qb = new QueryBuilder(self::getMysqliConnection());
 
-        $qb->beginTransaction();
-        try {
-            // Buscar valor atual com lock (SELECT FOR UPDATE)
-            // Isso garante que nenhuma outra transacao leia/modifique ate o commit
-            $mysqli = $qb->getMysqli();
-            $stmt = $mysqli->prepare("SELECT {$coluna} FROM matrizes_filiais WHERE id = ? AND chave = ? FOR UPDATE");
-            $stmt->bind_param('is', $idMatrizFilial, $chave);
-            $stmt->execute();
-            $result = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
+        $result = $qb
+            ->table('matrizes_filiais')
+            ->select([$coluna])
+            ->withChave($chave)
+            ->where('id', '=', $idMatrizFilial)
+            ->lockForUpdate()
+            ->first();
 
-            if (!$result) {
-                throw new \RuntimeException("Matriz/Filial nao encontrada: id={$idMatrizFilial}, chave={$chave}");
-            }
-
-            $sequenciaAtual = (int) ($result[$coluna] ?? 0);
-            $primeiroNumero = $sequenciaAtual + 1;
-            $ultimoNumero = $sequenciaAtual + $quantidade;
-
-            // Incrementar contador na tabela
-            $qb->table('matrizes_filiais')
-                ->withoutChave()
-                ->where('id', '=', $idMatrizFilial)
-                ->where('chave', '=', $chave)
-                ->update([$coluna => $ultimoNumero]);
-
-            $qb->commit();
-
-            return range($primeiroNumero, $ultimoNumero);
-        } catch (\Exception $e) {
-            $qb->rollback();
-            throw $e;
+        if (!$result) {
+            throw new \RuntimeException("Matriz/Filial nao encontrada: id={$idMatrizFilial}, chave={$chave}");
         }
+
+        $sequenciaAtual = (int) ($result[$coluna] ?? 0);
+        $primeiroNumero = $sequenciaAtual + 1;
+        $ultimoNumero = $sequenciaAtual + $quantidade;
+
+        $qb->table('matrizes_filiais')
+            ->withChave($chave)
+            ->where('id', '=', $idMatrizFilial)
+            ->update([$coluna => $ultimoNumero]);
+
+        return range($primeiroNumero, $ultimoNumero);
     }
 
     /**
@@ -139,9 +171,8 @@ class SequenciaHelper
         $qb = new QueryBuilder(self::getMysqliConnection());
 
         $result = $qb->table('matrizes_filiais')
-            ->withoutChave()
+            ->withChave($chave)
             ->where('id', '=', $idMatrizFilial)
-            ->where('chave', '=', $chave)
             ->first();
 
         return (int) ($result[$coluna] ?? 0);
@@ -207,7 +238,7 @@ class SequenciaHelper
             // Atualizar contador na matriz para o proximo numero (valor inicial + total)
             $proximoNumero = $valorInicial + count($registros);
             $qb->table('matrizes_filiais')
-                ->withoutChave()
+                ->withChave($chave)
                 ->where('id', '=', $idMatrizFilial)
                 ->update([$coluna => $proximoNumero]);
 

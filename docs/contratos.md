@@ -547,8 +547,10 @@ saida do vinculo e o odometro atual do cadastro do veiculo.
 O encerramento final atualiza `contratos.total_fatura`, `total_pagar`, desconto,
 status e data final, e grava um snapshot imutavel em
 `contratos_encerramentos`. A devolucao dos veiculos, taxas, ajuste financeiro e
-snapshot pertencem a uma unica transacao. Nao ha backfill de encerramentos
-historicos.
+snapshot pertencem a uma unica transacao. A reserva da sequencia financeira e
+os logs de auditoria da devolucao usam a mesma conexao dessa transacao, evitando
+autobloqueio ao combinar criacao de OS com ajuste financeiro e garantindo que
+uma falha tambem reverta a auditoria. Nao ha backfill de encerramentos historicos.
 
 Depois do encerramento, a aba Resumo e a fatura PDF usam o snapshot de
 `contratos_encerramentos` como fonte de verdade. Veiculos devolvidos nao podem
