@@ -243,7 +243,7 @@ status    VARCHAR(1)                    -- A=ativo, I=inativo
 |------|-----------|---------|
 | `GET /api/checklists/buscar-locacoes?q=` | Locações ativas | `{id, codigo, cliente, id_veiculo, veiculo, text}` |
 | `GET /api/checklists/buscar-contratos?q=` | Contratos ativos | `{id, codigo, cliente, id_veiculo, veiculo, text}` |
-| `GET /api/checklists/buscar-veiculos?q=` | Veículos disponíveis | `{id, placa, modelo, marca, tipo_combustivel, text}` |
+| `GET /api/checklists/buscar-veiculos?q=` | Veículos disponíveis | `{id, placa, modelo, marca, tipo_combustivel, text}`, com `text` no formato `Placa - Modelo` |
 | `GET /api/checklists/buscar-vinculos?q=` | Locações + contratos combinados | `{id: codigo, codigo, tipo_vinculo, id_vinculo, id_veiculo, veiculo}` |
 | `GET /api/checklists/vinculados?search=&status=` | Vinculados pendentes | Lista itens aguardando saída ou chegada |
 | `GET /api/checklists/veiculos-vinculo?tipo=L&id=123&etapa=saida` | Veículos de um vínculo | `{id_veiculo, placa, modelo, checklist_feito}` |

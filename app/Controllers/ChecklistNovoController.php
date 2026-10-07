@@ -815,7 +815,7 @@ class ChecklistNovoController
                     'tipo_combustivel' => $v['tipo_combustivel'] ?? 'GE',
                     'odometro' => $v['odometro'] !== null ? (int) $v['odometro'] : null,
                     'tanque_fracao' => $v['tanque_fracao'] ?? null,
-                    'text' => $v['placa'] . ' - ' . $v['marca'] . ' ' . $v['modelo'],
+                    'text' => $v['placa'] . ' - ' . $v['modelo'],
                 ];
             }
 
