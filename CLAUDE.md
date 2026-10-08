@@ -10,6 +10,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 |--------|--------------|
 | QueryBuilder / Multi-tenancy | `docs/querybuilder.md` |
 | Arquitetura MVC / Models | `docs/architecture.md` |
+| Seeds do Changelog | `docs/changelog.md` |
 | Filtros de Filial | `docs/filial-helper.md` |
 | Contratos | `docs/contratos.md` |
 | Locacoes | `docs/locacoes.md` |
@@ -80,6 +81,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 - **[QueryBuilder](docs/querybuilder.md)** - Camada de abstração de queries
 - **[Padrões de Banco](docs/database.md)** - Schema, convenções e otimização
 - **[Migrações](docs/migrations.md)** - Gerenciamento de schema
+- **[Seeds do Changelog](docs/changelog.md)** - Análise de commits e publicação das notas de versão
 - **[Cache](docs/cache.md)** - Sistema de cache da aplicação
 - **[Formatação de Moeda](docs/currency.md)** - Sistema multi-tenant de formatação monetária
 - **[Formatação de Data](docs/date.md)** - Sistema multi-tenant de formatação de datas
