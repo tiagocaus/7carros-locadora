@@ -5,8 +5,13 @@
 @section('content')
 <div class="pl-1 pr-2 py-0">
     <!-- Cabecalho -->
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="title-page" id="pageTitle"><?= t('modules.locacoes.new_title') ?></h2>
+    <div class="flex items-start justify-between mb-4">
+        <div>
+            <h2 class="title-page" id="pageTitle"><?= t('modules.locacoes.new_title') ?></h2>
+            <?php if (!empty($locacao['codigo'])): ?>
+                <p class="mt-0.5 font-mono text-xs text-slate-500"><?= htmlspecialchars((string) $locacao['codigo']) ?></p>
+            <?php endif; ?>
+        </div>
         <button id="btnVoltar" class="btn-secondary py-2 px-4 rounded-md text-sm font-medium flex items-center">
             <i class="fas fa-arrow-left mr-2"></i><?= t('common.buttons.back') ?>
         </button>
