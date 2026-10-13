@@ -1652,6 +1652,48 @@ os totalizadores. Sem filtro de veículo, esse bloco não deve ser exibido.
 
 ---
 
+### 7.4 Contas a Receber por Contrato
+
+**Objetivo**: Oferecer uma visão executiva de quem deve, quanto deve e a qual
+contrato cada cobrança pertence, sem exigir navegação entre o financeiro e a
+listagem de contratos.
+
+**Regra de inclusão**:
+- Receitas (`financeiro.tipo = 'R'`) ainda não pagas;
+- Com `financeiro.id_contrato` preenchido;
+- Com vencimento dentro do período filtrado;
+- O contrato permanece no relatório mesmo finalizado, até a quitação das
+  parcelas incluídas no período. O status operacional do contrato não deve ser
+  alterado para representar pendência financeira.
+
+**Filtros**:
+- Período de vencimento;
+- Filial do lançamento financeiro;
+- Cliente;
+- Contrato;
+- Veículo vinculado ao contrato;
+- Situação: todas, vencidas ou a vencer.
+
+**Totalizadores**:
+- Total em aberto;
+- Total vencido;
+- Total a vencer;
+- Contratos com saldo;
+- Clientes devedores.
+
+**Detalhamento agrupado**:
+
+| Contrato | Cliente | Veículo(s) | Vencido | A vencer | Total aberto | Prazo |
+|----------|---------|------------|---------|----------|--------------|-------|
+| | | | | | | |
+
+Cada contrato permite expandir suas parcelas na própria página, exibindo
+fatura, descrição, vencimento, valor original, juros/multa, valor total,
+situação e ação para abrir o link de pagamento. A ação para abrir o contrato é
+opcional e não é necessária para compreender o saldo.
+
+---
+
 ## 8. Comercial
 
 ### 8.1 Taxa de Conversão

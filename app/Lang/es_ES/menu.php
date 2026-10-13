@@ -157,6 +157,7 @@ return [
         'inv_due_upcoming' => 'Vencidas/por vencer',
         'inv_by_vehicle' => 'Por vehículo',
         'inv_payable_receivable' => 'A pagar/a cobrar',
+        'inv_receivable_by_contract' => 'Cuentas por cobrar por contrato',
         // Comercial
         'commercial' => 'Comercial',
         'com_conversion_rate' => 'Tasa de conversión',

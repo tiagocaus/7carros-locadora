@@ -7,7 +7,8 @@ namespace App\Models\Relatorios;
  *
  * 7.1 Faturas Vencidas / A Vencer  -> faturasVencidasAVencer()
  * 7.2 Faturas por Veiculo (futuro)
- * 7.3 Pagar/Receber (futuro)
+ * 7.3 Pagar/Receber
+ * 7.4 Contas a Receber por Contrato
  */
 class FaturasReport extends BaseReportModel
 {
@@ -19,6 +20,9 @@ class FaturasReport extends BaseReportModel
         if (!empty($filialId)) {
             $query->whereRaw("{$prefix}.id_matriz_filial = ?", [(int) $filialId]);
         } elseif (!empty($filialWhere)) {
+            if (!str_contains($filialWhere, '.')) {
+                $filialWhere = str_replace('id_matriz_filial', "{$prefix}.id_matriz_filial", $filialWhere);
+            }
             $query->whereRaw($filialWhere, $filialParams);
         }
     }
@@ -794,5 +798,226 @@ class FaturasReport extends BaseReportModel
         $parts = explode('-', $ym);
         if (count($parts) === 2) return $parts[1] . '/' . $parts[0];
         return $ym;
+    }
+
+    /**
+     * 7.4 - Contas a Receber por Contrato.
+     *
+     * Mantem no resultado contratos ativos ou finalizados enquanto existirem
+     * receitas pendentes vinculadas. O status operacional do contrato nao e
+     * usado como fonte da situacao financeira.
+     *
+     * @return array{totals: array, details: array, chart: array}
+     */
+    public function contasReceberPorContrato(
+        string $dataInicio,
+        string $dataFim,
+        string $filialWhere,
+        array $filialParams,
+        string $filialId = '',
+        string $clienteId = '',
+        string $contratoCodigo = '',
+        string $veiculoId = '',
+        string $situacao = ''
+    ): array {
+        $hoje = today();
+
+        $query = $this->qb
+            ->table('financeiro', 'f')
+            ->selectRaw("
+                f.id,
+                f.id_contrato,
+                f.codigo AS fatura_codigo,
+                f.sequencia AS fatura_sequencia,
+                f.parcela,
+                f.total_parcelas,
+                f.descricao,
+                f.data_venci,
+                COALESCE(f.valor_subtotal, 0) AS valor_subtotal,
+                COALESCE(f.juros, 0) AS juros,
+                COALESCE(f.multa, 0) AS multa,
+                COALESCE(f.valor_total, 0) AS valor_total,
+                c.codigo AS contrato_codigo,
+                c.status AS contrato_status,
+                c.id_cliente,
+                cl.nome_rsocial AS cliente_nome
+            ")
+            ->joinRaw('contratos', 'c', 'c.id = f.id_contrato AND c.chave = f.chave', 'INNER')
+            ->leftJoinRaw('clientes', 'cl', 'cl.id = c.id_cliente AND cl.chave = c.chave')
+            ->whereRaw('f.tipo = ?', ['R'])
+            ->whereRaw('f.pago = ?', ['N'])
+            ->whereNotNull('f.id_contrato')
+            ->whereRaw('f.data_venci BETWEEN ? AND ?', [$dataInicio, $dataFim]);
+
+        $this->applyFilialFilter($query, $filialWhere, $filialParams, $filialId);
+
+        if ($clienteId !== '') {
+            $query->whereRaw('c.id_cliente = ?', [(int) $clienteId]);
+        }
+
+        if ($contratoCodigo !== '') {
+            $query->whereRaw('c.codigo = ?', [$contratoCodigo]);
+        }
+
+        if ($veiculoId !== '') {
+            $query->whereRaw(
+                "EXISTS (
+                    SELECT 1
+                    FROM contratos_veiculos cv_filtro
+                    INNER JOIN veiculos v_filtro
+                        ON v_filtro.id = cv_filtro.id_veiculo
+                        AND v_filtro.chave = cv_filtro.chave
+                    WHERE cv_filtro.id_contrato = c.id
+                        AND cv_filtro.chave = c.chave
+                        AND v_filtro.id = ?
+                )",
+                [(int) $veiculoId]
+            );
+        }
+
+        if ($situacao === 'vencidas') {
+            $query->whereRaw('f.data_venci < ?', [$hoje]);
+        } elseif ($situacao === 'a_vencer') {
+            $query->whereRaw('f.data_venci >= ?', [$hoje]);
+        }
+
+        $rows = $query
+            ->orderBy('f.data_venci', 'ASC')
+            ->orderBy('f.id', 'ASC')
+            ->get();
+
+        $veiculosPorContrato = $this->veiculosPorContratos(array_values(array_unique(array_map(
+            static fn(array $row): int => (int) $row['id_contrato'],
+            $rows
+        ))));
+
+        $contratos = [];
+        $clientes = [];
+        $totalVencido = 0.0;
+        $totalAVencer = 0.0;
+
+        foreach ($rows as $row) {
+            $contratoId = (int) $row['id_contrato'];
+            $clienteIdRow = (int) ($row['id_cliente'] ?? 0);
+            $vencida = (string) $row['data_venci'] < $hoje;
+            $valor = (float) $row['valor_total'];
+
+            if (!isset($contratos[$contratoId])) {
+                $contratos[$contratoId] = [
+                    'id_contrato' => $contratoId,
+                    'contrato' => $row['contrato_codigo'] ?? '-',
+                    'contrato_status' => ($row['contrato_status'] ?? '') === 'F' ? 'finalizado' : 'ativo',
+                    'id_cliente' => $clienteIdRow,
+                    'cliente' => $row['cliente_nome'] ?? '-',
+                    'veiculos' => $veiculosPorContrato[$contratoId] ?? [],
+                    'veiculo_resumo' => implode(', ', $veiculosPorContrato[$contratoId] ?? []),
+                    'total_vencido' => 0.0,
+                    'total_a_vencer' => 0.0,
+                    'total_aberto' => 0.0,
+                    'parcelas_abertas' => 0,
+                    'maior_atraso' => 0,
+                    'proximo_vencimento' => null,
+                    'parcelas' => [],
+                ];
+            }
+
+            $dias = $vencida
+                ? $this->daysBetween((string) $row['data_venci'], $hoje)
+                : $this->daysBetween($hoje, (string) $row['data_venci']);
+
+            $contratos[$contratoId]['parcelas'][] = [
+                'id' => (int) $row['id'],
+                'fatura' => $row['fatura_codigo'] ?: ('#' . $row['fatura_sequencia']),
+                'parcela_label' => (int) $row['total_parcelas'] > 1
+                    ? ($row['parcela'] . '/' . $row['total_parcelas'])
+                    : '-',
+                'descricao' => $row['descricao'] ?? '',
+                'data_venci' => $row['data_venci'],
+                'valor_subtotal' => (float) $row['valor_subtotal'],
+                'juros_multa' => (float) $row['juros'] + (float) $row['multa'],
+                'valor_total' => $valor,
+                'situacao' => $vencida ? 'vencida' : 'a_vencer',
+                'dias' => $dias,
+            ];
+
+            $contratos[$contratoId]['total_aberto'] += $valor;
+            $contratos[$contratoId]['parcelas_abertas']++;
+
+            if ($vencida) {
+                $contratos[$contratoId]['total_vencido'] += $valor;
+                $contratos[$contratoId]['maior_atraso'] = max(
+                    $contratos[$contratoId]['maior_atraso'],
+                    $dias
+                );
+                $totalVencido += $valor;
+            } else {
+                $contratos[$contratoId]['total_a_vencer'] += $valor;
+                $proximo = $contratos[$contratoId]['proximo_vencimento'];
+                if ($proximo === null || $row['data_venci'] < $proximo) {
+                    $contratos[$contratoId]['proximo_vencimento'] = $row['data_venci'];
+                }
+                $totalAVencer += $valor;
+            }
+
+            if ($clienteIdRow > 0) {
+                $clientes[$clienteIdRow] = true;
+            }
+        }
+
+        $details = array_values($contratos);
+        usort($details, static function (array $a, array $b): int {
+            return ($b['total_vencido'] <=> $a['total_vencido'])
+                ?: ($b['maior_atraso'] <=> $a['maior_atraso'])
+                ?: ($b['total_aberto'] <=> $a['total_aberto'])
+                ?: strcmp((string) $a['contrato'], (string) $b['contrato']);
+        });
+
+        return [
+            'totals' => [
+                'total_aberto' => $totalVencido + $totalAVencer,
+                'total_vencido' => $totalVencido,
+                'total_a_vencer' => $totalAVencer,
+                'total_contratos' => count($details),
+                'total_clientes' => count($clientes),
+            ],
+            'details' => $details,
+            'chart' => [],
+        ];
+    }
+
+    /** @return array<int, array<int, string>> */
+    private function veiculosPorContratos(array $contratoIds): array
+    {
+        if (empty($contratoIds)) {
+            return [];
+        }
+
+        $rows = $this->qb
+            ->table('contratos_veiculos', 'cv')
+            ->selectRaw('cv.id_contrato, v.id, v.placa, v.marca, v.modelo')
+            ->joinRaw('veiculos', 'v', 'v.id = cv.id_veiculo AND v.chave = cv.chave', 'INNER')
+            ->whereIn('cv.id_contrato', $contratoIds)
+            ->orderBy('cv.data_saida', 'ASC')
+            ->orderBy('cv.id', 'ASC')
+            ->get();
+
+        $resultado = [];
+        $vistos = [];
+        foreach ($rows as $row) {
+            $contratoId = (int) $row['id_contrato'];
+            $veiculoId = (int) $row['id'];
+            if (isset($vistos[$contratoId][$veiculoId])) {
+                continue;
+            }
+
+            $vistos[$contratoId][$veiculoId] = true;
+            $identificacao = array_filter([
+                trim((string) ($row['placa'] ?? '')),
+                trim(trim((string) ($row['marca'] ?? '')) . ' ' . trim((string) ($row['modelo'] ?? ''))),
+            ], static fn(string $parte): bool => $parte !== '');
+            $resultado[$contratoId][] = implode(' - ', $identificacao);
+        }
+
+        return $resultado;
     }
 }

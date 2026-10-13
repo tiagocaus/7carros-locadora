@@ -1392,6 +1392,11 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->get('/api/relatorios/faturas/pagar-receber', [\App\Controllers\Relatorios\FaturasController::class, 'pagarReceber'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/relatorios/faturas/pagar-receber/pdf', [\App\Controllers\Relatorios\FaturasController::class, 'pagarReceberPdf']);
 
+    // Contas a Receber por Contrato
+    $router->get('/pages/relatorios/faturas/receber-por-contrato', [\App\Controllers\Relatorios\FaturasController::class, 'viewContasReceberPorContrato']);
+    $router->get('/api/relatorios/faturas/receber-por-contrato', [\App\Controllers\Relatorios\FaturasController::class, 'contasReceberPorContrato'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/relatorios/faturas/receber-por-contrato/pdf', [\App\Controllers\Relatorios\FaturasController::class, 'contasReceberPorContratoPdf']);
+
     // =========================================================================
     // RELATORIOS - CONTRATOS / LOCACOES
     // =========================================================================

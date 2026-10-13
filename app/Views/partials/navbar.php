@@ -216,6 +216,9 @@
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/faturas/vencidas-a-vencer', '<?= t('menu.relatorios_menu.inv_due_upcoming') ?>', 'fas fa-file-invoice-dollar'); return false;">{{ t('menu.relatorios_menu.inv_due_upcoming') }}</a>
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/faturas/por-veiculo', '<?= t('menu.relatorios_menu.inv_by_vehicle') ?>', 'fas fa-car-side'); return false;">{{ t('menu.relatorios_menu.inv_by_vehicle') }}</a>
                                 <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/faturas/pagar-receber', '<?= t('menu.relatorios_menu.inv_payable_receivable') ?>', 'fas fa-balance-scale'); return false;">{{ t('menu.relatorios_menu.inv_payable_receivable') }}</a>
+                                <?php if (\App\Core\Auth::can('relatorios.faturas.receber_por_contrato')): ?>
+                                <a href="#" onclick="openOrSwitchToTab('/pages/relatorios/faturas/receber-por-contrato', '<?= t('menu.relatorios_menu.inv_receivable_by_contract') ?>', 'fas fa-file-contract'); return false;">{{ t('menu.relatorios_menu.inv_receivable_by_contract') }}</a>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <!-- Comercial / Marketing -->

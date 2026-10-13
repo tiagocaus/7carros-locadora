@@ -157,6 +157,7 @@ return [
         'inv_due_upcoming' => 'Overdue/upcoming',
         'inv_by_vehicle' => 'By vehicle',
         'inv_payable_receivable' => 'Payable/receivable',
+        'inv_receivable_by_contract' => 'Receivables by contract',
         // Commercial
         'commercial' => 'Commercial',
         'com_conversion_rate' => 'Conversion rate',

@@ -278,6 +278,95 @@ class FaturasController extends BaseRelatorioController
     }
 
     // ===========================================================
+    // 7.4 — CONTAS A RECEBER POR CONTRATO
+    // ===========================================================
+
+    /** GET /pages/relatorios/faturas/receber-por-contrato */
+    public function viewContasReceberPorContrato(Request $request): void
+    {
+        $html = Template::render('pages.relatorios.faturas.receber-por-contrato');
+        Response::html($html);
+    }
+
+    /** GET /api/relatorios/faturas/receber-por-contrato */
+    public function contasReceberPorContrato(Request $request): void
+    {
+        try {
+            if (!$this->checkPermission('relatorios.faturas.receber_por_contrato')) return;
+
+            $filters = $this->parseFilters($request);
+            $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
+            if ($erro) {
+                Response::json(['success' => false, 'message' => $erro], 422);
+                return;
+            }
+
+            if (!$this->validateFilialAccess($filters['filial'])) return;
+
+            [$filialWhere, $filialParams] = $this->getFilialFilter();
+            $model = new FaturasReport();
+            $result = $model->contasReceberPorContrato(
+                $filters['data_inicio'],
+                $filters['data_fim'],
+                $filialWhere,
+                $filialParams,
+                $filters['filial'],
+                $this->normalizarClienteId($request->query('cliente', '')),
+                $this->normalizarContratoCodigo($request->query('contrato', '')),
+                $this->normalizarVeiculoId($request->query('veiculo', '')),
+                $this->normalizarSituacaoRecebivel($request->query('situacao', ''))
+            );
+
+            $this->reportResponse($result['details'], $result['totals'], $result['chart']);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            error_log('Contas a receber por contrato: ' . $e->getMessage());
+            Response::json(['success' => false, 'message' => t('modules.relatorios.messages.load_error')], 500);
+        }
+    }
+
+    /** GET /relatorios/faturas/receber-por-contrato/pdf */
+    public function contasReceberPorContratoPdf(Request $request): void
+    {
+        if (!$this->checkPermission('relatorios.faturas.receber_por_contrato')) return;
+
+        $filters = $this->parseFilters($request);
+        $erro = $this->validatePeriodo($filters['data_inicio'], $filters['data_fim']);
+        if ($erro) { Response::html('<h3>' . htmlspecialchars($erro) . '</h3>', 422); return; }
+        if (!$this->validateFilialAccess($filters['filial'])) return;
+
+        try {
+            [$filialWhere, $filialParams] = $this->getFilialFilter();
+            $model = new FaturasReport();
+            $result = $model->contasReceberPorContrato(
+                $filters['data_inicio'],
+                $filters['data_fim'],
+                $filialWhere,
+                $filialParams,
+                $filters['filial'],
+                $this->normalizarClienteId($request->query('cliente', '')),
+                $this->normalizarContratoCodigo($request->query('contrato', '')),
+                $this->normalizarVeiculoId($request->query('veiculo', '')),
+                $this->normalizarSituacaoRecebivel($request->query('situacao', ''))
+            );
+
+            $this->renderPdfPeriodo(
+                'receber-por-contrato.php',
+                t('modules.relatorios.faturas.receber_por_contrato.title'),
+                t('modules.relatorios.faturas.receber_por_contrato.description'),
+                $result['totals'],
+                $result['details'],
+                $filters['data_inicio'],
+                $filters['data_fim'],
+                'L'
+            );
+        } catch (\InvalidArgumentException $e) {
+            Response::html('<h3>' . htmlspecialchars($e->getMessage()) . '</h3>', 422);
+        }
+    }
+
+    // ===========================================================
     // Helpers internos
     // ===========================================================
 
@@ -311,6 +400,26 @@ class FaturasController extends BaseRelatorioController
         }
 
         return $clienteId;
+    }
+
+    private function normalizarContratoCodigo(mixed $codigo): string
+    {
+        $codigo = trim((string) $codigo);
+        if ($codigo === '') {
+            return '';
+        }
+
+        if (!preg_match('/^[A-Za-z0-9_-]{1,15}$/', $codigo)) {
+            throw new \InvalidArgumentException(t('modules.relatorios.faturas.receber_por_contrato.invalid_contract'));
+        }
+
+        return $codigo;
+    }
+
+    private function normalizarSituacaoRecebivel(mixed $situacao): string
+    {
+        $situacao = trim((string) $situacao);
+        return in_array($situacao, ['vencidas', 'a_vencer'], true) ? $situacao : '';
     }
 
     private function normalizarVeiculoId(mixed $veiculoId): string

@@ -157,6 +157,7 @@ return [
         'inv_due_upcoming' => 'Scadute/in scadenza',
         'inv_by_vehicle' => 'Per veicolo',
         'inv_payable_receivable' => 'Dare/avere',
+        'inv_receivable_by_contract' => 'Crediti per contratto',
         // Commerciale
         'commercial' => 'Commerciale',
         'com_conversion_rate' => 'Tasso di conversione',
