@@ -169,6 +169,7 @@ O formulario de criacao e edicao possui 8 abas:
 - A autorenovacao so deve avancar `data_renovacao` depois que todas as parcelas esperadas forem criadas ou confirmadas como ja existentes.
 - Ao salvar muitas parcelas, as sequencias financeiras sao reservadas em lote via `SequenciaHelper::proximasSequencias()` para evitar locks repetidos em `matrizes_filiais`
 - Ao criar um contrato novo com parcelas geradas, o backend cria/reutiliza links em `pagamentos_links` e enfileira cobrancas `payment_reminder` para email, WhatsApp e SMS. Falhas por canal nao impedem a criacao do contrato nem das parcelas.
+- Gerar/refazer parcelas e recalcular o aluguel devem preservar as entradas e devolucoes de caucao. `ContratoCaucao::preservarNoParcelamento()` centraliza a exclusao das garantias por vinculo em `contratos_caucoes` e pelos planos legados `1.1.5.01`, `1.1.5.02`, `1.1.6.01` e `1.1.6.02`, respeitando o tenant. O mesmo criterio vale para resumo financeiro, faturas abertas e busca de parcelas equivalentes: caucao nao substitui parcela de aluguel mesmo com valor e vencimento iguais.
 
 ### Aba 7: Observacoes
 - Campo de texto livre

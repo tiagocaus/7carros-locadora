@@ -12,6 +12,29 @@ class ContratoCaucao extends Model
     private const PLANO_CONTA_ENTRADA = '1.1.6.01';
     private const PLANO_CONTA_DEVOLUCAO = '1.1.6.02';
 
+    /** Exclui garantias do aluguel, inclusive lancamentos legados sem vinculo. */
+    public static function preservarNoParcelamento(\App\Classes\QueryBuilder $query, string $alias = 'financeiro'): void
+    {
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $alias)) {
+            throw new \InvalidArgumentException('Alias financeiro invalido');
+        }
+
+        if ((new self())->tabelaDisponivel()) {
+            $query->whereRaw("NOT EXISTS (
+                SELECT 1 FROM contratos_caucoes cc
+                WHERE cc.chave = {$alias}.chave
+                  AND (cc.id_financeiro_entrada = {$alias}.id OR cc.id_financeiro_devolucao = {$alias}.id)
+            )");
+        }
+
+        $query->whereRaw("NOT EXISTS (
+            SELECT 1 FROM planos_de_contas pc
+            WHERE pc.id = {$alias}.id_plano_de_conta
+              AND (pc.chave = '0' OR pc.chave = {$alias}.chave)
+              AND pc.hierarquia IN (?, ?, ?, ?)
+        )", ['1.1.5.01', '1.1.5.02', self::PLANO_CONTA_ENTRADA, self::PLANO_CONTA_DEVOLUCAO]);
+    }
+
     public function tabelaDisponivel(): bool
     {
         static $disponivel = null;

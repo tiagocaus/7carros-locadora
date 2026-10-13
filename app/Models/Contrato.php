@@ -1252,18 +1252,7 @@ class Contrato extends Model
             ->where('f.tipo', '=', 'R')
             ->where('f.pago', '=', 'N');
 
-        if ((new ContratoCaucao())->tabelaDisponivel()) {
-            $query->whereRaw('NOT EXISTS (
-                SELECT 1
-                FROM contratos_caucoes cc
-                WHERE cc.chave = f.chave
-                  AND cc.id_contrato = f.id_contrato
-                  AND (
-                      cc.id_financeiro_entrada = f.id
-                      OR cc.id_financeiro_devolucao = f.id
-                  )
-            )');
-        }
+        ContratoCaucao::preservarNoParcelamento($query, 'f');
 
         $hoje = DateHelper::todayForDatabase();
         $faturas = $query
@@ -1436,18 +1425,7 @@ class Contrato extends Model
             ')
             ->where('id_contrato', '=', $contratoId);
 
-        if ((new ContratoCaucao())->tabelaDisponivel()) {
-            $queryTotais->whereRaw('NOT EXISTS (
-                    SELECT 1
-                    FROM contratos_caucoes cc
-                    WHERE cc.chave = financeiro.chave
-                      AND cc.id_contrato = financeiro.id_contrato
-                      AND (
-                          cc.id_financeiro_entrada = financeiro.id
-                          OR cc.id_financeiro_devolucao = financeiro.id
-                      )
-                )');
-        }
+        ContratoCaucao::preservarNoParcelamento($queryTotais);
 
         $totais = $queryTotais->first();
 
@@ -1788,6 +1766,7 @@ class Contrato extends Model
             ->where('id_contrato', '=', $contratoId)
             ->where('data_venci', '=', $dataVenci);
 
+        ContratoCaucao::preservarNoParcelamento($query);
         ContratoKm::preservarNoReparcelamento($query);
 
         if (!$compararValor && isset($parcela['parcela'], $parcela['total_parcelas'])) {
@@ -1806,7 +1785,7 @@ class Contrato extends Model
     }
 
     /**
-     * Remove todas as parcelas pendentes do contrato
+     * Remove parcelas pendentes do aluguel, preservando caucoes e cobrancas de km
      *
      * @param int $contratoId ID do contrato
      * @return int Quantidade de parcelas removidas
@@ -1817,6 +1796,7 @@ class Contrato extends Model
             ->table('financeiro')
             ->where('id_contrato', '=', $contratoId)
             ->where('pago', '=', 'N');
+        ContratoCaucao::preservarNoParcelamento($query);
         ContratoKm::preservarNoReparcelamento($query);
         return $query->delete();
     }
@@ -1860,13 +1840,15 @@ class Contrato extends Model
         }
 
         // Recalcular: distribuir diferença nas parcelas pendentes
-        $parcelasPendentes = $this->qb
+        $queryPendentes = $this->qb
             ->table('financeiro')
             ->select(['id', 'valor_subtotal', 'valor_total'])
             ->where('id_contrato', '=', $contratoId)
             ->where('pago', '=', 'N')
-            ->orderBy('parcela', 'ASC')
-            ->get();
+            ->orderBy('parcela', 'ASC');
+        ContratoCaucao::preservarNoParcelamento($queryPendentes);
+        ContratoKm::preservarNoReparcelamento($queryPendentes);
+        $parcelasPendentes = $queryPendentes->get();
 
         if (empty($parcelasPendentes)) {
             return [
