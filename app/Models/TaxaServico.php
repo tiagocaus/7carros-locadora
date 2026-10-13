@@ -52,6 +52,7 @@ class TaxaServico extends Model
                                 1
                             ) AS DECIMAL(10,2)
                         ),
+                        MIN(tsvf.valor),
                         t.valor
                     )
                     ELSE t.valor

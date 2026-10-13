@@ -285,19 +285,14 @@ class TaxasServicosController
             // Validar valor (so obrigatorio quando tipo_valor=POR; para MON vem de valores_filiais)
             $tipoValor = $dados['tipo_valor'] ?? 'MON';
             if ($tipoValor !== 'MON') {
-                $valorConvertido = currency_parse($dados['valor'] ?? null);
-                if (!isset($dados['valor']) || $dados['valor'] === '' || $valorConvertido <= 0) {
-                    Response::json([
-                        'success' => false,
-                        'message' => 'Valor e obrigatorio'
-                    ], 400);
-                    return;
-                }
-                $dados['valor'] = $valorConvertido;
+                $dados['valor'] = $this->normalizarValorNaoNegativo(
+                    $dados['valor'] ?? null,
+                    'Informe um valor valido maior ou igual a zero'
+                );
             } else {
                 $valoresFiliais = $this->prepararValoresMonetariosPorFilial($filiaisIds, $dados);
                 $dados['valores_filiais'] = $valoresFiliais;
-                $dados['valor'] = reset($valoresFiliais);
+                $dados['valor'] = $this->resolverValorMonetarioCadastro($valoresFiliais);
             }
 
             $model = new TaxaServico();
@@ -378,19 +373,14 @@ class TaxasServicosController
             // Validar valor (so obrigatorio quando tipo_valor=POR; para MON vem de valores_filiais)
             $tipoValor = $dados['tipo_valor'] ?? ($taxa['tipo_valor'] ?? 'MON');
             if ($tipoValor !== 'MON') {
-                $valorConvertido = currency_parse($dados['valor'] ?? null);
-                if (!isset($dados['valor']) || $dados['valor'] === '' || $valorConvertido <= 0) {
-                    Response::json([
-                        'success' => false,
-                        'message' => 'Valor e obrigatorio'
-                    ], 400);
-                    return;
-                }
-                $dados['valor'] = $valorConvertido;
+                $dados['valor'] = $this->normalizarValorNaoNegativo(
+                    $dados['valor'] ?? null,
+                    'Informe um valor valido maior ou igual a zero'
+                );
             } else {
                 $valoresFiliais = $this->prepararValoresMonetariosPorFilial($filiaisIds, $dados);
                 $dados['valores_filiais'] = $valoresFiliais;
-                $dados['valor'] = reset($valoresFiliais);
+                $dados['valor'] = $this->resolverValorMonetarioCadastro($valoresFiliais);
             }
 
             $model->atualizar($id, $dados);
@@ -527,12 +517,10 @@ class TaxasServicosController
                 throw new \InvalidArgumentException('Informe o valor para todas as filiais selecionadas');
             }
 
-            $valor = currency_parse($mapa[$fid] ?? $mapa[(string) $fid]);
-            if ($valor <= 0) {
-                throw new \InvalidArgumentException('Informe um valor maior que zero para todas as filiais selecionadas');
-            }
-
-            $valores[$fid] = $valor;
+            $valores[$fid] = $this->normalizarValorNaoNegativo(
+                $mapa[$fid],
+                'Informe um valor valido maior ou igual a zero para todas as filiais selecionadas'
+            );
         }
 
         if (empty($valores)) {
@@ -540,6 +528,42 @@ class TaxasServicosController
         }
 
         return $valores;
+    }
+
+    /**
+     * Valida antes do parse, que converte campos vazios ou invalidos em zero.
+     */
+    private function normalizarValorNaoNegativo(mixed $valor, string $mensagem): float
+    {
+        if (is_string($valor)) {
+            $valor = trim($valor);
+            if (!preg_match('/^-?(?:\d+|\d{1,3}(?:\.\d{3})+|\d{1,3}(?:,\d{3})+)(?:[.,]\d{1,2})?$/D', $valor)) {
+                throw new \InvalidArgumentException($mensagem);
+            }
+        } elseif (!is_int($valor) && !is_float($valor)) {
+            throw new \InvalidArgumentException($mensagem);
+        }
+
+        $numero = currency_parse($valor);
+        if (!is_finite($numero) || $numero < 0) {
+            throw new \InvalidArgumentException($mensagem);
+        }
+
+        return $numero;
+    }
+
+    /**
+     * Fallback/display: primeiro valor positivo, ou zero se todas forem gratis.
+     */
+    private function resolverValorMonetarioCadastro(array $valoresFiliais): float
+    {
+        foreach ($valoresFiliais as $valor) {
+            if ($valor > 0) {
+                return $valor;
+            }
+        }
+
+        return 0.0;
     }
 
     /**

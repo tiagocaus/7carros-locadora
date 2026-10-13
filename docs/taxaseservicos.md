@@ -67,9 +67,13 @@ Valor monetario da taxa **por filial**, quando `tipo_valor='MON'`. Cada filial g
 
 Para `MON`, `taxaseservicos.valor` nao deve ser tratado como fonte oficial. Ele existe como fallback/display para listagens, compatibilidade e casos antigos sem valor por filial. Ao criar ou atualizar uma taxa monetaria, o backend deve gravar:
 - `taxaseservicos_valores_filiais.valor`: valor oficial de cada filial selecionada.
-- `taxaseservicos.valor`: primeiro valor positivo informado nas filiais, apenas como fallback/display.
+- `taxaseservicos.valor`: primeiro valor positivo informado nas filiais, apenas como fallback/display; zero quando todas as filiais tiverem valor zero.
 
-Nunca salve `taxaseservicos.valor = 0` para `MON` quando existem valores por filial.
+Valores monetarios iguais a zero sao validos e representam um produto/servico
+gratuito na filial. Nunca substitua o zero oficial de uma filial pelo
+fallback/display. Na listagem, use o primeiro valor positivo das filiais
+exibidas, ou zero quando essas filiais forem gratuitas; recorra ao fallback do
+cadastro apenas quando nao houver valor por filial.
 
 | Campo | Tipo | Descricao |
 |-------|------|-----------|
@@ -310,7 +314,9 @@ Sempre que veiculos ou periodo mudam, taxas com `base_calculo=PER` ou `base_calc
 
 - Nome obrigatorio
 - Pelo menos uma filial deve ser selecionada
-- Valor obrigatorio e maior que 0
+- Valor obrigatorio e maior ou igual a 0, tanto monetario (`MON`) quanto percentual (`POR`)
+- Para `MON`, cada filial selecionada deve ter um valor informado; uma filial pode oferecer o servico gratuitamente e outra cobrar
+- Valor ausente, nulo, vazio, invalido ou negativo nao representa gratuidade e deve ser rejeitado antes do parse monetario
 
 No formulario, nenhuma filial selecionada deve ser exibida como
 `Selecione as filiais...`. Esse estado nao representa todas as filiais: cada

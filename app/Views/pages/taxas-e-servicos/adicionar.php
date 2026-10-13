@@ -617,7 +617,7 @@
             document.getElementById('aplicar').value = data.aplicar || 'N';
 
             // Valor formatado usando Currency helper
-            Currency.setValue('#valor', data.valor || 0);
+            document.getElementById('valor').value = Currency.format(data.valor ?? 0, false);
 
             // Popular cache de valores por filial (pra tipo_valor=MON)
             valoresFiliaisCache = {};
@@ -672,6 +672,14 @@
 
         // ===== SALVAR =====
 
+        function valorInformadoValido(valor) {
+            if (!/^-?(?:\d+|\d{1,3}(?:\.\d{3})+|\d{1,3}(?:,\d{3})+)(?:[.,]\d{1,2})?$/.test(valor.trim())) {
+                return false;
+            }
+            const numero = Currency.parse(valor);
+            return Number.isFinite(numero) && numero >= 0;
+        }
+
         async function salvar(e) {
             e.preventDefault();
 
@@ -694,15 +702,15 @@
 
             if (tipoValor === 'POR') {
                 const valorInput = document.getElementById('valor');
-                if (!valorInput.value || valorInput.value.trim() === '' || valorInput.value === '0,00') {
+                if (!valorInformadoValido(valorInput.value)) {
                     erros.push('- Valor');
                 }
             } else {
-                // MON: todas as filiais selecionadas devem ter valor > 0
+                // MON: todas as filiais devem ter valor informado; zero e permitido.
                 const inputs = document.querySelectorAll('.valor-filial-input');
                 let todosComValor = inputs.length > 0;
                 inputs.forEach(inp => {
-                    if (!inp.value || inp.value === '0,00' || Currency.parse(inp.value) <= 0) {
+                    if (!valorInformadoValido(inp.value)) {
                         todosComValor = false;
                     }
                 });
@@ -722,17 +730,17 @@
             // Coletar valores por filial (so quando tipo_valor=MON)
             if (tipoValor === 'MON') {
                 const valoresFiliais = {};
-                let primeiroValorFilial = null;
+                let primeiroValorPositivo = 0;
                 document.querySelectorAll('.valor-filial-input').forEach(inp => {
                     const fid = parseInt(inp.dataset.filialId);
                     if (fid > 0) {
                         const valor = Currency.parse(inp.value);
                         valoresFiliais[fid] = valor;
-                        if (primeiroValorFilial === null) primeiroValorFilial = valor;
+                        if (primeiroValorPositivo === 0 && valor > 0) primeiroValorPositivo = valor;
                     }
                 });
                 dados.valores_filiais = valoresFiliais;
-                dados.valor = primeiroValorFilial;
+                dados.valor = primeiroValorPositivo;
             }
 
             // Filiais
