@@ -416,24 +416,28 @@ class NFSeXMLBetha implements NFSeXMLInterface
             return '';
         }
 
+        $logradouro = trim((string) ($endereco['logradouro'] ?? ''));
+        $numero = trim((string) ($endereco['numero'] ?? ''));
+        $bairro = trim((string) ($endereco['bairro'] ?? ''));
+        $complemento = trim((string) ($endereco['complemento'] ?? ''));
+        if ($logradouro === '' || $numero === '' || $bairro === '') {
+            throw new \InvalidArgumentException(
+                'Complete o endereço do cliente informando logradouro, número e bairro antes de emitir ou reenviar a NFS-e.'
+            );
+        }
+
         $xml = '<end>';
         $xml .= '<endNac>';
         $xml .= '<cMun>' . $codigoMunicipio . '</cMun>';
         $xml .= '<CEP>' . $cep . '</CEP>';
         $xml .= '</endNac>';
 
-        if (!empty($endereco['logradouro'])) {
-            $xml .= '<xLgr>' . $this->textoMaiusculo((string) $endereco['logradouro']) . '</xLgr>';
+        $xml .= '<xLgr>' . $this->textoMaiusculo($logradouro) . '</xLgr>';
+        $xml .= '<nro>' . $this->textoMaiusculo($numero) . '</nro>';
+        if ($complemento !== '') {
+            $xml .= '<xCpl>' . $this->textoMaiusculo($complemento) . '</xCpl>';
         }
-        if (!empty($endereco['numero'])) {
-            $xml .= '<nro>' . $this->textoMaiusculo((string) $endereco['numero']) . '</nro>';
-        }
-        if (!empty($endereco['complemento'])) {
-            $xml .= '<xCpl>' . $this->textoMaiusculo((string) $endereco['complemento']) . '</xCpl>';
-        }
-        if (!empty($endereco['bairro'])) {
-            $xml .= '<xBairro>' . $this->textoMaiusculo((string) $endereco['bairro']) . '</xBairro>';
-        }
+        $xml .= '<xBairro>' . $this->textoMaiusculo($bairro) . '</xBairro>';
 
         $xml .= '</end>';
 

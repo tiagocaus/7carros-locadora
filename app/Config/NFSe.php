@@ -14,6 +14,12 @@ class NFSe
     public const MAX_ENVIOS_EXTRAS_MANUAIS = 1;
 
     /**
+     * Recuperacao unica para DPS historicas rejeitadas pelo XSD de endereco
+     * que consumiram a excecao tecnica antes da correcao do gerador.
+     */
+    public const MAX_RECUPERACOES_ENDERECO_XSD = 1;
+
+    /**
      * Codigos cIndOp aceitos pelo layout NT004 atualmente ativo nos
      * ambientes Nacional/Betha. A NT009 ainda nao esta ativa nesses fluxos.
      */

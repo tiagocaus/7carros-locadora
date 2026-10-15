@@ -14,6 +14,7 @@ class NFSeEvento extends Model
 {
     private const TIPO_REENVIO_MANUAL = 'reenvio_manual';
     private const CODIGO_LIMITE_TECNICO = 'LIMITE_TECNICO';
+    private const CODIGO_CORRECAO_ENDERECO_XSD = 'CORRECAO_ENDERECO_XSD';
 
     /**
      * Registra um evento para uma NFS-e
@@ -55,6 +56,37 @@ class NFSeEvento extends Model
      */
     public function reservarTentativaExtraManual(int $idNfse, string $chave, string $mensagem): bool
     {
+        return $this->reservarExcecaoManual(
+            $idNfse,
+            $chave,
+            self::CODIGO_LIMITE_TECNICO,
+            NFSeConfig::MAX_ENVIOS_EXTRAS_MANUAIS,
+            $mensagem
+        );
+    }
+
+    /**
+     * Reserva uma recuperacao auditada para o defeito historico do endereco XSD.
+     */
+    public function reservarRecuperacaoEnderecoXsd(int $idNfse, string $chave, string $mensagem): bool
+    {
+        return $this->reservarExcecaoManual(
+            $idNfse,
+            $chave,
+            self::CODIGO_CORRECAO_ENDERECO_XSD,
+            NFSeConfig::MAX_RECUPERACOES_ENDERECO_XSD,
+            $mensagem
+        );
+    }
+
+    private function reservarExcecaoManual(
+        int $idNfse,
+        string $chave,
+        string $codigoRetorno,
+        int $limite,
+        string $mensagem
+    ): bool
+    {
         $mysqli = $this->getMysqli();
         $mysqli->begin_transaction();
 
@@ -77,13 +109,12 @@ class NFSeEvento extends Model
                 . ' WHERE id_nfse = ? AND tipo_evento = ? AND codigo_retorno = ?'
             );
             $tipoEvento = self::TIPO_REENVIO_MANUAL;
-            $codigoRetorno = self::CODIGO_LIMITE_TECNICO;
             $stmtContagem->bind_param('iss', $idNfse, $tipoEvento, $codigoRetorno);
             $stmtContagem->execute();
             $total = (int) ($stmtContagem->get_result()->fetch_assoc()['total'] ?? 0);
             $stmtContagem->close();
 
-            if ($total >= NFSeConfig::MAX_ENVIOS_EXTRAS_MANUAIS) {
+            if ($total >= $limite) {
                 $mysqli->rollback();
                 return false;
             }

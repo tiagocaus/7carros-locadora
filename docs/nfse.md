@@ -156,7 +156,7 @@ Regras de XML:
 - Cancelamento: evento `101101` em `pedidoRegistroEventoXmlGZipB64`
 - Textos enviados no XML devem ser normalizados em maiusculas e escapados como XML.
 - `cTribNac` e `cNBS` sao classificacoes distintas. Quando `codigo_tributacao_nacional` estiver preenchido com 6 digitos, ele deve alimentar `cTribNac`; quando estiver nulo, manter o mapeamento legado por `trib_issqn` para preservar configuracoes existentes. `codigo_servico` continua alimentando `cNBS`.
-- Para tomador brasileiro, o endereco deve ser enviado apenas quando houver CEP com 8 digitos e codigo IBGE do municipio com 7 digitos; sem esses dados, omitir o bloco `<end>`.
+- Para tomador brasileiro, o endereco deve ser enviado apenas quando houver CEP com 8 digitos e codigo IBGE do municipio com 7 digitos; sem esses dados, omitir o bloco `<end>`. Quando o bloco for enviado, `xLgr`, `nro` e `xBairro` sao obrigatorios, devem seguir essa ordem e ter os espacos das extremidades removidos antes da geracao do XML. A ausencia desses campos deve bloquear localmente a emissao antes da reserva da numeracao.
 - Para cliente `tipo = ES`, o passaporte e apenas identificacao cadastral local: nunca enviar seu valor como CPF, CNPJ ou NIF. Gerar `<cNaoNIF>0</cNaoNIF>` e, quando o endereco exterior estiver completo, usar `<endExt>` com pais ISO alpha-2, codigo postal, cidade e estado/provincia.
 - Nao enviar `<IBSCBS>` enquanto `preencher_ibscbs = N`.
 - Quando `preencher_ibscbs = S`, enviar `<IBSCBS>` depois de `<valores>`, com `finNFSe`, `cIndOp`, `indDest` e `valores/trib/gIBSCBS` (`CST` e `cClassTrib`). As aliquotas e os valores sao calculados pela plataforma nacional e devem ser lidos do XML autorizado, nunca calculados pela configuracao local.
@@ -366,6 +366,7 @@ Para NFS-e rejeitada:
 - O limite deve vir de `App\Config\NFSe::MAX_ENVIOS`; Service e busca do CRON nao podem declarar valores independentes.
 - Reenvio manual pode liberar exatamente uma tentativa extra somente para `XML_INVALIDO` com financeiro vinculado e causa tecnica conhecida ja corrigida no gerador XML/data fiscal, incluindo erros Betha de schema por `cLocalidadeIncid`.
 - A tentativa extra deve registrar `reenvio_manual` com codigo `LIMITE_TECNICO` antes do envio externo. A existencia desse evento bloqueia novas excecoes, inclusive quando o provedor rejeitar a tentativa adicional.
+- DPS historicas que consumiram essa tentativa antes da correcao do endereco podem receber uma unica recuperacao adicional, registrada como `reenvio_manual/CORRECAO_ENDERECO_XSD`, somente quando o historico comprovar `E1235` em `end`/`xBairro`, houver financeiro vinculado, nao houver chave ou protocolo e o endereco atual passar pela validacao local. Essa excecao nao se aplica a outros erros.
 - Reenvio automatico por CRON continua limitado a `tentativas_envio < 5` e nunca utiliza a tentativa extra manual.
 - Se houver `id_financeiro`, regenerar XML com os dados atuais antes de reenviar.
 - Se nao houver `id_financeiro`, reaproveitar o XML salvo como fallback.

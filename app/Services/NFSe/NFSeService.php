@@ -290,10 +290,14 @@ class NFSeService
         $tentativaExtraManual = $limiteRegularAtingido
             && $permitirTentativaExtraManual
             && $this->permiteTentativaExtraManual($nfse);
-        if ($limiteRegularAtingido && !$tentativaExtraManual) {
+        $recuperacaoEnderecoXsd = $limiteRegularAtingido
+            && !$tentativaExtraManual
+            && $permitirTentativaExtraManual
+            && $this->permiteRecuperacaoEnderecoXsd($nfse);
+        if ($limiteRegularAtingido && !$tentativaExtraManual && !$recuperacaoEnderecoXsd) {
             return $this->erro(
                 'Limite regular de envios atingido (' . NFSeConfig::MAX_ENVIOS
-                . '). Uma tentativa manual adicional só é permitida para erro técnico elegível e ainda não utilizado.',
+                . '). Uma tentativa adicional só é permitida para erro técnico elegível e ainda não utilizado.',
                 'ERRO_DESCONHECIDO'
             );
         }
@@ -333,6 +337,9 @@ class NFSeService
                 $numeroAnterior = (int) ($nfse['numero'] ?? 0);
                 if ($tentativaExtraManual && !$this->reservarTentativaExtraManual($nfse)) {
                     return $this->erro('A tentativa manual extra desta NFS-e já foi utilizada.', 'ERRO_DESCONHECIDO');
+                }
+                if ($recuperacaoEnderecoXsd && !$this->reservarRecuperacaoEnderecoXsd($nfse)) {
+                    return $this->erro('A recuperação técnica do endereço desta NFS-e já foi utilizada.', 'ERRO_DESCONHECIDO');
                 }
                 $this->nfseModel->incrementarTentativas($idNFSe);
                 $this->nfseModel->atualizarParaReenvio($idNFSe, [
@@ -416,6 +423,62 @@ class NFSeService
             (string) ($nfse['chave'] ?? ''),
             'Tentativa manual extra liberada após correção técnica do XML/data fiscal.'
         );
+    }
+
+    private function permiteRecuperacaoEnderecoXsd(array $nfse): bool
+    {
+        if (empty($nfse['id_financeiro'])
+            || !empty($nfse['chave_acesso'])
+            || !empty($nfse['protocolo'])
+            || (int) ($nfse['tentativas_envio'] ?? 0) < NFSeConfig::MAX_ENVIOS + NFSeConfig::MAX_ENVIOS_EXTRAS_MANUAIS) {
+            return false;
+        }
+
+        $erroEnderecoEncontrado = $this->mensagemIndicaErroEnderecoXsd(
+            trim((string) ($nfse['codigo_rejeicao'] ?? '') . ' ' . (string) ($nfse['motivo_rejeicao'] ?? ''))
+        );
+        $tentativaExtraUtilizada = false;
+        $recuperacoesUtilizadas = 0;
+
+        foreach ($this->eventoModel->listarPorNfse((int) ($nfse['id'] ?? 0)) as $evento) {
+            $codigo = (string) ($evento['codigo_retorno'] ?? '');
+            if (($evento['tipo_evento'] ?? '') === 'reenvio_manual' && $codigo === 'LIMITE_TECNICO') {
+                $tentativaExtraUtilizada = true;
+            }
+            if (($evento['tipo_evento'] ?? '') === 'reenvio_manual' && $codigo === 'CORRECAO_ENDERECO_XSD') {
+                $recuperacoesUtilizadas++;
+            }
+
+            $mensagemEvento = trim($codigo . ' ' . (string) ($evento['mensagem'] ?? ''));
+            if ($this->mensagemIndicaErroEnderecoXsd($mensagemEvento)) {
+                $erroEnderecoEncontrado = true;
+            }
+        }
+
+        return $tentativaExtraUtilizada
+            && $erroEnderecoEncontrado
+            && $recuperacoesUtilizadas < NFSeConfig::MAX_RECUPERACOES_ENDERECO_XSD;
+    }
+
+    private function reservarRecuperacaoEnderecoXsd(array $nfse): bool
+    {
+        return $this->eventoModel->reservarRecuperacaoEnderecoXsd(
+            (int) ($nfse['id'] ?? 0),
+            (string) ($nfse['chave'] ?? ''),
+            'Recuperação única após correção da validação do endereço no XSD da DPS.'
+        );
+    }
+
+    private function mensagemIndicaErroEnderecoXsd(string $mensagem): bool
+    {
+        $mensagem = mb_strtolower($mensagem, 'UTF-8');
+
+        return str_contains($mensagem, 'e1235')
+            && (
+                (str_contains($mensagem, "element 'end'") && str_contains($mensagem, "expected: 'nro'"))
+                || str_contains($mensagem, "element 'xbairro'")
+                || str_contains($mensagem, 'tsbairro')
+            );
     }
 
     private function mensagemPermiteReenvioTecnico(string $mensagem): bool
@@ -1603,6 +1666,7 @@ class NFSeService
 
         $idMatrizFilial = (int) $config['id_matriz_filial'];
         $dados['tipo_emissao'] = $tipoEmissao;
+        $this->normalizarEnderecoTomador($dados);
 
         try {
             if ($tipoEmissao === 'issnet') {
@@ -1934,6 +1998,7 @@ class NFSeService
         }
 
         $tomador = $dados['tomador'] ?? [];
+        $this->validarEnderecoTomadorDps($dados);
         $this->validarEnderecoBetha($dados);
         $nomeTomador = trim((string) ($tomador['nome'] ?? ''));
         if ($nomeTomador === '') {
@@ -1964,6 +2029,58 @@ class NFSeService
         }
         if (!in_array(strlen($cpfCnpj), [11, 14], true)) {
             throw new \InvalidArgumentException(NFSeErros::getInstrucao('TOMADOR_DOCUMENTO_AUSENTE'));
+        }
+    }
+
+    private function normalizarEnderecoTomador(array &$dados): void
+    {
+        if (!isset($dados['tomador']['endereco']) || !is_array($dados['tomador']['endereco'])) {
+            return;
+        }
+
+        foreach (['logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf', 'cep', 'codigo_municipio'] as $campo) {
+            if (array_key_exists($campo, $dados['tomador']['endereco'])) {
+                $dados['tomador']['endereco'][$campo] = trim((string) $dados['tomador']['endereco'][$campo]);
+            }
+        }
+        if (array_key_exists('pais', $dados['tomador']['endereco'])) {
+            $dados['tomador']['endereco']['pais'] = strtoupper(trim((string) $dados['tomador']['endereco']['pais']));
+        }
+    }
+
+    /** Valida o bloco de endereco compartilhado pela DPS Nacional e Betha. */
+    private function validarEnderecoTomadorDps(array $dados): void
+    {
+        $tomador = $dados['tomador'] ?? [];
+        if (($tomador['tipo'] ?? '') === 'ES'
+            || strtoupper(trim((string) ($tomador['pais'] ?? 'BR'))) !== 'BR') {
+            return;
+        }
+
+        $endereco = is_array($tomador['endereco'] ?? null) ? $tomador['endereco'] : [];
+        $codigo = preg_replace('/\D/', '', (string) ($endereco['codigo_municipio'] ?? '')) ?? '';
+        $cep = preg_replace('/\D/', '', (string) ($endereco['cep'] ?? '')) ?? '';
+
+        // Sem CEP ou municipio completos, o bloco inteiro e omitido conforme a regra conservadora.
+        if (strlen($codigo) !== 7 || $codigo === '0000000' || strlen($cep) !== 8) {
+            return;
+        }
+
+        foreach (['logradouro' => 255, 'numero' => 60, 'bairro' => 60] as $campo => $limite) {
+            $valor = trim((string) ($endereco[$campo] ?? ''));
+            if ($valor === '') {
+                throw new \InvalidArgumentException(
+                    'Complete o endereço do cliente informando logradouro, número e bairro antes de emitir ou reenviar a NFS-e.'
+                );
+            }
+            if (mb_strlen($valor, 'UTF-8') > $limite) {
+                throw new \InvalidArgumentException('O campo ' . $campo . ' do endereço do cliente excede o limite aceito pela NFS-e.');
+            }
+        }
+
+        $complemento = (string) ($endereco['complemento'] ?? '');
+        if (mb_strlen($complemento, 'UTF-8') > 156) {
+            throw new \InvalidArgumentException('O complemento do endereço do cliente excede o limite aceito pela NFS-e.');
         }
     }
 

@@ -130,8 +130,9 @@ class NFSeErros
         ],
         'TOMADOR_ENDERECO' => [
             'mensagem' => 'Endereço do cliente incompleto.',
-            'instrucao' => 'Verifique CEP, cidade e estado no cadastro do cliente.',
+            'instrucao' => 'Verifique CEP, código IBGE, logradouro, número e bairro no cadastro do cliente.',
             'categoria' => 'tomador',
+            'explicacao' => 'Quando o endereço brasileiro é enviado à NFS-e Nacional, logradouro, número e bairro são obrigatórios e não podem conter espaços nas extremidades.',
         ],
         'TOMADOR_MUNICIPIO' => [
             'mensagem' => 'Código IBGE do município do cliente não informado ou inválido.',
@@ -525,6 +526,19 @@ class NFSeErros
             || str_contains($mensagemLower, 'indicador de operação inválido')
             || str_contains($mensagemLower, 'indicador de operacao invalido')) {
             return 'IBSCBS_CONFIGURACAO';
+        }
+
+        if (
+            $codigoSEFIN === 'E1235'
+            && (
+                str_contains($mensagemLower, "element 'end'")
+                || str_contains($mensagemLower, "element 'xbairro'")
+                || str_contains($mensagemLower, "element 'xlgr'")
+                || str_contains($mensagemLower, "element 'nro'")
+                || str_contains($mensagemLower, 'tsbairro')
+            )
+        ) {
+            return 'TOMADOR_ENDERECO';
         }
 
         if (

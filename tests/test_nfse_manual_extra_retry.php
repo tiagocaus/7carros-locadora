@@ -25,7 +25,9 @@ function assertBoolSame(bool $expected, bool $actual, string $message): void
     }
 }
 
-if (NFSeConfig::MAX_ENVIOS !== 5 || NFSeConfig::MAX_ENVIOS_EXTRAS_MANUAIS !== 1) {
+if (NFSeConfig::MAX_ENVIOS !== 5
+    || NFSeConfig::MAX_ENVIOS_EXTRAS_MANUAIS !== 1
+    || NFSeConfig::MAX_RECUPERACOES_ENDERECO_XSD !== 1) {
     throw new RuntimeException('A politica deve permitir cinco envios regulares e uma unica excecao manual.');
 }
 
@@ -36,6 +38,8 @@ $eventoProperty->setValue($service, new FakeNFSeEventoTentativaExtra());
 
 $method = new ReflectionMethod(NFSeService::class, 'permiteTentativaExtraManual');
 $method->setAccessible(true);
+$recuperacaoEndereco = new ReflectionMethod(NFSeService::class, 'permiteRecuperacaoEnderecoXsd');
+$recuperacaoEndereco->setAccessible(true);
 
 $base = [
     'id' => 456,
@@ -83,5 +87,38 @@ $erroCIndOp = $base;
 $erroCIndOp['codigo_rejeicao'] = 'IBSCBS_CONFIGURACAO';
 $erroCIndOp['motivo_rejeicao'] = 'E082 Código indicador de operação inválido';
 assertBoolSame(true, $method->invoke($service, $erroCIndOp), 'E082 corrigido deve liberar a tentativa manual extra.');
+
+$rejeicaoEndereco = [
+    'id' => 789,
+    'chave' => '1111111111111',
+    'codigo_rejeicao' => 'E1235',
+    'motivo_rejeicao' => "Falha no esquema XML. The element 'end' has invalid child element 'xBairro'. List of possible elements expected: 'nro'.",
+    'id_financeiro' => 321,
+    'tentativas_envio' => 6,
+    'chave_acesso' => null,
+    'protocolo' => null,
+];
+$eventoProperty->setValue($service, new FakeNFSeEventoTentativaExtra([
+    [
+        'tipo_evento' => 'reenvio_manual',
+        'codigo_retorno' => 'LIMITE_TECNICO',
+        'mensagem' => 'Tentativa extra historica.',
+    ],
+]));
+assertBoolSame(true, $recuperacaoEndereco->invoke($service, $rejeicaoEndereco), 'E1235 de endereco deve liberar uma recuperacao auditada apos a tentativa extra antiga.');
+
+$eventoProperty->setValue($service, new FakeNFSeEventoTentativaExtra([
+    ['tipo_evento' => 'reenvio_manual', 'codigo_retorno' => 'LIMITE_TECNICO'],
+    ['tipo_evento' => 'reenvio_manual', 'codigo_retorno' => 'CORRECAO_ENDERECO_XSD'],
+]));
+assertBoolSame(false, $recuperacaoEndereco->invoke($service, $rejeicaoEndereco), 'Recuperacao do endereco XSD deve ser utilizada uma unica vez.');
+
+$semVinculo = $rejeicaoEndereco;
+$semVinculo['id_financeiro'] = null;
+assertBoolSame(false, $recuperacaoEndereco->invoke($service, $semVinculo), 'DPS sem financeiro nao pode regenerar o endereco para recuperacao.');
+
+$comProtocolo = $rejeicaoEndereco;
+$comProtocolo['protocolo'] = '123';
+assertBoolSame(false, $recuperacaoEndereco->invoke($service, $comProtocolo), 'DPS com protocolo nao pode usar recuperacao de rejeicao local.');
 
 echo "Teste de tentativa extra manual NFS-e passou.\n";
