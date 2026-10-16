@@ -43,7 +43,7 @@
             <h3 class="form-section-title"><i class="fas fa-car mr-2"></i>{{ t('modules.veiculos.sections.basic_data') }}</h3>
 
             <!-- Foto no canto superior direito -->
-            <div class="absolute top-3 right-3 w-40 h-30 border-2 border-slate-300 rounded-md overflow-hidden bg-slate-100 cursor-pointer group z-10" id="fotoContainer">
+            <div class="absolute top-3 right-3 border-2 border-slate-300 rounded-md overflow-hidden bg-slate-100 cursor-pointer group z-10" id="fotoContainer" style="width: 13.5rem; height: 6.1rem; max-height: 6.1rem;">
                 <img id="fotoImg"
                     src="<?= image('assets/img/veiculo_padrao.png') ?>"
                     alt="{{ t('modules.veiculos.fields.photo') }}"
