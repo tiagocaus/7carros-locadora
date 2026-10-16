@@ -95,6 +95,17 @@ Antes:  {"motor_oleo": "20.000"}
 Depois: {"motor_oleo": "30.000"}  (20k + 10k intervalo)
 ```
 
+Se a previsao estiver varios ciclos atrasada, o sistema avanca em intervalos
+inteiros ate o primeiro ciclo fora da faixa de alerta atual. A margem apenas
+antecipa o alerta; ela nao e somada ao vencimento nem altera a sequencia do
+plano.
+
+Exemplo: odometro em `84.293 km`, previsao em `76.965 km`, intervalo de
+`1.500 km` e margem de `500 km`. Os ciclos `78.465`, `79.965`, `81.465`,
+`82.965` e `84.465` ja estao vencidos ou dentro da faixa de alerta. A proxima
+previsao fica em `85.965 km`, primeiro ciclo fora dessa faixa. Uma nova
+execucao com o mesmo odometro nao gera outra OS.
+
 ## Regras de Negócio
 
 | Regra | Descrição |
@@ -105,6 +116,7 @@ Depois: {"motor_oleo": "30.000"}  (20k + 10k intervalo)
 | R4 | **Status**: OS criada com status `C` |
 | R5 | **Exclusão**: Plano com veículos vinculados não pode ser excluído |
 | R6 | **Multi-tenancy**: Isolamento total por `chave` |
+| R7 | **Ciclos atrasados**: uma OS reune os itens pendentes e cada previsao avanca em ciclos inteiros ate ficar fora da margem atual |
 
 ## Itens de Manutenção
 

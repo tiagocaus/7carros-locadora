@@ -116,6 +116,10 @@ try {
     $gerarOS->setAccessible(true);
     $atualizarPlano = new ReflectionMethod($job, 'atualizarPlanoVeiculo');
     $atualizarPlano->setAccessible(true);
+    $verificarPendentes = new ReflectionMethod($job, 'verificarItensPendentes');
+    $verificarPendentes->setAccessible(true);
+    $calcularProximaKm = new ReflectionMethod($job, 'calcularProximaKmForaMargem');
+    $calcularProximaKm->setAccessible(true);
 
     $mysqli->begin_transaction();
     $osInfo = $gerarOS->invoke($job, $qb, $veiculo, $itensPendentes);
@@ -151,6 +155,42 @@ try {
     ), true);
     checkPreventivaItens('proxima manutencao do oleo avancou', ($planoAtualizado['motor_oleo'] ?? null) === '20.000', $planoAtualizado['motor_oleo'] ?? null);
     checkPreventivaItens('proxima manutencao do filtro avancou', ($planoAtualizado['motor_filtrooleo'] ?? null) === '20.000', $planoAtualizado['motor_filtrooleo'] ?? null);
+
+    $proximaPox = $calcularProximaKm->invoke($job, 76965, 84293, 1500);
+    checkPreventivaItens('POX1C45 avanca para o primeiro ciclo fora da margem', $proximaPox === 85965, $proximaPox);
+
+    $proximaQqq = $calcularProximaKm->invoke($job, 99061, 100447, 1500);
+    checkPreventivaItens('QQQ4H50 avanca para o primeiro ciclo fora da margem', $proximaQqq === 102061, $proximaQqq);
+
+    $planoAtrasado = [
+        'motor_oleo' => '76.965',
+        'motor_filtrooleo' => '80.465',
+    ];
+    $intervalosAtrasados = [
+        'motor_oleo' => '1.500',
+        'motor_filtrooleo' => '10.000',
+    ];
+    $itensAtrasados = $verificarPendentes->invoke($job, 84293, $planoAtrasado, $intervalosAtrasados);
+    checkPreventivaItens('itens com intervalos diferentes ficam pendentes na mesma verificacao', count($itensAtrasados) === 2, count($itensAtrasados));
+
+    $veiculoAtrasado = $veiculo;
+    $veiculoAtrasado['odometro'] = '84293';
+    $veiculoAtrasado['plano_manutencao_array'] = json_encode($planoAtrasado);
+    Database::execute(
+        'UPDATE veiculos SET odometro = ?, plano_manutencao_array = ? WHERE id = ? AND chave = ?',
+        [$veiculoAtrasado['odometro'], $veiculoAtrasado['plano_manutencao_array'], $veiculoId, $chave]
+    );
+    $atualizarPlano->invoke($job, $qb, $veiculoAtrasado, $itensAtrasados, $intervalosAtrasados);
+
+    $planoRecuperado = json_decode((string) Database::fetchColumn(
+        'SELECT plano_manutencao_array FROM veiculos WHERE id = ? AND chave = ?',
+        [$veiculoId, $chave]
+    ), true);
+    checkPreventivaItens('oleo atrasado preserva os ciclos e sai da margem', ($planoRecuperado['motor_oleo'] ?? null) === '85.965', $planoRecuperado['motor_oleo'] ?? null);
+    checkPreventivaItens('filtro atrasado preserva os ciclos e sai da margem', ($planoRecuperado['motor_filtrooleo'] ?? null) === '90.465', $planoRecuperado['motor_filtrooleo'] ?? null);
+
+    $pendentesAposRecuperacao = $verificarPendentes->invoke($job, 84293, $planoRecuperado, $intervalosAtrasados);
+    checkPreventivaItens('nova execucao com mesmo odometro nao encontra itens pendentes', $pendentesAposRecuperacao === [], count($pendentesAposRecuperacao));
 } catch (Throwable $e) {
     if (isset($mysqli) && $mysqli instanceof mysqli && $mysqli->errno === 0) {
         try {

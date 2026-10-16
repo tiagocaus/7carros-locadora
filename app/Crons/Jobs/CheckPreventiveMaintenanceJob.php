@@ -386,7 +386,11 @@ class CheckPreventiveMaintenanceJob extends BaseJob
 
         foreach ($itensPendentes as $item => $dados) {
             $kmAnterior = $planoAtual[$item] ?? 0;
-            $novoKm = $dados['km_proxima'] + $dados['intervalo'];
+            $novoKm = $this->calcularProximaKmForaMargem(
+                $dados['km_proxima'],
+                $dados['km_atual'],
+                $dados['intervalo']
+            );
             $planoAtual[$item] = number_format($novoKm, 0, '', '.');
 
             $camposAlterados[] = AuditLogService::campo(
@@ -409,6 +413,26 @@ class CheckPreventiveMaintenanceJob extends BaseJob
                 $camposAlterados
             );
         }
+    }
+
+    /**
+     * Avanca a previsao em ciclos inteiros ate o primeiro ciclo que ainda nao
+     * esteja na faixa de alerta do odometro atual.
+     *
+     * A margem antecipa o alerta, mas nao e somada ao vencimento. O resultado
+     * sempre pertence a sequencia formada por kmProxima + (N * intervalo).
+     */
+    private function calcularProximaKmForaMargem(int $kmProxima, int $odometroAtual, int $intervalo): int
+    {
+        if ($intervalo <= 0) {
+            return $kmProxima;
+        }
+
+        $limiteAlerta = $odometroAtual + $this->margemKm;
+        $distanciaAteSairDaMargem = max(0, $limiteAlerta - $kmProxima);
+        $quantidadeIntervalos = intdiv($distanciaAteSairDaMargem, $intervalo) + 1;
+
+        return $kmProxima + ($quantidadeIntervalos * $intervalo);
     }
 
     /**

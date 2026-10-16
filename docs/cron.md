@@ -372,6 +372,13 @@ Os jobs executados uma vez por dia ficam distribuídos na madrugada:
 | `04:30` | `SendDailyCronSummaryJob` |
 | `08:00` | `SendFinanceiroCobrancasJob` |
 
+O `CheckPreventiveMaintenanceJob` gera uma unica OS por veiculo em cada
+execucao, reunindo todos os itens pendentes. Quando uma previsao esta varios
+ciclos atrasada, ela avanca em intervalos inteiros ate o primeiro ciclo fora
+da margem de alerta atual. Assim, repetir o job com o mesmo odometro nao gera
+outra OS para os mesmos itens. A margem antecipa o alerta e nao e somada ao
+vencimento da manutencao.
+
 O `Scheduler` registra o resultado dos jobs diários em `storage/cron/daily-summary/YYYY-MM-DD.json`.
 O `SendDailyCronSummaryJob` envia um email único para `APP_COMPANY_EMAIL` com status, duração, mensagem e contadores de cada job diário.
 Jobs recorrentes por minuto, 5, 15 ou 30 minutos não entram nesse resumo.
