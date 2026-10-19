@@ -85,6 +85,16 @@ return [
         'item' => 'item',
     ],
 
+    // Default model restoration
+    'defaults' => [
+        'restore_questions' => 'Restore default questions',
+        'restore_inspection' => 'Restore default inspection',
+        'confirm_title' => 'Restore default model',
+        'confirm_questions' => 'The current questions will be replaced with the default questions for this checklist type. Do you want to continue?',
+        'confirm_inspection' => 'The current inspection items will be replaced with the default items. Do you want to continue?',
+        'confirm_button' => 'Restore defaults',
+    ],
+
     // Pagination
     'pagination' => [
         'rows_per_page' => 'Rows per page:',

@@ -85,6 +85,16 @@ return [
         'item' => 'item',
     ],
 
+    // Restauração dos modelos padrão
+    'defaults' => [
+        'restore_questions' => 'Restaurar questões padrão',
+        'restore_inspection' => 'Restaurar vistoria padrão',
+        'confirm_title' => 'Restaurar modelo padrão',
+        'confirm_questions' => 'As questões atuais serão substituídas pelas questões padrão deste tipo de checklist. Deseja continuar?',
+        'confirm_inspection' => 'Os itens atuais da vistoria serão substituídos pelos itens padrão. Deseja continuar?',
+        'confirm_button' => 'Restaurar padrão',
+    ],
+
     // Paginação
     'pagination' => [
         'rows_per_page' => 'Registros por página:',

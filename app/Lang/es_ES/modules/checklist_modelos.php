@@ -85,6 +85,16 @@ return [
         'item' => 'elemento',
     ],
 
+    // Restauración de los modelos predeterminados
+    'defaults' => [
+        'restore_questions' => 'Restaurar preguntas predeterminadas',
+        'restore_inspection' => 'Restaurar inspección predeterminada',
+        'confirm_title' => 'Restaurar modelo predeterminado',
+        'confirm_questions' => 'Las preguntas actuales serán reemplazadas por las preguntas predeterminadas de este tipo de checklist. ¿Desea continuar?',
+        'confirm_inspection' => 'Los elementos actuales de la inspección serán reemplazados por los elementos predeterminados. ¿Desea continuar?',
+        'confirm_button' => 'Restaurar valores',
+    ],
+
     // Paginación
     'pagination' => [
         'rows_per_page' => 'Registros por página:',

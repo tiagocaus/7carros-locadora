@@ -85,6 +85,16 @@ return [
         'item' => 'elemento',
     ],
 
+    // Ripristino dei modelli predefiniti
+    'defaults' => [
+        'restore_questions' => 'Ripristina domande predefinite',
+        'restore_inspection' => 'Ripristina ispezione predefinita',
+        'confirm_title' => 'Ripristina modello predefinito',
+        'confirm_questions' => 'Le domande attuali verranno sostituite con quelle predefinite per questo tipo di checklist. Vuoi continuare?',
+        'confirm_inspection' => 'Gli elementi attuali dell\'ispezione verranno sostituiti con quelli predefiniti. Vuoi continuare?',
+        'confirm_button' => 'Ripristina predefiniti',
+    ],
+
     // Paginazione
     'pagination' => [
         'rows_per_page' => 'Righe per pagina:',

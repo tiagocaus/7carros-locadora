@@ -85,6 +85,16 @@ return [
         'item' => 'item',
     ],
 
+    // Reposição dos modelos predefinidos
+    'defaults' => [
+        'restore_questions' => 'Repor questões predefinidas',
+        'restore_inspection' => 'Repor vistoria predefinida',
+        'confirm_title' => 'Repor modelo predefinido',
+        'confirm_questions' => 'As questões atuais serão substituídas pelas questões predefinidas deste tipo de checklist. Deseja continuar?',
+        'confirm_inspection' => 'Os itens atuais da vistoria serão substituídos pelos itens predefinidos. Deseja continuar?',
+        'confirm_button' => 'Repor predefinição',
+    ],
+
     // Paginação
     'pagination' => [
         'rows_per_page' => 'Registos por página:',

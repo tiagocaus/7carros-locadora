@@ -49,9 +49,14 @@
             <div class="form-section">
                 <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-300">
                     <h3 class="form-section-title mb-0 pb-0 border-b-0"><?= t('modules.checklist_modelos.sections.questions') ?></h3>
-                    <button type="button" id="btnAddItemQuestoes" class="btn-secondary py-1.5 px-3 rounded-md text-sm font-medium flex items-center">
-                        <i class="fas fa-plus mr-2"></i><?= t('modules.checklist_modelos.sections.questions') ?>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="btnRestoreQuestoes" class="btn-secondary py-1.5 px-2.5 rounded-md text-sm font-medium flex items-center" title="<?= t('modules.checklist_modelos.defaults.restore_questions') ?>" aria-label="<?= t('modules.checklist_modelos.defaults.restore_questions') ?>">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                        <button type="button" id="btnAddItemQuestoes" class="btn-secondary py-1.5 px-3 rounded-md text-sm font-medium flex items-center">
+                            <i class="fas fa-plus mr-2"></i><?= t('modules.checklist_modelos.sections.questions') ?>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="nestableContainerQuestoes" class="nestable-container">
@@ -64,9 +69,14 @@
             <div class="form-section" id="secaoVistoria">
                 <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-300">
                     <h3 class="form-section-title mb-0 pb-0 border-b-0"><?= t('modules.checklist_modelos.sections.inspection') ?></h3>
-                    <button type="button" id="btnAddItemVistoria" class="btn-secondary py-1.5 px-3 rounded-md text-sm font-medium flex items-center">
-                        <i class="fas fa-plus mr-2"></i><?= t('modules.checklist_modelos.sections.inspection') ?>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="btnRestoreVistoria" class="btn-secondary py-1.5 px-2.5 rounded-md text-sm font-medium flex items-center" title="<?= t('modules.checklist_modelos.defaults.restore_inspection') ?>" aria-label="<?= t('modules.checklist_modelos.defaults.restore_inspection') ?>">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                        <button type="button" id="btnAddItemVistoria" class="btn-secondary py-1.5 px-3 rounded-md text-sm font-medium flex items-center">
+                            <i class="fas fa-plus mr-2"></i><?= t('modules.checklist_modelos.sections.inspection') ?>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="nestableContainerVistoria" class="nestable-container">
@@ -110,11 +120,43 @@
             nestableEditInspection: '<?= addslashes(t('modules.checklist_modelos.nestable.edit_inspection')) ?>',
             nestableItem: '<?= addslashes(t('modules.checklist_modelos.nestable.item')) ?>',
             fieldName: '<?= addslashes(t('modules.checklist_modelos.fields.item_name')) ?>',
+            restoreTitle: '<?= addslashes(t('modules.checklist_modelos.defaults.confirm_title')) ?>',
+            restoreQuestionsMessage: '<?= addslashes(t('modules.checklist_modelos.defaults.confirm_questions')) ?>',
+            restoreInspectionMessage: '<?= addslashes(t('modules.checklist_modelos.defaults.confirm_inspection')) ?>',
+            restoreConfirm: '<?= addslashes(t('modules.checklist_modelos.defaults.confirm_button')) ?>',
         };
 
         let registroId = null;
         let nestableQuestoes = null;
         let nestableVistoria = null;
+        let restauracaoPendente = null;
+
+        const QUESTOES_PADRAO_DIGITAL = [
+            { id: 5, name: 'Documentos' },
+            { id: 3, name: 'Chave de roda' },
+            { id: 4, name: 'Chave do veículo' },
+            { id: 6, name: 'Estepe' },
+            { id: 2, name: 'Calota' },
+            { id: 7, name: 'Extintor' },
+            { id: 8, name: 'Macaco' },
+            { id: 1, name: 'Antena' },
+            { id: 9, name: 'Rádio' },
+            { id: 10, name: 'Tapetes' },
+            { id: 11, name: 'Triângulo' },
+        ];
+
+        const QUESTOES_PADRAO_IMPRESSO = [
+            ...QUESTOES_PADRAO_DIGITAL,
+            { id: 12, name: 'Modelo:' },
+            { id: 13, name: 'Cor:' },
+        ];
+
+        const VISTORIA_PADRAO_DIGITAL = [
+            { id: 1, name: 'Frente' },
+            { id: 2, name: 'Lateral direita' },
+            { id: 4, name: 'Traseira' },
+            { id: 5, name: 'Lateral esquerda' },
+        ];
 
         function navegarPara(page) {
             if (window.parent !== window) {
@@ -205,6 +247,50 @@
             document.getElementById('btnAddItemVistoria')?.addEventListener('click', () => {
                 nestableVistoria.openAddModal();
             });
+
+            document.getElementById('btnRestoreQuestoes')?.addEventListener('click', () => {
+                solicitarRestauracao('questoes');
+            });
+
+            document.getElementById('btnRestoreVistoria')?.addEventListener('click', () => {
+                solicitarRestauracao('vistoria');
+            });
+        }
+
+        function obterPadrao(tipoLista) {
+            if (tipoLista === 'questoes') {
+                return document.getElementById('tipo').value === '1'
+                    ? QUESTOES_PADRAO_IMPRESSO
+                    : QUESTOES_PADRAO_DIGITAL;
+            }
+
+            return VISTORIA_PADRAO_DIGITAL;
+        }
+
+        function restaurarPadrao(tipoLista) {
+            const nestable = tipoLista === 'questoes' ? nestableQuestoes : nestableVistoria;
+            if (!nestable) return;
+
+            nestable.textarea.value = JSON.stringify(obterPadrao(tipoLista));
+            nestable.loadFromTextarea();
+        }
+
+        function solicitarRestauracao(tipoLista) {
+            const nestable = tipoLista === 'questoes' ? nestableQuestoes : nestableVistoria;
+            if (!nestable) return;
+
+            if (nestable.serialize().length === 0) {
+                restaurarPadrao(tipoLista);
+                return;
+            }
+
+            restauracaoPendente = tipoLista;
+            window.parent.postMessage({
+                action: 'openGenericConfirmModal',
+                title: i18n.restoreTitle,
+                message: tipoLista === 'questoes' ? i18n.restoreQuestionsMessage : i18n.restoreInspectionMessage,
+                confirmText: i18n.restoreConfirm
+            }, '*');
         }
 
         // ===== TOGGLE SECAO VISTORIA =====
@@ -257,6 +343,12 @@
                         nestableVistoria.currentDeleteItem = null;
                     }
                 }
+            } else if (event.data.action === 'genericConfirmed' && restauracaoPendente) {
+                const tipoLista = restauracaoPendente;
+                restauracaoPendente = null;
+                restaurarPadrao(tipoLista);
+            } else if (event.data.action === 'genericModalClosed') {
+                restauracaoPendente = null;
             }
         });
 
