@@ -764,14 +764,16 @@ class LocacoesController
             if (is_array($taxas)) {
                 $dadosTotais['taxas'] = $taxas;
             }
-            $totais = $locacaoModel->sincronizarTotaisResumo($id, $dadosTotais, is_array($taxas));
+            // As taxas ja foram persistidas. Rele-las permite atualizar tambem
+            // locacoes_taxaseservicos.valor_total com a formula completa.
+            $totais = $locacaoModel->sincronizarTotaisResumo($id, $dadosTotais, false);
             if (PromocaoAplicacaoService::normalizarCodigo($dados['promocao_codigo'] ?? '') !== '') {
                 $this->aplicarPromocaoNova($dadosTotais, (float) $totais['total_fatura']);
                 $locacaoModel->atualizar($id, [
                     'promocao_codigo' => $dadosTotais['promocao_codigo'],
                     'valor_desconto' => $dadosTotais['valor_desconto'],
                 ]);
-                $locacaoModel->sincronizarTotaisResumo($id, $dadosTotais, is_array($taxas));
+                $locacaoModel->sincronizarTotaisResumo($id, $dadosTotais, false);
             }
 
             $locacaoCriada = $locacaoModel->buscarPorId($id);

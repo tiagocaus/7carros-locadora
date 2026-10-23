@@ -92,6 +92,12 @@ table.data-table .vehicle-meta {
     color: #000;
 }
 table.data-table .vehicle-insurance-separator { padding: 0 5px; color: #000; }
+table.data-table .row-meta {
+    margin-top: 2px;
+    font-size: 8pt;
+    line-height: 1.25;
+    color: #000;
+}
 
 /* Totais */
 .totals { margin-top: 10px; border-top: 2px solid #333; padding-top: 10px; }

@@ -623,6 +623,8 @@ return [
         'description_header' => 'Descrizione',
         'qty_header' => 'Qta',
         'unit_value_header' => 'Valore Unit.',
+        'percentage_calculation_info' => '↳ :percentual% su :base',
+        'per_day_suffix' => '/giorno',
         'total_header' => 'Totale',
         'km_allowance_info' => 'Il tuo piano consente :franquia/:unidade. Totale :total.',
         'km_allowance_unit_counting' => 'Conteggio',

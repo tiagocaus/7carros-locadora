@@ -15,6 +15,8 @@ if (!function_exists('t')) {
             'modules.contratos.pdf.return_details_header' => 'Devolução',
             'modules.contratos.pdf.value_header' => 'Valor',
             'modules.contratos.pdf.total_header' => 'Total',
+            'modules.contratos.pdf.percentage_calculation_info' => '↳ :percentual% sobre :base',
+            'modules.contratos.pdf.per_day_suffix' => '/dia',
             'modules.contratos.pdf.group_header' => 'Grupo',
             'modules.contratos.pdf.fuel_short_label' => 'Comb.',
             'modules.contratos.pdf.insurances_label' => 'Seguros',
@@ -99,7 +101,14 @@ $contrato = [
     'array_fiadores' => null,
     'array_avalistas' => null,
     'array_testemunhas' => null,
-    'taxas' => [],
+    'taxas' => [[
+        'nome' => 'TAXA DE SERVICO E IMPOSTOS',
+        'base_calculo' => 'PER',
+        'tipo_valor' => 'POR',
+        'quantidade' => 1,
+        'valor_unitario' => 10,
+        'valor_total' => 10,
+    ]],
     'total_fatura' => 1015,
     'total_pagar' => 1015,
     'veiculos' => [
@@ -170,6 +179,11 @@ assertContratoFatura(str_contains($html, 'class="fields-table"'), 'Campos estati
 assertContratoFatura(str_contains($html, 'class="section-body"'), 'Secoes devem usar section-body.');
 assertContratoFatura(!str_contains($html, 'class="vehicle-insurance-row"'), 'Seguros nao devem usar linha separada com borda.');
 assertContratoFatura(substr_count($html, 'R$ 350,00') >= 2, 'Plano sem seguros deve manter Valor e Total iguais.');
+assertContratoFatura(str_contains($html, '↳ 10% sobre R$ 145,00/dia'), 'Memoria percentual do contrato nao foi renderizada.');
+assertContratoFatura(
+    preg_match('/TAXA DE SERVICO E IMPOSTOS.*?R\$ 14,50.*?R\$ 101,50/s', $html) === 1,
+    'Taxa percentual do contrato nao foi calculada pelo valor diario e dias reais.'
+);
 
 foreach (['dia' => 'Dia', 'semana' => 'Semana', 'mes' => 'Mês', 'ano' => 'Ano'] as $contagem => $label) {
     $contrato['contagem'] = $contagem;

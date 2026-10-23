@@ -179,6 +179,22 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
         'DI' => (float) ($locacao['diaria_valor'] ?? 0),
         default => 0
     };
+    $valorDiarioBaseTaxasFatura = $valorPlanoComposicao;
+    if (($locacao['seguro_carro'] ?? 'N') === 'S') {
+        $valorDiarioBaseTaxasFatura += (float) ($locacao['seguro_carro_valor'] ?? 0);
+    }
+    if (($locacao['seguro_terceiros'] ?? 'N') === 'S') {
+        $valorDiarioBaseTaxasFatura += (float) ($locacao['seguro_terceiros_valor'] ?? 0);
+    }
+    $valorTotalBaseTaxasFatura = $valorDiarioBaseTaxasFatura * $diasFatura;
+    $locacaoFinalizadaFatura = ($locacao['status'] ?? '') === 'F';
+    $formatarPercentualFatura = static function (float $valor): string {
+        if (abs($valor - round($valor)) < 0.00001) {
+            return (string) (int) round($valor);
+        }
+
+        return rtrim(rtrim(number_format($valor, 2, ',', '.'), '0'), ',');
+    };
     $linhasFatura = [];
     $veiculoPlacaFatura = trim((string) ($veiculo['placa'] ?? $locacao['veiculo_placa'] ?? ''));
     $veiculoNomeFatura = trim((string) (($veiculo['marca'] ?? '') . ' ' . ($veiculo['modelo'] ?? '')));
@@ -252,11 +268,43 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
     }
 
     foreach (($taxas ?? []) as $taxa) {
+        $quantidadeTaxa = max(1, (int) ($taxa['quantidade'] ?? 1));
+        $valorInformadoTaxa = (float) ($taxa['valor_unitario'] ?? 0);
+        $baseCalculoTaxa = $taxa['base_calculo'] ?? 'FIX';
+        $tipoValorTaxa = $taxa['tipo_valor'] ?? 'MON';
+        $valorUnitarioTaxa = $valorInformadoTaxa;
+        $valorTotalTaxa = (float) ($taxa['valor_total'] ?? 0);
+        $calculoInfoTaxa = null;
+
+        if ($tipoValorTaxa === 'POR' && $valorInformadoTaxa > 0) {
+            $valorBaseTaxa = $baseCalculoTaxa === 'VLT'
+                ? $valorTotalBaseTaxasFatura
+                : $valorDiarioBaseTaxasFatura;
+            $valorUnitarioTaxa = $valorBaseTaxa * ($valorInformadoTaxa / 100);
+            $baseFormatadaTaxa = currency_format($valorBaseTaxa);
+            if ($baseCalculoTaxa !== 'VLT') {
+                $baseFormatadaTaxa .= t('modules.locacoes.pdf.per_day_suffix');
+            }
+            $calculoInfoTaxa = t('modules.locacoes.pdf.percentage_calculation_info', [
+                'percentual' => $formatarPercentualFatura($valorInformadoTaxa),
+                'base' => $baseFormatadaTaxa,
+            ]);
+        }
+
+        if (!$locacaoFinalizadaFatura && ($tipoValorTaxa === 'POR' || $baseCalculoTaxa === 'PER')) {
+            $valorTotalTaxa = $valorUnitarioTaxa * $quantidadeTaxa;
+            if ($baseCalculoTaxa === 'PER') {
+                $valorTotalTaxa *= $diasFatura;
+            }
+            $valorTotalTaxa = round($valorTotalTaxa, 2);
+        }
+
         $linhasFatura[] = [
             'descricao' => $taxa['nome'] ?? '-',
-            'qtd' => (string) ((int) ($taxa['quantidade'] ?? 1)),
-            'unitario' => (float) ($taxa['valor_unitario'] ?? 0),
-            'total' => (float) ($taxa['valor_total'] ?? 0),
+            'qtd' => (string) $quantidadeTaxa,
+            'unitario' => $valorUnitarioTaxa,
+            'total' => $valorTotalTaxa,
+            'calculo_info' => $calculoInfoTaxa,
         ];
     }
 
@@ -320,6 +368,9 @@ $_labelDevolucaoFatura = !empty($locacao['data_chegada'])
                     <?= htmlspecialchars($linha['descricao']) ?>
                     <?php if (!empty($linha['km_franquia_info'])): ?>
                     <div class="row-meta"><?= htmlspecialchars($linha['km_franquia_info']) ?></div>
+                    <?php endif; ?>
+                    <?php if (!empty($linha['calculo_info'])): ?>
+                    <div class="row-meta"><?= htmlspecialchars($linha['calculo_info']) ?></div>
                     <?php endif; ?>
                 </td>
                 <td class="text-center"><?= htmlspecialchars($linha['qtd']) ?></td>

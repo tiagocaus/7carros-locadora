@@ -616,6 +616,8 @@ return [
         'description_header' => 'Descripción',
         'qty_header' => 'Cant.',
         'unit_value_header' => 'Valor Unitario',
+        'percentage_calculation_info' => '↳ :percentual% sobre :base',
+        'per_day_suffix' => '/día',
         'total_header' => 'Total',
         'subtotal_label' => 'Subtotal:',
         'discount_label' => 'Descuento:',

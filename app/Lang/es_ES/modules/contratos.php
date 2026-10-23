@@ -623,6 +623,8 @@ return [
         'description_header' => 'Descripcion',
         'qty_header' => 'Cant',
         'unit_value_header' => 'Valor Unit.',
+        'percentage_calculation_info' => '↳ :percentual% sobre :base',
+        'per_day_suffix' => '/día',
         'total_header' => 'Total',
         'km_allowance_info' => 'Su plan permite usar :franquia/:unidade. Totalizando :total.',
         'km_allowance_unit_counting' => 'Conteo',

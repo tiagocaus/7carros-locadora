@@ -237,6 +237,7 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 <?php endif; ?>
 
 <!-- VEICULOS -->
+<?php $valorTotalBaseTaxasContratoPdf = 0.0; ?>
 <?php if (!empty($contrato['veiculos'])): ?>
 <?php
     $veiculosSnapshotEncerramento = [];
@@ -283,6 +284,11 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
                 $totalVeiculoPdf = $snapshotEncerramentoVeiculo
                     ? (float) ($snapshotEncerramentoVeiculo['valor_plano'] ?? 0) + (float) ($snapshotEncerramentoVeiculo['valor_seguros'] ?? 0)
                     : $valorPlano + $segVeic + $segTerc;
+                if ($snapshotEncerramentoVeiculo) {
+                    $valorTotalBaseTaxasContratoPdf += $totalVeiculoPdf;
+                } elseif (empty($v['data_entrada'])) {
+                    $valorTotalBaseTaxasContratoPdf += $totalVeiculoPdf * max(1, (int) ($contrato['dias'] ?? 1));
+                }
                 $valorTarifaPdf = $snapshotEncerramentoVeiculo
                     ? (float) ($snapshotEncerramentoVeiculo['tarifa_periodo'] ?? $valorPlano)
                     : $valorPlano;
@@ -403,6 +409,24 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
 
 <!-- TAXAS E SERVICOS -->
 <?php if (!empty($contrato['taxas'])): ?>
+<?php
+    $contratoFinalizadoFatura = ($contrato['status'] ?? '') === 'F';
+    $multiplicadoresTaxasContratoPdf = ['dia' => 1, 'semana' => 7, 'mes' => 30, 'ano' => 365];
+    $diasReaisTaxasContratoPdf = max(1, (int) ($contrato['dias'] ?? 1))
+        * ($multiplicadoresTaxasContratoPdf[$contrato['contagem'] ?? 'dia'] ?? 1);
+    if ($contratoFinalizadoFatura) {
+        $diasReaisTaxasContratoPdf = max(1, (int) ($contrato['encerramento']['calculo']['periodo_contrato_cobranca']['dias_equivalentes'] ?? $diasReaisTaxasContratoPdf));
+        $valorTotalBaseTaxasContratoPdf = (float) ($contrato['encerramento']['calculo']['total_locacao'] ?? $valorTotalBaseTaxasContratoPdf);
+    }
+    $valorDiarioBaseTaxasContratoPdf = $valorTotalBaseTaxasContratoPdf / $diasReaisTaxasContratoPdf;
+    $formatarPercentualContratoPdf = static function (float $valor): string {
+        if (abs($valor - round($valor)) < 0.00001) {
+            return (string) (int) round($valor);
+        }
+
+        return rtrim(rtrim(number_format($valor, 2, ',', '.'), '0'), ',');
+    };
+?>
 <div class="section">
     <div class="section-title"><?= t('modules.contratos.pdf.fees_section') ?></div>
     <div class="section-body">
@@ -417,11 +441,48 @@ $_formatarVeiculoContratoFatura = static function(array $item): string {
         </thead>
         <tbody>
             <?php foreach ($contrato['taxas'] as $taxa): ?>
+            <?php
+                $quantidadeTaxaContratoPdf = max(1, (int) ($taxa['quantidade'] ?? 1));
+                $valorInformadoTaxaContratoPdf = (float) ($taxa['valor_unitario'] ?? 0);
+                $baseCalculoTaxaContratoPdf = $taxa['base_calculo'] ?? 'FIX';
+                $tipoValorTaxaContratoPdf = $taxa['tipo_valor'] ?? 'MON';
+                $valorUnitarioTaxaContratoPdf = $valorInformadoTaxaContratoPdf;
+                $valorTotalTaxaContratoPdf = (float) ($taxa['valor_total'] ?? 0);
+                $calculoInfoTaxaContratoPdf = null;
+
+                if ($tipoValorTaxaContratoPdf === 'POR' && $valorInformadoTaxaContratoPdf > 0) {
+                    $valorBaseTaxaContratoPdf = $baseCalculoTaxaContratoPdf === 'VLT'
+                        ? $valorTotalBaseTaxasContratoPdf
+                        : $valorDiarioBaseTaxasContratoPdf;
+                    $valorUnitarioTaxaContratoPdf = $valorBaseTaxaContratoPdf * ($valorInformadoTaxaContratoPdf / 100);
+                    $baseFormatadaTaxaContratoPdf = currency_format($valorBaseTaxaContratoPdf);
+                    if ($baseCalculoTaxaContratoPdf !== 'VLT') {
+                        $baseFormatadaTaxaContratoPdf .= t('modules.contratos.pdf.per_day_suffix');
+                    }
+                    $calculoInfoTaxaContratoPdf = t('modules.contratos.pdf.percentage_calculation_info', [
+                        'percentual' => $formatarPercentualContratoPdf($valorInformadoTaxaContratoPdf),
+                        'base' => $baseFormatadaTaxaContratoPdf,
+                    ]);
+                }
+
+                if (!$contratoFinalizadoFatura && ($tipoValorTaxaContratoPdf === 'POR' || $baseCalculoTaxaContratoPdf === 'PER')) {
+                    $valorTotalTaxaContratoPdf = $valorUnitarioTaxaContratoPdf * $quantidadeTaxaContratoPdf;
+                    if ($baseCalculoTaxaContratoPdf === 'PER') {
+                        $valorTotalTaxaContratoPdf *= $diasReaisTaxasContratoPdf;
+                    }
+                    $valorTotalTaxaContratoPdf = round($valorTotalTaxaContratoPdf, 2);
+                }
+            ?>
             <tr>
-                <td><?= htmlspecialchars($taxa['nome'] ?? '-') ?></td>
-                <td class="text-center"><?= (int) ($taxa['quantidade'] ?? 1) ?></td>
-                <td class="text-right"><?= currency_format((float) ($taxa['valor_unitario'] ?? 0)) ?></td>
-                <td class="text-right"><?= currency_format((float) ($taxa['valor_total'] ?? 0)) ?></td>
+                <td>
+                    <?= htmlspecialchars($taxa['nome'] ?? '-') ?>
+                    <?php if ($calculoInfoTaxaContratoPdf !== null): ?>
+                    <div class="row-meta"><?= htmlspecialchars($calculoInfoTaxaContratoPdf) ?></div>
+                    <?php endif; ?>
+                </td>
+                <td class="text-center"><?= $quantidadeTaxaContratoPdf ?></td>
+                <td class="text-right"><?= currency_format($valorUnitarioTaxaContratoPdf) ?></td>
+                <td class="text-right"><?= currency_format($valorTotalTaxaContratoPdf) ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

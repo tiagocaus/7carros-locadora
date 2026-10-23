@@ -51,6 +51,11 @@ Quando houver condutores adicionais e o snapshot do veículo possuir `valor_cond
 
 Em Dados do Cliente, a fatura exibe o endereço completo do cliente quando cadastrado. Em locações com plano KMC abertas ou em reserva, a linha do plano na Composição da Fatura informa a franquia por dia e o total de km permitido no período.
 
+Taxas percentuais exibem o valor monetario unitario calculado e a memoria da
+base logo abaixo da descricao, por exemplo `↳ 10% sobre R$ 149,00/dia`. Em
+locacoes nao finalizadas, a composicao recalcula o total pela mesma formula do
+resumo para nao reproduzir detalhes persistidos de forma inconsistente.
+
 Na aba Resumo do formulario, locacoes com plano KMC e franquia maior que zero exibem a mesma informacao logo abaixo da diaria. O total permitido e recalculado dinamicamente pela formula `franquia diaria * dias da locacao`.
 
 ## Fluxo de Status

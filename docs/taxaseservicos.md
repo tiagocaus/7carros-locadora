@@ -192,6 +192,14 @@ Define onde a taxa esta disponivel (separado por virgula):
 - Contrato: 7 dias
 - Resultado: 2% × R$ 150 × 1 × 7 = R$ 21,00
 
+### Persistencia e exibicao em faturas
+
+Depois de sincronizar taxas de uma locacao, o backend deve recalcular os
+registros persistidos para que `valor_total` guarde o resultado da formula, e
+nao apenas `quantidade × valor_unitario`. As faturas de contratos e locacoes
+exibem taxas percentuais em valor monetario e acrescentam a memoria da base do
+calculo. Registros finalizados preservam os totais historicos do encerramento.
+
 ## Rotas
 
 ### Paginas (requerem autenticacao)

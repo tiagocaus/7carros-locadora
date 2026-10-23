@@ -211,6 +211,9 @@ As assinaturas sao armazenadas em tabela dedicada `assinaturas` com arquivos Web
 - Valor representa o plano selecionado; Total soma o plano aos seguros habilitados
 - Cada veiculo possui uma linha de seguros: habilitado com valor exibe `Contratado (valor)`, habilitado sem valor exibe `Contratado` e desabilitado exibe `Nao contratado`, mesmo que exista valor residual no banco
 - Taxas e servicos
+- Taxas percentuais mostram o valor monetario calculado e a memoria da base
+  (`↳ percentual sobre valor/dia`); contratos finalizados preservam o total do
+  snapshot de encerramento
 - Totais e desconto
 - Espaco para assinatura
 

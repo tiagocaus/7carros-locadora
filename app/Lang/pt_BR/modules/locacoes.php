@@ -673,6 +673,8 @@ return [
         'description_header' => 'Descrição',
         'qty_header' => 'Qtd',
         'unit_value_header' => 'Valor Unit.',
+        'percentage_calculation_info' => '↳ :percentual% sobre :base',
+        'per_day_suffix' => '/dia',
         'total_header' => 'Total',
         'subtotal_label' => 'Subtotal:',
         'discount_label' => 'Desconto:',

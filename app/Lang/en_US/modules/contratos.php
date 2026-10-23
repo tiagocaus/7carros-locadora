@@ -624,6 +624,8 @@ return [
         'description_header' => 'Description',
         'qty_header' => 'Qty',
         'unit_value_header' => 'Unit Value',
+        'percentage_calculation_info' => '↳ :percentual% on :base',
+        'per_day_suffix' => '/day',
         'total_header' => 'Total',
         'km_allowance_info' => 'Your plan allows :franquia/:unidade. Totaling :total.',
         'km_allowance_unit_counting' => 'Count',

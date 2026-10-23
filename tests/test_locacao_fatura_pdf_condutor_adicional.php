@@ -17,6 +17,8 @@ if (!function_exists('t')) {
             'modules.locacoes.pdf.description_header' => 'Descricao',
             'modules.locacoes.pdf.qty_header' => 'Qtd',
             'modules.locacoes.pdf.unit_value_header' => 'Valor Unit.',
+            'modules.locacoes.pdf.percentage_calculation_info' => '↳ :percentual% sobre :base',
+            'modules.locacoes.pdf.per_day_suffix' => '/dia',
             'modules.locacoes.pdf.total_header' => 'Total',
             'modules.locacoes.pdf.subtotal_label' => 'Subtotal:',
             'modules.locacoes.pdf.discount_label' => 'Desconto:',
@@ -111,10 +113,10 @@ $locacao = [
     'created_at' => '2026-09-01 12:05:00',
     'data_saida' => '2026-09-01 12:05:00',
     'data_prevista' => '2026-09-08 04:00:00',
-    'dias' => 7,
+    'dias' => 22,
     'cliente_nome_completo' => 'Cliente Teste',
     'plano' => 'KL',
-    'km_livre_valor' => 100,
+    'km_livre_valor' => 149,
     'seguro_carro' => 'N',
     'seguro_terceiros' => 'N',
     'condutor_adicional' => json_encode([['nome' => 'Condutor Teste']]),
@@ -137,6 +139,14 @@ $taxas = [
         'valor_unitario' => 42,
         'valor_total' => 42,
     ],
+    [
+        'nome' => 'TAXA DE SERVICO E IMPOSTOS',
+        'base_calculo' => 'PER',
+        'tipo_valor' => 'POR',
+        'quantidade' => 1,
+        'valor_unitario' => 10,
+        'valor_total' => 10,
+    ],
 ];
 
 $html = renderizarFaturaLocacaoCondutor($locacao, $taxas);
@@ -147,6 +157,14 @@ assertLocacaoFaturaCondutor(
 );
 assertLocacaoFaturaCondutor(str_contains($html, 'R$ 209,93'), 'Taxa generica de condutor deve permanecer separada.');
 assertLocacaoFaturaCondutor(str_contains($html, 'R$ 966,83'), 'Subtotal da locacao nao foi preservado.');
+assertLocacaoFaturaCondutor(
+    str_contains($html, '↳ 10% sobre R$ 149,00/dia'),
+    'Memoria de calculo da taxa percentual nao foi renderizada.'
+);
+assertLocacaoFaturaCondutor(
+    preg_match('/TAXA DE SERVICO E IMPOSTOS.*?R\$ 14,90.*?R\$ 327,80/s', $html) === 1,
+    'Taxa percentual deve ignorar o total persistido incorreto e usar a formula por periodo.'
+);
 
 $locacaoSemCobranca = $locacao;
 $locacaoSemCobranca['valor_condutor_adicional'] = 0;
