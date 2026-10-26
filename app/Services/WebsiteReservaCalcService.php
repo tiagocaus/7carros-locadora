@@ -49,6 +49,20 @@ class WebsiteReservaCalcService
             return ['total' => 0.0, 'breakdown' => ['erro' => 'sem_preco_grupo_filial']];
         }
 
+        $dataSaida = trim((string) ($input['data_saida'] ?? ''));
+        $dataPrevista = trim((string) ($input['data_prevista'] ?? ''));
+        $minutosTolerancia = max(0, (int) ($precos['minutos_tolerancia'] ?? 0));
+        if ($dataSaida !== '' || $dataPrevista !== '') {
+            if ($dataSaida === '' || $dataPrevista === '') {
+                throw new \InvalidArgumentException('Informe retirada e devolucao para calcular a reserva.');
+            }
+            $dias = (new WebsiteReservaPeriodoService())->calcularDias(
+                $dataSaida,
+                $dataPrevista,
+                $minutosTolerancia
+            );
+        }
+
         if ($dataInicio !== '' && !$this->dataValida($dataInicio)) {
             throw new \InvalidArgumentException('Data inicial invalida para o calculo da reserva.');
         }
@@ -143,6 +157,10 @@ class WebsiteReservaCalcService
                     'valor_base_dia' => round((float) ($calculoPlano['valor_base_dia'] ?? $valorPlanoDia), 2),
                     'tem_ajuste_temporada' => (bool) ($calculoPlano['tem_ajuste'] ?? false),
                     'temporadas' => $calculoPlano['temporadas'] ?? [],
+                ],
+                'tolerancia' => [
+                    'minutos' => $minutosTolerancia,
+                    'valor' => round((float) ($precos['valor_tolerancia'] ?? 0), 2),
                 ],
                 'seguros' => round($subtotalSeguros, 2),
                 'seguros_detalhe' => [

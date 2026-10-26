@@ -188,6 +188,8 @@ R (Reserva) ──registrarSaida()──> A (Aberto) ──registrarDevolucao()�
 
 O campo `minuto_tolerancia` reduz o tempo cobrado no calculo de `dias` em todos os status da locacao. Para reservas, pendentes e locacoes abertas (`R`, `P`, `A`), o calculo usa o intervalo entre `data_saida` e `data_prevista`; para locacoes fechadas (`F`), usa `data_saida` e `data_chegada`. Alteracoes no campo na tela devem recalcular imediatamente dias, diaria e resumo.
 
+Reservas do website publico seguem a mesma formula, mas por um fluxo isolado dos Controllers internos. A API calcula a duracao com data/hora completas e a tolerancia de `grupos_precos_filiais` para o grupo e a filial escolhidos. Os planos Km Livre, Km Controlado e Km Pago compartilham a mesma quantidade de dias; apenas precos e regras de quilometragem variam. O navegador nunca e fonte autoritativa para `dias`.
+
 ### Tabela `locacoes_caucoes`
 
 Armazena o deposito de garantia da locacao. Substitui as colunas legadas de caucao em

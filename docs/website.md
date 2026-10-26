@@ -1054,6 +1054,18 @@ A prévia usa `ajax-promocao.php`, mas `/api/public/reserva` sempre repete a
 validação antes de criar cliente, locação, financeiro ou cobrança. Consulte
 [promocoes.md](./promocoes.md) para as regras de canal, filial, validade e dias.
 
+### Contagem de diarias no website
+
+A API publica calcula a quantidade por grupo usando data/hora completas e os
+`minutos_tolerancia` configurados em `grupos_precos_filiais`. A resposta de
+`/api/public/disponibilidade` inclui `dias_por_grupo`, porque grupos da mesma
+filial podem ter tolerancias diferentes. O template usa esse mapa quando o
+visitante escolhe o grupo/plano e recalcula plano, seguros, servicos e promocao.
+
+`/api/public/reserva` repete o calculo no servidor, ignora qualquer quantidade
+enviada pelo navegador e grava a tolerancia aplicada no snapshot de
+`locacoes_veiculos`. O fluxo e isolado dos Controllers internos de locacoes.
+
 **Autenticação da API:**
 - endpoints comuns usam `X-Site-Token` com token único por tenant;
 - endpoints autenticados do portal também usam `X-Portal-Token`, mantido

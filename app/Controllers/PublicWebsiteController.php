@@ -30,6 +30,7 @@ use App\Helpers\DateHelper;
 use App\Helpers\ImageHelper;
 use App\Helpers\FileHelper;
 use App\Services\WebsiteReservaCalcService;
+use App\Services\WebsiteReservaPeriodoService;
 use App\Services\GrupoPrecoPeriodoService;
 use App\Services\TemporadaService;
 use App\Services\PagamentoLinkSyncService;
@@ -216,13 +217,13 @@ class PublicWebsiteController
             $inicio = $dataSaida . ' ' . $horaSaida . ':00';
             $fim    = $dataPrev  . ' ' . $horaDev  . ':00';
 
-            $timestampInicio = strtotime($dataSaida);
-            $timestampFim = strtotime($dataPrev);
-            if ($timestampInicio === false || $timestampFim === false || $timestampFim < $timestampInicio) {
+            $periodoService = new WebsiteReservaPeriodoService();
+            try {
+                $diasSemTolerancia = $periodoService->calcularDias($inicio, $fim);
+            } catch (\InvalidArgumentException) {
                 Response::json(['success' => false, 'message' => 'Periodo invalido'], 400);
                 return;
             }
-            $dias = max(1, (int) ceil(($timestampFim - $timestampInicio) / 86400));
 
             $this->setTenantContext($chave);
 
@@ -250,16 +251,22 @@ class PublicWebsiteController
             // A cotacao acompanha a disponibilidade porque depende do mesmo periodo
             // e nao pode usar o cache horario dos dados gerais do site.
             $precosPeriodo = [];
+            $diasPorGrupo = [];
             $precoService = new GrupoPrecoPeriodoService();
+            $grupoPrecoFilial = new GrupoPrecoFilial();
             $temporadaService = new TemporadaService($chave);
             foreach ($gruposSite as $grupo) {
                 $grupoId = (int) $grupo['id'];
+                $precosGrupoFilial = $grupoPrecoFilial->buscarPorGrupoFilial($grupoId, $filialId);
+                $minutosTolerancia = max(0, (int) ($precosGrupoFilial['minutos_tolerancia'] ?? 0));
+                $diasGrupo = $periodoService->calcularDias($inicio, $fim, $minutosTolerancia);
+                $diasPorGrupo[$grupoId] = $diasGrupo;
                 foreach (['KML', 'KMC', 'DIA'] as $plano) {
                     $calculo = $precoService->calcularValorPeriodo(
                         $grupoId,
                         $filialId,
                         $plano,
-                        $dias,
+                        $diasGrupo,
                         $dataSaida,
                         $chave,
                         $temporadaService
@@ -281,7 +288,8 @@ class PublicWebsiteController
                 'overbooking' => $overbooking,
                 'grupos'      => $gruposDisponiveis,
                 'precos'      => $precosPeriodo,
-                'dias'        => $dias,
+                'dias'        => $diasSemTolerancia,
+                'dias_por_grupo' => $diasPorGrupo,
             ]);
 
         } catch (\Exception $e) {
@@ -418,12 +426,22 @@ class PublicWebsiteController
 
             $dados = $request->all();
             $this->setTenantContext($config['chave']);
+            $dataSaidaCompleta = $this->montarDataHoraReserva(
+                (string) ($dados['data_saida'] ?? ''),
+                (string) ($dados['hora_saida'] ?? '')
+            );
+            $dataPrevistaCompleta = $this->montarDataHoraReserva(
+                (string) ($dados['data_chegada'] ?? ''),
+                (string) ($dados['hora_chegada'] ?? '')
+            );
             $resultado = (new WebsiteReservaCalcService())->calcular([
                 'filial_id' => (int) ($dados['filial_id'] ?? 0),
                 'grupo_id' => (int) ($dados['grupo_id'] ?? 0),
                 'plano' => (string) ($dados['plano'] ?? ''),
                 'dias' => max(1, (int) ($dados['dias'] ?? 1)),
                 'data_inicio' => (string) ($dados['data_inicio'] ?? ''),
+                'data_saida' => $dataSaidaCompleta,
+                'data_prevista' => $dataPrevistaCompleta,
                 'chave' => $config['chave'],
                 'servicos' => $dados['servicos'] ?? [],
                 'seguro_carro' => !empty($dados['seguro_carro']),
@@ -475,7 +493,11 @@ class PublicWebsiteController
                 return;
             }
 
-            if (strtotime((string) $dados['data_chegada']) < strtotime((string) $dados['data_saida'])) {
+            $dataSaidaFull = $dados['data_saida'] . ' ' . $dados['hora_saida'] . ':00';
+            $dataPrevistaFull = $dados['data_chegada'] . ' ' . $dados['hora_chegada'] . ':00';
+            try {
+                (new WebsiteReservaPeriodoService())->calcularDias($dataSaidaFull, $dataPrevistaFull);
+            } catch (\InvalidArgumentException) {
                 Response::json(['success' => false, 'message' => 'Periodo invalido'], 422);
                 return;
             }
@@ -486,8 +508,6 @@ class PublicWebsiteController
 
             $filialRetiradaId = (int) $dados['filial_retirada_id'];
             $grupoId = (int) $dados['grupo_id'];
-            $dataSaidaFull = $dados['data_saida'] . ' ' . $dados['hora_saida'] . ':00';
-            $dataPrevistaFull = $dados['data_chegada'] . ' ' . $dados['hora_chegada'] . ':00';
 
             if (empty($config['overbooking'])) {
                 $disponibilidade = (new Veiculo())->gruposDisponiveisPorFilial(
@@ -578,11 +598,6 @@ class PublicWebsiteController
 
             $this->validarDocumentosCliente($documentos);
 
-            // Calcula dias entre data_saida e data_chegada (mínimo 1)
-            $d1 = strtotime($dados['data_saida']);
-            $d2 = strtotime($dados['data_chegada']);
-            $dias = max(1, (int) ceil(($d2 - $d1) / 86400));
-
             // Codigo unico (prefixo R, 8 chars hex)
             $codigo = 'R' . strtoupper(substr(md5(uniqid((string) mt_rand(), true)), 0, 8));
 
@@ -594,8 +609,10 @@ class PublicWebsiteController
                 'filial_id' => (int) $dados['filial_retirada_id'],
                 'grupo_id'  => (int) $dados['grupo_id'],
                 'plano'     => (string) ($dados['plano'] ?? 'KML'),
-                'dias'      => $dias,
+                'dias'      => 1,
                 'data_inicio' => (string) $dados['data_saida'],
+                'data_saida' => $dataSaidaFull,
+                'data_prevista' => $dataPrevistaFull,
                 'chave'     => $chave,
                 'servicos'  => $dados['servicos'] ?? [],
                 'seguro_carro'     => !empty($dados['seguro_carro']),
@@ -606,6 +623,8 @@ class PublicWebsiteController
             $totalOriginal = (float) ($calc['total_original'] ?? $totalCalculado);
             $promocaoAplicada = $calc['promocao'] ?? null;
             $segurosCalculados = $calc['breakdown']['seguros_detalhe'] ?? [];
+            $dias = max(1, (int) ($calc['breakdown']['plano']['dias'] ?? 1));
+            $toleranciaCalculada = $calc['breakdown']['tolerancia'] ?? [];
             $subtotalPlano = (float) ($calc['breakdown']['plano']['subtotal'] ?? 0);
             if ($subtotalPlano <= 0) {
                 $this->restoreTenantContext();
@@ -680,6 +699,8 @@ class PublicWebsiteController
                 'id_grupo'   => (int) $dados['grupo_id'],
                 'data_saida' => $dataSaidaFull,
                 'plano'      => (string) ($dados['plano'] ?? 'KL'),
+                'minutos_tolerancia' => (int) ($toleranciaCalculada['minutos'] ?? 0),
+                'valor_tolerancia' => (float) ($toleranciaCalculada['valor'] ?? 0),
                 'seguro_carro' => !empty($segurosCalculados['carro']['selecionado']) ? 1 : 0,
                 'valor_seguro_carro' => (float) ($segurosCalculados['carro']['valor_dia'] ?? 0),
                 'seguro_terceiros' => !empty($segurosCalculados['terceiros']['selecionado']) ? 1 : 0,
@@ -875,6 +896,7 @@ class PublicWebsiteController
                 'status'  => $statusInicial,
                 'requer_confirmacao' => $requerConfirmacao,
                 'total'   => $totalCalculado,
+                'dias'    => $dias,
                 'pagamento_url' => $pagamentoUrl,
                 'message' => $requerConfirmacao
                     ? 'Pedido de reserva registrado. Aguarde a confirmacao da locadora.'
@@ -888,6 +910,26 @@ class PublicWebsiteController
             $this->restoreTenantContext();
             Response::json(['success' => false, 'message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Monta um horario operacional para a cotacao publica.
+     * Sites ainda nao atualizados podem omitir ambos os campos e usar o fallback de dias.
+     */
+    private function montarDataHoraReserva(string $data, string $hora): string
+    {
+        $data = trim($data);
+        $hora = trim($hora);
+        if ($data === '' && $hora === '') {
+            return '';
+        }
+        if (!$this->dataValida($data) || !preg_match('/^\d{2}:\d{2}$/', $hora)) {
+            throw new \InvalidArgumentException('Data ou horario invalido');
+        }
+
+        $dataHora = $data . ' ' . $hora . ':00';
+        DateHelper::parseOperationalDateTime($dataHora);
+        return $dataHora;
     }
 
     /**

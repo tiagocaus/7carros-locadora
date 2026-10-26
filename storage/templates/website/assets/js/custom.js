@@ -605,21 +605,10 @@ $(function () {
         $('.resumo-retirada-data').text(formatDateBR(dat) + ' ' + hora);
         $('.resumo-devolucao-data').text(formatDateBR($('#dataPrevista').val()) + ' ' + ($('#horaDevolucao').val() || ''));
 
-        // Calcula dias
-        var d1 = new Date(dat + 'T12:00:00');
-        var d2 = new Date($('#dataPrevista').val() + 'T12:00:00');
-        if (d1 && d2) {
-            var dias = Math.max(1, Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24)));
-            $('.dias').text(dias);
-            $('#dias').val(dias);
-            // Se usuario mudou datas apos ter marcado plano/adicionais, recomputar totais com dias novos
-            if (window.__precoPlanoAtual) {
-                var subtotalAtual = parseFloat(window.__subtotalPlanoAtual || (window.__precoPlanoAtual * dias));
-                $('.plano-soma').text(formatarMoeda(subtotalAtual));
-                renderAdicionais();
-                calcTotal();
-            }
-        }
+        // A quantidade depende da tolerancia do grupo/filial e sera preenchida
+        // pela cotacao autoritativa ao selecionar o grupo.
+        $('.dias').text('');
+        $('#dias').val('');
 
         atualizarPlanosDisponiveis();
 
@@ -632,11 +621,13 @@ $(function () {
     // Consulta o backend e marca cada grupo como disponivel/esgotado
     window.__disponibilidadeGrupos = {}; // { idGrupo: true/false }
     window.__precosPeriodoGrupos = {}; // { idGrupo: { plano: { valor_dia, subtotal } } }
+    window.__diasPorGrupo = {}; // { idGrupo: dias calculados com tolerancia }
     window.__cotacaoPeriodoCarregando = false;
     function carregarDisponibilidadeGrupos() {
         var filialId = window.__locValFilialId ? window.__locValFilialId($('#localRetirada')) : null;
         if (!filialId) return;
         window.__precosPeriodoGrupos = {};
+        window.__diasPorGrupo = {};
         window.__cotacaoPeriodoCarregando = true;
         atualizarPlanosDisponiveis();
         var params = {
@@ -655,12 +646,14 @@ $(function () {
             if (!resp || !resp.success) return;
             window.__disponibilidadeGrupos = resp.grupos || {};
             window.__precosPeriodoGrupos = resp.precos || {};
+            window.__diasPorGrupo = resp.dias_por_grupo || {};
             window.__cotacaoPeriodoCarregando = false;
             atualizarPlanosDisponiveis();
             aplicarDisponibilidadeNosBotoes();
         }).fail(function () {
             window.__cotacaoPeriodoCarregando = false;
             window.__disponibilidadeGrupos = {};
+            window.__diasPorGrupo = {};
             atualizarPlanosDisponiveis();
             aplicarDisponibilidadeNosBotoes();
         });
@@ -773,6 +766,10 @@ $(function () {
     }
     function diasReservaAtual() {
         return parseInt($('#dias').val()) || 1;
+    }
+    function diasReservaGrupo(idGrupo) {
+        var mapa = window.__diasPorGrupo || {};
+        return Math.max(1, parseInt(mapa[idGrupo] || mapa[String(idGrupo)]) || 1);
     }
     function tipoPlanoPreco(plano) {
         var mapa = {
@@ -1036,7 +1033,9 @@ $(function () {
             'KMC': i18n.plano_km_controlado || 'Km Controlado',
             'DIA': i18n.plano_km_pago || 'Km pago'
         };
-        var dias = parseInt($('#dias').val()) || 1;
+        var dias = diasReservaGrupo(idGrupo);
+        $('#dias').val(dias);
+        $('.dias').text(dias);
 
         window.__grupoSelecionadoId = idGrupo;
         window.__planoSelecionado = plano;
@@ -1074,6 +1073,10 @@ $(function () {
             plano: String(window.__planoSelecionado || ''),
             dias: parseInt($('#dias').val()) || 1,
             data_inicio: $('#dataSaida').val() || '',
+            data_saida: $('#dataSaida').val() || '',
+            hora_saida: $('#horaSaida').val() || '',
+            data_chegada: $('#dataPrevista').val() || '',
+            hora_chegada: $('#horaDevolucao').val() || '',
             servicos: servicos,
             seguro_carro: seguroEstaSelecionado('carro'),
             seguro_terceiros: seguroEstaSelecionado('terceiros')
@@ -1081,7 +1084,7 @@ $(function () {
     }
 
     function assinaturaContextoPromocao(ctx, codigo) {
-        return [codigo, ctx.filial_id, ctx.grupo_id, ctx.plano, ctx.dias, ctx.data_inicio, ctx.servicos.join(','), ctx.seguro_carro ? 1 : 0, ctx.seguro_terceiros ? 1 : 0].join('|');
+        return [codigo, ctx.filial_id, ctx.grupo_id, ctx.plano, ctx.dias, ctx.data_saida, ctx.hora_saida, ctx.data_chegada, ctx.hora_chegada, ctx.servicos.join(','), ctx.seguro_carro ? 1 : 0, ctx.seguro_terceiros ? 1 : 0].join('|');
     }
 
     async function validarPromocaoSite() {
@@ -1116,8 +1119,20 @@ $(function () {
             });
             if (!resp || !resp.success) throw new Error(resp && resp.message ? resp.message : 'Código promocional inválido.');
 
+            var planoCalculado = resp.data.breakdown && resp.data.breakdown.plano ? resp.data.breakdown.plano : null;
+            if (planoCalculado) {
+                var diasCalculados = Math.max(1, parseInt(planoCalculado.dias) || 1);
+                $('#dias').val(diasCalculados);
+                $('.dias').text(diasCalculados);
+                window.__precoPlanoAtual = parseFloat(planoCalculado.valor_dia) || window.__precoPlanoAtual;
+                window.__subtotalPlanoAtual = parseFloat(planoCalculado.subtotal) || window.__subtotalPlanoAtual;
+                $('.plano-valor').text(formatarMoeda(window.__precoPlanoAtual));
+                $('.plano-soma').text(formatarMoeda(window.__subtotalPlanoAtual));
+                renderAdicionais();
+            }
+
             var aplicacao = resp.data.promocao;
-            aplicacao.assinatura = assinaturaContextoPromocao(ctx, aplicacao.codigo);
+            aplicacao.assinatura = assinaturaContextoPromocao(contextoPromocao(), aplicacao.codigo);
             window.__promocaoAplicada = aplicacao;
             window.__promocaoAssinaturaTestada = aplicacao.assinatura;
             $('#promocao_codigo').val(aplicacao.codigo);
