@@ -37,6 +37,17 @@ class ContratoTaxaServico extends Model
     }
 
     /**
+     * Lista somente taxas que compoem o valor recorrente do contrato.
+     */
+    public function listarContratuaisPorContrato(int $contratoId): array
+    {
+        return array_values(array_filter(
+            $this->listarPorContrato($contratoId),
+            static fn(array $taxa): bool => ($taxa['origem'] ?? 'contrato') === 'contrato'
+        ));
+    }
+
+    /**
      * Busca uma taxa do contrato por ID
      *
      * @param int $id ID do registro
@@ -164,6 +175,19 @@ class ContratoTaxaServico extends Model
     }
 
     /**
+     * Remove apenas taxas editaveis do contrato, preservando ajustes
+     * operacionais de devolucao e substituicao.
+     */
+    public function removerContratuais(int $contratoId): int
+    {
+        return $this->qb
+            ->table('contratos_taxaseservicos')
+            ->where('id_contrato', '=', $contratoId)
+            ->where('origem', '=', 'contrato')
+            ->delete();
+    }
+
+    /**
      * Sincroniza taxas do contrato (remove antigas e adiciona novas)
      *
      * @param int $contratoId ID do contrato
@@ -173,8 +197,9 @@ class ContratoTaxaServico extends Model
      */
     public function sincronizar(int $contratoId, array $taxas, string $chave): array
     {
-        // Remover taxas existentes
-        $this->removerTodas($contratoId);
+        // Remover somente taxas contratuais. Ajustes de devolucao/substituicao
+        // sao historicos operacionais e nao pertencem ao formulario comum.
+        $this->removerContratuais($contratoId);
 
         // Adicionar novas taxas
         $idsGerados = [];
@@ -184,6 +209,9 @@ class ContratoTaxaServico extends Model
                 continue;
             }
 
+            // O CRUD comum cria exclusivamente taxas contratuais. A origem de
+            // ajustes operacionais e definida pelos fluxos de devolucao.
+            $taxa['origem'] = 'contrato';
             $id = $this->adicionar($contratoId, $taxa, $chave);
             $idsGerados[] = $id;
         }

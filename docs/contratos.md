@@ -616,6 +616,18 @@ await Api.post(`/contratos/${contratoId}/substituir`, {
 });
 ```
 
+O nivel de combustivel/carga na chegada do veiculo antigo e obrigatorio. O
+valor zero e valido e representa reserva/sem carga; ausencia ou valor fora da
+faixa de 0 a 8 deve ser rejeitado antes de iniciar a transacao.
+
+Diferencas de combustivel/carga e km apuradas na substituicao sao ajustes
+pontuais com `origem=devolucao`. O sistema cria uma receita pendente separada,
+vinculada ao contrato e ao veiculo antigo, usando conta e forma de pagamento do
+contrato e vencimento na data da substituicao. Esses ajustes nao aparecem nas
+taxas editaveis, nao alteram `total_fatura`/`total_pagar` recorrentes e nunca
+participam da autorrenovacao. No encerramento, continuam no historico e sao
+conciliados com o principal financeiro ja lancado, sem cobranca duplicada.
+
 Quando `acao_veiculo = criar_os`, `motivo_saida` e obrigatorio (maximo de 255
 caracteres). A substituicao cria uma OS em `manutencoes` com status `C` (Criada),
 vinculada ao veiculo antigo e a sua filial. A data da substituicao, odometro,

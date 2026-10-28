@@ -547,6 +547,14 @@ class ContratosController
             // payload editavel nem entrar no calculo do formulario.
             $contrato['veiculos_historico'] = $contrato['veiculos'] ?? [];
             $contrato['veiculos'] = (new ContratoVeiculo())->listarAtivos($id);
+            $contrato['ajustes_operacionais'] = array_values(array_filter(
+                $contrato['taxas'] ?? [],
+                static fn(array $taxa): bool => ($taxa['origem'] ?? 'contrato') === 'devolucao'
+            ));
+            $contrato['taxas'] = array_values(array_filter(
+                $contrato['taxas'] ?? [],
+                static fn(array $taxa): bool => ($taxa['origem'] ?? 'contrato') === 'contrato'
+            ));
 
             Response::json([
                 'success' => true,
@@ -2219,6 +2227,18 @@ class ContratosController
                 return;
             }
 
+            $combustivelEntrada = filter_var(
+                $dados['combustivel_entrada'] ?? null,
+                FILTER_VALIDATE_INT
+            );
+            if ($combustivelEntrada === false || $combustivelEntrada < 0 || $combustivelEntrada > 8) {
+                Response::json([
+                    'success' => false,
+                    'message' => t('modules.contratos.substitution.fuel_arrival_required')
+                ], 422);
+                return;
+            }
+
             $acaoVeiculo = ($dados['acao_veiculo'] ?? 'disponivel') === 'criar_os'
                 ? 'criar_os'
                 : 'disponivel';
@@ -2298,7 +2318,7 @@ class ContratosController
             $dadosSaida = [
                 'data_entrada' => $dataSubstituicao,
                 'odometro_entrada' => $odometroEntradaAntigo,
-                'combustivel_entrada' => $dados['combustivel_entrada'] ?? null,
+                'combustivel_entrada' => $combustivelEntrada,
                 'motivo_saida' => $motivoSaida !== '' ? $motivoSaida : 'Substituicao de veiculo'
             ];
 
@@ -2382,7 +2402,6 @@ class ContratosController
 
             // 1. Calculo de combustivel
             $combustivelSaida = (int) ($veiculoAntigo['combustivel_saida'] ?? 0);
-            $combustivelEntrada = isset($dadosSaida['combustivel_entrada']) ? (int) $dadosSaida['combustivel_entrada'] : 0;
             $diferencaFracoes = max(0, $combustivelSaida - $combustivelEntrada);
 
             if ($diferencaFracoes > 0 && $valorPorFracao > 0) {
@@ -2393,6 +2412,7 @@ class ContratosController
                     'tipo_valor' => 'MON',
                     'quantidade' => $diferencaFracoes,
                     'valor_unitario' => $valorPorFracao,
+                    'origem' => 'devolucao',
                 ], $chave);
             }
 
@@ -2414,6 +2434,7 @@ class ContratosController
                         'tipo_valor' => 'MON',
                         'quantidade' => $kmExcedente,
                         'valor_unitario' => $valorKmExcedente,
+                        'origem' => 'devolucao',
                     ], $chave);
                 }
             } elseif ($planoAntigo === 'KP') {
@@ -2425,11 +2446,29 @@ class ContratosController
                         'tipo_valor' => 'MON',
                         'quantidade' => $kmRodados,
                         'valor_unitario' => $valorKmExcedente,
+                        'origem' => 'devolucao',
                     ], $chave);
                 }
             }
 
             $antecipadoKm=(new \App\Models\ContratoKm())->totalFaturado((int)$veiculoAntigo['id']);
+            $idFinanceiroAjuste = null;
+            $totalAjusteImediato = round(
+                $totalCombustivelCobranca + ($antecipadoKm > 0 ? 0 : $totalKmCobranca),
+                2
+            );
+            if ($totalAjusteImediato > 0) {
+                $idFinanceiroAjuste = $contratoModel->criarFinanceiroDevolucao($id, [
+                    'valor_total' => $totalAjusteImediato,
+                    'tipo' => 'R',
+                    'pago' => 'N',
+                    'data_venci' => substr($dataSubstituicao, 0, 10),
+                    'id_conta' => $contrato['id_conta'] ?? null,
+                    'id_forma_pagamento' => $contrato['id_forma_pagamento'] ?? null,
+                    'id_veiculo' => $veiculoAntigo['id_veiculo'],
+                    'descricao' => 'Ajustes da substituição - Contrato ' . $contrato['codigo'],
+                ], $chave);
+            }
             if ($antecipadoKm > 0) {
                 $saldoKm=round($totalKmCobranca-$antecipadoKm,2);
                 $idAcertoKm=null;
@@ -2446,7 +2485,8 @@ class ContratosController
                 ]);
             }
 
-            // Recalcular totais (agora inclui as novas taxas)
+            // Recalcular apenas o valor recorrente. Os ajustes da substituicao
+            // foram lancados separadamente no financeiro.
             $contratoModel->recalcularTotais($id);
 
             // Buscar dados do novo veiculo para log detalhado
@@ -2491,6 +2531,7 @@ class ContratosController
                     'id_contrato_veiculo' => $novoId,
                     'id_manutencao' => $manutencaoId,
                     'os' => $manutencaoOs,
+                    'id_financeiro_ajuste' => $idFinanceiroAjuste,
                 ]
             ]);
         } catch (\Throwable $e) {

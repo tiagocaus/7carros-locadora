@@ -443,6 +443,7 @@ return [
         'odometer_driven' => 'Contachilometri Percorso',
         'fuel_out' => 'Serbatoio di Uscita',
         'fuel_arrival' => 'Serbatoio di Arrivo',
+        'fuel_arrival_required' => 'Indicare il livello di carburante o carica all’arrivo del veicolo.',
         'charge_out' => 'Carica di Uscita',
         'charge_arrival' => 'Carica di Arrivo',
         'vehicle_action' => 'Azione per questo veicolo',

@@ -459,6 +459,7 @@ return [
         'odometer_driven' => 'Odômetro Rodado',
         'fuel_out' => 'Tanque de Saída',
         'fuel_arrival' => 'Tanque de Chegada',
+        'fuel_arrival_required' => 'Informe o nível de combustível ou carga na chegada do veículo.',
         'charge_out' => 'Carga de Saída',
         'charge_arrival' => 'Carga de Chegada',
         'vehicle_action' => 'Ação para este veículo',

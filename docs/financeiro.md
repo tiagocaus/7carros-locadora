@@ -284,6 +284,13 @@ Na autorenovacao, as parcelas financeiras precisam ser criadas ou confirmadas
 como ja existentes antes de o contrato avancar para a proxima `data_renovacao`.
 Esse fluxo evita contrato renovado sem boleto/fatura correspondente.
 
+Ajustes pontuais de substituicao de veiculo, como diferenca de
+combustivel/carga e km, geram receita separada no ato. Eles usam o veiculo
+substituido, a conta e a forma de pagamento do contrato e vencem na data da
+substituicao. Nao integram `contratos.total_pagar` e, portanto, nao sao
+parcelados novamente pela autorrenovacao. O encerramento concilia essa receita
+ja lancada com os snapshots operacionais para impedir duplicidade.
+
 ### Atualizar
 ```
 POST /financeiro/{id}/atualizar

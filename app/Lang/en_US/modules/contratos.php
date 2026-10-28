@@ -443,6 +443,7 @@ return [
         'odometer_driven' => 'Odometer Driven',
         'fuel_out' => 'Departure Fuel Tank',
         'fuel_arrival' => 'Arrival Fuel Tank',
+        'fuel_arrival_required' => 'Enter the vehicle arrival fuel or charge level.',
         'charge_out' => 'Departure Charge',
         'charge_arrival' => 'Arrival Charge',
         'vehicle_action' => 'Action for this vehicle',

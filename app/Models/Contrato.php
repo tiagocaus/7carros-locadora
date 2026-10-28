@@ -928,9 +928,10 @@ class Contrato extends Model
         $contratoVeiculo = new ContratoVeiculo();
         $veiculos = $contratoVeiculo->listarAtivos($id);
 
-        // Buscar taxas
+        // Buscar somente taxas contratuais. Ajustes de devolucao/substituicao
+        // sao cobrancas pontuais e nao podem compor o valor recorrente.
         $contratoTaxa = new ContratoTaxaServico();
-        $taxas = $contratoTaxa->listarPorContrato($id);
+        $taxas = $contratoTaxa->listarContratuaisPorContrato($id);
 
         // Calcular total veiculos por periodo
         $totalVeiculos = 0;

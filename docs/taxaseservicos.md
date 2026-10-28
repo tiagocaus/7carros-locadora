@@ -109,7 +109,7 @@ Taxas vinculadas a um contrato especifico (snapshot dos valores).
 | quantidade | INT | Quantidade aplicada |
 | valor_unitario | DECIMAL(10,2) | Valor unitario |
 | valor_total | DECIMAL(10,2) | Valor total calculado |
-| origem | VARCHAR(12) | `contrato` para taxa contratual; `devolucao` para km, combustivel/carga e extras da devolucao |
+| origem | VARCHAR(12) | `contrato` para taxa contratual; `devolucao` para km, combustivel/carga e extras pontuais da devolucao ou substituicao |
 | chave | VARCHAR(45) | Multi-tenancy |
 | created_at | DATETIME | Data de criacao |
 
@@ -315,6 +315,10 @@ busca remota devem ser consultados por ID antes de preencher os campos.
 ### Recalculo de Totais
 
 Sempre que veiculos ou periodo mudam, taxas com `base_calculo=PER` ou `base_calculo=VLT` sao recalculadas automaticamente. No encerramento proporcional, somente registros com `origem=contrato` participam desse recalculo; registros de devolucao preservam o snapshot cobrado no ato e nao podem ser multiplicados novamente.
+
+O CRUD comum sincroniza exclusivamente registros com `origem=contrato`.
+Ajustes operacionais com `origem=devolucao` sao preservados, nao retornam para
+o formulario editavel e nao compoem o total recorrente nem a autorrenovacao.
 
 ## Validacoes
 

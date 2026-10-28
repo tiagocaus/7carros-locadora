@@ -101,7 +101,7 @@
                         <input type="text" id="tanqueSaida" class="form-input-group-field bg-slate-50" readonly value="-">
                     </div>
                     <div class="md:col-span-6 form-input-group">
-                        <label class="form-label-group"><?= t('modules.contratos.substitution.fuel_arrival') ?></label>
+                        <label class="form-label-group"><?= t('modules.contratos.substitution.fuel_arrival') ?> <span class="text-red-500">*</span></label>
                         <select id="tanqueChegada" class="form-input-group-field">
                             <option value="">-</option>
                             <option value="8"><?= t('modules.contratos.fuel_levels.full') ?></option>
@@ -380,6 +380,7 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         'selectGroupNew' => t('modules.contratos.messages.select_group_new'),
         'selectNewVehicle' => t('modules.contratos.messages.select_new_vehicle'),
         'informOdometer' => t('modules.contratos.messages.inform_current_odometer'),
+        'fuelArrivalRequired' => t('modules.contratos.substitution.fuel_arrival_required'),
         'informOsReason' => t('modules.contratos.return_page.inform_os_reason'),
         'observationTooLong' => t('modules.contratos.return_page.observation_too_long'),
         'processing' => t('common.labels.processing'),
@@ -538,7 +539,13 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         const labelSaida = document.querySelector('label[for="tanqueSaida"]') || document.getElementById('tanqueSaida').closest('.form-input-group').querySelector('.form-label-group');
         const labelChegada = document.querySelector('label[for="tanqueChegada"]') || document.getElementById('tanqueChegada').closest('.form-input-group').querySelector('.form-label-group');
         if (labelSaida) labelSaida.textContent = FuelLabels.isElectric(tipoAtual) ? i18n.chargeOut : i18n.fuelOut;
-        if (labelChegada) labelChegada.textContent = FuelLabels.isElectric(tipoAtual) ? i18n.chargeArrival : i18n.fuelArrival;
+        if (labelChegada) {
+            labelChegada.textContent = (FuelLabels.isElectric(tipoAtual) ? i18n.chargeArrival : i18n.fuelArrival) + ' ';
+            const obrigatorio = document.createElement('span');
+            obrigatorio.className = 'text-red-500';
+            obrigatorio.textContent = '*';
+            labelChegada.appendChild(obrigatorio);
+        }
         FuelLabels.updateSelectOptions(document.getElementById('tanqueChegada'), tipoAtual, i18n.fuelFull, i18n.fuelReserve);
 
         // Pre-selecionar plano
@@ -967,6 +974,10 @@ $jsT = static fn(string $key, array $replace = []): string => $jsText(t($key, $r
         }
         if (!odometroAtualVal) {
             window.parent.postMessage({ action: 'openAlert', message: i18n.informOdometer }, '*');
+            return;
+        }
+        if (document.getElementById('tanqueChegada').value === '') {
+            window.parent.postMessage({ action: 'openAlert', message: i18n.fuelArrivalRequired }, '*');
             return;
         }
         if (acaoVeiculo === 'criar_os' && !motivoSaida) {
