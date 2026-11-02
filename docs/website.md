@@ -1040,6 +1040,16 @@ Os campos empresariais `email`, `telefone` e `whatsapp` de
 `contatos_emails` e `contatos_telefones`. As colunas diretas equivalentes em
 `matrizes_filiais` foram removidas.
 
+O campo `filiais` de `/api/public/dados-site` contem somente matrizes e filiais
+ativas (`matrizes_filiais.status = 'A'`) do tenant, com os dados minimos de
+identificacao exigidos pelo endpoint. Unidades inativas permanecem disponiveis
+nos fluxos administrativos e historicos, mas nao sao publicadas nessa listagem.
+
+Os dados podem permanecer no cache do website por ate uma hora. Uma nova
+publicacao gera outro identificador de deploy e invalida o cache anterior.
+Apos alterar o status de uma filial, a listagem do site reflete a mudanca na
+expiracao do cache ou apos nova publicacao.
+
 As rotas `/api/public/portal/*` também são consumidas pelo website, mas usam
 sessão opaca e proxies server-to-server próprios. A lista de endpoints,
 recursos e regras de segurança está centralizada em

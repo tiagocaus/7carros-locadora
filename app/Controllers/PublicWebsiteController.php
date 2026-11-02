@@ -61,9 +61,13 @@ class PublicWebsiteController
 
             $this->setTenantContext($chave);
 
-            // Filiais via MatrizFilial Model
+            // Publicar somente matrizes e filiais ativas do tenant.
             $mfModel = new MatrizFilial();
-            $filiais = $mfModel->listar(null, [], 'tipo DESC, nome_fantasia ASC');
+            $filiais = $mfModel->listar(
+                'status = ?',
+                ['A'],
+                'tipo DESC, nome_fantasia ASC'
+            );
 
             // Mapear e enriquecer filiais
             $currencyMap = [
