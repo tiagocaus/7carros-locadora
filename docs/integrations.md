@@ -196,6 +196,7 @@ class EmailService {
 WHATSAPP_API_URL=https://provedor.example.com
 WHATSAPP_API_ADMIN_TOKEN=token-admin-do-provedor
 WHATSAPP_API_INSTANCE_TOKEN=token-da-instancia-system-7carros
+WHATSAPP_API_PROXY_ENABLE=false
 WHATSAPP_API_PROXY_PROTOCOL=http
 WHATSAPP_API_PROXY_HOST=
 WHATSAPP_API_PROXY_PORT=
@@ -240,7 +241,17 @@ exige duas respostas negativas validas separadas por um segundo. Veja
 
 #### Proxy de saída
 
-Quando `WHATSAPP_API_PROXY_HOST` está definido, o `WhatsappController` configura o proxy via `POST /session/proxy` logo após criar a instância (faz parte do fluxo de "Adicionar conexão"). Mesmas credenciais para todas as instâncias (vindas do `.env`).
+Quando `WHATSAPP_API_PROXY_ENABLE=true`, o `WhatsappController` exige
+`WHATSAPP_API_PROXY_HOST` e configura o proxy via `POST /session/proxy` antes de
+liberar a instancia criada ou abrir uma sessao. O proxy e reaplicado na geracao
+do QR Code, no reinicio e na recriacao da instancia, usando as mesmas
+credenciais do `.env` para todas as conexoes.
+
+Se a configuracao do proxy falhar, a criacao ou reconexao e interrompida. Uma
+instancia que acabou de ser criada no provedor e removida antes de retornar o
+erro, evitando conta remota orfa e conexao ativa sem proxy. Quando
+`WHATSAPP_API_PROXY_ENABLE=false`, as demais variaveis de proxy sao ignoradas,
+mesmo que continuem preenchidas.
 
 ## Document Generation
 

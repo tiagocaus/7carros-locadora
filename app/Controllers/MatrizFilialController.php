@@ -250,6 +250,10 @@ class MatrizFilialController
      */
     public function update(Request $request, int $id): void
     {
+        $assinaturaSalva = null;
+        $assinaturaAnterior = null;
+        $chaveRegistro = null;
+
         try {
             if (!Auth::can('matrizes_filiais.editar')) {
                 Response::json([
@@ -269,6 +273,9 @@ class MatrizFilialController
                 ], 404);
                 return;
             }
+
+            $chaveRegistro = (string) $registroExistente['chave'];
+            $assinaturaAnterior = $registroExistente['assinatura'] ?? null;
 
             $dados = $this->mapearDados($request, $model->possuiConfiguracaoCobrancaVencida());
 
@@ -297,12 +304,33 @@ class MatrizFilialController
                 $dados['logo'] = $filename;
             }
 
+            // A assinatura da empresa e recebida em base64 pelo aplicativo externo.
+            // Campo ausente ou vazio preserva o arquivo ja cadastrado.
+            $assinaturaBase64 = $request->input('assinatura_base64', '');
+            if ($assinaturaBase64 !== null && $assinaturaBase64 !== '') {
+                if (!is_string($assinaturaBase64)) {
+                    throw new \InvalidArgumentException('A assinatura deve ser enviada em base64.');
+                }
+
+                $assinaturaSalva = $this->salvarAssinaturaImagem($assinaturaBase64, $chaveRegistro);
+                $dados['assinatura'] = $assinaturaSalva;
+            }
+
             // Remover campos não fornecidos
             $dados = array_filter($dados, function($value) {
                 return $value !== null && $value !== '';
             });
 
             $model->atualizarComAuditoria($id, $dados);
+
+            // O arquivo anterior so e removido depois de o banco apontar para o novo.
+            if (
+                $assinaturaSalva !== null
+                && !empty($assinaturaAnterior)
+                && $assinaturaAnterior !== $assinaturaSalva
+            ) {
+                FileHelper::delete((string) $assinaturaAnterior, $chaveRegistro);
+            }
 
             // Verificar se campos de sequência foram alterados e renumerar se necessário
             $tiposSequencia = ['locacoes', 'contratos', 'financeiro'];
@@ -376,11 +404,23 @@ class MatrizFilialController
                 'message' => 'Matriz/Filial atualizada com sucesso'
             ]);
         } catch (\InvalidArgumentException $e) {
+            $this->reconciliarAssinaturaAposFalha(
+                $id,
+                $assinaturaSalva,
+                $assinaturaAnterior,
+                $chaveRegistro
+            );
             Response::json([
                 'success' => false,
                 'message' => $e->getMessage()
             ], 422);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $this->reconciliarAssinaturaAposFalha(
+                $id,
+                $assinaturaSalva,
+                $assinaturaAnterior,
+                $chaveRegistro
+            );
             Response::json([
                 'success' => false,
                 'message' => 'Erro ao atualizar matriz/filial: ' . $e->getMessage()
@@ -465,6 +505,26 @@ class MatrizFilialController
         $filename = ImageHelper::save($base64, 'logo');
         if (!$filename) {
             throw new \InvalidArgumentException('Não foi possível salvar o logo informado.');
+        }
+
+        return $filename;
+    }
+
+    /**
+     * Salva a assinatura institucional como imagem WebP com fundo branco.
+     */
+    private function salvarAssinaturaImagem(string $base64, string $chave): string
+    {
+        $validation = ImageHelper::validate($base64);
+        if (!$validation['valid'] || !str_starts_with((string) ($validation['mime'] ?? ''), 'image/')) {
+            throw new \InvalidArgumentException(
+                'A assinatura deve ser uma imagem válida (PNG, JPG, GIF ou WebP).'
+            );
+        }
+
+        $filename = ImageHelper::save($base64, 'assinatura', chave: $chave);
+        if (!$filename) {
+            throw new \InvalidArgumentException('Não foi possível salvar a assinatura informada.');
         }
 
         return $filename;
@@ -904,6 +964,37 @@ class MatrizFilialController
             FileHelper::delete($logo, Auth::chave());
         } catch (\Throwable $e) {
             error_log('[MatrizFilial/Logo] Falha ao remover arquivo órfão: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Evita arquivo orfao sem apagar uma assinatura que ja tenha sido persistida
+     * caso uma etapa posterior da atualizacao lance uma excecao.
+     */
+    private function reconciliarAssinaturaAposFalha(
+        int $id,
+        ?string $assinaturaNova,
+        ?string $assinaturaAnterior,
+        ?string $chave
+    ): void {
+        if ($assinaturaNova === null || $chave === null || $chave === '') {
+            return;
+        }
+
+        try {
+            $registroAtual = (new MatrizFilial())->buscarPorId($id);
+            $assinaturaPersistida = $registroAtual['assinatura'] ?? null;
+
+            if ($assinaturaPersistida === $assinaturaNova) {
+                if (!empty($assinaturaAnterior) && $assinaturaAnterior !== $assinaturaNova) {
+                    FileHelper::delete($assinaturaAnterior, $chave);
+                }
+                return;
+            }
+
+            FileHelper::delete($assinaturaNova, $chave);
+        } catch (\Throwable $cleanupError) {
+            error_log('[MatrizFilial/Assinatura] Falha ao reconciliar arquivo: ' . $cleanupError->getMessage());
         }
     }
 }

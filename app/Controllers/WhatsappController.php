@@ -25,17 +25,25 @@ class WhatsappController
 {
     private string $baseUrl;
     private string $adminToken;
+    private bool $proxyEnabled;
     private array $proxyConfig;
     private WhatsAppSessionStatusService $sessionStatusService;
 
-    public function __construct(?WhatsAppSessionStatusService $sessionStatusService = null)
+    public function __construct(
+        ?WhatsAppSessionStatusService $sessionStatusService = null,
+        ?array $proxyConfig = null,
+        ?bool $proxyEnabled = null
+    )
     {
         $this->baseUrl = Database::env('WHATSAPP_API_URL', '');
         $this->adminToken = Database::env('WHATSAPP_API_ADMIN_TOKEN', '');
         $this->sessionStatusService = $sessionStatusService ?? new WhatsAppSessionStatusService($this->baseUrl);
 
-        // Configuracao do proxy
-        $this->proxyConfig = [
+        $this->proxyEnabled = $proxyEnabled ?? filter_var(
+            Database::env('WHATSAPP_API_PROXY_ENABLE', 'false'),
+            FILTER_VALIDATE_BOOLEAN
+        );
+        $this->proxyConfig = $proxyConfig ?? [
             'protocol' => Database::env('WHATSAPP_API_PROXY_PROTOCOL', 'http'),
             'host' => Database::env('WHATSAPP_API_PROXY_HOST', ''),
             'port' => Database::env('WHATSAPP_API_PROXY_PORT', ''),
@@ -384,8 +392,8 @@ class WhatsappController
                 return;
             }
 
-            // Criar instancia na API do provedor de WhatsApp
-            $apiResponse = $this->createInstance($instanceName);
+            // Criar instancia e garantir o proxy antes de persistir localmente
+            $apiResponse = $this->provisionInstance($instanceName);
 
             if (!$apiResponse['success']) {
                 Response::json([
@@ -393,13 +401,6 @@ class WhatsappController
                     'message' => 'Erro ao criar instancia: ' . ($apiResponse['message'] ?? 'Erro desconhecido')
                 ], 500);
                 return;
-            }
-
-            // Configurar proxy se definido (aguardar instancia ficar pronta)
-            if (!empty($this->proxyConfig['host'])) {
-                if ($this->waitForInstance($instanceName)) {
-                    $this->setProxy($instanceName);
-                }
             }
 
             // Salvar no banco
@@ -840,8 +841,8 @@ class WhatsappController
 
             // Se instancia NÃO existe, criar
             if (!$fetchResponse['success'] || empty($fetchResponse['data'])) {
-                // Criar nova instancia na API do provedor de WhatsApp com o mesmo nome
-                $apiResponse = $this->createInstance($conexao['instanceName']);
+                // Criar nova instancia e garantir o proxy antes de atualizar o registro local
+                $apiResponse = $this->provisionInstance($conexao['instanceName']);
 
                 if (!$apiResponse['success']) {
                     Response::json([
@@ -851,13 +852,6 @@ class WhatsappController
                     return;
                 }
 
-                // Configurar proxy se definido (aguardar instancia ficar pronta)
-                if (!empty($this->proxyConfig['host'])) {
-                    if ($this->waitForInstance($conexao['instanceName'])) {
-                        $this->setProxy($conexao['instanceName']);
-                    }
-                }
-
                 // Atualizar instanceId e status para connecting
                 $newInstanceId = $apiResponse['data']['instance']['instanceId'] ?? '';
                 $model->atualizar($id, [
@@ -865,6 +859,15 @@ class WhatsappController
                     'status' => 'connecting',
                 ]);
             } else {
+                $proxyResponse = $this->setProxy($conexao['instanceName']);
+                if (!$proxyResponse['success']) {
+                    Response::json([
+                        'success' => false,
+                        'message' => $proxyResponse['message'],
+                    ], 502);
+                    return;
+                }
+
                 // Instancia ja existe na API, apenas atualizar status para connecting
                 $model->atualizarStatus($id, 'connecting');
             }
@@ -1113,7 +1116,7 @@ class WhatsappController
     /**
      * Cria nova instancia (user) no provedor.
      */
-    private function createInstance(string $instanceName): array
+    protected function createInstance(string $instanceName): array
     {
         $url = rtrim($this->baseUrl, '/') . '/admin/users';
         $data = [
@@ -1134,13 +1137,70 @@ class WhatsappController
     }
 
     /**
+     * Cria a instancia remota e, quando habilitado, aplica o proxy antes de liberar o uso.
+     */
+    protected function provisionInstance(string $instanceName): array
+    {
+        if ($this->proxyEnabled && $this->buildProxyUrl() === null) {
+            return [
+                'success' => false,
+                'message' => 'Proxy do WhatsApp habilitado, mas o host nao esta configurado',
+                'data' => null,
+            ];
+        }
+
+        $response = $this->createInstance($instanceName);
+        if (!$response['success']) {
+            return $response;
+        }
+
+        $instanceId = (string) ($response['data']['instance']['instanceId'] ?? '');
+        if ($instanceId === '') {
+            return [
+                'success' => false,
+                'message' => 'O provedor nao retornou o identificador da instancia',
+                'data' => null,
+            ];
+        }
+
+        if (!$this->proxyEnabled) {
+            return $response;
+        }
+
+        if (!$this->waitForInstance($instanceId)) {
+            $this->rollbackProvisionedInstance($instanceId);
+            return [
+                'success' => false,
+                'message' => 'A instancia nao ficou disponivel para configurar o proxy',
+                'data' => null,
+            ];
+        }
+
+        $proxyResponse = $this->setProxy($instanceName);
+        if (!$proxyResponse['success']) {
+            $this->rollbackProvisionedInstance($instanceId);
+            return $proxyResponse;
+        }
+
+        return $response;
+    }
+
+    /**
      * Configura proxy de saida para a instancia.
      */
-    private function setProxy(string $instanceName): array
+    protected function setProxy(string $instanceName): array
     {
+        if (!$this->proxyEnabled) {
+            return ['success' => true, 'data' => null, 'message' => 'Proxy desabilitado'];
+        }
+
         $proxyUrl = $this->buildProxyUrl();
         if ($proxyUrl === null) {
-            return ['success' => true, 'data' => null, 'message' => 'Proxy nao configurado'];
+            return [
+                'success' => false,
+                'data' => null,
+                'message' => 'Proxy do WhatsApp habilitado, mas o host nao esta configurado',
+            ];
         }
 
         $url = rtrim($this->baseUrl, '/') . '/session/proxy';
@@ -1149,13 +1209,23 @@ class WhatsappController
             'enable' => true,
         ];
 
-        return $this->makeRequest($url, 'POST', $data, 'user', $instanceName);
+        $response = $this->makeRequest($url, 'POST', $data, 'user', $instanceName);
+        if (!$response['success']) {
+            return [
+                'success' => false,
+                'data' => null,
+                'message' => 'Nao foi possivel configurar o proxy da conexao WhatsApp',
+                'http_code' => $response['http_code'] ?? null,
+            ];
+        }
+
+        return $response;
     }
 
     /**
      * Monta a URL completa do proxy a partir das vars do .env, ou null se nao configurado.
      */
-    private function buildProxyUrl(): ?string
+    protected function buildProxyUrl(): ?string
     {
         if (empty($this->proxyConfig['host'])) {
             return null;
@@ -1183,10 +1253,10 @@ class WhatsappController
     /**
      * Aguarda a instancia estar disponivel apos criacao.
      */
-    private function waitForInstance(string $instanceName, int $maxAttempts = 10, int $waitMs = 1000): bool
+    protected function waitForInstance(string $instanceId, int $maxAttempts = 10, int $waitMs = 1000): bool
     {
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-            $response = $this->fetchInstance($instanceName);
+            $response = $this->fetchInstanceById($instanceId);
             if ($response['success'] && !empty($response['data'])) {
                 return true;
             }
@@ -1198,16 +1268,9 @@ class WhatsappController
     /**
      * Conecta a sessao e retorna o QR code para escaneamento.
      */
-    private function getQRCode(string $instanceName): array
+    protected function getQRCode(string $instanceName): array
     {
-        $connectUrl = rtrim($this->baseUrl, '/') . '/session/connect';
-        $connectResp = $this->makeRequest(
-            $connectUrl,
-            'POST',
-            ['Subscribe' => ['Message'], 'Immediate' => true],
-            'user',
-            $instanceName
-        );
+        $connectResp = $this->connectSession($instanceName);
 
         if (!$connectResp['success']) {
             return $connectResp;
@@ -1238,6 +1301,26 @@ class WhatsappController
     }
 
     /**
+     * Aplica o proxy configurado antes de abrir uma sessao.
+     */
+    protected function connectSession(string $instanceName): array
+    {
+        $proxyResponse = $this->setProxy($instanceName);
+        if (!$proxyResponse['success']) {
+            return $proxyResponse;
+        }
+
+        $connectUrl = rtrim($this->baseUrl, '/') . '/session/connect';
+        return $this->makeRequest(
+            $connectUrl,
+            'POST',
+            ['Subscribe' => ['Message'], 'Immediate' => true],
+            'user',
+            $instanceName
+        );
+    }
+
+    /**
      * Busca dados da instancia (existencia + jid).
      *
      * Resolve instanceId via Model: o caller passa instanceName (token) mas o
@@ -1249,6 +1332,18 @@ class WhatsappController
         $conexao = $model->buscarPorInstanceName($instanceName);
         $instanceId = $conexao['instanceId'] ?? '';
 
+        if ($instanceId === '') {
+            return ['success' => false, 'message' => 'instanceId nao definido', 'data' => null];
+        }
+
+        return $this->fetchInstanceById($instanceId);
+    }
+
+    /**
+     * Busca a instancia diretamente pelo UUID retornado pelo provedor.
+     */
+    protected function fetchInstanceById(string $instanceId): array
+    {
         if ($instanceId === '') {
             return ['success' => false, 'message' => 'instanceId nao definido', 'data' => null];
         }
@@ -1339,20 +1434,13 @@ class WhatsappController
     /**
      * Reinicia a sessao: disconnect + connect.
      */
-    private function restartInstance(string $instanceName): array
+    protected function restartInstance(string $instanceName): array
     {
         $disconnectUrl = rtrim($this->baseUrl, '/') . '/session/disconnect';
         $this->makeRequest($disconnectUrl, 'POST', [], 'user', $instanceName);
         usleep(500 * 1000);
 
-        $connectUrl = rtrim($this->baseUrl, '/') . '/session/connect';
-        return $this->makeRequest(
-            $connectUrl,
-            'POST',
-            ['Subscribe' => ['Message'], 'Immediate' => true],
-            'user',
-            $instanceName
-        );
+        return $this->connectSession($instanceName);
     }
 
     /**
@@ -1373,8 +1461,24 @@ class WhatsappController
             ];
         }
 
+        return $this->deleteInstanceById($instanceId);
+    }
+
+    /**
+     * Exclui diretamente uma instancia remota pelo UUID.
+     */
+    protected function deleteInstanceById(string $instanceId): array
+    {
         $url = rtrim($this->baseUrl, '/') . '/admin/users/' . urlencode($instanceId) . '/full';
         return $this->makeRequest($url, 'DELETE', [], 'admin');
+    }
+
+    private function rollbackProvisionedInstance(string $instanceId): void
+    {
+        $rollback = $this->deleteInstanceById($instanceId);
+        if (!$rollback['success']) {
+            error_log('Falha ao remover instancia WhatsApp apos erro na configuracao do proxy; instanceId=' . $instanceId);
+        }
     }
 
     /**
@@ -1490,7 +1594,7 @@ class WhatsappController
      * @param string $auth 'admin' (header Authorization) ou 'user' (header token)
      * @param string $instanceToken Token de instancia (obrigatorio se auth='user')
      */
-    private function makeRequest(string $url, string $method = 'GET', array $data = [], string $auth = 'admin', string $instanceToken = ''): array
+    protected function makeRequest(string $url, string $method = 'GET', array $data = [], string $auth = 'admin', string $instanceToken = ''): array
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

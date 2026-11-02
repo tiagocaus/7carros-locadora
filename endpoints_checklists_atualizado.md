@@ -1513,6 +1513,21 @@ Response:
 
 Request: mesmo formato da criacao.
 
+O endpoint de edicao tambem aceita a assinatura institucional enviada pelo aplicativo:
+
+```json
+{
+  "assinatura_base64": "data:image/png;base64,..."
+}
+```
+
+- O campo aceita PNG, JPG, GIF ou WebP, com ou sem o prefixo `data:image/...;base64,`.
+- A imagem e convertida para WebP com fundo branco e somente o nome do arquivo e salvo em
+  `matrizes_filiais.assinatura`.
+- Se `assinatura_base64` nao for enviado ou vier vazio, a assinatura atual e preservada.
+- Uma nova assinatura valida substitui a anterior; conteudo invalido retorna `422` sem remover
+  o arquivo ja cadastrado.
+
 Response:
 
 ```json
