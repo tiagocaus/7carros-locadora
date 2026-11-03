@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Helpers\DateHelper;
+
 /**
  * Model ComandoParcela
  *
@@ -510,9 +512,10 @@ class ComandoParcela extends Model
      * @param string $comando String do comando
      * @param string $dataInicio Data do primeiro vencimento (Y-m-d)
      * @param string $dataFim Data fim do contrato (Y-m-d)
+     * @param string|null $dataInicioPeriodo Inicio do periodo contratado/cobrado para comandos mensais
      * @return int Numero de parcelas calculado
      */
-    public static function calcularNumParcelasAutomatico(string $comando, string $dataInicio, string $dataFim): int
+    public static function calcularNumParcelasAutomatico(string $comando, string $dataInicio, string $dataFim, ?string $dataInicioPeriodo = null): int
     {
         $info = self::parseComando($comando);
         $inicio = new \DateTime($dataInicio);
@@ -532,7 +535,12 @@ class ComandoParcela extends Model
                 return $info['max'];
 
             case 'mensal':
-                $diff = $inicio->diff($fim);
+                // A quantidade depende da duracao; o primeiro vencimento define apenas as datas.
+                // Sem inicio do periodo, preservar a compatibilidade com chamadas antigas.
+                $inicioStr = $dataInicioPeriodo ?? $dataInicio;
+                $inicioPeriodo = DateHelper::parseOperationalDateTime(strlen($inicioStr) === 10 ? $inicioStr . ' 00:00:00' : $inicioStr);
+                $fimPeriodo = DateHelper::parseOperationalDateTime(strlen($dataFim) === 10 ? $dataFim . ' 00:00:00' : $dataFim);
+                $diff = $inicioPeriodo->diff($fimPeriodo);
                 $meses = ($diff->y * 12) + $diff->m;
                 if ($diff->d > 0) {
                     $meses++;

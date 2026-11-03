@@ -291,6 +291,23 @@ CREATE TABLE nome_tabela (
 
 ## Tipos de Dados Recomendados
 
+### Unicidade do plano de contas
+
+Em `planos_de_contas`, o indice unico `uniq_planos_contas_chave_hierarquia`
+abrange `(chave, hierarquia)`. Locadoras diferentes podem cadastrar o mesmo
+codigo com descricoes distintas; dentro de cada tenant, o codigo e unico.
+A migration `00438` substitui o antigo indice global `hierarquia`, sem alterar
+IDs, codigos ou vinculos financeiros.
+
+As contas globais usam `chave = '0'`. A aplicacao consulta tenant + globais
+com `withGlobals()` para sugerir e validar codigos, impedindo que um tenant
+cadastre um codigo global. Essa reserva e validada pela aplicacao; o indice
+composto garante somente a unicidade por chave. Cadastros e edicoes concorrentes
+que colidam no indice retornam a mensagem de hierarquia existente com HTTP 400.
+
+O rollback da migration recusa a reversao quando houver hierarquias repetidas
+entre tenants, sem excluir ou renumerar contas.
+
 ### Identificadores
 
 ```sql

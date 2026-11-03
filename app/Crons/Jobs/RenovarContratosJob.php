@@ -157,6 +157,7 @@ class RenovarContratosJob extends BaseJob
             'id_comando_parcela' => $idComandoParcela,
             'id_conta' => $contrato['id_conta'] ?? 0,
             'primeiro_vencimento' => $primeiroVencimento,
+            'data_ini' => $regularizacao['periodo_cobranca_ini'],
             'data_fim' => $regularizacao['periodo_cobranca_fim'],
             'valor_desconto' => 0,
         ];

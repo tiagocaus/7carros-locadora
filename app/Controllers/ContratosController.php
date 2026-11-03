@@ -4012,6 +4012,7 @@ class ContratosController
             'id_comando_parcela' => (int) ($contrato['id_comando_parcela'] ?? 0),
             'id_conta' => (int) ($contrato['id_conta'] ?? 0),
             'primeiro_vencimento' => $regularizacao['periodo_cobranca_ini'],
+            'data_ini' => $regularizacao['periodo_cobranca_ini'],
             'data_fim' => $regularizacao['periodo_cobranca_fim'],
             'valor_desconto' => 0,
         ]);
@@ -4203,7 +4204,7 @@ class ContratosController
      * Preview stateless de parcelas (sem contrato salvo)
      *
      * POST /api/contratos/preview-parcelas
-     * Body: total_pagar, data_fim, id_forma_pagamento, primeiro_vencimento, valor_desconto, id_conta
+     * Body: total_pagar, data_ini, data_fim, id_forma_pagamento, primeiro_vencimento, valor_desconto, id_conta
      */
     public function previewParcelasStateless(Request $request): void
     {

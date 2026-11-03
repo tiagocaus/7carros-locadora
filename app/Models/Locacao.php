@@ -839,6 +839,8 @@ class Locacao extends Model
             throw new \InvalidArgumentException('Locação não encontrada');
         }
 
+        $idVeiculo = $this->veiculoParaNovaParcela($locacaoId, $locacao);
+
         $quantidade = (int) ($dados['quantidade'] ?? 1);
         if ($quantidade < 1) {
             throw new \InvalidArgumentException('Quantidade de parcelas deve ser maior que zero');
@@ -877,10 +879,6 @@ class Locacao extends Model
         $financeiroModel = new Financeiro();
         $ids = [];
 
-        $locacaoVeiculoModel = new LocacaoVeiculo();
-        $veiculoAtivo = $locacaoVeiculoModel->buscarAtivo($locacaoId);
-        $idVeiculoAtivo = $veiculoAtivo ? (int) $veiculoAtivo['id_veiculo'] : null;
-
         $idMatrizFilial = (int) ($locacao['id_matriz_filial_retirada'] ?? 0);
         $sequencias = $idMatrizFilial > 0
             ? \App\Helpers\SequenciaHelper::proximasSequencias($chave, $idMatrizFilial, 'financeiro', $quantidade)
@@ -903,7 +901,7 @@ class Locacao extends Model
                 'chave' => $chave,
                 'sequencia' => $sequencia,
                 'id_locacao' => $locacaoId,
-                'id_veiculo' => $idVeiculoAtivo,
+                'id_veiculo' => $idVeiculo,
                 'id_cliente' => $locacao['id_cliente'],
                 'id_matriz_filial' => $idMatrizFilial,
                 'id_conta' => !empty($dados['id_conta']) ? (int) $dados['id_conta'] : ($locacao['id_conta'] ?? null),
@@ -952,6 +950,8 @@ class Locacao extends Model
             throw new \InvalidArgumentException('Locação não encontrada');
         }
 
+        $idVeiculo = $this->veiculoParaNovaParcela($locacaoId, $locacao);
+
         // Buscar proximo numero de parcela
         $maxParcela = $this->qb
             ->table('financeiro')
@@ -981,14 +981,10 @@ class Locacao extends Model
 
         $financeiroModel = new Financeiro();
 
-        $locacaoVeiculoModel = new LocacaoVeiculo();
-        $veiculoAtivo = $locacaoVeiculoModel->buscarAtivo($locacaoId);
-        $idVeiculoAtivo = $veiculoAtivo ? (int) $veiculoAtivo['id_veiculo'] : null;
-
         return $financeiroModel->criar([
             'chave' => $chave,
             'id_locacao' => $locacaoId,
-            'id_veiculo' => $idVeiculoAtivo,
+            'id_veiculo' => $idVeiculo,
             'id_cliente' => $locacao['id_cliente'],
             'id_matriz_filial' => $locacao['id_matriz_filial_retirada'],
             'id_conta' => $dados['id_conta'] ?? ($locacao['id_conta'] ?? null),
@@ -1004,6 +1000,27 @@ class Locacao extends Model
             'valor_total' => $this->toDecimal($dados['valor']),
             'data_criada' => DateHelper::todayForDatabase(),
         ]);
+    }
+
+    /**
+     * Novas parcelas de locacoes finalizadas usam o ultimo veiculo do historico.
+     * Parcelas existentes preservam o veiculo da epoca; reservas sem alocacao
+     * continuam podendo gerar parcelas sem veiculo.
+     */
+    private function veiculoParaNovaParcela(int $locacaoId, array $locacao): ?int
+    {
+        $model = new LocacaoVeiculo();
+        $finalizada = ($locacao['status'] ?? '') === 'F';
+        $veiculo = $finalizada
+            ? $model->buscarAtualOuUltimo($locacaoId)
+            : $model->buscarAtivo($locacaoId);
+        $idVeiculo = !empty($veiculo['id_veiculo']) ? (int) $veiculo['id_veiculo'] : null;
+
+        if ($finalizada && $idVeiculo === null) {
+            throw new \InvalidArgumentException('Locacao finalizada sem veiculo no historico para vincular a parcela');
+        }
+
+        return $idVeiculo;
     }
 
     /**
@@ -1337,7 +1354,7 @@ class Locacao extends Model
             ? $veiculoModel->buscarAtualOuUltimo($locacaoId)
             : $veiculoModel->buscarAtivo($locacaoId);
 
-        if ($status === 'F' && !$veiculo) {
+        if ($status === 'F' && empty($veiculo['id_veiculo'])) {
             throw new \InvalidArgumentException('Locacao fechada sem historico de veiculo para recalcular totais');
         }
 

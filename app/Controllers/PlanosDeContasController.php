@@ -450,6 +450,9 @@ class PlanosDeContasController
                 'data' => ['id' => $id]
             ], 201);
         } catch (\Exception $e) {
+            if ($this->responderHierarquiaDuplicada($e)) {
+                return;
+            }
             Response::json([
                 'success' => false,
                 'message' => t('modules.planos_contas.messages.error_create') . ': ' . $e->getMessage()
@@ -582,11 +585,29 @@ class PlanosDeContasController
                 'message' => t('modules.planos_contas.messages.updated')
             ]);
         } catch (\Exception $e) {
+            if ($this->responderHierarquiaDuplicada($e)) {
+                return;
+            }
             Response::json([
                 'success' => false,
                 'message' => t('modules.planos_contas.messages.error_update') . ': ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /** Trata colisao entre a validacao e a gravacao, sem mascarar outros erros. */
+    private function responderHierarquiaDuplicada(\Exception $e): bool
+    {
+        if (!$e instanceof \mysqli_sql_exception || $e->getCode() !== 1062
+            || !str_contains($e->getMessage(), 'uniq_planos_contas_chave_hierarquia')) {
+            return false;
+        }
+
+        Response::json([
+            'success' => false,
+            'message' => t('modules.planos_contas.messages.hierarquia_exists')
+        ], 400);
+        return true;
     }
 
     /**

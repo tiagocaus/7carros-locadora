@@ -163,6 +163,7 @@ O formulario de criacao e edicao possui 8 abas:
 - Comando de parcelas (select independente com comandos do sistema + personalizados)
 - Desconto e primeiro pagamento
 - Calculo automatico de totais
+- Comandos mensais (`X-Y`, como `1-6`) calculam a quantidade pela duracao entre `data_ini` e `data_fim`, respeitando os limites do comando. O primeiro vencimento define apenas as datas, que podem ultrapassar o fim do contrato. Na renovacao/regularizacao, usar o inicio e fim do periodo cobrado, sem alterar as datas originais do contrato.
 - O `id_comando_parcela` selecionado e persistido na tabela `contratos` para uso na renovacao automatica
 - Na renovacao automatica, `dias` e `contagem` definem o periodo renovado do contrato; o comando de parcelas define apenas vencimento/parcelamento financeiro.
 - Comandos simples de dia da semana (`Seg`, `Ter`, `Qua`, `Qui`, `Sex`, `Sab` e `Dom`) geram uma unica parcela com valor cheio. Se a data-base ja cair no dia configurado, o vencimento permanece nessa mesma data; caso contrario, avanca para a proxima ocorrencia do dia, sem forcar uma semana adicional. Parcelamento semanal exige comando explicito, como `w4` ou `w4-Seg`.

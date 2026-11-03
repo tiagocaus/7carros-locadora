@@ -272,6 +272,15 @@ Response: { success: true, id: 123, message: "..." }
 
 ### Parcelas Geradas por Contratos
 
+Comandos mensais `X-Y` calculam a quantidade pela duracao do periodo contratado,
+limitada ao minimo e maximo do comando, independentemente do primeiro vencimento.
+Por exemplo, de 01/11/2026 a 01/05/2027, com `1-6` e primeiro vencimento em
+15/12/2026, sao seis parcelas de 15/12/2026 a 15/05/2027. O vencimento pode
+ultrapassar o encerramento. Na renovacao/regularizacao, a duracao corresponde
+ao periodo cobrado. Chamadas antigas sem inicio do periodo preservam o calculo
+a partir do primeiro vencimento; `num_parcelas` explicito continua prioritario.
+Essa regra nao altera automaticamente parcelas ja gravadas.
+
 Quando o financeiro e gerado a partir de contrato, o comando de parcelas define
 como a fatura sera dividida e quais serao os vencimentos. Comandos simples de dia
 da semana (`Seg`, `Ter`, `Qua`, `Qui`, `Sex`, `Sab` e `Dom`) nao parcelam: eles
@@ -775,7 +784,7 @@ O campo `financeiro.id_veiculo` vincula cada registro financeiro ao veiculo que 
 ### Como funciona
 
 - Parcelas de **contratos** recebem automaticamente o `id_veiculo` ativo via `ContratoVeiculo::buscarAtivo()`
-- Parcelas de **locacoes** recebem automaticamente o `id_veiculo` ativo via `LocacaoVeiculo::buscarAtivo()`
+- Parcelas de **locacoes** recebem automaticamente o `id_veiculo` ativo via `LocacaoVeiculo::buscarAtivo()`. Em locacoes finalizadas (`F`), geracao e inclusao avulsa usam `buscarAtualOuUltimo()`: novas parcelas mantem o vinculo com o ultimo veiculo do historico mesmo apos a devolucao. Sem veiculo no historico, a operacao e rejeitada antes de criar parcelas ou renumerar as existentes.
 - Reservas de locacao podem ser apenas por grupo/categoria. Antes da saida, elas podem nao ter `id_veiculo`; nesse caso as parcelas geradas antes da alocacao do veiculo ficam sem rastreio veicular no cabecalho.
 - `Financeiro::criarParcelas()` propaga o `id_veiculo` do registro base para as parcelas filhas
 - Em locacoes, a geracao automatica cria parcelas do saldo restante considerando

@@ -1464,6 +1464,8 @@ class Contrato extends Model
             $dataFim = $config['data_fim'] ?? DateHelper::todayForDatabase();
         }
 
+        $dataInicioPeriodo = $config['data_ini'] ?? $contrato['data_ini'] ?? null;
+
         // total_pagar ja representa o valor liquido do desconto, tanto no
         // contrato salvo quanto no payload do preview stateless.
         $valorDesconto = currency_parse($config['valor_desconto'] ?? 0);
@@ -1486,7 +1488,7 @@ class Contrato extends Model
         if (!empty($config['num_parcelas'])) {
             $numParcelas = (int) $config['num_parcelas'];
         } elseif ($comandoStr) {
-            $numParcelas = ComandoParcela::calcularNumParcelasAutomatico($comandoStr, $primeiroVencimento, $dataFim);
+            $numParcelas = ComandoParcela::calcularNumParcelasAutomatico($comandoStr, $primeiroVencimento, $dataFim, $dataInicioPeriodo);
         } else {
             $numParcelas = 1;
         }

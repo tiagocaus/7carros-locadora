@@ -389,9 +389,35 @@ $locacao->gerarParcelas($locacaoId, [
 - Bloqueia a geracao quando nao houver saldo restante
 - Ultima parcela absorve diferenca de arredondamento
 - Vencimentos incrementam +1 mes
-- Cada parcela recebe `id_veiculo` do veiculo ativo automaticamente
+- Cada parcela recebe `id_veiculo` do veiculo ativo automaticamente. Em locacoes finalizadas (`F`), geracao e inclusao avulsa usam `LocacaoVeiculo::buscarAtualOuUltimo()`, preservando o ultimo veiculo do historico apos a devolucao. Sem veiculo no historico, a operacao e rejeitada antes de gravar parcelas ou renumerar as existentes. Reservas sem veiculo continuam aceitas. Parcelas existentes nao mudam de veiculo.
 - Parcelamentos grandes reservam sequencias financeiras em lote via `SequenciaHelper::proximasSequencias()` para evitar locks repetidos em `matrizes_filiais`
 - A Fatura PDF de locacoes desconta o total ja pago no financeiro (`tipo = R`, `pago = S`) do `TOTAL A PAGAR` e exibe a lista de pagamentos/parcelas com vencimento/data de pagamento.
+
+Regressao local com tabelas temporarias: `php tests/test_locacao_parcelas_veiculo_encerrado.php`.
+
+#### Reparo pontual BRAVIK (03/11/2026)
+
+As parcelas `1088070` (`LGP4ED2N`) e `1088065` (`LZQOAML7`) foram recriadas
+depois da devolucao sem `financeiro.id_veiculo`. A manutencao pontual valida
+tenant, locacoes finalizadas, historico unico, ausencia de itens, valores e
+pagamentos antes de vincular respectivamente os veiculos `20365` e `19965`.
+Grava auditoria na mesma transacao, preserva os demais campos financeiros e
+permite reexecucao sem duplicar logs. Qualquer divergencia interrompe o reparo
+inteiro. Nao altera outros lancamentos nem cobra a lavagem de R$ 100,00.
+
+Executar na raiz do projeto no terminal do servidor, com `.env.production`
+configurado com `DB_HOST=localhost` (nao usar `temp-bd.txt`):
+
+```bash
+php scripts/reparar-veiculos-financeiro-bravik.php --env=production
+php scripts/reparar-veiculos-financeiro-bravik.php --env=production --apply
+```
+
+A primeira execucao apenas mostra a previa. A segunda aplica o reparo pontual;
+nenhuma migration ou mudanca de schema e necessaria. Conferir os R$ 1.000,00
+nas consultas financeiras por veiculo apos a aplicacao. O KPI **Receita por
+Veiculo** usa os dados das locacoes, enquanto **Lucro por Veiculo** usa o
+financeiro: validar a tela exata informada pelo cliente.
 
 ### Devolucao antecipada com credito
 

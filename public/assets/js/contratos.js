@@ -2546,6 +2546,8 @@
             if (registroId) {
                 // Contrato existente: endpoint com ID
                 result = await API.post(`/api/contratos/${registroId}/gerar-parcelas`, {
+                    data_ini: document.getElementById('data_ini')?.value,
+                    data_fim: document.getElementById('data_fim')?.value,
                     id_conta: idConta,
                     id_forma_pagamento: idFormaPagamento,
                     id_comando_parcela: document.getElementById('id_comando_parcela')?.value,
@@ -2568,6 +2570,7 @@
 
                 result = await API.post('/api/contratos/preview-parcelas', {
                     total_pagar: totalPagar,
+                    data_ini: document.getElementById('data_ini')?.value,
                     data_fim: dataFim,
                     id_conta: idConta,
                     id_forma_pagamento: idFormaPagamento,
