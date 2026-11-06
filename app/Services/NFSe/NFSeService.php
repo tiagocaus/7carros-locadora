@@ -70,6 +70,26 @@ class NFSeService
      */
     public function emitir(int $idFinanceiro, string $chave, array $dadosExtras = []): array
     {
+        return $this->emitirComBloqueio($idFinanceiro, $chave, $dadosExtras);
+    }
+
+    private function emitirComBloqueio(int $idFinanceiro, string $chave, array $dadosExtras, ?int $anterior = null): array
+    {
+        if ($chave !== (string) ($_SESSION['chave'] ?? '')) {
+            return $this->erro('Tenant inválido para emissão.', 'CONFIGURACAO_INCOMPLETA');
+        }
+        if (!$this->nfseModel->bloquearEmissaoFinanceiro($idFinanceiro)) {
+            return $this->erro('Já existe uma emissão em andamento para este lançamento. Consulte a listagem antes de tentar novamente.', 'NOTA_DUPLICADA');
+        }
+        try {
+            return $this->executarEmissao($idFinanceiro, $chave, $dadosExtras, $anterior);
+        } finally {
+            $this->nfseModel->liberarEmissaoFinanceiro($idFinanceiro);
+        }
+    }
+
+    private function executarEmissao(int $idFinanceiro, string $chave, array $dadosExtras, ?int $anterior): array
+    {
         // 1. Buscar financeiro
         $financeiroModel = new Financeiro();
         $financeiro = $financeiroModel->buscarPorId($idFinanceiro);
@@ -78,7 +98,7 @@ class NFSeService
         }
 
         // 2. Verificar duplicidade
-        $existente = $this->nfseModel->buscarPorFinanceiro($idFinanceiro);
+        $existente = $anterior === null ? $this->nfseModel->buscarPorFinanceiro($idFinanceiro) : $this->nfseModel->buscarOutraPorFinanceiro($idFinanceiro, $anterior);
         if ($existente) {
             return $this->erro('Já existe uma NFS-e emitida para este lançamento.', 'NOTA_DUPLICADA', [], [
                 'id' => (int) $existente['id'],
@@ -95,6 +115,14 @@ class NFSeService
         }
         if (($config['ativo'] ?? 'N') !== 'S') {
             return $this->erro('Emissão de NFS-e desativada para esta empresa.', 'NFSE_DESATIVADA');
+        }
+
+        try {
+            $competencia = NFSeContextoFiscal::competencia($dadosExtras['data_competencia'] ?? null);
+            $config = $this->configModel->resolverPorCompetencia($idMatrizFilial, $competencia);
+            $dadosExtras['data_competencia'] = $competencia;
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'CONFIGURACAO_INCOMPLETA');
         }
 
         // 4. Validar certificado
@@ -121,6 +149,12 @@ class NFSeService
             return $this->erro($e->getMessage(), $this->codigoValidacaoDPS($e->getMessage()));
         }
 
+        if ($anterior !== null) {
+            $notaAnterior = $this->nfseModel->buscarPorId($anterior);
+            $this->validarIdentidadeReenvio($notaAnterior, $dados);
+            $config['id_tentativa_anterior'] = $anterior;
+        }
+
         // 6. Rotear por tipo de emissao
         $tipoEmissao = $config['tipo_emissao'] ?? 'nacional';
 
@@ -130,6 +164,91 @@ class NFSeService
             'issnet' => $this->emitirISSNet($dados, $config, $chave),
             default => $this->erro('Tipo de emissão NFS-e não suportado: ' . $tipoEmissao, 'CONFIGURACAO_INCOMPLETA'),
         };
+    }
+
+    /** Ação manual: nova tentativa, nunca alteração do emissor de uma DPS enviada. */
+    public function migrarParaNacional(int $idNFSe, string $chave): array
+    {
+        $nota = $this->nfseModel->buscarPorId($idNFSe);
+        if (!$nota || $nota['status'] !== 'rejeitada' || !in_array($nota['tipo_emissao'], ['betha', 'issnet'], true)
+            || empty($nota['id_financeiro']) || !empty($nota['chave_acesso'])) {
+            return $this->erro('Somente tentativa municipal rejeitada, sem autorização e vinculada ao financeiro pode originar uma nova emissão Nacional.', 'MIGRACAO_NACIONAL');
+        }
+        try {
+            $config = $this->configModel->resolverHistorico($nota);
+            NFSeContextoFiscal::validarReenvio($config);
+            $competencia = NFSeContextoFiscal::competencia($nota['data_competencia'] ?? '');
+            if (!NFSeContextoFiscal::exigeNacional((int) $config['regime_tributario'], $competencia)) {
+                return $this->erro('Esta competência não exige a migração para o Nacional pelo enquadramento histórico.', 'MIGRACAO_NACIONAL');
+            }
+            if ($nota['tipo_emissao'] === 'betha' && !empty($nota['protocolo'])) {
+                // Consulta externa somente do protocolo original, antes de criar outra DPS.
+                $consulta = $this->consultarBethaProcessando($idNFSe, $chave);
+                $nota = $this->nfseModel->buscarPorId($idNFSe);
+                if ($nota['status'] !== 'rejeitada' || !empty($nota['chave_acesso']) || ($consulta['sucesso'] ?? false)) {
+                    return $this->erro('A tentativa municipal foi autorizada ou ainda aguarda processamento. Consulte o status antes de emitir outra nota.', 'MIGRACAO_NACIONAL');
+                }
+            }
+            $eventos = $this->eventoModel->listarPorNfse($idNFSe);
+            usort($eventos, static fn(array $a, array $b): int => (int) $b['id'] <=> (int) $a['id']);
+            $ultimo = $eventos[0] ?? [];
+            if (!$this->rejeicaoMunicipalConclusiva($nota, $ultimo)) {
+                return $this->erro('Falta confirmação de rejeição definitiva do provedor. Consulte e reconcilie a tentativa municipal antes de emitir no Nacional.', 'MIGRACAO_NACIONAL');
+            }
+            $perfil = $this->configModel->resolverPorCompetencia((int) $nota['id_matriz_filial'], $competencia);
+            if ($perfil['tipo_emissao'] !== 'nacional' || (int) $perfil['ambiente'] !== (int) $nota['ambiente']) {
+                return $this->erro('Prepare o Nacional no mesmo ambiente da tentativa original e confirme o enquadramento fiscal da competência.', 'CONFIGURACAO_INCOMPLETA');
+            }
+            $resultado = $this->emitirComBloqueio((int) $nota['id_financeiro'], $chave, [
+                'data_competencia' => $competencia,
+                'valor_deducoes' => $nota['valor_deducoes'] ?? 0,
+                'itens_nao_tributaveis' => $nota['itens_nao_tributaveis'] ?? [],
+                'descricao_servico' => $nota['descricao_servico'] ?? '',
+                'iss_retido' => $nota['iss_retido'] ?? 'N',
+                'tomador_email' => $nota['tomador_email'] ?? '',
+            ], $idNFSe);
+            if (empty($resultado['dados']['id'])) {
+                $nova = $this->nfseModel->buscarOutraPorFinanceiro((int) $nota['id_financeiro'], $idNFSe);
+                if ($nova) {
+                    $resultado['dados'] = ['id' => (int) $nova['id'], 'status' => $nova['status']];
+                }
+            }
+            return $resultado;
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'CONFIGURACAO_INCOMPLETA');
+        }
+    }
+
+    private function rejeicaoMunicipalConclusiva(array $nota, array $evento): bool
+    {
+        if (($nota['status'] ?? '') !== 'rejeitada' || !empty($nota['chave_acesso'])
+            || ($evento['tipo_evento'] ?? '') !== 'erro' || empty($evento['xml_evento'])) {
+            return false;
+        }
+        $xml = (string) $evento['xml_evento'];
+        $anterior = libxml_use_internal_errors(true);
+        try {
+            $doc = new \DOMDocument();
+            if (!$doc->loadXML($xml, LIBXML_NONET) || $doc->doctype) {
+                return false;
+            }
+            $xp = new \DOMXPath($doc);
+            $status = trim((string) $xp->evaluate('string((//*[local-name()="statusProcessamento"])[1])'));
+            if ($nota['tipo_emissao'] === 'betha' && !empty($nota['protocolo'])) {
+                if (mb_strtolower($status) !== 'processado com erro') {
+                    return false;
+                }
+            } elseif (!empty($nota['protocolo'])) {
+                return false;
+            }
+            $retorno = $this->resolverXML((string) $nota['tipo_emissao'])->parseRetorno($xml);
+            return empty($retorno['sucesso']) && empty($retorno['chave_acesso']) && !empty($retorno['erros'])
+                && (empty($retorno['processando']) || mb_strtolower($status) === 'processado com erro')
+                && !in_array((string) ($retorno['erros'][0]['codigo'] ?? ''), ['', 'ERRO_DESCONHECIDO', 'CONN_TIMEOUT', 'CONN_CURL', 'DPS_JA_GERADA'], true);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($anterior);
+        }
     }
 
     private function normalizarCertificadoLegado(int $idMatrizFilial, array &$config, array $analiseCertificado): void
@@ -179,7 +298,11 @@ class NFSeService
             return $this->erro('Motivo do cancelamento deve ter no mínimo 15 caracteres.', 'CANCEL_MOTIVO');
         }
 
-        $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
+        try {
+            $config = $this->configModel->resolverHistorico($nfse);
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'CONFIGURACAO_INCOMPLETA');
+        }
         if (!$config) {
             return $this->erro('Configurações de NFS-e não encontradas.', 'CONFIGURACAO_INCOMPLETA');
         }
@@ -204,7 +327,11 @@ class NFSeService
             return $this->erro('NFS-e não encontrada.', 'NOTA_NAO_ENCONTRADA');
         }
 
-        $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
+        try {
+            $config = $this->configModel->resolverHistorico($nfse);
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'CONFIGURACAO_INCOMPLETA');
+        }
         if (!$config) {
             return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
         }
@@ -302,9 +429,23 @@ class NFSeService
             );
         }
 
-        $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
+        try {
+            $config = $this->configModel->resolverHistorico($nfse);
+            NFSeContextoFiscal::validarReenvio($config);
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'CONFIGURACAO_INCOMPLETA');
+        }
         if (!$config) {
             return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
+        }
+
+        $competenciaOriginal = (string) ($nfse['data_competencia'] ?? $config['_competencia_xml'] ?? '');
+        if ($competenciaOriginal === '') {
+            return $this->erro('Competência histórica ausente. Reconcilie o documento antes de reenviar.', 'CONFIGURACAO_INCOMPLETA');
+        }
+        if (NFSeContextoFiscal::exigeNacional((int) ($config['regime_tributario'] ?? 1), $competenciaOriginal)
+            && ($nfse['tipo_emissao'] ?? '') !== 'nacional') {
+            return $this->erro('Esta competência exige emissão Nacional. Consulte e reconcilie a tentativa municipal antes de solicitar nova emissão.', 'MIGRACAO_NACIONAL');
         }
 
         if (($nfse['codigo_rejeicao'] ?? '') === 'DPS_JA_GERADA') {
@@ -325,8 +466,23 @@ class NFSeService
                     return $this->erro('Lançamento financeiro vinculado à NFS-e não encontrado.', 'VALOR_INVALIDO');
                 }
 
-                $dados = $this->montarDadosNFSe($financeiro, $config, $chave, []);
+                $competencia = NFSeContextoFiscal::competencia($nfse['data_competencia'] ?? $config['_competencia_xml'] ?? '');
+                if (!empty($config['_competencia_xml']) && $config['_competencia_xml'] !== $competencia) {
+                    return $this->erro('Competência do registro diverge do XML histórico. Reconcilie a NFS-e antes de reenviar.', 'CONFIGURACAO_INCOMPLETA');
+                }
+                if (empty($config['perfil_id'])) {
+                    return $this->erro('Perfil histórico ausente. Prepare o perfil do emissor e ambiente originais antes do reenvio.', 'CONFIGURACAO_INCOMPLETA');
+                }
+                $dados = $this->montarDadosNFSe($financeiro, $config, $chave, [
+                    'data_competencia' => $competencia,
+                    'valor_deducoes' => $nfse['valor_deducoes'] ?? 0,
+                    'itens_nao_tributaveis' => $nfse['itens_nao_tributaveis'] ?? [],
+                    'descricao_servico' => $nfse['descricao_servico'] ?? '',
+                    'iss_retido' => $nfse['iss_retido'] ?? 'N',
+                    'tomador_email' => $nfse['tomador_email'] ?? '',
+                ]);
                 $dados['tipo_emissao'] = $tipoEmissao;
+                $this->validarIdentidadeReenvio($nfse, $dados);
                 $preparado = $this->prepararXMLAssinado($tipoEmissao, $dados, $config, $chave, $pem);
                 if (!$preparado['sucesso']) {
                     return $this->erro($preparado['mensagem'], $preparado['codigo']);
@@ -346,6 +502,8 @@ class NFSeService
                     'numero' => $preparado['numero'],
                     'serie' => $dados['serie'] ?? null,
                     'xml_envio' => $xml,
+                    'data_competencia' => $competencia,
+                    'contexto_fiscal' => json_encode(NFSeContextoFiscal::snapshot($config), JSON_THROW_ON_ERROR),
                     'tomador_endereco' => json_encode($dados['tomador']['endereco'], JSON_UNESCAPED_UNICODE),
                 ]);
                 if ($numeroAnterior > 0 && $numeroAnterior !== (int) $preparado['numero']) {
@@ -702,6 +860,7 @@ class NFSeService
                 return $this->erro($assinado['mensagem'], 'XML_ASSINATURA');
             }
 
+            (new \App\Services\NFSe\Nacional\NFSeXSDNacional())->validarEvento($assinado['xml']);
             $api = new NFSeAPINacional();
             $resultado = $api->cancelar($assinado['xml'], $nfse['chave_acesso'], $pem['certPath'], $pem['keyPath'], (int) $config['ambiente']);
 
@@ -1309,7 +1468,7 @@ class NFSeService
             'ambiente' => (int) ($config['ambiente'] ?? 2),
             'serie' => $config['serie'] ?? 'DPS',
             'data_emissao' => $dataFiscal->format('Y-m-d\TH:i:sP'),
-            'data_competencia' => $dataFiscal->format('Y-m-d'),
+            'data_competencia' => NFSeContextoFiscal::competencia($dadosExtras['data_competencia'] ?? null),
             'municipio_codigo' => $config['codigo_municipio'] ?? '',
             'tipo_emissao' => $tipoEmissao,
             'id_financeiro' => (int) $financeiro['id'],
@@ -1404,7 +1563,7 @@ class NFSeService
     {
         $valores = $dados['valores'] ?? [];
 
-        return $this->nfseModel->criar([
+        $id = $this->nfseModel->criar([
             'chave' => $chave,
             'id_matriz_filial' => $dados['id_matriz_filial'],
             'id_financeiro' => $dados['id_financeiro'] ?? null,
@@ -1439,7 +1598,30 @@ class NFSeService
             'tipo_emissao' => $dados['tipo_emissao'] ?? 'nacional',
             'data_emissao' => $this->formatarDataBanco($dados['data_emissao'] ?? null),
             'data_competencia' => $dados['data_competencia'] ?? $this->agoraFiscal()->format('Y-m-d'),
+            'contexto_fiscal' => json_encode(NFSeContextoFiscal::snapshot($config), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
         ]);
+        if (!empty($config['id_tentativa_anterior'])) {
+            $anterior = (int) $config['id_tentativa_anterior'];
+            $this->eventoModel->registrar($anterior, 'migracao_nacional', (string) $id, 'Nova tentativa Nacional criada após rejeição municipal conclusiva.');
+            $this->eventoModel->registrar($id, 'migracao_nacional', (string) $anterior, 'Tentativa municipal original preservada.');
+        }
+        return $id;
+    }
+
+    private function validarIdentidadeReenvio(array $nota, array $dados): void
+    {
+        $digitos = static fn($v): string => preg_replace('/\D/', '', (string) $v) ?? '';
+        $tipoAntigo = (string) ($nota['tomador_tipo'] ?? $dados['tomador']['tipo'] ?? '');
+        $tipoAtual = (string) ($dados['tomador']['tipo'] ?? '');
+        $documentoAntigo = $tipoAntigo === 'ES' ? strtoupper(trim((string) ($nota['tomador_cpf_cnpj'] ?? ''))) : $digitos($nota['tomador_cpf_cnpj'] ?? '');
+        $documentoAtual = $tipoAtual === 'ES' ? strtoupper(trim((string) ($dados['tomador']['cpf_cnpj'] ?? ''))) : $digitos($dados['tomador']['cpf_cnpj'] ?? '');
+        if ((!empty($nota['tomador_tipo']) && $tipoAntigo !== $tipoAtual)
+            || (!empty($nota['tomador_pais']) && strtoupper($nota['tomador_pais']) !== strtoupper((string) ($dados['tomador']['pais'] ?? '')))
+            || $digitos($nota['prestador_cnpj'] ?? '') !== $digitos($dados['prestador']['cnpj'] ?? '')
+            || $documentoAntigo !== $documentoAtual
+            || abs((float) ($nota['valor_servicos'] ?? 0) - (float) ($dados['valores']['servicos'] ?? 0)) > 0.009) {
+            throw new \InvalidArgumentException('Prestador, documento do tomador ou valor financeiro mudou após a tentativa original. Reconcilie a NFS-e antes de reenviar.');
+        }
     }
 
     private function agoraFiscal(): \DateTimeImmutable
@@ -1684,15 +1866,28 @@ class NFSeService
         $algoritmo = $tipoEmissao === 'issnet' ? 'sha1' : 'sha256';
 
         for ($tentativa = 0; $tentativa < 3; $tentativa++) {
-            $dados['numero'] = $this->configModel->consultarProximoNumero($idMatrizFilial, $chave);
-            $xml = $xmlGenerator->gerarXML($dados);
+            $perfilModel = !empty($config['perfil_id']) ? new \App\Models\NFSePerfil() : null;
+            $dados['numero'] = $perfilModel ? $perfilModel->proximo($config) : $this->configModel->consultarProximoNumero($idMatrizFilial, $chave);
+            try {
+                $xml = $xmlGenerator->gerarXML($dados);
+            } catch (\InvalidArgumentException $e) {
+                return ['sucesso' => false, 'mensagem' => $e->getMessage(), 'codigo' => 'XML_INVALIDO'];
+            }
             $assinado = $this->assinatura->assinar($xml, $pem['certPath'], $pem['keyPath'], $tagToSign, $algoritmo, $idAttribute);
 
             if (!$assinado['sucesso']) {
                 return ['sucesso' => false, 'mensagem' => $assinado['mensagem'], 'codigo' => 'XML_ASSINATURA'];
             }
 
-            if ($this->configModel->reservarNumero($idMatrizFilial, (int) $dados['numero'], $chave)) {
+            if ($tipoEmissao === 'nacional') {
+                try {
+                    (new \App\Services\NFSe\Nacional\NFSeXSDNacional())->validarDPS($assinado['xml']);
+                } catch (\InvalidArgumentException $e) {
+                    return ['sucesso' => false, 'mensagem' => $e->getMessage(), 'codigo' => 'XML_INVALIDO'];
+                }
+            }
+
+            if ($perfilModel ? $perfilModel->reservar($config, (int) $dados['numero']) : $this->configModel->reservarNumero($idMatrizFilial, (int) $dados['numero'], $chave)) {
                 return [
                     'sucesso' => true,
                     'xml' => $assinado['xml'],
@@ -1717,7 +1912,11 @@ class NFSeService
             return $this->erro('NFS-e Betha não encontrada ou sem protocolo.', 'NOTA_NAO_ENCONTRADA');
         }
 
-        $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
+        try {
+            $config = $this->configModel->resolverHistorico($nfse);
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'CONFIGURACAO_INCOMPLETA');
+        }
         if (!$config) {
             return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
         }
@@ -1785,7 +1984,11 @@ class NFSeService
             return $this->erro('Atualização da sincronização fiscal pendente no servidor.', 'CONFIGURACAO_INCOMPLETA');
         }
 
-        $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
+        try {
+            $config = $this->configModel->resolverHistorico($nfse);
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'CONFIGURACAO_INCOMPLETA');
+        }
         if (!$config) {
             return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
         }
@@ -1900,7 +2103,11 @@ class NFSeService
             return $this->erro('Cancelamento Betha não encontrado ou sem protocolo.', 'NOTA_NAO_ENCONTRADA');
         }
 
-        $config = $this->configModel->buscarPorMatrizFilial((int) $nfse['id_matriz_filial']);
+        try {
+            $config = $this->configModel->resolverHistorico($nfse);
+        } catch (\InvalidArgumentException $e) {
+            return $this->erro($e->getMessage(), 'CONFIGURACAO_INCOMPLETA');
+        }
         if (!$config) {
             return $this->erro('Configurações não encontradas.', 'CONFIGURACAO_INCOMPLETA');
         }

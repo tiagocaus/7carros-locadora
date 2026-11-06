@@ -41,7 +41,7 @@ class NFSe extends Model
     {
         // Mantem a emissao operacional durante o intervalo entre o upload do
         // codigo e a execucao da migration no servidor.
-        foreach (['tomador_tipo', 'tomador_pais'] as $colunaNova) {
+        foreach (['tomador_tipo', 'tomador_pais', 'contexto_fiscal'] as $colunaNova) {
             if (array_key_exists($colunaNova, $dados) && !$this->colunaExiste($colunaNova)) {
                 unset($dados[$colunaNova]);
             }
@@ -103,6 +103,33 @@ class NFSe extends Model
             ->where('id_financeiro', '=', $idFinanceiro)
             ->whereRaw("status != 'cancelada'")
             ->first();
+    }
+
+    public function buscarOutraPorFinanceiro(int $idFinanceiro, int $ignorarId): ?array
+    {
+        return $this->qb->table('nfse')->where('id_financeiro', '=', $idFinanceiro)
+            ->where('id', '!=', $ignorarId)->whereRaw("status != 'cancelada'")->orderByDesc('id')->first();
+    }
+
+    public function bloquearEmissaoFinanceiro(int $idFinanceiro): bool
+    {
+        $nome = 'nfse:' . hash('sha256', (string) ($_SESSION['chave'] ?? '') . ':' . $idFinanceiro);
+        $nome = substr($nome, 0, 64);
+        $stmt = $this->getMysqli()->prepare('SELECT GET_LOCK(?, 0) AS adquirido');
+        $stmt->bind_param('s', $nome);
+        $stmt->execute();
+        $ok = (int) $stmt->get_result()->fetch_assoc()['adquirido'] === 1;
+        $stmt->close();
+        return $ok;
+    }
+
+    public function liberarEmissaoFinanceiro(int $idFinanceiro): void
+    {
+        $nome = substr('nfse:' . hash('sha256', (string) ($_SESSION['chave'] ?? '') . ':' . $idFinanceiro), 0, 64);
+        $stmt = $this->getMysqli()->prepare('SELECT RELEASE_LOCK(?)');
+        $stmt->bind_param('s', $nome);
+        $stmt->execute();
+        $stmt->close();
     }
 
     /**
@@ -581,6 +608,11 @@ class NFSe extends Model
             'motivo_rejeicao' => null,
             'codigo_rejeicao' => null,
         ];
+        foreach (['data_competencia', 'contexto_fiscal'] as $campo) {
+            if (array_key_exists($campo, $dados)) {
+                $atualizacao[$campo] = $dados[$campo];
+            }
+        }
         if (array_key_exists('tomador_endereco', $dados)) {
             $atualizacao['tomador_endereco'] = $dados['tomador_endereco'];
         }
@@ -711,8 +743,7 @@ class NFSe extends Model
                 'f.valor_total',
                 'f.id_matriz_filial',
             ])
-            ->withoutChave()
-            ->where('f.chave', '=', $chave)
+            ->withChave($chave)
             ->where('f.id_matriz_filial', '=', $idMatrizFilial)
             ->where('f.pago', '=', 'S')
             ->where('f.tipo', '=', 'R')

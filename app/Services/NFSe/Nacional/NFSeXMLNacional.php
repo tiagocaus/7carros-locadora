@@ -103,7 +103,6 @@ class NFSeXMLNacional implements NFSeXMLInterface
 
         // Valores
         $valorServicos = number_format((float) ($valores['servicos'] ?? 0), 2, '.', '');
-        $baseCalculo = (float) ($valores['servicos'] ?? 0) - (float) ($valores['deducoes'] ?? 0);
 
         $xml .= '<valores>';
         $xml .= '<vServPrest>';
@@ -117,9 +116,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         // Aliquota ISS (somente se tributavel)
         if ($tribISSQN === 1) {
             $aliquota = number_format((float) ($valores['aliquota_iss'] ?? 0), 2, '.', '');
-            $valorISS = number_format($baseCalculo * ((float) ($valores['aliquota_iss'] ?? 0) / 100), 2, '.', '');
             $xml .= '<pAliq>' . $aliquota . '</pAliq>';
-            $xml .= '<vISSQN>' . $valorISS . '</vISSQN>';
         }
 
         $xml .= '</tribMun>';
@@ -139,6 +136,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $xml .= '</infDPS>';
         $xml .= '</DPS>';
 
+        (new NFSeXSDNacional())->validarDPS($xml);
         return $xml;
     }
 
@@ -162,6 +160,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $xml .= '</infPedReg>';
         $xml .= '</pedRegEvento>';
 
+        (new NFSeXSDNacional())->validarEvento($xml);
         return $xml;
     }
 
@@ -370,7 +369,7 @@ class NFSeXMLNacional implements NFSeXMLInterface
         $cnpj = $this->somenteDigitos((string) ($dados['prestador']['cnpj'] ?? ''));
         $tpInsc = strlen($cnpj) === 14 ? '2' : '1';
         $nInsc = str_pad($cnpj, 14, '0', STR_PAD_LEFT);
-        $serie = str_pad(substr($this->normalizarSerie($dados['serie'] ?? null), 0, 5), 5, '0', STR_PAD_LEFT);
+        $serie = str_pad($this->normalizarSerie($dados['serie'] ?? null), 5, '0', STR_PAD_LEFT);
         $nDPS = str_pad((string) ($dados['numero'] ?? '0'), 15, '0', STR_PAD_LEFT);
 
         return 'DPS' . $cMun . $tpInsc . $nInsc . $serie . $nDPS;
@@ -523,8 +522,17 @@ class NFSeXMLNacional implements NFSeXMLInterface
 
     private function normalizarSerie(mixed $serie): string
     {
+        return self::validarSerie($serie);
+    }
+
+    /** Validação compartilhada com a configuração, antes de reservar numeração. */
+    public static function validarSerie(mixed $serie): string
+    {
         $serie = trim((string) ($serie ?? ''));
-        return $serie !== '' ? $serie : 'DPS';
+        if (!preg_match('/^[0-9]{1,5}$/D', $serie)) {
+            throw new \InvalidArgumentException('A série da DPS Nacional deve conter de 1 a 5 dígitos numéricos.');
+        }
+        return $serie;
     }
 
     private function escapeXml(string $valor): string

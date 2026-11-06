@@ -860,6 +860,7 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     $router->post('/nfse/{id}/cancelar', [NFSeController::class, 'cancelar'], ['csrf', 'rate_limit']);
     $router->post('/nfse/{id}/consultar', [NFSeController::class, 'consultar'], ['csrf', 'rate_limit']);
     $router->post('/nfse/{id}/reenviar', [NFSeController::class, 'reenviar'], ['csrf', 'rate_limit']);
+    $router->post('/nfse/{id}/migrar-nacional', [NFSeController::class, 'migrarParaNacional'], ['csrf', 'rate_limit']);
     $router->post('/nfse/{id}/email', [NFSeController::class, 'enviarEmail'], ['csrf', 'rate_limit']);
     $router->get('/nfse/{id}/pdf', [NFSeController::class, 'downloadPdf'], ['api_csrf', 'rate_limit', 'throttle']);
 

@@ -23,7 +23,7 @@ function exigirNaoContem(string $trecho, string $xml, string $mensagem): void
 
 $dados = [
     'ambiente' => 2,
-    'serie' => 'DPS',
+    'serie' => '1',
     'numero' => 321,
     'data_emissao' => '2026-08-24T12:00:00-03:00',
     'data_competencia' => '2026-08-24',

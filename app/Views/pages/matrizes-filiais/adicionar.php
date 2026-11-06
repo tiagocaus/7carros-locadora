@@ -546,10 +546,9 @@
             <form id="formConfiguracoes">
                 @csrf
                 <input type="hidden" name="id_matriz_filial" id="configFilialId">
-
                 <div class="form-section mb-6">
                     <h3 class="form-section-title">
-                        <i class="fas fa-cog mr-2"></i><?= t('modules.nfse.config.section_general') ?>
+                        <i class="fas fa-cog mr-2"></i><?= t('modules.nfse.config.section_general') ?> <span id="nfseCompetenciaContexto" class="text-sm font-normal"></span>
                     </h3>
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div class="md:col-span-3 form-input-group">
@@ -567,7 +566,7 @@
                             </select>
                         </div>
                         <div class="md:col-span-3 form-input-group">
-                            <label class="form-label-group"><?= t('modules.nfse.config.tipo_emissao') ?></label>
+                            <label class="form-label-group" for="inputTipoEmissao"><?= t('modules.nfse.config.tipo_emissao') ?> <?= aviso('Para MEI, o emissor é Nacional. Para ME/EPP do Simples Nacional, o emissor é Nacional nas competências a partir de 01/11/2026 e é selecionado automaticamente. Nos demais casos, mantém-se o emissor configurado para a competência.') ?></label>
                             <select name="tipo_emissao" id="inputTipoEmissao" class="form-input-group-field">
                                 <option value="nacional"><?= t('modules.nfse.tipo_emissao.nacional') ?></option>
                                 <option value="betha"><?= t('modules.nfse.tipo_emissao.betha') ?></option>
@@ -630,7 +629,7 @@
                             <input type="text" name="codigo_tributacao_municipio" id="inputCodigoTributacaoMunicipio" class="form-input-group-field" maxlength="30">
                         </div>
                         <div class="md:col-span-4 form-input-group">
-                            <label class="form-label-group"><?= t('modules.nfse.config.regime_tributario') ?></label>
+                            <label class="form-label-group"><?= t('modules.nfse.config.regime_tributario') ?> <?= aviso('O regime tributário é comum à filial inteira. A alteração vale para as próximas emissões da filial. As notas e os contextos fiscais históricos são preservados.') ?></label>
                             <select name="regime_tributario" id="inputRegimeTributario" class="form-input-group-field">
                                 <option value="1"><?= t('modules.nfse.config.regime_simples') ?></option>
                                 <option value="4"><?= t('modules.nfse.config.regime_mei') ?></option>
@@ -639,10 +638,11 @@
                             </select>
                         </div>
                         <div class="md:col-span-4 form-input-group" id="fieldRegApuracaoSN">
-                            <label class="form-label-group"><?= t('modules.nfse.config.reg_apuracao_sn') ?></label>
+                            <label class="form-label-group"><?= t('modules.nfse.config.reg_apuracao_sn') ?> <?= aviso('O regime de apuração do Simples é comum à filial inteira e deve ser confirmado com a contabilidade. A alteração vale para as próximas emissões e preserva o histórico das notas.') ?></label>
                             <select name="reg_apuracao_sn" id="inputRegApuracaoSN" class="form-input-group-field">
                                 <option value="1"><?= t('modules.nfse.config.reg_apuracao_sn_1') ?></option>
                                 <option value="2"><?= t('modules.nfse.config.reg_apuracao_sn_2') ?></option>
+                                <option value="3"><?= t('modules.nfse.config.reg_apuracao_sn_3') ?></option>
                             </select>
                         </div>
                         <div class="md:col-span-12 form-input-group">
@@ -1993,6 +1993,12 @@
         const tabNfse = document.getElementById('tabNfse');
         if (tabNfse) {
             let nfseConfigAtual = null;
+            let nfseCompetencia = urlParams.get('data_competencia') || urlParams.get('competencia') || <?= json_encode((new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo')))->format('Y-m-d')) ?>;
+            let nfseEmissorManual = false;
+            let nfseContextoConsulta = 0;
+            let nfseContextoPendente = false;
+            let nfseContextoValido = false;
+            let nfseContextoAlterado = false;
 
             const formCert = document.getElementById('formCertificado');
             const formConfig = document.getElementById('formConfiguracoes');
@@ -2006,8 +2012,20 @@
             }
 
             // Event listeners NFS-e
-            inputTipoEmissao.addEventListener('change', nfseToggleDpsFields);
-            document.getElementById('inputRegimeTributario').addEventListener('change', nfseToggleDpsFields);
+            inputTipoEmissao.addEventListener('change', function () {
+                nfseEmissorManual = true;
+                nfseContextoAlterado = true;
+                nfseCarregarConfiguracoes(registroId, true);
+            });
+            ['inputRegimeTributario', 'inputAmbiente'].forEach(id => document.getElementById(id).addEventListener('change', function () {
+                nfseEmissorManual = false;
+                nfseContextoAlterado = true;
+                nfseCarregarConfiguracoes(registroId, true);
+            }));
+            document.getElementById('inputRegApuracaoSN').addEventListener('change', function () {
+                nfseContextoAlterado = true;
+                nfseCarregarConfiguracoes(registroId, true);
+            });
             document.getElementById('inputPreencherIBSCBS').addEventListener('change', nfseToggleDpsFields);
             formCert.addEventListener('submit', nfseUploadCertificado);
             formConfig.addEventListener('submit', nfseSalvarConfiguracoes);
@@ -2025,14 +2043,67 @@
                 document.getElementById('btnRemoverCert').disabled = true;
             }
 
-            async function nfseCarregarConfiguracoes(filialId) {
+            async function nfseCarregarConfiguracoes(filialId, prospectivo = false) {
+                if (!nfseConfigAtual && !prospectivo) nfsePreencherFormulario(null);
+                const consulta = ++nfseContextoConsulta;
+                nfseContextoPendente = true;
+                nfseContextoValido = false;
+                nfseAtualizarEstadoContexto();
                 try {
-                    const result = await API.get('/api/nfse/configuracoes', { filial: filialId });
-                    nfseConfigAtual = result.success ? result.data : null;
+                    const parametros = { filial: filialId, data_competencia: nfseCompetencia };
+                    if (prospectivo) {
+                        const { regime_tributario, reg_apuracao_sn, ambiente } = nfseCamposGerais();
+                        Object.assign(parametros, { regime_tributario, reg_apuracao_sn, ambiente });
+                        parametros.emissor_manual = nfseEmissorManual ? 'S' : 'N';
+                        if (nfseEmissorManual) parametros.tipo_emissao = inputTipoEmissao.value;
+                    }
+                    const result = await API.get('/api/nfse/configuracoes', parametros);
+                    if (consulta !== nfseContextoConsulta) return;
+                    if (!result.success) throw new Error(result.message || 'Não foi possível consultar a configuração de NFS-e.');
+                    const resposta = result.data || {};
+                    const gerais = prospectivo ? nfseCamposGerais() : {};
+                    nfseCompetencia = resposta.data_competencia || nfseCompetencia;
+                    document.getElementById('nfseCompetenciaContexto').textContent = '(competência ' + nfseCompetencia.split('-').reverse().join('/') + ')';
+                    nfseConfigAtual = resposta.configuracao_atual ? { ...resposta, ...resposta.configuracao_atual, ...gerais } : null;
                     nfsePreencherFormulario(nfseConfigAtual);
+                    nfseContextoValido = !!nfseConfigAtual;
+                    if (!prospectivo) {
+                        nfseEmissorManual = false;
+                        nfseContextoAlterado = false;
+                    }
                 } catch (e) {
-                    console.error('Erro ao carregar configuracoes NFS-e:', e);
+                    if (consulta === nfseContextoConsulta) {
+                        window.parent.postMessage({ action: 'openAlert', message: e.message || 'Não foi possível consultar a configuração de NFS-e.' }, '*');
+                    }
+                } finally {
+                    if (consulta === nfseContextoConsulta) {
+                        nfseContextoPendente = false;
+                        nfseAtualizarEstadoContexto();
+                    }
                 }
+            }
+
+            function nfseCamposGerais() {
+                return {
+                    ativo: document.getElementById('inputAtivo').checked ? 'S' : 'N',
+                    emissao_auto: document.getElementById('inputEmissaoAuto').checked ? 'S' : 'N',
+                    enviar_email: document.getElementById('inputEnviarEmail').checked ? 'S' : 'N',
+                    regime_tributario: document.getElementById('inputRegimeTributario').value,
+                    reg_apuracao_sn: document.getElementById('inputRegApuracaoSN').value,
+                    ambiente: document.getElementById('inputAmbiente').value,
+                };
+            }
+
+            function nfseAtualizarEstadoContexto() {
+                const gerais = ['ativo', 'emissao_auto', 'enviar_email', 'ambiente', 'regime_tributario', 'reg_apuracao_sn'];
+                formConfig.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
+                    if (el.type !== 'hidden' && !gerais.includes(el.name)) el.disabled = viewMode || nfseContextoPendente;
+                });
+                formConfig.querySelectorAll('button[type="submit"]').forEach(el => {
+                    el.disabled = viewMode || nfseContextoPendente || !nfseContextoValido;
+                });
+                document.getElementById('btnTestarConexao').disabled = viewMode || nfseContextoPendente || !nfseContextoValido;
+                nfseToggleDpsFields();
             }
 
             function nfsePreencherFormulario(config) {
@@ -2041,6 +2112,8 @@
 
                 if (!config) {
                     nfseLimparFormulario();
+                    document.getElementById('certFilialId').value = registroId;
+                    document.getElementById('configFilialId').value = registroId;
                     return;
                 }
 
@@ -2050,7 +2123,11 @@
                 // Campos gerais
                 document.getElementById('inputAtivo').checked = config.ativo === 'S';
                 document.getElementById('inputAmbiente').value = config.ambiente || '2';
-                document.getElementById('inputTipoEmissao').value = ['nacional', 'betha', 'issnet'].includes(config.tipo_emissao) ? config.tipo_emissao : 'nacional';
+                if (config.tipo_emissao && !['nacional', 'betha', 'issnet'].includes(config.tipo_emissao)
+                    && !Array.from(inputTipoEmissao.options).some(option => option.value === config.tipo_emissao)) {
+                    inputTipoEmissao.add(new Option(config.tipo_emissao + ' (legado não suportado)', config.tipo_emissao));
+                }
+                inputTipoEmissao.value = config.tipo_emissao || 'nacional';
                 document.getElementById('inputSerie').value = config.serie || '';
                 document.getElementById('inputNumeroAtual').value = config.numero_atual || 0;
                 document.getElementById('inputEmissaoAuto').checked = config.emissao_auto === 'S';
@@ -2118,6 +2195,10 @@
             }
 
             function nfseToggleDpsFields() {
+                const regime = Number(document.getElementById('inputRegimeTributario').value);
+                const nacionalObrigatorio = regime === 4 || (regime === 1 && nfseCompetencia >= '2026-11-01');
+                if (nacionalObrigatorio) inputTipoEmissao.value = 'nacional';
+                inputTipoEmissao.disabled = viewMode || nacionalObrigatorio || nfseContextoPendente;
                 const isNacional = inputTipoEmissao.value === 'nacional';
                 const isDps = isNacional || inputTipoEmissao.value === 'betha';
                 const isIssnet = inputTipoEmissao.value === 'issnet';
@@ -2193,6 +2274,10 @@
 
             async function nfseSalvarConfiguracoes(e) {
                 e.preventDefault();
+                if (nfseContextoPendente || !nfseContextoValido) {
+                    window.parent.postMessage({ action: 'openAlert', message: 'Aguarde a consulta da configuração para o regime e o ambiente selecionados antes de salvar.' }, '*');
+                    return;
+                }
                 const serie = document.getElementById('inputSerie').value.trim();
                 if (document.getElementById('inputAtivo').checked && !serie) {
                     window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.serie_required_active') ?> }, '*');
@@ -2243,6 +2328,9 @@
 
                 const dados = {
                     id_matriz_filial: registroId,
+                    configuracao_atual: 'S',
+                    emissor_manual: nfseEmissorManual ? 'S' : 'N',
+                    data_competencia: nfseCompetencia,
                     ativo: document.getElementById('inputAtivo').checked ? 'S' : 'N',
                     ambiente: document.getElementById('inputAmbiente').value,
                     tipo_emissao: tipoEmissao,
@@ -2274,6 +2362,7 @@
                     const result = await API.post('/nfse/configuracoes/salvar', dados);
                     if (result.success) {
                         window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.config_saved') ?>' }, '*');
+                        await nfseCarregarConfiguracoes(registroId);
                     } else {
                         window.parent.postMessage({ action: 'openAlert', message: result.message || '<?= t('modules.nfse.messages.config_error') ?>' }, '*');
                     }
@@ -2283,6 +2372,10 @@
             }
 
             async function nfseTestarConexao() {
+                if (nfseContextoPendente || !nfseContextoValido || nfseContextoAlterado) {
+                    window.parent.postMessage({ action: 'openAlert', message: 'Salve a configuração do regime, ambiente e emissor selecionados antes de testar a conexão.' }, '*');
+                    return;
+                }
                 const btn = document.getElementById('btnTestarConexao');
                 const textoOriginal = btn.innerHTML;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + i18n.testing;
@@ -2290,7 +2383,8 @@
 
                 try {
                     const result = await API.post('/nfse/configuracoes/testar-conexao', {
-                        id_matriz_filial: registroId
+                        id_matriz_filial: registroId,
+                        data_competencia: nfseCompetencia,
                     });
                     const msg = result.success
                         ? '<?= t('modules.nfse.messages.connection_ok') ?>'

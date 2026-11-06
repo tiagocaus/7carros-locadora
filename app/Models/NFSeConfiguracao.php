@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Config\NFSe as NFSeConfig;
+use App\Services\NFSe\NFSeContextoFiscal;
+use App\Services\NFSe\Nacional\NFSeXMLNacional;
 use App\Traits\Auditable;
 
 /**
@@ -36,6 +38,248 @@ class NFSeConfiguracao extends Model
             ->first();
     }
 
+    public function listarPerfis(int $idMatrizFilial): array
+    {
+        return (new NFSePerfil())->listar($idMatrizFilial);
+    }
+
+    public function resolverPorCompetencia(int $idMatrizFilial, string $competencia, bool $persistir = true): array
+    {
+        $competencia = NFSeContextoFiscal::competencia($competencia);
+        $root = $this->buscarPorMatrizFilial($idMatrizFilial);
+        if (!$root) {
+            throw new \InvalidArgumentException('Configure a emissão de NFS-e desta filial.');
+        }
+        $config = $this->resolverDados($root, $competencia);
+        $pendencias = $this->pendenciasFiscais($config);
+        if ($persistir && $pendencias) {
+            throw new \InvalidArgumentException(implode(' ', $pendencias));
+        }
+        $infraestrutura = (new NFSePerfil())->disponivel();
+        if ($persistir && !$infraestrutura && $config['tipo_emissao'] !== $root['tipo_emissao']) {
+            throw new \InvalidArgumentException('A atualização necessária para esta emissão ainda não foi concluída. Contate o suporte.');
+        }
+        if ($persistir && empty($config['perfil_id']) && $infraestrutura) {
+            $perfil = (new NFSePerfil())->garantir($idMatrizFilial, $config);
+            $config = array_replace($config, $perfil, [
+                'regime_tributario' => $root['regime_tributario'],
+                'reg_apuracao_sn' => $root['reg_apuracao_sn'],
+            ]);
+            $config = $this->normalizarIBSLegado($config);
+            $pendencias = $this->pendenciasFiscais($config);
+            if ($pendencias) {
+                throw new \InvalidArgumentException(implode(' ', $pendencias));
+            }
+        }
+        return $config;
+    }
+
+    /** Resolve sem gravar: uma consulta de configuração nunca cria perfis. */
+    private function resolverDados(array $root, string $competencia): array
+    {
+        $model = new NFSePerfil();
+        $filial = (int) $root['id_matriz_filial'];
+        $ambiente = (int) $root['ambiente'];
+        $tipo = NFSeContextoFiscal::exigeNacional((int) $root['regime_tributario'], $competencia) ? 'nacional' : $root['tipo_emissao'];
+        $perfis = $model->listar($filial);
+        if ($tipo === 'nacional' && (int) $root['regime_tributario'] === 1 && $competencia < NFSeContextoFiscal::CORTE_SIMPLES) {
+            $municipais = array_values(array_filter($perfis, static fn(array $p): bool => $p['tipo_emissao'] !== 'nacional' && $p['ambiente'] === $ambiente));
+            if (count($municipais) > 1) {
+                throw new \InvalidArgumentException('Há mais de uma configuração municipal para esta competência antiga. Contate o suporte.');
+            }
+            if ($municipais) {
+                $tipo = $municipais[0]['tipo_emissao'];
+            }
+        }
+        $perfil = null;
+        foreach ($perfis as $item) {
+            if ($item['tipo_emissao'] === $tipo && $item['ambiente'] === $ambiente) {
+                $perfil = $item;
+                break;
+            }
+        }
+        $novoNacional = $tipo === 'nacional' && ((!$perfil && ($root['_tipo_origem'] ?? $root['tipo_emissao']) !== 'nacional') || !empty($perfil['_exigir_ctrib_nacional']));
+        $config = array_replace($root, $perfil ?? [], [
+            'tipo_emissao' => $tipo, 'ambiente' => $ambiente,
+            'regime_tributario' => $root['regime_tributario'], 'reg_apuracao_sn' => $root['reg_apuracao_sn'],
+            '_novo_nacional' => $novoNacional,
+        ]);
+        if ($novoNacional && !$perfil) {
+            // Somente classificações explícitas são compartilháveis; nada é inferido de ISS/CNAE.
+            $config = array_diff_key($config, array_flip(['perfil_id', 'item_lista_servico', 'codigo_cnae', 'codigo_tributacao_municipio']));
+        }
+        if ($model->disponivel()) {
+            $config['numero_atual'] = $model->maiorNumeroConhecido($config, (int) ($config['numero_atual'] ?? 0));
+        }
+        return $this->normalizarIBSLegado($config);
+    }
+
+    private function normalizarIBSLegado(array $config): array
+    {
+        $completa = strlen(preg_replace('/\\D/', '', (string) ($config['c_ind_op_ibscbs'] ?? ''))) === 6
+            && strlen(preg_replace('/\\D/', '', (string) ($config['cst_ibscbs'] ?? ''))) === 3
+            && strlen(preg_replace('/\\D/', '', (string) ($config['c_class_trib_ibscbs'] ?? ''))) === 6;
+        if (in_array((int) $config['regime_tributario'], [1, 4], true) && NFSeContextoFiscal::competencia() < '2027-01-01'
+            && ($config['preencher_ibscbs'] ?? 'N') === 'S' && !$completa) {
+            $config['preencher_ibscbs'] = 'N';
+        }
+        return $config;
+    }
+
+    public function configuracaoAtual(int $idMatrizFilial, ?string $competencia = null, array $ajustes = []): array
+    {
+        $competencia = NFSeContextoFiscal::competencia($competencia);
+        $root = $this->buscarPorMatrizFilial($idMatrizFilial);
+        if (!$root) {
+            if (!$this->qb->table('matrizes_filiais')->where('id', '=', $idMatrizFilial)->first()) {
+                throw new \InvalidArgumentException('Filial não encontrada nesta conta.');
+            }
+            $root = ['id_matriz_filial' => $idMatrizFilial, 'ativo' => 'N', 'ambiente' => 2,
+                'tipo_emissao' => 'nacional', 'serie' => '', 'numero_atual' => 0, 'codigo_municipio' => '',
+                'codigo_servico' => '1.1101.11', 'codigo_tributacao_nacional' => null,
+                'regime_tributario' => 1, 'reg_apuracao_sn' => 1, 'trib_issqn' => 4, 'aliquota_iss' => 0,
+                'emissao_auto' => 'N', 'enviar_email' => 'S', 'preencher_ibscbs' => 'N'];
+        }
+        $root['_tipo_origem'] = $root['tipo_emissao'];
+        $root = array_replace($root, array_intersect_key($ajustes, array_flip(['regime_tributario', 'reg_apuracao_sn', 'ambiente'])));
+        if (($ajustes['emissor_manual'] ?? 'N') === 'S' && !NFSeContextoFiscal::exigeNacional((int) $root['regime_tributario'], $competencia)) {
+            $root['tipo_emissao'] = (string) ($ajustes['tipo_emissao'] ?? $root['tipo_emissao']);
+        }
+        $config = $this->resolverDados($root, $competencia);
+        $pendencias = $this->pendenciasFiscais($config);
+        if (!(new NFSePerfil())->disponivel() && $config['tipo_emissao'] !== $root['tipo_emissao']) {
+            $pendencias[] = 'A atualização necessária para esta emissão ainda não foi concluída. Contate o suporte.';
+        }
+        if (empty($config['certificado_arquivo']) || empty($config['certificado_senha'])) {
+            $pendencias[] = 'Envie o certificado digital A1 da filial.';
+        } else {
+            $certificado = new \App\Services\NFSe\NFSeCertificado();
+            $analise = $certificado->analisar((string) $_SESSION['chave'], $config['certificado_arquivo'], $config['certificado_senha']);
+            if (($analise['status'] ?? '') !== 'valido') {
+                $pendencias[] = ($analise['status'] ?? '') === 'vencido' ? 'Atualize o certificado digital vencido.' : ($analise['mensagem'] ?? 'Verifique o certificado digital da filial.');
+            }
+        }
+        $publica = array_intersect_key($config, array_flip(array_merge(NFSeContextoFiscal::CAMPOS, [
+            'id_matriz_filial', 'ativo', 'numero_atual', 'emissao_auto', 'enviar_email',
+        ])));
+        return ['configuracao_atual' => $publica, 'emissor_efetivo' => $config['tipo_emissao'],
+            'pendencias' => array_values(array_unique($pendencias)), 'data_competencia' => $competencia];
+    }
+
+    private function pendenciasFiscais(array $config): array
+    {
+        $pendencias = [];
+        if (!in_array((int) ($config['ambiente'] ?? 0), [1, 2], true)) {
+            $pendencias[] = 'Selecione Produção ou Homologação para a emissão.';
+        }
+        $tipo = (string) ($config['tipo_emissao'] ?? '');
+        if (!in_array($tipo, ['nacional', 'betha', 'issnet'], true)) {
+            $pendencias[] = 'O emissor municipal cadastrado não é suportado. Contate o suporte para identificar a integração correta.';
+        }
+        $serie = trim((string) ($config['serie'] ?? ''));
+        if ($serie === '' || ($tipo === 'nacional' && !preg_match('/^[0-9]{1,5}$/D', $serie))) {
+            $pendencias[] = $tipo === 'nacional' ? 'Informe uma série numérica de até 5 dígitos.' : 'Informe a série da emissão.';
+        }
+        if (!preg_match('/^[0-9]{7}$/D', (string) ($config['codigo_municipio'] ?? ''))) {
+            $pendencias[] = 'Informe o código IBGE do município com 7 dígitos.';
+        }
+        $codigoServico = preg_replace('/\D/', '', (string) ($config['codigo_servico'] ?? ''));
+        if (empty($config['codigo_servico']) || ($tipo === 'nacional' && !preg_match('/^[0-9]{7,9}$/D', $codigoServico))) {
+            $pendencias[] = 'Informe o código do serviço (NBS) válido.';
+        }
+        $cTribNac = trim((string) ($config['codigo_tributacao_nacional'] ?? ''));
+        if (($cTribNac !== '' || !empty($config['_novo_nacional'])) && !preg_match('/^[0-9]{6}$/D', $cTribNac)) {
+            $pendencias[] = 'Informe o código de tributação nacional com 6 dígitos.';
+        }
+        if (!in_array((int) ($config['regime_tributario'] ?? 0), [1, 2, 3, 4], true)
+            || ((int) ($config['regime_tributario'] ?? 0) === 1 && !in_array((int) ($config['reg_apuracao_sn'] ?? 0), [1, 2, 3], true))) {
+            $pendencias[] = 'Informe o regime tributário e a apuração do Simples Nacional corretamente.';
+        }
+        if ($tipo === 'issnet' && empty($config['item_lista_servico'])) {
+            $pendencias[] = 'Informe o item da lista de serviço municipal.';
+        }
+        if (($config['preencher_ibscbs'] ?? 'N') === 'S') {
+            if ($tipo === 'issnet') {
+                $pendencias[] = 'O envio de IBS/CBS não está disponível para este emissor municipal.';
+            } else {
+                $indicador = (string) ($config['c_ind_op_ibscbs'] ?? '');
+                $cst = (string) ($config['cst_ibscbs'] ?? '');
+                $classe = (string) ($config['c_class_trib_ibscbs'] ?? '');
+                if (!NFSeConfig::cIndOpNT004Valido($indicador) || !preg_match('/^[0-9]{3}$/D', $cst)
+                    || !preg_match('/^[0-9]{6}$/D', $classe) || !str_starts_with($classe, $cst)) {
+                    $pendencias[] = 'Corrija o indicador da operação, CST e classificação tributária de IBS/CBS.';
+                }
+            }
+        }
+        return $pendencias;
+    }
+
+    /** A tela única grava os campos gerais na filial e os fiscais no emissor aplicável. */
+    public function salvarAtual(int $idMatrizFilial, string $chave, array $dados): int
+    {
+        $competencia = NFSeContextoFiscal::competencia($dados['data_competencia'] ?? null);
+        $root = $this->buscarPorMatrizFilial($idMatrizFilial);
+        if (!$root) {
+            if (NFSeContextoFiscal::exigeNacional((int) ($dados['regime_tributario'] ?? 1), $competencia)) {
+                $dados['tipo_emissao'] = 'nacional';
+            }
+            $dados['perfil_operacional'] = 'N';
+            $dados['_novo_nacional'] = ($dados['tipo_emissao'] ?? 'nacional') === 'nacional';
+            if (($dados['ativo'] ?? 'N') === 'S' && ($pendencias = $this->pendenciasFiscais($dados))) {
+                throw new \InvalidArgumentException(implode(' ', $pendencias));
+            }
+            return $this->salvar($idMatrizFilial, $chave, $dados);
+        }
+        $comuns = array_intersect_key($dados, array_flip(['ativo', 'ambiente', 'emissao_auto', 'enviar_email', 'regime_tributario', 'reg_apuracao_sn']));
+        $base = array_replace($root, $comuns, ['_tipo_origem' => $root['tipo_emissao']]);
+        // Para não optantes mantém a seleção municipal; os optantes usam a regra da competência.
+        $escolhaManual = ($dados['emissor_manual'] ?? 'N') === 'S' && !NFSeContextoFiscal::exigeNacional((int) $base['regime_tributario'], $competencia);
+        if ($escolhaManual && isset($dados['tipo_emissao'])) {
+            $base['tipo_emissao'] = $dados['tipo_emissao'];
+        }
+        $efetiva = $this->resolverDados($base, $competencia);
+        $campos = array_replace($efetiva, $dados, ['tipo_emissao' => $efetiva['tipo_emissao']]);
+        $campos['perfil_operacional'] = !$escolhaManual && $efetiva['tipo_emissao'] !== $root['tipo_emissao'] ? 'S' : 'N';
+        $serieAntes = trim((string) ($efetiva['serie'] ?? ''));
+        $serieDepois = trim((string) ($campos['serie'] ?? ''));
+        if ($campos['tipo_emissao'] === 'nacional' && ctype_digit($serieAntes) && ctype_digit($serieDepois)) {
+            $mesmaSerie = (ltrim($serieAntes, '0') ?: '0') === (ltrim($serieDepois, '0') ?: '0');
+        } else {
+            $mesmaSerie = $serieAntes === $serieDepois;
+        }
+        if ((new NFSePerfil())->disponivel()) {
+            $campos['numero_atual'] = (new NFSePerfil())->maiorNumeroConhecido($campos,
+                max((int) ($campos['numero_atual'] ?? 0), $mesmaSerie ? (int) ($efetiva['numero_atual'] ?? 0) : 0));
+        }
+
+        if (($campos['ativo'] ?? 'N') === 'S') {
+            $pendencias = $this->pendenciasFiscais($campos);
+            if ($pendencias) {
+                throw new \InvalidArgumentException(implode(' ', $pendencias));
+            }
+        }
+        $campos['_configuracao_inativa'] = ($campos['ativo'] ?? 'N') !== 'S';
+        return $this->transacionar(function () use ($idMatrizFilial, $chave, $campos, $comuns, $root): int {
+            $this->qb->table('nfse_configuracoes')->where('id', '=', $root['id'])->update($comuns);
+            return $this->salvar($idMatrizFilial, $chave, $campos);
+        });
+    }
+
+    public function resolverHistorico(array $nfse): array
+    {
+        $filial = (int) $nfse['id_matriz_filial'];
+        $root = $this->buscarPorMatrizFilial($filial);
+        if (!$root) {
+            throw new \InvalidArgumentException('Configuração da filial não encontrada para operar a NFS-e histórica.');
+        }
+        $perfil = (new NFSePerfil())->buscar($filial, (string) $nfse['tipo_emissao'], (int) $nfse['ambiente']);
+        $historico = NFSeContextoFiscal::historico($nfse, array_replace($root, $perfil ?? []));
+        if (isset($historico['perfil_id']) && (!$perfil || (int) $historico['perfil_id'] !== (int) $perfil['perfil_id'])) {
+            $historico['_historico_reenvio_erro'] = 'Perfil histórico não corresponde ao perfil operacional disponível.';
+        }
+        return $historico;
+    }
+
     /**
      * Salva configuracao (insert ou update)
      *
@@ -43,8 +287,22 @@ class NFSeConfiguracao extends Model
      */
     public function salvar(int $idMatrizFilial, string $chave, array $dados): int
     {
-        $existing = $this->buscarPorMatrizFilial($idMatrizFilial);
+        if ($chave !== (string) ($_SESSION['chave'] ?? '') || !$this->qb->table('matrizes_filiais')->where('id', '=', $idMatrizFilial)->first()) {
+            throw new \InvalidArgumentException('Filial não encontrada neste tenant.');
+        }
+        $root = $this->buscarPorMatrizFilial($idMatrizFilial);
+        $somentePerfil = ($dados['perfil_operacional'] ?? 'N') === 'S';
+        if ($somentePerfil && !$root) {
+            throw new \InvalidArgumentException('Salve primeiro a configuração geral da filial.');
+        }
+        $perfilModel = new NFSePerfil();
+        $perfilExistente = $perfilModel->buscar($idMatrizFilial, (string) ($dados['tipo_emissao'] ?? 'nacional'), (int) ($dados['ambiente'] ?? 2));
+        $existing = $root;
+        if ($somentePerfil) {
+            $dados['ativo'] = $root['ativo'];
+        }
         $ativo = $dados['ativo'] ?? 'N';
+        $validarCampos = $ativo === 'S' || ($somentePerfil && ($dados['_configuracao_inativa'] ?? false) !== true);
         $serie = trim((string) ($dados['serie'] ?? ''));
         $tipoEmissao = (string) ($dados['tipo_emissao'] ?? 'nacional');
         $codigoMunicipio = preg_replace('/\D/', '', (string) ($dados['codigo_municipio'] ?? ''));
@@ -59,22 +317,33 @@ class NFSeConfiguracao extends Model
             throw new \InvalidArgumentException('Tipo de emissão NFS-e não suportado.');
         }
 
-        if ($ativo === 'S' && $serie === '') {
+        if (!in_array((int) ($dados['ambiente'] ?? 2), [1, 2], true)) {
+            throw new \InvalidArgumentException('Ambiente da NFS-e inválido.');
+        }
+        if ($tipoEmissao === 'nacional' && $validarCampos) {
+            NFSeXMLNacional::validarSerie($serie);
+
+        }
+        if (!in_array((int) ($dados['regime_tributario'] ?? 1), [1, 2, 3, 4], true)
+            || !in_array((int) ($dados['reg_apuracao_sn'] ?? 1), [1, 2, 3], true)) {
+            throw new \InvalidArgumentException('Regime tributário ou de apuração do Simples inválido.');
+        }
+        if ($validarCampos && $serie === '') {
             throw new \InvalidArgumentException('Série da NFS-e é obrigatória quando a emissão está ativa.');
         }
-        if ($ativo === 'S' && strlen($codigoMunicipio) !== 7) {
+        if ($validarCampos && strlen($codigoMunicipio) !== 7) {
             throw new \InvalidArgumentException('Código IBGE do município deve ter 7 dígitos quando a emissão está ativa.');
         }
-        if ($ativo === 'S' && $codigoServico === '') {
+        if ($validarCampos && $codigoServico === '') {
             throw new \InvalidArgumentException('Código do serviço é obrigatório quando a emissão está ativa.');
         }
-        if ($codigoTributacaoNacional !== '' && !preg_match('/^\d{6}$/', $codigoTributacaoNacional)) {
+        if ($validarCampos && $codigoTributacaoNacional !== '' && !preg_match('/^\d{6}$/', $codigoTributacaoNacional)) {
             throw new \InvalidArgumentException('Código de tributação nacional deve ter 6 dígitos.');
         }
-        if ($ativo === 'S' && $tipoEmissao === 'issnet' && $preencherIBSCBS === 'S') {
+        if ($validarCampos && $tipoEmissao === 'issnet' && $preencherIBSCBS === 'S') {
             throw new \InvalidArgumentException('IBS/CBS não está homologado para a emissão ISSNet.');
         }
-        if ($ativo === 'S' && in_array($tipoEmissao, ['nacional', 'betha'], true) && $preencherIBSCBS === 'S') {
+        if ($validarCampos && in_array($tipoEmissao, ['nacional', 'betha'], true) && $preencherIBSCBS === 'S') {
             if ($tipoEmissao === 'betha' && !preg_match('/^\d{6}$/', $codigoTributacaoNacional)) {
                 throw new \InvalidArgumentException('Código de tributação nacional deve ter 6 dígitos para enviar IBS/CBS pela Betha.');
             }
@@ -94,7 +363,7 @@ class NFSeConfiguracao extends Model
                 throw new \InvalidArgumentException('Os 3 primeiros dígitos da classificação tributária devem ser iguais ao CST do IBS/CBS.');
             }
         }
-        if ($ativo === 'S' && $tipoEmissao === 'issnet') {
+        if ($validarCampos && $tipoEmissao === 'issnet') {
             if (trim((string) ($dados['item_lista_servico'] ?? '')) === '') {
                 throw new \InvalidArgumentException('Item da lista de serviço é obrigatório para ISSNet.');
             }
@@ -138,21 +407,56 @@ class NFSeConfiguracao extends Model
             $campos['codigo_tributacao_nacional'] = $codigoTributacaoNacional !== '' ? $codigoTributacaoNacional : null;
         }
 
-        if ($existing) {
-            $this->qb
-                ->table('nfse_configuracoes')
-                ->where('id', '=', $existing['id'])
-                ->update($campos);
+        return $this->transacionar(function () use ($somentePerfil, $root, $campos, $perfilModel, $idMatrizFilial, $existing, $tipoEmissao, $chave): int {
+            if ($somentePerfil) {
+                $this->qb->table('nfse_configuracoes')->where('id', '=', $root['id'])->update(['regime_tributario' => $campos['regime_tributario'], 'reg_apuracao_sn' => $campos['reg_apuracao_sn']]);
+                $id = $perfilModel->salvar($idMatrizFilial, $campos, true);
+            } else {
+                if ($existing) {
+                    // Não deixa um formulário antigo rebaixar a sequência já reservada.
+                    if ($existing['tipo_emissao'] === $tipoEmissao && (int) $existing['ambiente'] === $campos['ambiente'] && $existing['serie'] === $campos['serie']) {
+                        $campos['numero_atual'] = max($campos['numero_atual'], (int) $existing['numero_atual']);
+                    }
+                    $this->qb->table('nfse_configuracoes')->where('id', '=', $existing['id'])->update($campos);
+                    $id = (int) $existing['id'];
+                } else {
+                    $id = $this->qb->table('nfse_configuracoes')->insert($campos + ['chave' => $chave, 'id_matriz_filial' => $idMatrizFilial]);
+                }
+                if ($perfilModel->disponivel()) {
+                    $perfilModel->salvar($idMatrizFilial, $campos, true);
+                }
+            }
+            return $id;
+        });
+    }
 
-            return (int) $existing['id'];
+    private function transacionar(callable $acao): mixed
+    {
+        $mysqli = $this->getMysqli();
+        $ponto = 'nfse_' . bin2hex(random_bytes(6));
+        $mysqli->query('SAVEPOINT ' . $ponto);
+        try {
+            $mysqli->query('RELEASE SAVEPOINT ' . $ponto);
+            $externa = true;
+        } catch (\mysqli_sql_exception $e) {
+            if ($e->getCode() !== 1305) {
+                throw $e;
+            }
+            $externa = false;
         }
-
-        $campos['chave'] = $chave;
-        $campos['id_matriz_filial'] = $idMatrizFilial;
-
-        return $this->qb
-            ->table('nfse_configuracoes')
-            ->insert($campos);
+        if ($externa) {
+            $mysqli->query('SAVEPOINT ' . $ponto);
+        } else {
+            $mysqli->begin_transaction();
+        }
+        try {
+            $resultado = $acao();
+            $externa ? $mysqli->query('RELEASE SAVEPOINT ' . $ponto) : $mysqli->commit();
+            return $resultado;
+        } catch (\Throwable $e) {
+            $externa ? $mysqli->query('ROLLBACK TO SAVEPOINT ' . $ponto) : $mysqli->rollback();
+            throw $e;
+        }
     }
 
     private function normalizarDecimal(mixed $valor): float

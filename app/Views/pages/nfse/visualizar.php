@@ -201,6 +201,7 @@
 @section('scripts')
 <script>
 (function () {
+    let migracaoNacionalEmAndamento = false;
     // Extrair ID da URL
     const pathParts = window.location.pathname.split('/');
     const nfseId = pathParts[pathParts.indexOf('nfse') + 1];
@@ -294,6 +295,10 @@
         }
         if (n.status === 'rejeitada' && n.codigo_rejeicao !== 'DPS_CONFLITO') {
             acoesHtml += `<button onclick="reenviarNfse(${n.id})" class="btn-blue py-1 px-3 rounded text-xs"><i class="fas fa-redo mr-1"></i><?= t('modules.nfse.buttons.resend') ?></button>`;
+        }
+        if (n.status === 'rejeitada' && ['betha', 'issnet'].includes(n.tipo_emissao) && n.data_competencia >= '2026-11-01') {
+            acoesHtml += `<button type="button" id="btnMigrarNacional" onclick="migrarParaNacional(${n.id})" class="btn-blue py-1 px-3 rounded text-xs"><i class="fas fa-file-invoice mr-1"></i>Emitir no Nacional</button>`;
+            acoesHtml += `<button type="button" onclick="consultarStatus(${n.id})" class="btn-secondary py-1 px-3 rounded text-xs"><i class="fas fa-sync mr-1"></i><?= t('modules.nfse.buttons.consult') ?></button>`;
         }
         acoes.innerHTML = acoesHtml;
 
@@ -458,6 +463,30 @@
                 return;
             }
             window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.resend_error') ?>' }, '*');
+        }
+    };
+
+    window.migrarParaNacional = async function(id) {
+        if (migracaoNacionalEmAndamento) return;
+        migracaoNacionalEmAndamento = true;
+        const btn = document.getElementById('btnMigrarNacional');
+        if (btn) btn.disabled = true;
+        try {
+            const result = await API.post(`/nfse/${id}/migrar-nacional`, {});
+            window.parent.postMessage({ action: 'openAlert', message: result.success
+                ? (result.message || 'Nova tentativa Nacional emitida. A tentativa municipal foi preservada.')
+                : formatarErroNfse(result, 'Não foi possível emitir no Nacional. Se houver dúvida sobre o recebimento municipal, use Consultar Status antes de tentar novamente.') }, '*');
+            const novaId = Number(result.data?.id);
+            if (Number.isInteger(novaId) && novaId > 0 && novaId !== Number(id)) {
+                navegarPara(`/pages/nfse/${novaId}/visualizar`);
+            } else if (result.success) {
+                location.reload();
+            }
+        } catch (e) {
+            window.parent.postMessage({ action: 'openAlert', message: 'Não foi possível confirmar o resultado da nova tentativa Nacional. Consulte as notas deste lançamento antes de tentar novamente.' }, '*');
+        } finally {
+            migracaoNacionalEmAndamento = false;
+            if (btn) btn.disabled = false;
         }
     };
 

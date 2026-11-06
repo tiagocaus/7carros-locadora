@@ -79,6 +79,10 @@
                 <i class="fas fa-concierge-bell mr-2"></i><?= t('modules.nfse.sections.servico') ?>
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div class="md:col-span-4 form-input-group">
+                    <label class="form-label-group" for="inputDataCompetencia">Competência <?= aviso('Informe a data da prestação, até hoje. Para ME/EPP do Simples Nacional, competências a partir de 01/11/2026 usam o Emissor Nacional. MEI também usa o Nacional. O servidor confirma o emissor antes do envio.') ?></label>
+                    <input type="date" name="data_competencia" id="inputDataCompetencia" class="form-input-group-field" value="<?= (new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo')))->format('Y-m-d') ?>" max="<?= (new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo')))->format('Y-m-d') ?>" required>
+                </div>
                 <div class="md:col-span-12 form-input-group">
                     <label class="form-label-group"><?= t('modules.nfse.fields.descricao_servico') ?></label>
                     <textarea name="descricao_servico" id="inputDescricaoServico" class="form-input-group-field" rows="2"></textarea>
@@ -188,6 +192,9 @@
 
         <!-- Botoes -->
         <div class="flex justify-end gap-3 mt-6">
+            <button type="button" class="btn-secondary py-2 px-4 rounded-md text-sm" id="btnConfigurarNfse">
+                <i class="fas fa-cog mr-2"></i>Configurar NFS-e desta competência
+            </button>
             <button type="button" class="btn-secondary py-2 px-4 rounded-md text-sm" id="btnCancelarForm">
                 <?= t('common.buttons.cancel') ?>
             </button>
@@ -204,8 +211,13 @@
 (function () {
     let financeiroData = null;
     let configData = null;
+    let configFilial = null;
+    let pendenciasEmissao = [];
+    let consultaContexto = 0;
+    let consultandoContexto = true;
     let aliquotaISS = 0;
     let emissaoBloqueada = false;
+    let emissaoEmAndamento = false;
     let nfseDuplicadaParaVisualizar = null;
 
     // Pegar id_financeiro da URL
@@ -230,6 +242,12 @@
         document.getElementById('btnVoltar').addEventListener('click', voltarParaLista);
         document.getElementById('btnCancelarForm').addEventListener('click', voltarParaLista);
         document.getElementById('btnAdicionarItemNaoTributavel').addEventListener('click', adicionarItemManualNaoTributavel);
+        document.getElementById('inputDataCompetencia').addEventListener('change', atualizarContextoEmissao);
+        document.getElementById('btnConfigurarNfse').addEventListener('click', function () {
+            if (!financeiroData) return;
+            const parametros = new URLSearchParams({ id: financeiroData.id_matriz_filial, tab: 'nfse', data_competencia: document.getElementById('inputDataCompetencia').value });
+            window.parent.postMessage({ action: 'navigate', page: '/pages/matrizes-filiais/adicionar?' + parametros.toString() }, '*');
+        });
 
         window.addEventListener('message', function (event) {
             if (event.data && event.data.action === 'genericConfirmed' && nfseDuplicadaParaVisualizar) {
@@ -255,21 +273,8 @@
             }
             financeiroData = result.data;
 
-            // Carregar config da filial. Ausencia de configuracao nao impede
-            // renderizar o lancamento, apenas bloqueia a emissao.
-            const filialId = financeiroData.id_matriz_filial;
-            try {
-                const configResult = await API.get('/api/nfse/configuracoes', { filial: filialId });
-                configData = configResult.success ? configResult.data : null;
-                if (!configResult.success) {
-                    definirAvisoConfiguracao(configResult.message || 'Não foi possível consultar a configuração de NFS-e desta filial.');
-                }
-            } catch (configError) {
-                configData = null;
-                definirAvisoConfiguracao('Não foi possível consultar a configuração de NFS-e desta filial.');
-            }
-
             preencherDados();
+            await atualizarContextoEmissao();
         } catch (e) {
             window.parent.postMessage({ action: 'openAlert', message: '<?= t('modules.nfse.messages.load_error') ?>' }, '*');
             voltarParaLista();
@@ -307,20 +312,48 @@
             document.getElementById('inputDescricaoServico').value = configData.descricao_servico;
         }
 
-        // Aliquota ISS da config
-        aliquotaISS = configData ? parseFloat(configData.aliquota_iss || 0) : 0;
-        document.getElementById('tipoEmissao').value = getTipoEmissaoLabel(configData?.tipo_emissao);
-        document.getElementById('ambienteEmissao').value = parseInt(configData?.ambiente || 2) === 1 ? 'Produção' : 'Homologação';
-
-        // Aviso homologacao
-        if (configData && parseInt(configData.ambiente) !== 1) {
-            document.getElementById('avisoHomologacao').classList.remove('hidden');
-        }
-
-        atualizarEstadoConfiguracao();
-
         renderizarItensLancamento();
         calcularTributos();
+    }
+
+    async function atualizarContextoEmissao() {
+        const consulta = ++consultaContexto;
+        const competencia = document.getElementById('inputDataCompetencia').value;
+        consultandoContexto = true;
+        atualizarEstadoConfiguracao();
+        if (!financeiroData || !competencia) {
+            consultandoContexto = false;
+            atualizarEstadoConfiguracao();
+            return;
+        }
+        try {
+            const result = await API.get('/api/nfse/configuracoes', {
+                filial: financeiroData.id_matriz_filial,
+                data_competencia: competencia,
+            });
+            if (consulta !== consultaContexto) return;
+            if (!result.success) throw new Error(result.message || 'Não foi possível consultar a configuração de NFS-e.');
+            configFilial = result.data || {};
+            configData = configFilial.configuracao_atual ? { ...configFilial, ...configFilial.configuracao_atual } : null;
+            pendenciasEmissao = Array.isArray(configFilial.pendencias) ? configFilial.pendencias.map(String) : [];
+            aliquotaISS = parseFloat(configData?.aliquota_iss || 0);
+            document.getElementById('tipoEmissao').value = getTipoEmissaoLabel(configFilial.emissor_efetivo);
+            document.getElementById('ambienteEmissao').value = Number(configData?.ambiente || 2) === 1 ? 'Produção' : 'Homologação';
+            document.getElementById('avisoHomologacao').classList.toggle('hidden', !configData || Number(configData.ambiente) === 1);
+            if (!document.getElementById('inputDescricaoServico').value.trim() && configData?.descricao_servico) {
+                document.getElementById('inputDescricaoServico').value = configData.descricao_servico;
+            }
+            calcularTributos();
+        } catch (erro) {
+            if (consulta !== consultaContexto) return;
+            configData = null;
+            pendenciasEmissao = [erro.message || 'Não foi possível consultar a configuração de NFS-e.'];
+        } finally {
+            if (consulta === consultaContexto) {
+                consultandoContexto = false;
+                atualizarEstadoConfiguracao();
+            }
+        }
     }
 
     function renderizarItensLancamento() {
@@ -490,6 +523,7 @@
 
     async function emitirNfse(e) {
         e.preventDefault();
+        if (emissaoEmAndamento) return;
 
         if (emissaoBloqueada) {
             const message = document.getElementById('avisoConfiguracaoTexto').textContent || 'Configure a NFS-e antes de emitir.';
@@ -499,6 +533,7 @@
 
         const btn = document.getElementById('btnEmitir');
         const textoOriginal = btn.innerHTML;
+        emissaoEmAndamento = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Emitindo...';
         btn.disabled = true;
 
@@ -514,6 +549,7 @@
             const valorDeducoes = itensNaoTributaveis.reduce((total, item) => total + item.valor, 0);
             const dados = {
                 id_financeiro: idFinanceiro,
+                data_competencia: document.getElementById('inputDataCompetencia').value,
                 valor_deducoes: valorDeducoes,
                 itens_nao_tributaveis: itensNaoTributaveis,
                 descricao_servico: document.getElementById('inputDescricaoServico').value,
@@ -544,7 +580,8 @@
             window.parent.postMessage({ action: 'openAlert', message: <?= js_t('modules.nfse.messages.emit_error') ?> }, '*');
         } finally {
             btn.innerHTML = textoOriginal;
-            btn.disabled = false;
+            emissaoEmAndamento = false;
+            atualizarEstadoConfiguracao();
         }
     }
 
@@ -641,13 +678,26 @@
     }
 
     function atualizarEstadoConfiguracao() {
+        if (consultandoContexto) {
+            definirAvisoConfiguracao('Consultando a configuração de emissão para esta competência...');
+            return;
+        }
+        if (pendenciasEmissao.length) {
+            definirAvisoConfiguracao(pendenciasEmissao.join(' '));
+            return;
+        }
         if (!configData) {
             definirAvisoConfiguracao('Configuração de NFS-e não encontrada para esta filial. Configure a NFS-e antes de emitir.');
             return;
         }
 
-        if ((configData.ativo || 'N') !== 'S') {
+        if ((configFilial?.ativo || 'N') !== 'S') {
             definirAvisoConfiguracao('Emissão de NFS-e desativada para esta filial.');
+            return;
+        }
+
+        if (!document.getElementById('inputDataCompetencia').value) {
+            definirAvisoConfiguracao('Informe a competência da prestação antes de emitir.');
             return;
         }
 
@@ -673,7 +723,7 @@
         document.getElementById('avisoConfiguracaoTexto').textContent = '';
         document.getElementById('avisoConfiguracao').classList.add('hidden');
         const btn = document.getElementById('btnEmitir');
-        btn.disabled = false;
+        btn.disabled = emissaoEmAndamento;
         btn.classList.remove('opacity-60', 'cursor-not-allowed');
     }
 

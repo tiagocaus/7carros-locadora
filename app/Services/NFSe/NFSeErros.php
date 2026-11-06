@@ -11,6 +11,11 @@ namespace App\Services\NFSe;
 class NFSeErros
 {
     private static array $erros = [
+        'MIGRACAO_NACIONAL' => [
+            'mensagem' => 'A competência requer uma nova tentativa no Emissor Nacional.',
+            'instrucao' => 'Consulte a tentativa municipal. Após rejeição definitiva, use Emitir no Nacional no detalhe da nota; não gere outra nota enquanto houver processamento ou autorização.',
+            'categoria' => 'configuracao',
+        ],
         // ==========================================
         // CERTIFICADO
         // ==========================================

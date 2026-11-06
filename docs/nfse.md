@@ -8,7 +8,8 @@ O legado `NFSE_IMPLEMENTACAO.md` pode ser usado como referencia historica, mas n
 
 ## Visao Geral
 
-O modulo emite NFS-e por filial a partir de configuracoes em `nfse_configuracoes`.
+O modulo emite NFS-e por filial com configuracao geral em `nfse_configuracoes`
+e perfis fiscais por emissor/ambiente em `nfse_perfis_emissao`.
 
 O contato do prestador usa o email e o telefone principais das tabelas
 `contatos_emails` e `contatos_telefones`, resolvidos pela Model `MatrizFilial`.
@@ -79,6 +80,118 @@ Regras:
 ## Configuracao por Filial
 
 A configuracao fica na aba NFS-e da tela de Matriz/Filial.
+
+### Competencia e transicao para o Emissor Nacional
+
+- Para ME/EPP optantes pelo Simples, competencia a partir de `01/11/2026`
+  exige emissao direta pela SEFIN Nacional, inclusive em municipio com emissor
+  proprio. A decisao usa `data_competencia`, nunca a data do clique ou do pagamento.
+- Competencias anteriores mantem o perfil municipal onde havia emissor proprio;
+  filiais que ja usavam Nacional permanecem no Nacional. MEI ja usa o Nacional.
+- A emissao automatica e a manual resolvem o emissor pela mesma regra de
+  regime/competencia. Quando o Nacional e obrigatorio e ainda nao existe perfil,
+  reutilizar automaticamente os dados fiscais compativeis completos da filial.
+  A materializacao ocorre ao emitir ou salvar, sem checkbox de confirmacao ou
+  escolha manual de perfil. Classificacao ausente ou incompativel gera pendencia
+  concreta e bloqueia localmente, sem criar perfil parcial ou consumir numero.
+  Nunca recorrer ao municipal como fallback nem inventar cTribNac/NBS.
+- Preservar o provedor, ambiente, serie e XML das tentativas historicas.
+  Consulta, cancelamento e reconciliacao usam o contexto da nota, nao o perfil
+  atualmente selecionado na filial. Reenvio nao pode mudar de emissor de uma DPS
+  enviada ou possivelmente enviada sem primeiro esclarecer o resultado anterior.
+- A obrigatoriedade do canal em novembro e independente de IBS/CBS do Simples,
+  cujas regras passam a produzir efeitos em `01/01/2027`. Nao ativar IBS/CBS ou
+  substituir codigos fiscais apenas porque o canal mudou.
+- Manter NT004/007 em producao ate `30/11/2026`; NT009 e novos codigos como
+  `99.04.01` devem ser homologados separadamente e ativados somente apos a
+  disponibilizacao oficial no ambiente correspondente (previsao `01/12/2026`).
+
+Fontes oficiais: [diretrizes por competencia de 29/10/2026](https://www.gov.br/nfse/pt-br/noticias/nfs-e-informa-diretrizes-sobre-a-obrigatoriedade-da-emissao-da-nfs-e-nacional-para-optantes-do-simples-nacional/),
+[Receita Federal / Resolucao CGSN 191/2026](https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/agosto/simples-nacional-nfs-e-nacional-sera-obrigatoria-para-me-e-epp-a-partir-de-1o-de-novembro-de-2026)
+e [cronograma de leiautes de 29/10/2026](https://www.gov.br/nfse/pt-br/noticias/nfs-e-nacional-confira-oas-rientacoes-sobre-leiaute-em-producao-regras-de-preenchimento-de-ibs-cbs-e-status-da-nota-tecnica-009).
+
+### Perfis, sequencias e contexto historico
+
+- `nfse_perfis_emissao` possui unicidade `(chave, id_matriz_filial,
+  tipo_emissao, ambiente)`, serie selecionada, contador espelho, `confirmado`
+  (`S/N`, legado de compatibilidade sem bloquear o fluxo) e `configuracao` JSON
+  com allowlist de campos fiscais. Nao persistir certificados, senhas ou outros
+  segredos nesse JSON.
+- Certificado, atividade, emissao automatica e envio de email continuam na
+  configuracao geral da filial. Alterar um perfil nao deve sobrescrever os
+  codigos, o ambiente ou a sequencia de outro emissor.
+- `nfse_sequencias` controla a reserva atomica por `(chave, id_matriz_filial,
+  tipo_emissao, ambiente, serie)`. Trocar a serie nao reinicia uma sequencia ja
+  usada; trocar de ambiente ou provedor nao compartilha contador. Para Nacional,
+  a chave da sequencia remove zeros a esquerda (`001` e `1` representam a mesma
+  serie DPS); a apresentacao no perfil e no historico conserva a serie informada.
+  Para os demais emissores, preservar a serie textual sem espacos nas extremidades.
+- `numero_atual` do perfil e apenas espelho da sequencia selecionada. Falhas
+  locais antes do envio nao consomem numero; envios realizados ou incertos
+  preservam a reserva. Nao diminuir contador nem renumerar notas existentes.
+- `nfse.contexto_fiscal` e um snapshot JSON dos dados fiscais efetivos da
+  tentativa, sem segredos. Notas anteriores a atualizacao permanecem com NULL;
+  recuperar contexto deterministico do XML historico e bloquear operacoes que
+  dependam de informacoes impossiveis de comprovar. Nunca reconstruir o passado
+  copiando silenciosamente a configuracao atual da filial.
+- A migration `00439` copia somente o perfil ja existente de cada filial,
+  inclusive registros legados `abrasf` sem reinterpreta-los como ISSNet. Os
+  perfis de configuracoes ativas mantem `confirmado=S`; os inativos ficam com `N`,
+  sem habilitar emissores nao suportados. O campo nao exige confirmacao do usuario
+  nem condiciona a resolucao de configuracoes fiscais completas.
+- O backfill preserva o maior contador existente e `MAX(nfse.numero)` no mesmo
+  tenant/filial/emissor/ambiente/serie, inclusive series historicas. Embora
+  `numero` possa conter o numero oficial autorizado, o maximo conservador evita
+  regressao do comportamento legado. A migration nao altera notas ou a
+  configuracao geral, nem preenche snapshots historicos por suposicao.
+- Executar schema/backfill exclusivamente por `php migrate.php --env=development`
+  localmente e `php migrate.php --env=production` no terminal do servidor.
+- A simplificacao da configuracao nao requer nova migration: criar ou atualizar
+  um perfil compativel no momento do CRUD/emissao e uma operacao normal do tenant,
+  nao uma transformacao de dados exigida pela implantacao. A primeira numeracao
+  Nacional deve considerar o contador de origem e o historico Nacional local
+  da mesma filial/ambiente/serie, normalizando zeros a esquerda e preservando
+  sempre o maior valor. Preparar o perfil nao reserva o proximo numero.
+
+Interfaces:
+
+- `NFSeConfiguracao::resolverPorCompetencia(int $filial, string $competencia,
+  bool $persistir = true)` resolve novas emissoes e materializa o Nacional
+  quando necessario. Com `persistir=false`, apenas calcula uma configuracao
+  virtual, incluindo o contador inicial seguro, sem gravar perfil/sequencia.
+- `configuracaoAtual(int $filial, ?string $competencia, array $overrides = [])` retorna
+  `configuracao_atual`, `emissor_efetivo`, `pendencias` (mensagens legiveis) e
+  `data_competencia`, sem segredos. Consultar a tela ou a API nunca grava dados.
+  Overrides de regime e ambiente resolvem o perfil correspondente aos valores
+  selecionados no formulario, sem salvar a selecao. Dados fiscais de um ambiente
+  nao devem sobrescrever o perfil de outro durante o preview.
+  No primeiro acesso, sem configuracao salva, retornar defaults e pendencias
+  normalmente, sem criar a raiz, perfis ou sequencias.
+- `salvarAtual(int $filial, string $chave, array $dados)` determina o emissor
+  por regime/competencia, grava flags gerais na raiz e campos fiscais no emissor
+  efetivo. Se a origem for municipal e o efetivo Nacional, conservar codigos,
+  serie e contador municipais para competencias antigas e operacoes historicas.
+  O `tipo_emissao` efetivo devolvido anteriormente pelo formulario nao representa
+  escolha manual: ao sair do Simples, conservar a preferencia municipal da raiz.
+  Uma escolha intencional permitida fora da obrigatoriedade usa `emissor_manual=S`;
+  nesse caso, atualizar a preferencia da raiz para que emissoes seguintes mantenham
+  o emissor escolhido. Sem a flag, ignorar o tipo efetivo antigo enviado no POST.
+  Permitir primeiro cadastro inativo e desativacao mesmo com dados fiscais
+  incompletos ou invalidos preexistentes, sem reservar numeracao. A validacao
+  fiscal completa volta a ser obrigatoria ao ativar ou emitir.
+- `resolverHistorico()` conserva a identidade fiscal das notas ja criadas;
+  `listarPerfis()` e `NFSePerfil` sao interfaces internas para persistencia e
+  reserva atomica. A interface de usuario apresenta uma unica configuracao atual.
+
+Os enums continuam `regime_tributario` em `1/2/3/4` e `reg_apuracao_sn` em
+`1/2/3`; valores fora desses conjuntos devem ser rejeitados. Campos ou flags
+antigos de selecao/confirmacao de perfil nao sao requisitos do fluxo atual.
+
+Para Simples/MEI antes de 2027, uma flag legada `preencher_ibscbs=S` sem os
+codigos declaratorios completos e normalizada para `N` na leitura e na resolucao
+operacional, sem regravar silenciosamente o cadastro de origem. Ativar IBS/CBS
+explicitamente no formulario continua exigindo os codigos completos e validos;
+a tolerancia a dados legados nao dispensa validacao de uma nova alteracao.
 
 Tabela: `nfse_configuracoes`
 
@@ -465,6 +578,7 @@ POST /nfse/emitir
 POST /nfse/{id}/cancelar
 POST /nfse/{id}/consultar
 POST /nfse/{id}/reenviar
+POST /nfse/{id}/migrar-nacional
 POST /nfse/{id}/email
 GET  /nfse/{id}/pdf
 GET  /nfse/{id}/xml/{tipo}
@@ -512,3 +626,34 @@ Antes de alterar NFS-e:
 4. Validar configuracao de filial com `tipo_emissao = betha`.
 5. Testar conexao com certificado.
 6. Emitir primeiro em homologacao quando possivel.
+
+
+### Implantacao dos perfis (00439)
+
+Envie primeiro schemas e classes novas, depois Models/Service, e por ultimo Controller,
+rotas e views. Antes da migration, a emissao nova pelo emissor ja configurado continua
+operacional, mas competencias que exigem Nacional nunca caem em emissor municipal.
+Preparar perfis e regenerar reenvios historicos dependem da migration concluida.
+A prontidao exige o registro de 00439 em `migrations`, alem das tabelas e coluna.
+
+No terminal do servidor, pause temporariamente emissoes e os jobs NFS-e durante a
+aplicacao para que nenhuma reserva concorra com a copia dos contadores. Execute na
+raiz: `php migrate.php --env=production`, usando `.env.production` com localhost.
+Depois confirme o registro da migration e retome os jobs. Nao executar migrations
+pelo FTP nem pelo acesso remoto de diagnostico de `temp-bd.txt`.
+
+A acao manual `POST /nfse/{id}/migrar-nacional` aceita apenas tentativa municipal
+rejeitada, sem chave de autorizacao, com rejeicao conclusiva comprovada no retorno
+mais recente. Betha com protocolo e consultada novamente antes da decisao.
+Recebimento, processamento pendente, timeout ou retorno ambiguo bloqueiam a acao.
+A nova tentativa mantem competencia e ambiente, possui novo registro e eventos
+cruzados `migracao_nacional`; a tentativa municipal nunca muda de emissor.
+
+
+A configuração Nacional criada no fluxo atual exige código de tributação nacional
+explícito, inclusive quando foi inicialmente salva como rascunho inativo. A informação
+interna `exigir_ctrib_nacional` no JSON conserva essa exigência; não é uma confirmação
+solicitada ao cliente. Perfis nacionais legados mantêm a compatibilidade já documentada.
+As três opções de `reg_apuracao_sn` seguem `regApTribSN` do XSD oficial: tributos
+federais e ISSQN pelo Simples (1), somente federais pelo Simples (2), ou ambos fora (3).
+Esse campo não representa regime de caixa/competência.

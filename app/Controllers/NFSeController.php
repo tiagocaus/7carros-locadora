@@ -344,6 +344,7 @@ class NFSeController
 
             $chave = Auth::chave();
             $dadosExtras = [
+                'data_competencia' => $dados['data_competencia'] ?? null,
                 'valor_deducoes' => (float) ($dados['valor_deducoes'] ?? 0),
                 'descricao_servico' => $dados['descricao_servico'] ?? '',
                 'iss_retido' => $dados['iss_retido'] ?? 'N',
@@ -473,6 +474,30 @@ class NFSeController
         }
     }
 
+    /** Nova tentativa Nacional, preservando a tentativa municipal rejeitada. */
+    public function migrarParaNacional(Request $request, int $id): void
+    {
+        try {
+            if (!Auth::can('nfse.criar')) {
+                Response::json(['success' => false, 'message' => 'Você não tem permissão para emitir NFS-e.'], 403);
+                return;
+            }
+            if ($this->validarAcessoNFSe($id) === null) {
+                return;
+            }
+            $resultado = (new NFSeService())->migrarParaNacional($id, Auth::chave());
+            Response::json([
+                'success' => $resultado['sucesso'] ?? false,
+                'message' => $resultado['mensagem'] ?? '',
+                'data' => $resultado['dados'] ?? null,
+                'erro' => $resultado['erro'] ?? null,
+                'erros_api' => $resultado['erros_api'] ?? [],
+            ], ($resultado['sucesso'] ?? false) ? 200 : 422);
+        } catch (\Exception $e) {
+            Response::json(['success' => false, 'message' => 'Erro ao emitir nova tentativa Nacional: ' . $e->getMessage()], 500);
+        }
+    }
+
     /**
      * Envia NFS-e por email ao tomador
      *
@@ -588,18 +613,6 @@ class NFSeController
                     true
                 );
 
-                if (($analiseCertificado['formato_senha'] ?? null) === 'legado' && !empty($analiseCertificado['senha'])) {
-                    $senhaNormalizada = encrypt($analiseCertificado['senha']);
-                    $configModel->normalizarCertificado(
-                        $filialId,
-                        $senhaNormalizada,
-                        $analiseCertificado['validade'] ?? null
-                    );
-                    $config['certificado_senha'] = $senhaNormalizada;
-                    $config['certificado_validade'] = $analiseCertificado['validade'] ?? $config['certificado_validade'];
-                    $analiseCertificado['formato_senha'] = 'atual';
-                }
-
                 $config['certificado_status'] = $analiseCertificado['status'] ?? null;
                 $config['certificado_status_mensagem'] = $analiseCertificado['mensagem'] ?? null;
                 $config['certificado_dias_expiracao'] = $analiseCertificado['dias'] ?? null;
@@ -614,7 +627,50 @@ class NFSeController
                 $config['certificado_senha'] = '***';
             }
 
-            Response::json(['success' => true, 'data' => $config]);
+            if ($config) {
+                $config['perfis_disponiveis'] = (new \App\Models\NFSePerfil())->disponivel();
+                $config['perfis'] = array_map(static function (array $perfil): array {
+                    // Perfis operacionais compartilham o certificado da filial.
+                    // Nenhuma credencial integra a resposta dos perfis.
+                    foreach (array_keys($perfil) as $campo) {
+                        if (str_contains((string) $campo, 'certificado') || str_contains((string) $campo, 'senha')) {
+                            unset($perfil[$campo]);
+                        }
+                    }
+                    return $perfil;
+                }, $configModel->listarPerfis($filialId));
+                foreach ($config['perfis'] as $perfil) {
+                    if (($perfil['tipo_emissao'] ?? '') === ($config['tipo_emissao'] ?? '')
+                        && (int) ($perfil['ambiente'] ?? 0) === (int) ($config['ambiente'] ?? 0)) {
+                        $config['nacional_confirmado'] = $perfil['nacional_confirmado'] ?? 'N';
+                        break;
+                    }
+                }
+            }
+
+            $competencia = $request->query('data_competencia', $request->query('competencia', null));
+            if ($competencia !== null && !is_string($competencia)) {
+                throw new \InvalidArgumentException('Informe uma competência válida no formato AAAA-MM-DD.');
+            }
+            $ajustes = [];
+            foreach (['regime_tributario', 'reg_apuracao_sn', 'ambiente', 'tipo_emissao', 'emissor_manual'] as $campo) {
+                $valor = $request->query($campo, null);
+                if ($valor !== null) {
+                    if (!is_scalar($valor)) {
+                        throw new \InvalidArgumentException('Configuração de emissão inválida.');
+                    }
+                    $ajustes[$campo] = $valor;
+                }
+            }
+            $atual = $configModel->configuracaoAtual($filialId, $competencia, $ajustes);
+            foreach (array_keys($atual['configuracao_atual'] ?? []) as $campo) {
+                if (str_contains((string) $campo, 'certificado') || str_contains((string) $campo, 'senha')) {
+                    unset($atual['configuracao_atual'][$campo]);
+                }
+            }
+            Response::json(['success' => true, 'data' => array_replace($config ?? [], $atual)]);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao buscar configuracoes: ' . $e->getMessage()], 500);
         }
@@ -647,7 +703,11 @@ class NFSeController
             }
 
             $configModel = new NFSeConfiguracao();
-            $configModel->salvar($filialId, Auth::chave(), $dados);
+            if (($dados['configuracao_atual'] ?? 'N') === 'S') {
+                $configModel->salvarAtual($filialId, Auth::chave(), $dados);
+            } else {
+                $configModel->salvar($filialId, Auth::chave(), $dados);
+            }
 
             Response::json(['success' => true, 'message' => 'Configuracoes salvas com sucesso']);
         } catch (\InvalidArgumentException $e) {
@@ -803,6 +863,15 @@ class NFSeController
             $configModel = new NFSeConfiguracao();
             $config = $configModel->buscarPorMatrizFilial($filialId);
 
+            if ($config) {
+                $competencia = \App\Services\NFSe\NFSeContextoFiscal::competencia($request->input('data_competencia', null));
+                $atual = $configModel->resolverPorCompetencia($filialId, $competencia, false);
+                $config = array_replace($atual, [
+                    'certificado_arquivo' => $config['certificado_arquivo'] ?? null,
+                    'certificado_senha' => $config['certificado_senha'] ?? null,
+                ]);
+            }
+
             if (!$config || empty($config['certificado_arquivo']) || empty($config['certificado_senha'])) {
                 Response::json(['success' => false, 'message' => 'Certificado digital nao configurado'], 422);
                 return;
@@ -859,6 +928,8 @@ class NFSeController
             } finally {
                 $cert->limparPEM($pem['certPath'], $pem['keyPath']);
             }
+        } catch (\InvalidArgumentException $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Response::json(['success' => false, 'message' => 'Erro ao testar conexao: ' . $e->getMessage()], 500);
         }
