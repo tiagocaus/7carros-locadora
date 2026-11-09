@@ -15,6 +15,9 @@ $clienteNome      = (string) ($_SESSION['cliente_nome'] ?? '');
 $clienteEmail     = (string) ($_SESSION['cliente_email'] ?? '');
 $clienteTelefone  = (string) ($_SESSION['cliente_telefone'] ?? '');
 
+require_once __DIR__ . '/includes/reserva-planos.php';
+$planosInformacoes = secao('reserva', 'planos_informacoes', websitePlanosInformacoesPadrao($traducoes));
+
 $pagina = 'reserva';
 $seo = $seoAll[$pagina] ?? [];
 $filiais = $dados['filiais'] ?? [];
@@ -203,12 +206,11 @@ $temPrefill  = $preLocRet && $preDataSai && $preHoraSai && $preLocDev && $preDat
                 <hr>
                 <?php endforeach; ?>
 
-                <!-- Legenda explicativa dos planos de locacao -->
+                <?php if (trim($planosInformacoes) !== ''): ?>
                 <div class="reserva-planos-legenda mt-3">
-                    <p class="mb-2"><strong><?= e(t('reserva.plano_km_livre')) ?>:</strong> <?= e(t('reserva.plano_km_livre_desc')) ?></p>
-                    <p class="mb-2"><strong><?= e(t('reserva.plano_km_controlado')) ?>:</strong> <?= e(t('reserva.plano_km_controlado_desc')) ?></p>
-                    <p class="mb-2"><strong><?= e(t('reserva.plano_km_pago')) ?>:</strong> <?= e(t('reserva.plano_km_pago_desc')) ?></p>
+                    <?= $planosInformacoes ?>
                 </div>
+                <?php endif; ?>
                 <?php else: ?>
                 <div class="text-center text-muted py-5">
                     <p>Nenhum grupo de veículos disponível no momento.</p>

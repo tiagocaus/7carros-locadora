@@ -384,7 +384,7 @@ class WebsiteBuilderService
     {
         $includes = ['header.php', 'footer.php', 'head.php', 'whatsapp-float.php',
                       'structured-data.php', 'manutencao.php', 'functions.php', 'api.php',
-                      'portal-session.php'];
+                      'portal-session.php', 'reserva-planos.php'];
         foreach ($includes as $file) {
             $this->copiarArquivo(
                 $this->templatePath . '/includes/' . $file,

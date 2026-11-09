@@ -41,6 +41,17 @@
 @endsection
 
 @section('scripts')
+<?php
+require_once APP_ROOT . '/storage/templates/website/includes/reserva-planos.php';
+$planosPadraoPorIdioma = [];
+foreach (['pt_BR', 'en_US', 'es_ES', 'it_IT', 'pt_PT'] as $locale) {
+    $traducoesSite = require APP_ROOT . '/storage/templates/website/lang/' . $locale . '.php';
+    $planosPadraoPorIdioma[$locale] = websitePlanosInformacoesPadrao($traducoesSite);
+}
+?>
+<script src="/assets/vendor/tinymce/js/tinymce/tinymce.min.js"></script>
+<script>window.TINYMCE_LICENSE_KEY = <?= json_encode(getenv('TINYMCE_LICENSE_KEY') ?: 'gpl') ?>;</script>
+<script src="<?= asset('js/tinymce-init.min.js') ?>"></script>
 <script>
 (function() {
 'use strict';
@@ -48,6 +59,9 @@
 // =========================================================================
 // CONFIGURAÇÃO: Páginas, idiomas e schema de seções
 // =========================================================================
+
+const PLANOS_PADRAO = <?= json_encode($planosPadraoPorIdioma, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+let editorSequence = 0;
 
 const PAGES = [
     { key: 'inicio',   label: 'Início' },
@@ -116,25 +130,28 @@ const SCHEMA = {
         { title: 'Conteúdo da página Sobre', open: true, fields: [
             { key: 'titulo',    label: 'Título',    type: 'text' },
             { key: 'subtitulo', label: 'Subtítulo', type: 'text' },
-            { key: 'texto',     label: 'Texto (HTML permitido)', type: 'textarea', rows: 10 }
+            { key: 'texto',     label: 'Texto', type: 'html', rows: 10 }
         ]}
     ],
 
     veiculos: [
         { title: 'Conteúdo da página Veículos', open: true, fields: [
             { key: 'titulo', label: 'Título',                type: 'text' },
-            { key: 'texto',  label: 'Texto (HTML permitido)', type: 'textarea', rows: 6 }
+            { key: 'texto',  label: 'Texto', type: 'html', rows: 6 }
         ]}
     ],
 
     contato: [
         { title: 'Conteúdo da página Contato', open: true, fields: [
             { key: 'titulo', label: 'Título',                type: 'text' },
-            { key: 'texto',  label: 'Texto (HTML permitido)', type: 'textarea', rows: 6 }
+            { key: 'texto',  label: 'Texto', type: 'html', rows: 6 }
         ]}
     ],
 
     reserva: [
+        { title: 'Planos e outras informações', open: true, fields: [
+            { key: 'planos_informacoes', label: 'Planos e outras informações', type: 'html' }
+        ]},
         { title: 'Títulos dos passos do formulário', open: true, fields: [
             { key: 'passo_1_titulo', label: 'Passo 1 — Local e datas',    type: 'text' },
             { key: 'passo_2_titulo', label: 'Passo 2 — Veículo',          type: 'text' },
@@ -166,7 +183,7 @@ const SCHEMA = {
             ]}
         ]},
         { title: 'Rodapé (dados da empresa)', fields: [
-            { key: 'footer_empresa', label: 'Dados da empresa (HTML permitido)', type: 'textarea', rows: 6 }
+            { key: 'footer_empresa', label: 'Dados da empresa', type: 'html', rows: 6 }
         ]}
     ]
 };
@@ -303,6 +320,9 @@ function renderLangTabs() {
 
 function renderGroups() {
     const container = document.getElementById('groupsContainer');
+    container.querySelectorAll('textarea.website-html-editor').forEach(input => {
+        destroyTinyMCE(input.id);
+    });
     container.innerHTML = '';
 
     const schema = SCHEMA[state.activePage] || [];
@@ -364,6 +384,7 @@ function renderGroups() {
         details.appendChild(body);
         container.appendChild(details);
     });
+    container.querySelectorAll('textarea.website-html-editor').forEach(initializeContentEditor);
 }
 
 function renderField(field) {
@@ -381,7 +402,7 @@ function renderField(field) {
     const value = state.current[page][lang][field.key] ?? '';
 
     let input;
-    if (field.type === 'textarea') {
+    if (field.type === 'textarea' || field.type === 'html') {
         input = document.createElement('textarea');
         input.rows = field.rows || 4;
         input.className = 'w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
@@ -392,6 +413,15 @@ function renderField(field) {
         input.className = 'w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
         input.value = value;
     }
+
+    if (field.type === 'html') {
+        input.id = 'website_html_' + (++editorSequence);
+        input.classList.add('website-html-editor');
+        input.dataset.page = page;
+        input.dataset.lang = lang;
+        input.dataset.key = field.key;
+    }
+    label.htmlFor = input.id || '';
 
     // Marca dirty visualmente se já vem dirty do state (ex: voltou pra tab)
     if (isDirty(page, lang, field.key)) {
@@ -411,6 +441,30 @@ function renderField(field) {
 
     wrap.appendChild(input);
     return wrap;
+}
+
+async function initializeContentEditor(input) {
+    const { page, lang, key } = input.dataset;
+    const wasDirty = isDirty(page, lang, key);
+    let ready = false;
+    const onChange = () => {
+        if (!ready || !input.isConnected) return;
+        state.current[page][lang][key] = getTinyMCEContent(input.id);
+        updateFooter();
+    };
+    try {
+        const editor = await initTinyMCE('#' + input.id, {}, onChange, {
+            enableFontSize: true, enableVariables: false, enableFullscreen: false
+        });
+        if (!input.isConnected) { editor.remove(); return; }
+        // TinyMCE normaliza o HTML ao carregar. Isso não é uma edição do usuário.
+        const normalized = editor.getContent();
+        state.current[page][lang][key] = normalized;
+        if (!wasDirty) state.cache[page][lang][key] = normalized;
+        ready = true;
+    } catch (error) {
+        if (input.isConnected) toast.error('Erro ao carregar o editor. O campo continua disponível como HTML.');
+    }
 }
 
 // =========================================================================
@@ -442,7 +496,10 @@ async function loadIfNeeded(page, lang) {
         const result = await API.get('/api/website/conteudos/' + page, { idioma: lang });
         const list = result.success ? (result.data || []) : [];
         const snapshot = {};
-        list.forEach(row => { snapshot[row.secao] = row.conteudo || ''; });
+        list.forEach(row => { snapshot[row.secao] = row.conteudo ?? null; });
+        if (page === 'reserva' && snapshot.planos_informacoes == null) {
+            snapshot.planos_informacoes = PLANOS_PADRAO[lang] || PLANOS_PADRAO.pt_BR;
+        }
         ensurePath(state.cache, page);
         ensurePath(state.current, page);
         state.cache[page][lang] = snapshot;

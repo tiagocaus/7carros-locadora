@@ -1200,6 +1200,38 @@ preset base → merge cores_customizadas → :root final
 
 ---
 
+## Editor visual de conteúdos
+
+Em **Website > Conteúdos**, o TinyMCE (mesmo editor de Documentos) está disponível
+somente nestes cinco campos: **Sobre > Texto**, **Veículos > Texto**,
+**Contato > Texto**, **Reserva > Planos e outras informações** e
+**Global > Rodapé (dados da empresa)**. Os demais campos, inclusive os textos
+da barra informativa de Global, continuam como texto simples. Aparência mantém
+seus controles de cores, fontes e CSS; não recebe editor de conteúdo.
+
+O editor permite formatação, tamanho de fonte, listas, links, imagens por URL,
+tabelas e edição do HTML, sem as variáveis de documentos nem fullscreen dentro
+do iframe. Usa os assets locais e `initTinyMCE` com `enableVariables: false`,
+`enableFullscreen: false` e `enableFontSize: true`. As opções omitidas preservam
+o comportamento de Documentos. Trocar página/idioma preserva as edições;
+salvamento e descarte usam o estado compartilhado do formulário.
+
+Na página `reserva`, a seção `planos_informacoes` de `site_conteudos` guarda
+um único HTML por locadora/idioma. Esse bloco substitui as três explicações
+fixas sob os cards dos grupos no passo 2. Os nomes das opções e os cálculos
+não mudam. Sem registro (ou conteúdo NULL), painel e site usam as explicações
+traduzidas de Km Livre, Km Controlado e Km Pago, geradas pelo helper compartilhado
+`includes/reserva-planos.php`. O builder deve copiar esse include para o site.
+O editor já abre com esse conteúdo, sem marcar alteração ao inicializar.
+Salvar conteúdo vazio oculta o bloco; a ausência de registro usa o padrão.
+Não é necessário criar migration ou preencher registros de todos os tenants.
+
+O conteúdo segue o cache existente: alterações aparecem em até uma hora, ou
+após nova publicação. O HTML existente dos quatro campos anteriores é mantido;
+nenhum conteúdo é regravado apenas por abrir o editor.
+
+---
+
 ## Multi-idioma (i18n)
 
 ### Estratégia de URL

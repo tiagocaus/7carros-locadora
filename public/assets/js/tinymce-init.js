@@ -10,7 +10,7 @@
  * @param {string} selector - Seletor CSS do textarea
  * @param {object} variables - Variáveis disponíveis organizadas por entidade
  * @param {function} onChangeCallback - Callback chamado quando o conteúdo muda
- * @param {object} options - Opções adicionais do editor
+ * @param {object} options - enableFontSize, enableVariables (padrão true), enableFullscreen (padrão true)
  * @returns {Promise} Promise que resolve quando o editor estiver pronto
  */
 async function initTinyMCE(selector, variables, onChangeCallback, options = {}) {
@@ -21,6 +21,8 @@ async function initTinyMCE(selector, variables, onChangeCallback, options = {}) 
     }
 
     const enableFontSize = options.enableFontSize === true;
+    const enableVariables = options.enableVariables !== false;
+    const enableFullscreen = options.enableFullscreen !== false;
     const toolbarFirstRow = enableFontSize
         ? 'undo redo | formatselect fontsize | bold italic underline strikethrough | forecolor backcolor'
         : 'undo redo | formatselect | bold italic underline strikethrough | forecolor backcolor';
@@ -58,7 +60,9 @@ async function initTinyMCE(selector, variables, onChangeCallback, options = {}) 
             // Toolbar customizada
             toolbar: [
                 toolbarFirstRow,
-                'alignleft aligncenter alignright alignjustify | bullist numlist | link image table | variablesButton | code fullscreen'
+                'alignleft aligncenter alignright alignjustify | bullist numlist | link image table'
+                    + (enableVariables ? ' | variablesButton' : '')
+                    + ' | code' + (enableFullscreen ? ' fullscreen' : '')
             ].join(' | '),
 
             // Ocultar menu
@@ -119,7 +123,7 @@ async function initTinyMCE(selector, variables, onChangeCallback, options = {}) 
             // Setup - adicionar botão de variáveis
             setup: function (editor) {
                 // Registrar botão de menu de variáveis
-                editor.ui.registry.addMenuButton('variablesButton', {
+                if (enableVariables) editor.ui.registry.addMenuButton('variablesButton', {
                     text: 'Variáveis',
                     icon: 'code-sample',
                     tooltip: 'Inserir variável de template',
@@ -131,7 +135,7 @@ async function initTinyMCE(selector, variables, onChangeCallback, options = {}) 
 
                 // Callback de mudança
                 if (typeof onChangeCallback === 'function') {
-                    editor.on('change', function () {
+                    editor.on('change input undo redo', function () {
                         onChangeCallback();
                     });
                     editor.on('keyup', function () {
