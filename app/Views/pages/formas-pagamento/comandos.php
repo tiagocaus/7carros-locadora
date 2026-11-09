@@ -36,7 +36,7 @@
                 <label for="comando" class="form-label-group">
                     <?= t('modules.formas_pagamento.commands.fields.command') ?> <span class="text-red-500">*</span> {!! aviso(t('modules.formas_pagamento.commands.fields.command_hint')) !!}
                 </label>
-                <input type="text" id="comando" name="comando" class="form-input-group-field" maxlength="255" placeholder="<?= t('modules.formas_pagamento.commands.placeholders.command') ?>" required>
+                <input type="text" id="comando" name="comando" class="form-input-group-field" maxlength="500" placeholder="<?= t('modules.formas_pagamento.commands.placeholders.command') ?>" required>
             </div>
 
             <div class="md:col-span-5 form-input-group">

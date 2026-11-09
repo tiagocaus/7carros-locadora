@@ -567,6 +567,11 @@ class FormasPagamentoController
                 return;
             }
 
+            if (mb_strlen($comando) > 500) {
+                Response::json(['success' => false, 'message' => 'O comando deve ter no máximo 500 caracteres'], 400);
+                return;
+            }
+
             // Validar se o comando eh parseavel
             $parsed = ComandoParcela::parseComando($comando);
             if ($parsed['tipo'] === 'desconhecido') {
@@ -611,6 +616,10 @@ class FormasPagamentoController
                 $comando = trim($comando);
                 if ($comando === '') {
                     Response::json(['success' => false, 'message' => 'Comando é obrigatório'], 400);
+                    return;
+                }
+                if (mb_strlen($comando) > 500) {
+                    Response::json(['success' => false, 'message' => 'O comando deve ter no máximo 500 caracteres'], 400);
                     return;
                 }
                 $parsed = ComandoParcela::parseComando($comando);

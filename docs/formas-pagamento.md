@@ -53,7 +53,7 @@ Tabela de comandos de parcelas. Registros com `chave='0'` sao do sistema (nao ed
 |-------|------|-----------|
 | id | INT | Identificador unico |
 | chave | VARCHAR(45) | '0' = sistema, ou chave do tenant |
-| comando | VARCHAR(255) | String parseavel (ex: "0", "1-12", "w36") |
+| comando | VARCHAR(500) | String parseavel (ex: "0", "1-12", "w36") |
 | descricao | TEXT | Descricao do comando |
 | status | VARCHAR(1) | A = Ativo, I = Inativo |
 
@@ -173,6 +173,13 @@ O campo `comando` em `formas_pagamento_comandos` aceita comandos especiais para 
 ### Validacao
 
 O sistema valida o formato do comando antes de salvar. Formatos invalidos sao rejeitados com mensagem de erro.
+
+O comando aceita ate **500 caracteres**, tanto no cadastro quanto na edicao, apos
+remover espacos das extremidades. O formulario aplica esse limite e a API rejeita
+entradas maiores com HTTP 400, sem gravar. A migration `00440_expand_comando_parcela_to_500.php`
+amplia a coluna; seu rollback e bloqueado se houver comandos acima de 255 caracteres,
+para evitar truncamento. O formato e as regras de calculo permanecem iguais: por
+exemplo, 70 parcelas a cada 14 dias (`14/28/42/.../980`) ocupam 272 caracteres.
 
 ### Inferencia de Label
 
