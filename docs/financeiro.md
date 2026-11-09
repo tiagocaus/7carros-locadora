@@ -108,6 +108,14 @@ pode iniciar outra transação nem confirmar a baixa antes do registro do evento
 Não depender exclusivamente de `MYSQLI_SERVER_STATUS_IN_TRANS`, pois essa
 constante não está disponível em todas as instalações PHP/mysqli.
 
+Webhook, polling, consulta de segurança e sincronização Cora usam
+`CoraPaymentReconciliationService`. A sincronização que encontra pagamento
+não pode persistir apenas o status pago da transação: financeiro, links, taxa e
+evento devem ser concluídos juntos. A rotina de encargos também condiciona o
+UPDATE a `pago='N'`, protegendo uma baixa concorrente. Baixas manuais preservam
+seus valores e datas. Veja `gateways.md` para recuperação de baixa incompleta
+e conferência de encargos pela data efetivamente paga.
+
 ### Retroativo de taxas
 
 O script `scripts/backfill-taxas-meios-pagamento.php` contabiliza receitas

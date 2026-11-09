@@ -56,8 +56,8 @@ try {
     $count=0;
     $paid=function(array $r) use(&$count,$db,$financeiroId,$tenant) {
         $count++;
-        $stmt=$db->prepare("UPDATE financeiro SET pago='S' WHERE id=? AND chave=?");
-        $stmt->bind_param('is',$financeiroId,$tenant);$stmt->execute();
+        // Baixa completa inclui a taxa; sem ela, uma repetição deve recuperar a pendência.
+        (new \App\Models\Financeiro())->atualizar($financeiroId, ['pago'=>'S','data_pago'=>'2026-09-01'], true);
     };
     try {
         $model->aplicarWebhookCora($row,$confirmed,$event,function() use($financeiroId) {
@@ -76,6 +76,7 @@ try {
         checkCoraDb(!$model->aplicarWebhookCora($row,['status'=>'pending'],$event,$paid),'Evento atrasado');
     });
     checkCoraDb($count===1,'Baixa duplicada');
+    checkCoraDb((new \App\Models\FinanceiroTaxa())->buscarDespesaVinculada($financeiroId)!==null,'Taxa não contabilizada na baixa');
     $stmt=$db->prepare("SELECT COUNT(*) n FROM financeiro_transacoes WHERE chave=? AND type='webhook'");
     $stmt->bind_param('s',$tenant);$stmt->execute();checkCoraDb((int)$stmt->get_result()->fetch_assoc()['n']===1,'Log duplicado/rollback incompleto');
     $stmt=$db->prepare('SELECT pago FROM financeiro WHERE id=?');$stmt->bind_param('i',$financeiroId);$stmt->execute();
@@ -91,6 +92,8 @@ try {
     echo "[OK] Cora local: isolamento, rollback, baixa única e bloqueio concorrente.\n";
 } finally {
     $stmt=$db->prepare('DELETE FROM financeiro_transacoes WHERE chave=?');$stmt->bind_param('s',$tenant);$stmt->execute();
+    $stmt=$db->prepare('DELETE FROM financeiro WHERE chave=? AND id_financeiro_taxa_origem IS NOT NULL');$stmt->bind_param('s',$tenant);$stmt->execute();
     $stmt=$db->prepare('DELETE FROM financeiro WHERE chave=?');$stmt->bind_param('s',$tenant);$stmt->execute();
     $stmt=$db->prepare('DELETE FROM gateways_pagamento WHERE chave=?');$stmt->bind_param('s',$tenant);$stmt->execute();
+    $stmt=$db->prepare('DELETE FROM logs WHERE chave=?');$stmt->bind_param('s',$tenant);$stmt->execute();
 }

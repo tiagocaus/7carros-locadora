@@ -91,6 +91,34 @@ class FinanceiroTransacao extends Model
         return $rows[0] ?? null;
     }
 
+    /** CRON cross-tenant: somente pendentes; pagamentos antigos ficam para conferência manual. */
+    public function listarCoraPendentesParaConciliacao(int $aposId, int $limite = 50): array
+    {
+        return $this->qb->table('financeiro_transacoes', 't')->withoutChave()->select(['t.*'])
+            ->innerJoin('financeiro', 'f', 'f.id', '=', 't.id_financeiro')
+            ->whereRaw('f.chave = t.chave')->where('f.pago', '=', 'N')
+            ->where('t.gateway', '=', 'cora')->where('t.type', '=', 'charge')
+            ->where('t.status', '=', 'pending')->whereNotNull('t.external_id')
+            ->where('t.external_id', '!=', '')->where('t.id', '>', max(0, $aposId))
+            ->orderBy('t.id', 'ASC')->limit(max(1, min(50, $limite)))->get();
+    }
+
+    /** A chamada ocorre dentro da transação de conciliação, após bloquear a cobrança. */
+    public function bloquearFinanceiroCora(string $chave, int $id): ?array
+    {
+        return $this->qb->table('financeiro', 'f')->withChave($chave)->select([
+            'f.*', 'fp.multa AS cora_multa_percentual', 'fp.juros_por_dia AS cora_juros_por_dia',
+        ])->leftJoinRaw('formas_pagamento', 'fp', 'fp.id = f.id_forma_pagamento AND fp.chave = f.chave')
+            ->where('f.id', '=', $id)->lockForUpdate()->first();
+    }
+
+    public function marcarLinksPagosCora(string $chave, int $idFinanceiro, int $idTransacao): void
+    {
+        $this->qb->table('pagamentos_links')->withChave($chave)
+            ->where('id_financeiro', '=', $idFinanceiro)->where('status', '!=', 'paid')
+            ->update(['status' => 'paid', 'id_transacao_paga' => $idTransacao, 'updated_at' => now()]);
+    }
+
     /** Atualiza cobrança e financeiro atomicamente; callback usa os Models existentes. */
     public function aplicarWebhookCora(array $transaction, array $confirmed, array $event, callable $onPaid): bool
     {
@@ -103,7 +131,22 @@ class FinanceiroTransacao extends Model
                 ->where('type', '=', 'charge')->lockForUpdate()->first();
             if (!$row) throw new \RuntimeException('Cobrança Cora não encontrada.');
             $status = $confirmed['status'];
-            if (!empty($row['webhook_received_at']) && ($row['status'] === 'paid' || $row['status'] === $status)) {
+            // Receber um poll pendente não comprova que uma baixa posterior foi concluída.
+            $baixaCompleta = false;
+            if ($status === 'paid' && $row['status'] === 'paid') {
+                $financeiro = $this->bloquearFinanceiroCora($chave, (int) $row['id_financeiro']);
+                $eventoPago = $this->qb->table('financeiro_transacoes')->withChave($chave)
+                    ->where('gateway', '=', 'cora')->where('type', '=', 'webhook')
+                    ->where('external_id', '=', $row['external_id'])->where('status', '=', 'invoice:paid')->exists();
+                $row['_cora_baixa_registrada'] = $eventoPago;
+                $linkPendente = $this->qb->table('pagamentos_links')->withChave($chave)
+                    ->where('id_financeiro', '=', $row['id_financeiro'])->where('status', '!=', 'paid')->exists();
+                $taxaCompleta = (float) ($financeiro['valor_taxa'] ?? 0) <= 0 || $this->qb->table('financeiro')->withChave($chave)
+                    ->where('id_financeiro_taxa_origem', '=', $row['id_financeiro'])->where('pago', '=', 'S')
+                    ->where('valor_total', '=', $financeiro['valor_taxa'])->exists();
+                $baixaCompleta = ($financeiro['pago'] ?? '') === 'S' && $eventoPago && !$linkPendente && $taxaCompleta;
+            }
+            if ($baixaCompleta || ($status !== 'paid' && !empty($row['webhook_received_at']) && $row['status'] === $status)) {
                 $db->commit();
                 return false;
             }

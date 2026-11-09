@@ -285,7 +285,7 @@ class PagamentoLinkSyncService
         $statusAntes = $gateway->getChargeStatus($externalId);
         if (($statusAntes['success'] ?? false) === true) {
             $status = $this->normalizarStatus((string) ($statusAntes['status'] ?? ''));
-            if ($this->tratarStatusTerminal($transacao, $status, $statusAntes['paid_at'] ?? null)) {
+            if ($this->tratarStatusTerminal($transacao, $status, $statusAntes['paid_at'] ?? null, $gateway)) {
                 return $status === 'cancelled' || $status === 'failed' || $status === 'expired';
             }
         }
@@ -299,7 +299,7 @@ class PagamentoLinkSyncService
         $statusDepois = $gateway->getChargeStatus($externalId);
         if (($statusDepois['success'] ?? false) === true) {
             $status = $this->normalizarStatus((string) ($statusDepois['status'] ?? ''));
-            if ($this->tratarStatusTerminal($transacao, $status, $statusDepois['paid_at'] ?? null)) {
+            if ($this->tratarStatusTerminal($transacao, $status, $statusDepois['paid_at'] ?? null, $gateway)) {
                 return $status === 'cancelled' || $status === 'failed' || $status === 'expired';
             }
         }
@@ -308,10 +308,16 @@ class PagamentoLinkSyncService
         throw new \RuntimeException('Nao foi possivel cancelar a cobranca antiga no gateway: ' . $mensagem);
     }
 
-    private function tratarStatusTerminal(array $transacao, string $status, ?string $paidAt = null): bool
+    private function tratarStatusTerminal(array $transacao, string $status, ?string $paidAt = null, ?\App\Services\Gateways\PaymentGatewayInterface $gateway = null): bool
     {
         if ($status === 'paid') {
-            $this->transacaoModel->atualizarStatusPorId((int) $transacao['id'], 'paid', $paidAt ?: now());
+            if ($gateway instanceof \App\Services\Gateways\CoraGateway) {
+                (new CoraPaymentReconciliationService())->confirmar($transacao, $gateway, [
+                    'event' => 'invoice.sync', 'event_id' => '', 'resource_id' => $transacao['external_id'],
+                ]);
+            } else {
+                $this->transacaoModel->atualizarStatusPorId((int) $transacao['id'], 'paid', $paidAt ?: now());
+            }
             throw new \RuntimeException('A cobranca antiga ja consta como paga no gateway. Atualize o financeiro pelo fluxo de pagamento antes de gerar outro link.');
         }
 

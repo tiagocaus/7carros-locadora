@@ -148,6 +148,10 @@ try {
     $scheduler->job(new \App\Crons\Jobs\SerproPixReconcileJob())
               ->everyFiveMinutes();
 
+    // Cora - segurança para cobranças pendentes sem webhook ou checkout aberto.
+    $scheduler->job(new \App\Crons\Jobs\CoraPaymentReconcileJob())
+              ->everyFiveMinutes();
+
     // Indicacoes de Condutor - Sincronizacao de Status
     // Executa a cada 30 minutos para atualizar status de indicacoes enviadas/processando/pendentes
     $scheduler->job(new \App\Crons\Jobs\SerproSyncIndicacoesStatusJob())

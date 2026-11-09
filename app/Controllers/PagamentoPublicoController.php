@@ -810,36 +810,31 @@ class PagamentoPublicoController
     /** Cabeçalhos são apenas um aviso; o status sempre vem da API autenticada. */
     private function processarWebhookCora(): void
     {
-        $previousChave = $_SESSION['chave'] ?? null;
         $response = ['success' => true];
         $http = 200;
+        $event = \App\Services\Gateways\CoraGateway::webhookPayload($this->getHeaders());
+        $transaction = null;
+        \App\Services\CoraPaymentReconciliationService::log('webhook_recebido', $event);
         try {
-            $event = \App\Services\Gateways\CoraGateway::webhookPayload($this->getHeaders());
             if (!preg_match('/^invoice\.(drafted|created|paid|canceled|overdue)$/D', $event['event'])
                 || !preg_match('/^inv_[a-zA-Z0-9_-]+$/D', $event['resource_id'])) {
                 $response = ['success' => true, 'ignored' => true];
+                \App\Services\CoraPaymentReconciliationService::log('webhook_formato_ignorado', $event);
             } else {
-                $model = new FinanceiroTransacao();
-                $transaction = $model->buscarCobrancaCoraPorExternalId($event['resource_id']);
+                $transaction = (new FinanceiroTransacao())->buscarCobrancaCoraPorExternalId($event['resource_id']);
                 if (!$transaction) {
                     $response = ['success' => true, 'ignored' => true];
+                    \App\Services\CoraPaymentReconciliationService::log('webhook_sem_vinculo', $event);
                 } else {
-                    $_SESSION['chave'] = $transaction['chave'];
-                    $configuration = (new GatewayPagamento())->buscarPorIdComCredenciaisParaTenant(
-                        (int) $transaction['id_gateway'], (string) $transaction['chave']
-                    );
-                    if (!$configuration || $configuration['gateway_code'] !== 'cora') throw new \RuntimeException('Configuração Cora indisponível.');
-                    $gateway = GatewayFactory::create('cora', $configuration['credentials'], $configuration['ambiente'] === 'sandbox', $configuration['id']);
-                    $this->confirmarPagamentoCora($transaction, $gateway, $event);
+                    $service = new \App\Services\CoraPaymentReconciliationService();
+                    $service->confirmar($transaction, $service->criarGateway($transaction), $event);
+                    \App\Services\CoraPaymentReconciliationService::log('webhook_concluido', $event, $transaction);
                 }
             }
         } catch (\Throwable $e) {
-            error_log('[Cora] Webhook não concluído: ' . get_class($e));
+            \App\Services\CoraPaymentReconciliationService::log('webhook_falhou', $event, $transaction, $e);
             $http = 503;
             $response = ['success' => false, 'message' => 'Não foi possível confirmar o pagamento na Cora.'];
-        } finally {
-            if ($previousChave === null) unset($_SESSION['chave']);
-            else $_SESSION['chave'] = $previousChave;
         }
         Response::json($response, $http);
     }
@@ -847,46 +842,7 @@ class PagamentoPublicoController
     /** Mesmo caminho para polling e webhook: consulta, baixa atômica e hooks. */
     private function confirmarPagamentoCora(array $transaction, \App\Services\Gateways\CoraGateway $gateway, array $event): array
     {
-        $previousChave = $_SESSION['chave'] ?? null;
-        $_SESSION['chave'] = $transaction['chave'];
-        try {
-            $model = new FinanceiroTransacao();
-            return $model->comBloqueioCora($transaction['chave'], 'charge:' . $transaction['id_financeiro'], function () use ($model, $transaction, $event, $gateway) {
-                $confirmed = $gateway->getChargeStatus($event['resource_id']);
-                if (empty($confirmed['success'])) throw new \RuntimeException('Consulta autenticada da Cora indisponível.');
-                if (!isset($confirmed['raw']['total_amount']) || (int) $confirmed['raw']['total_amount'] !== (int) round((float) $transaction['amount'] * 100)) {
-                    throw new \RuntimeException('Valor da cobrança Cora divergente.');
-                }
-                $link = null;
-                $model->aplicarWebhookCora($transaction, $confirmed, $event, function (array $row) use (&$link, $confirmed) {
-                    if (empty($row['id_financeiro'])) throw new \RuntimeException('Cobrança Cora sem financeiro.');
-                    $financeiro = new Financeiro();
-                    if (!$financeiro->buscarPorId((int) $row['id_financeiro'])) throw new \RuntimeException('Financeiro não encontrado.');
-                    $financeiro->atualizar((int) $row['id_financeiro'], [
-                        'pago' => 'S', 'data_pago' => substr($confirmed['paid_at'] ?? now(), 0, 10),
-                    ], true);
-                    (new \App\Services\FinanceiroTaxaService())->sincronizar((int) $row['id_financeiro'], (int) $row['id'], true);
-                    $links = new PagamentoLink();
-                    $link = $links->buscarReutilizavelPorFinanceiro((int) $row['id_financeiro']);
-                    if ($link) $links->marcarComoPago($link['id'], $row['id'], null, null);
-                });
-                // Hooks existentes após commit, mantendo o contexto do tenant.
-                if ($confirmed['status'] === 'paid') {
-                    try {
-                        (new \App\Services\ComissaoInvestidorService())->processarComissaoPorFinanceiro((int) $transaction['id_financeiro']);
-                    } catch (\Throwable $e) { error_log('[Cora] Falha no hook de comissão.'); }
-                    if (!$link) $link = (new PagamentoLink())->buscarPorTransacaoPagaCora((int) $transaction['id']);
-                    if (!empty($link['id_locacao'])) {
-                        $locacao = (new \App\Models\Locacao())->buscarPorId((int) $link['id_locacao']);
-                        if ($locacao && $locacao['status'] === 'P') $this->efetivarReservaAposPagamento((int) $link['id_locacao']);
-                    }
-                }
-                return $confirmed;
-            });
-        } finally {
-            if ($previousChave === null) unset($_SESSION['chave']);
-            else $_SESSION['chave'] = $previousChave;
-        }
+        return (new \App\Services\CoraPaymentReconciliationService())->confirmar($transaction, $gateway, $event);
     }
 
     private function webhookDebugLog(string $message): void
@@ -1210,81 +1166,7 @@ class PagamentoPublicoController
      */
     private function efetivarReservaAposPagamento(int $idLocacao): void
     {
-        try {
-            $locacaoModel = new \App\Models\Locacao();
-
-            // Busca locacao com sessao ja configurada (marcarFinanceiroPago definiu $_SESSION['chave'])
-            $locacao = $locacaoModel->buscarPorId($idLocacao);
-            if (!$locacao) {
-                error_log("[Webhook/Reserva] Locacao {$idLocacao} nao encontrada");
-                return;
-            }
-
-            // So efetiva se ainda estava pendente (P). Evita reenviar email se ja estava R.
-            if ($locacao['status'] === 'R') {
-                return;
-            }
-
-            $locacaoModel->atualizar($idLocacao, ['status' => 'R']);
-
-            $chave = $locacao['chave'];
-
-            // Monta contexto do template (apenas nome principal; MessageTemplateService enriquece empresa.*)
-            $nomeCliente = $locacao['cliente_nome'] ?? '';
-            $primeiroNome = explode(' ', trim($nomeCliente))[0] ?? '';
-
-            $emailCliente = '';
-            $telCliente = '';
-            if (!empty($locacao['id_cliente'])) {
-                try {
-                    $em = (new \App\Models\ContatoEmail())->getPrincipal('cliente', (int) $locacao['id_cliente']);
-                    $emailCliente = $em['email'] ?? '';
-                    $tel = (new \App\Models\ContatoTelefone())->getPrincipal('cliente', (int) $locacao['id_cliente']);
-                    $telCliente = $tel['telefone'] ?? '';
-                } catch (\Throwable $e) { /* ignore */ }
-            }
-
-            $context = [
-                'cliente' => [
-                    'id'            => (int) ($locacao['id_cliente'] ?? 0),
-                    'nome'          => $nomeCliente,
-                    'primeiro_nome' => $primeiroNome,
-                    'email'         => $emailCliente,
-                    'telefone'      => $telCliente,
-                    'celular'       => $telCliente,
-                ],
-                'empresa' => [
-                    'id' => (int) ($locacao['id_matriz_filial_retirada'] ?? 0),
-                ],
-                'id_matriz_filial' => (int) ($locacao['id_matriz_filial_retirada'] ?? 0),
-                'locacao' => [
-                    'numero'          => $locacao['codigo'] ?? '',
-                    'data_retirada'   => !empty($locacao['data_saida']) ? format_date($locacao['data_saida']) : '',
-                    'hora_retirada'   => !empty($locacao['data_saida']) ? \App\Helpers\DateHelper::formatOperationalDateTime($locacao['data_saida'], true, 'H:i') : '',
-                    'data_devolucao'  => !empty($locacao['data_prevista']) ? format_date($locacao['data_prevista']) : '',
-                    'hora_devolucao'  => !empty($locacao['data_prevista']) ? \App\Helpers\DateHelper::formatOperationalDateTime($locacao['data_prevista'], true, 'H:i') : '',
-                    'quantidade_dias' => (int) ($locacao['dias'] ?? 0),
-                    'valor_total'     => (float) ($locacao['total_pagar'] ?? $locacao['total_fatura'] ?? 0),
-                ],
-                'outros' => [
-                    'data_atual' => format_date(today()),
-                ],
-            ];
-
-            if (function_exists('queue_template_message')) {
-                foreach (['email', 'whatsapp', 'sms'] as $canal) {
-                    try {
-                        queue_template_message('confirmacao_reserva', $canal, $context, $chave);
-                    } catch (\App\Exceptions\NotificationChannelUnavailableException|\App\Exceptions\NotificationRecipientUnavailableException) {
-                        // Canal ou destinatario indisponivel: notificacao opcional ignorada.
-                    } catch (\Throwable $e) {
-                        error_log("[Webhook/Reserva] Erro ao enfileirar confirmacao_reserva/{$canal}: " . $e->getMessage());
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            error_log("[Webhook/Reserva] Erro ao efetivar locacao {$idLocacao}: " . $e->getMessage());
-        }
+        (new \App\Services\PagamentoReservaService())->efetivar($idLocacao);
     }
 
     /**

@@ -281,7 +281,7 @@ class CalculateOverdueFeesJob extends BaseJob
         $stmt = $mysqli->prepare("
             UPDATE financeiro
             SET multa = ?, juros = ?, valor_total = ?, updated_at = ?
-            WHERE id = ? AND chave = ?
+            WHERE id = ? AND chave = ? AND pago = 'N'
         ");
 
         if (!$stmt) {

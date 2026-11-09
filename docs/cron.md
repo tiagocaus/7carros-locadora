@@ -64,6 +64,19 @@ cobrancas, faturas ou notificacoes.
   data dependente de timezone; em seguida, processar cada tenant com seu proprio
   contexto e sua data de referencia.
 
+### Consulta de segurança Cora
+
+`CoraPaymentReconcileJob` executa a cada cinco minutos e consulta até 50
+cobranças Cora pendentes com ID externo e financeiro ainda aberto. Usa a mesma
+conciliação autenticada e transacional do webhook. O cursor persistido em
+`storage/cron/cora-reconcile-state.json` avança inclusive nas falhas e reinicia
+ao terminar a lista, permitindo novas tentativas sem bloquear outros registros.
+O limite de 60 segundos é verificado entre consultas. Não processa transações
+já marcadas como pagas nem executa reparo retroativo em lote. Os resultados
+entram no resumo normal de CRON; detalhes sanitizados ficam também em
+`storage/logs/cora-payments.log`. Testes locais sem APIs reais:
+`php tests/test_cora_reconciliation.php` e `php tests/test_cora_reconcile_job.php`.
+
 ### Entrega de mensagens sem duplicidade
 
 O `ProcessMessageQueueJob` reserva cada mensagem no banco antes de enviar,

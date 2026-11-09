@@ -243,6 +243,29 @@ A baixa, taxa e registro de processamento são transacionais; falhas retornam
 503 para permitir repetição. Eventos sem vínculo local são ignorados com 200.
 Comissões e confirmação de reserva usam os hooks existentes após o commit.
 
+`CoraPaymentReconciliationService` centraliza esse caminho para webhook,
+polling, troca de cobrança e sincronização antes do recálculo de encargos.
+Encontrar PAID durante a sincronização deve concluir a baixa local antes de
+bloquear a alteração; nunca marcar somente `financeiro_transacoes` como paga.
+A idempotência exige financeiro pago, evento `invoice:paid`, links baixados e
+taxa contabilizada quando aplicável. Um poll pendente anterior não comprova baixa.
+Baixas manuais existentes preservam valor e data. Encargos posteriores só são
+retirados quando o cálculo na data efetiva do pagamento confere, em centavos,
+com o valor integral confirmado pela Cora; divergências exigem conferência.
+
+O job `CoraPaymentReconcileJob` consulta somente cobranças Cora locais com
+`type=charge`, `status=pending`, ID externo e financeiro pendente. Executa a
+cada cinco minutos, em lotes de até 50, com cursor em
+`storage/cron/cora-reconcile-state.json` e orçamento de 60 segundos verificado
+entre cobranças. Falhas também avançam o cursor e voltam no ciclo seguinte;
+transações já marcadas como pagas não entram em reparo retroativo automático.
+Não há alteração de schema nem nova configuração no banco.
+
+Os diagnósticos Cora ficam no error log do PHP e em
+`storage/logs/cora-payments.log`: recebimento, descarte por formato ou ausência
+de vínculo, conclusão e falha, com referências limitadas e motivo sanitizado.
+Não registrar payloads, credenciais ou mensagens brutas da API.
+
 Referências: [autenticação](https://developers.cora.com.br/docs/client-credentials-int-direta),
 [Pix v2](https://developers.cora.com.br/reference/qr-code-pix-v2),
 [boletos v2](https://developers.cora.com.br/reference/emiss%C3%A3o-de-boleto-registrado),
