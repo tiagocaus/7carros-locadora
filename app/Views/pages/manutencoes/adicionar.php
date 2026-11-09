@@ -937,9 +937,11 @@ window.manutencoesAuditI18n = <?= json_encode([
                     <td class="px-3 py-2 text-right text-sm">${Currency.format(desconto, true)}</td>
                     <td class="px-3 py-2 text-right text-sm">${Currency.format(item.valor_total, true)}</td>
                     <td class="px-3 py-2 text-center">${statusBadge}</td>
-                    <td class="px-3 py-2 text-center">
-                        ${canEdit ? `<button type="button" onclick="editarItem(${index})" class="btn-icon text-blue-600 hover:text-blue-800" title="${i18n.actionEdit}"><i class="fas fa-edit"></i></button>` : ''}
-                        ${canDelete ? `<button type="button" onclick="removerItem(${index})" class="btn-icon text-red-600 hover:text-red-800" title="${i18n.actionRemove}"><i class="fas fa-trash"></i></button>` : ''}
+                    <td class="px-3 py-2 text-right">
+                        <div class="inline-flex flex-nowrap items-center justify-center gap-1">
+                            ${canEdit ? `<button type="button" onclick="editarItem(${index})" class="btn-icon text-blue-600 hover:text-blue-800" title="${i18n.actionEdit}"><i class="fas fa-edit"></i></button>` : ''}
+                            ${canDelete ? `<button type="button" onclick="removerItem(${index})" class="btn-icon text-red-600 hover:text-red-800" title="${i18n.actionRemove}"><i class="fas fa-trash"></i></button>` : ''}
+                        </div>
                     </td>
                 </tr>
             `;
@@ -991,9 +993,11 @@ window.manutencoesAuditI18n = <?= json_encode([
             </td>
             <td class="px-3 py-2 text-right text-sm item-total">${Currency.format(0, true)}</td>
             <td class="px-3 py-2 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">${i18n.badgeNew}</span></td>
-            <td class="px-3 py-2 text-center">
-                <button type="button" class="btn-icon text-green-600 hover:text-green-800 btn-confirmar-item" title="${i18n.actionConfirm}"><i class="fas fa-check"></i></button>
-                <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-cancelar-item" title="${i18n.actionCancel}"><i class="fas fa-times"></i></button>
+            <td class="px-3 py-2 text-right">
+                <div class="inline-flex flex-nowrap items-center justify-center gap-1">
+                    <button type="button" class="btn-icon text-green-600 hover:text-green-800 btn-confirmar-item" title="${i18n.actionConfirm}"><i class="fas fa-check"></i></button>
+                    <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-cancelar-item" title="${i18n.actionCancel}"><i class="fas fa-times"></i></button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);
@@ -1212,9 +1216,11 @@ window.manutencoesAuditI18n = <?= json_encode([
             </td>
             <td class="px-3 py-2 text-right text-sm item-total">${Currency.format(item.valor_total, true)}</td>
             <td class="px-3 py-2 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">${i18n.badgeEditing}</span></td>
-            <td class="px-3 py-2 text-center">
-                <button type="button" class="btn-icon text-green-600 hover:text-green-800 btn-salvar-edicao" title="${i18n.actionSave}"><i class="fas fa-check"></i></button>
-                <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-cancelar-edicao" title="${i18n.actionCancel}"><i class="fas fa-times"></i></button>
+            <td class="px-3 py-2 text-right">
+                <div class="inline-flex flex-nowrap items-center justify-center gap-1">
+                    <button type="button" class="btn-icon text-green-600 hover:text-green-800 btn-salvar-edicao" title="${i18n.actionSave}"><i class="fas fa-check"></i></button>
+                    <button type="button" class="btn-icon text-red-600 hover:text-red-800 btn-cancelar-edicao" title="${i18n.actionCancel}"><i class="fas fa-times"></i></button>
+                </div>
             </td>
         `;
 

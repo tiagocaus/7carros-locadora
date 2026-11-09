@@ -610,6 +610,21 @@ modelo inicial; cada parcela permite selecionar outro plano individualmente.
 Todas as parcelas exigem plano de contas. A primeira parcela tambem propaga sua
 classificacao para os respectivos registros de `financeiro_itens`.
 
+Os itens financeiros da primeira parcela sao rateados proporcionalmente para
+somarem somente o valor dessa parcela. Nao gravar os valores integrais dos
+servicos nessa fatura e depois sobrescrever seu subtotal: salvar os itens ou
+dar baixa pela tela financeira recalcula a soma e restauraria o total da OS.
+O rateio usa centavos acumulados para fechar o valor exato, inclusive com
+itens pequenos ou zerados. Os itens de `manutencoes_itens` preservam seus
+valores integrais; as parcelas seguintes continuam sem itens proprios.
+
+A criacao completa e a de itens selecionados gravam faturas, itens e vinculos
+em uma unica transacao. As sequencias sao reservadas antes dos locks, e as
+parcelas marcadas como pagas recebem baixa somente apos a gravacao dos valores
+definitivos, com o indicador de transacao externa. Itens ja vinculados nao
+podem gerar outro lancamento. A regra vale para novas geracoes; nao corrige
+automaticamente parcelamentos historicos inconsistentes.
+
 O plano principal usa `chosen-select` e inicia com um padrao compativel com o
 sentido do lancamento: `3.1.1 - Manutencoes preventivas` para despesas da
 locadora e `4.1.1.04 - Servicos prestados` para receitas cobradas do cliente.

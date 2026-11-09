@@ -787,176 +787,150 @@ class Manutencao extends Model
             throw new \InvalidArgumentException('Manutencao nao possui itens');
         }
 
-        $financeiroModel = new Financeiro();
-        $financeiroItemModel = new FinanceiroItem();
-        $manutencaoItemModel = new ManutencaoItem();
-
-        $clientePaga = !empty($manutencao['id_cliente']);
-
-        // Calcular total
-        $total = array_sum(array_column($manutencao['itens'], 'valor_total'));
-        $parcelasGeradas = $this->normalizarParcelasFinanceiras(
-            $dadosFinanceiro,
-            $total,
-            $clientePaga ? 'R' : 'D'
-        );
-        $primeiraParcela = $parcelasGeradas[0] ?? null;
-
-        // Gerar sequencia
-        $sequencia = \App\Helpers\SequenciaHelper::proximaSequencia(
-            $manutencao['chave'],
-            $manutencao['id_matriz_filial'],
-            'financeiro'
-        );
-
-        // Cliente informado transforma a manutencao em conta a receber; sem cliente, segue como despesa da empresa.
-        $idFinanceiro = $financeiroModel->criar([
-            'chave' => $manutencao['chave'],
-            'sequencia' => $sequencia,
-            'tipo' => $clientePaga ? 'R' : 'D',
-            'id_matriz_filial' => $manutencao['id_matriz_filial'],
-            'id_cliente' => $clientePaga ? (int) $manutencao['id_cliente'] : null,
-            'id_fornecedor' => null, // Oficina nao e fornecedor
-            'id_oficina' => $manutencao['id_oficina'] ?? null,
-            'id_veiculo' => $manutencao['id_veiculo'] ?? null,
-            'id_forma_pagamento' => $primeiraParcela['id_forma_pagamento'] ?? ($dadosFinanceiro['id_forma_pagamento'] ?? null),
-            'id_conta' => $primeiraParcela['id_conta'] ?? ($dadosFinanceiro['id_conta'] ?? null),
-            'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
-            'descricao' => "Manutencao OS #{$manutencao['os']}",
-            'valor_subtotal' => $primeiraParcela['valor'] ?? $total,
-            'data_criada' => today(),
-            'data_venci' => $primeiraParcela['data_vencimento'] ?? ($dadosFinanceiro['data_vencimento'] ?? today()),
-            'pago' => $primeiraParcela['pago'] ?? ($dadosFinanceiro['pago'] ?? 'N'),
-            'parcela' => !empty($parcelasGeradas) ? 1 : 0,
-            'total_parcelas' => !empty($parcelasGeradas) ? count($parcelasGeradas) : 0,
-        ]);
-
-        // Criar itens do financeiro
-        foreach ($manutencao['itens'] as $item) {
-            $financeiroItemModel->criar([
-                'chave' => $manutencao['chave'],
-                'id_financeiro' => $idFinanceiro,
-                'id_veiculo' => $manutencao['id_veiculo'] ?? null,
-                'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
-                'descricao' => $item['descricao'],
-                'valor' => $item['valor_total']
-            ]);
-        }
-
-        // Marcar todos os itens como pagos
-        $idsItens = array_column($manutencao['itens'], 'id');
-        $manutencaoItemModel->marcarComosPagos($idsItens, $idFinanceiro);
-
-        // Vincular financeiro principal a manutencao
-        $this->atualizar($id, ['id_financeiro_principal' => $idFinanceiro]);
-
-        if (!empty($parcelasGeradas)) {
-            $this->criarParcelasGeradas($idFinanceiro, $parcelasGeradas, $manutencao['chave']);
-        } elseif (!empty($dadosFinanceiro['parcelas']) && $dadosFinanceiro['parcelas'] > 1) {
-            $this->criarParcelas($idFinanceiro, $dadosFinanceiro, $total, $manutencao['chave']);
-        }
-
-        return $idFinanceiro;
+        return $this->persistirFinanceiroManutencao($manutencao, $manutencao['itens'], $dadosFinanceiro, true);
     }
 
     /**
-     * Cria lancamento financeiro parcial (apenas itens selecionados)
+     * Cria lancamento financeiro parcial (apenas itens selecionados).
      */
     public function criarLancamentoParcial(int $id, array $idsItens, array $dadosFinanceiro): int
     {
         $manutencao = $this->buscarPorId($id);
-
         if (!$manutencao) {
             throw new \InvalidArgumentException('Manutencao nao encontrada');
         }
-
         if (empty($idsItens)) {
             throw new \InvalidArgumentException('Nenhum item selecionado');
         }
 
-        $manutencaoItemModel = new ManutencaoItem();
-        $financeiroModel = new Financeiro();
-        $financeiroItemModel = new FinanceiroItem();
-
-        // Buscar itens selecionados
-        $itens = $manutencaoItemModel->buscarPorIds($idsItens);
-
-        if (empty($itens)) {
+        $itens = (new ManutencaoItem())->buscarPorIds($idsItens);
+        if (count($itens) !== count(array_unique($idsItens))) {
             throw new \InvalidArgumentException('Itens nao encontrados');
         }
 
-        // Verificar se algum item ja esta pago
-        foreach ($itens as $item) {
-            if ((int) $item['id_manutencao'] !== $id || $item['chave'] !== $manutencao['chave']) {
-                throw new \InvalidArgumentException('Um ou mais itens nao pertencem a esta manutencao');
-            }
-            if ($item['pago'] === 'S') {
-                throw new \InvalidArgumentException('Um ou mais itens ja estao pagos');
-            }
-        }
+        return $this->persistirFinanceiroManutencao($manutencao, $itens, $dadosFinanceiro, false);
+    }
 
-        $clientePaga = !empty($manutencao['id_cliente']);
-
-        // Calcular total
+    /**
+     * Grava parcelas e vinculos atomicamente. Os itens financeiros representam
+     * somente a primeira parcela, nunca o valor integral da ordem de servico.
+     */
+    private function persistirFinanceiroManutencao(array $manutencao, array $itens, array $dados, bool $completo): int
+    {
         $total = array_sum(array_column($itens, 'valor_total'));
-        $parcelasGeradas = $this->normalizarParcelasFinanceiras(
-            $dadosFinanceiro,
-            $total,
-            $clientePaga ? 'R' : 'D'
+        $tipo = !empty($manutencao['id_cliente']) ? 'R' : 'D';
+        $parcelas = $this->normalizarParcelasFinanceiras($dados, $total, $tipo);
+        $chave = $manutencao['chave'];
+        $id = (int) $manutencao['id'];
+        $idsItens = array_map('intval', array_column($itens, 'id'));
+
+        // O helper usa outra conexao: reservar antes de adquirir locks/FKs.
+        $sequencias = \App\Helpers\SequenciaHelper::proximasSequencias(
+            $chave, (int) $manutencao['id_matriz_filial'], 'financeiro', count($parcelas)
         );
-        $primeiraParcela = $parcelasGeradas[0] ?? null;
+        $mysqli = $this->getMysqli();
+        $mysqli->begin_transaction();
 
-        // Gerar sequencia
-        $sequencia = \App\Helpers\SequenciaHelper::proximaSequencia(
-            $manutencao['chave'],
-            $manutencao['id_matriz_filial'],
-            'financeiro'
-        );
+        try {
+            $atual = $this->qb->table('manutencoes')->where('id', '=', $id)->lockForUpdate()->first();
+            if (!$atual || $atual['chave'] !== $chave
+                || $atual['id_cliente'] != $manutencao['id_cliente']
+                || $atual['id_matriz_filial'] != $manutencao['id_matriz_filial']) {
+                throw new \InvalidArgumentException('Manutencao alterada. Recarregue a pagina');
+            }
 
-        // Cliente informado transforma a manutencao em conta a receber; sem cliente, segue como despesa da empresa.
-        $idFinanceiro = $financeiroModel->criar([
-            'chave' => $manutencao['chave'],
-            'sequencia' => $sequencia,
-            'tipo' => $clientePaga ? 'R' : 'D',
-            'id_matriz_filial' => $manutencao['id_matriz_filial'],
-            'id_cliente' => $clientePaga ? (int) $manutencao['id_cliente'] : null,
-            'id_fornecedor' => null, // Oficina nao e fornecedor
-            'id_oficina' => $manutencao['id_oficina'] ?? null,
-            'id_veiculo' => $manutencao['id_veiculo'] ?? null,
-            'id_forma_pagamento' => $primeiraParcela['id_forma_pagamento'] ?? ($dadosFinanceiro['id_forma_pagamento'] ?? null),
-            'id_conta' => $primeiraParcela['id_conta'] ?? ($dadosFinanceiro['id_conta'] ?? null),
-            'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
-            'descricao' => "Manutencao OS #{$manutencao['os']} - Fechamento Parcial",
-            'valor_subtotal' => $primeiraParcela['valor'] ?? $total,
-            'data_criada' => today(),
-            'data_venci' => $primeiraParcela['data_vencimento'] ?? ($dadosFinanceiro['data_vencimento'] ?? today()),
-            'pago' => $primeiraParcela['pago'] ?? ($dadosFinanceiro['pago'] ?? 'N'),
-            'parcela' => !empty($parcelasGeradas) ? 1 : 0,
-            'total_parcelas' => !empty($parcelasGeradas) ? count($parcelasGeradas) : 0,
-        ]);
+            $query = $this->qb->table('manutencoes_itens')->where('id_manutencao', '=', $id);
+            if (!$completo) {
+                $query->whereIn('id', $idsItens);
+            }
+            $itensAtuais = $query->orderBy('ordem')->orderBy('id')->lockForUpdate()->get();
+            if (count($itensAtuais) !== count($idsItens)) {
+                throw new \InvalidArgumentException('Itens alterados. Recarregue a pagina');
+            }
+            foreach ($itensAtuais as $item) {
+                if ($item['pago'] === 'S' || !empty($item['id_financeiro'])) {
+                    throw new \InvalidArgumentException('Um ou mais itens ja possuem lancamento financeiro');
+                }
+            }
+            // Revalidar a soma depois de bloquear os itens contra edicao concorrente.
+            $this->normalizarParcelasFinanceiras($dados, array_sum(array_column($itensAtuais, 'valor_total')), $tipo);
 
-        // Criar itens do financeiro
-        foreach ($itens as $item) {
-            $financeiroItemModel->criar([
+            $financeiroModel = new Financeiro();
+            $idOrigem = null;
+            $idsFinanceiros = [];
+            foreach ($parcelas as $index => $parcela) {
+                $idFinanceiro = $financeiroModel->criar([
+                    'chave' => $chave,
+                    'sequencia' => $sequencias[$index],
+                    'tipo' => $tipo,
+                    'id_matriz_filial' => $atual['id_matriz_filial'],
+                    'id_cliente' => $atual['id_cliente'],
+                    'id_oficina' => $atual['id_oficina'],
+                    'id_veiculo' => $atual['id_veiculo'],
+                    'id_conta' => $parcela['id_conta'],
+                    'id_forma_pagamento' => $parcela['id_forma_pagamento'],
+                    'id_plano_de_conta' => $parcela['id_plano_de_conta'],
+                    'descricao' => "Manutencao OS #{$atual['os']}" . ($completo ? '' : ' - Fechamento Parcial'),
+                    'valor_subtotal' => $parcela['valor'],
+                    'data_criada' => today(),
+                    'data_venci' => $parcela['data_vencimento'],
+                    // Baixar somente apos todos os valores e itens estarem definitivos.
+                    'pago' => 'N',
+                    'parcela' => $index + 1,
+                    'total_parcelas' => count($parcelas),
+                    'id_financeiro_origem' => $idOrigem,
+                ]);
+                $idsFinanceiros[] = $idFinanceiro;
+                if ($index === 0) {
+                    $idOrigem = $idFinanceiro;
+                    $this->criarItensPrimeiraParcela($idFinanceiro, $atual, $itensAtuais, $parcela);
+                }
+            }
+
+            (new ManutencaoItem())->marcarComosPagos($idsItens, $idOrigem);
+            if ($completo) {
+                $this->atualizar($id, ['id_financeiro_principal' => $idOrigem]);
+            }
+            foreach ($parcelas as $index => $parcela) {
+                if ($parcela['pago'] === 'S') {
+                    $financeiroModel->atualizar($idsFinanceiros[$index], ['pago' => 'S', 'data_pago' => today()], true);
+                }
+            }
+
+            $mysqli->commit();
+            return $idOrigem;
+        } catch (\Throwable $e) {
+            $mysqli->rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Rateio acumulado em centavos evita sobra negativa com muitos itens pequenos.
+     * Os itens da manutencao permanecem com seus valores integrais.
+     */
+    private function criarItensPrimeiraParcela(int $idFinanceiro, array $manutencao, array $itens, array $parcela): void
+    {
+        $totalCentavos = array_sum(array_map(static fn ($item) => (int) round((float) $item['valor_total'] * 100), $itens));
+        $parcelaCentavos = (int) round($parcela['valor'] * 100);
+        $acumulado = 0;
+        $distribuido = 0;
+        $financeiroItem = new FinanceiroItem();
+
+        foreach ($itens as $index => $item) {
+            $acumulado += (int) round((float) $item['valor_total'] * 100);
+            $alvo = (int) round($parcelaCentavos * ($acumulado / $totalCentavos));
+            $financeiroItem->criar([
                 'chave' => $manutencao['chave'],
                 'id_financeiro' => $idFinanceiro,
-                'id_veiculo' => $manutencao['id_veiculo'] ?? null,
-                'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
+                'id_veiculo' => $manutencao['id_veiculo'],
+                'id_plano_de_conta' => $parcela['id_plano_de_conta'],
                 'descricao' => $item['descricao'],
-                'valor' => $item['valor_total']
+                'ordem' => $index + 1,
+                'valor' => ($alvo - $distribuido) / 100,
             ]);
+            $distribuido = $alvo;
         }
-
-        // Marcar itens como pagos
-        $manutencaoItemModel->marcarComosPagos($idsItens, $idFinanceiro);
-
-        if (!empty($parcelasGeradas)) {
-            $this->criarParcelasGeradas($idFinanceiro, $parcelasGeradas, $manutencao['chave']);
-        } elseif (!empty($dadosFinanceiro['parcelas']) && $dadosFinanceiro['parcelas'] > 1) {
-            $this->criarParcelas($idFinanceiro, $dadosFinanceiro, $total, $manutencao['chave']);
-        }
-
-        return $idFinanceiro;
     }
 
     /**
@@ -1014,134 +988,6 @@ class Manutencao extends Model
         }
 
         return $parcelas;
-    }
-
-    /**
-     * Cria as parcelas financeiras conforme a tabela editada pelo usuario.
-     */
-    private function criarParcelasGeradas(int $idFinanceiro, array $parcelas, string $chave): void
-    {
-        if (empty($parcelas)) {
-            return;
-        }
-
-        $financeiroModel = new Financeiro();
-        $financeiroPai = $financeiroModel->buscarPorId($idFinanceiro);
-
-        if (!$financeiroPai) {
-            throw new \InvalidArgumentException('Lancamento financeiro nao encontrado');
-        }
-
-        $totalParcelas = count($parcelas);
-        $primeiraParcela = $parcelas[0];
-
-        $financeiroModel->atualizar($idFinanceiro, [
-            'id_conta' => $primeiraParcela['id_conta'],
-            'id_forma_pagamento' => $primeiraParcela['id_forma_pagamento'],
-            'id_plano_de_conta' => $primeiraParcela['id_plano_de_conta'],
-            'data_venci' => $primeiraParcela['data_vencimento'],
-            'pago' => $primeiraParcela['pago'],
-            'data_pago' => $primeiraParcela['pago'] === 'S' ? today() : null,
-            'valor_subtotal' => $primeiraParcela['valor'],
-            'parcela' => 1,
-            'total_parcelas' => $totalParcelas,
-        ]);
-
-        for ($i = 1; $i < $totalParcelas; $i++) {
-            $parcela = $parcelas[$i];
-            $sequenciaParcela = \App\Helpers\SequenciaHelper::proximaSequencia(
-                $chave,
-                (int) $financeiroPai['id_matriz_filial'],
-                'financeiro'
-            );
-
-            $financeiroModel->criar([
-                'chave' => $chave,
-                'sequencia' => $sequenciaParcela,
-                'tipo' => $financeiroPai['tipo'],
-                'id_matriz_filial' => $financeiroPai['id_matriz_filial'],
-                'id_cliente' => $financeiroPai['id_cliente'] ?? null,
-                'id_fornecedor' => $financeiroPai['id_fornecedor'] ?? null,
-                'id_oficina' => $financeiroPai['id_oficina'] ?? null,
-                'id_veiculo' => $financeiroPai['id_veiculo'] ?? null,
-                'id_forma_pagamento' => $parcela['id_forma_pagamento'],
-                'id_plano_de_conta' => $parcela['id_plano_de_conta'],
-                'id_conta' => $parcela['id_conta'],
-                'descricao' => $financeiroPai['descricao'],
-                'valor_subtotal' => $parcela['valor'],
-                'data_criada' => today(),
-                'data_venci' => $parcela['data_vencimento'],
-                'data_pago' => $parcela['pago'] === 'S' ? today() : null,
-                'pago' => $parcela['pago'],
-                'parcela' => $i + 1,
-                'total_parcelas' => $totalParcelas,
-                'id_financeiro_origem' => $idFinanceiro,
-            ]);
-        }
-    }
-
-    /**
-     * Cria parcelas do lancamento financeiro
-     */
-    private function criarParcelas(int $idFinanceiro, array $dados, float $total, string $chave): void
-    {
-        $financeiroModel = new Financeiro();
-
-        $numParcelas = (int) $dados['parcelas'];
-        $intervaloDias = (int) ($dados['intervalo_dias'] ?? 30);
-        $dataBase = $dados['data_vencimento'] ?? today();
-        $pago = ($dados['pago'] ?? 'N') === 'S' ? 'S' : 'N';
-
-        // Atualizar primeira parcela
-        $valorParcela = round($total / $numParcelas, 2);
-        $financeiroModel->atualizar($idFinanceiro, [
-            'parcela' => 1,
-            'total_parcelas' => $numParcelas,
-            'valor_subtotal' => $valorParcela
-        ]);
-
-        // Criar demais parcelas
-        $financeiroPai = $financeiroModel->buscarPorId($idFinanceiro);
-
-        for ($i = 2; $i <= $numParcelas; $i++) {
-            $dataVenci = \App\Helpers\DateHelper::addDaysForDatabase($intervaloDias * ($i - 1), $dataBase);
-
-            // Ultima parcela ajusta diferenca de arredondamento
-            $valorParcelaAtual = $valorParcela;
-            if ($i === $numParcelas) {
-                $valorJaPago = $valorParcela * ($numParcelas - 1);
-                $valorParcelaAtual = round($total - $valorJaPago, 2);
-            }
-
-            // Gerar sequencia para cada parcela
-            $sequenciaParcela = \App\Helpers\SequenciaHelper::proximaSequencia(
-                $chave,
-                $financeiroPai['id_matriz_filial'],
-                'financeiro'
-            );
-
-            $financeiroModel->criar([
-                'chave' => $chave,
-                'sequencia' => $sequenciaParcela,
-                'tipo' => $financeiroPai['tipo'],
-                'id_matriz_filial' => $financeiroPai['id_matriz_filial'],
-                'id_cliente' => $financeiroPai['id_cliente'] ?? null,
-                'id_fornecedor' => $financeiroPai['id_fornecedor'],
-                'id_oficina' => $financeiroPai['id_oficina'] ?? null,
-                'id_veiculo' => $financeiroPai['id_veiculo'] ?? null,
-                'id_forma_pagamento' => $financeiroPai['id_forma_pagamento'],
-                'id_conta' => $financeiroPai['id_conta'],
-                'descricao' => $financeiroPai['descricao'],
-                'valor_subtotal' => $valorParcelaAtual,
-                'data_criada' => today(),
-                'data_venci' => $dataVenci,
-                'pago' => $pago,
-                'data_pago' => $pago === 'S' ? today() : null,
-                'parcela' => $i,
-                'total_parcelas' => $numParcelas,
-                'id_financeiro_origem' => $idFinanceiro
-            ]);
-        }
     }
 
     // ===== METODOS PARA SELECTS =====
