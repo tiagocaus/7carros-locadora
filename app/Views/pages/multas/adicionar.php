@@ -169,6 +169,9 @@
                                     <i class="fas fa-file-pdf text-4xl mb-2"></i>
                                     <span id="fotoPreviewPdfName" class="text-sm font-medium text-slate-700"></span>
                                 </div>
+                                <a id="btnBaixarFoto" download class="hidden mt-2 mr-4 inline-block text-blue-500 text-sm hover:text-blue-700">
+                                    <i class="fas fa-download mr-1"></i><?= t('common.buttons.download') ?>
+                                </a>
                                 <button type="button" id="btnRemoverFoto" class="mt-2 text-red-500 text-sm hover:text-red-700">
                                     <i class="fas fa-trash mr-1"></i><?= t('common.buttons.delete') ?>
                                 </button>
@@ -627,6 +630,11 @@
             const previewImg = document.getElementById('fotoPreviewImg');
             const previewPdf = document.getElementById('fotoPreviewPdf');
             const previewPdfName = document.getElementById('fotoPreviewPdfName');
+            const btnBaixar = document.getElementById('btnBaixarFoto');
+
+            btnBaixar.href = src;
+            btnBaixar.download = filename || '';
+            btnBaixar.classList.remove('hidden');
 
             if (isPdf) {
                 previewImg.src = '';
@@ -652,6 +660,10 @@
             previewImg.classList.remove('hidden');
             document.getElementById('fotoPreviewPdf').classList.add('hidden');
             document.getElementById('fotoPreviewPdfName').textContent = '';
+            const btnBaixar = document.getElementById('btnBaixarFoto');
+            btnBaixar.removeAttribute('href');
+            btnBaixar.download = '';
+            btnBaixar.classList.add('hidden');
             preview.classList.add('hidden');
             placeholder.classList.remove('hidden');
             input.value = '';
@@ -664,10 +676,16 @@
             const previewImg = document.getElementById('fotoPreviewImg');
             const placeholder = document.getElementById('fotoPlaceholder');
             const btnRemover = document.getElementById('btnRemoverFoto');
+            const btnBaixar = document.getElementById('btnBaixarFoto');
 
             area.addEventListener('click', function(e) {
                 if (e.target === btnRemover || btnRemover.contains(e.target)) return;
+                if (e.target === btnBaixar || btnBaixar.contains(e.target)) return;
                 input.click();
+            });
+
+            btnBaixar.addEventListener('click', function(e) {
+                e.stopPropagation();
             });
 
             input.addEventListener('change', function(e) {
