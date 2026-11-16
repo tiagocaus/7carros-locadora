@@ -217,6 +217,26 @@ misturar esses dados no cadastro principal da locacao.
 | created_at | TIMESTAMP | Data de criacao |
 | updated_at | DATETIME | Data de atualizacao |
 
+### Prazo de devolucao da caucao e notificacoes
+
+O prazo de devolucao da caucao e contado em dias corridos a partir do fechamento
+efetivo da locacao (`status = F`), usando `data_chegada`. Prazo zero ou vazio
+equivale a devolucao no dia do fechamento. Reservas e locacoes abertas nao
+iniciam o prazo, mesmo com retorno previsto passado ou `data_chegada` preenchida.
+
+`CaucaoDeposito` retorna previsao vazia para origens nao fechadas ou sem data de
+fechamento valida, sem fallback para retorno previsto, saida ou criacao. Essas
+caucoes continuam consultaveis no relatorio, sem classificacao de vencida/proxima.
+
+Em Todas as notificacoes (categoria Caucoes e categoria Todas) e nos contadores,
+exibir apenas caucoes ativas, sem `data_devolucao`, com previsao menor ou igual
+ao dia atual da empresa. Nao antecipar avisos em sete dias. O filtro Proximas do
+relatorio preserva a janela de hoje ate sete dias, apenas apos o fechamento.
+Comparacoes usam `DateHelper` e parametros SQL, nao `CURDATE()`.
+
+Regressao local, sem alterar dados reais nem enviar mensagens:
+`php tests/test_caucao_notificacoes.php`.
+
 ### Tabela `locacoes_bloqueios`
 
 Rastreia authorization holds (pre-autorizacao) no cartao de credito do cliente.

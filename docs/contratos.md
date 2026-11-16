@@ -384,6 +384,27 @@ Exemplos para contrato mensal `KMC` com `km_franquia = 3.000`:
 - O CRON de autorrenovacao deve descobrir tenants candidatos sem filtro por data dependente de timezone; depois deve setar o contexto do tenant, calcular `today()` e aplicar `data_renovacao <= hoje` com parametro SQL.
 - Se for necessario corrigir historico em que `data_ini`/`data_fim` foram deslocadas por autorenovacao, use `scripts/corrigir-datas-contratos-autorenovacao.php` primeiro em `--dry-run` e aplique apenas apos conferir os candidatos.
 
+## Prazo de devolucao da caucao e notificacoes
+
+O prazo de devolucao da caucao e contado em dias corridos a partir do fechamento
+efetivo do contrato (`status = F`), usando `data_fim`, atualizada pelo encerramento
+final. Devolucao parcial de veiculos nao inicia esse prazo enquanto o contrato
+permanecer ativo. Prazo zero ou vazio equivale a devolucao no dia do fechamento.
+
+`CaucaoDeposito` calcula a previsao somente para contratos fechados com data
+valida. Contratos ativos continuam consultaveis no relatorio de caucoes, com
+previsao vazia e sem classificacao de vencida/proxima. Nao usar data de inicio,
+criacao ou termino previsto como substituto de um fechamento ausente.
+
+Em Todas as notificacoes (categoria Caucoes e categoria Todas) e nos contadores,
+exibir apenas caucoes ativas, sem `data_devolucao`, cuja previsao seja menor ou
+igual ao dia atual da empresa. Nao antecipar avisos em sete dias. O filtro
+Proximas do relatorio continua mostrando de hoje ate sete dias, apenas apos o
+fechamento. Comparacoes usam `DateHelper` e parametros SQL, nao `CURDATE()`.
+
+Regressao local, sem alterar dados reais nem enviar mensagens:
+`php tests/test_caucao_notificacoes.php`.
+
 ## Auditoria
 
 O sistema usa o trait `Auditable` para registrar automaticamente:

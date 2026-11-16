@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Core\Auth;
+use App\Helpers\DateHelper;
 
 class CaucaoDeposito extends Model
 {
@@ -33,7 +34,9 @@ class CaucaoDeposito extends Model
         $perPage = max(1, min(100, (int) ($filters['perPage'] ?? 25)));
         $offset = ($page - 1) * $perPage;
 
-        [$where, $params, $types] = $this->buildWhere($filters);
+        $hoje = DateHelper::todayForDatabase();
+        $limite = DateHelper::addDaysForDatabase(7, $hoje);
+        [$where, $params, $types] = $this->buildWhere($filters, $hoje);
         $baseSql = $this->baseUnionSql();
 
         $countSql = "SELECT COUNT(*) AS total FROM ({$baseSql}) caucoes WHERE {$where}";
@@ -45,12 +48,12 @@ class CaucaoDeposito extends Model
                 COALESCE(SUM(valor), 0) AS valor_total,
                 COALESCE(SUM(CASE WHEN status = 'ativa' THEN 1 ELSE 0 END), 0) AS ativas,
                 COALESCE(SUM(CASE WHEN status = 'devolvida' THEN 1 ELSE 0 END), 0) AS devolvidas,
-                COALESCE(SUM(CASE WHEN status = 'ativa' AND data_prevista_devolucao < CURDATE() THEN 1 ELSE 0 END), 0) AS vencidas,
-                COALESCE(SUM(CASE WHEN status = 'ativa' AND data_prevista_devolucao BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END), 0) AS proximas
+                COALESCE(SUM(CASE WHEN status = 'ativa' AND data_devolucao IS NULL AND data_prevista_devolucao < ? THEN 1 ELSE 0 END), 0) AS vencidas,
+                COALESCE(SUM(CASE WHEN status = 'ativa' AND data_devolucao IS NULL AND data_prevista_devolucao BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) AS proximas
             FROM ({$baseSql}) caucoes
             WHERE {$where}
         ";
-        $totals = $this->fetchOne($totalsSql, $types, $params) ?: $this->emptyTotals();
+        $totals = $this->fetchOne($totalsSql, 'sss' . $types, array_merge([$hoje, $hoje, $limite], $params)) ?: $this->emptyTotals();
 
         $detailsSql = "
             SELECT *
@@ -58,8 +61,8 @@ class CaucaoDeposito extends Model
             WHERE {$where}
             ORDER BY
                 CASE
-                    WHEN status = 'ativa' AND data_prevista_devolucao < CURDATE() THEN 0
-                    WHEN status = 'ativa' AND data_prevista_devolucao <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1
+                    WHEN status = 'ativa' AND data_devolucao IS NULL AND data_prevista_devolucao < ? THEN 0
+                    WHEN status = 'ativa' AND data_devolucao IS NULL AND data_prevista_devolucao <= ? THEN 1
                     WHEN status = 'ativa' THEN 2
                     ELSE 3
                 END,
@@ -67,8 +70,8 @@ class CaucaoDeposito extends Model
                 id DESC
             LIMIT ? OFFSET ?
         ";
-        $detailsParams = array_merge($params, [$perPage, $offset]);
-        $detailsTypes = $types . 'ii';
+        $detailsParams = array_merge($params, [$hoje, $limite, $perPage, $offset]);
+        $detailsTypes = $types . 'ssii';
 
         return [
             'totals' => [
@@ -97,7 +100,7 @@ class CaucaoDeposito extends Model
         return (int) ($this->fetchOne($sql, $types, $params)['total'] ?? 0);
     }
 
-    private function buildWhere(array $filters): array
+    private function buildWhere(array $filters, ?string $hoje = null): array
     {
         $where = ['chave = ?'];
         $params = [Auth::chave()];
@@ -111,12 +114,20 @@ class CaucaoDeposito extends Model
 
         if (!empty($filters['status'])) {
             $status = (string) $filters['status'];
-            if ($status === 'notificacao') {
-                $where[] = "status = 'ativa' AND data_prevista_devolucao <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)";
-            } elseif ($status === 'vencida') {
-                $where[] = "status = 'ativa' AND data_prevista_devolucao < CURDATE()";
-            } elseif ($status === 'proxima') {
-                $where[] = "status = 'ativa' AND data_prevista_devolucao BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)";
+            if (in_array($status, ['notificacao', 'vencida', 'proxima'], true)) {
+                $hoje ??= DateHelper::todayForDatabase();
+                $where[] = "status = 'ativa' AND data_devolucao IS NULL AND status_origem = 'F'";
+                if ($status === 'proxima') {
+                    $where[] = 'data_prevista_devolucao BETWEEN ? AND ?';
+                    $params[] = $hoje;
+                    $params[] = DateHelper::addDaysForDatabase(7, $hoje);
+                    $types .= 'ss';
+                } else {
+                    // Notifica no vencimento e mantem o aviso enquanto nao houver devolucao.
+                    $where[] = 'data_prevista_devolucao ' . ($status === 'notificacao' ? '<=' : '<') . ' ?';
+                    $params[] = $hoje;
+                    $types .= 's';
+                }
             } elseif (in_array($status, ['ativa', 'devolvida', 'cancelada'], true)) {
                 $where[] = 'status = ?';
                 $params[] = $status;
@@ -182,7 +193,9 @@ class CaucaoDeposito extends Model
                 l.id_matriz_filial_devolucao AS id_filial_devolucao,
                 COALESCE(mf.nome_fantasia, mf.razao_social) AS filial_nome,
                 DATE(COALESCE(l.data_chegada, l.data_prevista, l.data_saida, lc.created_at)) AS data_base,
-                DATE_ADD(DATE(COALESCE(l.data_chegada, l.data_prevista, l.data_saida, lc.created_at)), INTERVAL COALESCE(lc.prazo_devolucao, 0) DAY) AS data_prevista_devolucao,
+                CASE WHEN l.status = 'F' AND l.data_chegada >= '1000-01-01'
+                    THEN DATE_ADD(DATE(l.data_chegada), INTERVAL COALESCE(lc.prazo_devolucao, 0) DAY)
+                END AS data_prevista_devolucao,
                 lc.data_devolucao,
                 lc.valor,
                 lc.status,
@@ -217,7 +230,9 @@ class CaucaoDeposito extends Model
                 NULL AS id_filial_devolucao,
                 COALESCE(mf.nome_fantasia, mf.razao_social) AS filial_nome,
                 DATE(COALESCE(c.data_fim, c.data_ini, cc.created_at)) AS data_base,
-                DATE_ADD(DATE(COALESCE(c.data_fim, c.data_ini, cc.created_at)), INTERVAL COALESCE(cc.prazo_devolucao, 0) DAY) AS data_prevista_devolucao,
+                CASE WHEN c.status = 'F' AND c.data_fim >= '1000-01-01'
+                    THEN DATE_ADD(DATE(c.data_fim), INTERVAL COALESCE(cc.prazo_devolucao, 0) DAY)
+                END AS data_prevista_devolucao,
                 cc.data_devolucao,
                 cc.valor,
                 cc.status,
@@ -258,16 +273,16 @@ class CaucaoDeposito extends Model
             return (string) ($row['status'] ?? '');
         }
 
-        $prevista = strtotime((string) ($row['data_prevista_devolucao'] ?? ''));
-        if ($prevista === false) {
+        $prevista = $row['data_prevista_devolucao'] ?? null;
+        if (empty($prevista) || !empty($row['data_devolucao']) || ($row['status_origem'] ?? '') !== 'F') {
             return 'ativa';
         }
 
-        $hoje = strtotime(today());
+        $hoje = DateHelper::todayForDatabase();
         if ($prevista < $hoje) {
             return 'vencida';
         }
-        if ($prevista <= strtotime('+7 days', $hoje)) {
+        if ($prevista <= DateHelper::addDaysForDatabase(7, $hoje)) {
             return 'proxima';
         }
 
