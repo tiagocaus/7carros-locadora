@@ -215,6 +215,7 @@ $router->post('/oauth/mcp/authorize', [\App\Controllers\Mcp\WebController::class
 $router->get('/pages/integracoes/mcp', [\App\Controllers\Mcp\WebController::class, 'index'], ['auth']);
 $router->get('/integracoes/mcp/pacotes/{aplicativo}', [\App\Controllers\Mcp\WebController::class, 'download'], ['auth']);
 $router->post('/integracoes/mcp/revogar', [\App\Controllers\Mcp\WebController::class, 'revoke'], ['auth', 'csrf', 'rate_limit']);
+$router->post('/integracoes/mcp/liberar', [\App\Controllers\Mcp\WebController::class, 'release'], ['auth', 'csrf', 'rate_limit']);
 
 $router->group(['middleware' => ['auth', 'web_system_access']], function ($router) {
     // Dashboard

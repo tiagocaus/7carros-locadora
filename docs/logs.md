@@ -1206,3 +1206,16 @@ conferência visual; não é registrada como teste móvel aprovado. A emulação
 desativada, DevTools fechado e o dashboard autenticado voltou a ser observado.
 O comportamento responsivo foi conferido no CSS existente (largura total até
 768 px); não houve alteração de autenticação nem de estilos globais nesta entrega.
+
+
+## Eventos de segurança MCP — 16/11/2026
+
+`mcp_audit` também recebe `security_infraction`, `security_suspended`,
+`security_released` e `security_quota`. São eventos técnicos exibidos na
+administração IA/MCP, não na aba de consultas de Logs do Sistema. Funcionários
+veem seus eventos; `mcp.administrar` permite ver os do tenant. A página apresenta
+os últimos 50 registros visíveis, com data, funcionário/ator, motivo e request ID.
+Liberação registra o administrador em `employee_id` e o funcionário afetado em
+`request_payload.employee_id`. Eventos não duplicam perguntas, respostas pessoais,
+SQL ou credenciais. Acesso e retenção do histórico de consultas permanecem iguais.
+Veja as regras de bloqueio/cotas e implantação em [mcp.md](mcp.md).

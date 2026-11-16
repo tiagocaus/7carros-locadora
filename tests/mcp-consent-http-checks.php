@@ -43,6 +43,38 @@ try {
         usleep(50000);
     }
     checkMcp($ready, 'Servidor HTTP local iniciou.');
+    $securityHttp = new \App\Models\Mcp\SecurityState();
+    $connectionHttp = $qb->table('mcp_connections')->withChave($a)->where('employee_id', '=', $employees[$a])->orderByDesc('id')->first();
+    $securityActor = new \App\Services\Mcp\Context($a, $employees[$a], $connectionHttp['connection_id'], $connectionHttp['client_id'], [], [], false, []);
+    $securityHttp->deliver($securityActor, 1, 0, bin2hex(random_bytes(16)), static fn () => null);
+    $qb->table('mcp_security_state')->withChave($a)->where('employee_id', '=', $employees[$a])->update(['suspended_until' => time() + 1800]);
+    [$status, $securityPage] = $http('/pages/integracoes/mcp');
+    checkMcp($status === 200 && str_contains($securityPage, 'Suspensa por infrações repetidas')
+        && str_contains($securityPage, 'Eventos recentes de segurança') && str_contains($securityPage, 'Encerrar suspensão do usuário'),
+        'Administração renderiza suspensão, cotas, eventos e liberação.');
+    preg_match('/name="_token" value="([^"]+)"/', $securityPage, $securityCsrf);
+    checkMcp(isset($securityCsrf[1]), 'Liberação oferece CSRF.');
+    [$status] = $http('/integracoes/mcp/liberar', ['connection_id' => $connectionHttp['connection_id']]);
+    checkMcp($status === 403 && $securityHttp->status($a, $employees[$a])['suspended_until'] > time(), 'Liberação exige CSRF válido.');
+    $foreignHttp = $qb->table('mcp_connections')->withChave($b)->first();
+    if ($foreignHttp) {
+        [$status] = $http('/integracoes/mcp/liberar', ['connection_id' => $foreignHttp['connection_id'], '_token' => $securityCsrf[1]]);
+        checkMcp($status === 404, 'Administração não libera conexão de outro tenant.');
+    }
+    $adminPermission = $qb->table('permissions')->withoutChave()->where('`key`', '=', 'mcp.administrar')->first();
+    $qb->table('funcionarios_role_permissions')->withoutChave()->where('role_id', '=', $roles[0])->where('permission_id', '=', $adminPermission['id'])->delete();
+    try {
+        [$status, $ownPage] = $http('/pages/integracoes/mcp');
+        checkMcp($status === 200 && !str_contains($ownPage, 'Encerrar suspensão do usuário'), 'Funcionário acompanha suspensão sem ação administrativa.');
+        [$status] = $http('/integracoes/mcp/liberar', ['connection_id' => $connectionHttp['connection_id'], '_token' => $securityCsrf[1]]);
+        checkMcp($status === 403, 'Liberação exige permissão administrativa atual.');
+    } finally {
+        $qb->table('funcionarios_role_permissions')->withoutChave()->insert(['role_id' => $roles[0], 'permission_id' => $adminPermission['id']]);
+    }
+    $consumedHttp = $securityHttp->status($a, $employees[$a])['day_records'];
+    [$status] = $http('/integracoes/mcp/liberar', ['connection_id' => $connectionHttp['connection_id'], '_token' => $securityCsrf[1]]);
+    checkMcp($status === 302 && $securityHttp->status($a, $employees[$a])['suspended_until'] === 0
+        && $securityHttp->status($a, $employees[$a])['day_records'] === $consumedHttp, 'Liberação HTTP preserva cotas.');
     [$status] = $http('/api/logs/mcp');
     checkMcp($status === 403, 'API da auditoria MCP exige logs.visualizar.');
     [$status] = $http('/api/logs/mcp/1');

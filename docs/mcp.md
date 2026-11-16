@@ -1132,3 +1132,112 @@ A consulta final externa, já com o piloto desativado e modo global ativo, passo
 referência `c4297a55d249d778e590d573b7e4aab7`; o ChatGPT respondeu 19 veículos.
 O cadastro de produção foi conferido por consulta somente leitura e retornou
 `enabled=1`, `homologated=1`.
+
+
+## Proteção contra abuso e cotas — 16/11/2026
+
+A migration `00443_add_mcp_security_state.php` acrescenta uma linha por
+`chave`/funcionário em `mcp_security_state`. Não altera históricos nem concede
+permissões. Código dependente só pode ser publicado após a migration de produção.
+
+`SecurityToolHandler` é registrado com `Builder::addRequestHandler` e delega a
+execução normal ao `CallToolHandler` do SDK, usando o mesmo Registry. Inspeciona
+requisições tipadas `tools/call` antes da validação de argumentos e da execução.
+Ferramenta inexistente, operação sem consentimento/permissão (inclusive documentos
+ou contatos) e propriedades adicionais no argumento/filtro contam uma infração
+por chamada. Erros comuns de tipo, data, registro inacessível, autenticação,
+protocolo, infraestrutura e cota não contam. Uma string SQL no campo de busca
+continua sendo dado parametrizado, não uma operação de SQL livre.
+
+Três infrações em janela móvel de cinco minutos suspendem o acesso MCP do
+funcionário naquele tenant por 30 minutos, somando todos os aplicativos/conexões.
+Tentativas durante a pausa não a estendem. O login web e a revogação continuam
+disponíveis. A pausa impede consultas, novo consentimento e troca de código ou
+refresh. Credenciais não são consumidas durante a pausa; após liberação/expiração,
+continuam sujeitas à validade, revogação e rotação OAuth normais. Reutilização de
+refresh já consumido continua revogando a família.
+
+Cotas usam hora e dia fixos em UTC, compartilhadas por funcionário/tenant:
+
+| Variável | Padrão |
+|---|---:|
+| `MCP_SECURITY_INFRACTIONS` | 3 |
+| `MCP_SECURITY_HOUR_RECORDS` | 3000 |
+| `MCP_SECURITY_DAY_RECORDS` | 10000 |
+| `MCP_SECURITY_HOUR_SENSITIVE` | 100 |
+| `MCP_SECURITY_DAY_SENSITIVE` | 300 |
+
+Configurações devem ser inteiros positivos. Valores inválidos impedem acesso.
+Cada registro entregue conta, inclusive repetições; os dados duplicados em
+`content`/`structuredContent` contam somente uma vez. Documento e contato juntos
+contam um cliente sensível por chamada e também um registro geral. Detalhe nulo
+conta zero. Resumo financeiro conta somente linhas agregadas. A resposta que
+ultrapassaria qualquer cota é bloqueada inteira, sem débito nem infração.
+
+`SecurityState` usa Models/Singleton e QueryBuilder com `withChave` depois de
+`table`. Escritas bloqueiam o funcionário e seu estado em ordem consistente,
+inclusive a criação inicial. A consulta de negócio ocorre antes da transação;
+débito e auditoria de sucesso são atômicos. Falha no controle ou na auditoria
+impede entrega. Falha posterior de rede mantém o consumo conservador: não há
+comprovação de recebimento pelo assistente. O Gateway revalida a autorização e a
+suspensão antes de entregar, além das validações dentro da ferramenta.
+
+Negação de operação retorna `isError` com código `mcp_operation_denied`; cota
+retorna `mcp_quota_exceeded` e `retry_after_seconds`; suspensão retorna HTTP 403
+com `mcp_suspended`, `retry_after_seconds` e `Retry-After`. OAuth preserva seus
+erros padronizados. Schemas de sucesso e limites anteriores permanecem iguais.
+
+Em Sistema → Integrações → IA/MCP, cada funcionário acompanha suas cotas e
+suspensão. `mcp.administrar` permite acompanhar o tenant e encerrar a pausa por
+`POST /integracoes/mcp/liberar` com CSRF e conexão pertencente ao tenant. Liberação
+limpa as infrações, preserva cotas e não reativa conexões revogadas. Os últimos
+50 eventos visíveis são exibidos na mesma página. Histórico de consultas em
+Logs do Sistema permanece com as regras existentes.
+
+Eventos `security_infraction`, `security_suspended`, `security_released` e
+`security_quota` usam `mcp_audit` sem duplicar conteúdo pessoal, SQL ou credenciais.
+A liberação registra o administrador como ator e o ID do funcionário afetado no
+payload técnico. Não há envio de mensagens, classificador de intenção, nova IA
+ou bloqueio baseado no texto de `pergunta_usuario`/registros. Esses textos são
+conteúdo não confiável; esta proteção não controla o uso dos dados no assistente.
+
+### Implantação desta evolução
+
+1. Validar localmente schema, migration, suites MCP/CIMD/headers e interface.
+2. Publicar somente a migration e executar no terminal do servidor, na raiz:
+   `php migrate.php --env=production`. O executor aplica todas as pendências;
+   conferir o conjunto antes da execução. Usar `DB_HOST=localhost` do servidor.
+3. Após confirmar a migration, publicar arquivos dependentes via FTP com
+   `.uploading`/rename e hashes; regenerar o autoload otimizado no servidor com
+   `composer dump-autoload --no-dev --optimize --no-interaction`.
+4. Homologar consulta, terceira infração, pausa, liberação e OAuth nos aplicativos
+   externos; testes locais não comprovam homologação externa. Acompanhar cotas e
+   suspensões nos primeiros sete dias. `MCP_ENABLED=false` interrompe o MCP se
+   necessário, preservando estado e auditoria. Não retornar código antigo que
+   ignore a suspensão como procedimento de recuperação de segurança.
+
+Validação local: 389 verificações MCP aprovadas, incluindo cotas gerais e
+sensíveis, conexões distintas, seis workers concorrentes, suspensão durante
+leitura, retomada OAuth, erros comuns sem infração e administração HTTP/CSRF.
+Também aprovados: 83 verificações CIMD/piloto, 14 cenários CGI/SAPI, regressão
+WHMCS (descoberta/remoção das tabelas tenant), regressão JavaScript da aba de
+histórico e lint dos 18 arquivos PHP do escopo. Autoload local regenerado.
+
+Publicação: migration enviada por FTP e SHA-256 conferido; execução em produção
+confirmada pelo responsável. Os 12 arquivos PHP dependentes foram ativados após
+essa confirmação, com backups locais, comparação da base remota e SHA-256 em
+todos os arquivos. O autoload remoto permite fallback PSR-4; a regeneração do
+mapa otimizado após a publicação foi confirmada pelo responsável.
+
+Uma consulta real de um veículo pelo plugin 7Carros foi aprovada após ativação.
+Diagnóstico read-only em produção confirmou as 13 colunas do estado, o registro
+da migration no executor, a auditoria da consulta e o débito da cota. Não foram
+expostos dados pessoais no diagnóstico nem provocadas infrações no tenant real.
+Essa evidência confirma consulta/contabilização externa. As regras de suspensão
+e retomada passaram na suíte local pelo mesmo transporte; o ciclo completo não
+foi homologado de ponta a ponta em ChatGPT e Claude externos nesta entrega.
+
+A documentação remota `docs/security.md` possui uma versão anterior de trechos
+sobre sessão web, fora deste escopo. Ela foi preservada; as novas regras MCP
+estão nesta página e os eventos em `docs/logs.md`, sem publicar alterações de
+outros módulos junto desta entrega.

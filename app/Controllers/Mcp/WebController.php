@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace App\Controllers\Mcp;
 
 use App\Core\{Auth, Request, Response};
-use App\Models\Mcp\Store;
+use App\Models\Mcp\{Store, SecurityState};
 use App\Services\Mcp\{AuthorizationService, Catalog, Config};
 use App\Views\Template;
 
@@ -117,8 +117,13 @@ final class WebController
             Response::html('Acesso não autorizado.', 403); return;
         }
         $page = max(1, min(1000000, (int) $request->query('pagina', 1)));
-        $rows = $store->listConnections($chave, $id, in_array('mcp.administrar', $permissions, true), $page);
-        Response::html(Template::render('pages.mcp.index', ['connections' => $rows, 'page' => $page, 'endpoint' => Config::resource(), 'scopeLabels' => self::labels(), 'packages' => self::PACKAGES]));
+        $admin = in_array('mcp.administrar', $permissions, true);
+        $rows = $store->listConnections($chave, $id, $admin, $page);
+        $security = new SecurityState();
+        foreach ($rows as &$row) $row['security'] = $security->status($chave, (int) $row['employee_id']);
+        unset($row);
+        $securityEvents = $security->events($chave, $id, $admin);
+        Response::html(Template::render('pages.mcp.index', ['connections' => $rows, 'page' => $page, 'endpoint' => Config::resource(), 'scopeLabels' => self::labels(), 'packages' => self::PACKAGES, 'securityEvents' => $securityEvents, 'securityAdmin' => $admin]));
     }
 
     public function download(Request $request, string $aplicativo): void
@@ -154,6 +159,22 @@ final class WebController
         // The subject identity is the connection owner, not a browser privilege bypass.
         $context = new \App\Services\Mcp\Context($chave, $id, $connectionId, $row['client_id'], [], [], false, []);
         $store->audit($context, 'revoke', 'success', bin2hex(random_bytes(16)));
+        Response::redirect('/pages/integracoes/mcp');
+    }
+
+    public function release(Request $request): void
+    {
+        $store = new Store(); $tenant = (string) Auth::chave(); $actorId = (int) Auth::id();
+        $user = $store->employee($tenant, $actorId);
+        if (!$user || $user['status'] !== 'A' || !Config::enabled($tenant)
+            || !in_array('mcp.administrar', $store->permissions($tenant, $actorId), true)) {
+            Response::html('Acesso não autorizado.', 403); return;
+        }
+        $connection = $store->scopedConnection($tenant, (string) $request->input('connection_id', ''));
+        if (!$connection) { Response::html('Conexão não encontrada.', 404); return; }
+        $actor = new \App\Services\Mcp\Context($tenant, $actorId, $connection['connection_id'],
+            $connection['client_id'], [], [], false, []);
+        (new SecurityState())->release($actor, (int) $connection['employee_id'], bin2hex(random_bytes(16)));
         Response::redirect('/pages/integracoes/mcp');
     }
 

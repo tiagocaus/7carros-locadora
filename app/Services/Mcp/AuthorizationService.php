@@ -26,6 +26,7 @@ final class AuthorizationService
         if (!$user || $user['status'] !== 'A' || !in_array('mcp.conectar', $permissions, true)) {
             throw new \RuntimeException('Seu usuário não pode conectar aplicativos de IA.', 403);
         }
+        (new \App\Models\Mcp\SecurityState())->assertAllowed($chave, $employeeId);
         $client = $this->store->client($query['client_id'] ?? '');
         if (!$client || !ClientPolicy::permitsIdentity($client, $chave, $employeeId)) {
             throw new \RuntimeException('Aplicativo ou funcionário fora da liberação MCP.', 403);

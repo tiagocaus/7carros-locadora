@@ -12,7 +12,7 @@ use App\Services\Mcp\{AuthorizationService, Catalog, ClientRegistry, Config, Con
 use Nyholm\Psr7\ServerRequest;
 
 // A separate process holds the business query while another connection suspends its user.
-if (($argv[1] ?? '') === '--suspend-during-read') {
+if (in_array($argv[1] ?? '', ['--suspend-during-read', '--security-suspend-during-read'], true)) {
     $_ENV['APP_ENV'] = 'development';
     if (Database::env('DB_HOST') !== 'localhost' || !str_starts_with($argv[2] ?? '', 'mcp_test_a_')) exit(1);
     $lock = Model::sharedMysqli();
@@ -22,7 +22,12 @@ if (($argv[1] ?? '') === '--suspend-during-read') {
         usleep(700000);
         $writer = new mysqli(Database::env('DB_HOST'), Database::env('DB_USERNAME'), Database::env('DB_PASSWORD'),
             Database::env('DB_DATABASE'), (int) Database::env('DB_PORT', 3306));
+        if ($argv[1] === '--security-suspend-during-read') {
+            (new QueryBuilder($writer))->table('mcp_security_state')->withChave($argv[2])->where('employee_id', '=', (int) $argv[3])
+                ->update(['suspended_until' => time() + 1800]);
+        } else {
         (new QueryBuilder($writer))->table('funcionarios')->withChave($argv[2])->where('id', '=', (int) $argv[3])->update(['status' => 'S']);
+        }
         $lock->query('UNLOCK TABLES');
         $writer->close();
         exit(0);
@@ -51,7 +56,7 @@ unset($private, $key);
 foreach (['MCP_ENABLED' => 'true', 'MCP_ALL_TENANTS' => 'false', 'MCP_PILOT_TENANTS' => "$a,$b", 'MCP_ISSUER' => 'https://mcp.example.test',
     'MCP_PILOT_MODE' => 'false', 'MCP_PILOT_EMPLOYEE_IDS' => '', 'MCP_PILOT_CLIENT_IDS' => '',
     'MCP_PRIVATE_KEY' => 'file://' . $directory . '/private.pem', 'MCP_PUBLIC_KEY' => $directory . '/public.pem',
-    'MCP_ENCRYPTION_KEY' => bin2hex(random_bytes(32)), 'MCP_CONNECTION_RATE_LIMIT' => '1000', 'MCP_TENANT_RATE_LIMIT' => '5000'] as $k => $v) putenv("$k=$v");
+    'MCP_SECURITY_INFRACTIONS' => '1000', 'MCP_ENCRYPTION_KEY' => bin2hex(random_bytes(32)), 'MCP_CONNECTION_RATE_LIMIT' => '1000', 'MCP_TENANT_RATE_LIMIT' => '5000'] as $k => $v) putenv("$k=$v");
 function checkMcp(bool $condition, string $message): void {
     global $count;
     if (!$condition) throw new RuntimeException($message);
@@ -336,6 +341,7 @@ try {
     [$status, $data] = requestMcp('tools/call', ['name' => 'resumir_financeiro', 'arguments' => (object) []], $access);
     checkMcp(($data['result']['structuredContent']['dados'][0]['total'] ?? '') === '200.00', 'Parcelas somadas uma única vez: ' . json_encode($data));
     require __DIR__ . '/mcp-question-checks.php';
+    require __DIR__ . '/mcp-security-checks.php';
     require __DIR__ . '/mcp-claude-code-checks.php';
     foreach ([['name' => 'listar_clientes', 'arguments' => ['chave' => $b]],
         ['name' => 'listar_clientes', 'arguments' => ['filtros' => ['por_pagina' => 101]]],
@@ -497,7 +503,7 @@ try {
     echo "OK: $count verificações MCP (OAuth, protocolo, isolamento, filiais, ferramentas, suspensão, rotação e limites).\n";
 } finally {
     foreach ([$a, $b] as $tenant) {
-        foreach (['mcp_audit', 'mcp_credentials', 'mcp_connections', 'contatos_emails', 'contatos_telefones',
+        foreach (['mcp_security_state', 'mcp_audit', 'mcp_credentials', 'mcp_connections', 'contatos_emails', 'contatos_telefones',
             'financeiro', 'locacoes', 'contratos', 'clientes', 'veiculos', 'funcionarios_filiais', 'funcionarios', 'matrizes_filiais'] as $table) {
             $qb->table($table)->withChave($tenant)->delete();
         }

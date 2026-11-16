@@ -180,6 +180,7 @@ final class Store extends Model
         if (!in_array('mcp.conectar', $permissions, true)) {
             throw new \RuntimeException('Conexão MCP não autorizada.');
         }
+        (new SecurityState())->assertAllowed($c['chave'], (int) $c['employee_id']);
         $scopes = json_decode($c['scopes'], true, 32, JSON_THROW_ON_ERROR);
         if (!is_array($scopes) || !array_is_list($scopes)) throw new \RuntimeException('Consentimento inválido.');
         if ($tokenScopes !== null) $scopes = array_values(array_intersect($scopes, $tokenScopes));

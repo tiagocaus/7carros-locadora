@@ -84,6 +84,12 @@ final class Repository implements AccessTokenRepositoryInterface, AuthCodeReposi
         $row = $this->store->credentials($kind, $id, $kind !== 'access');
         if (!$row) return true;
         $this->attemptedConnection = $row['connection_id'];
+        // Check before League consumes/rotates a valid code or refresh token.
+        $owner = $this->store->connection($row['connection_id']);
+        if ($owner && $row['revoked_at'] === null) {
+            try { (new \App\Models\Mcp\SecurityState())->assertAllowed($owner['chave'], (int) $owner['employee_id']); }
+            catch (\App\Services\Mcp\SecurityException) { throw OAuthServerException::accessDenied('Acesso MCP temporariamente suspenso.'); }
+        }
         if ($row['revoked_at'] !== null) {
             if ($kind === 'refresh') {
                 // Survives invalid_grant: the token endpoint commits this revocation explicitly.

@@ -25,6 +25,17 @@ session_start();
 $_SESSION['authenticated'] = true;
 $_SESSION['user_id'] = $employee;
 $_SESSION['chave'] = $tenant;
+if ($path === '/pages/integracoes/mcp') {
+    (new \ReflectionProperty(\App\Core\Cache::class, 'enabled'))->setValue(null, false);
+    (new \App\Controllers\Mcp\WebController())->index(\App\Core\Request::capture()); return;
+}
+if ($path === '/integracoes/mcp/liberar') {
+    $request = \App\Core\Request::capture();
+    if ((new \App\Middleware\CsrfMiddleware())->handle($request)) {
+        (new \App\Controllers\Mcp\WebController())->release($request);
+    }
+    return;
+}
 if ($path === '/api/logs/mcp' || preg_match('~^/api/logs/mcp/([^/]+)$~', $path, $auditMatch)) {
     // Keep permission tests deterministic and independent of the optional local Redis extension.
     (new \ReflectionProperty(\App\Core\Cache::class, 'enabled'))->setValue(null, false);

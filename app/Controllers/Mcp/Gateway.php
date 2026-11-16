@@ -66,6 +66,8 @@ final class Gateway
             'revision' => preg_match('/^\d{4}-\d{2}-\d{2}$/D', $version) ? $version : ($version === '' ? 'absent' : 'invalid')]);
         try {
             $response = $this->handleRequest($request, $requestId);
+        } catch (\App\Services\Mcp\SecurityException $e) {
+            $response = self::json($e->payload(), 403)->withHeader('Retry-After', (string) $e->retryAfter);
         } catch (OAuthServerException $e) {
             self::trace($requestId, 'oauth_rejected', ['exception' => get_class($e)]);
             $response = self::json(['error' => $e->getErrorType()], $e->getHttpStatusCode());
@@ -179,6 +181,8 @@ final class Gateway
             if (!preg_match('/^Bearer ([A-Za-z0-9._~-]+)$/D', $header, $m)) throw new \RuntimeException();
             $reason = 'token_rejected';
             $context = (new TokenValidator($store))->validate($m[1]);
+        } catch (\App\Services\Mcp\SecurityException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             self::trace($requestId, 'authentication_rejected', ['status' => 401, 'reason' => $reason, 'exception' => get_class($e)]);
             return self::json(['error' => 'invalid_token'], 401)->withHeader('WWW-Authenticate',
@@ -196,6 +200,7 @@ final class Gateway
                 new DnsRebindingProtectionMiddleware([(string) parse_url(Config::issuer(), PHP_URL_HOST)], Config::origins())]));
         self::trace($requestId, 'transport_response', ['status' => $response->getStatusCode()]);
         try { $after = (new TokenValidator($store))->validate($m[1]); }
+        catch (\App\Services\Mcp\SecurityException $e) { throw $e; }
         catch (\Throwable) {
             $store->audit($context, 'request', 'blocked', $requestId);
             return self::json(['error' => 'access_denied'], 403);

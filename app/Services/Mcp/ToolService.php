@@ -3,7 +3,10 @@
 declare(strict_types=1);
 namespace App\Services\Mcp;
 
-use App\Models\Mcp\{ReadModel, Store};
+use App\Models\Mcp\{ReadModel, Store, SecurityState};
+use Mcp\Server\Capability\Registry;
+use Mcp\Server\Capability\Registry\ReferenceHandler;
+use Mcp\Server\Handler\Request\CallToolHandler;
 use Mcp\Schema\Content\TextContent;
 use Mcp\Schema\Result\CallToolResult;
 use Mcp\Schema\ToolAnnotations;
@@ -44,6 +47,9 @@ final class ToolService
             inputSchema: Catalog::inputSchema('lancamentos', summary: true), outputSchema: Catalog::outputSchema('lancamentos', summary: true));
         // The SDK negotiates initialize-based clients and per-request metadata clients.
         // No setSession(): each HTTP request receives its own authenticated context.
+        $registry = new Registry();
+        $builder->setRegistry($registry)->addRequestHandler(new SecurityToolHandler(
+            $this->context, $this->store, $this->requestId, new CallToolHandler($registry, new ReferenceHandler())));
         return $builder->build();
     }
 
@@ -91,11 +97,13 @@ final class ToolService
             $responsePayload = json_encode($response, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
             $result = new CallToolResult([new TextContent($responsePayload)], structuredContent: $response);
             $stage = 'audit';
-            $this->store->audit($current, $event, 'success', $this->requestId,
-                $id !== null ? (int) ($response['dados'] !== null) : count($response['dados']),
-                (int) ((microtime(true) - $this->started) * 1000), $requestPayload, $responsePayload);
+            $records = $id !== null ? (int) ($response['dados'] !== null) : count($response['dados']);
+            (new SecurityState())->deliver($current, $records, $category === 'clientes' && ($documents || $contacts) ? $records : 0,
+                $this->requestId, fn () => $this->store->audit($current, $event, 'success', $this->requestId, $records,
+                    (int) ((microtime(true) - $this->started) * 1000), $requestPayload, $responsePayload));
             return $result;
         } catch (\Throwable $e) {
+            if ($e instanceof SecurityException) $errorMessage = json_encode($e->payload(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
             // Fixed technical fields only: exception messages can contain SQL and private values.
             error_log('[MCP-TOOL] ' . json_encode(['request_id' => $this->requestId, 'tool' => $event,
                 'stage' => $stage, 'exception' => get_class($e), 'code' => (int) $e->getCode()], JSON_UNESCAPED_SLASHES));
