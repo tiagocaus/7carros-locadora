@@ -5,6 +5,10 @@
     # Define o diretório base
     RewriteBase /
 
+    # Preserva o bearer do MCP para PHP CGI/suPHP antes do redirect interno.
+    RewriteCond %{HTTP:Authorization} !^$
+    RewriteRule ^mcp$ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
     # Redireciona para HTTPS (descomente se necessário)
     # RewriteCond %{HTTPS} off
     # RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]

@@ -38,6 +38,13 @@
                     </div>
                 </div>
 
+                <?php if (class_exists(\App\Services\Mcp\Config::class) && \App\Services\Mcp\Config::enabled((string) \App\Core\Auth::chave())): ?>
+                <div class="main-nav-item">
+                    <a href="#" class="px-3 py-2 flex items-center">Integrações <i class="fas fa-chevron-down fa-xs ml-1.5"></i></a>
+                    <div class="submenu"><a href="#" onclick="openOrSwitchToTab('/pages/integracoes/mcp', 'IA/MCP', 'fas fa-robot'); return false;">IA/MCP</a></div>
+                </div>
+                <?php endif; ?>
+
                 <!-- Contrato/Locações -->
                 <div class="main-nav-item">
                     <a href="#" class="px-3 py-2 hover:bg-[#3578a0] flex items-center w-full">

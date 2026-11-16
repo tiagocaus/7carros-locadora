@@ -57,6 +57,10 @@ php migrate.php --rollback --env=production
 ```
 
 `--rollback` reverte **somente a última migration registrada**, por meio de `down()`.
+No MySQL, DDL como `DROP TABLE` encerra implicitamente a transação. O executor
+verifica se ainda há transação ativa antes de `commit()`/`rollBack()`, tanto na
+aplicação quanto na reversão; isso não torna o DDL transacional nem restaura
+tabelas automaticamente quando uma operação posterior falha.
 Não reverte um lote e não aceita um número de migration. A forma `rollback` sem
 `--` não ativa a reversão: o executor segue o fluxo de aplicar pendências. Antes
 de reverter, confira qual é a última migration e os efeitos do seu `down()`;

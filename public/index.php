@@ -24,6 +24,24 @@ use App\Core\Database;
 // Padroniza o relogio da aplicacao antes de sessoes, logs e regras de bloqueio.
 date_default_timezone_set(Database::env('APP_TIMEZONE', 'America/Sao_Paulo'));
 
+// MCP machine endpoints authenticate exclusively with OAuth, before browser cookies/session.
+$mcpPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+if (class_exists(\App\Controllers\Mcp\Gateway::class)
+    && in_array($mcpPath, \App\Controllers\Mcp\Gateway::PATHS, true)) {
+    if (!\App\Services\Mcp\Config::enabled()
+        || !class_exists(\Nyholm\Psr7\Factory\Psr17Factory::class)
+        || !class_exists(\Mcp\Server\Transport\StreamableHttpTransport::class)
+        || !class_exists(\League\OAuth2\Server\AuthorizationServer::class)) {
+        http_response_code(503);
+        header('Content-Type: application/json');
+        header('Cache-Control: no-store');
+        echo '{"error":"temporarily_unavailable"}';
+        exit;
+    }
+    \App\Controllers\Mcp\Gateway::emit((new \App\Controllers\Mcp\Gateway())->handle(\App\Controllers\Mcp\Gateway::request()));
+    exit;
+}
+
 // Inicia a sessão
 try {
     Session::start();

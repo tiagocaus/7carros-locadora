@@ -2,6 +2,11 @@
 
 This document describes all external service integrations available in the 7Carros Locadora system.
 
+## IA / MCP
+
+Integração de consultas por assistentes de IA, em implementação. Consulte
+[IA / MCP](mcp.md) para arquitetura, autorização, configuração e homologação.
+
 ## Overview
 
 The system integrates with various third-party services for payment processing, communication, document generation, and API documentation.

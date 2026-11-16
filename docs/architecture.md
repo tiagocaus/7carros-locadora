@@ -20,7 +20,7 @@ locadora.7carros.com/
 │   ├── Helpers/              # Funções auxiliares
 │   ├── Middleware/           # Pipeline de processamento
 │   ├── Models/               # Camada de dados
-│   ├── Routers/              # Definições de rotas
+│   ├── Routes/              # Definições de rotas
 │   ├── Services/             # Lógica de negócio
 │   └── Views/                # Templates HTML
 ├── public/                   # Web root
@@ -267,12 +267,12 @@ class AuthMiddleware
 - Logging
 - CORS
 
-### 8. Routers (`app/Routers/`)
+### 8. Routers (`app/Routes/`)
 
 Definições de rotas da aplicação:
 
 ```php
-// app/Routers/web.php
+// app/Routes/web.php
 $router->get('/clientes', [ClienteController::class, 'index']);
 $router->post('/clientes', [ClienteController::class, 'store']);
 $router->get('/clientes/{id}', [ClienteController::class, 'show']);

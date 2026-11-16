@@ -209,6 +209,12 @@ $router->post('/api/public/portal/faturas/{id}/link-pagamento', [PortalControlle
 $router->get('/api/public/portal/faturas/{id}/recibo', [PortalController::class, 'recibo'], ['rate_limit']);
 
 // Rotas do sistema administrativo (requerem autenticacao e acesso web)
+// IA/MCP: browser consent/admin use web login and CSRF; machine routes have OAuth.
+$router->get('/oauth/mcp/authorize', [\App\Controllers\Mcp\WebController::class, 'authorize'], ['auth', 'rate_limit']);
+$router->post('/oauth/mcp/authorize', [\App\Controllers\Mcp\WebController::class, 'authorize'], ['auth', 'csrf', 'rate_limit']);
+$router->get('/pages/integracoes/mcp', [\App\Controllers\Mcp\WebController::class, 'index'], ['auth']);
+$router->post('/integracoes/mcp/revogar', [\App\Controllers\Mcp\WebController::class, 'revoke'], ['auth', 'csrf', 'rate_limit']);
+
 $router->group(['middleware' => ['auth', 'web_system_access']], function ($router) {
     // Dashboard
     $router->get('/dashboard', [DashboardController::class, 'index']);

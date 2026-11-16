@@ -9,6 +9,7 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 | Topico | Documentacao |
 |--------|--------------|
 | QueryBuilder / Multi-tenancy | `docs/querybuilder.md` |
+| IA / MCP (consulta obrigatória para alterações na integração) | `docs/mcp.md` |
 | Arquitetura MVC / Models | `docs/architecture.md` |
 | Seeds do Changelog | `docs/changelog.md` |
 | Filtros de Filial | `docs/filial-helper.md` |
@@ -118,6 +119,8 @@ Sistema de gestão multi-tenant para locadoras de veículos desenvolvido em PHP 
 - **[Gateways de Pagamento](docs/gateways.md)** - Multi-gateway, links públicos, webhooks e tokenização
 
 ### 🔌 Integrações & Automação
+
+- **[IA / MCP](docs/mcp.md)** - Autorização, consultas, isolamento e homologação
 - **[API - Requisições JavaScript](docs/api.md)** - Helper para requisições HTTP com CSRF
 - **[Integrações Externas](docs/integrations.md)** - APIs de pagamento, email, WhatsApp
 - **[Integração WHMCS](docs/whmcs.md)** - Provisionamento de tenants via WHMCS (criar, suspender, reativar, mudar plano, senha, terminar)

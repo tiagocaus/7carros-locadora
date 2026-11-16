@@ -190,13 +190,18 @@ function rollbackLastMigration(PDO $pdo): void
         $stmt = $pdo->prepare("DELETE FROM migrations WHERE migration = ?");
         $stmt->execute([$lastMigration]);
 
-        $pdo->commit();
+        // DROP/ALTER TABLE also commit implicitly during down(), as during up().
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
 
         echo "✅\n";
         echo "\n✅ Migration revertida com sucesso!\n";
 
     } catch (Exception $e) {
-        $pdo->rollback();
+        if ($pdo->inTransaction()) {
+            $pdo->rollback();
+        }
         echo "❌\n";
         throw new Exception("Erro ao reverter migration: " . $e->getMessage());
     }

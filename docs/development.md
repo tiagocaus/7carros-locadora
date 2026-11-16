@@ -481,7 +481,7 @@ cada arquivo de runtime:
 Exemplo conceitual:
 
 ```lftp
-put -o app/Services/MeuService.php.uploading app/Services/MeuService.php
+put app/Services/MeuService.php -o app/Services/MeuService.php.uploading
 mv app/Services/MeuService.php.uploading app/Services/MeuService.php
 ```
 

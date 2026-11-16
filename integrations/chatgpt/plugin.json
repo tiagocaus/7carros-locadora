@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "7carros",
+  "version": "1.0.1",
+  "description": "Consultas autorizadas de frota, clientes, contratos, locações e financeiro.",
+  "author": {
+    "name": "7Carros",
+    "url": "https://7carros.com"
+  },
+  "homepage": "https://7carros.com",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "7Carros",
+        "shortDescription": "Consultas da sua locadora",
+        "longDescription": "Consulte frota, clientes, contratos, locações e financeiro do 7Carros Locadora. O acesso exige login e consentimento e respeita as categorias autorizadas, as permissões atuais do usuário, a locadora conectada e as empresas/filiais permitidas. As ferramentas disponibilizam consultas e não alteram os cadastros. Nesta etapa, a conexão está disponível somente ao piloto autorizado.",
+        "developerName": "7Carros",
+        "category": "Productivity",
+        "websiteURL": "https://7carros.com"
+      }
+    }
+  }
+}

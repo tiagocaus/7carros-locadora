@@ -47,7 +47,8 @@ storage/certificates/*
 
 # Composer
 vendor/
-composer.lock
+# MCP exige resolução reprodutível das dependências
+!composer.lock
 
 # Assets vendor públicos necessários no deploy
 !public/assets/vendor/
