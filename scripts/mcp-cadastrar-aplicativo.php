@@ -8,7 +8,7 @@ use App\Models\Mcp\Store;
 use App\Services\Mcp\{ClientRegistry, Config, Readiness};
 
 $options = getopt('', ['env:', 'client-id:', 'name:', 'redirect-uri:', 'approve', 'homologated', 'cimd',
-    'check', 'username:', 'mark-homologated', 'evidence:']);
+    'check', 'username:', 'tenant:', 'mark-homologated', 'evidence:']);
 $_ENV['APP_ENV'] = $options['env'] ?? 'development';
 if (!is_string($_ENV['APP_ENV']) || !in_array($_ENV['APP_ENV'], ['development', 'production'], true)) {
     fwrite(STDERR, "Ambiente inválido.\n"); exit(1);
@@ -33,7 +33,9 @@ try {
     if ($operation === 'check') {
         $username = $options['username'] ?? 'tiagocaus';
         if (!is_string($username) || $username === '' || strlen($username) > 45) throw new InvalidArgumentException('Usuário de diagnóstico inválido.');
-        $report = Readiness::report(new Store(), $id, $metadata, $username);
+        $tenant = $options['tenant'] ?? null;
+        if ($tenant !== null && !is_string($tenant)) throw new InvalidArgumentException('Informe uma única locadora em --tenant=CHAVE.');
+        $report = Readiness::report(new Store(), $id, $metadata, $username, $tenant);
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
         exit($report['ready_to_enable'] ? 0 : 2);
     }

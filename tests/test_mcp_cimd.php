@@ -73,7 +73,7 @@ foreach (['http://localhost/callback', 'http://localhost:8766/callback', 'http:/
     rejectCimd(fn () => ClientRegistry::validateRedirect($callback, ClientRegistry::CLAUDE_CODE_CLIENT_ID), 'Não ampliar retornos do perfil nativo.');
 }
 $environment = ['APP_ENV' => 'production', 'MCP_ENABLED' => 'true', 'MCP_PILOT_MODE' => 'true',
-    'MCP_PILOT_EMPLOYEE_IDS' => '123', 'MCP_PILOT_CLIENT_IDS' => $id, 'MCP_PILOT_TENANTS' => 'tenant-test-a'];
+    'MCP_ALL_TENANTS' => 'false', 'MCP_PILOT_EMPLOYEE_IDS' => '123', 'MCP_PILOT_CLIENT_IDS' => $id, 'MCP_PILOT_TENANTS' => 'tenant-test-a'];
 $old = [];
 foreach ($environment as $key => $value) { $old[$key] = getenv($key); putenv($key . '=' . $value); }
 try {
@@ -97,6 +97,24 @@ try {
     putenv('MCP_PILOT_MODE=false');
     expectCimd(!ClientPolicy::permitsClient($pending), 'Produção fora do piloto bloqueia pendentes.');
     expectCimd(ClientPolicy::permitsIdentity($homologated, 'tenant-test-a', 124), 'Saída explícita do piloto mantém tenant e RBAC para homologados.');
+    putenv('MCP_PILOT_TENANTS=');
+    expectCimd(!ClientPolicy::permitsIdentity($homologated, 'tenant-test-b', 124), 'Sem flag global, lista vazia bloqueia.');
+    putenv('MCP_ALL_TENANTS=true');
+    expectCimd(ClientPolicy::permitsIdentity($homologated, 'tenant-test-b', 124), 'Global permite tenant e funcionário fora de todas as listas.');
+    expectCimd(!ClientPolicy::permitsIdentity($pending, 'tenant-test-b', 124), 'Global mantém homologação obrigatória em produção.');
+    expectCimd(!ClientPolicy::permitsIdentity(array_replace($homologated, ['enabled' => 0]), 'tenant-test-b', 124), 'Global mantém cliente desabilitado bloqueado.');
+    expectCimd(!ClientPolicy::permitsIdentity($homologated, '', 124), 'Global não libera chave vazia.');
+    foreach (['false', 'TRUE', '1', 'invalid', ''] as $value) {
+        putenv('MCP_ALL_TENANTS=' . $value);
+        expectCimd(!ClientPolicy::permitsIdentity($homologated, 'tenant-test-b', 124), 'Flag global não explícita não amplia acesso.');
+    }
+    putenv('MCP_ALL_TENANTS=true'); putenv('MCP_PILOT_MODE=true');
+    expectCimd(!ClientPolicy::permitsIdentity($homologated, 'tenant-test-b', 124), 'Piloto prevalece sobre global com lista vazia.');
+    putenv('MCP_PILOT_TENANTS=tenant-test-a');
+    expectCimd(ClientPolicy::permitsIdentity($pending, 'tenant-test-a', 123), 'Global preserva piloto aprovado.');
+    expectCimd(!ClientPolicy::permitsIdentity($homologated, 'tenant-test-b', 123), 'Global não amplia tenants do piloto.');
+    expectCimd(!ClientPolicy::permitsIdentity($homologated, 'tenant-test-a', 124), 'Global não amplia funcionários do piloto.');
+    putenv('MCP_PILOT_MODE=false');
     putenv('MCP_ENABLED=false');
     expectCimd(!ClientPolicy::permitsClient($homologated), 'Desligar MCP interrompe todo acesso.');
     putenv('MCP_ENABLED=true');putenv('MCP_PILOT_MODE=invalid');

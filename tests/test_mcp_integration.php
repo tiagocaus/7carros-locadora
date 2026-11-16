@@ -48,7 +48,7 @@ openssl_pkey_export($key, $private);
 file_put_contents($directory . '/private.pem', $private); chmod($directory . '/private.pem', 0600);
 file_put_contents($directory . '/public.pem', openssl_pkey_get_details($key)['key']);
 unset($private, $key);
-foreach (['MCP_ENABLED' => 'true', 'MCP_PILOT_TENANTS' => "$a,$b", 'MCP_ISSUER' => 'https://mcp.example.test',
+foreach (['MCP_ENABLED' => 'true', 'MCP_ALL_TENANTS' => 'false', 'MCP_PILOT_TENANTS' => "$a,$b", 'MCP_ISSUER' => 'https://mcp.example.test',
     'MCP_PILOT_MODE' => 'false', 'MCP_PILOT_EMPLOYEE_IDS' => '', 'MCP_PILOT_CLIENT_IDS' => '',
     'MCP_PRIVATE_KEY' => 'file://' . $directory . '/private.pem', 'MCP_PUBLIC_KEY' => $directory . '/public.pem',
     'MCP_ENCRYPTION_KEY' => bin2hex(random_bytes(32)), 'MCP_CONNECTION_RATE_LIMIT' => '1000', 'MCP_TENANT_RATE_LIMIT' => '5000'] as $k => $v) putenv("$k=$v");
@@ -253,6 +253,41 @@ try {
     putenv('MCP_PILOT_CLIENT_IDS=');
     [$status] = tokenMcp(['grant_type' => 'refresh_token', 'refresh_token' => $pilotTokens['refresh_token'], 'client_id' => $cimdClientId, 'resource' => Config::resource()]);
     checkMcp($status >= 400, 'Cliente removido do piloto não renova.');
+    // Production global rollout: no tenant/employee/client allowlists are required.
+    putenv('MCP_PILOT_MODE=false'); putenv('MCP_ALL_TENANTS=true'); putenv('MCP_PILOT_TENANTS=');
+    $globalUsername = 'mcp_global_' . $run;
+    setEmployeeMcp($b, $employees[$b], ['usuario' => $globalUsername]);
+    $globalReport = Readiness::report($store, $cimdClientId, $cimd, $username);
+    checkMcp(!$globalReport['ready_to_enable'] && $globalReport['employee'] === []
+        && str_contains($globalReport['note'], '--tenant=CHAVE'), 'Diagnóstico global exige tenant explícito sem buscar usuários entre locadoras.');
+    $globalReport = Readiness::report($store, $cimdClientId, $cimd, $globalUsername, $b);
+    checkMcp($globalReport['ready_to_enable'] && $globalReport['all_tenants']
+        && $globalReport['employee'][0]['employee_id'] === $employees[$b], 'Diagnóstico global resolve somente usuário do tenant informado.');
+    $globalGrant = grantMcp($b, $employees[$b], $cimdClientId, ['frota:read']);
+    [$status, $globalTokens] = tokenMcp($globalGrant);
+    checkMcp($status === 200, 'Locadora fora da lista autoriza e recebe token em produção global.');
+    [$status, $globalData] = requestMcp('tools/call', ['name' => 'listar_veiculos', 'arguments' => (object) []], $globalTokens['access_token']);
+    $globalRows = $globalData['result']['structuredContent']['dados'] ?? [];
+    checkMcp($status === 200 && count($globalRows) === 1 && (int) $globalRows[0]['id'] === $vehicles[$b], 'Consulta global continua isolada por tenant.');
+    [$status, $globalData] = requestMcp('tools/call', ['name' => 'obter_veiculo', 'arguments' => ['id' => $vehicles[$a]]], $globalTokens['access_token']);
+    checkMcp($status === 200 && array_key_exists('dados', $globalData['result']['structuredContent'] ?? [])
+        && $globalData['result']['structuredContent']['dados'] === null, 'Modo global não permite detalhe de outro tenant.');
+    [$status, $renewedGlobal] = tokenMcp(['grant_type' => 'refresh_token', 'refresh_token' => $globalTokens['refresh_token'], 'client_id' => $cimdClientId, 'resource' => Config::resource()]);
+    checkMcp($status === 200 && isset($renewedGlobal['refresh_token']), 'Renovação global funciona sem lista de tenants.');
+    setEmployeeMcp($b, $employees[$b], ['status' => 'S']);
+    [$status] = requestMcp('tools/list', [], $renewedGlobal['access_token']);
+    checkMcp($status === 401, 'Global mantém suspensão de funcionário.');
+    setEmployeeMcp($b, $employees[$b], ['status' => 'A']);
+    setEmployeeMcp($b, $employees[$b], ['id_role' => null]);
+    [$status] = requestMcp('tools/list', [], $renewedGlobal['access_token']);
+    checkMcp($status === 401, 'Global mantém permissão obrigatória de conectar.');
+    setEmployeeMcp($b, $employees[$b], ['id_role' => $roles[1]]);
+    $globalRevocation = (new ServerRequest('POST', Config::issuer() . '/oauth/mcp/revoke', ['Content-Type' => 'application/x-www-form-urlencoded']))
+        ->withParsedBody(['client_id' => $cimdClientId, 'token' => $renewedGlobal['refresh_token']]);
+    checkMcp((new Gateway())->handle($globalRevocation)->getStatusCode() === 200, 'Revogação global aceita conexão autorizada.');
+    [$status] = requestMcp('tools/list', [], $renewedGlobal['access_token']);
+    checkMcp($status === 401, 'Revogação global bloqueia access token existente.');
+    putenv('MCP_ALL_TENANTS=false'); putenv('MCP_PILOT_TENANTS=' . $a . ',' . $b);
     putenv('APP_ENV=development'); putenv('MCP_PILOT_MODE=false'); putenv('MCP_PILOT_EMPLOYEE_IDS='); putenv('MCP_PILOT_CLIENT_IDS=');
 
     $scopes = array_keys(Catalog::SCOPES);

@@ -12,9 +12,9 @@ habilita a integração. O [roteiro de implantação](../PLANO-MCP.md) mantém o
 | Transporte oficial, OAuth, contexto, consultas e administração | Implementados; testes locais aprovados |
 | Banco local | Migration `00441_create_mcp_integration.php` aplicada pelo executor oficial |
 | Assistente próprio de teste | Fluxo local de autorização, consulta, renovação e revogação validado; não é homologação externa |
-| ChatGPT e Claude | ChatGPT: autorização, descoberta e consulta reais validadas no piloto; ciclo completo de renovação/revogação pendente. Claude: pendente |
-| Dependências e migration de produção | Execução confirmada pelo responsável; diagnóstico desta correção pendente |
-| Piloto exclusivo | Implementado; configuração no servidor e homologação real pendentes |
+| ChatGPT e Claude | ChatGPT: autorização, consulta, renovação após expiração e revogação homologadas externamente; liberação global ativa. Claude web: consulta validada, renovação/revogação pendentes; Claude Code: homologação externa pendente |
+| Dependências e migration de produção | Execução confirmada pelo responsável; diagnóstico de produção aprovado na ativação global |
+| Liberação de locadoras | Modo global ativo para aplicativos homologados; piloto preservado como opção restrita |
 
 ## Arquitetura e dependências
 
@@ -310,10 +310,11 @@ Variáveis documentadas em `.env.example`:
 - `MCP_ENABLED=false`: desativada por padrão; desligar interrompe acesso e emissões.
 - `MCP_PILOT_MODE=false`: em produção, exige aplicativo homologado. Com `true`, permite
   testar aplicativo aprovado ainda pendente, limitado às três listas abaixo.
+- `MCP_ALL_TENANTS=false`: fora do piloto, `true` libera locadoras atuais e futuras sem lista; não concede permissões nem dispensa consentimento ou homologação. Em piloto, as listas continuam obrigatórias mesmo com essa flag. Somente o valor literal `true` amplia acesso.
 - `MCP_PILOT_EMPLOYEE_IDS`: IDs numéricos de funcionários autorizados, separados por vírgula.
 - `MCP_PILOT_CLIENT_IDS`: client IDs exatos autorizados no piloto, separados por vírgula.
 - `MCP_ISSUER`: origem HTTPS pública, sem caminho, query ou credenciais.
-- `MCP_PILOT_TENANTS`: chaves permitidas, separadas por vírgula; vazio não libera ninguém.
+- `MCP_PILOT_TENANTS`: chaves permitidas, separadas por vírgula; vazio bloqueia quando o piloto está ativo ou a liberação global está desativada.
 - `MCP_ALLOWED_ORIGINS`: origens adicionais exatas, separadas por vírgula; sem wildcard.
 - `MCP_PRIVATE_KEY`: caminho absoluto da chave RSA privada, com prefixo `file://`.
 - `MCP_PUBLIC_KEY`: caminho absoluto da chave pública correspondente.
@@ -1019,3 +1020,115 @@ local em iframe de 375 px confirmou empilhamento dos cartões. Os dois links for
 clicados na tela real: os downloads concluíram sem substituir IA/MCP ou abrir
 abas, e os arquivos salvos conferiram por SHA-256 com os originais. Requisições
 externas sem sessão às duas rotas retornaram 302 para login. Nenhuma migration.
+
+
+## Liberação global de locadoras — 16/11/2026
+
+A regra de `Config::enabled($chave)` atende menu, tela administrativa, downloads,
+autorização, contexto das chamadas e renovação. `MCP_ENABLED=false` interrompe o
+acesso. O piloto tem prioridade e continua exigindo as listas de locadoras,
+funcionários e aplicativos. Fora dele, `MCP_ALL_TENANTS=true` permite qualquer
+locadora atual ou futura, sem consultar uma lista de chaves. Identidade ativa,
+aplicativo habilitado e homologado em produção, permissões, escopos, filiais,
+consentimento e revogação continuam obrigatórios. Chave vazia não é aceita.
+
+Sem a nova variável ou com valor diferente de `true`, o comportamento restrito
+anterior permanece. Não há mudança de schema, concessão automática de permissões,
+novo pacote Composer nem troca de chaves. Publicar os arquivos não ativa o modo
+global. Atribuir `mcp.conectar` e as permissões dos módulos nas roles autorizadas.
+
+O diagnóstico recebe `--tenant=CHAVE` opcional. Em modo global efetivo, esse
+argumento é obrigatório para obter `ready_to_enable: true`: sem ele, não busca
+usuários entre locadoras e retorna orientação. Em modo restrito/piloto, o tenant
+informado também precisa estar na lista permitida. Sem o argumento, mantém a
+busca nas locadoras configuradas. O relatório acrescenta `all_tenants` (modo global
+efetivo) e `checks.locadora_diagnostico_permitida`, preservando as demais chaves.
+
+Depois da homologação externa de autorização, consulta, renovação após expiração
+e revogação de cada aplicativo liberado, registrar a referência real pelo script
+com `--mark-homologated --evidence=REFERENCIA_REAL_DOS_TESTES`. Não usar os testes
+locais como evidência de homologação externa.
+
+No terminal do servidor, preservar os demais valores do `.env.production` e usar:
+
+```dotenv
+MCP_ENABLED=true
+MCP_PILOT_MODE=false
+MCP_ALL_TENANTS=true
+```
+
+Validar um usuário autorizado de uma segunda locadora (substituir os dois valores
+indicados pelos reais), na raiz do projeto:
+
+```bash
+/opt/alt/php83/usr/bin/php scripts/mcp-cadastrar-aplicativo.php --env=production --client-id=https://chatgpt.com/oauth/client.json --check --tenant=CHAVE_DA_LOCADORA --username=USUARIO_AUTORIZADO
+```
+
+O diagnóstico é somente leitura e pode ser executado antes de ligar
+`MCP_ENABLED`. Conferir também consentimento, consulta isolada e auditoria na
+aplicação real. Para voltar à lista restrita, definir `MCP_ALL_TENANTS=false`;
+para interromper todo o MCP, `MCP_ENABLED=false`. As conexões fora da lista
+perdem acesso e renovação, sem exclusão automática de consentimentos.
+
+
+Validação local da liberação global: schema e consultas do diagnóstico conferidos
+via terminal no localhost; 324 verificações de integração MCP, 83 de política/CIMD,
+14 de headers CGI/SAPI e lint PHP aprovados. Os cenários globais usam fixtures
+locais e cobrem OAuth, isolamento, renovação, suspensão, remoção de permissão e
+revogação. Não são homologação externa nem confirmação de ativação em produção.
+
+
+## Homologação externa do ChatGPT e ativação global — 16/11/2026
+
+O erro de reconexão informado com referência
+`7676105e009140cdb45edd50b820da72` foi diagnosticado na política de produção:
+`MCP_PILOT_MODE=false`, `MCP_ALL_TENANTS=true` e aplicativo ChatGPT habilitado,
+mas ainda com `homologated=0`. O funcionário estava ativo e possuía
+`mcp.conectar`; o bloqueio não exigiu alteração de código ou permissões.
+
+Pelo console CWP, como usuário de sistema `7carros`, foi criado backup protegido
+do ENV fora do diretório público e restabelecido temporariamente o modo piloto,
+preservando as listas existentes. O diagnóstico retornou `ready_to_enable: true`.
+No Edge, a reconexão preservou o plugin existente e as cinco categorias já
+consentidas. A conversa de homologação é
+`https://chatgpt.com/c/6afb60e1-1f74-83ed-9fb2-c3078f8a6503`.
+
+Evidências na auditoria (horários do banco):
+
+- Consulta real às 17:00:56: 19 veículos no total, uma linha solicitada na página,
+  referência `998684653f981c4d03e569fe5f8ffba6`.
+- Revogação pela tela IA/MCP às 17:01:33:
+  `487bd0e111ac0c589a41d1688f8f30ff`. A chamada seguinte foi bloqueada às 17:01:54,
+  `76ae1ebf02e02863098e7a17b75b17f1`, e o ChatGPT pediu reconexão sem entregar
+  novos dados.
+- Nova autorização às 17:02:21:
+  `e850305163055efc942f09bd58d977a8`. Consulta após reconexão às 17:03:10:
+  `ffcf4cfb5b936c66662a3ed066b2350d`, novamente 19 veículos.
+- O último access token expirava às 17:13:08. A conexão ficou sem chamadas até
+  passar esse prazo, sem modificar credenciais ou seu tempo de vida. Às 17:13:51
+  o ChatGPT renovou automaticamente, referência
+  `eef8099bab775fb0d97a80254e7a6b2d`; às 17:13:52, a consulta
+  `ce90345998b1be682440ea87aa5c175d` retornou 19 veículos sem novo consentimento.
+  Na mesma conexão, os totais de access/refresh emitidos passaram de três para
+  quatro e os refresh revogados de dois para três, comprovando rotação.
+
+Com essas evidências, o script operacional existente registrou a homologação
+somente do cliente `https://chatgpt.com/oauth/client.json`, conferindo novamente
+seu documento CIMD. Em seguida, foi restaurado `MCP_PILOT_MODE=false`, mantendo
+`MCP_ENABLED=true` e `MCP_ALL_TENANTS=true`. O diagnóstico final em novo processo
+retornou `ready_to_enable: true`, `pilot_mode: false` e `all_tenants: true`.
+A conexão final do usuário permaneceu ativa.
+
+A ativação disponibiliza ChatGPT às locadoras atuais e futuras que autorizarem
+seus usuários pelas roles existentes; não concede permissões ou consentimento
+automático. A homologação dos clientes Claude não foi antecipada. A verificação
+externa desta operação utilizou somente a locadora do responsável; uma segunda
+locadora permanece como validação operacional separada. Sem migrations, Composer,
+troca de chaves ou publicação do ENV por FTP.
+
+
+A consulta final externa, já com o piloto desativado e modo global ativo, passou
+às 17:15:16 (horário do banco): `listar_veiculos: success`, uma linha na página,
+referência `c4297a55d249d778e590d573b7e4aab7`; o ChatGPT respondeu 19 veículos.
+O cadastro de produção foi conferido por consulta somente leitura e retornou
+`enabled=1`, `homologated=1`.

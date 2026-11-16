@@ -32,8 +32,11 @@ final class Readiness
         }
     }
 
-    public static function report(Store $store, string $clientId, ?array $document, string $username): array
+    public static function report(Store $store, string $clientId, ?array $document, string $username, ?string $tenant = null): array
     {
+        if ($tenant !== null && (trim($tenant) === '' || strlen($tenant) > 45 || preg_match('/[\x00-\x20\x7f]/', $tenant))) {
+            throw new \InvalidArgumentException('Locadora de diagnóstico inválida. Informe --tenant=CHAVE.');
+        }
         $checks = [];
         $checks['php_8_3_ou_superior'] = PHP_VERSION_ID >= 80300;
         foreach (['openssl', 'sodium', 'mysqli', 'curl'] as $extension) $checks['ext_' . $extension] = extension_loaded($extension);
@@ -51,13 +54,17 @@ final class Readiness
             ? !isset($metadata['document'])
             : isset($metadata['document']) && ClientRegistry::fingerprint($document) === ClientRegistry::fingerprint($metadata['document']);
         $pilot = ClientPolicy::pilotMode();
+        $global = !$pilot && Config::allTenants();
         $checks['politica_cliente'] = $client !== null && ($pilot
             ? ClientPolicy::employeeIds() !== [] && in_array($clientId, ClientPolicy::items('MCP_PILOT_CLIENT_IDS'), true)
             : (Config::value('APP_ENV', 'development') !== 'production' || (int) $client['homologated'] === 1));
-        $tenants = ClientPolicy::items('MCP_PILOT_TENANTS');
-        $checks['locadoras_configuradas'] = $tenants !== [];
+        $allowedTenants = ClientPolicy::items('MCP_PILOT_TENANTS');
+        $tenants = $tenant !== null ? [$tenant] : ($global ? [] : $allowedTenants);
+        $checks['locadoras_configuradas'] = $global || $allowedTenants !== [];
+        $checks['locadora_diagnostico_permitida'] = $tenants !== [] && ($global
+            || ($tenant === null || in_array($tenant, $allowedTenants, true)));
         $resolved = [];
-        foreach ($tenants as $index => $chave) {
+        foreach ($checks['locadora_diagnostico_permitida'] ? $tenants : [] as $index => $chave) {
             $employee = $store->employeeByUsername($chave, $username);
             if (!$employee) continue;
             $id = (int) $employee['id'];
@@ -69,8 +76,10 @@ final class Readiness
             && $resolved[0]['mcp_conectar'] && $resolved[0]['incluido_no_piloto'];
         $checks['piloto_exclusivo_do_funcionario'] = !$pilot || (count($resolved) === 1 && ClientPolicy::employeeIds() === [$resolved[0]['employee_id']]);
         return ['ready_to_enable' => !in_array(false, $checks, true), 'mcp_enabled' => Config::enabled(),
-            'pilot_mode' => $pilot, 'client_id' => $clientId, 'checks' => $checks, 'employee' => $resolved,
+            'pilot_mode' => $pilot, 'all_tenants' => $global, 'client_id' => $clientId, 'checks' => $checks, 'employee' => $resolved,
             'negotiated' => $document === null ? null : ClientRegistry::capabilities($document),
-            'note' => 'Diagnóstico CLI sem gravações. HTTP externo, PHP web e homologação real são verificações separadas.'];
+            'note' => $global && $tenant === null
+                ? 'Informe --tenant=CHAVE e --username=USUARIO para verificar um usuário na liberação global. Nenhuma locadora foi consultada por usuário.'
+                : 'Diagnóstico CLI sem gravações. HTTP externo, PHP web e homologação real são verificações separadas.'];
     }
 }

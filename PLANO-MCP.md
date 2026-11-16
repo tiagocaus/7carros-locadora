@@ -490,3 +490,33 @@ Não são necessárias migrations, Composer ou alterações de WAF/configuraçã
 - [x] Validar nova pergunta no mesmo chat: ChatGPT respondeu total de 19 veículos; auditoria listar_veiculos success às 14:46:57, referência 808d45d7a036b544773bd5463df77848.
 
 Sem nova autorização OAuth, migrations, Composer, mudanças de schema ou permissões.
+
+
+### Liberação global por configuração — 16/11/2026
+
+- Adicionada `MCP_ALL_TENANTS=false` por padrão. Com `true` e fora do piloto,
+  disponibiliza MCP às locadoras atuais e futuras sem manter uma lista de chaves.
+- O piloto prevalece; homologação de aplicativos, permissões, filiais e
+  consentimento permanecem obrigatórios. Não há concessão automática ou migration.
+- Diagnóstico global exige `--tenant=CHAVE` junto ao usuário escolhido e reutiliza
+  a consulta tenant-scoped existente, sem varredura de locadoras.
+- Implantação: publicar o runtime e configurar o ENV diretamente no servidor
+  conforme `docs/mcp.md`. Publicação não ativa a flag global.
+- Homologação externa de renovação/revogação e validação de uma segunda locadora
+  devem ser registradas separadamente; testes locais não substituem essas etapas.
+
+
+### Homologação ChatGPT e modo global ativos — 16/11/2026
+
+- [x] Diagnosticar reconexão bloqueada: modo de produção exigia homologação e o
+  cadastro ChatGPT ainda tinha `homologated=0`, com usuário ativo e autorizado.
+- [x] Restabelecer piloto temporário, reconectar plugin existente e validar consulta.
+- [x] Revogar pela tela IA/MCP e confirmar bloqueio da chamada seguinte no ChatGPT.
+- [x] Reconectar e aguardar expiração natural de dez minutos; comprovar renovação
+  automática e consulta real sem novo consentimento.
+- [x] Registrar homologação ChatGPT pelo script operacional, com referências reais
+  descritas em `docs/mcp.md`, e restaurar modo global com diagnóstico aprovado.
+- [ ] Validar uma segunda locadora com seu próprio usuário autorizado.
+
+Nenhuma mudança adicional de runtime, migration, permissões ou chaves. Os clientes
+Claude mantêm a homologação externa de renovação/revogação pendente.

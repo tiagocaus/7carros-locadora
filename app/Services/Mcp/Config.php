@@ -39,8 +39,19 @@ final class Config
         if ($chave === null) {
             return true;
         }
+        if (trim($chave) === '') {
+            return false;
+        }
+        if (!ClientPolicy::pilotMode() && self::allTenants()) {
+            return true;
+        }
         $pilots = array_filter(array_map('trim', explode(',', (string) self::value('MCP_PILOT_TENANTS', ''))));
         return in_array($chave, $pilots, true);
+    }
+
+    public static function allTenants(): bool
+    {
+        return self::value('MCP_ALL_TENANTS', 'false') === 'true';
     }
 
     public static function origins(): array
