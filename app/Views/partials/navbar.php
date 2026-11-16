@@ -23,7 +23,7 @@
                     <a href="#" class="px-3 py-2 hover:bg-[#3578a0] flex items-center w-full">
                         {{ t('menu.sistema.title') }} <i class="fas fa-chevron-down fa-xs ml-1.5"></i>
                     </a>
-                    <div class="submenu">
+                    <div class="submenu submenu-multilevel">
                         <a href="#" onclick="openOrSwitchToTab('/pages/programa-indicacao', '<?= t('menu.sistema.referral_program') ?>', 'fas fa-users'); return false;">{{ t('menu.sistema.referral_program') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/feature-requests', '<?= t('menu.sistema.feature_request') ?>', 'fas fa-lightbulb'); return false;">{{ t('menu.sistema.feature_request') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/logs', '<?= t('menu.sistema.activity_logs') ?>', 'fas fa-history'); return false;">{{ t('menu.sistema.activity_logs') }}</a>
@@ -32,18 +32,19 @@
                         <?php endif; ?>
                         <a href="#" onclick="openOrSwitchToTab('/pages/configuracoes/gerais', '<?= t('menu.sistema.settings') ?>', 'fas fa-cog'); return false;">{{ t('menu.sistema.settings') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/configuracoes/templates', '<?= t('menu.sistema.message_templates') ?>', 'fas fa-envelope'); return false;">{{ t('menu.sistema.message_templates') }}</a>
+                        <?php if (class_exists(\App\Services\Mcp\Config::class) && \App\Services\Mcp\Config::enabled((string) \App\Core\Auth::chave())): ?>
+                        <div class="submenu-item-with-submenu">
+                            <a href="#" class="submenu-parent"><span>{{ t('menu.website.integrations') }}</span><i class="fas fa-chevron-right fa-xs"></i></a>
+                            <div class="submenu-level-2">
+                                <a href="#" onclick="openOrSwitchToTab('/pages/integracoes/mcp', 'IA/MCP', 'fas fa-robot'); return false;">IA/MCP</a>
+                            </div>
+                        </div>
+                        <?php endif; ?>
                         <a href="#" onclick="openOrSwitchToTab('/pages/changelog', '<?= t('menu.sistema.changelog') ?>', 'fas fa-list-alt'); return false;">{{ t('menu.sistema.changelog') }}</a>
                         <a href="#" onclick="openOrSwitchToTab('/pages/gravacoes', '<?= t('menu.sistema.screen_recording') ?>', 'fas fa-video'); return false;">{{ t('menu.sistema.screen_recording') }}</a>
                         <a href="/logout" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">{{ t('menu.sistema.logout') }}</a>
                     </div>
                 </div>
-
-                <?php if (class_exists(\App\Services\Mcp\Config::class) && \App\Services\Mcp\Config::enabled((string) \App\Core\Auth::chave())): ?>
-                <div class="main-nav-item">
-                    <a href="#" class="px-3 py-2 flex items-center">Integrações <i class="fas fa-chevron-down fa-xs ml-1.5"></i></a>
-                    <div class="submenu"><a href="#" onclick="openOrSwitchToTab('/pages/integracoes/mcp', 'IA/MCP', 'fas fa-robot'); return false;">IA/MCP</a></div>
-                </div>
-                <?php endif; ?>
 
                 <!-- Contrato/Locações -->
                 <div class="main-nav-item">

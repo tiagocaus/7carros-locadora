@@ -24,7 +24,7 @@ try {
         checkMcp($status === 200 && ($data['result']['protocolVersion'] ?? '') === $revision,
             'Initialize negocia ' . $revision . ': ' . json_encode($data));
         checkMcp(($data['result']['serverInfo']['name'] ?? '') === '7Carros'
-            && ($data['result']['serverInfo']['version'] ?? '') === '1.0.1'
+            && ($data['result']['serverInfo']['version'] ?? '') === '1.0.2'
             && isset($data['result']['capabilities']['tools']) && !$response->hasHeader('Mcp-Session-Id'),
             'Initialize anuncia identidade e ferramentas sem sessão.');
         [$status, $data, $response] = handshakeMcp('notifications/initialized', [], $access, $revision);

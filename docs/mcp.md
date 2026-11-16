@@ -50,14 +50,14 @@ Não atualizar dependências sem repetir os testes e revisar esta documentação
 
 ## Identidade do servidor e pacote privado do ChatGPT
 
-A versão de identificação é `1.0.1`: nome `7Carros`, título `7Carros Locadora`,
+A versão de identificação é `1.0.2`: nome `7Carros`, título `7Carros Locadora`,
 descrição das cinco categorias de consulta e site `https://7carros.com`. O SDK
 serializa essa identidade em `result._meta["io.modelcontextprotocol/serverInfo"]`
 na revisão adotada. Não mudar o formato de resposta manualmente.
 
 Os manifests e o ZIP do plugin privado estão em `integrations/chatgpt/`, com
 instruções no [README do pacote](../integrations/chatgpt/README.md). O ZIP contém
-somente `plugin.json` e `mcp.json` na raiz, autor/desenvolvedor `7Carros`, categoria
+`plugin.json` e `mcp.json` na raiz e `assets/logo.png`, autor/desenvolvedor `7Carros`, categoria
 `Productivity`, campo próprio `websiteURL` e OAuth com preferência CIMD. A autoria
 exibida no ChatGPT pode depender da identidade da conta; publicação pública usa a
 identidade verificada. A atualização do servidor não preenche por si só os campos
@@ -85,12 +85,13 @@ do upload real, ainda pendente; não equivalem a homologação externa concluíd
 | GET/POST | `/oauth/mcp/authorize` | Login web, seleção de categorias e consentimento; POST com CSRF |
 | POST | `/oauth/mcp/token` | Troca de código ou refresh; formulário URL encoded |
 | POST | `/oauth/mcp/revoke` | RFC 7009; revoga a conexão inteira |
-| GET | `/pages/integracoes/mcp` | Administração no menu Integrações → IA/MCP |
+| GET | `/pages/integracoes/mcp` | Administração no menu Sistema → Integrações → IA/MCP |
 | POST | `/integracoes/mcp/revogar` | Revogação web com CSRF |
 
 Authorization Code + PKCE S256 é obrigatório inclusive para aplicativos
 confidenciais. Retornos são HTTPS e previamente cadastrados, com correspondência
-exata. Não há grant sem funcionário nem DCR público. O parâmetro `resource` deve
+exata. A exceção restrita do Claude Code para dois callbacks loopback HTTP
+é descrita abaixo e não se aplica aos demais clientes. Não há grant sem funcionário nem DCR público. O parâmetro `resource` deve
 ser exatamente `MCP_ISSUER` + `/mcp`, na autorização e no token endpoint. O fluxo
 exige `state`; a resposta de autorização identifica o emissor com `iss` (RFC 9207).
 Autenticação de cliente: `none` para públicos e `client_secret_post` para
@@ -452,8 +453,12 @@ prazo antes da entrega. Validar `Origin` presente e Host/esquema do endpoint.
 
 Auditoria em `mcp_audit`: tenant, funcionário, conexão/aplicativo, evento/ferramenta,
 resultado, quantidade, duração e request ID. Auditoria própria evita depender da
-sessão usada pelo logger web; ver [logs](logs.md). Nunca gravar argumentos,
-respostas completas, documentos ou tokens. Falhas sem identidade validada registram
+sessão usada pelo logger web; ver [logs](logs.md). Conforme a evolução de conteúdo
+aprovada em 16/11/2026, chamadas de ferramentas passam a guardar argumentos
+declarados e o retorno entregue em colunas próprias. Dados pessoais retornados
+com autorização também ficam nesse histórico, acessível por `logs.visualizar`,
+sem expiração automática. Nunca gravar tokens, headers, SQL ou exceções internas.
+Falhas sem identidade validada registram
 somente request ID e resultado no log do servidor. Headers de resposta incluem
 `X-Request-Id` para diagnóstico.
 
@@ -726,3 +731,291 @@ sem novo consentimento. Não foram copiados tokens ou registros individuais.
 Autorização, descoberta e consulta real do ChatGPT no piloto estão comprovadas.
 Essa evidência não substitui a verificação específica de renovação após expiração
 e de revogação; a homologação completa e a ampliação do piloto continuam pendentes.
+
+
+## Visualização da auditoria em Logs do Sistema — 16/11/2026
+
+A nova aba IA/MCP e `GET /api/logs/mcp` expõem uma projeção somente de leitura de
+`mcp_audit`, com permissão `logs.visualizar` e isolamento pelo tenant do usuário
+web. O contexto do funcionário que executou a ferramenta continua vindo do OAuth;
+a sessão web serve somente para autorizar o visualizador do histórico.
+
+São exibidas chamadas das ferramentas do catálogo, com funcionário, aplicativo,
+data, operação, resultado, quantidade retornada, duração e referência técnica.
+Eventos técnicos de transporte/token não aparecem nessa aba. `blocked` é exibido
+como Não concluída, sem presumir que foi uma negação de permissão. Quantidade
+retornada não significa total de registros da consulta.
+
+A pergunta original e a resposta final do ChatGPT não chegam automaticamente ao
+servidor MCP. A evolução de repasse abaixo permite receber a pergunta como
+argumento informado pela IA.
+A entrega inicial reutilizou apenas os metadados históricos. A evolução abaixo
+passa a capturar solicitação e retorno das ferramentas, sem alterar o transporte.
+A especificação e os testes estão em `docs/logs.md`.
+
+Publicada por FTP e verificada na interface de produção em 16/11/2026: histórico
+real, busca pelo nome traduzido, estado vazio e alternância entre as três abas
+aprovados. A validação reutilizou as chamadas existentes, sem executar novas
+consultas MCP ou enviar mensagens. Os arquivos publicados foram conferidos por
+hash; os testes locais e a evidência da interface estão descritos em `docs/logs.md`.
+
+
+## Conteúdo das chamadas em Logs do Sistema — 16/11/2026
+
+A migration `00442_add_mcp_audit_payloads.php` adiciona `request_payload` e
+`response_payload` LONGTEXT NULL em `mcp_audit`. Somente o executor oficial
+`migrate.php` aplica a migration. Em produção, a execução é manual pelo responsável;
+publicar o código dependente somente após confirmar a aplicação.
+
+ToolService serializa o retorno antes de gravar sucesso e inclui os argumentos
+declarados da ferramenta e o conteúdo devolvido na mesma inserção da auditoria.
+Listagens, detalhes e resumo financeiro usam o mesmo fluxo. Falhas tratadas na
+ferramenta guardam somente a mensagem pública de erro, nunca exceção/SQL. Rejeições
+anteriores à execução pelo SDK/Gateway continuam como eventos técnicos, fora da aba.
+As verificações de permissão/filial antes da leitura e entrega permanecem vigentes.
+
+A captura começa após ativação do código: o histórico anterior possui conteúdo
+nulo, sem reconstrução. O histórico não expira automaticamente. `logs.visualizar`
+autoriza prévias e conteúdo completo do tenant, inclusive documentos/contatos ou
+financeiro que tenham sido autorizados na consulta original. Não há nova permissão.
+Tokens, credenciais, headers e diagnósticos internos continuam fora dos payloads.
+Os logs técnicos `[MCP]` e `[MCP-TOOL]` continuam contendo somente metadados seguros.
+
+A listagem fornece prévias de até 255 caracteres Unicode. O olho solicita
+`GET /api/logs/mcp/{id}` e abre o painel lateral com o JSON completo e a quantidade
+retornada. Essa entrega inicial não capturava a pergunta; o repasse descrito
+abaixo acrescenta o texto informado pela IA, sem acesso direto à conversa.
+
+
+Publicação desta evolução confirmada em 16/11/2026 após o responsável informar
+sucesso na migration manual de produção. Os arquivos foram enviados por FTP e
+conferidos por hash. A consulta real no mesmo chat do piloto retornou 19 veículos;
+o histórico mostrou a chamada nova, prévias e painel completo, com dez registros
+na página e 49 ms, referência `1c7619c05cf424e6f275879b5dd9b435`. O registro
+histórico anterior permaneceu acessível com conteúdo nulo. Essa verificação não
+substitui a homologação específica de renovação/revogação, ainda separada.
+
+## Apresentação administrativa — 16/11/2026
+
+O acesso fica em **Sistema → Integrações → IA/MCP**, usando o submenu de segundo
+nível existente e preservando a habilitação por configuração/tenant. A rota
+administrativa continua `/pages/integracoes/mcp`.
+
+A tela apresenta um bloco informativo com **Nome do MCP: 7Carros**, **URL do MCP**
+obtida de `Config::resource()` (em produção, `https://locadora.7carros.com/mcp`) e
+**Autenticação: OAuth**. Esses dados não são campos editáveis. Abaixo, mantém
+**Conexões autorizadas**, revogação com CSRF e o aviso sobre dados já compartilhados.
+Títulos, tabela, estado vazio, botões e paginação usam os componentes visuais
+existentes; validade e último acesso usam `format_datetime()` para respeitar
+a configuração de exibição da empresa. O escopo não altera OAuth, permissões,
+consultas, schema nem a página pública de consentimento.
+
+
+## Repasse fiel da pergunta do cliente — 16/11/2026
+
+As 11 ferramentas anunciam `pergunta_usuario` como argumento string opcional,
+fora de `filtros`. O schema, as descrições e as instruções do servidor pedem uma
+cópia fiel e literal da mensagem do usuário que originou a consulta, preservando
+palavras, pontuação e quebras de linha. Não resumir, traduzir, reformular ou
+completar; continuações como “E as ativas?” são copiadas literalmente. Chamadas
+múltiplas/páginas da mesma solicitação repetem a mesma mensagem. Sem mensagem
+disponível, omitir o campo: não inventar nem copiar histórico/instruções internas.
+
+O argumento opcional preserva compatibilidade com clientes e schemas anteriores.
+A identificação do servidor passa a 1.0.2. Clientes com catálogo em cache precisam
+receber as ferramentas atualizadas; a versão sozinha não garante atualização.
+A ausência da pergunta não impede consultas autorizadas.
+
+O texto é gravado integralmente em `request_payload.argumentos.pergunta_usuario`,
+sem normalizar espaços, pontuação ou quebras de linha, na mesma entrada da chamada.
+Texto vazio/apenas espaços é tratado como ausência. Não participa de queries de
+negócio, permissões, filtros nem dados de saída. O limite HTTP existente de 64 KiB
+continua vigente. Não há migration, novo provedor de IA ou nova tabela.
+
+A origem é a IA/cliente MCP, não uma captura direta da interface do ChatGPT.
+Não é possível verificar independentemente que o texto repassado corresponde
+exatamente à mensagem original. O histórico não é reconstruído; chamadas sem
+campo mostram ausência explícita. Só há registro de perguntas que geram chamadas
+MCP; mensagens respondidas pela IA sem ferramenta não passam pelo servidor.
+
+A documentação oficial descreve chamadas com nome/argumentos e os metadados do
+cliente, sem um campo público de transcrição original independente:
+- https://modelcontextprotocol.io/specification/2025-11-25/server/tools
+- https://developers.openai.com/plugins/reference#_meta-fields-the-client-provides
+
+A listagem usa o texto em Solicitação ao MCP; Retorno do MCP fica somente no olho,
+com os parâmetros técnicos e demais detalhes. Ver `docs/logs.md`.
+
+Validação local desta evolução: 280 verificações de integração MCP, 51
+CIMD/piloto e 14 CGI/SAPI aprovadas; teste de interface, lint PHP e sintaxe JS
+aprovados. Sem execução de migrations nesta entrega.
+
+
+Validação externa concluída em 16/11/2026 no mesmo chat do piloto. Após usar
+“Atualizar ferramentas” em Gerenciar aplicativo no ChatGPT, as 11 descrições
+passaram a anunciar `pergunta_usuario`; a conexão OAuth existente foi preservada.
+A mensagem de teste teve duas linhas e emoji: “Consulte o 7Carros agora: quantos
+veículos tenho no total?” seguida de “Pode conferir novamente, por favor? 🚙”.
+O ChatGPT retornou 19 veículos e a chamada `listar_veiculos` registrou dez linhas,
+49 ms, referência `a3c2284e631516e30e55d9c3604ad1e9`. O JSON recebido preservou
+literalmente o texto; após corrigir a extração de Unicode do MariaDB antigo,
+a listagem e o olho também mostraram o emoji e o painel preservou a quebra de
+linha. Retorno do MCP não aparece na tabela de oito colunas e permanece nos
+detalhes. Registros anteriores mostram “Pergunta não informada pela IA”.
+Arquivos publicados por FTP com backups e hashes verificados. Nenhuma migration,
+recriação de conexão ou alteração de permissões foi necessária.
+
+
+## Pacotes com logo e cliente nativo Claude Code — 16/11/2026
+
+O ZIP ChatGPT 1.0.2 contém os manifests portáteis e `assets/logo.png`, uma cópia
+exata de `public/assets/img/ico.png` (151×151). `logo`, `logoDark`, `composerIcon`
+e `composerIconDark` em `extensions.com.openai.interface` apontam para o mesmo
+asset. A versão 1.0.1 permanece como histórico. Atualizar o plugin já existente
+por **Mais ações → Enviar nova versão**, sem recriar a conexão OAuth.
+
+O pacote Claude Code 1.0.0 tem `.claude-plugin/plugin.json`, `.mcp.json`, a logo e
+README. É um plugin para extrair e carregar com `claude --plugin-dir`, não um ZIP
+para upload no Claude Desktop. A configuração usa transporte `http` (Streamable
+HTTP), endpoint HTTPS atual e `oauth.clientId=7carros-claude-code`,
+`oauth.callbackPort=8765`. Nenhum segredo, bearer fixo ou arquivo de ambiente vai
+nos ZIPs. O campo `icon` é metadado do diretório; Claude Code não o exibe ao carregar.
+Na versão local 2.1.170, o validador passou com aviso de campo desconhecido, como
+previsto na referência para versões anteriores a 2.1.281.
+
+### Exceção restrita de callback nativo
+
+Somente o cliente público estático `7carros-claude-code` aceita estas duas URLs,
+comparadas literalmente, sem query, fragmento, credenciais, hosts ou portas extras:
+
+- `http://localhost:8765/callback`
+- `http://127.0.0.1:8765/callback`
+
+Esse perfil não aceita client secret nem metadados CIMD. Os demais clientes
+mantêm a exigência de HTTPS. Em `AuthorizationService::prepare`, o callback é
+validado antes de entrar na biblioteca OAuth: `league/oauth2-server` ignora a
+porta de loopback IPv4 por padrão (RFC 8252), mas o perfil aprovado aqui exige
+porta fixa. A origem da CSP usa o esquema da URL previamente validada; não há
+wildcard nem ampliação de CORS/Origins do endpoint remoto. O token endpoint
+continua exigindo o redirect exato do código e o verificador PKCE S256.
+
+### Operação no servidor
+
+Após publicar os arquivos, executar na raiz do projeto no servidor (PHP 8.3):
+
+```bash
+/opt/alt/php83/usr/bin/php scripts/mcp-cadastrar-aplicativo.php --env=production --client-id=7carros-claude-code --name='Claude Code' --redirect-uri=http://localhost:8765/callback --redirect-uri=http://127.0.0.1:8765/callback --approve
+```
+
+Acrescentar `7carros-claude-code` ao valor existente de `MCP_PILOT_CLIENT_IDS` pelo
+terminal do servidor, preservando todos os IDs atuais e sem alterar tenants,
+funcionários ou permissões. Nunca enviar `.env.production` por FTP. Não mudar
+`MCP_CIMD_HOSTS`: o perfil Claude estático dispensa CIMD e DCR. Conferir prontidão:
+
+```bash
+/opt/alt/php83/usr/bin/php scripts/mcp-cadastrar-aplicativo.php --env=production --client-id=7carros-claude-code --check --username=tiagocaus
+```
+
+O cadastro é uma aprovação operacional pelo executor já existente, não uma
+migration. Nenhuma migration é necessária. Instalação local do pacote não autoriza
+por si só uma locadora; o responsável deve entrar no 7Carros e confirmar as
+categorias. Permissões, filiais, suspensão, auditoria, renovação e revogação seguem
+o fluxo existente. Não marcar homologação completa sem as evidências específicas.
+
+Validação local: 312 verificações de integração MCP, 69 CIMD/política e 14 CGI/SAPI
+aprovadas. Cobertura inclui os dois callbacks, CSP e redirect HTTP reais,
+verificador incorreto, porta divergente bloqueada antes da biblioteca, consulta
+isolada, rotação e revogação. Os ZIPs passaram em integridade/JSON/caminhos; a logo
+coincide por hash com a original. O manifest ChatGPT passou no schema oficial e
+o núcleo MCP portátil foi validado sem a extensão OAuth, conferida separadamente.
+
+Publicação concluída em 16/11/2026: os 14 arquivos do escopo foram enviados por
+FTP e conferidos por SHA-256 após download. Os dois endpoints de descoberta
+retornaram HTTP 200 com JSON válido. Pelo terminal CWP, como usuário `7carros`,
+o cliente público foi aprovado e seu ID acrescentado ao piloto, preservando as
+demais configurações. O diagnóstico de produção para `tiagocaus` retornou
+`ready_to_enable: true`, com todas as verificações positivas. Não houve migration.
+
+A homologação no aplicativo Claude Code permanece pendente de login na conta e
+consentimento do responsável. A execução isolada local chegou à seleção de login
+da conta Claude; não foi concedido acesso nem realizada consulta externa por esse
+cliente. O pacote e os testes automatizados não substituem essa homologação.
+
+Referências:
+- https://developers.openai.com/plugins/deploy/submission#icons
+- https://code.claude.com/docs/en/plugins-reference#directory-listing-fields
+- https://code.claude.com/docs/en/mcp#use-pre-configured-oauth-credentials
+
+
+## Claude no site claude.ai — conector remoto
+
+Para consultas nas conversas normais do site, usar **Personalização → Conectores
+→ Adicionar conector personalizado**. Esse fluxo é diferente do plugin carregado
+pelo programa Claude Code no terminal; o ZIP `integrations/claude-code` destina-se
+ao programa, e não ao formulário de conector web.
+
+Configuração web:
+
+- Nome: `7Carros`.
+- URL: `https://locadora.7carros.com/mcp`.
+- Autenticação: Entrar agora (OAuth).
+- Cliente OAuth: Use seu próprio cliente OAuth.
+- ID: `7carros-claude-web`.
+- Segredo: vazio (cliente público com PKCE).
+- Callback cadastrado: `https://claude.ai/api/mcp/auth_callback`.
+- Sem cabeçalhos fixos ou tokens inseridos manualmente.
+
+Esse cliente usa o fluxo HTTPS existente, sem a exceção de loopback nativo.
+Cadastro aprovado em produção pelo script operacional e ID acrescentado ao piloto,
+preservando os demais aplicativos, tenants e funcionários. Comando de cadastro:
+
+```bash
+/opt/alt/php83/usr/bin/php scripts/mcp-cadastrar-aplicativo.php --env=production --client-id=7carros-claude-web --name='Claude' --redirect-uri=https://claude.ai/api/mcp/auth_callback --approve
+```
+
+O responsável confirmou Adicionar e o consentimento das categorias no navegador.
+Conexão externa validada em 16/11/2026: o Claude mostrou as 11 ferramentas somente
+leitura, mantendo a opção Requer aprovação. Na conversa
+`https://claude.ai/chat/08df722d-cf7b-4587-995a-18b457269255`, a pergunta
+“Consulte o 7Carros: quantos veículos tenho no total?” acionou `listar_veiculos`,
+com pagina=1, por_pagina=100 e `pergunta_usuario` literal. A chamada foi permitida
+uma única vez e a resposta informou 19 veículos. O Claude acrescentou uma divisão
+por situação cuja soma estava incorreta; esse texto extra é interpretação da IA
+e não constitui validação de agrupamentos do MCP. Nenhum conector de outro serviço
+foi removido ou substituído. Rotação e revogação deste cliente web ainda não foram
+homologadas externamente; permanecem cobertas nos testes locais do fluxo comum.
+
+Referência oficial consultada em 16/11/2026:
+https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp
+
+## Downloads na administração IA/MCP — 16/11/2026
+
+A tela apresenta duas seções no topo: Informações do MCP à esquerda e Downloads
+à direita em telas grandes; em telas menores as seções são empilhadas. Downloads
+contém cartões ChatGPT 1.0.2 e Claude Code 1.0.0, com ícones de ZIP/download,
+versão e botão Baixar ZIP. Claude Code é identificado como Para uso no terminal.
+A URL do MCP continua nas informações; os endereços dos arquivos não aparecem
+como texto. Links usam `download` sem nova aba e o servidor envia attachment.
+
+`GET /integracoes/mcp/pacotes/{aplicativo}` usa middleware auth e as condições de
+acesso da tela: integração habilitada para o tenant e funcionário ativo. Os únicos
+identificadores aceitos são `chatgpt` e `claude-code`, com catálogo fixo no
+WebController apontando para os ZIPs versionados em integrations. A rota não
+recebe caminhos ou nomes de arquivos. Pacote desconhecido, integração indisponível
+ou arquivo ausente/ilegível retornam 404; funcionário inválido/inativo retorna 403.
+Os pacotes não contêm credenciais; nenhuma autorização OAuth é criada pelo download.
+
+Schema de funcionarios confirmado no localhost e SELECT tenant-scoped executado
+antes da alteração. Validação local HTTP: ambos os ZIPs retornam 200,
+application/zip, Content-Disposition attachment, tamanho e bytes idênticos aos
+originais; identificador desconhecido, caminho manipulado, tenant não habilitado,
+integração desativada e funcionário inexistente foram rejeitados. Renderização
+HTML e lint PHP aprovados. Sem migrations ou alterações em CSS/JS.
+
+Publicação dos arquivos do escopo e ZIPs concluída por FTP com backup e conferência
+SHA-256. Conferência visual no dashboard de produção confirmou Informações do MCP
+à esquerda e Downloads à direita, com ícones, cartões e botões alinhados. Prévia
+local em iframe de 375 px confirmou empilhamento dos cartões. Os dois links foram
+clicados na tela real: os downloads concluíram sem substituir IA/MCP ou abrir
+abas, e os arquivos salvos conferiram por SHA-256 com os originais. Requisições
+externas sem sessão às duas rotas retornaram 302 para login. Nenhuma migration.

@@ -213,6 +213,7 @@ $router->get('/api/public/portal/faturas/{id}/recibo', [PortalController::class,
 $router->get('/oauth/mcp/authorize', [\App\Controllers\Mcp\WebController::class, 'authorize'], ['auth', 'rate_limit']);
 $router->post('/oauth/mcp/authorize', [\App\Controllers\Mcp\WebController::class, 'authorize'], ['auth', 'csrf', 'rate_limit']);
 $router->get('/pages/integracoes/mcp', [\App\Controllers\Mcp\WebController::class, 'index'], ['auth']);
+$router->get('/integracoes/mcp/pacotes/{aplicativo}', [\App\Controllers\Mcp\WebController::class, 'download'], ['auth']);
 $router->post('/integracoes/mcp/revogar', [\App\Controllers\Mcp\WebController::class, 'revoke'], ['auth', 'csrf', 'rate_limit']);
 
 $router->group(['middleware' => ['auth', 'web_system_access']], function ($router) {
@@ -429,6 +430,8 @@ $router->group(['middleware' => ['auth', 'web_system_access']], function ($route
     // API Logs (com proteção anti-scraping e CSRF)
     $router->get('/api/logs', [LogsController::class, 'index'], ['api_csrf', 'rate_limit', 'throttle']);
     $router->get('/api/logs/envios', [LogsController::class, 'envios'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/logs/mcp', [LogsController::class, 'mcp'], ['api_csrf', 'rate_limit', 'throttle']);
+    $router->get('/api/logs/mcp/{id}', [LogsController::class, 'mcpDetalhe'], ['api_csrf', 'rate_limit', 'throttle']);
 
     // Paginas iframe - Temporadas
     $router->get('/pages/temporadas', [TemporadasController::class, 'view']);

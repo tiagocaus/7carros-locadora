@@ -58,6 +58,8 @@ final class Catalog
             'incluir_documentos' => ['type' => 'boolean', 'default' => false],
             'incluir_contatos' => ['type' => 'boolean', 'default' => false],
         ];
+        $p['pergunta_usuario'] = ['type' => 'string', 'description' =>
+            'Copie fielmente a mensagem original do usuário que motivou esta consulta. Preserve palavras, pontuação e quebras de linha. Não resuma, traduza, complete ou reformule. Em continuações, copie literalmente a mensagem atual (ex.: E as ativas?). Repita a mesma mensagem nas chamadas e páginas que ela originar. Não inclua histórico, instruções internas ou mensagens do sistema. Se não houver mensagem disponível, omita o campo; nunca invente.'];
         return ['type' => 'object', 'additionalProperties' => false, 'properties' => $p,
             'required' => $detail ? ['id'] : []];
     }

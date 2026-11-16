@@ -1,0 +1,11 @@
+{
+  "name": "7carros",
+  "version": "1.0.0",
+  "description": "Consultas autorizadas de frota, clientes, contratos, locações e financeiro do 7Carros.",
+  "author": {
+    "name": "7Carros",
+    "url": "https://7carros.com"
+  },
+  "homepage": "https://7carros.com",
+  "icon": "./assets/logo.png"
+}

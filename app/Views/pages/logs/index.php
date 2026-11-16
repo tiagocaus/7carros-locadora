@@ -22,6 +22,9 @@
             <button type="button" id="tabEnvios" class="px-3 py-2 text-sm font-medium rounded text-slate-600 hover:bg-slate-100 flex-1 sm:flex-none">
                 <?= t('modules.logs.tabs.messages') ?>
             </button>
+            <button type="button" id="tabMcp" class="px-3 py-2 text-sm font-medium rounded text-slate-600 hover:bg-slate-100 flex-1 sm:flex-none">
+                <?= t('modules.logs.mcp.tab') ?>
+            </button>
         </div>
 
         <div id="enviosFilters" class="hidden flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -107,6 +110,24 @@
             payloadTitle: <?= json_encode(t('modules.logs.payload_title'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             auditTab: <?= json_encode(t('modules.logs.tabs.audit'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             messagesTab: <?= json_encode(t('modules.logs.tabs.messages'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+            mcp: <?= json_encode([
+                'question_unavailable' => t('modules.logs.mcp.question_unavailable'),
+                'question_title' => t('modules.logs.mcp.question_title'),
+                'request' => t('modules.logs.mcp.request'),
+                'response' => t('modules.logs.mcp.response'),
+                'unrecorded' => t('modules.logs.mcp.unrecorded'),
+                'details_title' => t('modules.logs.mcp.details_title'),
+                'application' => t('modules.logs.mcp.application'),
+                'operation' => t('modules.logs.mcp.operation'),
+                'result' => t('modules.logs.mcp.result'),
+                'records' => t('modules.logs.mcp.records'),
+                'duration' => t('modules.logs.mcp.duration'),
+                'completed' => t('modules.logs.mcp.completed'),
+                'incomplete' => t('modules.logs.mcp.incomplete'),
+                'unavailable_user' => t('modules.logs.mcp.unavailable_user'),
+                'unavailable_app' => t('modules.logs.mcp.unavailable_app'),
+                'reference' => t('modules.logs.mcp.reference'),
+            ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
             table: {
                 date: <?= json_encode(t('modules.logs.table.date'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
                 user: <?= json_encode(t('modules.logs.table.user'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
@@ -138,6 +159,8 @@
         let searchTerm = '';
         let searchTimeout = null;
         let activeView = 'audit';
+        let loadSequence = 0;
+        let detailSequence = 0;
         let typeFilter = '';
         let statusFilter = '';
         let enviosDetalhes = new Map();
@@ -163,6 +186,13 @@
             const row = document.getElementById('tableHeaderRow');
             if (!row) return;
 
+            if (activeView === 'mcp') {
+                row.innerHTML = [i18n.table.date, i18n.table.user, i18n.mcp.application, i18n.mcp.operation,
+                    i18n.mcp.request, i18n.mcp.result, i18n.mcp.duration, i18n.table.actions]
+                    .map(label => `<th class="table-header whitespace-nowrap">${escapeHtml(label)}</th>`).join('');
+                return;
+            }
+
             if (activeView === 'messages') {
                 row.innerHTML = `
                     <th class="table-header">${i18n.table.date}</th>
@@ -186,6 +216,10 @@
         }
 
         function carregarAtual(page = currentPage) {
+            if (activeView === 'mcp') {
+                carregarMcp(page, perPage, searchTerm);
+                return;
+            }
             if (activeView === 'messages') {
                 carregarEnvios(page, perPage, searchTerm);
                 return;
@@ -195,6 +229,7 @@
         }
 
         async function carregarLogs(page = 1, recordsPerPage = 10, search = '') {
+            const loadId = ++loadSequence;
             showLoading();
 
             try {
@@ -204,6 +239,7 @@
                     search: search
                 });
 
+                if (loadId !== loadSequence || activeView !== 'audit') return;
                 if (result.success) {
                     renderLogs(result.data);
                     atualizarPaginacao(result.pagination);
@@ -213,14 +249,16 @@
                     mostrarMensagemErro(i18n.loadError);
                 }
             } catch (error) {
+                if (loadId !== loadSequence || activeView !== 'audit') return;
                 console.error('Erro ao buscar logs:', error);
                 mostrarMensagemErro(error.message || i18n.serverError);
             } finally {
-                hideLoading();
+                if (loadId === loadSequence) hideLoading();
             }
         }
 
         async function carregarEnvios(page = 1, recordsPerPage = 10, search = '') {
+            const loadId = ++loadSequence;
             showLoading();
 
             try {
@@ -232,6 +270,7 @@
                     status: statusFilter
                 });
 
+                if (loadId !== loadSequence || activeView !== 'messages') return;
                 if (result.success) {
                     renderEnvios(result.data);
                     atualizarPaginacao(result.pagination);
@@ -241,17 +280,105 @@
                     mostrarMensagemErro(i18n.loadError);
                 }
             } catch (error) {
+                if (loadId !== loadSequence || activeView !== 'messages') return;
                 console.error('Erro ao buscar envios:', error);
                 mostrarMensagemErro(error.message || i18n.serverError);
             } finally {
-                hideLoading();
+                if (loadId === loadSequence) hideLoading();
+            }
+        }
+
+        async function carregarMcp(page = 1, recordsPerPage = 10, search = '') {
+            const loadId = ++loadSequence;
+            showLoading();
+            try {
+                const result = await API.get('/api/logs/mcp', { page, perPage: recordsPerPage, search });
+                if (loadId !== loadSequence || activeView !== 'mcp') return;
+                if (!result.success) { mostrarMensagemErro(i18n.loadError); return; }
+                renderMcp(result.data);
+                atualizarPaginacao(result.pagination);
+                atualizarInfoRegistros(result.pagination);
+            } catch (error) {
+                if (loadId === loadSequence && activeView === 'mcp') mostrarMensagemErro(i18n.loadError);
+            } finally {
+                if (loadId === loadSequence) hideLoading();
+            }
+        }
+
+        function renderMcp(logs) {
+            const tbody = document.getElementById('logsTableBody');
+            if (!tbody) return;
+            if (!logs.length) {
+                tbody.innerHTML = `<tr><td colspan="8" class="table-cell text-center text-slate-500">${escapeHtml(i18n.noRecords)}</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = logs.map(log => {
+                const completed = log.resultado === 'success';
+                const result = completed ? i18n.mcp.completed : (log.resultado === 'blocked' ? i18n.mcp.incomplete : log.resultado);
+                const color = completed ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700';
+                return `<tr class="border-b border-slate-200 hover:bg-slate-50">
+                    <td class="table-cell whitespace-nowrap">${escapeHtml(formatarData(log.data))}</td>
+                    <td class="table-cell">${escapeHtml(log.usuario_nome || i18n.mcp.unavailable_user)}</td>
+                    <td class="table-cell">${escapeHtml(log.aplicativo || i18n.mcp.unavailable_app)}</td>
+                    <td class="table-cell"><div>${escapeHtml(log.operacao)}</div><div class="text-xs text-slate-500">${escapeHtml(log.evento)}</div></td>
+                    <td class="table-cell break-words" style="max-width:240px">${escapeHtml(log.pergunta_previa ?? i18n.mcp.question_unavailable)}</td>
+                    <td class="table-cell"><span class="rounded px-2 py-1 text-xs ${color}" title="${escapeHtml(i18n.mcp.reference + ': ' + log.request_id)}">${escapeHtml(result)}</span></td>
+                    <td class="table-cell text-right whitespace-nowrap">${Number(log.duracao_ms) || 0} ms</td>
+                    <td class="table-cell text-right"><button class="btn-icon text-sky-600 hover:text-sky-800 btn-mcp-detalhe" title="${escapeHtml(i18n.viewDetails)}" data-id="${Number(log.id) || 0}"><i class="fas fa-eye"></i></button></td>
+                </tr>`;
+            }).join('');
+            tbody.querySelectorAll('.btn-mcp-detalhe').forEach(button => {
+                button.addEventListener('click', () => abrirPainelMcp(button.getAttribute('data-id')));
+            });
+        }
+
+        async function abrirPainelMcp(id) {
+            const sequence = ++detailSequence;
+            const listSequence = loadSequence;
+            try {
+                const result = await API.get('/api/logs/mcp/' + encodeURIComponent(id));
+                if (sequence !== detailSequence || listSequence !== loadSequence || activeView !== 'mcp') return;
+                if (!result?.success || !result.data) throw new Error();
+                const log = result.data;
+                const resultLabel = log.resultado === 'success' ? i18n.mcp.completed : (log.resultado === 'blocked' ? i18n.mcp.incomplete : log.resultado);
+                const fields = [
+                    [i18n.table.date, formatarData(log.data)],
+                    [i18n.table.user, log.usuario_nome || i18n.mcp.unavailable_user],
+                    [i18n.mcp.application, log.aplicativo || i18n.mcp.unavailable_app],
+                    [i18n.mcp.operation, log.operacao + ' (' + log.evento + ')'],
+                    [i18n.mcp.result, resultLabel], [i18n.mcp.records, log.registros],
+                    [i18n.mcp.duration, (Number(log.duracao_ms) || 0) + ' ms'],
+                    [i18n.mcp.reference, log.request_id],
+                ];
+                let html = '<div class="space-y-4"><div class="border border-slate-200 rounded-lg overflow-hidden">';
+                html += fields.map(([label, value]) => `
+                    <div class="grid grid-cols-3 border-b border-slate-100 last:border-b-0">
+                        <div class="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 break-words">${escapeHtml(label)}</div>
+                        <div class="col-span-2 px-3 py-2 text-sm text-slate-800 break-words">${escapeHtml(value)}</div>
+                    </div>
+                `).join('');
+                html += '</div>';
+                html += `<section class="border border-slate-200 rounded-lg overflow-hidden"><h3 class="bg-slate-100 px-3 py-2 font-medium text-slate-700 text-sm">${escapeHtml(i18n.mcp.question_title)}</h3><div class="p-3 text-sm text-slate-800 whitespace-pre-wrap break-words">${escapeHtml(log.pergunta_usuario ?? i18n.mcp.question_unavailable)}</div></section>`;
+                for (const [label, payload] of [[i18n.mcp.request, log.solicitacao], [i18n.mcp.response, log.retorno]]) {
+                    let text = i18n.mcp.unrecorded;
+                    if (payload !== null && payload !== undefined) {
+                        try { text = JSON.stringify(JSON.parse(payload), null, 2); } catch { text = String(payload); }
+                    }
+                    html += `<section class="border border-slate-200 rounded-lg overflow-hidden"><h3 class="bg-slate-100 px-3 py-2 font-medium text-slate-700 text-sm">${escapeHtml(label)}</h3><pre class="p-3 text-xs text-slate-700 whitespace-pre-wrap break-words overflow-auto">${escapeHtml(text)}</pre></section>`;
+                }
+                html += '</div>';
+                window.parent.postMessage({action: 'openOffcanvasContent', content: html, title: i18n.mcp.details_title, width: '40%'}, '*');
+            } catch {
+                if (sequence === detailSequence && listSequence === loadSequence && activeView === 'mcp') {
+                    window.parent.postMessage({action: 'openAlert', message: i18n.loadError}, '*');
+                }
             }
         }
 
         function mostrarMensagemErro(mensagem) {
             const tbody = document.querySelector('#logsTableBody');
             if (!tbody) return;
-            const colspan = activeView === 'messages' ? 7 : 5;
+            const colspan = activeView === 'audit' ? 5 : (activeView === 'mcp' ? 8 : 7);
             tbody.innerHTML = `
             <tr>
                 <td colspan="${colspan}" class="table-cell text-center text-red-600">
@@ -632,8 +759,9 @@
             const { page, perPage, total } = pagination;
 
             if (total === null) {
-                const start = ((page - 1) * perPage) + 1;
-                const end = start + perPage - 1;
+                const returned = activeView === 'mcp' ? (pagination.returned ?? perPage) : perPage;
+                const start = returned === 0 ? 0 : ((page - 1) * perPage) + 1;
+                const end = returned === 0 ? 0 : start + returned - 1;
                 infoElement.textContent = i18n.showingLazy.replace(':start', start).replace(':end', end);
             } else {
                 const start = total === 0 ? 0 : ((page - 1) * perPage) + 1;
@@ -727,19 +855,16 @@
             activeView = view;
             currentPage = 1;
             const isMessages = view === 'messages';
-            const tabAuditoria = document.getElementById('tabAuditoria');
-            const tabEnvios = document.getElementById('tabEnvios');
             const enviosFilters = document.getElementById('enviosFilters');
-
-            tabAuditoria?.classList.toggle('bg-sky-600', !isMessages);
-            tabAuditoria?.classList.toggle('text-white', !isMessages);
-            tabAuditoria?.classList.toggle('text-slate-600', isMessages);
-            tabAuditoria?.classList.toggle('hover:bg-slate-100', isMessages);
-
-            tabEnvios?.classList.toggle('bg-sky-600', isMessages);
-            tabEnvios?.classList.toggle('text-white', isMessages);
-            tabEnvios?.classList.toggle('text-slate-600', !isMessages);
-            tabEnvios?.classList.toggle('hover:bg-slate-100', !isMessages);
+            for (const [id, tabView] of [['tabAuditoria', 'audit'], ['tabEnvios', 'messages'], ['tabMcp', 'mcp']]) {
+                const tab = document.getElementById(id);
+                const selected = view === tabView;
+                tab?.classList.toggle('bg-sky-600', selected);
+                tab?.classList.toggle('text-white', selected);
+                tab?.classList.toggle('text-slate-600', !selected);
+                tab?.classList.toggle('hover:bg-slate-100', !selected);
+                tab?.setAttribute('aria-pressed', String(selected));
+            }
 
             enviosFilters?.classList.toggle('hidden', !isMessages);
             atualizarCabecalhoTabela();
@@ -749,6 +874,8 @@
         document.getElementById('tabAuditoria')?.addEventListener('click', function() {
             ativarAba('audit');
         });
+
+        document.getElementById('tabMcp')?.addEventListener('click', function() { ativarAba('mcp'); });
 
         document.getElementById('tabEnvios')?.addEventListener('click', function() {
             ativarAba('messages');

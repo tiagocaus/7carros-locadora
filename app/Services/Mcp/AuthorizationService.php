@@ -30,6 +30,9 @@ final class AuthorizationService
         if (!$client || !ClientPolicy::permitsIdentity($client, $chave, $employeeId)) {
             throw new \RuntimeException('Aplicativo ou funcionário fora da liberação MCP.', 403);
         }
+        // League's native-app validator ignores the port for 127.0.0.1.
+        // Enforce our exact, client-scoped callback policy before calling it.
+        if (isset($query['redirect_uri'])) ClientRegistry::validateRedirect($query['redirect_uri'], $client['client_id']);
         $repo = new Repository($this->store);
         $auth = ServerFactory::build($repo)->validateAuthorizationRequest((new ServerRequest('GET', Config::issuer() . '/oauth/mcp/authorize'))->withQueryParams($query));
         $scopes = [];
@@ -39,7 +42,7 @@ final class AuthorizationService
         }
         if (!$scopes) throw new \RuntimeException('Nenhuma categoria disponível para autorização.', 403);
         return ['query' => $query, 'scopes' => $scopes, 'application' => $auth->getClient()->getName(),
-            'redirect_origin' => self::redirectOrigin((string) $auth->getRedirectUri()),
+            'redirect_origin' => self::redirectOrigin((string) $auth->getRedirectUri(), $auth->getClient()->getIdentifier()),
             'branch_access' => $this->store->consentBranches($chave, $employeeId),
             'chave' => $chave, 'employee_id' => $employeeId, 'expires' => time() + 300];
     }
@@ -95,15 +98,15 @@ final class AuthorizationService
         return $response;
     }
 
-    private static function redirectOrigin(string $redirect): string
+    private static function redirectOrigin(string $redirect, string $clientId): string
     {
         // Called exclusively after the OAuth library validates the exact registered URI.
-        ClientRegistry::validateRedirect($redirect);
+        ClientRegistry::validateRedirect($redirect, $clientId);
         $uri = new Uri($redirect);
         $host = $uri->getHost();
         if (!preg_match('/\A(?:[a-z0-9][a-z0-9.-]*|\[[0-9a-f:]+\])\z/i', $host)) {
             throw new \InvalidArgumentException('Origem de retorno inválida.');
         }
-        return 'https://' . $host . ($uri->getPort() === null ? '' : ':' . $uri->getPort());
+        return $uri->getScheme() . '://' . $host . ($uri->getPort() === null ? '' : ':' . $uri->getPort());
     }
 }

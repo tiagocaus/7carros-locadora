@@ -10,6 +10,13 @@ use App\Views\Template;
 
 final class WebController
 {
+    private const PACKAGES = [
+        'chatgpt' => ['title' => 'ChatGPT', 'version' => '1.0.2', 'description' => 'Plugin para o ChatGPT',
+            'file' => 'integrations/chatgpt/7carros-chatgpt-1.0.2.zip'],
+        'claude-code' => ['title' => 'Claude Code', 'version' => '1.0.0', 'description' => 'Para uso no terminal',
+            'file' => 'integrations/claude-code/7carros-claude-code-1.0.0.zip'],
+    ];
+
     public function authorize(Request $request): void
     {
         $requestId = bin2hex(random_bytes(16));
@@ -111,7 +118,27 @@ final class WebController
         }
         $page = max(1, min(1000000, (int) $request->query('pagina', 1)));
         $rows = $store->listConnections($chave, $id, in_array('mcp.administrar', $permissions, true), $page);
-        Response::html(Template::render('pages.mcp.index', ['connections' => $rows, 'page' => $page, 'endpoint' => Config::resource(), 'scopeLabels' => self::labels()]));
+        Response::html(Template::render('pages.mcp.index', ['connections' => $rows, 'page' => $page, 'endpoint' => Config::resource(), 'scopeLabels' => self::labels(), 'packages' => self::PACKAGES]));
+    }
+
+    public function download(Request $request, string $aplicativo): void
+    {
+        $package = self::PACKAGES[$aplicativo] ?? null;
+        $chave = (string) Auth::chave();
+        if (!$package || !Config::enabled($chave)) {
+            Response::html('Pacote não encontrado.', 404); return;
+        }
+        $user = (new Store())->employee($chave, (int) Auth::id());
+        if (!$user || $user['status'] !== 'A') {
+            Response::html('Acesso não autorizado.', 403); return;
+        }
+        // File paths come exclusively from this fixed catalog, never from request input.
+        $path = dirname(__DIR__, 3) . '/' . $package['file'];
+        if (!is_file($path) || !is_readable($path)) {
+            Response::html('Pacote indisponível.', 404); return;
+        }
+        header('X-Content-Type-Options: nosniff');
+        Response::download($path, basename($package['file']));
     }
 
     public function revoke(Request $request): void

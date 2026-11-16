@@ -1,14 +1,14 @@
-# Plugin privado 7Carros — 1.0.1
+# Plugin privado 7Carros — 1.0.2
 
 Fontes do pacote Agent Plugins para o piloto privado no ChatGPT. O ZIP contém
-somente `plugin.json` e `mcp.json` na raiz. Não contém credenciais, tokens,
+`plugin.json` e `mcp.json` na raiz e `assets/logo.png`. Não contém credenciais, tokens,
 configurações de ambiente ou arquivos do servidor PHP.
 
 ## Instalação
 
 1. No ChatGPT, abrir **Plugins → Adicionar → Enviar arquivo compactado do plugin**.
    Esse caminho foi conferido na interface da conta em 16/11/2026.
-2. Selecionar `7carros-chatgpt-1.0.1.zip` desta pasta. Usar o upload do pacote para
+2. Selecionar `7carros-chatgpt-1.0.2.zip` desta pasta. Usar o upload do pacote para
    importar os metadados; o formulário de adicionar servidor por URL não contém
    todos esses campos.
 3. Conferir nome **7Carros**, site **https://7carros.com** e desenvolvedor informado
@@ -25,9 +25,11 @@ O pacote não deve ser submetido ou publicado no diretório público nesta etapa
 
 ## Metadados e OAuth
 
-- `plugin.json`: nome portátil `7carros`, versão `1.0.1`, autor, homepage e os
+- `plugin.json`: nome portátil `7carros`, versão `1.0.2`, autor, homepage e os
   campos de apresentação `extensions.com.openai.interface`, incluindo
   `developerName` e `websiteURL`.
+- `assets/logo.png`: cópia exata de `public/assets/img/ico.png` (151×151), usada
+  em `logo`, `logoDark`, `composerIcon` e `composerIconDark`.
 - `mcp.json`: um servidor Streamable HTTP em `https://locadora.7carros.com/mcp`,
   com `extensions.com.openai.auth` no servidor e `client.mode: cimd`. Endpoints e
   escopos são obtidos pela descoberta existente. Não declarar client ID ou segredo
@@ -65,9 +67,19 @@ Na raiz do projeto, após revisar as versões nos manifests e no servidor:
 
 ```bash
 cd integrations/chatgpt
-python3 -m zipfile -c 7carros-chatgpt-1.0.1.zip plugin.json mcp.json
-python3 -m zipfile -t 7carros-chatgpt-1.0.1.zip
+python3 -m zipfile -c 7carros-chatgpt-1.0.2.zip plugin.json mcp.json assets/logo.png
+python3 -m zipfile -t 7carros-chatgpt-1.0.2.zip
 ```
 
 O pacote é entregue localmente para upload no ChatGPT, não é um arquivo de runtime
 do servidor. Esta atualização não exige Composer, migrations ou alterações nas ENVs.
+
+
+## Atualização com a logo
+
+A versão 1.0.2 acrescenta a PNG fornecida pelo responsável, sem redimensionar ou
+alterar o arquivo original. Os quatro campos de imagem apontam para o mesmo asset.
+O pacote 1.0.1 permanece disponível como histórico. Envie a versão 1.0.2 pelo menu
+**Mais ações → Enviar nova versão** do plugin existente. Não recrie a conexão.
+A interface do diretório pode manter a autoria vinculada à conta do publicador;
+a logo do pacote e o nome do desenvolvedor são metadados distintos.

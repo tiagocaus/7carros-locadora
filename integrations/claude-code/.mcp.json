@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "7carros": {
+      "type": "http",
+      "url": "https://locadora.7carros.com/mcp",
+      "oauth": {
+        "clientId": "7carros-claude-code",
+        "callbackPort": 8765
+      }
+    }
+  }
+}

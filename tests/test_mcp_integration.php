@@ -96,6 +96,7 @@ function grantMcp(string $tenant, int $employee, string $clientId, array $scopes
     return ['grant_type' => 'authorization_code', 'client_id' => $clientId, 'code' => $location['code'],
         'code_verifier' => $verifier, 'redirect_uri' => $query['redirect_uri'], 'resource' => Config::resource()];
 }
+$claudeClientCreated = false;
 $roles = []; $branches = []; $employees = []; $clients = []; $vehicles = [];
 try {
     $store->registerClient($clientId, 'Assistente de teste', ['https://assistant.example.test/callback'], null, null, false);
@@ -265,19 +266,31 @@ try {
     checkMcp($status === 200 && isset($data['result']), 'Descoberta sem initialize: ' . json_encode([$status, $data]));
     $info = $data['result']['_meta'][\Mcp\Schema\RequestMeta::SERVER_INFO] ?? [];
     checkMcp(($info['name'] ?? '') === '7Carros' && ($info['title'] ?? '') === '7Carros Locadora'
-        && ($info['version'] ?? '') === '1.0.1' && ($info['websiteUrl'] ?? '') === 'https://7carros.com'
+        && ($info['version'] ?? '') === '1.0.2' && ($info['websiteUrl'] ?? '') === 'https://7carros.com'
         && ($info['description'] ?? '') === 'Consultas autorizadas de frota, clientes, contratos, locações e financeiro.',
         'Descoberta anuncia identidade, versão, descrição e site do 7Carros.');
     checkMcp(!$response->hasHeader('Mcp-Session-Id'), 'Não deve emitir sessão MCP.');
     [$status, $data] = requestMcp('tools/list', [], $access);
     checkMcp($status === 200 && count($data['result']['tools'] ?? []) === 11, 'Catálogo deve conter 11 ferramentas: ' . json_encode($data));
     require __DIR__ . '/mcp-discovery-checks.php';
+    require __DIR__ . '/mcp-audit-view-checks.php';
     foreach (Catalog::CATEGORIES as $category => $def) {
         [$status, $data] = requestMcp('tools/call', ['name' => 'listar_' . $category, 'arguments' => (object) []], $access);
         $result = $data['result'] ?? [];
         checkMcp($status === 200 && empty($result['isError']) && count($result['structuredContent']['dados'] ?? []) === ($category === 'lancamentos' ? 2 : 1),
             'Listagem isolada ' . $category . ': ' . json_encode($data));
     }
+    $captured = $qb->table('mcp_audit')->withChave($a)->where('event', '=', 'listar_lancamentos')->where('result', '=', 'success')->orderByDesc('id')->first();
+    checkMcp($captured['response_payload'] === $data['result']['content'][0]['text']
+        && json_decode($captured['request_payload'], true)['ferramenta'] === 'listar_lancamentos',
+        'Auditoria captura a solicitação e exatamente o JSON entregue pela ferramenta.');
+    $testService = new \App\Services\Mcp\ToolService($store->context($captured['connection_id'], $clientId, $scopes), $store, bin2hex(random_bytes(16)), microtime(true));
+    $errorResult = $testService->call('clientes', ['sql' => 'must-not-be-recorded']);
+    $capturedError = $qb->table('mcp_audit')->withChave($a)->where('event', '=', 'listar_clientes')->orderByDesc('id')->first();
+    $capturedErrorBody = json_decode($capturedError['response_payload'], true);
+    checkMcp($capturedErrorBody['isError'] === true && $capturedErrorBody['mensagem'] === $errorResult->content[0]->text
+        && !str_contains($capturedError['request_payload'], 'must-not-be-recorded'),
+        'Erro público é auditado sem argumentos desconhecidos ou exceções internas.');
     [$status, $data] = requestMcp('tools/call', ['name' => 'obter_cliente', 'arguments' => ['id' => $clients[$b]]], $access);
     checkMcp(array_key_exists('dados', $data['result']['structuredContent'] ?? []) && $data['result']['structuredContent']['dados'] === null, 'ID de outro tenant não pode vazar.');
     [$status, $data] = requestMcp('tools/call', ['name' => 'obter_cliente', 'arguments' => ['id' => $clients[$a]]], $access);
@@ -287,6 +300,8 @@ try {
     checkMcp(isset($row['cpf_cnpj'], $row['emails'][0], $row['telefones'][0]) && !isset($row['cnh_codigo_seguranca']), 'Autorização adicional e projeção de campos: ' . json_encode($data));
     [$status, $data] = requestMcp('tools/call', ['name' => 'resumir_financeiro', 'arguments' => (object) []], $access);
     checkMcp(($data['result']['structuredContent']['dados'][0]['total'] ?? '') === '200.00', 'Parcelas somadas uma única vez: ' . json_encode($data));
+    require __DIR__ . '/mcp-question-checks.php';
+    require __DIR__ . '/mcp-claude-code-checks.php';
     foreach ([['name' => 'listar_clientes', 'arguments' => ['chave' => $b]],
         ['name' => 'listar_clientes', 'arguments' => ['filtros' => ['por_pagina' => 101]]],
         ['name' => 'listar_contratos', 'arguments' => ['filtros' => ['data_de' => '2026-02-31']]]] as $bad) {
@@ -454,6 +469,7 @@ try {
     }
     foreach ($roles as $role) $qb->table('funcionarios_role_permissions')->withoutChave()->where('role_id', '=', $role)->delete();
     foreach ([$a, $b] as $tenant) $qb->table('funcionarios_roles')->withChave($tenant)->delete();
+    if ($claudeClientCreated) $qb->table('mcp_clients')->withoutChave()->where('client_id', '=', ClientRegistry::CLAUDE_CODE_CLIENT_ID)->delete();
     foreach ([$clientId, $cimdClientId] as $cleanupClient) $qb->table('mcp_clients')->withoutChave()->where('client_id', '=', $cleanupClient)->delete();
     session_write_close();
     foreach (glob($directory . '/*') as $file) unlink($file); rmdir($directory);

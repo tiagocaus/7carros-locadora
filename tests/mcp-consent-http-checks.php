@@ -43,6 +43,61 @@ try {
         usleep(50000);
     }
     checkMcp($ready, 'Servidor HTTP local iniciou.');
+    [$status] = $http('/api/logs/mcp');
+    checkMcp($status === 403, 'API da auditoria MCP exige logs.visualizar.');
+    [$status] = $http('/api/logs/mcp/1');
+    checkMcp($status === 403, 'Detalhe exige logs.visualizar.');
+    $auditPermission = $qb->table('permissions')->withoutChave()->where('`key`', '=', 'logs.visualizar')->first();
+    checkMcp($auditPermission !== null, 'Permissão existente de logs disponível no schema local.');
+    $qb->table('funcionarios_role_permissions')->withoutChave()->insert(['role_id' => $roles[0], 'permission_id' => $auditPermission['id']]);
+    try {
+        [$status, $body] = $http('/api/logs/mcp?perPage=2');
+        $auditResponse = json_decode($body, true);
+        checkMcp($status === 200 && count($auditResponse['data'] ?? []) === 2
+            && $auditResponse['pagination']['total'] === null && $auditResponse['pagination']['hasNext'],
+            'API entrega auditoria com paginação sem contagem total e permissão atual.');
+        $auditRows = $auditResponse['data'];
+        checkMcp(count(array_diff(array_column($auditRows, 'evento'), \App\Models\McpAuditLog::tools())) === 0
+            && isset($auditRows[0]['operacao']) && !isset($auditRows[0]['chave']), 'API publica somente operações traduzidas e campos resumidos.');
+        $payloadRow = $auditRows[0];
+        $httpQuestion = "  Pergunta fiel? Á🚙\n" . str_repeat('ç🚙', 400);
+        $longPayload = json_encode(['argumentos' => ['pergunta_usuario' => $httpQuestion], 'dados' => [str_repeat('Á🚙', 400)]], JSON_UNESCAPED_UNICODE);
+        $qb->table('mcp_audit')->withChave($a)->where('id', '=', $payloadRow['id'])
+            ->update(['request_payload' => $longPayload, 'response_payload' => $longPayload]);
+        [$status, $body] = $http('/api/logs/mcp?perPage=2');
+        $preview = json_decode($body, true)['data'][0];
+        checkMcp(mb_strlen($preview['solicitacao_previa']) === 255 && str_ends_with($preview['solicitacao_previa'], '…')
+            && !isset($preview['solicitacao']) && !isset($preview['retorno']) && $preview['conteudo_disponivel'] === true,
+            'API limita prévias a 255 caracteres Unicode e não envia conteúdo completo.');
+        checkMcp($preview['pergunta_previa'] === mb_substr($httpQuestion, 0, 254) . '…' && !isset($preview['pergunta_usuario']), 'API retorna só prévia da pergunta com 255 caracteres Unicode.');
+        [$status, $body] = $http('/api/logs/mcp/' . $payloadRow['id']);
+        $detailResponse = json_decode($body, true);
+        checkMcp($status === 200 && $detailResponse['data']['retorno'] === $longPayload && $detailResponse['data']['pergunta_usuario'] === $httpQuestion
+            && isset($detailResponse['data']['registros']), 'API de detalhe retorna conteúdo completo e quantidade.');
+        $foreignId = $qb->table('mcp_audit')->withChave($b)->insert([
+            'chave' => $b, 'employee_id' => $employees[$b], 'connection_id' => 'http-audit-fixture',
+            'client_id' => $clientId, 'request_id' => bin2hex(random_bytes(16)), 'event' => 'listar_veiculos',
+            'result' => 'success', 'response_payload' => $longPayload,
+        ]);
+        [$foreignStatus, $foreignBody] = $http('/api/logs/mcp/' . $foreignId);
+        [$missingStatus, $missingBody] = $http('/api/logs/mcp/4294967295');
+        [$invalidStatus] = $http('/api/logs/mcp/invalid');
+        $qb->table('mcp_audit')->withChave($b)->where('id', '=', $foreignId)->delete();
+        checkMcp($foreignStatus === 404 && $missingStatus === 404 && $invalidStatus === 404 && $foreignBody === $missingBody,
+            'IDs ausentes, inválidos e de outro tenant não revelam dados.');
+        [$status, $body] = $http('/api/logs/mcp?' . http_build_query(['perPage' => 2, 'page' => 2]));
+        checkMcp($status === 200 && !array_intersect(array_column($auditRows, 'id'), array_column(json_decode($body, true)['data'], 'id')),
+            'API pagina sem duplicar chamadas.');
+        [$status, $body] = $http('/api/logs/mcp?' . http_build_query(['search' => 'Listar veículos']));
+        $auditSearch = json_decode($body, true);
+        checkMcp($status === 200 && $auditSearch['pagination']['total'] > 0
+            && count(array_diff(array_column($auditSearch['data'], 'evento'), ['listar_veiculos'])) === 0, 'Busca reconhece operação traduzida.');
+        [$status, $body] = $http('/api/logs/mcp?' . http_build_query(['search' => 'no-match-' . $run]));
+        checkMcp($status === 200 && json_decode($body, true)['data'] === [], 'API retorna estado vazio na busca sem resultados.');
+    } finally {
+        $qb->table('funcionarios_role_permissions')->withoutChave()->where('role_id', '=', $roles[0])
+            ->where('permission_id', '=', $auditPermission['id'])->delete();
+    }
     [$status, $machineTokens] = tokenMcp(grantMcp($a, $employees[$a], $clientId, ['frota:read', 'clientes:read']));
     checkMcp($status === 200, 'Credencial descartável para teste HTTP do transporte.');
     $machineHttp = static function (string $method, array $params, string $revision, ?string $bearer,
@@ -102,6 +157,21 @@ try {
         return [$status, $body, $headers, ['nonce' => $nonce[1] ?? '', '_token' => $csrf[1] ?? '',
             'scopes' => ['frota:read'], 'decision' => 'allow']];
     };
+    foreach (\App\Services\Mcp\ClientRegistry::CLAUDE_CODE_REDIRECTS as $callback) {
+        $nativeQuery = array_replace($query, ['client_id' => \App\Services\Mcp\ClientRegistry::CLAUDE_CODE_CLIENT_ID,
+            'redirect_uri' => $callback]);
+        [$nativeStatus, , $nativeHeaders, $nativePost] = $open($nativeQuery);
+        $nativeOrigin = substr($callback, 0, -strlen('/callback'));
+        checkMcp($nativeStatus === 200 && ($nativeHeaders['content-security-policy'] ?? '') === "frame-ancestors 'none'; form-action 'self' $nativeOrigin; base-uri 'none'",
+            'Consentimento HTTP Claude possui CSP com a origem loopback exata.');
+        [$nativeStatus, , $nativeHeaders] = $http('/oauth/mcp/authorize', $nativePost);
+        checkMcp($nativeStatus === 303 && str_starts_with($nativeHeaders['location'] ?? '', $callback . '?'),
+            'Consentimento HTTP Claude retorna ao callback aprovado sem wildcard.');
+        $nativeQuery['redirect_uri'] = 'http://127.0.0.1:8766/callback';
+        [$nativeStatus, , $nativeHeaders] = $http('/oauth/mcp/authorize?' . http_build_query($nativeQuery));
+        checkMcp($nativeStatus >= 400 && $nativeStatus < 500 && !isset($nativeHeaders['location']),
+            'Callback Claude com porta divergente não recebe redirect do navegador.');
+    }
     [$status, $body, $headers, $post] = $open($query);
     checkMcp($status === 200 && strlen($post['nonce']) === 48 && $post['_token'] !== '', 'GET HTTP apresenta consentimento com sessão e CSRF reais.');
     checkMcp(($headers['content-security-policy'] ?? '') === "frame-ancestors 'none'; form-action 'self' https://assistant.example.test; base-uri 'none'",

@@ -2,6 +2,8 @@
 /** Loopback-only HTTP harness. Never publish or use outside disposable local fixtures. */
 declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
+if (!defined('APP_ROOT')) define('APP_ROOT', dirname(__DIR__, 2));
+require_once APP_ROOT . '/app/Helpers/helpers.php';
 $_ENV['APP_ENV'] = 'development';
 $directory = getenv('MCP_CONSENT_TEST_DIRECTORY') ?: '';
 $tenant = getenv('MCP_CONSENT_TEST_TENANT') ?: '';
@@ -23,6 +25,13 @@ session_start();
 $_SESSION['authenticated'] = true;
 $_SESSION['user_id'] = $employee;
 $_SESSION['chave'] = $tenant;
+if ($path === '/api/logs/mcp' || preg_match('~^/api/logs/mcp/([^/]+)$~', $path, $auditMatch)) {
+    // Keep permission tests deterministic and independent of the optional local Redis extension.
+    (new \ReflectionProperty(\App\Core\Cache::class, 'enabled'))->setValue(null, false);
+    if ($path === '/api/logs/mcp') (new \App\Controllers\LogsController())->mcp(\App\Core\Request::capture());
+    else (new \App\Controllers\LogsController())->mcpDetalhe(\App\Core\Request::capture(), $auditMatch[1]);
+    return;
+}
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 if ($path === '/health') { echo 'ready'; return; }
 if ($path === '/expire-fixture') {

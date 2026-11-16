@@ -48,7 +48,7 @@ try {
     if (!is_string($name) || trim($name) === '' || mb_strlen($name) > 150 || !$uris || count($uris) > 20) {
         throw new InvalidArgumentException('Informe nome e retornos válidos.');
     }
-    foreach ($uris as $uri) ClientRegistry::validateRedirect($uri);
+    foreach ($uris as $uri) ClientRegistry::validateRedirect($uri, $id);
     $secret = getenv('MCP_CLIENT_SECRET');
     if ($metadata !== null && $secret !== false && $secret !== '') throw new InvalidArgumentException('CIMD negocia autenticação none; remova MCP_CLIENT_SECRET.');
     if ($secret !== false && $secret !== '' && strlen($secret) < 32) throw new InvalidArgumentException('Segredo deve ter pelo menos 32 caracteres.');

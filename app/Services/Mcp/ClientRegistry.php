@@ -6,6 +6,11 @@ namespace App\Services\Mcp;
 /** Approval is an operator action. Metadata never registers or approves an application itself. */
 final class ClientRegistry
 {
+    public const CLAUDE_CODE_CLIENT_ID = '7carros-claude-code';
+    public const CLAUDE_CODE_REDIRECTS = [
+        'http://localhost:8765/callback',
+        'http://127.0.0.1:8765/callback',
+    ];
     public static function capabilities(array $document): array
     {
         // The plural field is authoritative. A malformed plural field must not
@@ -48,7 +53,7 @@ final class ClientRegistry
         }
         $redirects = self::stringList($document['redirect_uris'] ?? null);
         if (count($redirects) > 20) throw new \InvalidArgumentException('Retornos CIMD excedidos.');
-        foreach ($redirects as $uri) self::validateRedirect($uri);
+        foreach ($redirects as $uri) self::validateRedirect($uri, $clientId);
         self::capabilities($document);
         return $document;
     }
@@ -69,8 +74,14 @@ final class ClientRegistry
             'document_sha256' => self::fingerprint($document), 'verified_at' => date(DATE_ATOM)];
     }
 
-    public static function validateRedirect(string $uri): void
+    public static function validateRedirect(string $uri, ?string $clientId = null): void
     {
+        if ($clientId === self::CLAUDE_CODE_CLIENT_ID) {
+            if (!in_array($uri, self::CLAUDE_CODE_REDIRECTS, true)) {
+                throw new \InvalidArgumentException('Retorno do Claude Code fora dos callbacks locais aprovados.');
+            }
+            return;
+        }
         $p = parse_url($uri);
         if (!$p || ($p['scheme'] ?? '') !== 'https' || empty($p['host']) || isset($p['user'])
             || isset($p['pass']) || isset($p['fragment']) || preg_match('/[\x00-\x20\x7f]/', $uri)) {

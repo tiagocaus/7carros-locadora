@@ -25,6 +25,10 @@ final class Store extends Model
 
     public function registerClient(string $id, string $name, array $redirects, ?string $secretHash, ?array $metadata, bool $homologated): void
     {
+        foreach ($redirects as $redirect) ClientRegistry::validateRedirect($redirect, $id);
+        if ($id === ClientRegistry::CLAUDE_CODE_CLIENT_ID && ($secretHash !== null || $metadata !== null)) {
+            throw new \InvalidArgumentException('Claude Code usa cliente público estático, sem segredo ou documento CIMD.');
+        }
         if ($homologated) throw new \InvalidArgumentException('Registre evidências antes de marcar o aplicativo como homologado.');
         if ($metadata !== null) {
             ClientRegistry::validateDocument($id, $metadata);
@@ -231,12 +235,16 @@ final class Store extends Model
             ->update(['last_used_at' => date('Y-m-d H:i:s')]);
     }
 
-    public function audit(Context $c, string $event, string $result, string $requestId, int $records = 0, int $ms = 0): void
+    public function audit(Context $c, string $event, string $result, string $requestId, int $records = 0, int $ms = 0,
+        ?string $requestPayload = null, ?string $responsePayload = null): void
     {
         $this->qb->table('mcp_audit')->withChave($c->chave)->insert([
             'chave' => $c->chave, 'employee_id' => $c->employeeId, 'connection_id' => $c->connectionId,
             'client_id' => $c->clientId, 'request_id' => $requestId, 'event' => substr($event, 0, 80),
             'result' => $result, 'records' => max(0, $records), 'duration_ms' => max(0, $ms),
+            ...($requestPayload !== null || $responsePayload !== null ? [
+                'request_payload' => $requestPayload, 'response_payload' => $responsePayload,
+            ] : []),
         ]);
     }
 

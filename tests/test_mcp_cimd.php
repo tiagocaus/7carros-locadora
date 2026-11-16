@@ -60,6 +60,18 @@ foreach (['http://chatgpt.com/client.json', 'https://127.0.0.1/client.json', 'ht
     'https://chatgpt.com/client.json?method=none', 'https://unapproved.example/client.json', 'https://chatgpt.com:8443/client.json'] as $url) {
     rejectCimd(fn () => ClientRegistry::validateMetadataUrl($url, ['chatgpt.com']), 'Não relaxar SSRF/allowlist na negociação.');
 }
+foreach (ClientRegistry::CLAUDE_CODE_REDIRECTS as $callback) {
+    ClientRegistry::validateRedirect($callback, ClientRegistry::CLAUDE_CODE_CLIENT_ID);
+    expectCimd(true, 'Callback exato permitido só no perfil Claude.');
+    rejectCimd(fn () => ClientRegistry::validateRedirect($callback), 'Sem identidade Claude, HTTP continua proibido.');
+    rejectCimd(fn () => ClientRegistry::validateRedirect($callback, $id), 'ChatGPT não ganha callback HTTP.');
+}
+foreach (['http://localhost/callback', 'http://localhost:8766/callback', 'http://127.0.0.1:8766/callback',
+    'http://[::1]:8765/callback', 'http://127.0.0.2:8765/callback', 'http://localhost.evil:8765/callback',
+    'http://localhost.:8765/callback', 'http://user@localhost:8765/callback', 'http://localhost:8765/callback?x=1',
+    'http://localhost:8765/callback#x', 'http://localhost:8765/other', 'https://evil.example/callback'] as $callback) {
+    rejectCimd(fn () => ClientRegistry::validateRedirect($callback, ClientRegistry::CLAUDE_CODE_CLIENT_ID), 'Não ampliar retornos do perfil nativo.');
+}
 $environment = ['APP_ENV' => 'production', 'MCP_ENABLED' => 'true', 'MCP_PILOT_MODE' => 'true',
     'MCP_PILOT_EMPLOYEE_IDS' => '123', 'MCP_PILOT_CLIENT_IDS' => $id, 'MCP_PILOT_TENANTS' => 'tenant-test-a'];
 $old = [];
